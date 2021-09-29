@@ -301,7 +301,10 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 
     auto keyIt = split_->partitionKeys.find(fieldName);
     if (keyIt != split_->partitionKeys.end()) {
-      setConstantValue(scanChildSpec, velox::variant(keyIt->second));
+      setConstantValue(
+          scanChildSpec,
+          keyIt->second.has_value() ? velox::variant(*(keyIt->second))
+                                    : velox::variant(TypeKind::VARCHAR));
     } else if (fieldName == kPath) {
       setConstantValue(scanChildSpec, velox::variant(split_->filePath));
     } else if (fieldName == kBucket) {
@@ -322,7 +325,10 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   for (const auto& entry : split_->partitionKeys) {
     auto childSpec = scanSpec_->childByName(entry.first);
     if (childSpec) {
-      setConstantValue(childSpec, velox::variant(entry.second));
+      setConstantValue(
+          childSpec,
+          entry.second.has_value() ? velox::variant(*(entry.second))
+                                   : velox::variant(TypeKind::VARCHAR));
     }
   }
 
