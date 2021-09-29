@@ -27,8 +27,11 @@
 namespace facebook {
 namespace velox {
 
+// FlatVector is marked final to allow for inlining on virtual methods called
+// on a pointer that has the static type FlatVector<T>; this can be a
+// significant performance win when these methods are called in loops.
 template <typename T>
-class FlatVector : public SimpleVector<T> {
+class FlatVector final : public SimpleVector<T> {
  public:
   using value_type = T;
 
