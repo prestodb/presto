@@ -55,6 +55,8 @@ void registerVectorFunctions() {
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_substr, "substr");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, "lower");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_ltrim, "ltrim");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_rtrim, "rtrim");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_trim, "trim");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, "upper");

@@ -62,67 +62,6 @@ bool prepareFlatResultsVector(
 }
 
 /**
- * trim(string) -> varchar
- *           Removes starting and ending whitespaces.
- * Uses 2 pointers to walk through both leading and ending chars, reuses the
- * internal buffers (zero-copy)
- */
-class TrimFunction : public exec::VectorFunction {
- public:
-  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    // varchar -> varchar
-    return {exec::FunctionSignatureBuilder()
-                .returnType("varchar")
-                .argumentType("varchar")
-                .build()};
-  }
-
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      [[maybe_unused]] exec::Expr* caller,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    // Check input type
-    VELOX_CHECK_EQ(args.size(), 1);
-    VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::VARCHAR);
-    prepareFlatResultsVector(result, rows, context);
-
-    // Prepare result
-    velox::FlatVector<velox::StringView>* flatResult =
-        (*result)->as<FlatVector<StringView>>();
-
-    // Process input vector
-    auto inputVector = args.at(0)->as<FlatVector<StringView>>();
-    auto rawValues = inputVector->rawValues();
-    rows.applyToSelected([&](auto row) {
-      velox::StringView input = rawValues[row];
-      auto* start = input.data();
-      // Check leading whitespaces
-      while (start < input.end() && isBlank(*start)) {
-        ++start;
-      }
-      // Check ending whitespaces
-      auto* end = input.end() - 1;
-      while (end >= start && isBlank(*end)) {
-        --end;
-      }
-      if (start <= end) {
-        flatResult->setNoCopy(row, StringView(start, end - start + 1));
-      } else {
-        flatResult->setNoCopy(row, StringView(""));
-      }
-    });
-    flatResult->acquireSharedStringBuffers(inputVector);
-  }
-
- private:
-  bool isBlank(char p) const {
-    return p == '\n' || p == '\t' || p == '\r' || p == ' ';
-  }
-};
-
-/**
  * substr(string, start) -> varchar
  *           Returns the rest of string from the starting position start.
  * Positions start with 1. A negative starting position is interpreted as
@@ -831,6 +770,74 @@ class Replace : public exec::VectorFunction {
     return {{0, 2}};
   }
 };
+
+// Trim functions
+// ltrim(string) -> varchar
+//    Removes leading whitespace from string.
+// rtrim(string) -> varchar
+//    Removes trailing whitespace from string.
+// trim(string) -> varchar
+//    Removes leading and trailing whitespace from string.
+template <bool leftTrim, bool rightTrim>
+class TrimTemplateFunction : public exec::VectorFunction {
+ public:
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // varchar -> varchar
+    return {exec::FunctionSignatureBuilder()
+                .returnType("varchar")
+                .argumentType("varchar")
+                .build()};
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      [[maybe_unused]] exec::Expr* caller,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    VELOX_CHECK_EQ(args.size(), 1);
+    // For a deterministic function that takes a single argument Velox
+    // guaranteed to receive its only input as a flat vector
+    BaseVector* stringsVector = args[0].get();
+    const StringView* rawStrings =
+        stringsVector->as<FlatVector<StringView>>()->rawValues();
+
+    auto ascii = isAscii(stringsVector, rows);
+    prepareFlatResultsVector(result, rows, context, args[0]);
+    BufferPtr resultValues =
+        (*result)->as<FlatVector<StringView>>()->mutableValues(rows.end());
+    StringView* rawResult = resultValues->asMutable<StringView>();
+
+    (*result)->as<FlatVector<StringView>>()->acquireSharedStringBuffers(
+        stringsVector->as<FlatVector<StringView>>());
+
+    // Fast path
+    if (ascii) {
+      rows.applyToSelected([&](int row) {
+        stringImpl::trimAsciiWhiteSpace<leftTrim, rightTrim>(
+            rawResult[row], rawStrings[row]);
+      });
+    } else {
+      rows.applyToSelected([&](int row) {
+        stringImpl::trimUnicodeWhiteSpace<leftTrim, rightTrim>(
+            rawResult[row], rawStrings[row]);
+      });
+    }
+  }
+
+  bool ensureStringEncodingSetAtAllInputs() const override {
+    return true;
+  }
+
+  bool propagateStringEncodingFromAllInputs() const override {
+    return true;
+  }
+};
+
+using TrimFunction = TrimTemplateFunction<true, true>;
+using LtrimFunction = TrimTemplateFunction<true, false>;
+using RtrimFunction = TrimTemplateFunction<false, true>;
+
 } // namespace
 
 VELOX_DECLARE_VECTOR_FUNCTION(
@@ -842,6 +849,16 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     udf_trim,
     TrimFunction::signatures(),
     std::make_unique<TrimFunction>());
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_ltrim,
+    LtrimFunction::signatures(),
+    std::make_unique<LtrimFunction>());
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_rtrim,
+    RtrimFunction::signatures(),
+    std::make_unique<RtrimFunction>());
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_upper,
