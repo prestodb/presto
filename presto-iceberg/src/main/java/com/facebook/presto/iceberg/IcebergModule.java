@@ -123,6 +123,8 @@ public class IcebergModule
 
         binder.bind(CacheFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergCatalogName.class).toInstance(new IcebergCatalogName(connectorId));
+        binder.bind(IcebergResourceFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(HiveClientConfig.class);
         configBinder(binder).bindConfig(IcebergConfig.class);
