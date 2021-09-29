@@ -21,6 +21,18 @@ workflows:
       - format-check
       - header-check
 
+  # Daily documentation update
+  nightly:
+    triggers:
+      - schedule:
+         cron: "0 3 * * *"
+         filters:
+           branches:
+             only:
+               - main
+    jobs:
+      - doc-gen-job
+
 executors:
   build:
     docker:
@@ -32,6 +44,9 @@ executors:
   check:
     docker:
       - image : prestocpp/velox-check:mikesh-20210609
+  doc-gen:
+    docker:
+      - image : prestocpp/velox-circleci:mikesh-20210928
 
 jobs:
   macos-build:
@@ -151,3 +166,27 @@ jobs:
               echo "EOF"
               false
             fi
+
+  doc-gen-job:
+    executor: doc-gen
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "ed:40:13:bc:d0:3d:28:26:98:cb:90:31:cc:d3:f1:6b"
+      - run:
+          name: "Build docs and update gh-pages"
+          command: |
+            git config --global user.email "velox@users.noreply.github.com"
+            git config --global user.name "velox"
+            make -C velox/docs html
+            git fetch origin gh-pages
+            git checkout gh-pages
+            mv velox/docs/_build/html/ docs/
+            git add docs
+            if [ -n "$(git status --porcelain)" ]
+            then
+              git commit docs -m "Sphinx rebuild ($(git rev-parse --short gh-pages))."
+              git push origin gh-pages
+            fi
+            git push
