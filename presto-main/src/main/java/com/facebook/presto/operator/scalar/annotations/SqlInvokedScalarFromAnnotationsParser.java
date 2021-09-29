@@ -103,8 +103,8 @@ public final class SqlInvokedScalarFromAnnotationsParser
     {
         Set<Method> methods = findPublicStaticMethods(
                 clazz,
-                ImmutableSet.of(SqlInvokedScalarFunction.class, SqlType.class, SqlParameter.class, SqlParameters.class, Description.class),
-                ImmutableSet.of(ScalarFunction.class, ScalarOperator.class, CodegenScalarFunction.class));
+                ImmutableSet.of(SqlInvokedScalarFunction.class),
+                ImmutableSet.of());
         for (Method method : methods) {
             checkCondition(
                     method.isAnnotationPresent(SqlInvokedScalarFunction.class) && method.isAnnotationPresent(SqlType.class),
