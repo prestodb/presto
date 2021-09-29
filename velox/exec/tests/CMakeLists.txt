@@ -50,7 +50,6 @@ add_executable(
   MultiFragmentTest.cpp
   ParseTypeSignatureTest.cpp
   PartitionedOutputBufferManagerTest.cpp
-  RoundRobinPartitionFunctionTest.cpp
   TableWriteTest.cpp
   TopNTest.cpp
   LimitTest.cpp
