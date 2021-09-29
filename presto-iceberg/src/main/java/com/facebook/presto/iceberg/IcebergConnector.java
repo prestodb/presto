@@ -188,10 +188,7 @@ public class IcebergConnector
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        IcebergMetadata metadata = transactionManager.remove(transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            metadata.rollback();
-        }
+        transactionManager.remove(transaction);
     }
 
     @Override
