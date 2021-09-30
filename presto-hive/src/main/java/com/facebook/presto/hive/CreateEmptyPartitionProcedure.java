@@ -41,6 +41,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
 import static com.facebook.presto.hive.HiveUtil.serializeZstdCompressed;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -118,7 +119,7 @@ public class CreateEmptyPartitionProcedure
                 .map(String.class::cast)
                 .collect(toImmutableList());
 
-        if (metastore.getPartition(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource()), schema, table, partitionStringValues).isPresent()) {
+        if (metastore.getPartition(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), schema, table, partitionStringValues).isPresent()) {
             throw new PrestoException(ALREADY_EXISTS, "Partition already exists");
         }
         String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionStringValues);

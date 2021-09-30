@@ -55,7 +55,7 @@ public class MockHiveMetastoreClient
     public static final String BAD_DATABASE = "baddb";
     public static final String TEST_TABLE = "testtbl";
     public static final String TEST_TOKEN = "token";
-    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty());
+    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty());
     public static final String TEST_PARTITION1 = "key=testpartition1";
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");

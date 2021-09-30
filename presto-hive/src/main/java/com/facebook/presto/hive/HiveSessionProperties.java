@@ -35,6 +35,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.METASTORE_HEADERS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -593,7 +594,12 @@ public final class HiveSessionProperties
                         MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD,
                         "Materialized views with missing partitions more than this threshold falls back to the base tables at read time",
                         hiveClientConfig.getMaterializedViewMissingPartitionsThreshold(),
-                        true));
+                        true),
+                stringProperty(
+                        METASTORE_HEADERS,
+                        "The headers that will be sent in the calls to Metastore",
+                        null,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
