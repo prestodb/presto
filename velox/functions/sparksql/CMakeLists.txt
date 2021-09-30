@@ -13,6 +13,7 @@
 # limitations under the License.
 add_library(
   velox_functions_spark OBJECT
+  ArraySort.cpp
   Hash.cpp
   LeastGreatest.cpp
   RegexFunctions.cpp
