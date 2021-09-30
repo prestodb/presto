@@ -112,18 +112,11 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     return getTableScanStats(task).runtimeStats["skippedSplits"].sum;
   }
 
-  void testPartitionedTable(const std::string& filePath) {
-    auto outputType = ROW({"ds", "c0", "c1"}, {VARCHAR(), BIGINT(), DOUBLE()});
-
-    auto tableHandle = makeTableHandle(SubfieldFilters{});
-
-    ColumnHandleMap assignments = {
-        {"ds", partitionKey("ds")},
-        {"c0", regularColumn("c0")},
-        {"c1", regularColumn("c1")}};
-
+  void testPartitionedTableImpl(
+      const std::string& filePath,
+      const std::optional<std::string>& partitionValue) {
     std::unordered_map<std::string, std::optional<std::string>> partitionKeys =
-        {{"ds", {"2020-11-01"}}};
+        {{"ds", partitionValue}};
     auto split = std::make_shared<HiveConnectorSplit>(
         kHiveConnectorId,
         filePath,
@@ -131,23 +124,38 @@ class TableScanTest : public virtual HiveConnectorTestBase,
         0,
         fs::file_size(filePath),
         partitionKeys);
+    auto outputType = ROW({"ds", "c0", "c1"}, {VARCHAR(), BIGINT(), DOUBLE()});
+    auto tableHandle = makeTableHandle(SubfieldFilters{});
+    ColumnHandleMap assignments = {
+        {"ds", partitionKey("ds")},
+        {"c0", regularColumn("c0")},
+        {"c1", regularColumn("c1")}};
 
     auto op = PlanBuilder()
                   .tableScan(outputType, tableHandle, assignments)
                   .planNode();
-    assertQuery(op, split, "SELECT '2020-11-01', * FROM tmp");
+
+    std::string partitionValueStr =
+        partitionValue.has_value() ? "'" + *partitionValue + "'" : "null";
+    assertQuery(
+        op, split, fmt::format("SELECT {}, * FROM tmp", partitionValueStr));
 
     outputType = ROW({"c0", "ds", "c1"}, {BIGINT(), VARCHAR(), DOUBLE()});
     op = PlanBuilder()
              .tableScan(outputType, tableHandle, assignments)
              .planNode();
-    assertQuery(op, split, "SELECT c0, '2020-11-01', c1 FROM tmp");
-
+    assertQuery(
+        op,
+        split,
+        fmt::format("SELECT c0, {}, c1 FROM tmp", partitionValueStr));
     outputType = ROW({"c0", "c1", "ds"}, {BIGINT(), DOUBLE(), VARCHAR()});
     op = PlanBuilder()
              .tableScan(outputType, tableHandle, assignments)
              .planNode();
-    assertQuery(op, split, "SELECT c0, c1, '2020-11-01' FROM tmp");
+    assertQuery(
+        op,
+        split,
+        fmt::format("SELECT c0, c1, {} FROM tmp", partitionValueStr));
 
     // select only partition key
     assignments = {{"ds", partitionKey("ds")}};
@@ -155,7 +163,13 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     op = PlanBuilder()
              .tableScan(outputType, tableHandle, assignments)
              .planNode();
-    assertQuery(op, split, "SELECT '2020-11-01' FROM tmp");
+    assertQuery(
+        op, split, fmt::format("SELECT {} FROM tmp", partitionValueStr));
+  }
+
+  void testPartitionedTable(const std::string& filePath) {
+    testPartitionedTableImpl(filePath, "2020-11-01");
+    testPartitionedTableImpl(filePath, std::nullopt);
   }
 
   std::shared_ptr<const RowType> rowType_{
