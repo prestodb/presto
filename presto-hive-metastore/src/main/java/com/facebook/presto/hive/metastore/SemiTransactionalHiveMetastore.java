@@ -75,6 +75,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_N
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
@@ -458,7 +459,7 @@ public class SemiTransactionalHiveMetastore
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session));
         if (oldTableAction == null || oldTableAction.getData().getTable().getTableType().equals(TEMPORARY_TABLE)) {
             Table table = getTable(metastoreContext, databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
@@ -496,7 +497,7 @@ public class SemiTransactionalHiveMetastore
     public synchronized void truncateUnpartitionedTable(ConnectorSession session, String databaseName, String tableName)
     {
         checkReadable();
-        Optional<Table> table = getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource()), databaseName, tableName);
+        Optional<Table> table = getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), databaseName, tableName);
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         if (!table.isPresent()) {
             throw new TableNotFoundException(schemaTableName);
@@ -783,7 +784,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(schemaTableName, k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session));
 
         if (oldPartitionAction == null) {
             Partition partition = delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues)
@@ -983,7 +984,8 @@ public class SemiTransactionalHiveMetastore
             for (Map.Entry<SchemaTableName, Action<TableAndMore>> entry : tableActions.entrySet()) {
                 SchemaTableName schemaTableName = entry.getKey();
                 Action<TableAndMore> action = entry.getValue();
-                MetastoreContext metastoreContext = new MetastoreContext(action.getContext().getIdentity(), action.getContext().getQueryId().orElse(""), action.getContext().getClientInfo(), action.getContext().getSource());
+                HdfsContext hdfsContext = action.getContext();
+                MetastoreContext metastoreContext = new MetastoreContext(hdfsContext.getIdentity(), hdfsContext.getQueryId().orElse(""), hdfsContext.getClientInfo(), hdfsContext.getSource(), hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders));
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(metastoreContext, schemaTableName);
@@ -992,10 +994,10 @@ public class SemiTransactionalHiveMetastore
                         committer.prepareAlterTable();
                         break;
                     case ADD:
-                        committer.prepareAddTable(metastoreContext, action.getContext(), action.getData());
+                        committer.prepareAddTable(metastoreContext, hdfsContext, action.getData());
                         break;
                     case INSERT_EXISTING:
-                        committer.prepareInsertExistingTable(metastoreContext, action.getContext(), action.getData());
+                        committer.prepareInsertExistingTable(metastoreContext, hdfsContext, action.getData());
                         break;
                     default:
                         throw new IllegalStateException("Unknown action type");
@@ -1006,20 +1008,20 @@ public class SemiTransactionalHiveMetastore
                 for (Map.Entry<List<String>, Action<PartitionAndMore>> partitionEntry : tableEntry.getValue().entrySet()) {
                     List<String> partitionValues = partitionEntry.getKey();
                     Action<PartitionAndMore> action = partitionEntry.getValue();
-                    HdfsContext context = action.getContext();
-                    MetastoreContext metastoreContext = new MetastoreContext(action.getContext().getIdentity(), action.getContext().getQueryId().orElse(""), action.getContext().getClientInfo(), action.getContext().getSource());
+                    HdfsContext hdfsContext = action.getContext();
+                    MetastoreContext metastoreContext = new MetastoreContext(hdfsContext.getIdentity(), hdfsContext.getQueryId().orElse(""), hdfsContext.getClientInfo(), hdfsContext.getSource(), hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders));
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(metastoreContext, schemaTableName, partitionValues);
                             break;
                         case ALTER:
-                            committer.prepareAlterPartition(metastoreContext, context, action.getData());
+                            committer.prepareAlterPartition(metastoreContext, hdfsContext, action.getData());
                             break;
                         case ADD:
-                            committer.prepareAddPartition(metastoreContext, context, action.getData());
+                            committer.prepareAddPartition(metastoreContext, hdfsContext, action.getData());
                             break;
                         case INSERT_EXISTING:
-                            committer.prepareInsertExistingPartition(metastoreContext, context, action.getData());
+                            committer.prepareInsertExistingPartition(metastoreContext, hdfsContext, action.getData());
                             break;
                         default:
                             throw new IllegalStateException("Unknown action type");

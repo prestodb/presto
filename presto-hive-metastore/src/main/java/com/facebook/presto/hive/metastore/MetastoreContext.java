@@ -28,24 +28,26 @@ public class MetastoreContext
     private final Optional<String> clientInfo;
     private final Optional<String> source;
     private final boolean impersonationEnabled;
+    private final Optional<String> metastoreHeaders;
 
-    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source)
+    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source);
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source)
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders)
     {
-        this(username, queryId, clientInfo, source, false);
+        this(username, queryId, clientInfo, source, false, metastoreHeaders);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled)
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled, Optional<String> metastoreHeaders)
     {
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
         this.impersonationEnabled = impersonationEnabled;
+        this.metastoreHeaders = requireNonNull(metastoreHeaders, "metastoreHeaders is null");
     }
 
     public String getUsername()
@@ -71,6 +73,11 @@ public class MetastoreContext
     public boolean isImpersonationEnabled()
     {
         return impersonationEnabled;
+    }
+
+    public Optional<String> getMetastoreHeaders()
+    {
+        return metastoreHeaders;
     }
 
     @Override

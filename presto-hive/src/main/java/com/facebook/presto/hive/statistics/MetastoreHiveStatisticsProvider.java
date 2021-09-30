@@ -76,6 +76,7 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -115,7 +116,7 @@ public class MetastoreHiveStatisticsProvider
             return ImmutableMap.of();
         }
         boolean unpartitioned = hivePartitions.stream().anyMatch(partition -> partition.getPartitionId().equals(UNPARTITIONED_ID));
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session));
         if (unpartitioned) {
             checkArgument(hivePartitions.size() == 1, "expected only one hive partition");
             return ImmutableMap.of(UNPARTITIONED_ID, metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName()));
