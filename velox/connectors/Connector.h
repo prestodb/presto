@@ -68,6 +68,12 @@ class ConnectorTableHandle {
 class ConnectorInsertTableHandle {
  public:
   virtual ~ConnectorInsertTableHandle() {}
+
+  // Whether multi-threaded write is supported by this connector. Planner uses
+  // this flag to determine number of drivers.
+  virtual bool supportsMultiThreading() const {
+    return false;
+  }
 };
 
 class DataSink {

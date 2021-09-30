@@ -177,8 +177,11 @@ uint32_t maxDrivers(
 
     if (auto tableWrite =
             std::dynamic_pointer_cast<const core::TableWriteNode>(node)) {
-      // Multi-threaded table write is not supported yet.
-      return 1;
+      if (!tableWrite->insertTableHandle()
+               ->connectorInsertTableHandle()
+               ->supportsMultiThreading()) {
+        return 1;
+      }
     }
   }
   return std::numeric_limits<uint32_t>::max();
