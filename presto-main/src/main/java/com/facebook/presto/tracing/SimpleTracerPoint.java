@@ -19,7 +19,7 @@ import static java.util.Objects.requireNonNull;
 public class SimpleTracerPoint
 {
     private final String annotation;
-    private final long time = System.currentTimeMillis();
+    private final long time = System.nanoTime();
 
     public SimpleTracerPoint(String annotation)
     {
