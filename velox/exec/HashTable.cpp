@@ -38,6 +38,7 @@ HashTable<ignoreNullKeys>::HashTable(
     const std::vector<TypePtr>& dependentTypes,
     bool allowDuplicates,
     bool isJoinBuild,
+    bool hasProbedFlag,
     memory::MappedMemory* mappedMemory)
     : BaseHashTable(std::move(hashers)),
       aggregates_(aggregates),
@@ -56,7 +57,7 @@ HashTable<ignoreNullKeys>::HashTable(
       dependentTypes,
       allowDuplicates,
       isJoinBuild,
-      false,
+      hasProbedFlag,
       hashMode_ != HashMode::kHash,
       mappedMemory,
       ContainerRowSerde::instance());
@@ -1066,8 +1067,12 @@ bool mayUseValueIds(const BaseHashTable& table) {
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::prepareJoinTable(
-    std::vector<std::unique_ptr<HashTable<ignoreNullKeys>>> tables) {
-  otherTables_ = std::move(tables);
+    std::vector<std::unique_ptr<BaseHashTable>> tables) {
+  otherTables_.reserve(tables.size());
+  for (auto& table : tables) {
+    otherTables_.emplace_back(std::unique_ptr<HashTable<ignoreNullKeys>>(
+        dynamic_cast<HashTable<ignoreNullKeys>*>(table.release())));
+  }
   bool useValueIds = mayUseValueIds(*this);
   if (useValueIds) {
     for (auto& other : otherTables_) {
@@ -1141,6 +1146,35 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
     }
   }
   return numOut;
+}
+
+template <bool ignoreNullKeys>
+int32_t HashTable<ignoreNullKeys>::listNotProbedRows(
+    NotProbedRowsIterator* iter,
+    int32_t maxRows,
+    uint64_t maxBytes,
+    char** rows) {
+  if (iter->hashTableIndex_ == -1) {
+    auto numRows = rows_->listNotProbedRows(
+        &iter->rowContainerIterator_, maxRows, maxBytes, rows);
+    if (numRows) {
+      return numRows;
+    }
+    iter->hashTableIndex_ = 0;
+    iter->rowContainerIterator_.reset();
+  }
+  while (iter->hashTableIndex_ < otherTables_.size()) {
+    auto numRows =
+        otherTables_[iter->hashTableIndex_]->rows()->listNotProbedRows(
+            &iter->rowContainerIterator_, maxRows, maxBytes, rows);
+    if (numRows) {
+      return numRows;
+    }
+    ++iter->hashTableIndex_;
+    iter->rowContainerIterator_.reset();
+  }
+
+  return 0;
 }
 
 template <bool ignoreNullKeys>

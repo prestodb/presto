@@ -124,7 +124,7 @@ TEST_F(CrossJoinTest, basic) {
                {0, 1})
            .planNode();
 
-  assertQuery(op, "SELECT null, null LIMIT 0");
+  assertQueryReturnsEmptyResult(op);
 
   // Multi-threaded build side.
   CursorParameters params;

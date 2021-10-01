@@ -40,6 +40,8 @@ class HashProbe : public Operator {
 
   BlockingReason isBlocked(ContinueFuture* future) override;
 
+  void finish() override;
+
   void clearDynamicFilters() override;
 
   void close() override {}
@@ -59,6 +61,10 @@ class HashProbe : public Operator {
 
   // Populate output columns.
   void fillOutput(vector_size_t size);
+
+  // Populate output columns with build-side rows that didn't match join
+  // condition.
+  RowVectorPtr getNonMatchingOutputForRightJoin();
 
   // Populate filter input columns.
   void fillFilterInput(vector_size_t size);
@@ -212,6 +218,12 @@ class HashProbe : public Operator {
 
   /// For left join, true if we received new 'input_'.
   bool newInputForLeftJoin_{false};
+
+  /// True if this is the last HashProbe operator in the pipeline. It is
+  /// responsible for producing non-matching build-side rows for the right join.
+  bool lastRightJoinProbe_{false};
+
+  BaseHashTable::NotProbedRowsIterator rightJoinIterator_;
 
   /// For left join, tracks the probe side rows which had matches on the build
   /// side but didn't pass the filter.

@@ -426,6 +426,22 @@ std::shared_ptr<Task> assertQuery(
       plan, [](Task*) {}, duckDbSql, duckDbQueryRunner, sortingKeys);
 }
 
+std::shared_ptr<Task> assertQueryReturnsEmptyResult(
+    const std::shared_ptr<const core::PlanNode>& plan) {
+  CursorParameters params;
+  params.planNode = plan;
+  auto result = readCursor(params, [](Task*) {});
+
+  auto totalCount = 0;
+  for (const auto& vector : result.second) {
+    totalCount += vector->size();
+  }
+
+  EXPECT_EQ(0, totalCount) << "Expected empty result but received "
+                           << totalCount << " rows";
+  return result.first->task();
+}
+
 void assertResults(
     const std::vector<RowVectorPtr>& results,
     const std::shared_ptr<const RowType>& resultType,

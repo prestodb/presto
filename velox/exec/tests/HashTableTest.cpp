@@ -41,7 +41,6 @@ class HashTableTest : public testing::Test {
       int32_t numWays,
       TypePtr buildType,
       int32_t numKeys) {
-    std::vector<std::unique_ptr<HashTable<true>>> otherTables;
     std::vector<TypePtr> dependentTypes;
     int32_t sequence = 0;
     isInTable_.resize(
@@ -60,6 +59,7 @@ class HashTableTest : public testing::Test {
       }
     }
     int32_t startOffset = 0;
+    std::vector<std::unique_ptr<BaseHashTable>> otherTables;
     for (auto way = 0; way < numWays; ++way) {
       std::vector<RowVectorPtr> batches;
       std::vector<std::unique_ptr<VectorHasher>> keyHashers;
@@ -68,7 +68,7 @@ class HashTableTest : public testing::Test {
             buildType->childAt(channel), channel));
       }
       auto table = HashTable<true>::createForJoin(
-          std::move(keyHashers), dependentTypes, true, mappedMemory_);
+          std::move(keyHashers), dependentTypes, true, false, mappedMemory_);
 
       makeRows(size, 1, sequence, buildType, batches);
       copyVectorsToTable(batches, startOffset, table.get());

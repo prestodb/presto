@@ -87,7 +87,7 @@ class HashBuild final : public Operator {
   const core::JoinType joinType_;
 
   // Container for the rows being accumulated.
-  std::unique_ptr<HashTable<true>> table_;
+  std::unique_ptr<BaseHashTable> table_;
 
   // Key channels in 'input_'
   std::vector<ChannelIndex> keyChannels_;

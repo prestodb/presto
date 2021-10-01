@@ -55,9 +55,8 @@ void checkJoinType(core::JoinType joinType) {
     case core::JoinType::kLeft:
     case core::JoinType::kSemi:
     case core::JoinType::kAnti:
-      break;
     case core::JoinType::kRight:
-      VELOX_USER_FAIL("Right outer joins are not supported yet");
+      break;
     case core::JoinType::kFull:
       VELOX_USER_FAIL("Full outer joins are not supported yet");
     default:
@@ -179,9 +178,10 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
   } else {
     table_ = hashBuildResult->table;
     if (table_->numDistinct() == 0) {
-      // Build side is empty. Inner and semi joins return nothing in this case,
-      // hence, we can terminate the pipeline early.
-      if (isInnerJoin(joinType_) || isSemiJoin(joinType_)) {
+      // Build side is empty. Inner, right and semi joins return nothing in this
+      // case, hence, we can terminate the pipeline early.
+      if (isInnerJoin(joinType_) || isSemiJoin(joinType_) ||
+          isRightJoin(joinType_)) {
         isFinishing_ = true;
       }
     } else if (
@@ -368,9 +368,44 @@ void HashProbe::fillOutput(vector_size_t size) {
   }
 }
 
+RowVectorPtr HashProbe::getNonMatchingOutputForRightJoin() {
+  if (!lastRightJoinProbe_) {
+    return nullptr;
+  }
+
+  outputRows_.resize(kOutputBatchSize);
+  auto numOut = table_->listNotProbedRows(
+      &rightJoinIterator_,
+      kOutputBatchSize,
+      RowContainer::kUnlimited,
+      outputRows_.data());
+  if (!numOut) {
+    return nullptr;
+  }
+
+  prepareOutput(numOut);
+
+  // Populate probe-side columns of the output with nulls.
+  for (auto projection : identityProjections_) {
+    output_->childAt(projection.outputChannel) = BaseVector::createNullConstant(
+        outputType_->childAt(projection.outputChannel), numOut, pool());
+  }
+
+  extractColumns(
+      table_.get(),
+      folly::Range<char**>(outputRows_.data(), numOut),
+      tableResultProjections_,
+      pool(),
+      output_);
+  return output_;
+}
+
 RowVectorPtr HashProbe::getOutput() {
   clearIdentityProjectedOutput();
   if (!input_) {
+    if (isFinishing_ && isRightJoin(joinType_)) {
+      return getNonMatchingOutputForRightJoin();
+    }
     return nullptr;
   }
 
@@ -455,6 +490,11 @@ RowVectorPtr HashProbe::getOutput() {
       }
     }
 
+    if (isRightJoin(joinType_)) {
+      // Mark build-side rows that have a match on the join condition.
+      table_->rows()->setProbedFlag(outputRows_.data(), numOut);
+    }
+
     fillOutput(numOut);
 
     if (isSemiOrAntiJoin || emptyBuildSide) {
@@ -519,7 +559,8 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     }
   } else {
     for (auto i = 0; i < numRows; ++i) {
-      if (decodedFilterResult_.valueAt<bool>(i)) {
+      if (!decodedFilterResult_.isNullAt(i) &&
+          decodedFilterResult_.valueAt<bool>(i)) {
         outputRows_[numPassed] = outputRows_[i];
         rawMapping[numPassed++] = rawMapping[i];
       }
@@ -528,4 +569,20 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
   return numPassed;
 }
 
+void HashProbe::finish() {
+  Operator::finish();
+  if (isRightJoin(joinType_)) {
+    std::vector<VeloxPromise<bool>> promises;
+    std::vector<std::shared_ptr<Driver>> peers;
+    // The last Driver to hit HashProbe::finish is responsible for producing
+    // non-matching build-side rows for the right join.
+    ContinueFuture future{false};
+    if (!operatorCtx_->task()->allPeersFinished(
+            planNodeId(), operatorCtx_->driver(), &future, promises, peers)) {
+      return;
+    }
+
+    lastRightJoinProbe_ = true;
+  }
+}
 } // namespace facebook::velox::exec

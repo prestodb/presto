@@ -81,6 +81,11 @@ class BaseHashTable {
     vector_size_t lastRow{0};
   };
 
+  struct NotProbedRowsIterator {
+    int32_t hashTableIndex_{-1};
+    RowContainerIterator rowContainerIterator_;
+  };
+
   /// Takes ownership of 'hashers'. These are used to keep key-level
   /// encodings like distinct values, ranges. These are stateful for
   /// kArray and kNormalizedKey hash modes and track the data
@@ -110,6 +115,16 @@ class BaseHashTable {
       JoinResultIterator& iter,
       folly::Range<vector_size_t*> inputRows,
       folly::Range<char**> hits) = 0;
+
+  /// Returns rows with 'probed' flag unset. Used by the right join.
+  virtual int32_t listNotProbedRows(
+      NotProbedRowsIterator* iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char** rows) = 0;
+
+  virtual void prepareJoinTable(
+      std::vector<std::unique_ptr<BaseHashTable>> tables) = 0;
 
   /// Returns the memory footprint in bytes for any data structures
   /// owned by 'this'.
@@ -203,16 +218,18 @@ class HashTable : public BaseHashTable {
  public:
   // Can be used for aggregation or join. An aggregation hash table
   // can also double as a join build side. 'isJoinBuild' is true if
-  // this is a build side. 'alloDuplicates' is false for a build side if
+  // this is a build side. 'allowDuplicates' is false for a build side if
   // second occurrences of a key are to be silently ignored or will
   // not occur. In this case the row does not need a link to the next
-  // match.
+  // match. 'hasProbedFlag' adds an extra bit in every row for tracking rows
+  // that matches join condition for right and full outer joins.
   HashTable(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       const std::vector<std::unique_ptr<Aggregate>>& aggregates,
       const std::vector<TypePtr>& dependentTypes,
       bool allowDuplicates,
       bool isJoinBuild,
+      bool hasProbedFlag,
       memory::MappedMemory* memory);
 
   static std::unique_ptr<HashTable> createForAggregation(
@@ -223,23 +240,26 @@ class HashTable : public BaseHashTable {
         std::move(hashers),
         aggregates,
         std::vector<TypePtr>{},
-        false,
-        false,
+        false, // allowDuplicates
+        false, // isJoinBuild
+        false, // hasProbedFlag
         memory);
   }
 
   static std::unique_ptr<HashTable> createForJoin(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       const std::vector<TypePtr>& dependentTypes,
-      bool hasNext,
+      bool allowDuplicates,
+      bool hasProbedFlag,
       memory::MappedMemory* memory) {
     static const std::vector<std::unique_ptr<Aggregate>> kNoAggregates;
     return std::make_unique<HashTable>(
         std::move(hashers),
         kNoAggregates,
         dependentTypes,
-        hasNext,
-        true,
+        allowDuplicates,
+        true, // isJoinBuild
+        hasProbedFlag,
         memory);
   }
 
@@ -255,6 +275,12 @@ class HashTable : public BaseHashTable {
       JoinResultIterator& iter,
       folly::Range<vector_size_t*> inputRows,
       folly::Range<char**> hits) override;
+
+  int32_t listNotProbedRows(
+      NotProbedRowsIterator* iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char** rows) override;
 
   void clear() override;
 
@@ -295,7 +321,7 @@ class HashTable : public BaseHashTable {
   // with prepareJoinTable. This then takes ownership of all the data
   // and VectorHashers and decides the hash mode and representation.
   void prepareJoinTable(
-      std::vector<std::unique_ptr<HashTable<ignoreNullKeys>>> tables);
+      std::vector<std::unique_ptr<BaseHashTable>> tables) override;
 
   std::string toString() override;
 

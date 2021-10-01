@@ -50,5 +50,5 @@ TEST_F(UnnestTest, allEmptyOrNullArrays) {
   });
 
   auto op = PlanBuilder().values({vector}).unnest({"c0"}, {"c1"}).planNode();
-  assertQuery(op, "SELECT 1 LIMIT 0");
+  assertQueryReturnsEmptyResult(op);
 }

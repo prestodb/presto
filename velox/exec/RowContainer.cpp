@@ -288,63 +288,6 @@ void RowContainer::freeAggregates(folly::Range<char**> rows) {
   }
 }
 
-int32_t RowContainer::listRows(
-    RowContainerIterator* iter,
-    int32_t maxRows,
-    uint64_t maxBytes,
-    char** rows) {
-  int32_t count = 0;
-  uint64_t totalBytes = 0;
-  auto numAllocations = rows_.numAllocations();
-  if (iter->allocationIndex == 0 && iter->runIndex == 0 &&
-      iter->rowOffset == 0) {
-    iter->normalizedKeysLeft = numRowsWithNormalizedKey_;
-  }
-  int32_t rowSize = fixedRowSize_ +
-      (iter->normalizedKeysLeft > 0 ? sizeof(normalized_key_t) : 0);
-  for (auto i = iter->allocationIndex; i < numAllocations; ++i) {
-    auto allocation = rows_.allocationAt(i);
-    auto numRuns = allocation->numRuns();
-    for (auto runIndex = iter->runIndex; runIndex < numRuns; ++runIndex) {
-      memory::MappedMemory::PageRun run = allocation->runAt(runIndex);
-      auto data = run.data<char>();
-      int64_t limit;
-      if (i == numAllocations - 1 && runIndex == rows_.currentRunIndex()) {
-        limit = rows_.currentOffset();
-      } else {
-        limit = run.numPages() * memory::MappedMemory::kPageSize;
-      }
-      auto row = iter->rowOffset;
-      while (row + rowSize <= limit) {
-        rows[count++] = data + row +
-            (iter->normalizedKeysLeft > 0 ? sizeof(normalized_key_t) : 0);
-        row += rowSize;
-        if (--iter->normalizedKeysLeft == 0) {
-          rowSize -= sizeof(normalized_key_t);
-        }
-        if (bits::isBitSet(rows[count - 1], freeFlagOffset_)) {
-          --count;
-          continue;
-        }
-        totalBytes += rowSize;
-        if (rowSizeOffset_) {
-          totalBytes += variableRowSize(rows[count - 1]);
-        }
-        if (count == maxRows || totalBytes > maxBytes) {
-          iter->rowOffset = row;
-          iter->runIndex = runIndex;
-          iter->allocationIndex = i;
-          return count;
-        }
-      }
-      iter->rowOffset = 0;
-    }
-    iter->runIndex = 0;
-  }
-  iter->allocationIndex = std::numeric_limits<int32_t>::max();
-  return count;
-}
-
 void RowContainer::store(
     const DecodedVector& decoded,
     vector_size_t index,
@@ -560,6 +503,12 @@ void RowContainer::clear() {
   numRowsWithNormalizedKey_ = 0;
   if (hasNormalizedKeys_) {
     normalizedKeySize_ = sizeof(normalized_key_t);
+  }
+}
+
+void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
+  for (auto i = 0; i < numRows; i++) {
+    bits::setBit(rows[i], probedFlagOffset_);
   }
 }
 

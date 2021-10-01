@@ -90,20 +90,36 @@ HashBuild::HashBuild(
     }
   }
 
-  // Semi and anti join only needs to know whether there is a match. Hence, no
-  // need to store entries with duplicate keys.
-  const bool allowDuplicates =
-      !joinNode->isSemiJoin() && !joinNode->isAntiJoin();
+  if (joinNode->isRightJoin()) {
+    // Do not ignore null keys.
+    table_ = HashTable<false>::createForJoin(
+        std::move(keyHashers),
+        dependentTypes,
+        true, // allowDuplicates
+        true, // hasProbedFlag
+        mappedMemory_);
+  } else {
+    // Semi and anti join only needs to know whether there is a match. Hence, no
+    // need to store entries with duplicate keys.
+    const bool allowDuplicates =
+        !joinNode->isSemiJoin() && !joinNode->isAntiJoin();
 
-  table_ = HashTable<true>::createForJoin(
-      std::move(keyHashers), dependentTypes, allowDuplicates, mappedMemory_);
+    table_ = HashTable<true>::createForJoin(
+        std::move(keyHashers),
+        dependentTypes,
+        allowDuplicates,
+        false, // hasProbedFlag
+        mappedMemory_);
+  }
   analyzeKeys_ = table_->hashMode() != BaseHashTable::HashMode::kHash;
 }
 
 void HashBuild::addInput(RowVectorPtr input) {
   activeRows_.resize(input->size());
   activeRows_.setAll();
-  deselectRowsWithNulls(*input, keyChannels_, activeRows_);
+  if (!isRightJoin(joinType_)) {
+    deselectRowsWithNulls(*input, keyChannels_, activeRows_);
+  }
 
   if (joinType_ == core::JoinType::kAnti) {
     // Anti join returns no rows if build side has nulls in join keys. Hence, we
@@ -175,7 +191,7 @@ void HashBuild::finish() {
     return;
   }
 
-  std::vector<std::unique_ptr<HashTable<true>>> otherTables;
+  std::vector<std::unique_ptr<BaseHashTable>> otherTables;
   otherTables.reserve(peers.size());
 
   if (!antiJoinHasNullKeys_) {
