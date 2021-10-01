@@ -1451,6 +1451,14 @@ bool typeExists(const std::string& name);
 /// child types.
 TypePtr getType(const std::string& name, std::vector<TypePtr> childTypes);
 
+// Allows us to transparently use folly::toAppend(), folly::join(), etc.
+template <class TString>
+void toAppend(
+    const std::shared_ptr<const facebook::velox::Type>& type,
+    TString* result) {
+  result->append(type->toString());
+}
+
 } // namespace facebook::velox
 
 namespace folly {

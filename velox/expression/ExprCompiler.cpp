@@ -337,6 +337,14 @@ ExprPtr compileExpression(
     } else if (
         auto adapterFunc =
             AdaptedVectorFunctions().Create({call->name(), inputTypes})) {
+      VELOX_USER_CHECK(
+          resultType->kindEquals(adapterFunc->returnType()),
+          "Found incompatible return types for '{}' ({} vs. {}) "
+          "for input types ({}).",
+          call->name(),
+          adapterFunc->returnType(),
+          resultType,
+          folly::join(", ", inputTypes));
       result = std::make_shared<Expr>(
           resultType,
           std::move(compiledInputs),

@@ -124,6 +124,7 @@ class VectorAdapterFactory {
  public:
   virtual std::unique_ptr<VectorFunction> getVectorInterpreter() const = 0;
   virtual ~VectorAdapterFactory() = default;
+  virtual const TypePtr returnType() const = 0;
 };
 
 /// Returns a list of signatured supposed by VectorFunction with the specified

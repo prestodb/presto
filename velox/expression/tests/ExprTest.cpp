@@ -998,6 +998,34 @@ TEST_F(ExprTest, constantNull) {
   assertEqualVectors(expected, result.front());
 }
 
+// Tests that exprCompiler throws if there's a return type mismatch between what
+// the user specific in ConstantTypedExpr, and the available signatures.
+TEST_F(ExprTest, validateReturnType) {
+  auto inputExpr = std::make_shared<core::FieldAccessTypedExpr>(
+      INTEGER(),
+      std::vector<core::TypedExprPtr>{
+          std::make_shared<const core::InputTypedExpr>(ROW({INTEGER()}))},
+      "c0");
+
+  // Builds a "eq(c0, c0)" expression.
+  auto expression = std::make_shared<core::CallTypedExpr>(
+      INTEGER(), std::vector<core::TypedExprPtr>{inputExpr, inputExpr}, "eq");
+
+  // Execute it and check it returns all null results.
+  auto vector = vectorMaker_->flatVectorNullable<int32_t>({1, 2, 3});
+  auto rowVector = makeRowVector({vector});
+  SelectivityVector rows(rowVector->size());
+  std::vector<VectorPtr> result(1);
+
+  EXPECT_THROW(
+      {
+        exec::ExprSet exprSet({expression}, execCtx_.get());
+        exec::EvalCtx context(execCtx_.get(), &exprSet, rowVector.get());
+        exprSet.eval(rows, &context, &result);
+      },
+      VeloxUserError);
+}
+
 TEST_F(ExprTest, constantFolding) {
   auto typedExpr = parseExpression("1 + 2");
 

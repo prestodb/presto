@@ -315,6 +315,10 @@ class VectorAdapterFactoryImpl : public VectorAdapterFactory {
     return std::make_unique<VectorAdapter<FUNC>>(returnType_);
   }
 
+  const std::shared_ptr<const Type> returnType() const override {
+    return returnType_;
+  }
+
   bool isDeterministic() {
     return FUNC::isDeterministic;
   }
