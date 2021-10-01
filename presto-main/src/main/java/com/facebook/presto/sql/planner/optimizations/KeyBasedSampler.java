@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -181,6 +182,18 @@ public class KeyBasedSampler
             return variableReferenceExpression;
         }
 
+        private PlanNode sampleSourceNodeWithKey(PlanNode planNode, PlanNode source, List<VariableReferenceExpression> keys)
+        {
+            PlanNode rewrittenSource = rewriteWith(this, source);
+            if (rewrittenSource == source) {
+                // Source not rewritten so we sample here.
+                rewrittenSource = addSamplingFilter(source, findSuitableKey(keys), functionAndTypeManager);
+            }
+
+            // Always return new
+            return replaceChildren(planNode, ImmutableList.of(rewrittenSource));
+        }
+
         @Override
         public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
         {
@@ -218,20 +231,6 @@ public class KeyBasedSampler
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = node.getSource();
-            PlanNode rewrittenSource = rewriteWith(this, source);
-            if (rewrittenSource == source) {
-                // Source not rewritten so we sample here.
-                rewrittenSource = addSamplingFilter(source, findSuitableKey(node.getGroupingKeys()), functionAndTypeManager);
-            }
-
-            // Always return new
-            return replaceChildren(node, ImmutableList.of(rewrittenSource));
-        }
-
-        @Override
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
         {
             PlanNode source = node.getSource();
@@ -239,46 +238,41 @@ public class KeyBasedSampler
             PlanNode rewrittenSource = rewriteWith(this, source);
             PlanNode rewrittenFilteringSource = rewriteWith(this, filteringSource);
             if (rewrittenSource == source || rewrittenFilteringSource == filteringSource) {
-                rewrittenSource = addSamplingFilter(source, findSuitableKey(ImmutableList.of(node.getSourceJoinVariable())), functionAndTypeManager);
+                rewrittenSource = addSamplingFilter(rewrittenSource, findSuitableKey(ImmutableList.of(node.getSourceJoinVariable())), functionAndTypeManager);
+                rewrittenFilteringSource = addSamplingFilter(rewrittenFilteringSource, findSuitableKey(ImmutableList.of(node.getFilteringSourceJoinVariable())), functionAndTypeManager);
             }
 
             return replaceChildren(node, ImmutableList.of(rewrittenSource, rewrittenFilteringSource));
         }
 
         @Override
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
+        {
+            return sampleSourceNodeWithKey(node, node.getSource(), node.getGroupingKeys());
+        }
+
+        @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            PlanNode source = node.getSource();
-            PlanNode rewrittenSource = rewriteWith(this, source);
-            if (rewrittenSource == source) {
-                rewrittenSource = addSamplingFilter(source, findSuitableKey(node.getPartitionBy()), functionAndTypeManager);
-            }
-
-            return replaceChildren(node, ImmutableList.of(rewrittenSource));
+            return sampleSourceNodeWithKey(node, node.getSource(), node.getPartitionBy());
         }
 
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            PlanNode source = node.getSource();
-            PlanNode rewrittenSource = rewriteWith(this, source);
-            if (rewrittenSource == source) {
-                rewrittenSource = addSamplingFilter(source, findSuitableKey(node.getPartitionBy()), functionAndTypeManager);
-            }
-
-            return replaceChildren(node, ImmutableList.of(rewrittenSource));
+            return sampleSourceNodeWithKey(node, node.getSource(), node.getPartitionBy());
         }
 
         @Override
         public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
         {
-            PlanNode source = node.getSource();
-            PlanNode rewrittenSource = rewriteWith(this, source);
-            if (rewrittenSource == source) {
-                rewrittenSource = addSamplingFilter(source, findSuitableKey(node.getPartitionBy()), functionAndTypeManager);
-            }
+            return sampleSourceNodeWithKey(node, node.getSource(), node.getPartitionBy());
+        }
 
-            return replaceChildren(node, ImmutableList.of(rewrittenSource));
+        @Override
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
+        {
+            return sampleSourceNodeWithKey(node, node.getSource(), node.getDistinctVariables());
         }
     }
 }
