@@ -440,7 +440,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 300_000)
+    @Test(timeOut = 60_000)
     public void testClusterPoolsMultiCoordinator()
             throws Exception
     {
@@ -476,7 +476,7 @@ public class TestMemoryManager
             assertNotNull(generalPool);
 
             // Wait for the queries to start running and get assigned to the expected pools
-            while (generalPool.getAssignedQueries() != 1 || reservedPool.getAssignedQueries() != 1 || generalPool.getBlockedNodes() != 4 || reservedPool.getBlockedNodes() != 4) {
+            while (generalPool.getAssignedQueries() != 1 || reservedPool.getAssignedQueries() != 1 || generalPool.getBlockedNodes() != 3 || reservedPool.getBlockedNodes() != 3) {
                 generalPool = memoryManager.getClusterInfo(GENERAL_POOL);
                 reservedPool = memoryManager.getClusterInfo(RESERVED_POOL);
                 MILLISECONDS.sleep(10);
