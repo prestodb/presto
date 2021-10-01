@@ -35,9 +35,27 @@ struct VeloxToArrowBridgeHolder {
   const void* buffers[kMaxBuffers];
 };
 
-// Main release function. Arrow standard requires it to recurse down to children
-// and dictionary arrays, and set release and private_data to null to signal it
-// has been released.
+// Structure that will hold buffers needed by ArrowSchema. This is opaquely
+// carried by ArrowSchema.private_data
+struct VeloxToArrowSchemaBridgeHolder {
+  // Unfortunately, we need two vectors here since ArrowSchema takes a
+  // ArrowSchema** pointer for children (so we can't just cast the
+  // vector<unique_ptr<>>), but we also need a member to control the
+  // lifetime of the children objects. The following invariable should always
+  // hold:
+  //   childrenRaw[i] == childrenOwned[i].get()
+  std::vector<ArrowSchema*> childrenRaw;
+  std::vector<std::unique_ptr<ArrowSchema>> childrenOwned;
+
+  // If the input type is a RowType, we keep the shared_ptr alive so we can set
+  // ArrowSchema.name pointer to the internal string that contains the column
+  // name.
+  RowTypePtr rowType;
+};
+
+// Release function for ArrowArray. Arrow standard requires it to recurse down
+// to children and dictionary arrays, and set release and private_data to null
+// to signal it has been released.
 static void bridgeRelease(ArrowArray* arrowArray) {
   if (!arrowArray || !arrowArray->release) {
     return;
@@ -69,6 +87,40 @@ static void bridgeRelease(ArrowArray* arrowArray) {
   arrowArray->private_data = nullptr;
 }
 
+// Release function for ArrowSchema. Arrow standard requires it to recurse down
+// to all children, and set release and private_data to null to signal it has
+// been released.
+static void bridgeSchemaRelease(ArrowSchema* arrowSchema) {
+  if (!arrowSchema || !arrowSchema->release) {
+    return;
+  }
+
+  // Recurse down to release children arrays.
+  for (int64_t i = 0; i < arrowSchema->n_children; ++i) {
+    ArrowSchema* child = arrowSchema->children[i];
+    if (child != nullptr && child->release != nullptr) {
+      child->release(child);
+      VELOX_CHECK_NULL(child->release);
+    }
+  }
+
+  // Release dictionary.
+  ArrowSchema* dict = arrowSchema->dictionary;
+  if (dict != nullptr && dict->release != nullptr) {
+    dict->release(dict);
+    VELOX_CHECK_NULL(dict->release);
+  }
+
+  // Destroy the current holder.
+  auto* bridgeHolder =
+      static_cast<VeloxToArrowSchemaBridgeHolder*>(arrowSchema->private_data);
+  delete bridgeHolder;
+
+  // Finally, mark the array as released.
+  arrowSchema->release = nullptr;
+  arrowSchema->private_data = nullptr;
+}
+
 void exportFlatVector(const VectorPtr& vector, ArrowArray& arrowArray) {
   switch (vector->typeKind()) {
     case TypeKind::TINYINT:
@@ -84,6 +136,46 @@ void exportFlatVector(const VectorPtr& vector, ArrowArray& arrowArray) {
       VELOX_NYI(
           "Conversion of FlatVector of {} is not supported yet.",
           vector->typeKind());
+  }
+}
+
+// Returns the Arrow C data interface format type for a given Velox type.
+const char* exportArrowFormatStr(const TypePtr& type) {
+  switch (type->kind()) {
+    // Scalar types.
+    case TypeKind::BOOLEAN:
+      return "b"; // boolean
+    case TypeKind::TINYINT:
+      return "c"; // int8
+    case TypeKind::SMALLINT:
+      return "s"; // int16
+    case TypeKind::INTEGER:
+      return "i"; // int32
+    case TypeKind::BIGINT:
+      return "l"; // int64
+    case TypeKind::REAL:
+      return "f"; // float32
+    case TypeKind::DOUBLE:
+      return "g"; // float64
+    case TypeKind::VARCHAR:
+      return "u"; // utf-8 string
+    case TypeKind::VARBINARY:
+      return "z"; // binary
+    case TypeKind::TIMESTAMP:
+      // TODO: need to figure out how we'll map this since in Velox we currently
+      // store timestamps as two int64s (epoch in sec and nanos).
+      return "ttn"; // time64 [nanoseconds]
+
+    // Complex/nested types.
+    case TypeKind::ARRAY:
+      return "+L"; // large list
+    case TypeKind::MAP:
+      return "+m"; // map
+    case TypeKind::ROW:
+      return "+s"; // struct
+
+    default:
+      VELOX_NYI("Unable to map type '{}' to ArrowSchema.", type->kind());
   }
 }
 
@@ -133,6 +225,73 @@ void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray) {
   // We release the unique_ptr since bridgeHolder will now be carried inside
   // ArrowArray.
   arrowArray.private_data = bridgeHolder.release();
+}
+
+void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema) {
+  arrowSchema.format = exportArrowFormatStr(type);
+  arrowSchema.name = nullptr;
+
+  // No additional metadata or support for dictionaries for now.
+  arrowSchema.metadata = nullptr;
+  arrowSchema.dictionary = nullptr;
+
+  // All supported types are semantically nullable.
+  arrowSchema.flags = ARROW_FLAG_NULLABLE;
+
+  // Allocate private data buffer holder and recurse down to children types.
+  auto bridgeHolder = std::make_unique<VeloxToArrowSchemaBridgeHolder>();
+  const size_t numChildren = type->size();
+
+  if (numChildren > 0) {
+    bridgeHolder->childrenRaw.resize(numChildren);
+    bridgeHolder->childrenOwned.resize(numChildren);
+
+    // If this is a RowType, hold the shared_ptr so we can set the
+    // ArrowSchema.name pointer to its internal `name` string.
+    if (type->kind() == TypeKind::ROW) {
+      bridgeHolder->rowType = std::dynamic_pointer_cast<const RowType>(type);
+    }
+
+    arrowSchema.children = &bridgeHolder->childrenRaw[0];
+    arrowSchema.n_children = numChildren;
+
+    for (size_t i = 0; i < numChildren; ++i) {
+      // Recurse down the children. We use the same trick of temporarily holding
+      // the buffer in a unique_ptr so it doesn't leak if the recursion throws.
+      //
+      // But this is more nuanced: for types with a list of children (like
+      // row/structs), if one of the children throws, we need to make sure we
+      // call release() on the children that have already been created before we
+      // re-throw the exception back to the client, or memory will leak. This is
+      // needed because Arrow doesn't define what the client needs to do if the
+      // conversion fails, so we can't expect the client to call the release()
+      // method.
+      try {
+        auto& currentSchema = bridgeHolder->childrenOwned[i];
+        currentSchema = std::make_unique<ArrowSchema>();
+        exportToArrow(type->childAt(i), *currentSchema);
+
+        if (bridgeHolder->rowType) {
+          currentSchema->name = bridgeHolder->rowType->nameOf(i).data();
+        }
+        arrowSchema.children[i] = currentSchema.get();
+      } catch (const VeloxException& e) {
+        // Release any children that have already been built before re-throwing
+        // the exception back to the client.
+        for (size_t j = 0; j < i; ++j) {
+          arrowSchema.children[j]->release(arrowSchema.children[j]);
+        }
+        throw e;
+      }
+    }
+  } else {
+    arrowSchema.n_children = 0;
+    arrowSchema.children = nullptr;
+  }
+
+  // Set release callback.
+  arrowSchema.release = bridgeSchemaRelease;
+  arrowSchema.private_data = bridgeHolder.release();
 }
 
 } // namespace facebook::velox::arrow

@@ -210,4 +210,130 @@ TEST_F(ArrowBridgeTest, unsupported) {
   EXPECT_THROW(arrow::exportToArrow(vector, arrowArray), VeloxException);
 }
 
+class ArrowBridgeSchemaTest : public ArrowBridgeTest {
+ protected:
+  void testScalarType(const TypePtr& type, const char* arrowFormat) {
+    ArrowSchema arrowSchema;
+    arrow::exportToArrow(type, arrowSchema);
+
+    EXPECT_EQ(std::string{arrowFormat}, std::string{arrowSchema.format});
+    EXPECT_EQ(nullptr, arrowSchema.name);
+
+    EXPECT_EQ(0, arrowSchema.n_children);
+    EXPECT_EQ(nullptr, arrowSchema.children);
+
+    arrowSchema.release(&arrowSchema);
+    EXPECT_EQ(nullptr, arrowSchema.release);
+    EXPECT_EQ(nullptr, arrowSchema.private_data);
+  }
+
+  // Doesn't check the actual format string of the scalar leaf types (this is
+  // tested by the function above), but tests that the types are nested in the
+  // correct way.
+  void testNestedType(const TypePtr& type) {
+    ArrowSchema arrowSchema;
+    arrow::exportToArrow(type, arrowSchema);
+
+    verifyNestedType(type, arrowSchema);
+
+    arrowSchema.release(&arrowSchema);
+    EXPECT_EQ(nullptr, arrowSchema.release);
+    EXPECT_EQ(nullptr, arrowSchema.private_data);
+  }
+
+  void verifyNestedType(const TypePtr& type, ArrowSchema& schema) {
+    if (type->kind() == TypeKind::ARRAY) {
+      EXPECT_EQ(std::string{"+L"}, std::string{schema.format});
+      EXPECT_EQ(1, schema.n_children);
+    } else if (type->kind() == TypeKind::MAP) {
+      EXPECT_EQ(std::string{"+m"}, std::string{schema.format});
+      EXPECT_EQ(2, schema.n_children);
+    } else if (type->kind() == TypeKind::ROW) {
+      // Structs can have zero of more children.
+      EXPECT_EQ(std::string{"+s"}, std::string{schema.format});
+    }
+    // Scalar type.
+    else {
+      EXPECT_EQ(0, schema.n_children);
+      EXPECT_EQ(nullptr, schema.children);
+    }
+
+    // Recurse down the children.
+    for (size_t i = 0; i < type->size(); ++i) {
+      verifyNestedType(type->childAt(i), *schema.children[i]);
+
+      // If this is a rowType, assert that the children returned with the
+      // correct name set.
+      if (auto rowType = std::dynamic_pointer_cast<const RowType>(type)) {
+        EXPECT_EQ(rowType->nameOf(i), std::string(schema.children[i]->name));
+      }
+    }
+  }
+};
+
+TEST_F(ArrowBridgeSchemaTest, scalar) {
+  testScalarType(TINYINT(), "c");
+  testScalarType(SMALLINT(), "s");
+  testScalarType(INTEGER(), "i");
+  testScalarType(BIGINT(), "l");
+
+  testScalarType(BOOLEAN(), "b");
+
+  testScalarType(REAL(), "f");
+  testScalarType(DOUBLE(), "g");
+
+  testScalarType(VARCHAR(), "u");
+  testScalarType(VARBINARY(), "z");
+
+  testScalarType(TIMESTAMP(), "ttn");
+}
+
+TEST_F(ArrowBridgeSchemaTest, nested) {
+  // Array.
+  testNestedType(ARRAY(INTEGER()));
+  testNestedType(ARRAY(VARCHAR()));
+  testNestedType(ARRAY(ARRAY(TINYINT())));
+  testNestedType(ARRAY(ARRAY(ARRAY(ARRAY(BOOLEAN())))));
+
+  // Map.
+  testNestedType(MAP(INTEGER(), DOUBLE()));
+  testNestedType(MAP(VARBINARY(), BOOLEAN()));
+  testNestedType(MAP(VARBINARY(), MAP(SMALLINT(), REAL())));
+  testNestedType(MAP(VARBINARY(), MAP(SMALLINT(), MAP(INTEGER(), BIGINT()))));
+
+  // Row.
+  testNestedType(ROW({}));
+  testNestedType(ROW({INTEGER()}));
+  testNestedType(ROW({INTEGER(), DOUBLE()}));
+  testNestedType(
+      ROW({INTEGER(), DOUBLE(), ROW({BIGINT(), REAL(), BOOLEAN()})}));
+
+  // Row with names.
+  testNestedType(ROW({"my_col"}, {INTEGER()}));
+  testNestedType(ROW({"my_col", "my_other_col"}, {INTEGER(), VARCHAR()}));
+
+  // Mix and match.
+  testNestedType(
+      ROW({"c1", "c2", "c3"},
+          {
+              ARRAY(INTEGER()),
+              MAP(ROW({VARBINARY(), SMALLINT()}), BOOLEAN()),
+              ARRAY(MAP(INTEGER(), VARCHAR())),
+          }));
+}
+
+TEST_F(ArrowBridgeSchemaTest, unsupported) {
+  // Try some combination of unsupported types to ensure there's no crash or
+  // memory leak in failure scenarios.
+  EXPECT_THROW(testScalarType(UNKNOWN(), ""), VeloxException);
+
+  EXPECT_THROW(testScalarType(ARRAY(UNKNOWN()), ""), VeloxException);
+  EXPECT_THROW(testScalarType(MAP(UNKNOWN(), INTEGER()), ""), VeloxException);
+  EXPECT_THROW(testScalarType(MAP(BIGINT(), UNKNOWN()), ""), VeloxException);
+
+  EXPECT_THROW(testScalarType(ROW({BIGINT(), UNKNOWN()}), ""), VeloxException);
+  EXPECT_THROW(
+      testScalarType(ROW({BIGINT(), REAL(), UNKNOWN()}), ""), VeloxException);
+}
+
 } // namespace

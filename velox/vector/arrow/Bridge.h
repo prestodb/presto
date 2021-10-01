@@ -31,7 +31,7 @@ namespace facebook::velox::arrow {
 /// the release() function (or memory will leak).
 ///
 /// After exporting, the ArrowArray will hold ownership to the underlying Vector
-/// being referenced, so the consumer don't need to explicitly hold on to the
+/// being referenced, so the consumer does not need to explicitly hold on to the
 /// input Vector shared_ptr.
 ///
 /// The function throws in case the conversion is not implemented yet.
@@ -47,5 +47,24 @@ namespace facebook::velox::arrow {
 ///   arrowArray.release(&arrowArray);
 ///
 void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray);
+
+/// Export a generic Velox Type to an ArrowSchema.
+///
+/// The guidelines on API usage and memory management are the same as the ones
+/// described for the VectorPtr->ArrowArray export function.
+///
+/// The function throws in case there was no valid conversion available.
+///
+/// Example usage:
+///
+///   ArrowSchema arrowSchema;
+///   arrow::exportToArrow(inputType, arrowSchema);
+///   inputType.reset(); // don't need to hold on to this shared_ptr.
+///
+///   (use arrowSchema)
+///
+///   arrowSchema.release(&arrowSchema);
+///
+void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema);
 
 } // namespace facebook::velox::arrow
