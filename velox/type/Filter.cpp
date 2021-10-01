@@ -352,12 +352,19 @@ int32_t binarySearch(const std::vector<int64_t>& values, int64_t value) {
 }
 } // namespace
 
-std::unique_ptr<Filter> BigintMultiRange::clone() const {
+std::unique_ptr<Filter> BigintMultiRange::clone(
+    std::optional<bool> nullAllowed) const {
   std::vector<std::unique_ptr<BigintRange>> ranges;
+  ranges.reserve(ranges_.size());
   for (auto& range : ranges_) {
-    ranges.push_back(std::make_unique<BigintRange>(*range));
+    ranges.emplace_back(std::make_unique<BigintRange>(*range));
   }
-  return std::make_unique<BigintMultiRange>(std::move(ranges), nullAllowed_);
+  if (nullAllowed) {
+    return std::make_unique<BigintMultiRange>(
+        std::move(ranges), nullAllowed.value());
+  } else {
+    return std::make_unique<BigintMultiRange>(std::move(ranges), nullAllowed_);
+  }
 }
 
 bool BigintMultiRange::testInt64(int64_t value) const {
@@ -390,13 +397,20 @@ bool BigintMultiRange::testInt64Range(int64_t min, int64_t max, bool hasNull)
   return false;
 }
 
-std::unique_ptr<Filter> MultiRange::clone() const {
+std::unique_ptr<Filter> MultiRange::clone(
+    std::optional<bool> nullAllowed) const {
   std::vector<std::unique_ptr<Filter>> filters;
   for (auto& filter : filters_) {
     filters.push_back(filter->clone());
   }
-  return std::make_unique<MultiRange>(
-      std::move(filters), nullAllowed_, nanAllowed_);
+
+  if (nullAllowed) {
+    return std::make_unique<MultiRange>(
+        std::move(filters), nullAllowed.value(), nanAllowed_);
+  } else {
+    return std::make_unique<MultiRange>(
+        std::move(filters), nullAllowed_, nanAllowed_);
+  }
 }
 
 bool MultiRange::testDouble(double value) const {
@@ -456,6 +470,60 @@ bool MultiRange::testBytesRange(
   }
 
   return false;
+}
+
+std::unique_ptr<Filter> MultiRange::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    // Rules of MultiRange with IsNull/IsNotNull
+    // 1. MultiRange(nullAllowed=true) AND IS NULL => IS NULL
+    // 2. MultiRange(nullAllowed=true) AND IS NOT NULL =>
+    // MultiRange(nullAllowed=false)
+    // 3. MultiRange(nullAllowed=false) AND IS NULL
+    // => ALWAYS FALSE
+    // 4. MultiRange(nullAllowed=false) AND IS NOT NULL
+    // =>MultiRange(nullAllowed=false)
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return this->clone(/*nullAllowed=*/false);
+    case FilterKind::kDoubleRange:
+    case FilterKind::kFloatRange:
+    case FilterKind::kBytesRange:
+    case FilterKind::kBytesValues:
+      // TODO Implement
+      VELOX_UNREACHABLE();
+    case FilterKind::kMultiRange: {
+      const MultiRange* multiRangeOther = static_cast<const MultiRange*>(other);
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      bool bothNanAllowed = nanAllowed_ && multiRangeOther->nanAllowed_;
+      std::vector<std::unique_ptr<Filter>> merged;
+      for (auto const& filter : this->filters()) {
+        for (auto const& filterOther : multiRangeOther->filters()) {
+          auto innerMerged = filter->mergeWith(filterOther.get());
+          switch (innerMerged->kind()) {
+            case FilterKind::kAlwaysFalse:
+            case FilterKind::kIsNull:
+              break;
+            default:
+              merged.push_back(std::move(innerMerged));
+          }
+        }
+      }
+
+      if (merged.empty()) {
+        return nullOrFalse(bothNullAllowed);
+      } else if (merged.size() == 1) {
+        return merged[0]->clone(bothNullAllowed);
+      } else {
+        return std::unique_ptr<Filter>(
+            new MultiRange(std::move(merged), bothNullAllowed, bothNanAllowed));
+      }
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
 }
 
 std::unique_ptr<Filter> IsNull::mergeWith(const Filter* other) const {

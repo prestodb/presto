@@ -898,3 +898,55 @@ TEST(FilterTest, mergeWithBigintMultiRange) {
     }
   }
 }
+
+TEST(FilterTest, mergeMultiRange) {
+  std::vector<std::unique_ptr<Filter>> filters;
+  addUntypedFilters(filters);
+
+  filters.push_back(
+      orFilter(lessThanOrEqualFloat(-1.2), betweenFloat(1.2, 3.4)));
+  filters.push_back(
+      orFilter(lessThanOrEqualFloat(-1.2), betweenFloat(1.2, 3.4), true));
+
+  filters.push_back(orFilter(lessThanFloat(1.2), greaterThanFloat(3.4)));
+  filters.push_back(orFilter(lessThanFloat(1.2), greaterThanFloat(3.4), true));
+
+  filters.push_back(
+      orFilter(lessThanOrEqualFloat(1.2), greaterThanOrEqualFloat(3.4)));
+  filters.push_back(
+      orFilter(lessThanOrEqualFloat(1.2), greaterThanOrEqualFloat(3.4), true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithFloat(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, clone) {
+  auto filter1 = equal(1, /*nullAllowed=*/false);
+  EXPECT_TRUE(filter1->clone(/*nullAllowed*/ true)->testNull());
+  auto filter2 = orFilter(
+      lessThanOrEqualFloat(-1.2),
+      betweenFloat(1.2, 3.4),
+      /*nullAllowed=*/false);
+  EXPECT_TRUE(filter2->clone(/*nullAllowed*/ true)->testNull());
+  auto filter3 = bigintOr(equal(12), between(25, 47), /*nullAllowed=*/false);
+  EXPECT_TRUE(filter3->clone(/*nullAllowed*/ true)->testNull());
+  auto filter4 = lessThanFloat(1.2, /*nullAllowed=*/false);
+  EXPECT_TRUE(filter4->clone(/*nullAllowed*/ true)->testNull());
+  auto filter5 = lessThanDouble(1.2, /*nullAllowed=*/false);
+  EXPECT_TRUE(filter5->clone(/*nullAllowed*/ true)->testNull());
+  auto filter6 = boolEqual(true, /*nullAllowed=*/false);
+  EXPECT_TRUE(filter6->clone(/*nullAllowed*/ true)->testNull());
+  auto filter7 = betweenFloat(1.2, 1.2, /*nullAllowed=*/false);
+  EXPECT_TRUE(filter7->clone(/*nullAllowed*/ true)->testNull());
+  auto filter8 = equal("abc", /*nullAllowed=*/false);
+  EXPECT_TRUE(filter8->clone(/*nullAllowed*/ true)->testNull());
+  std::vector<std::string> values({"Igne", "natura", "renovitur", "integra."});
+  auto filter9 = in(values, /*nullAllowed=*/false);
+  EXPECT_TRUE(filter9->clone(/*nullAllowed*/ true)->testNull());
+  auto filter10 =
+      createBigintValues({1, 10, 100, 10'000}, /*nullAllowed=*/false);
+  EXPECT_TRUE(filter10->clone(/*nullAllowed*/ true)->testNull());
+}
