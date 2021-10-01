@@ -602,7 +602,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-6-SNAPSHOT</version>
+                <version>3.0.0-7-SNAPSHOT</version>
             </dependency>
 
             <dependency>
