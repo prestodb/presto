@@ -85,7 +85,12 @@ public final class BytecodeUtils
         public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
         {
             ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
-            checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
+            checkArgument(
+                    classLoader instanceof DynamicClassLoader,
+                    "Expected %s's classloader to be of type %s, but have %s",
+                    callerLookup.lookupClass().getName(),
+                    DynamicClassLoader.class.getName(),
+                    classLoader.getClass().getName());
 
             DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
             MethodHandle target = dynamicClassLoader.getCallSiteBindings().get(bindingId);
