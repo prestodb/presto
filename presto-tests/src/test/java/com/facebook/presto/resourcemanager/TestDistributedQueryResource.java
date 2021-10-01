@@ -15,6 +15,7 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -36,7 +37,6 @@ import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Thread.sleep;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -80,7 +80,7 @@ public class TestDistributedQueryResource
         client = null;
     }
 
-    @Test(timeOut = 220_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testGetQueryInfos()
             throws Exception
     {
@@ -92,8 +92,7 @@ public class TestDistributedQueryResource
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf102.orders");
         runToQueued(client, coordinator1, "SELECT 3");
 
-        // Sleep to allow query to make some progress
-        sleep(SECONDS.toMillis(5));
+        waitForGlobalViewInRM(1, 3, 1, 2);
 
         List<BasicQueryInfo> infos = getQueryInfos(client, coordinator1, "/v1/query");
         assertEquals(infos.size(), 7);
@@ -115,8 +114,7 @@ public class TestDistributedQueryResource
         assertEquals(infos.size(), 1);
         assertStateCounts(infos, 0, 0, 0, 1);
 
-        // Sleep to trigger client query expiration
-        sleep(SECONDS.toMillis(20));
+        waitForGlobalViewInRM(0, 0, 5, 2);
 
         infos = getQueryInfos(client, coordinator2, "/v1/query?state=failed");
         assertEquals(infos.size(), 5);
@@ -155,5 +153,23 @@ public class TestDistributedQueryResource
         assertEquals(finished, expectedFinished);
         assertEquals(running, expectedRunning);
         assertEquals(queued, expectedQueued);
+    }
+
+    private void waitForGlobalViewInRM(long expectedQueuedQueries, long expectedRunningQueries, long expectedFailedQueries, long expectedFinishedQueries)
+            throws InterruptedException
+    {
+        long runningQueries = 0;
+        long queuedQueries = 0;
+        long failedQueries = 0;
+        long finishedQueries = 0;
+        while (runningQueries != expectedRunningQueries || queuedQueries != expectedQueuedQueries ||
+                failedQueries != expectedFailedQueries || finishedQueries != expectedFinishedQueries) {
+            sleep(100);
+            List<BasicQueryInfo> queries = resourceManager.getClusterStateProvider().getClusterQueries();
+            runningQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.RUNNING).count();
+            queuedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.QUEUED).count();
+            failedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FAILED).count();
+            finishedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FINISHED).count();
+        }
     }
 }
