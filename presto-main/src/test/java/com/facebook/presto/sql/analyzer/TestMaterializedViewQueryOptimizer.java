@@ -225,6 +225,27 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testIdentifiersInDifferentNodes()
+    {
+        String originalViewSql = format("SELECT a, b, c, d, e FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, c, e FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = e AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, c, e FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = e AND d IN (1, 2, 3) AND NOT (a IS NULL)", VIEW);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
+
+        baseQuerySql = format("SELECT a, c FROM %s WHERE x = 4", BASE_TABLE_1);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+
+        baseQuerySql = format("SELECT a, c FROM %s WHERE NOT(x IS NULL)", BASE_TABLE_1);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+
+        baseQuerySql = format("SELECT a, c FROM %s WHERE NOT(x IN (4, 5))", BASE_TABLE_1);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+
+        baseQuerySql = format("SELECT a, c FROM %s WHERE IF(a > 2, IF(x > 0, 1, -1), 2) = 0", BASE_TABLE_1);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+    }
+
+    @Test
     public void testWithGroupBy()
     {
         String originalViewSql = format("SELECT SUM(a) AS a, SUM(b*c) AS bc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
@@ -246,10 +267,6 @@ public class TestMaterializedViewQueryOptimizer
 
         baseQuerySql = format("SELECT SUM(a), SUM(b*c), d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
         expectedRewrittenSql = format("SELECT SUM(a), SUM(bc), d, e FROM %s GROUP BY d, e", VIEW);
-        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
-
-        baseQuerySql = format("SELECT SUM(a), SUM(b*c) FROM %s WHERE d IN (1, 2) AND IF(e, 1, 0) = 1", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(a), SUM(bc) FROM %s WHERE d IN (1, 2) AND IF(e, 1, 0) = 1", VIEW);
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
 
         baseQuerySql = format("SELECT d, e FROM %s", BASE_TABLE_1);
