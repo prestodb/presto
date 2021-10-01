@@ -5826,36 +5826,40 @@ public abstract class AbstractTestQueries
     @Test
     public void testKeyBasedSampling()
     {
-        assertQuery("select count(1) from orders join lineitem using(orderkey)", "select 60175");
-        assertQuery("select count(1) from (select custkey, max(orderkey) from orders group by custkey)", "select 1000");
-        assertQuery("select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)", "select 15000");
-        assertQuery("select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)", "select 5408941");
-        assertQuery("select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)", "select 60175");
-        assertQuery("select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)", "select 9256");
+        String[] queries = new String[] {
+                "select count(1) from orders join lineitem using(orderkey)",
+                "select count(1) from (select custkey, max(orderkey) from orders group by custkey)",
+                "select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)",
+                "select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)",
+                "select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)",
+                "select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)",
+                "select count(1) from (select distinct orderkey, custkey from orders)",
+        };
+
+        int[] unsampledResuts = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(queries[i], "select " + unsampledResuts[i]);
+        }
 
         Session sessionWithKeyBasedSampling = Session.builder(getSession())
                 .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.2")
                 .build();
 
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "select 37170");
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from (select custkey, max(orderkey) from orders group by custkey)", "select 616");
-        assertQuery(sessionWithKeyBasedSampling, "select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)", "select 9189");
-        assertQuery(sessionWithKeyBasedSampling, "select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)", "select '5408941'");
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)", "select 37170");
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)", "select 5721");
+        int[] sampled20PercentResuts = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResuts[i]);
+        }
 
         sessionWithKeyBasedSampling = Session.builder(getSession())
                 .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.1")
                 .build();
 
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "select 33649");
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from (select custkey, max(orderkey) from orders group by custkey)", "select 557");
-        assertQuery(sessionWithKeyBasedSampling, "select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)", "select 8377");
-        assertQuery(sessionWithKeyBasedSampling, "select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)", "select 4644937");
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)", "select 33649");
-        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)", "select 5098");
+        int[] sampled10PercentResuts = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResuts[i]);
+        }
     }
 
     @Test
