@@ -21,7 +21,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class SimpleTracerBlock
 {
     private final List<SimpleTracerPoint> points = new CopyOnWriteArrayList<>();
-    private final long startTime = System.currentTimeMillis();
+    private final long startTime = System.nanoTime();
     private long endTime;
 
     public SimpleTracerBlock(String annotation)
@@ -36,7 +36,7 @@ public class SimpleTracerBlock
 
     public void end(String annotation)
     {
-        endTime = System.currentTimeMillis();
+        endTime = System.nanoTime();
         if (startTime > endTime) {
             throw new RuntimeException("Block start time " + startTime + " is greater than end time " + endTime);
         }
