@@ -123,6 +123,7 @@ static void bridgeSchemaRelease(ArrowSchema* arrowSchema) {
 
 void exportFlatVector(const VectorPtr& vector, ArrowArray& arrowArray) {
   switch (vector->typeKind()) {
+    case TypeKind::BOOLEAN:
     case TypeKind::TINYINT:
     case TypeKind::SMALLINT:
     case TypeKind::INTEGER:
@@ -252,7 +253,7 @@ void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema) {
       bridgeHolder->rowType = std::dynamic_pointer_cast<const RowType>(type);
     }
 
-    arrowSchema.children = &bridgeHolder->childrenRaw[0];
+    arrowSchema.children = bridgeHolder->childrenRaw.data();
     arrowSchema.n_children = numChildren;
 
     for (size_t i = 0; i < numChildren; ++i) {
@@ -281,7 +282,7 @@ void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema) {
         for (size_t j = 0; j < i; ++j) {
           arrowSchema.children[j]->release(arrowSchema.children[j]);
         }
-        throw e;
+        throw;
       }
     }
   } else {
@@ -292,6 +293,92 @@ void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema) {
   // Set release callback.
   arrowSchema.release = bridgeSchemaRelease;
   arrowSchema.private_data = bridgeHolder.release();
+}
+
+TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
+  const char* format = arrowSchema.format;
+  VELOX_CHECK_NOT_NULL(format);
+
+  switch (format[0]) {
+    case 'b':
+      return BOOLEAN();
+    case 'c':
+      return TINYINT();
+    case 's':
+      return SMALLINT();
+    case 'i':
+      return INTEGER();
+    case 'l':
+      return BIGINT();
+    case 'f':
+      return REAL();
+    case 'g':
+      return DOUBLE();
+
+    // Map both utf-8 and large utf-8 string to varchar.
+    case 'u':
+    case 'U':
+      return VARCHAR();
+
+    // Same for binary.
+    case 'z':
+    case 'Z':
+      return VARBINARY();
+
+    case 't': // temporal types.
+      // Mapping it to ttn for now.
+      if (format[1] == 't' && format[2] == 'n') {
+        return TIMESTAMP();
+      }
+      break;
+
+    // Complex types.
+    case '+': {
+      switch (format[1]) {
+        // Array/list.
+        case 'L':
+          VELOX_CHECK_EQ(arrowSchema.n_children, 1);
+          VELOX_CHECK_NOT_NULL(arrowSchema.children[0]);
+          return ARRAY(importFromArrow(*arrowSchema.children[0]));
+
+        // Map.
+        case 'm':
+          VELOX_CHECK_EQ(arrowSchema.n_children, 2);
+          VELOX_CHECK_NOT_NULL(arrowSchema.children[0]);
+          VELOX_CHECK_NOT_NULL(arrowSchema.children[1]);
+          return MAP(
+              importFromArrow(*arrowSchema.children[0]),
+              importFromArrow(*arrowSchema.children[1]));
+
+        // Struct/rows.
+        case 's': {
+          // Loop collecting the child types and names.
+          std::vector<TypePtr> childTypes;
+          std::vector<std::string> childNames;
+          childTypes.reserve(arrowSchema.n_children);
+          childNames.reserve(arrowSchema.n_children);
+
+          for (size_t i = 0; i < arrowSchema.n_children; ++i) {
+            VELOX_CHECK_NOT_NULL(arrowSchema.children[i]);
+            childTypes.emplace_back(importFromArrow(*arrowSchema.children[i]));
+            childNames.emplace_back(
+                arrowSchema.children[i]->name != nullptr
+                    ? arrowSchema.children[i]->name
+                    : "");
+          }
+          return ROW(std::move(childNames), std::move(childTypes));
+        }
+
+        default:
+          break;
+      }
+    } break;
+
+    default:
+      break;
+  }
+  VELOX_USER_FAIL(
+      "Unable to convert '{}' ArrowSchema format type to Velox.", format);
 }
 
 } // namespace facebook::velox::arrow

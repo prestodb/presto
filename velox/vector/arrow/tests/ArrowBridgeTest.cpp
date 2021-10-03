@@ -54,7 +54,15 @@ class ArrowBridgeTest : public testing::Test {
         EXPECT_TRUE(bits::isBitNull(nulls, i));
       } else {
         EXPECT_FALSE(bits::isBitNull(nulls, i));
-        EXPECT_EQ(inputData[i], values[i]);
+
+        // Boolean needs special treatment.
+        if constexpr (std::is_same_v<T, bool>) {
+          EXPECT_EQ(
+              inputData[i],
+              bits::isBitSet(reinterpret_cast<const uint64_t*>(values), i));
+        } else {
+          EXPECT_EQ(inputData[i], values[i]);
+        }
       }
     }
 
@@ -104,6 +112,18 @@ TEST_F(ArrowBridgeTest, flatNotNull) {
   arrowArray.release(&arrowArray);
   EXPECT_EQ(nullptr, arrowArray.release);
   EXPECT_EQ(nullptr, arrowArray.private_data);
+}
+
+TEST_F(ArrowBridgeTest, flatBool) {
+  testFlatVector<bool>({
+      true,
+      false,
+      false,
+      std::nullopt,
+      std::nullopt,
+      true,
+      std::nullopt,
+  });
 }
 
 TEST_F(ArrowBridgeTest, flatTinyint) {
@@ -210,7 +230,7 @@ TEST_F(ArrowBridgeTest, unsupported) {
   EXPECT_THROW(arrow::exportToArrow(vector, arrowArray), VeloxException);
 }
 
-class ArrowBridgeSchemaTest : public ArrowBridgeTest {
+class ArrowBridgeSchemaExportTest : public ArrowBridgeTest {
  protected:
   void testScalarType(const TypePtr& type, const char* arrowFormat) {
     ArrowSchema arrowSchema;
@@ -271,7 +291,7 @@ class ArrowBridgeSchemaTest : public ArrowBridgeTest {
   }
 };
 
-TEST_F(ArrowBridgeSchemaTest, scalar) {
+TEST_F(ArrowBridgeSchemaExportTest, scalar) {
   testScalarType(TINYINT(), "c");
   testScalarType(SMALLINT(), "s");
   testScalarType(INTEGER(), "i");
@@ -288,7 +308,7 @@ TEST_F(ArrowBridgeSchemaTest, scalar) {
   testScalarType(TIMESTAMP(), "ttn");
 }
 
-TEST_F(ArrowBridgeSchemaTest, nested) {
+TEST_F(ArrowBridgeSchemaExportTest, nested) {
   // Array.
   testNestedType(ARRAY(INTEGER()));
   testNestedType(ARRAY(VARCHAR()));
@@ -322,7 +342,7 @@ TEST_F(ArrowBridgeSchemaTest, nested) {
           }));
 }
 
-TEST_F(ArrowBridgeSchemaTest, unsupported) {
+TEST_F(ArrowBridgeSchemaExportTest, unsupported) {
   // Try some combination of unsupported types to ensure there's no crash or
   // memory leak in failure scenarios.
   EXPECT_THROW(testScalarType(UNKNOWN(), ""), VeloxException);
@@ -334,6 +354,147 @@ TEST_F(ArrowBridgeSchemaTest, unsupported) {
   EXPECT_THROW(testScalarType(ROW({BIGINT(), UNKNOWN()}), ""), VeloxException);
   EXPECT_THROW(
       testScalarType(ROW({BIGINT(), REAL(), UNKNOWN()}), ""), VeloxException);
+}
+
+static void mockRelease(ArrowSchema*) {}
+
+class ArrowBridgeSchemaImportTest : public ArrowBridgeTest {
+ protected:
+  TypePtr testSchemaImport(const char* format) {
+    ArrowSchema arrowSchema{.release = mockRelease, .format = format};
+    auto type = arrow::importFromArrow(arrowSchema);
+    arrowSchema.release(&arrowSchema);
+    return type;
+  }
+
+  TypePtr testSchemaImportComplex(
+      const char* mainFormat,
+      const std::vector<const char*>& childrenFormat,
+      const std::vector<const char*>& colNames = {}) {
+    std::vector<ArrowSchema> schemas;
+    std::vector<ArrowSchema*> schemaPtrs;
+
+    schemas.resize(childrenFormat.size());
+    schemaPtrs.resize(childrenFormat.size());
+
+    for (size_t i = 0; i < childrenFormat.size(); ++i) {
+      schemas[i] = ArrowSchema{
+          .release = mockRelease,
+          .format = childrenFormat[i],
+          .name = colNames.size() > i ? colNames[i] : nullptr,
+      };
+      schemaPtrs[i] = &schemas[i];
+    }
+
+    ArrowSchema mainSchema{
+        .release = mockRelease,
+        .format = mainFormat,
+        .n_children = (int64_t)schemaPtrs.size(),
+        .children = schemaPtrs.data(),
+    };
+    auto type = arrow::importFromArrow(mainSchema);
+    mainSchema.release(&mainSchema);
+    return type;
+  }
+};
+
+TEST_F(ArrowBridgeSchemaImportTest, scalar) {
+  EXPECT_EQ(*BOOLEAN(), *testSchemaImport("b"));
+  EXPECT_EQ(*TINYINT(), *testSchemaImport("c"));
+  EXPECT_EQ(*SMALLINT(), *testSchemaImport("s"));
+  EXPECT_EQ(*INTEGER(), *testSchemaImport("i"));
+  EXPECT_EQ(*BIGINT(), *testSchemaImport("l"));
+  EXPECT_EQ(*REAL(), *testSchemaImport("f"));
+  EXPECT_EQ(*DOUBLE(), *testSchemaImport("g"));
+
+  EXPECT_EQ(*VARCHAR(), *testSchemaImport("u"));
+  EXPECT_EQ(*VARCHAR(), *testSchemaImport("U"));
+  EXPECT_EQ(*VARBINARY(), *testSchemaImport("z"));
+  EXPECT_EQ(*VARBINARY(), *testSchemaImport("Z"));
+
+  // Temporal.
+  EXPECT_EQ(*TIMESTAMP(), *testSchemaImport("ttn"));
+}
+
+TEST_F(ArrowBridgeSchemaImportTest, complexTypes) {
+  // Array.
+  EXPECT_EQ(*ARRAY(BIGINT()), *testSchemaImportComplex("+L", {"l"}));
+  EXPECT_EQ(*ARRAY(TIMESTAMP()), *testSchemaImportComplex("+L", {"ttn"}));
+  EXPECT_EQ(*ARRAY(VARCHAR()), *testSchemaImportComplex("+L", {"U"}));
+
+  // Map.
+  EXPECT_EQ(
+      *MAP(VARCHAR(), BOOLEAN()), *testSchemaImportComplex("+m", {"U", "b"}));
+  EXPECT_EQ(
+      *MAP(SMALLINT(), REAL()), *testSchemaImportComplex("+m", {"s", "f"}));
+
+  // Row/struct.
+  EXPECT_EQ(
+      *ROW({SMALLINT(), REAL()}), *testSchemaImportComplex("+s", {"s", "f"}));
+  EXPECT_EQ(
+      *ROW({SMALLINT(), REAL(), VARCHAR(), BOOLEAN()}),
+      *testSchemaImportComplex("+s", {"s", "f", "u", "b"}));
+
+  // Named
+  EXPECT_EQ(
+      *ROW({"col1", "col2"}, {SMALLINT(), REAL()}),
+      *testSchemaImportComplex("+s", {"s", "f"}, {"col1", "col2"}));
+}
+
+TEST_F(ArrowBridgeSchemaImportTest, unsupported) {
+  EXPECT_THROW(testSchemaImport("n"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("C"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("S"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("I"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("L"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("e"), VeloxUserError);
+
+  EXPECT_THROW(testSchemaImport("d:19,10"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("w:42"), VeloxUserError);
+
+  EXPECT_THROW(testSchemaImport("tdD"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("tdm"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("tts"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("ttm"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("tDs"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("tiM"), VeloxUserError);
+
+  EXPECT_THROW(testSchemaImport("+"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("+l"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("+b"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("+z"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("+u"), VeloxUserError);
+  EXPECT_THROW(testSchemaImport("+w"), VeloxUserError);
+}
+
+class ArrowBridgeSchemaTest : public ArrowBridgeTest {
+ protected:
+  void roundtripTest(const TypePtr& inputType) {
+    ArrowSchema arrowSchema;
+    arrow::exportToArrow(inputType, arrowSchema);
+    auto outputType = arrow::importFromArrow(arrowSchema);
+    arrowSchema.release(&arrowSchema);
+    EXPECT_EQ(*inputType, *outputType);
+  }
+};
+
+TEST_F(ArrowBridgeSchemaTest, roundtrip) {
+  roundtripTest(BOOLEAN());
+  roundtripTest(VARCHAR());
+  roundtripTest(REAL());
+  roundtripTest(ARRAY(DOUBLE()));
+  roundtripTest(ARRAY(ARRAY(ARRAY(ARRAY(VARBINARY())))));
+  roundtripTest(MAP(VARCHAR(), REAL()));
+  roundtripTest(MAP(VARCHAR(), ARRAY(BOOLEAN())));
+  roundtripTest(MAP(VARCHAR(), ARRAY(MAP(ARRAY(BIGINT()), BOOLEAN()))));
+  roundtripTest(ROW({VARBINARY(), TINYINT(), SMALLINT()}));
+  roundtripTest(ROW({VARBINARY(), ROW({DOUBLE(), VARBINARY()}), SMALLINT()}));
+  roundtripTest(ROW({
+      ARRAY(VARBINARY()),
+      MAP(REAL(), ARRAY(DOUBLE())),
+      ROW({"a", "b"}, {DOUBLE(), VARBINARY()}),
+      INTEGER(),
+  }));
 }
 
 } // namespace

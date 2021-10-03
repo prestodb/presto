@@ -67,4 +67,23 @@ void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray);
 ///
 void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema);
 
+/// Import an ArrowSchema into a Velox Type object.
+///
+/// This function does the exact opposite of the function above. TypePtr carries
+/// all buffers they need to represent types, so after this function returns,
+/// the client is free to release any buffers associated with the input
+/// ArrowSchema object.
+///
+/// The function throws in case there was no valid conversion available.
+///
+/// Example usage:
+///
+///   ArrowSchema arrowSchema;
+///   ... // fills arrowSchema
+///   auto type = arrow::importToArrow(arrowSchema);
+///
+///   arrowSchema.release(&arrowSchema);
+///
+TypePtr importFromArrow(const ArrowSchema& arrowSchema);
+
 } // namespace facebook::velox::arrow
