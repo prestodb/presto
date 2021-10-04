@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode;
+package com.facebook.presto.sql.gen;
 
 import com.google.common.collect.ImmutableMap;
 
