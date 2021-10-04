@@ -20,7 +20,7 @@ import com.facebook.presto.common.type.Type;
 
 import java.lang.reflect.Method;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.Bootstrap.BOOTSTRAP_METHOD;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression
