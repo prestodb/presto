@@ -43,6 +43,12 @@ public class TestHiveDistributedQueries
     }
 
     @Override
+    protected boolean supportsMaterializedViews()
+    {
+        return true;
+    }
+
+    @Override
     protected boolean supportsNotNullColumns()
     {
         return false;

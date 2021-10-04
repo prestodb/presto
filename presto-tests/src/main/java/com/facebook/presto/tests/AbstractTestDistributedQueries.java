@@ -46,6 +46,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -75,6 +76,11 @@ public abstract class AbstractTestDistributedQueries
     protected boolean supportsViews()
     {
         return true;
+    }
+
+    protected boolean supportsMaterializedViews()
+    {
+        return false;
     }
 
     protected boolean supportsNotNullColumns()
@@ -1061,6 +1067,80 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_access");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewAccessControl()
+    {
+        skipTestUnless(supportsMaterializedViews());
+
+        Session invokerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_invoker", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+        Session ownerSession = getSession();
+
+        computeActual(
+                ownerSession,
+                "CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
+        computeActual(
+                ownerSession,
+                "CREATE MATERIALIZED VIEW test_orders_view " +
+                        "WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT orderkey, totalprice, orderstatus FROM test_orders_base");
+
+        String refreshMaterializedView = "REFRESH MATERIALIZED VIEW test_orders_view WHERE orderstatus = 'F'";
+
+        // Verify that refresh checks the owner's permission instead of the invoker's permission on the base table
+        assertAccessDenied(
+                invokerSession,
+                refreshMaterializedView,
+                "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                privilege(ownerSession.getUser(), "test_orders_base", SELECT_COLUMN));
+        assertAccessAllowed(
+                invokerSession,
+                refreshMaterializedView,
+                privilege(invokerSession.getUser(), "test_orders_base", SELECT_COLUMN));
+
+        // Verify that refresh checks owner's permission instead of the invokers permission on the materialized view.
+        // Verify that refresh requires INSERT_TABLE permission instead of SELECT_COLUMN permission on the materialized view.
+        assertAccessDenied(
+                invokerSession,
+                refreshMaterializedView,
+                "Cannot insert into table .*test_orders_view.*",
+                privilege(ownerSession.getUser(), "test_orders_view", INSERT_TABLE));
+        assertAccessAllowed(
+                invokerSession,
+                refreshMaterializedView,
+                privilege(invokerSession.getUser(), "test_orders_view", INSERT_TABLE));
+        assertAccessAllowed(
+                invokerSession,
+                refreshMaterializedView,
+                privilege(ownerSession.getUser(), "test_orders_view", SELECT_COLUMN));
+        assertAccessAllowed(
+                invokerSession,
+                refreshMaterializedView,
+                privilege(invokerSession.getUser(), "test_orders_view", SELECT_COLUMN));
+
+        // Verify for the owner invoking refresh
+        assertAccessDenied(
+                ownerSession,
+                refreshMaterializedView,
+                "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                privilege(ownerSession.getUser(), "test_orders_base", SELECT_COLUMN));
+        assertAccessDenied(
+                ownerSession,
+                refreshMaterializedView,
+                "Cannot insert into table .*test_orders_view.*",
+                privilege(ownerSession.getUser(), "test_orders_view", INSERT_TABLE));
+        assertAccessAllowed(
+                ownerSession,
+                refreshMaterializedView);
+
+        computeActual(ownerSession, "DROP MATERIALIZED VIEW test_orders_view");
+        computeActual(ownerSession, "DROP TABLE test_orders_base");
     }
 
     @Test

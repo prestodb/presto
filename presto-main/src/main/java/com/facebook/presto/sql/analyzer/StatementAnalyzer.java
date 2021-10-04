@@ -191,6 +191,8 @@ import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
+import static com.facebook.presto.sql.MaterializedViewUtils.getOwnerIdentity;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
@@ -710,16 +712,26 @@ class StatementAnalyzer
             ConnectorMaterializedViewDefinition view = metadata.getMaterializedView(session, viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
 
-            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
+            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), getOwnerIdentity(view.getOwner(), session), session.getAccessControlContext(), viewName);
 
-            Scope viewScope = process(node.getTarget(), scope);
+            // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
+            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
+            Scope viewScope = viewAnalyzer.analyze(node.getTarget(), scope);
             Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere(), viewScope, metadata, session);
 
             Query viewQuery = parseView(view.getOriginalSql(), viewName, node);
             Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName)) ?
                     buildQueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName)))
                     : viewQuery;
-            process(refreshQuery, scope);
+            // Check if the owner has SELECT permission on the base tables
+            StatementAnalyzer queryAnalyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    accessControl,
+                    buildOwnerSession(session, view.getOwner(), metadata.getSessionPropertyManager(), viewName.getCatalogName(), view.getSchema()),
+                    warningCollector);
+            queryAnalyzer.analyze(refreshQuery, Scope.create());
 
             TableHandle tableHandle = metadata.getTableHandle(session, viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
@@ -743,7 +755,9 @@ class StatementAnalyzer
             RefreshMaterializedView refreshMaterializedView = (RefreshMaterializedView) analysis.getStatement();
             QualifiedObjectName viewName = createQualifiedObjectName(session, refreshMaterializedView.getTarget(), refreshMaterializedView.getTarget().getName());
 
-            Scope viewScope = process(refreshMaterializedView.getTarget(), scope);
+            // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
+            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
+            Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
             Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere(), viewScope, metadata, session);
 
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
