@@ -14,7 +14,10 @@
 
 package com.facebook.presto.sql;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -25,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.ConnectorMaterializedViewDefinition.TableColumn;
@@ -82,6 +86,34 @@ public class MaterializedViewUtils
         }
 
         return fullColumnMappings.build();
+    }
+
+    public static Session buildOwnerSession(Session session, Optional<String> owner, SessionPropertyManager sessionPropertyManager, String catalog, String schema)
+    {
+        Identity identity = getOwnerIdentity(owner, session);
+
+        return Session.builder(sessionPropertyManager)
+                .setQueryId(session.getQueryId())
+                .setTransactionId(session.getTransactionId().orElse(null))
+                .setIdentity(identity)
+                .setSource(session.getSource().orElse(null))
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setTimeZoneKey(session.getTimeZoneKey())
+                .setLocale(session.getLocale())
+                .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
+                .setUserAgent(session.getUserAgent().orElse(null))
+                .setClientInfo(session.getClientInfo().orElse(null))
+                .setStartTime(session.getStartTime())
+                .build();
+    }
+
+    public static Identity getOwnerIdentity(Optional<String> owner, Session session)
+    {
+        if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
+            return new Identity(owner.get(), Optional.empty());
+        }
+        return session.getIdentity();
     }
 
     private static Map<String, TableColumn> getOriginalColumnsFromAnalysis(Node viewQuery, Analysis analysis)
