@@ -26,4 +26,5 @@ public class RuntimeMetricName
 
     public static final String DRIVER_COUNT_PER_TASK = "driverCountPerTask";
     public static final String TASK_ELAPSED_TIME_NANOS = "taskElapsedTimeNanos";
+    public static final String WASTED_FILTER_BYTES = "wastedFilterBytes";
 }

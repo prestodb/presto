@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.RuntimeMetricName.WASTED_FILTER_BYTES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -162,6 +163,9 @@ public class FilteringPageSource
             }
         }
 
+        RuntimeStats stats = getRuntimeStats();
+        long bytesBeforeFilter = 0;
+        Page pageAfterFilter = null;
         if (filterFunction != null) {
             RuntimeException[] errors = new RuntimeException[positionCount];
 
@@ -173,6 +177,7 @@ public class FilteringPageSource
             }
 
             Page inputPage = new Page(page.getPositionCount(), inputBlocks);
+            bytesBeforeFilter = inputPage.getSizeInBytes();
             positionCount = filterFunction.filter(inputPage, positions, positionCount, errors);
             for (int i = 0; i < positionCount; i++) {
                 if (errors[i] != null) {
@@ -180,11 +185,20 @@ public class FilteringPageSource
                 }
             }
             if (positionCount == 0) {
+                stats.addMetricValue(WASTED_FILTER_BYTES, bytesBeforeFilter);
                 return new Page(0);
+            }
+            else {
+                pageAfterFilter = page.getPositions(positions, 0, positionCount);
+                stats.addMetricValue(WASTED_FILTER_BYTES, bytesBeforeFilter - pageAfterFilter.getSizeInBytes());
             }
         }
 
         if (outputBlockCount == page.getChannelCount()) {
+            if (pageAfterFilter != null) {
+                return pageAfterFilter;
+            }
+
             return page.getPositions(positions, 0, positionCount);
         }
 

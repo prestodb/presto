@@ -49,6 +49,7 @@ public final class Page
     private volatile long sizeInBytes = -1;
     private volatile long retainedSizeInBytes = -1;
     private volatile long logicalSizeInBytes = -1;
+    private long filterWastedSizeInBytes;
 
     public Page(Block... blocks)
     {
@@ -131,6 +132,16 @@ public final class Page
             return updateRetainedSize();
         }
         return retainedSizeInBytes;
+    }
+
+    public long getFilterWastedSizeInBytes()
+    {
+        return filterWastedSizeInBytes;
+    }
+
+    public void setFilterWastedSizeInBytes(long wastedSizeInBytes)
+    {
+        this.filterWastedSizeInBytes = wastedSizeInBytes;
     }
 
     public Block getBlock(int channel)

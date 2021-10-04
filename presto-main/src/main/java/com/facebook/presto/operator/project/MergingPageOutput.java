@@ -170,6 +170,7 @@ public class MergingPageOutput
                 type.appendTo(block, position, blockBuilder);
             }
         }
+        pageBuilder.addFilterWastedInBytes(page.getFilterWastedSizeInBytes());
         if (pageBuilder.isFull()) {
             flush();
         }
@@ -179,6 +180,7 @@ public class MergingPageOutput
     {
         if (!pageBuilder.isEmpty()) {
             Page output = pageBuilder.build();
+            output.setFilterWastedSizeInBytes(pageBuilder.getFilterWastedBytes());
             pageBuilder.reset();
             outputQueue.add(output);
         }

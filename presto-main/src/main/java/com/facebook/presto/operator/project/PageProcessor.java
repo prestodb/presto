@@ -38,7 +38,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
@@ -154,6 +156,7 @@ public class PageProcessor
         private Page page;
         private Block[] previouslyComputedResults;
         private SelectedPositions selectedPositions;
+        private final SelectedPositions originalSelectedPositions;
         private long retainedSizeInBytes;
 
         // remember if we need to re-use the same batch size if we yield last time
@@ -170,6 +173,7 @@ public class PageProcessor
             this.page = page;
             this.memoryContext = memoryContext;
             this.selectedPositions = selectedPositions;
+            this.originalSelectedPositions = selectedPositions;
             this.previouslyComputedResults = new Block[outputCount];
         }
 
@@ -254,6 +258,8 @@ public class PageProcessor
                     updateRetainedSize();
                 }
                 else {
+                    long wastedBytesAfterFilter = calculateWastedBytesAfterFilter(page, originalSelectedPositions);
+                    resultPage.setFilterWastedSizeInBytes(wastedBytesAfterFilter); // set to the last result page
                     page = null;
                     for (int i = 0; i < previouslyComputedResults.length; i++) {
                         previouslyComputedResults[i] = null;
@@ -263,6 +269,28 @@ public class PageProcessor
 
                 return ofResult(resultPage);
             }
+        }
+
+        private long calculateWastedBytesAfterFilter(Page page, SelectedPositions selectedPositions)
+        {
+            if (selectedPositions.isEmpty() || !selectedPositions.isList()) {
+                return 0;
+            }
+
+            long wasted = 0;
+            Set<Integer> positions = Arrays.stream(selectedPositions.getPositions()).boxed().collect(Collectors.toSet());
+
+            // Though the page is fully loaded at this point, it is slow to calculate the wasted size. Not sure if
+            // we should do this or not.
+            for (int i = 0; i < page.getChannelCount(); i++) {
+                for (int j = 0; j < page.getPositionCount(); j++) {
+                    if (positions.contains(j)) {
+                        continue;
+                    }
+                    wasted += page.getBlock(i).getSizeInBytes();
+                }
+            }
+            return wasted;
         }
 
         private void updateRetainedSize()
