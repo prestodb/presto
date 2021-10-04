@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar.annotations;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.CodegenScalarFunction;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -104,7 +103,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
         Set<Method> methods = findPublicStaticMethods(
                 clazz,
                 ImmutableSet.of(SqlInvokedScalarFunction.class, SqlType.class, SqlParameter.class, SqlParameters.class, Description.class),
-                ImmutableSet.of(ScalarFunction.class, ScalarOperator.class, CodegenScalarFunction.class));
+                ImmutableSet.of(ScalarFunction.class, ScalarOperator.class));
         for (Method method : methods) {
             checkCondition(
                     method.isAnnotationPresent(SqlInvokedScalarFunction.class) && method.isAnnotationPresent(SqlType.class),
