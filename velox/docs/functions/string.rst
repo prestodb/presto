@@ -60,6 +60,16 @@ String Functions
 
     Removes trailing whitespace from string.
 
+.. function:: split(string, delimiter) -> array(string)
+
+    Splits ``string`` on ``delimiter`` and returns an array.
+
+.. function:: split(string, delimiter, limit) -> array(string)
+    Splits ``string`` on ``delimiter`` and returns an array of size at most ``limit``.
+
+    The last element in the array always contains everything left in the string.
+    ``limit`` must be a positive number.
+
 .. function:: strpos(string, substring) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in

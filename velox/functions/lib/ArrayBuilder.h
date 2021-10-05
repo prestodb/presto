@@ -103,6 +103,11 @@ class ArrayBuilder {
     elements_.setStringBuffers(std::move(buffers));
   }
 
+  // Overwrite the string buffers associated with the elements array.
+  void setStringBuffers(const BaseVector* source) {
+    elements_.setStringBuffers(source);
+  }
+
   // Convert the collected data into an ArrayVector. It is not valid to call
   // any other methods on this object after this call.
   std::shared_ptr<ArrayVector> finish(memory::MemoryPool* pool) && {

@@ -76,6 +76,22 @@ inline std::string mapSimpleToName(const VectorEncoding::Simple& simple) {
   return ss.str();
 }
 
+inline bool isFlat(VectorEncoding::Simple encoding) {
+  return encoding == VectorEncoding::Simple::FLAT;
+}
+
+inline bool isConstant(VectorEncoding::Simple encoding) {
+  return encoding == VectorEncoding::Simple::CONSTANT;
+}
+
+inline bool isLazy(VectorEncoding::Simple encoding) {
+  return encoding == VectorEncoding::Simple::LAZY;
+}
+
+inline bool isDictionary(VectorEncoding::Simple encoding) {
+  return encoding == VectorEncoding::Simple::DICTIONARY;
+}
+
 VectorEncoding::Simple mapNameToSimple(const std::string& name);
 } // namespace VectorEncoding
 } // namespace facebook::velox
