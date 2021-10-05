@@ -177,6 +177,32 @@ TEST_F(ArithmeticTest, ln) {
   EXPECT_EQ(std::nullopt, ln(std::nullopt));
 }
 
+TEST_F(ArithmeticTest, log2) {
+  const auto log2 = [&](std::optional<double> a) {
+    return evaluateOnce<double>("log2(c0)", a);
+  };
+
+  EXPECT_EQ(log2(1), 0);
+  EXPECT_TRUE(std::isnan(log2(-1).value()));
+  EXPECT_EQ(log2(std::nullopt), std::nullopt);
+  EXPECT_EQ(log2(kInf), kInf);
+  EXPECT_TRUE(std::isnan(log2(kNan).value()));
+}
+
+TEST_F(ArithmeticTest, log10) {
+  const auto log10 = [&](std::optional<double> a) {
+    return evaluateOnce<double>("log10(c0)", a);
+  };
+
+  EXPECT_EQ(log10(10), 1);
+  EXPECT_EQ(log10(1), 0);
+  EXPECT_EQ(log10(0.1), -1);
+  EXPECT_TRUE(std::isnan(log10(-1).value()));
+  EXPECT_EQ(log10(std::nullopt), std::nullopt);
+  EXPECT_EQ(log10(kInf), kInf);
+  EXPECT_TRUE(std::isnan(log10(kNan).value()));
+}
+
 TEST_F(ArithmeticTest, cos) {
   const auto cosEval = [&](std::optional<double> a) {
     return evaluateOnce<double>("cos(c0)", a);

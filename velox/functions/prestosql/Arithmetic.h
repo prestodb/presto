@@ -150,6 +150,20 @@ FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(log2)
+FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  result = std::log2(a);
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(log10)
+FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  result = std::log10(a);
+  return true;
+}
+VELOX_UDF_END();
+
 VELOX_UDF_BEGIN(cos)
 FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
   result = std::cos(a);
