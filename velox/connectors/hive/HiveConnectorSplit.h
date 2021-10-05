@@ -17,8 +17,8 @@
 
 #include <optional>
 #include <unordered_map>
+#include "velox/connectors/Connector.h"
 #include "velox/dwio/common/Options.h"
-#include "velox/exec/Operator.h"
 
 namespace facebook::velox::connector::hive {
 
