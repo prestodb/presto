@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.rcfile;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.LazyBlock;
@@ -59,7 +60,9 @@ public class RcFilePageSource
 
     private boolean closed;
 
-    public RcFilePageSource(RcFileReader rcFileReader, List<HiveColumnHandle> columns, TypeManager typeManager)
+    private final RuntimeStats runtimeStats;
+
+    public RcFilePageSource(RcFileReader rcFileReader, List<HiveColumnHandle> columns, TypeManager typeManager, RuntimeStats runtimeStats)
     {
         requireNonNull(rcFileReader, "rcReader is null");
         requireNonNull(columns, "columns is null");
@@ -71,6 +74,7 @@ public class RcFilePageSource
 
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
+        this.runtimeStats = runtimeStats;
 
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -204,6 +208,12 @@ public class RcFilePageSource
                 throwable.addSuppressed(e);
             }
         }
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     private Block createBlock(int currentPageSize, int fieldId)
