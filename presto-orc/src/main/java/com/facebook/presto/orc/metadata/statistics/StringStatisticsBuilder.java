@@ -126,7 +126,7 @@ public class StringStatisticsBuilder
     {
         Optional<StringStatistics> stringStatistics = buildStringStatistics();
         stringStatistics.ifPresent(s -> verify(nonNullValueCount > 0));
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 nonNullValueCount,
                 stringStatistics.map(s -> STRING_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
                 null,

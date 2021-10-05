@@ -283,7 +283,7 @@ public class TestOrcBloomFilters
         hiveBloomFilter.addLong(1234);
         OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(hiveBloomFilter);
 
-        Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, ColumnStatistics.createColumnStatistics(
                 null,
                 0,
                 null,
@@ -295,7 +295,7 @@ public class TestOrcBloomFilters
                 null,
                 toHiveBloomFilter(orcBloomFilter)));
 
-        Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, ColumnStatistics.createColumnStatistics(
                 null,
                 0,
                 null,
@@ -307,7 +307,7 @@ public class TestOrcBloomFilters
                 null,
                 toHiveBloomFilter(emptyOrcBloomFilter)));
 
-        Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, ColumnStatistics.createColumnStatistics(
                 null,
                 0,
                 null,

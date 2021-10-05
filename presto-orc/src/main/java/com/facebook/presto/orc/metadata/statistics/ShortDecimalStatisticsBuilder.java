@@ -59,7 +59,7 @@ public class ShortDecimalStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics();
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 nonNullValueCount,
                 decimalStatistics.map(s -> DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES).orElse(0L),
                 null,

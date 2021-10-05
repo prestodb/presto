@@ -322,7 +322,7 @@ public class TestStringStatisticsBuilder
 
     private static ColumnStatistics stringColumnStatistics(Slice minimum, Slice maximum)
     {
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 100L,
                 100,
                 null,

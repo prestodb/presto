@@ -85,7 +85,7 @@ public class IntegerStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<IntegerStatistics> integerStatistics = buildIntegerStatistics();
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 nonNullValueCount,
                 integerStatistics.map(s -> INTEGER_VALUE_BYTES).orElse(0L),
                 null,

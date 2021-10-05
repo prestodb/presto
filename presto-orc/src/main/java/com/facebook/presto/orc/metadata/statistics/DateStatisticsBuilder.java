@@ -60,7 +60,7 @@ public class DateStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<DateStatistics> dateStatistics = buildDateStatistics();
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 nonNullValueCount,
                 dateStatistics.map(s -> DATE_VALUE_BYTES).orElse(0L),
                 null,

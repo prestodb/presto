@@ -597,7 +597,7 @@ public class OrcWriter
 
         // the 0th column is a struct column for the whole row
         columnEncodings.put(0, new ColumnEncoding(DIRECT, 0));
-        columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
+        columnStatistics.put(0, ColumnStatistics.createColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
 
         Map<Integer, ColumnEncoding> unencryptedColumnEncodings = columnEncodings.entrySet().stream()
                 .filter(entry -> !dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).isPresent())
@@ -774,7 +774,7 @@ public class OrcWriter
             verify(isRootNode && nodeAndSubNodeStats.isEmpty() || nodeAndSubNodeStats.size() == 1 && nodeAndSubNodeStats.get(group) != null,
                     "nodeAndSubNodeStats should only be present for subnodes of a group");
             nodeAndSubNodeStats.computeIfAbsent(group, x -> new ArrayList<>()).add(columnStatistics);
-            unencryptedStats.add(new ColumnStatistics(
+            unencryptedStats.add(ColumnStatistics.createColumnStatistics(
                     columnStatistics.getNumberOfValues(),
                     columnStatistics.getMinAverageValueSizeInBytes(),
                     null,

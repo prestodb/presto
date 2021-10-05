@@ -84,7 +84,7 @@ public class DoubleStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<DoubleStatistics> doubleStatistics = buildDoubleStatistics();
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 nonNullValueCount,
                 doubleStatistics.map(s -> DOUBLE_VALUE_BYTES).orElse(0L),
                 null,

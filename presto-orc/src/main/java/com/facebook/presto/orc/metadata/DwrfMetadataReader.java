@@ -503,7 +503,7 @@ public class DwrfMetadataReader
             minAverageValueBytes = 0;
         }
 
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,

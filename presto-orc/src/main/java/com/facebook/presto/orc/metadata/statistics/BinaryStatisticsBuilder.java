@@ -57,7 +57,7 @@ public class BinaryStatisticsBuilder
     {
         Optional<BinaryStatistics> binaryStatistics = buildBinaryStatistics();
         binaryStatistics.ifPresent(s -> verify(nonNullValueCount > 0));
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 nonNullValueCount,
                 binaryStatistics.map(s -> BINARY_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
                 null,

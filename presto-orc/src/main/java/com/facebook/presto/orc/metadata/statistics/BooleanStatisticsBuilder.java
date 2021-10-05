@@ -66,7 +66,7 @@ public class BooleanStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<BooleanStatistics> booleanStatistics = buildBooleanStatistics();
-        return new ColumnStatistics(
+        return ColumnStatistics.createColumnStatistics(
                 nonNullValueCount,
                 booleanStatistics.map(s -> BOOLEAN_VALUE_BYTES).orElse(0L),
                 booleanStatistics.orElse(null),

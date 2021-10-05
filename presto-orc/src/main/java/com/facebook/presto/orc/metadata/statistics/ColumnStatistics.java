@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -36,16 +37,20 @@ public class ColumnStatistics
     private final boolean hasNumberOfValues;
     private final long numberOfValues;
     private final long minAverageValueSizeInBytes;
-    private final BooleanStatistics booleanStatistics;
-    private final IntegerStatistics integerStatistics;
-    private final DoubleStatistics doubleStatistics;
-    private final StringStatistics stringStatistics;
-    private final DateStatistics dateStatistics;
-    private final DecimalStatistics decimalStatistics;
-    private final BinaryStatistics binaryStatistics;
     private final HiveBloomFilter bloomFilter;
 
     public ColumnStatistics(
+            Long numberOfValues,
+            long minAverageValueSizeInBytes,
+            HiveBloomFilter bloomFilter)
+    {
+        this.hasNumberOfValues = numberOfValues != null;
+        this.numberOfValues = hasNumberOfValues ? numberOfValues : 0;
+        this.minAverageValueSizeInBytes = minAverageValueSizeInBytes;
+        this.bloomFilter = bloomFilter;
+    }
+
+    public static ColumnStatistics createColumnStatistics(
             Long numberOfValues,
             long minAverageValueSizeInBytes,
             BooleanStatistics booleanStatistics,
@@ -57,17 +62,35 @@ public class ColumnStatistics
             BinaryStatistics binaryStatistics,
             HiveBloomFilter bloomFilter)
     {
-        this.hasNumberOfValues = numberOfValues != null;
-        this.numberOfValues = hasNumberOfValues ? numberOfValues : 0;
-        this.minAverageValueSizeInBytes = minAverageValueSizeInBytes;
-        this.booleanStatistics = booleanStatistics;
-        this.integerStatistics = integerStatistics;
-        this.doubleStatistics = doubleStatistics;
-        this.stringStatistics = stringStatistics;
-        this.dateStatistics = dateStatistics;
-        this.decimalStatistics = decimalStatistics;
-        this.binaryStatistics = binaryStatistics;
-        this.bloomFilter = bloomFilter;
+        if (booleanStatistics != null) {
+            return new BooleanColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, booleanStatistics);
+        }
+
+        if (integerStatistics != null) {
+            return new IntegerColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, integerStatistics);
+        }
+
+        if (doubleStatistics != null) {
+            return new DoubleColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, doubleStatistics);
+        }
+
+        if (stringStatistics != null) {
+            return new StringColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, stringStatistics);
+        }
+
+        if (dateStatistics != null) {
+            return new DateColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, dateStatistics);
+        }
+
+        if (decimalStatistics != null) {
+            return new DecimalColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, decimalStatistics);
+        }
+
+        if (binaryStatistics != null) {
+            return new BinaryColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, binaryStatistics);
+        }
+
+        return new ColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
     }
 
     public boolean hasNumberOfValues()
@@ -98,37 +121,37 @@ public class ColumnStatistics
 
     public BooleanStatistics getBooleanStatistics()
     {
-        return booleanStatistics;
+        return null;
     }
 
     public DateStatistics getDateStatistics()
     {
-        return dateStatistics;
+        return null;
     }
 
     public DoubleStatistics getDoubleStatistics()
     {
-        return doubleStatistics;
+        return null;
     }
 
     public IntegerStatistics getIntegerStatistics()
     {
-        return integerStatistics;
+        return null;
     }
 
     public StringStatistics getStringStatistics()
     {
-        return stringStatistics;
+        return null;
     }
 
     public DecimalStatistics getDecimalStatistics()
     {
-        return decimalStatistics;
+        return null;
     }
 
     public BinaryStatistics getBinaryStatistics()
     {
-        return binaryStatistics;
+        return null;
     }
 
     public HiveBloomFilter getBloomFilter()
@@ -141,44 +164,27 @@ public class ColumnStatistics
         return new ColumnStatistics(
                 getNumberOfValues(),
                 minAverageValueSizeInBytes,
-                booleanStatistics,
-                integerStatistics,
-                doubleStatistics,
-                stringStatistics,
-                dateStatistics,
-                decimalStatistics,
-                binaryStatistics,
                 bloomFilter);
+    }
+
+    protected final long getMembersSizeInBytes()
+    {
+        if (bloomFilter != null) {
+            return bloomFilter.getRetainedSizeInBytes();
+        }
+        return 0;
     }
 
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE;
-        if (booleanStatistics != null) {
-            retainedSizeInBytes += booleanStatistics.getRetainedSizeInBytes();
-        }
-        if (integerStatistics != null) {
-            retainedSizeInBytes += integerStatistics.getRetainedSizeInBytes();
-        }
-        if (doubleStatistics != null) {
-            retainedSizeInBytes += doubleStatistics.getRetainedSizeInBytes();
-        }
-        if (stringStatistics != null) {
-            retainedSizeInBytes += stringStatistics.getRetainedSizeInBytes();
-        }
-        if (dateStatistics != null) {
-            retainedSizeInBytes += dateStatistics.getRetainedSizeInBytes();
-        }
-        if (decimalStatistics != null) {
-            retainedSizeInBytes += decimalStatistics.getRetainedSizeInBytes();
-        }
-        if (binaryStatistics != null) {
-            retainedSizeInBytes += binaryStatistics.getRetainedSizeInBytes();
-        }
-        if (bloomFilter != null) {
-            retainedSizeInBytes += bloomFilter.getRetainedSizeInBytes();
-        }
-        return retainedSizeInBytes;
+        return INSTANCE_SIZE + getMembersSizeInBytes();
+    }
+
+    protected final boolean equalsInternal(ColumnStatistics that)
+    {
+        return Objects.equals(hasNumberOfValues, that.hasNumberOfValues) &&
+                Objects.equals(getNumberOfValues(), that.getNumberOfValues()) &&
+                Objects.equals(bloomFilter, that.bloomFilter);
     }
 
     @Override
@@ -190,17 +196,7 @@ public class ColumnStatistics
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ColumnStatistics that = (ColumnStatistics) o;
-        return Objects.equals(hasNumberOfValues, that.hasNumberOfValues) &&
-                Objects.equals(getNumberOfValues(), that.getNumberOfValues()) &&
-                Objects.equals(booleanStatistics, that.booleanStatistics) &&
-                Objects.equals(integerStatistics, that.integerStatistics) &&
-                Objects.equals(doubleStatistics, that.doubleStatistics) &&
-                Objects.equals(stringStatistics, that.stringStatistics) &&
-                Objects.equals(dateStatistics, that.dateStatistics) &&
-                Objects.equals(decimalStatistics, that.decimalStatistics) &&
-                Objects.equals(binaryStatistics, that.binaryStatistics) &&
-                Objects.equals(bloomFilter, that.bloomFilter);
+        return equalsInternal((ColumnStatistics) o);
     }
 
     @Override
@@ -209,30 +205,21 @@ public class ColumnStatistics
         return Objects.hash(
                 hasNumberOfValues,
                 getNumberOfValues(),
-                booleanStatistics,
-                integerStatistics,
-                doubleStatistics,
-                stringStatistics,
-                dateStatistics,
-                decimalStatistics,
-                binaryStatistics,
                 bloomFilter);
+    }
+
+    protected ToStringHelper getToStringHelper()
+    {
+        return toStringHelper(this)
+                .omitNullValues()
+                .add("numberOfValues", getNumberOfValues())
+                .add("bloomFilter", bloomFilter);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .omitNullValues()
-                .add("numberOfValues", getNumberOfValues())
-                .add("booleanStatistics", booleanStatistics)
-                .add("integerStatistics", integerStatistics)
-                .add("doubleStatistics", doubleStatistics)
-                .add("stringStatistics", stringStatistics)
-                .add("dateStatistics", dateStatistics)
-                .add("decimalStatistics", decimalStatistics)
-                .add("binaryStatistics", binaryStatistics)
-                .add("bloomFilter", bloomFilter)
+        return getToStringHelper()
                 .toString();
     }
 
@@ -240,13 +227,6 @@ public class ColumnStatistics
     public void addHash(StatisticsHasher hasher)
     {
         hasher.putOptionalLong(hasNumberOfValues, numberOfValues)
-                .putOptionalHashable(booleanStatistics)
-                .putOptionalHashable(integerStatistics)
-                .putOptionalHashable(doubleStatistics)
-                .putOptionalHashable(stringStatistics)
-                .putOptionalHashable(dateStatistics)
-                .putOptionalHashable(decimalStatistics)
-                .putOptionalHashable(binaryStatistics)
                 .putOptionalHashable(bloomFilter);
     }
 
@@ -263,7 +243,7 @@ public class ColumnStatistics
                     .sum() / numberOfRows;
         }
 
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 numberOfRows,
                 minAverageValueBytes,
                 mergeBooleanStatistics(stats).orElse(null),
