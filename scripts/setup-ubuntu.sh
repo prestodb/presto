@@ -30,6 +30,7 @@ cd "${BUILD_DIR}"
 sudo apt install -y \
   g++ \
   cmake \
+  ccache \
   ninja-build \
   checkinstall \
   git \
