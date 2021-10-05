@@ -1,4 +1,4 @@
-# Presto [![Build Status](https://travis-ci.com/prestodb/presto.svg?branch=master)](https://travis-ci.com/prestodb/presto)
+# Presto [![Build Status](https://github.com/prestodb/presto/actions/workflows/ci.yml/badge.svg)](https://github.com/prestodb/presto/actions/workflows/ci.yml)
 
 Presto is a distributed SQL query engine for big data.
 
