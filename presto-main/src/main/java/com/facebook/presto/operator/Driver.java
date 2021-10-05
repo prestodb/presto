@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeMetricName.WASTED_FILTER_BYTES;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -416,6 +417,9 @@ public class Driver
                     if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
                         // get an output page from current operator
                         Page page = current.getOutput();
+                        if (page != null) {
+                            current.getOperatorContext().getRuntimeStats().addMetricValue(WASTED_FILTER_BYTES, page.getFilterWastedSizeInBytes());
+                        }
                         current.getOperatorContext().recordGetOutput(operationTimer, page);
 
                         // For the last non-output operator, we keep the pages for caching purpose.

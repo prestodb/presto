@@ -38,6 +38,7 @@ public class PageBuilder
     private final List<Type> types;
     private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
+    private long filterWastedBytes;
 
     /**
      * Create a PageBuilder with given types.
@@ -93,6 +94,7 @@ public class PageBuilder
         pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes());
 
         declaredPositions = 0;
+        filterWastedBytes = 0;
 
         for (int i = 0; i < blockBuilders.length; i++) {
             blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
@@ -170,6 +172,16 @@ public class PageBuilder
         }
 
         return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
+    }
+
+    public void addFilterWastedInBytes(long wastedInPage)
+    {
+        filterWastedBytes += wastedInPage;
+    }
+
+    public long getFilterWastedBytes()
+    {
+        return filterWastedBytes;
     }
 
     private static void checkArgument(boolean expression, String errorMessage)
