@@ -206,20 +206,20 @@ public final class SubfieldExtractor
         if (pathElement instanceof Subfield.LongSubscript) {
             Type indexType = baseType instanceof MapType ? ((MapType) baseType).getKeyType() : BIGINT;
             FunctionHandle functionHandle = functionResolution.subscriptFunction(baseType, indexType);
-            ConstantExpression index = new ConstantExpression(((Subfield.LongSubscript) pathElement).getIndex(), indexType);
-            return new CallExpression(SUBSCRIPT.name(), functionHandle, types.get(types.size() - 1), ImmutableList.of(base, index));
+            ConstantExpression index = new ConstantExpression(base.getSourceLocation(), ((Subfield.LongSubscript) pathElement).getIndex(), indexType);
+            return new CallExpression(base.getSourceLocation(), SUBSCRIPT.name(), functionHandle, types.get(types.size() - 1), ImmutableList.of(base, index));
         }
 
         if (pathElement instanceof Subfield.StringSubscript) {
             Type indexType = ((MapType) baseType).getKeyType();
             FunctionHandle functionHandle = functionResolution.subscriptFunction(baseType, indexType);
-            ConstantExpression index = new ConstantExpression(Slices.utf8Slice(((Subfield.StringSubscript) pathElement).getIndex()), indexType);
-            return new CallExpression(SUBSCRIPT.name(), functionHandle, types.get(types.size() - 1), ImmutableList.of(base, index));
+            ConstantExpression index = new ConstantExpression(base.getSourceLocation(), Slices.utf8Slice(((Subfield.StringSubscript) pathElement).getIndex()), indexType);
+            return new CallExpression(base.getSourceLocation(), SUBSCRIPT.name(), functionHandle, types.get(types.size() - 1), ImmutableList.of(base, index));
         }
 
         if (pathElement instanceof Subfield.NestedField) {
             Subfield.NestedField nestedField = (Subfield.NestedField) pathElement;
-            return new SpecialFormExpression(DEREFERENCE, types.get(types.size() - 1), base, new ConstantExpression(getFieldIndex((RowType) baseType, nestedField.getName()), INTEGER));
+            return new SpecialFormExpression(base.getSourceLocation(), DEREFERENCE, types.get(types.size() - 1), base, new ConstantExpression(base.getSourceLocation(), getFieldIndex((RowType) baseType, nestedField.getName()), INTEGER));
         }
 
         verify(false, "Unexpected path element: " + pathElement);
