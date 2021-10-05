@@ -65,8 +65,8 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
     VELOX_CHECK_NOT_NULL(buffer);
 
     if (type->isTimestamp()) {
-      // Follow Spark, serialize timestamp as seconds
-      return serializeTimestampSeconds(data, buffer, idx);
+      // Follow Spark, serialize timestamp as micros.
+      return serializeTimestampMicros(data, buffer, idx);
     }
 
     if (type->isFixedWidth()) {

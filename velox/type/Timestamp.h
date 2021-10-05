@@ -47,6 +47,10 @@ struct Timestamp {
     return seconds_ * 1'000 + nanos_ / 1'000'000;
   }
 
+  int64_t toMicros() const {
+    return seconds_ * 1'000'000 + nanos_ / 1'000;
+  }
+
   static Timestamp fromMillis(int64_t millis) {
     return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);
   }

@@ -85,8 +85,8 @@ struct UnsafeRowSerializer {
   serialize(const DataType& data, char* buffer, size_t idx = 0) {
     VELOX_CHECK_NOT_NULL(buffer);
     if constexpr (std::is_same<SqlType, TimestampType>::value) {
-      // Follow Spark, serialize timestamp as seconds
-      return serializeTimestampSeconds(data, buffer, idx);
+      // Follow Spark, serialize timestamp as micros.
+      return serializeTimestampMicros(data, buffer, idx);
     } else if constexpr (UnsafeRowStaticUtilities::isFixedWidth<SqlType>()) {
       return serializeFixedLength<
           UnsafeRowStaticUtilities::simpleSqlTypeToTypeKind<SqlType>()>(
@@ -243,7 +243,7 @@ struct UnsafeRowSerializer {
     throw("Unsupported data type for serializeStringView()");
   }
 
-  /// Serializes a Timestamp as seconds.
+  /// Serializes a Timestamp as microseconds since the epoch.
   /// \param data
   /// \param buffer Pre allocated buffer for the return value
   /// \param idx This argument is ignored because data is not a Vector.
@@ -251,16 +251,12 @@ struct UnsafeRowSerializer {
   /// is written or only fixed data length data is written, std::nullopt
   /// otherwise
   inline static std::optional<size_t>
-  serializeTimestampSeconds(const Timestamp& data, char* buffer, size_t idx) {
-    // Spark Java writes the timestamp in seconds as a Long
-    TypeTraits<TypeKind::BIGINT>::NativeType seconds = data.getSeconds();
-    return serializeFixedLength<TypeKind::BIGINT>(
-        (typename TypeTraits<TypeKind::BIGINT>::NativeType)data.getSeconds(),
-        buffer,
-        idx);
+  serializeTimestampMicros(const Timestamp data, char* buffer, size_t idx) {
+    // Spark Java writes the timestamp in micros as a Long.
+    return serializeFixedLength<TypeKind::BIGINT>(data.toMicros(), buffer, idx);
   }
 
-  /// Serializes an element in a VectorPtr of Timestamps as seconds.
+  /// Serializes an element in a VectorPtr of Timestamps as microseconds.
   /// \param data
   /// \param buffer Pre allocated buffer for the return value
   /// \param idx
@@ -268,25 +264,21 @@ struct UnsafeRowSerializer {
   /// is written or only fixed data length data is written, std::nullopt
   /// otherwise
   inline static std::optional<size_t>
-  serializeTimestampSeconds(const VectorPtr& data, char* buffer, size_t idx) {
-    auto* rawData = data->loadedVector();
-
-    using NativeType = typename TypeTraits<TypeKind::BIGINT>::NativeType;
-    const auto& simple = static_cast<SimpleVector<Timestamp>&>(*rawData);
-
-    VELOX_CHECK(data->isIndexInRange(idx));
-
+  serializeTimestampMicros(const VectorPtr& data, char* buffer, size_t idx) {
+    const auto& simple =
+        static_cast<SimpleVector<Timestamp>&>(*data->loadedVector());
+    VELOX_DCHECK(data->isIndexInRange(idx));
     if (simple.isNullAt(idx)) {
       return std::nullopt;
     }
-    return serializeTimestampSeconds(simple.valueAt(idx), buffer, idx);
+    return serializeTimestampMicros(simple.valueAt(idx), buffer, idx);
   }
 
   /// Template definition for unsupported types.
   template <typename T>
   inline static std::optional<size_t>
-  serializeTimestampSeconds(const T& data, char* buffer, size_t idx) {
-    throw("Unsupported data type for serializeTimestampSeconds()");
+  serializeTimestampMicros(const T& data, char* buffer, size_t idx) {
+    throw("Unsupported data type for serializeTimestampMicros()");
   }
 
   /// Write the data as a uint64_t at the given location.

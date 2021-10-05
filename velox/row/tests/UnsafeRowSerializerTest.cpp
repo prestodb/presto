@@ -16,6 +16,7 @@
 
 #include "velox/row/UnsafeRowSerializer.h"
 #include <gtest/gtest.h>
+
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -266,25 +267,23 @@ TEST_F(UnsafeRowSerializerTests, StringsDynamic) {
 
 TEST_F(UnsafeRowSerializerTests, timestamp) {
   bool nulls[2] = {false, true};
-  Timestamp elements[2] = {
-      Timestamp((int64_t)std::numeric_limits<int64_t>::max(), 0),
-      Timestamp(0, 0)};
+  Timestamp elements[2] = {Timestamp(1, 2'000), Timestamp(0, 0)};
   auto timestampVec = makeFlatVectorPtr<Timestamp>(
       2, TIMESTAMP(), pool_.get(), nulls, elements);
 
   auto serialized0 = UnsafeRowDynamicSerializer::serialize(
       TIMESTAMP(), timestampVec, buffer_, 0);
-  int64_t expected0 = std::numeric_limits<int64_t>::max();
+  int64_t expected0 = 1'000'000 + 2; // 1s + 2000ns in micros.
   EXPECT_TRUE(checkFixedLength(serialized0, 0, &expected0));
 
   auto serialized1 =
       UnsafeRowSerializer::serialize<TimestampType>(timestampVec, buffer_, 1);
   EXPECT_TRUE(checkIsNull(serialized1));
 
-  auto timestamp = Timestamp((int64_t)std::numeric_limits<int64_t>::min(), 0);
+  auto timestamp = Timestamp(-1, 2'000);
   auto serialized3 =
       UnsafeRowDynamicSerializer::serialize(TIMESTAMP(), timestamp, buffer_);
-  int64_t expected3 = std::numeric_limits<int64_t>::min();
+  int64_t expected3 = -1'000'000L + 2;
   EXPECT_TRUE(checkFixedLength(serialized3, 0, &expected3));
 }
 
@@ -931,7 +930,7 @@ TEST_F(UnsafeRowSerializerTests, rowFixedLength) {
       std::vector<std::optional<int32_t>>(5, std::nullopt));
 
   auto c5 = vectorMaker_->constantVector<Timestamp>(
-      std::vector<std::optional<Timestamp>>(5, Timestamp(0xFF, 0)));
+      std::vector<std::optional<Timestamp>>(5, Timestamp(0, 0xFF * 1000)));
 
   auto c6 = vectorMaker_->constantVector<Timestamp>(
       std::vector<std::optional<Timestamp>>(5, std::nullopt));
@@ -1173,14 +1172,12 @@ TEST_F(UnsafeRowSerializerTests, LazyVector) {
       UnsafeRowDynamicSerializer::serialize(VARCHAR(), lazyVector0, buffer_, 0);
   EXPECT_TRUE(checkVariableLength(serialized0, 13, u8"Hello, World!"));
 
-  VectorPtr lazyVector1 =
-      vectorMaker_->lazyFlatVector<Timestamp>(1, [](vector_size_t i) {
-        return Timestamp((int64_t)std::numeric_limits<int64_t>::max(), 0);
-      });
+  VectorPtr lazyVector1 = vectorMaker_->lazyFlatVector<Timestamp>(
+      1, [](vector_size_t i) { return Timestamp(2, 1'000); });
 
   auto serialized1 = UnsafeRowDynamicSerializer::serialize(
       TIMESTAMP(), lazyVector1, buffer_, 0);
-  int64_t expected1 = std::numeric_limits<int64_t>::max();
+  int64_t expected1 = 2'000'001;
   EXPECT_TRUE(checkFixedLength(serialized1, 0, &expected1));
 
   VectorPtr lazyVector2 = vectorMaker_->lazyFlatVector<int32_t>(
