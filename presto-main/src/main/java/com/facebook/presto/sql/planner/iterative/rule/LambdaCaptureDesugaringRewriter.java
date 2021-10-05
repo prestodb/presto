@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -84,12 +85,12 @@ public class LambdaCaptureDesugaringRewriter
             newLambdaArguments.addAll(node.getArguments());
 
             ImmutableMap<VariableReferenceExpression, VariableReferenceExpression> variablesMap = captureVariableToExtraVariable.build();
-            Function<VariableReferenceExpression, Expression> variableMapping = variable -> new SymbolReference(variablesMap.getOrDefault(variable, variable).getName());
+            Function<VariableReferenceExpression, Expression> variableMapping = variable -> createSymbolReference(variablesMap.getOrDefault(variable, variable));
             Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineVariables(variableMapping, rewrittenBody, variableAllocator.getTypes()));
 
             if (captureVariables.size() != 0) {
                 List<Expression> capturedValues = captureVariables.stream()
-                        .map(variable -> new SymbolReference(variable.getName()))
+                        .map(variable -> createSymbolReference(variable))
                         .collect(toImmutableList());
                 rewrittenExpression = new BindExpression(capturedValues, rewrittenExpression);
             }

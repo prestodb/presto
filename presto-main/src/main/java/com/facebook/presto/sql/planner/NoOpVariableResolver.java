@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+
 public class NoOpVariableResolver
         implements VariableResolver
 {
@@ -23,6 +25,6 @@ public class NoOpVariableResolver
     @Override
     public Object getValue(VariableReferenceExpression variable)
     {
-        return new Symbol(variable.getName()).toSymbolReference();
+        return createSymbolReference(variable);
     }
 }

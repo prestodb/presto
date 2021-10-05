@@ -130,6 +130,7 @@ import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
@@ -353,7 +354,7 @@ public class ExpressionInterpreter
             // ExpressionInterpreter should only be invoked after planning.
             // As a result, this method should be unreachable.
             // However, RelationPlanner.visitUnnest and visitValues invokes evaluateConstantExpression.
-            return ((VariableResolver) context).getValue(variable(node.getValue(), type(node)));
+            return ((VariableResolver) context).getValue(variable(getSourceLocation(node), node.getValue(), type(node)));
         }
 
         @Override
@@ -365,7 +366,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSymbolReference(SymbolReference node, Object context)
         {
-            return ((VariableResolver) context).getValue(variable(node.getName(), type(node)));
+            return ((VariableResolver) context).getValue(variable(getSourceLocation(node), node.getName(), type(node)));
         }
 
         @Override

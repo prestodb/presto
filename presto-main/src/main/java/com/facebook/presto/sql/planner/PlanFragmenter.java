@@ -625,7 +625,7 @@ public class PlanFragmenter
                 checkArgument(argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression, format("Expect argument to be ConstantExpression or VariableReferenceExpression, get %s (%s)", argument.getClass(), argument));
                 VariableReferenceExpression variable;
                 if (argument instanceof ConstantExpression) {
-                    variable = variableAllocator.newVariable("constant_partition", argument.getType());
+                    variable = variableAllocator.newVariable(argument.getSourceLocation(), "constant_partition", argument.getType());
                     constants.put(variable, argument);
                 }
                 else {
@@ -714,7 +714,7 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
-                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
+                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getSourceLocation(), variable.getName(), variable.getType())));
                             constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build(), Locality.LOCAL);
                         })

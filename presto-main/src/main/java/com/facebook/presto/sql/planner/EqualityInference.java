@@ -492,6 +492,7 @@ public class EqualityInference
     private static CallExpression binaryOperation(FunctionAndTypeManager functionAndTypeManager, OperatorType type, RowExpression left, RowExpression right)
     {
         return call(
+                left.getSourceLocation(),
                 type.getFunctionName().getObjectName(),
                 functionAndTypeManager.resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
