@@ -69,7 +69,16 @@ public final class Page
     {
         requireNonNull(blocks, "blocks is null");
         this.positionCount = positionCount;
-        this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
+        if (blocks.length == 0) {
+            this.sizeInBytes = 0;
+            this.logicalSizeInBytes = 0;
+            this.blocks = EMPTY_BLOCKS;
+            // Empty blocks are not considered "retained" by any particular page
+            this.retainedSizeInBytes = INSTANCE_SIZE;
+        }
+        else {
+            this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
+        }
     }
 
     public int getChannelCount()
