@@ -179,14 +179,13 @@ jobs:
           command: |
             git config --global user.email "velox@users.noreply.github.com"
             git config --global user.name "velox"
+            git checkout main
             make -C velox/docs html
-            git fetch origin gh-pages
             git checkout gh-pages
-            mv velox/docs/_build/html/ docs/
+            cp -R velox/docs/_build/html/* docs
             git add docs
             if [ -n "$(git status --porcelain)" ]
             then
-              git commit docs -m "Sphinx rebuild ($(git rev-parse --short gh-pages))."
-              git push origin gh-pages
+              git commit -m "Update documentation"
+              git push
             fi
-            git push
