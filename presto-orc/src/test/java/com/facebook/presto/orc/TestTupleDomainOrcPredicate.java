@@ -48,6 +48,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
@@ -87,7 +88,7 @@ public class TestTupleDomainOrcPredicate
         if (trueValueCount != null) {
             booleanStatistics = new BooleanStatistics(trueValueCount);
         }
-        return new ColumnStatistics(numberOfValues, 2L, booleanStatistics, null, null, null, null, null, null, null);
+        return createColumnStatistics(numberOfValues, 2L, booleanStatistics, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -116,7 +117,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null);
+        return createColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null);
     }
 
     @Test
@@ -145,7 +146,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null);
+        return createColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null);
     }
 
     @Test
@@ -235,7 +236,7 @@ public class TestTupleDomainOrcPredicate
         Slice minimumSlice = minimum == null ? null : utf8Slice(minimum);
         Slice maximumSlice = maximum == null ? null : utf8Slice(maximum);
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null);
+        return createColumnStatistics(numberOfValues, 10L, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null);
     }
 
     @Test
@@ -264,7 +265,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics dateColumnStats(Long numberOfValues, Integer minimum, Integer maximum)
     {
-        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null);
+        return createColumnStatistics(numberOfValues, 5L, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null);
     }
 
     @Test
@@ -320,7 +321,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
+        return createColumnStatistics(numberOfValues, 9L, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
     }
 
     @Test
@@ -342,7 +343,7 @@ public class TestTupleDomainOrcPredicate
     private static ColumnStatistics binaryColumnStats(Long numberOfValues)
     {
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, new BinaryStatistics(100L), null);
+        return createColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, new BinaryStatistics(100L), null);
     }
 
     private static Long shortDecimal(String value)

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +58,7 @@ public class BinaryStatisticsBuilder
     {
         Optional<BinaryStatistics> binaryStatistics = buildBinaryStatistics();
         binaryStatistics.ifPresent(s -> verify(nonNullValueCount > 0));
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 nonNullValueCount,
                 binaryStatistics.map(s -> BINARY_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
                 null,

@@ -45,7 +45,7 @@ public class ColumnStatistics
     private final BinaryStatistics binaryStatistics;
     private final HiveBloomFilter bloomFilter;
 
-    public ColumnStatistics(
+    private ColumnStatistics(
             Long numberOfValues,
             long minAverageValueSizeInBytes,
             BooleanStatistics booleanStatistics,
@@ -138,7 +138,7 @@ public class ColumnStatistics
 
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 getNumberOfValues(),
                 minAverageValueSizeInBytes,
                 booleanStatistics,
@@ -263,7 +263,7 @@ public class ColumnStatistics
                     .sum() / numberOfRows;
         }
 
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 numberOfRows,
                 minAverageValueBytes,
                 mergeBooleanStatistics(stats).orElse(null),
@@ -274,5 +274,30 @@ public class ColumnStatistics
                 mergeDecimalStatistics(stats).orElse(null),
                 mergeBinaryStatistics(stats).orElse(null),
                 null);
+    }
+
+    public static ColumnStatistics createColumnStatistics(
+            Long numberOfValues,
+            long minAverageValueSizeInBytes,
+            BooleanStatistics booleanStatistics,
+            IntegerStatistics integerStatistics,
+            DoubleStatistics doubleStatistics,
+            StringStatistics stringStatistics,
+            DateStatistics dateStatistics,
+            DecimalStatistics decimalStatistics,
+            BinaryStatistics binaryStatistics,
+            HiveBloomFilter bloomFilter)
+    {
+        return new ColumnStatistics(
+                numberOfValues,
+                minAverageValueSizeInBytes,
+                booleanStatistics,
+                integerStatistics,
+                doubleStatistics,
+                stringStatistics,
+                dateStatistics,
+                decimalStatistics,
+                binaryStatistics,
+                bloomFilter);
     }
 }

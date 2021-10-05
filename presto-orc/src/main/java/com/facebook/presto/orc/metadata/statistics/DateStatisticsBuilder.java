@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata.statistics;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +61,7 @@ public class DateStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<DateStatistics> dateStatistics = buildDateStatistics();
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 nonNullValueCount,
                 dateStatistics.map(s -> DATE_VALUE_BYTES).orElse(0L),
                 null,

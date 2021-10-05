@@ -65,6 +65,7 @@ import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
 import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
 import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
@@ -306,7 +307,7 @@ public class OrcMetadataReader
             minAverageValueBytes = 0;
         }
 
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
