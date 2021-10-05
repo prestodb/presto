@@ -415,7 +415,8 @@ class AggregationNode : public PlanNode {
           groupingKeys,
       const std::vector<std::string>& aggregateNames,
       const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates,
-      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& aggrMasks,
+      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+          aggregateMasks,
       bool ignoreNullKeys,
       std::shared_ptr<const PlanNode> source);
 
@@ -444,9 +445,9 @@ class AggregationNode : public PlanNode {
     return aggregates_;
   }
 
-  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& aggrMasks()
-      const {
-    return aggrMasks_;
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+  aggregateMasks() const {
+    return aggregateMasks_;
   }
 
   bool ignoreNullKeys() const {
@@ -493,7 +494,8 @@ class AggregationNode : public PlanNode {
   const std::vector<std::shared_ptr<const CallTypedExpr>> aggregates_;
   // Keeps mask/'no mask' for every aggregation. Mask, if given, is a reference
   // to a boolean projection column, used to mask out rows for the aggregation.
-  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> aggrMasks_;
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>
+      aggregateMasks_;
   const bool ignoreNullKeys_;
   const std::vector<std::shared_ptr<const PlanNode>> sources_;
   const RowTypePtr outputType_;

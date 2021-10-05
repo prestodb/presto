@@ -236,12 +236,12 @@ PlanBuilder& PlanBuilder::aggregation(
   auto groupingExpr = fields(groupingKeys);
 
   // Generate masks vector for aggregations.
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> aggrMasks(
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> aggregateMasks(
       aggregateExprs.size());
   if (!masks.empty()) {
     VELOX_CHECK_EQ(aggregates.size(), masks.size());
     for (auto i = 0; i < masks.size(); i++) {
-      aggrMasks[i] = field(masks[i]);
+      aggregateMasks[i] = field(masks[i]);
     }
   }
 
@@ -251,7 +251,7 @@ PlanBuilder& PlanBuilder::aggregation(
       groupingExpr,
       names,
       aggregateExprs,
-      aggrMasks,
+      aggregateMasks,
       ignoreNullKeys,
       planNode_);
   return *this;

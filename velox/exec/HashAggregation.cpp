@@ -79,7 +79,7 @@ HashAggregation::HashAggregation(
 
     // Setup aggregation mask: convert the Variable Reference name to the
     // channel (projection) index, if there is a mask.
-    const auto& aggrMask = aggregationNode->aggrMasks()[i];
+    const auto& aggrMask = aggregationNode->aggregateMasks()[i];
     if (aggrMask == nullptr) {
       aggrMaskChannels.emplace_back(std::optional<ChannelIndex>{});
     } else {
