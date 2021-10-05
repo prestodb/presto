@@ -1268,8 +1268,8 @@ void StringDictionaryColumnReader::readFlatVector(
 
   auto dataPtr = data->asMutable<StringView>();
 
-  const char* strideDictPtr;
-  int64_t* strideDictOffsetPtr;
+  const char* strideDictPtr = nullptr;
+  int64_t* strideDictOffsetPtr = nullptr;
   if (strideDict) {
     strideDictPtr = strideDict->as<char>();
     strideDictOffsetPtr = strideDictOffset->asMutable<int64_t>();

@@ -456,7 +456,7 @@ TEST_F(BitUtilTest, isPowerOfTwo) {
 }
 
 TEST_F(BitUtilTest, getAndClearLastSetBit) {
-  uint16_t bits;
+  uint16_t bits = 0;
   for (int32_t i = 0; i < 16; i++) {
     bits::setBit(&bits, i, i % 3 == 0);
   }
