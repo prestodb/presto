@@ -1602,6 +1602,50 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewForIntersect()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "test_customer_intersect";
+        String view = "test_customer_view_intersect";
+        try {
+            computeActual(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS SELECT custkey, name, address, nationkey FROM customer", table));
+
+            String baseQuery = format(
+                    "SELECT name, custkey, nationkey FROM ( SELECT name, custkey, nationkey FROM %s WHERE custkey < 1000 INTERSECT " +
+                            "SELECT name, custkey, nationkey FROM %s WHERE custkey <= 900 )", table, table);
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS %s", view, baseQuery));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE nationkey < 10", view), 380);
+
+            String viewQuery = format("SELECT name, custkey, nationkey from %s ORDER BY name", view);
+            baseQuery = format("%s ORDER BY name", baseQuery);
+
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+
+            assertPlan(getSession(), viewQuery, anyTree(
+                    anyTree(
+                            anyTree(
+                                    filter("custkey < BIGINT'1000'", PlanMatchPattern.constrainedTableScan(table,
+                                    ImmutableMap.of("nationkey", multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L))),
+                                    ImmutableMap.of("custkey", "custkey")))),
+                            anyTree(
+                                    filter("custkey_21 <= BIGINT'900'", PlanMatchPattern.constrainedTableScan(table,
+                                    ImmutableMap.of("nationkey", multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L))),
+                                    ImmutableMap.of("custkey_21", "custkey"))))),
+                    PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of())));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewForUnionAll()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1856,6 +1900,79 @@ public class TestHiveLogicalPlanner
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table1);
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewSampledRelations()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String viewFull = "view_nation_sampled_100";
+        String viewHalf = "view_nation_sampled_50";
+        String table = "nation_partitioned";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey', 'regionkey']) AS " +
+                    "SELECT name, nationkey, regionkey FROM nation", table));
+
+            String viewFullDefinition = format("SELECT SUM(regionkey) AS sum_region_key, nationkey FROM %s TABLESAMPLE BERNOULLI (100) GROUP BY nationkey", table);
+            String viewHalfDefinition = format("SELECT SUM(regionkey) AS sum_region_key, nationkey FROM %s TABLESAMPLE BERNOULLI (50) GROUP BY nationkey", table);
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS %s", viewFull, viewFullDefinition));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS %s", viewHalf, viewHalfDefinition));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE nationKey < 5", viewFull), 5);
+            queryRunner.execute(format("REFRESH MATERIALIZED VIEW %s WHERE nationKey < 5", viewHalf));
+
+            String viewFullQuery = format("SELECT * from %s ORDER BY nationkey", viewFull);
+            String baseQuery = format("%s ORDER BY nationkey", viewFullDefinition);
+
+            MaterializedResult viewFullTable = computeActual(viewFullQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewFullTable, baseTable);
+
+            // With over 25 nations with multiple regions, it is very high probability that even with millions of runs, we never get the same result
+            // from sampled table and full table
+            String viewHalfQuery = format("SELECT * from %s ORDER BY nationkey", viewHalf);
+            MaterializedResult viewHalfTable = computeActual(viewHalfQuery);
+            assertFalse(viewFullTable.equals(viewHalfTable));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + viewFull);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + viewHalf);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewWithValues()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String view = "view_nation_values";
+        String table = "nation_partitioned";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey', 'regionkey']) AS " +
+                    "SELECT name, nationkey, regionkey FROM nation", table));
+
+            String viewDefinition = format("SELECT name, nationkey, regionkey FROM %s JOIN (VALUES 1, 2, 3) t(a) ON t.a = %s.regionkey", table, table);
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey', 'regionkey']) " +
+                            "AS  %s", view, viewDefinition));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE regionkey = 1", view), 5);
+
+            String viewQuery = format("SELECT name, nationkey, regionkey from %s ORDER BY name", view);
+            String baseQuery = format("%s ORDER BY name", viewDefinition, table);
+
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
         }
     }
 
@@ -2295,6 +2412,35 @@ public class TestHiveLogicalPlanner
                             "AS SELECT t1.orderkey as view_orderkey, t2.totalprice as view_totalprice, " +
                             "t1.ds as ds, t1.orderpriority as view_orderpriority, t2.orderstatus as view_orderstatus " +
                             " FROM %s t1 full outer join %s t2 ON t1.ds=t2.ds", view, table1, table2),
+                    ".*Only inner join and cross join unnested are supported for materialized view.*");
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table1);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewLateralJoin()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String view = "order_view_lateral_join";
+        String table1 = "orders_key_partitioned_lateral_join";
+        String table2 = "orders_price_partitioned_lateral_join";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'orderpriority']) AS " +
+                    "SELECT orderkey, '2020-01-01' as ds, orderpriority FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, '2019-01-02' as ds , orderpriority FROM orders WHERE orderkey > 1000 and orderkey < 2000", table1));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'orderstatus']) AS " +
+                    "SELECT totalprice, '2020-01-01' as ds, orderstatus FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT totalprice, '2019-01-02' as ds, orderstatus FROM orders WHERE orderkey > 1000 and orderkey < 2000", table2));
+
+            assertQueryFails(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                            "AS SELECT t1.ds FROM %s t1, LATERAL(SELECT t2.ds, t2.orderstatus AS view_orderstatus, t1.orderpriority AS view_orderpriority FROM %s t2 WHERE t1.ds = t2.ds)", view, table1, table2),
                     ".*Only inner join and cross join unnested are supported for materialized view.*");
         }
         finally {
