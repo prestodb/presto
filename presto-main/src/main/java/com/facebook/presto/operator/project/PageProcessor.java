@@ -140,6 +140,10 @@ public class PageProcessor
                 return WorkProcessor.create(new ProjectSelectedPositions(properties, yieldSignal, memoryContext, page, selectedPositions));
             }
         }
+        else if (projections.isEmpty()) {
+            // retained memory for empty page is negligible
+            return WorkProcessor.of(new Page(page.getPositionCount()));
+        }
 
         return WorkProcessor.create(new ProjectSelectedPositions(properties, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount())));
     }
