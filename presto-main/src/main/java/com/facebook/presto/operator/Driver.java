@@ -417,7 +417,9 @@ public class Driver
                     if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
                         // get an output page from current operator
                         Page page = current.getOutput();
-                        current.getOperatorContext().getRuntimeStats().addMetricValue(WASTED_FILTER_BYTES, page.getFilterWastedSizeInBytes());
+                        if (page != null) {
+                            current.getOperatorContext().getRuntimeStats().addMetricValue(WASTED_FILTER_BYTES, page.getFilterWastedSizeInBytes());
+                        }
                         current.getOperatorContext().recordGetOutput(operationTimer, page);
 
                         // For the last non-output operator, we keep the pages for caching purpose.
