@@ -68,7 +68,7 @@ public final class VariableToChannelTranslator
         @Override
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Map<VariableReferenceExpression, Integer> layout)
         {
-            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, layout));
+            return new LambdaDefinitionExpression(lambda.getSourceLocation(), lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, layout));
         }
 
         @Override
@@ -79,7 +79,7 @@ public final class VariableToChannelTranslator
             // TODO https://github.com/prestodb/presto/issues/12892
             Map<VariableReferenceExpression, Integer> candidate = filterKeys(layout, variable -> variable.getName().equals(reference.getName()));
             if (!candidate.isEmpty()) {
-                return field(getOnlyElement(candidate.values()), reference.getType());
+                return field(candidate.keySet().stream().findFirst().get().getSourceLocation(), getOnlyElement(candidate.values()), reference.getType());
             }
             // this is possible only for lambda
             return reference;

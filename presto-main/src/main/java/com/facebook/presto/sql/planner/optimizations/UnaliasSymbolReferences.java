@@ -93,6 +93,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -672,7 +673,7 @@ public class UnaliasSymbolReferences
                 }
                 else if (isExpression(expression) && castToExpression(expression) instanceof SymbolReference) {
                     // Always map a trivial symbol projection
-                    VariableReferenceExpression variable = new VariableReferenceExpression(Symbol.from(castToExpression(expression)).getName(), types.get(castToExpression(expression)));
+                    VariableReferenceExpression variable = new VariableReferenceExpression(expression.getSourceLocation(), Symbol.from(castToExpression(expression)).getName(), types.get(castToExpression(expression)));
                     if (!variable.getName().equals(entry.getKey().getName())) {
                         map(entry.getKey(), variable);
                     }
@@ -720,7 +721,7 @@ public class UnaliasSymbolReferences
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
             }
-            return new Symbol(canonical);
+            return new Symbol(symbol.getNodeLocation(), canonical);
         }
 
         private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
@@ -729,7 +730,7 @@ public class UnaliasSymbolReferences
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
             }
-            return new VariableReferenceExpression(canonical, types.get(new SymbolReference(canonical)));
+            return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
         }
 
         private Optional<VariableReferenceExpression> canonicalize(Optional<VariableReferenceExpression> variable)

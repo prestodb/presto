@@ -136,6 +136,7 @@ public class ExpressionEquivalence
         public RowExpression visitCall(CallExpression call, Void context)
         {
             call = new CallExpression(
+                    call.getSourceLocation(),
                     call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),
@@ -148,6 +149,7 @@ public class ExpressionEquivalence
             if (callName.equals(EQUAL.getFunctionName()) || callName.equals(NOT_EQUAL.getFunctionName()) || callName.equals(IS_DISTINCT_FROM.getFunctionName())) {
                 // sort arguments
                 return new CallExpression(
+                        call.getSourceLocation(),
                         call.getDisplayName(),
                         call.getFunctionHandle(),
                         call.getType(),
@@ -161,6 +163,7 @@ public class ExpressionEquivalence
                         callName.equals(GREATER_THAN.getFunctionName()) ? LESS_THAN : LESS_THAN_OR_EQUAL,
                         swapPair(fromTypes(call.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()))));
                 return new CallExpression(
+                        call.getSourceLocation(),
                         call.getDisplayName(),
                         functionHandle,
                         call.getType(),
@@ -201,7 +204,7 @@ public class ExpressionEquivalence
         @Override
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
+            return new LambdaDefinitionExpression(lambda.getSourceLocation(), lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
         }
 
         @Override

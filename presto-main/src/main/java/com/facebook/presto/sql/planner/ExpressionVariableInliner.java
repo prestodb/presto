@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -70,7 +71,7 @@ public class ExpressionVariableInliner
                 return node;
             }
 
-            Expression expression = mapping.apply(new VariableReferenceExpression(node.getName(), types.get(node)));
+            Expression expression = mapping.apply(new VariableReferenceExpression(getSourceLocation(node), node.getName(), types.get(node)));
             checkState(expression != null, "Cannot resolve symbol %s", node.getName());
             return expression;
         }
