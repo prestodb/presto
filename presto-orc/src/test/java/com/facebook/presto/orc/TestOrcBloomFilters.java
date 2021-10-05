@@ -53,6 +53,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.checkInBloomFilter;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.extractDiscreteValues;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
@@ -283,7 +284,7 @@ public class TestOrcBloomFilters
         hiveBloomFilter.addLong(1234);
         OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(hiveBloomFilter);
 
-        Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, createColumnStatistics(
                 null,
                 0,
                 null,
@@ -295,7 +296,7 @@ public class TestOrcBloomFilters
                 null,
                 toHiveBloomFilter(orcBloomFilter)));
 
-        Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, createColumnStatistics(
                 null,
                 0,
                 null,
@@ -307,7 +308,7 @@ public class TestOrcBloomFilters
                 null,
                 toHiveBloomFilter(emptyOrcBloomFilter)));
 
-        Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, createColumnStatistics(
                 null,
                 0,
                 null,
