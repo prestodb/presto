@@ -1066,10 +1066,15 @@ class LimitNode : public PlanNode {
   // nodes.
   LimitNode(
       const PlanNodeId& id,
+      int32_t offset,
       int32_t count,
       bool isPartial,
       const std::shared_ptr<const PlanNode>& source)
-      : PlanNode(id), count_(count), isPartial_(isPartial), sources_{source} {
+      : PlanNode(id),
+        offset_(offset),
+        count_(count),
+        isPartial_(isPartial),
+        sources_{source} {
     VELOX_CHECK(
         count > 0,
         "Limit must specify greater than zero number of rows to keep");
@@ -1081,6 +1086,10 @@ class LimitNode : public PlanNode {
 
   const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
     return sources_;
+  }
+
+  int32_t offset() const {
+    return offset_;
   }
 
   int32_t count() const {
@@ -1096,6 +1105,7 @@ class LimitNode : public PlanNode {
   }
 
  private:
+  const int32_t offset_;
   const int32_t count_;
   const bool isPartial_;
   const std::vector<std::shared_ptr<const PlanNode>> sources_;

@@ -35,7 +35,7 @@ class Limit : public Operator {
   }
 
  private:
+  int32_t remainingOffset_;
   int32_t remainingLimit_;
-  RowVectorPtr input_;
 };
 } // namespace facebook::velox::exec

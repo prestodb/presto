@@ -139,7 +139,7 @@ TEST_F(CrossJoinTest, basic) {
                                 .project({"c0"}, {"u_c0"})
                                 .planNode(),
                             {0, 1})
-                        .limit(100'000, false)
+                        .limit(0, 100'000, false)
                         .planNode();
 
   OperatorTestBase::assertQuery(

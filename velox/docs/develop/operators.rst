@@ -227,8 +227,8 @@ operations.
 LimitNode
 ~~~~~~~~~
 
-The limit operation keeps up to a specified number of input rows and drops the
-rest.
+The limit operation skips a specified number of input rows and then keeps up to a
+specified number of rows and drops the rest.
 
 .. list-table::
    :widths: 10 30
@@ -237,6 +237,8 @@ rest.
 
    * - Property
      - Description
+   * - offset
+     - Number of rows of input to skip.
    * - count
      - Maximum number of rows to return.
    * - isPartial

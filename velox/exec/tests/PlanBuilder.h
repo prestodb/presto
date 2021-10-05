@@ -140,7 +140,7 @@ class PlanBuilder {
       int32_t count,
       bool isPartial);
 
-  PlanBuilder& limit(int32_t count, bool isPartial);
+  PlanBuilder& limit(int32_t offset, int32_t count, bool isPartial);
 
   PlanBuilder& enforceSingleRow();
 

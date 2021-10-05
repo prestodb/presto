@@ -309,9 +309,9 @@ PlanBuilder& PlanBuilder::topN(
   return *this;
 }
 
-PlanBuilder& PlanBuilder::limit(int32_t count, bool isPartial) {
+PlanBuilder& PlanBuilder::limit(int32_t offset, int32_t count, bool isPartial) {
   planNode_ = std::make_shared<core::LimitNode>(
-      nextPlanNodeId(), count, isPartial, planNode_);
+      nextPlanNodeId(), offset, count, isPartial, planNode_);
   return *this;
 }
 

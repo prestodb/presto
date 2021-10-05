@@ -26,10 +26,19 @@ Limit::Limit(
           operatorId,
           limitNode->id(),
           "Limit"),
-      remainingLimit_(limitNode->count()) {}
+      remainingOffset_{limitNode->offset()},
+      remainingLimit_{limitNode->count()} {
+  isIdentityProjection_ = true;
+
+  const auto numColumns = limitNode->outputType()->size();
+  identityProjections_.reserve(numColumns);
+  for (ChannelIndex i = 0; i < numColumns; ++i) {
+    identityProjections_.emplace_back(i, i);
+  }
+}
 
 bool Limit::needsInput() const {
-  return remainingLimit_ > 0 && input_ == nullptr;
+  return (remainingOffset_ > 0 || remainingLimit_ > 0) && input_ == nullptr;
 }
 
 void Limit::addInput(RowVectorPtr input) {
@@ -38,16 +47,43 @@ void Limit::addInput(RowVectorPtr input) {
 }
 
 RowVectorPtr Limit::getOutput() {
-  if (input_ == nullptr || remainingLimit_ == 0) {
+  if (input_ == nullptr || (remainingOffset_ == 0 && remainingLimit_ == 0)) {
     return nullptr;
   }
 
-  if (remainingLimit_ <= input_->size()) {
+  const auto inputSize = input_->size();
+
+  if (remainingOffset_ >= inputSize) {
+    remainingOffset_ -= inputSize;
+    input_ = nullptr;
+    return nullptr;
+  }
+
+  if (remainingOffset_ > 0) {
+    // Return a subset of input_ rows.
+    auto outputSize = std::min(inputSize - remainingOffset_, remainingLimit_);
+
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(outputSize, pool());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    std::iota(rawIndices, rawIndices + outputSize, remainingOffset_);
+
+    auto output = fillOutput(outputSize, indices);
+    remainingOffset_ = 0;
+    remainingLimit_ -= outputSize;
+    input_ = nullptr;
+    if (remainingLimit_ == 0) {
+      isFinishing_ = true;
+    }
+    return output;
+  }
+
+  if (remainingLimit_ <= inputSize) {
     isFinishing_ = true;
   }
 
-  if (remainingLimit_ >= input_->size()) {
-    remainingLimit_ -= input_->size();
+  if (remainingLimit_ >= inputSize) {
+    remainingLimit_ -= inputSize;
     auto output = input_;
     input_.reset();
     return output;
