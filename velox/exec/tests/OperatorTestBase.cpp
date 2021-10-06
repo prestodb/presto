@@ -109,13 +109,8 @@ std::shared_ptr<Task> OperatorTestBase::assertQuery(
 std::shared_ptr<core::FieldAccessTypedExpr> OperatorTestBase::toFieldExpr(
     const std::string& name,
     const std::shared_ptr<const RowType>& rowType) {
-  auto type = rowType->findChild(name);
-
-  std::vector<std::shared_ptr<const core::ITypedExpr>> inputs{
-      std::make_shared<core::InputTypedExpr>(rowType)};
-
   return std::make_shared<core::FieldAccessTypedExpr>(
-      type, std::move(inputs), name);
+      rowType->findChild(name), name);
 }
 
 std::shared_ptr<const core::ITypedExpr> OperatorTestBase::parseExpr(

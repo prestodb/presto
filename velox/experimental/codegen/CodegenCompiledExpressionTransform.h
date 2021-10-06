@@ -369,22 +369,27 @@ class CompiledExpressionTransformVisitor {
 
   /// Return FieldAccess expression for each Column in rowType
   /// eg [ROW({'a','b'}, {DOUBLETYPE,DOUBLETYPE} ->
-  /// [FieldAcess(a),FieldAccess(b)]) \param rowType \param input input
-  /// expression to link the generated FieldAccess \return vector of FieldAccess
-  /// , one for each column in rowType
+  /// [FieldAcess(a),FieldAccess(b)])
+  /// @param rowType
+  /// @param input input expression to link the generated FieldAccess
+  /// @return vector of FieldAccess, one for each column in rowType
   std::vector<std::shared_ptr<const core::ITypedExpr>> buildFieldAccessor(
       const RowType& rowType,
-      const std::shared_ptr<const core::ITypedExpr>& input) {
+      std::shared_ptr<const core::ITypedExpr> input = nullptr) {
     std::vector<std::shared_ptr<const core::ITypedExpr>> fieldAccessVector;
 
     for (size_t childIdx = 0; childIdx < rowType.size(); ++childIdx) {
       auto name = rowType.nameOf(childIdx);
-      std::vector<std::shared_ptr<const core::ITypedExpr>> inputs{input};
-
-      auto fieldAccess = std::make_shared<const core::FieldAccessTypedExpr>(
-          rowType.childAt(childIdx), std::move(inputs), std::move(name));
-
-      fieldAccessVector.push_back(fieldAccess);
+      auto type = rowType.childAt(childIdx);
+      if (input) {
+        auto fieldAccess = std::make_shared<const core::FieldAccessTypedExpr>(
+            type, input, std::move(name));
+        fieldAccessVector.push_back(fieldAccess);
+      } else {
+        auto fieldAccess = std::make_shared<const core::FieldAccessTypedExpr>(
+            type, std::move(name));
+        fieldAccessVector.push_back(fieldAccess);
+      }
     };
 
     return fieldAccessVector;
@@ -409,14 +414,9 @@ class CompiledExpressionTransformVisitor {
       const std::shared_ptr<const RowType>& callOutputType,
       const std::shared_ptr<const RowType>& callInputType,
       const std::shared_ptr<const RowType>& projectionInputType) {
-    // InputTypedExpr
-    auto projectionInputExpr =
-        std::make_shared<core::InputTypedExpr>(projectionInputType);
-
     // Create the input FieldAccess expression node to the read input data
     // Note we could reuse the one already existing in the current expressions.
-    auto inputFieldAccessVector =
-        buildFieldAccessor(*callInputType, projectionInputExpr);
+    auto inputFieldAccessVector = buildFieldAccessor(*callInputType);
 
     // Create ICompiledExpression
     auto compiledExpression = std::make_shared<codegen::ICompiledCall>(

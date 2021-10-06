@@ -82,32 +82,17 @@ int main(int argc, char** argv) {
   // ---------------------------------
   // | FieldAccessTypedExpr (my_col) |
   // ---------------------------------
-  //            /\
-  //            ||
-  // ------------------------
-  // | InputTypedExpr (ROW) |
-  // ------------------------
-  //
-  // The leaf (InputTypedExpr) in the tree above defines where data will be
-  // coming from. Input datasets are always described in terms of "rows", which
-  // are a collection of named types.
   //
   // Let's first define a type for the input dataset used in this example. In
   // this case, a single input column called "my_col", typed as bigint:
   auto inputRowType = ROW({{"my_col", BIGINT()}});
 
-  // InputTypedExpr is the leaf expression node that represents the actual
-  // source.
-  auto inputExprNode =
-      std::make_shared<const core::InputTypedExpr>(inputRowType);
-
   // FieldAccessTypedExpr let us choose a particular field/column from the input
   // dataset(s). The first parameter defines the return type of this field, the
-  // second are the inputs (note it takes a vector of inputs, and each input can
-  // have multiple columns/fields), and the third is the field name. In this
-  // case we're interested in the "my_col" field:
-  auto fieldAccessExprNode = std::make_shared<core::FieldAccessTypedExpr>(
-      BIGINT(), std::vector<core::TypedExprPtr>{inputExprNode}, "my_col");
+  // second is the field name. In this case we're interested in the "my_col"
+  // field:
+  auto fieldAccessExprNode =
+      std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "my_col");
 
   // CallTypedExpr will be the root of our expression tree, and defines a
   // function call. The first parameter is the expected return type (bigint in

@@ -312,10 +312,7 @@ class ExpressionFuzzer {
     inputRowTypes_.emplace_back(arg);
 
     return std::make_shared<core::FieldAccessTypedExpr>(
-        arg,
-        std::vector<core::TypedExprPtr>{
-            std::make_shared<const core::InputTypedExpr>(ROW({arg}))},
-        fmt::format("c{}", inputRowTypes_.size() - 1));
+        arg, fmt::format("c{}", inputRowTypes_.size() - 1));
   }
 
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input) {

@@ -309,16 +309,10 @@ VectorPtr evaluate(
 
   auto rowType = rowVector->type()->as<TypeKind::ROW>();
 
-  auto inputExprNode =
-      std::make_shared<const core::InputTypedExpr>(rowVector->type());
   auto fieldAccessExprNode1 = std::make_shared<core::FieldAccessTypedExpr>(
-      rowType.findChild(argName1),
-      std::vector<core::TypedExprPtr>{inputExprNode},
-      argName1);
+      rowType.findChild(argName1), argName1);
   auto fieldAccessExprNode2 = std::make_shared<core::FieldAccessTypedExpr>(
-      rowType.findChild(argName2),
-      std::vector<core::TypedExprPtr>{inputExprNode},
-      argName2);
+      rowType.findChild(argName2), argName2);
 
   auto exprPlan = std::make_shared<core::CallTypedExpr>(
       OPAQUE<UserDefinedOutput>(),

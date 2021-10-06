@@ -541,10 +541,7 @@ std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
     int index) {
   auto name = inputType->names()[index];
   auto type = inputType->childAt(index);
-  std::vector<std::shared_ptr<const core::ITypedExpr>> inputs = {
-      std::make_shared<core::InputTypedExpr>(inputType)};
-  return std::make_shared<core::FieldAccessTypedExpr>(
-      type, std::move(inputs), name);
+  return std::make_shared<core::FieldAccessTypedExpr>(type, name);
 }
 
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>

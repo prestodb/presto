@@ -228,7 +228,7 @@ std::shared_ptr<const core::ITypedExpr> Expressions::inferTypes(
     }
     return std::make_shared<FieldAccessTypedExpr>(
         input->childAt(foundIndex),
-        move(children),
+        children.at(0),
         std::string{fae->getFieldName()});
   } else if (auto fun = std::dynamic_pointer_cast<const CallExpr>(expr)) {
     return createWithImplicitCast(move(fun), move(children));

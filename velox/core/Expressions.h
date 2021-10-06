@@ -210,25 +210,25 @@ class CallTypedExpr : public ITypedExpr {
   const std::string name_;
 };
 
-/*
- * Access a named field in a row
- */
+/// Represents one of two things:
+///     - a leaf in an expression tree specifying input column by name;
+///     - a dereference expression which selects a subfield in a struct by name.
 class FieldAccessTypedExpr : public ITypedExpr {
  public:
+  /// Used as a leaf in an expression tree specifying input column by name.
+  FieldAccessTypedExpr(TypePtr type, std::string name)
+      : ITypedExpr{move(type)}, name_(std::move(name)) {}
+
+  /// Used as a dereference expression which selects a subfield in a struct by
+  /// name.
   FieldAccessTypedExpr(
-      std::shared_ptr<const Type> type,
-      std::vector<std::shared_ptr<const ITypedExpr>>&& inputs,
+      TypePtr type,
+      std::shared_ptr<const ITypedExpr> input,
       std::string name)
-      : ITypedExpr{move(type), move(inputs)}, name_(std::move(name)) {
-    CHECK_EQ(this->inputs().size(), 1);
-  }
+      : ITypedExpr{move(type), {move(input)}}, name_(std::move(name)) {}
 
   const std::string& name() const {
     return name_;
-  }
-
-  const std::shared_ptr<const ITypedExpr>& input() const {
-    return inputs()[0];
   }
 
   std::shared_ptr<const ITypedExpr> rewriteInputNames(
@@ -236,15 +236,23 @@ class FieldAccessTypedExpr : public ITypedExpr {
       const override {
     auto it = mapping.find(name_);
     auto newName = it == mapping.end() ? name_ : it->second;
+    if (inputs().empty()) {
+      return std::make_shared<FieldAccessTypedExpr>(type(), std::move(newName));
+    }
+
+    auto newInputs = rewriteInputsRecursive(mapping);
+    VELOX_CHECK_EQ(1, newInputs.size());
     return std::make_shared<FieldAccessTypedExpr>(
-        type(), rewriteInputsRecursive(mapping), std::move(newName));
+        type(), newInputs[0], std::move(newName));
   }
 
   std::string toString() const override {
-    std::stringstream ss;
-    ss << inputs().at(0)->toString() << "[" << std::quoted(name(), '"', '"')
-       << "]";
-    return ss.str();
+    if (inputs().empty()) {
+      return fmt::format("{}", std::quoted(name(), '"', '"'));
+    }
+
+    return fmt::format(
+        "{}[{}]", inputs()[0]->toString(), std::quoted(name(), '"', '"'));
   }
 
   size_t localHash() const override {
