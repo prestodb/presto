@@ -212,6 +212,7 @@ public final class SystemSessionProperties
     public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
     public static final String ENABLE_DISTRIBUTED_TRACING = "enable_distributed_tracing";
+    public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1122,6 +1123,11 @@ public final class SystemSessionProperties
                         "Enable distributed tracing of the query",
                         tracingConfig.getEnableDistributedTracing(),
                         false),
+                booleanProperty(
+                        VERBOSE_RUNTIME_STATS_ENABLED,
+                        "Enable logging all runtime stats",
+                        featuresConfig.isVerboseRuntimeStatsEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
                         format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",
@@ -1949,6 +1955,11 @@ public final class SystemSessionProperties
     public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
     {
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
+    }
+
+    public static boolean isVerboseRuntimeStatsEnabled(Session session)
+    {
+        return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
     }
 
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)

@@ -176,6 +176,10 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_METADATA_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_VIEW_TIME_NANOS;
 import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -1207,12 +1211,16 @@ class StatementAnalyzer
             }
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
-            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
+            Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
+                    GET_VIEW_TIME_NANOS,
+                    () -> metadata.getView(session, name));
             if (optionalView.isPresent()) {
                 return processView(table, scope, name, optionalView);
             }
 
-            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
+            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
+                    GET_MATERIALIZED_VIEW_TIME_NANOS,
+                    () -> metadata.getMaterializedView(session, name));
             Statement statement = analysis.getStatement();
             if (isMaterializedViewDataConsistencyEnabled(session) && optionalMaterializedView.isPresent() && statement instanceof Query) {
                 // When the materialized view has already been expanded, do not process it. Just use it as a table.
@@ -1230,7 +1238,7 @@ class StatementAnalyzer
                 }
             }
 
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
+            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadata.getTableHandle(session, name));
             if (!tableHandle.isPresent()) {
                 if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
@@ -1241,7 +1249,10 @@ class StatementAnalyzer
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
+            TableMetadata tableMetadata = session.getRuntimeStats().profileNanos(
+                    GET_TABLE_METADATA_TIME_NANOS,
+                    () -> metadata.getTableMetadata(session, tableHandle.get()));
+
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
