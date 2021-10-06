@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.sql.analyzer.MaterializedViewCandidateExtractor;
 import com.facebook.presto.sql.analyzer.MaterializedViewQueryOptimizer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -49,8 +50,11 @@ public class MaterializedViewOptimizationRewriteUtils
         for (QualifiedObjectName candidate : materializedViewCandidates) {
             Query optimizedQuery = getQueryWithMaterializedViewOptimization(metadata, session, sqlParser, accessControl, node, candidate);
             if (node != optimizedQuery) {
-                session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW, 1);
-                return optimizedQuery;
+                MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, candidate);
+                if (materializedViewStatus.isFullyMaterialized() || materializedViewStatus.isPartiallyMaterialized()) {
+                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW, 1);
+                    return optimizedQuery;
+                }
             }
         }
         return node;
