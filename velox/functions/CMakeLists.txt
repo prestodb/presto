@@ -19,4 +19,6 @@ target_link_libraries(velox_function_registry velox_expression velox_type
 add_subdirectory(lib)
 add_subdirectory(prestosql)
 add_subdirectory(sparksql)
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()

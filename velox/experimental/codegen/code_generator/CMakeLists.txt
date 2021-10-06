@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
 add_library(velox_codegen_code_generator ExprCodeGenerator.cpp)
 target_link_libraries(velox_codegen_code_generator velox_codegen_ast
                       velox_codegen_udf_manager)

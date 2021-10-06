@@ -14,7 +14,9 @@
 add_subdirectory(compression)
 add_subdirectory(encryption)
 add_subdirectory(exception)
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
 add_library(
   velox_dwio_common
   ColumnSelector.cpp

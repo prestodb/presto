@@ -17,6 +17,9 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 # set the project name
 project(velox)
 
+option(VELOX_BUILD_TESTING "Enable Velox tests" ON)
+option(VELOX_ENABLE_DUCKDB "Build duckDB to enable differential testing." ON)
+
 # If CODEGEN support isn't explicitly set, we guestimate the value based on the
 # compiler
 if((NOT DEFINED CODEGEN_SUPPORT) AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
@@ -50,7 +53,7 @@ set(POSITION_INDEPENDENT_CODE True)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -mavx2 -mfma -mavx -mf16c  -mbmi2 -march=native -D USE_VELOX_COMMON_BASE -g"
+    "${CMAKE_CXX_FLAGS} -mavx2 -mfma -mavx -mf16c -mbmi2 -march=native -D USE_VELOX_COMMON_BASE -g"
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D HAS_UNCAUGHT_EXCEPTIONS")
@@ -181,6 +184,13 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
   endif()
 else()
   set(FILESYSTEM "")
+endif()
+
+if(VELOX_BUILD_TESTING AND NOT VELOX_ENABLE_DUCKDB)
+  message(
+    FATAL_ERROR
+      "Unit tests require duckDB to be enabled (VELOX_ENABLE_DUCKDB=ON or BUILD_TESTING=OFF)"
+  )
 endif()
 
 include_directories(SYSTEM velox)

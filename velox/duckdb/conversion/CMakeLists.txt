@@ -21,4 +21,6 @@ add_library(velox_duckdb_parser DuckParser.cpp)
 target_link_libraries(velox_duckdb_parser velox_duckdb_conversion duckdb
                       velox_parse_expression)
 
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()

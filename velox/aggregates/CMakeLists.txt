@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_subdirectory(hyperloglog)
-add_subdirectory(tests)
-add_subdirectory(benchmarks)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+  add_subdirectory(benchmarks)
+endif()
 
 add_library(
   velox_aggregates OBJECT

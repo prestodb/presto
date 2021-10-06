@@ -18,8 +18,17 @@ BUILD_DIR=release
 BUILD_TYPE=Release
 TREAT_WARNINGS_AS_ERRORS ?= 1
 ENABLE_WALL ?= 1
-WARNINGS_AS_ERRORS=-DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
-ENABLE_ALL_WARNINGS=-DENABLE_ALL_WARNINGS=${ENABLE_WALL}
+
+# Control whether to build unit tests. By default set to "ON"; set to
+# "OFF" to disable.
+VELOX_BUILD_TESTING ?= "ON"
+VELOX_ENABLE_DUCKDB ?= "ON"
+
+CMAKE_FLAGS := -DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
+CMAKE_FLAGS += -DENABLE_ALL_WARNINGS=${ENABLE_WALL}
+CMAKE_FLAGS += -DVELOX_BUILD_TESTING=$(VELOX_BUILD_TESTING)
+CMAKE_FLAGS += -DVELOX_ENABLE_DUCKDB=$(VELOX_ENABLE_DUCKDB)
+CMAKE_FLAGS += -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 
 # Use Ninja if available. If Ninja is used, pass through parallelism control flags.
 USE_NINJA ?= 1
@@ -44,7 +53,12 @@ clean:					#: Delete all build artifacts
 
 cmake:					#: Use CMake to create a Makefile build system
 	mkdir -p $(BUILD_BASE_DIR)/$(BUILD_DIR) && \
-	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(GENERATOR) $(USE_CCACHE) $(FORCE_COLOR) ${WARNINGS_AS_ERRORS} ${ENABLE_ALL_WARNINGS} -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
+	cmake -B \
+		"$(BUILD_BASE_DIR)/$(BUILD_DIR)" \
+		${CMAKE_FLAGS} \
+		$(GENERATOR) \
+		$(USE_CCACHE) \
+		$(FORCE_COLOR)
 
 build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j ${NUM_THREADS}

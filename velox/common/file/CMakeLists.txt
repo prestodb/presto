@@ -18,7 +18,9 @@ add_library(velox_file File.cpp FileSystems.cpp FileSystems.h)
 target_link_libraries(velox_file velox_exception ${FOLLY_WITH_DEPENDENCIES}
                       ${FMT})
 
-add_executable(velox_file_test FileTest.cpp)
-add_test(velox_file_test velox_file_test)
-target_link_libraries(velox_file_test velox_file velox_exec_test_lib
-                      ${GTEST_BOTH_LIBRARIES})
+if(${VELOX_BUILD_TESTING})
+  add_executable(velox_file_test FileTest.cpp)
+  add_test(velox_file_test velox_file_test)
+  target_link_libraries(velox_file_test velox_file velox_exec_test_lib
+                        ${GTEST_BOTH_LIBRARIES})
+endif()

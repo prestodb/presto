@@ -21,4 +21,6 @@ target_link_libraries(velox_parse_parser velox_parse_expression velox_type
 add_library(velox_parse_utils VariantToVector.cpp)
 target_link_libraries(velox_parse_utils velox_buffer velox_type velox_vector)
 
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()

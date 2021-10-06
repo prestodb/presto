@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
 add_library(velox_type_tz TimeZoneMap.h TimeZoneDatabase.cpp TimeZoneMap.cpp)
 
 target_link_libraries(velox_type_tz ${Boost_REGEX_LIBRARIES} ${FMT})

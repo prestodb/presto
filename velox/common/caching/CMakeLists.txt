@@ -17,4 +17,6 @@ add_library(velox_caching DataCache.cpp FileIds.cpp StringIdMap.cpp
 target_link_libraries(velox_caching velox_memory velox_exception ${GLOG}
                       ${FOLLY_WITH_DEPENDENCIES})
 
-add_subdirectory(tests)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
