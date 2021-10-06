@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
@@ -261,7 +262,12 @@ public class Driver
             if (fragmentResultCacheContext.get().isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
                 this.fragmentResultCacheContext.set(this.fragmentResultCacheContext.get().map(context -> context.updateRuntimeInformation(split.getConnectorSplit())));
-                this.cachedResult.set(fragmentResultCacheContext.get().get().getFragmentResultCacheManager().get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split));
+                Optional<Iterator<Page>> pages = fragmentResultCacheContext.get().get()
+                        .getFragmentResultCacheManager()
+                        .get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
+                sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(
+                        pages.isPresent() ? RuntimeMetricName.FRAGMENT_RESULT_CACHE_HIT : RuntimeMetricName.FRAGMENT_RESULT_CACHE_MISS, 1);
+                this.cachedResult.set(pages);
                 this.split.set(split);
             }
 
