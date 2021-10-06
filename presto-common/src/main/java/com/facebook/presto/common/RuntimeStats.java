@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -112,5 +113,13 @@ public class RuntimeStats
             return;
         }
         stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).set(newMetric));
+    }
+
+    public <V> V profileNanos(String tag, Supplier<V> supplier)
+    {
+        long startTime = System.nanoTime();
+        V result = supplier.get();
+        addMetricValue(tag, System.nanoTime() - startTime);
+        return result;
     }
 }
