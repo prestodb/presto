@@ -84,6 +84,7 @@ public class SimpleTtlNodeSelector
 
     public SimpleTtlNodeSelector(
             SimpleNodeSelector simpleNodeSelector,
+            SimpleTtlNodeSelectorConfig config,
             NodeTaskMap nodeTaskMap,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
@@ -106,8 +107,9 @@ public class SimpleTtlNodeSelector
         this.nodeTtlFetcherManager = requireNonNull(ttlFetcherManager, "ttlFetcherManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.session = requireNonNull(session, "session is null");
-        checkArgument(session.getResourceEstimates().getExecutionTime().isPresent(), "Estimated execution time is not present");
-        estimatedExecutionTime = session.getResourceEstimates().getExecutionTime().get();
+        requireNonNull(config, "config is null");
+        checkArgument(session.getResourceEstimates().getExecutionTime().isPresent() || config.getUseDefaultExecutionTimeEstimateAsFallback(), "Estimated execution time is not present");
+        estimatedExecutionTime = session.getResourceEstimates().getExecutionTime().orElse(config.getDefaultExecutionTimeEstimate());
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.TopologyAwareNodeSelector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -88,6 +89,7 @@ public class NodeScheduler
     private final Duration nodeMapRefreshInterval;
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final QueryManager queryManager;
+    private final SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig;
 
     @Inject
     public NodeScheduler(
@@ -97,7 +99,8 @@ public class NodeScheduler
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
             NodeTtlFetcherManager nodeTtlFetcherManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig)
     {
         this(new NetworkLocationCache(networkTopology),
                 networkTopology,
@@ -107,7 +110,8 @@ public class NodeScheduler
                 nodeTaskMap,
                 new Duration(5, SECONDS),
                 nodeTtlFetcherManager,
-                queryManager);
+                queryManager,
+                simpleTtlNodeSelectorConfig);
     }
 
     public NodeScheduler(
@@ -119,7 +123,8 @@ public class NodeScheduler
             NodeTaskMap nodeTaskMap,
             Duration nodeMapRefreshInterval,
             NodeTtlFetcherManager nodeTtlFetcherManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig)
     {
         this.networkLocationCache = networkLocationCache;
         this.nodeManager = nodeManager;
@@ -146,6 +151,7 @@ public class NodeScheduler
         this.nodeMapRefreshInterval = requireNonNull(nodeMapRefreshInterval, "nodeMapRefreshInterval is null");
         this.nodeTtlFetcherManager = requireNonNull(nodeTtlFetcherManager, "nodeTtlFetcherManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.simpleTtlNodeSelectorConfig = requireNonNull(simpleTtlNodeSelectorConfig, "simpleTtlNodeSelectorConfig is null");
     }
 
     @PreDestroy
@@ -208,6 +214,7 @@ public class NodeScheduler
         if (resourceAwareSchedulingStrategy == TTL) {
             return new SimpleTtlNodeSelector(
                     simpleNodeSelector,
+                    simpleTtlNodeSelectorConfig,
                     nodeTaskMap,
                     nodeMap,
                     minCandidates,
