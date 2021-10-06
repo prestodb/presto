@@ -24,6 +24,7 @@ import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
@@ -178,7 +179,7 @@ public class BenchmarkNodeScheduler
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, new NodeSelectionStats(), getNodeSchedulerConfig(), nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager());
+            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, new NodeSelectionStats(), getNodeSchedulerConfig(), nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();

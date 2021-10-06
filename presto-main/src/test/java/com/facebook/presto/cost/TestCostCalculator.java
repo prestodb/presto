@@ -23,6 +23,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -138,7 +139,8 @@ public class TestCostCalculator
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
-                new NoOpQueryManager());
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig());
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());
