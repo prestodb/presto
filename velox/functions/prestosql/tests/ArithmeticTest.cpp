@@ -14,9 +14,22 @@
  * limitations under the License.
  */
 #include <optional>
+
+#include <gmock/gmock.h>
+
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
-using namespace facebook::velox;
+namespace facebook::velox {
+namespace {
+
+constexpr double kInf = std::numeric_limits<double>::infinity();
+constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
+constexpr float kInfF = std::numeric_limits<float>::infinity();
+constexpr float kNanF = std::numeric_limits<float>::quiet_NaN();
+
+MATCHER(IsNan, "is NaN") {
+  return arg && std::isnan(*arg);
+}
 
 static std::vector<double> kDoubleValues = {123, -123, 123.45, -123.45, 0};
 
@@ -59,11 +72,6 @@ class ArithmeticTest : public functions::test::FunctionBaseTest {
           std::string(e.what()).find(errorMessage) != std::string::npos);
     }
   }
-
-  const double kInf = std::numeric_limits<double>::infinity();
-  const double kNan = std::numeric_limits<double>::quiet_NaN();
-  const float kInfF = std::numeric_limits<float>::infinity();
-  const float kNanF = std::numeric_limits<float>::quiet_NaN();
 };
 
 TEST_F(ArithmeticTest, divide)
@@ -158,7 +166,7 @@ TEST_F(ArithmeticTest, exp) {
   EXPECT_EQ(kInf, exp(kInf));
   EXPECT_EQ(0, exp(-kInf));
   EXPECT_EQ(std::nullopt, exp(std::nullopt));
-  EXPECT_TRUE(std::isnan(exp(kNan).value_or(-1)));
+  EXPECT_THAT(exp(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, ln) {
@@ -171,8 +179,8 @@ TEST_F(ArithmeticTest, ln) {
   EXPECT_EQ(0, ln(1));
   EXPECT_EQ(1, ln(kE));
   EXPECT_EQ(-kInf, ln(0));
-  EXPECT_TRUE(std::isnan(ln(-1).value_or(-1)));
-  EXPECT_TRUE(std::isnan(ln(kNan).value_or(-1)));
+  EXPECT_THAT(ln(-1), IsNan());
+  EXPECT_THAT(ln(kNan), IsNan());
   EXPECT_EQ(kInf, ln(kInf));
   EXPECT_EQ(std::nullopt, ln(std::nullopt));
 }
@@ -183,10 +191,10 @@ TEST_F(ArithmeticTest, log2) {
   };
 
   EXPECT_EQ(log2(1), 0);
-  EXPECT_TRUE(std::isnan(log2(-1).value()));
+  EXPECT_THAT(log2(-1), IsNan());
   EXPECT_EQ(log2(std::nullopt), std::nullopt);
   EXPECT_EQ(log2(kInf), kInf);
-  EXPECT_TRUE(std::isnan(log2(kNan).value()));
+  EXPECT_THAT(log2(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, log10) {
@@ -197,10 +205,10 @@ TEST_F(ArithmeticTest, log10) {
   EXPECT_EQ(log10(10), 1);
   EXPECT_EQ(log10(1), 0);
   EXPECT_EQ(log10(0.1), -1);
-  EXPECT_TRUE(std::isnan(log10(-1).value()));
+  EXPECT_THAT(log10(-1), IsNan());
   EXPECT_EQ(log10(std::nullopt), std::nullopt);
   EXPECT_EQ(log10(kInf), kInf);
-  EXPECT_TRUE(std::isnan(log10(kNan).value()));
+  EXPECT_THAT(log10(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, cos) {
@@ -239,7 +247,7 @@ TEST_F(ArithmeticTest, acos) {
 
   values = {123, -123, 123.45, -123.45};
   for (double value : values) {
-    EXPECT_TRUE(std::isnan(acosEval(value).value()));
+    EXPECT_THAT(acosEval(value), IsNan());
   }
 
   EXPECT_EQ(std::nullopt, acosEval(std::nullopt));
@@ -269,7 +277,7 @@ TEST_F(ArithmeticTest, asin) {
 
   values = {123, -123, 123.45, -123.45};
   for (double value : values) {
-    EXPECT_TRUE(std::isnan(asinEval(value).value()));
+    EXPECT_THAT(asinEval(value), IsNan());
   }
 
   EXPECT_EQ(std::nullopt, asinEval(std::nullopt));
@@ -333,14 +341,14 @@ TEST_F(ArithmeticTest, sqrt) {
   };
 
   EXPECT_EQ(1.0, sqrt(1));
-  EXPECT_TRUE(std::isnan(sqrt(-1.0).value_or(-1)));
+  EXPECT_THAT(sqrt(-1.0), IsNan());
   EXPECT_EQ(0, sqrt(0));
 
   EXPECT_EQ(2, sqrt(4));
   EXPECT_EQ(3, sqrt(9));
   EXPECT_FLOAT_EQ(1.34078e+154, sqrt(kDoubleMax).value_or(-1));
   EXPECT_EQ(std::nullopt, sqrt(std::nullopt));
-  EXPECT_TRUE(std::isnan(sqrt(kNan).value_or(-1)));
+  EXPECT_THAT(sqrt(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, cbrt) {
@@ -358,7 +366,7 @@ TEST_F(ArithmeticTest, cbrt) {
   EXPECT_EQ(-4, cbrt(-64));
   EXPECT_FLOAT_EQ(1.34078e+154, cbrt(kDoubleMax).value_or(-1));
   EXPECT_EQ(std::nullopt, cbrt(std::nullopt));
-  EXPECT_TRUE(std::isnan(cbrt(kNan).value_or(-1)));
+  EXPECT_THAT(cbrt(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, widthBucket) {
@@ -466,3 +474,6 @@ TEST_F(ArithmeticTest, radians) {
   EXPECT_DOUBLE_EQ(-3.1415926535897931, radians(-180).value());
   EXPECT_DOUBLE_EQ(-1.0000736613927508, radians(-57.3).value());
 }
+
+} // namespace
+} // namespace facebook::velox

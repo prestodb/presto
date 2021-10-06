@@ -64,4 +64,5 @@ target_link_libraries(
   velox_exec_test_util
   velox_dwrf_test_utils
   ${GTEST_BOTH_LIBRARIES}
-  ${gflags_LIBRARIES})
+  ${gflags_LIBRARIES}
+  ${GMock})
