@@ -31,8 +31,6 @@ MATCHER(IsNan, "is NaN") {
   return arg && std::isnan(*arg);
 }
 
-static std::vector<double> kDoubleValues = {123, -123, 123.45, -123.45, 0};
-
 class ArithmeticTest : public functions::test::FunctionBaseTest {
  protected:
   template <typename T, typename TExpected = T>
@@ -212,125 +210,95 @@ TEST_F(ArithmeticTest, log10) {
 }
 
 TEST_F(ArithmeticTest, cos) {
-  const auto cosEval = [&](std::optional<double> a) {
+  const auto cos = [&](std::optional<double> a) {
     return evaluateOnce<double>("cos(c0)", a);
   };
 
-  for (double value : kDoubleValues) {
-    EXPECT_EQ(std::cos(value), cosEval(value));
-  }
-
-  EXPECT_EQ(std::nullopt, cosEval(std::nullopt));
+  EXPECT_EQ(cos(0), 1);
+  EXPECT_EQ(cos(std::nullopt), std::nullopt);
+  EXPECT_THAT(cos(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, cosh) {
-  const auto coshEval = [&](std::optional<double> a) {
+  const auto cosh = [&](std::optional<double> a) {
     return evaluateOnce<double>("cosh(c0)", a);
   };
 
-  for (double value : kDoubleValues) {
-    EXPECT_EQ(std::cosh(value), coshEval(value));
-  }
-
-  EXPECT_EQ(std::nullopt, coshEval(std::nullopt));
+  EXPECT_EQ(cosh(0), 1);
+  EXPECT_EQ(cosh(std::nullopt), std::nullopt);
+  EXPECT_THAT(cosh(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, acos) {
-  const auto acosEval = [&](std::optional<double> a) {
+  const auto acos = [&](std::optional<double> a) {
     return evaluateOnce<double>("acos(c0)", a);
   };
 
-  std::vector<double> values = {-1.0, -0.5, 0, 0.5, 1.0};
-  for (double value : values) {
-    EXPECT_EQ(std::acos(value), acosEval(value));
-  }
-
-  values = {123, -123, 123.45, -123.45};
-  for (double value : values) {
-    EXPECT_THAT(acosEval(value), IsNan());
-  }
-
-  EXPECT_EQ(std::nullopt, acosEval(std::nullopt));
+  EXPECT_EQ(acos(1), 0);
+  EXPECT_EQ(acos(std::nullopt), std::nullopt);
+  EXPECT_THAT(acos(kNan), IsNan());
+  EXPECT_THAT(acos(1.1), IsNan());
 }
 
 TEST_F(ArithmeticTest, sin) {
-  const auto sinEval = [&](std::optional<double> a) {
+  const auto sin = [&](std::optional<double> a) {
     return evaluateOnce<double>("sin(c0)", a);
   };
 
-  for (double value : kDoubleValues) {
-    EXPECT_EQ(std::sin(value), sinEval(value));
-  }
-
-  EXPECT_EQ(std::nullopt, sinEval(std::nullopt));
+  EXPECT_EQ(sin(0), 0);
+  EXPECT_EQ(sin(std::nullopt), std::nullopt);
+  EXPECT_THAT(sin(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, asin) {
-  const auto asinEval = [&](std::optional<double> a) {
+  const auto asin = [&](std::optional<double> a) {
     return evaluateOnce<double>("asin(c0)", a);
   };
 
-  std::vector<double> values = {-1.0, -0.5, 0, 0.5, 1.0};
-  for (double value : values) {
-    EXPECT_EQ(std::asin(value), asinEval(value));
-  }
-
-  values = {123, -123, 123.45, -123.45};
-  for (double value : values) {
-    EXPECT_THAT(asinEval(value), IsNan());
-  }
-
-  EXPECT_EQ(std::nullopt, asinEval(std::nullopt));
+  EXPECT_EQ(asin(0), 0);
+  EXPECT_EQ(asin(std::nullopt), std::nullopt);
+  EXPECT_THAT(asin(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, tan) {
-  const auto tanEval = [&](std::optional<double> a) {
+  const auto tan = [&](std::optional<double> a) {
     return evaluateOnce<double>("tan(c0)", a);
   };
 
-  for (double value : kDoubleValues) {
-    EXPECT_EQ(std::tan(value), tanEval(value));
-  }
-
-  EXPECT_EQ(std::nullopt, tanEval(std::nullopt));
+  EXPECT_EQ(tan(0), 0);
+  EXPECT_EQ(tan(std::nullopt), std::nullopt);
+  EXPECT_THAT(tan(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, tanh) {
-  const auto tanhEval = [&](std::optional<double> a) {
+  const auto tanh = [&](std::optional<double> a) {
     return evaluateOnce<double>("tanh(c0)", a);
   };
 
-  for (double value : kDoubleValues) {
-    EXPECT_EQ(std::tanh(value), tanhEval(value));
-  }
-
-  EXPECT_EQ(std::nullopt, tanhEval(std::nullopt));
+  EXPECT_EQ(tanh(0), 0);
+  EXPECT_EQ(tanh(std::nullopt), std::nullopt);
+  EXPECT_THAT(tanh(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, atan) {
-  const auto atanEval = [&](std::optional<double> a) {
+  const auto atan = [&](std::optional<double> a) {
     return evaluateOnce<double>("atan(c0)", a);
   };
 
-  for (double value : kDoubleValues) {
-    EXPECT_EQ(std::atan(value), atanEval(value));
-  }
-
-  EXPECT_EQ(std::nullopt, atanEval(std::nullopt));
+  EXPECT_EQ(atan(0), 0);
+  EXPECT_EQ(atan(std::nullopt), std::nullopt);
+  EXPECT_THAT(atan(kNan), IsNan());
 }
 
 TEST_F(ArithmeticTest, atan2) {
-  const auto atan2Eval = [&](std::optional<double> y, std::optional<double> x) {
+  const auto atan2 = [&](std::optional<double> y, std::optional<double> x) {
     return evaluateOnce<double>("atan2(c0, c1)", y, x);
   };
 
-  for (double value : kDoubleValues) {
-    EXPECT_EQ(std::atan2(value, value), atan2Eval(value, value));
-  }
-
-  EXPECT_EQ(std::nullopt, atan2Eval(std::nullopt, std::nullopt));
-  EXPECT_EQ(std::nullopt, atan2Eval(1.0E0, std::nullopt));
-  EXPECT_EQ(std::nullopt, atan2Eval(std::nullopt, 1.0E0));
+  EXPECT_EQ(atan2(0, 0), 0);
+  EXPECT_EQ(atan2(std::nullopt, std::nullopt), std::nullopt);
+  EXPECT_EQ(atan2(1.0E0, std::nullopt), std::nullopt);
+  EXPECT_EQ(atan2(std::nullopt, 1.0E0), std::nullopt);
 }
 
 TEST_F(ArithmeticTest, sqrt) {
