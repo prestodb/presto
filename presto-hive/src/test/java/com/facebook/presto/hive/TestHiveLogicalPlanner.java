@@ -1503,6 +1503,17 @@ public class TestHiveLogicalPlanner
                     filter("orderkey_17 < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view,
                         ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2020-01-01", "2019-01-02", "2019-02-02"))),
                         ImmutableMap.of("orderkey_17", "orderkey")))));
+
+            // if there are too many missing partitions, the optimization rewrite should not happen
+            session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                    .setCatalogSessionProperty(HIVE_CATALOG, MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.toString(2))
+                    .build();
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            assertPlan(session, baseQuery, anyTree(
+                    filter("orderkey < BIGINT'10000'",
+                            PlanMatchPattern.constrainedTableScan(table, ImmutableMap.of(), ImmutableMap.of("orderkey", "orderkey")))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
