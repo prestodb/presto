@@ -207,6 +207,7 @@ public class FeaturesConfig
 
     private boolean queryOptimizationWithMaterializedViewEnabled;
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
+    private boolean verboseRuntimeStatsEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1829,6 +1830,19 @@ public class FeaturesConfig
     public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
     {
         this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isVerboseRuntimeStatsEnabled()
+    {
+        return verboseRuntimeStatsEnabled;
+    }
+
+    @Config("verbose-runtime-stats-enabled")
+    @ConfigDescription("Enable logging all runtime stats.")
+    public FeaturesConfig setVerboseRuntimeStatsEnabled(boolean value)
+    {
+        this.verboseRuntimeStatsEnabled = value;
         return this;
     }
 

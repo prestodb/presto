@@ -179,6 +179,7 @@ public class TestFeaturesConfig
                 .setPartialResultsMaxExecutionTimeMultiplier(2.0)
                 .setMaterializedViewDataConsistencyEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
+                .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED));
     }
 
@@ -309,6 +310,7 @@ public class TestFeaturesConfig
                 .put("offset-clause-enabled", "true")
                 .put("materialized-view-data-consistency-enabled", "false")
                 .put("query-optimization-with-materialized-view-enabled", "true")
+                .put("verbose-runtime-stats-enabled", "true")
                 .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
                 .build();
 
@@ -437,6 +439,7 @@ public class TestFeaturesConfig
                 .setPartialResultsMaxExecutionTimeMultiplier(1.5)
                 .setMaterializedViewDataConsistencyEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
+                .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF);
         assertFullMapping(properties, expected);
     }
