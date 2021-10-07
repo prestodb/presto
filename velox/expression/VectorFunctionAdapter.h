@@ -50,6 +50,11 @@ class VectorAdapter : public VectorFunction {
       resultWriter.init(*result);
     }
 
+    template <typename Callable>
+    void applyToSelectedNoThrow(Callable func) {
+      context->template applyToSelectedNoThrow<Callable>(*rows, func);
+    }
+
     const SelectivityVector* rows;
     result_vector_t* result;
     VectorWriter<typename FUNC::return_type> resultWriter;
@@ -131,57 +136,39 @@ class VectorAdapter : public VectorFunction {
       // "writer" gets in the way for primitives, so we specialize
       uint64_t* nn = nullptr;
       auto* data = applyContext.result->mutableRawValues();
-      vector_size_t row;
       if (allNotNull) {
-        applyContext.rows->applyToSelected([&](auto row) {
-          try {
-            bool notNull = doApplyNotNull<0>(row, data[row], readers...);
-            if (!notNull) {
-              if (!nn) {
-                nn = applyContext.result->mutableRawNulls();
-              }
-              bits::setNull(nn, row);
+        applyContext.applyToSelectedNoThrow([&](auto row) {
+          bool notNull = doApplyNotNull<0>(row, data[row], readers...);
+          if (!notNull) {
+            if (!nn) {
+              nn = applyContext.result->mutableRawNulls();
             }
-          } catch (const std::exception& e) {
-            applyContext.context->setError(row, std::current_exception());
+            bits::setNull(nn, row);
           }
         });
       } else {
-        applyContext.rows->template applyToSelected([&](auto row) {
-          try {
-            bool notNull = doApply<0>(row, data[row], readers...);
-            if (!notNull) {
-              if (!nn) {
-                nn = applyContext.result->mutableRawNulls();
-              }
-              bits::setNull(nn, row);
+        applyContext.applyToSelectedNoThrow([&](auto row) {
+          bool notNull = doApply<0>(row, data[row], readers...);
+          if (!notNull) {
+            if (!nn) {
+              nn = applyContext.result->mutableRawNulls();
             }
-          } catch (const std::exception& e) {
-            applyContext.context->setError(row, std::current_exception());
+            bits::setNull(nn, row);
           }
         });
       }
     } else {
       if (allNotNull) {
-        applyContext.rows->template applyToSelected([&](auto row) {
+        applyContext.applyToSelectedNoThrow([&](auto row) {
           applyContext.resultWriter.setOffset(row);
-          try {
-            applyContext.resultWriter.commit(
-                static_cast<char>(doApplyNotNull<0>(
-                    row, applyContext.resultWriter.current(), readers...)));
-          } catch (std::exception& e) {
-            applyContext.context->setError(row, std::current_exception());
-          }
+          applyContext.resultWriter.commit(static_cast<char>(doApplyNotNull<0>(
+              row, applyContext.resultWriter.current(), readers...)));
         });
       } else {
-        applyContext.rows->template applyToSelected([&](auto row) {
+        applyContext.applyToSelectedNoThrow([&](auto row) {
           applyContext.resultWriter.setOffset(row);
-          try {
-            applyContext.resultWriter.commit(static_cast<char>(doApply<0>(
-                row, applyContext.resultWriter.current(), readers...)));
-          } catch (std::exception& e) {
-            applyContext.context->setError(row, std::current_exception());
-          }
+          applyContext.resultWriter.commit(static_cast<char>(doApply<0>(
+              row, applyContext.resultWriter.current(), readers...)));
         });
       }
     }
