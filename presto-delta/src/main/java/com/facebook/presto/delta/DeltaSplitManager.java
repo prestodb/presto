@@ -30,10 +30,13 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toMap;
 
 public class DeltaSplitManager
         implements ConnectorSplitManager
@@ -89,7 +92,8 @@ public class DeltaSplitManager
                         filePath.toString(),
                         0, /* start */
                         file.getSize() /* split length - default is read the entire file in one split */,
-                        file.getSize()));
+                        file.getSize(),
+                        removeNullPartitionValues(file.getPartitionValues())));
                 currentSplitCount++;
             }
 
@@ -112,5 +116,16 @@ public class DeltaSplitManager
         {
             return !fileIterator.hasNext();
         }
+    }
+
+    /**
+     * Utility method to remove the null value partition values.
+     * These null values cause problems later when used with Guava Immutable map structures.
+     */
+    private static Map<String, String> removeNullPartitionValues(Map<String, String> partitionValues)
+    {
+        return partitionValues.entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
+                .collect(toMap(Entry::getKey, Entry::getValue));
     }
 }

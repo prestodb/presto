@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.US;
@@ -86,6 +87,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         Session session = testSessionBuilder()
                 .setCatalog(DELTA_CATALOG)
                 .setSchema(DELTA_SCHEMA.toLowerCase(US))
+                .setTimeZoneKey(UTC_KEY)
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
