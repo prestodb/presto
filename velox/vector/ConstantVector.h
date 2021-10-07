@@ -33,7 +33,7 @@ struct DummyReleaser {
 } // namespace
 
 template <typename T>
-class ConstantVector : public SimpleVector<T> {
+class ConstantVector final : public SimpleVector<T> {
  public:
   static constexpr bool can_simd =
       (std::is_same<T, int64_t>::value || std::is_same<T, int32_t>::value ||
