@@ -15,6 +15,8 @@
 package com.facebook.presto.delta;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.Utils;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -65,6 +67,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_BAD_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_CANNOT_OPEN_SPLIT;
@@ -74,6 +77,7 @@ import static com.facebook.presto.delta.DeltaSessionProperties.getParquetMaxRead
 import static com.facebook.presto.delta.DeltaSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReadsEnabled;
+import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.checkSchemaMatch;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -88,6 +92,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
 
 public class DeltaPageSourceProvider
@@ -132,7 +137,11 @@ public class DeltaPageSourceProvider
                 .map(DeltaColumnHandle.class::cast)
                 .collect(Collectors.toList());
 
-        return createParquetPageSource(
+        List<DeltaColumnHandle> regularColumnHandles = deltaColumnHandles.stream()
+                .filter(columnHandle -> columnHandle.getColumnType() == REGULAR)
+                .collect(Collectors.toList());
+
+        ConnectorPageSource dataPageSource = createParquetPageSource(
                 hdfsEnvironment,
                 session.getUser(),
                 hdfsEnvironment.getConfiguration(hdfsContext, filePath),
@@ -140,7 +149,7 @@ public class DeltaPageSourceProvider
                 deltaSplit.getStart(),
                 deltaSplit.getLength(),
                 deltaSplit.getFileSize(),
-                deltaColumnHandles,
+                regularColumnHandles,
                 deltaTableHandle.toSchemaTableName(),
                 isFailOnCorruptedParquetStatistics(session),
                 getParquetMaxReadBlockSize(session),
@@ -149,6 +158,31 @@ public class DeltaPageSourceProvider
                 typeManager,
                 deltaTableHandle.getPredicate(),
                 fileFormatDataSourceStats);
+
+        return new DeltaPageSource(
+                deltaColumnHandles,
+                convertPartitionValues(deltaColumnHandles, deltaSplit.getPartitionValues()),
+                dataPageSource);
+    }
+
+    /**
+     * Go through all the output columns, identify the partition columns and convert the partition values to Presto internal format.
+     */
+    private Map<String, Block> convertPartitionValues(List<DeltaColumnHandle> allColumns, Map<String, String> partitionValues)
+    {
+        return allColumns.stream()
+                .filter(columnHandle -> columnHandle.getColumnType() == PARTITION)
+                .collect(toMap(
+                        DeltaColumnHandle::getName,
+                        columnHandle -> {
+                            Type columnType = typeManager.getType(columnHandle.getDataType());
+                            return Utils.nativeValueToBlock(
+                                    columnType,
+                                    convertPartitionValue(
+                                            columnHandle.getName(),
+                                            partitionValues.get(columnHandle.getName()),
+                                            columnType));
+                        }));
     }
 
     private static ConnectorPageSource createParquetPageSource(
@@ -182,7 +216,7 @@ public class DeltaPageSourceProvider
 
             Optional<MessageType> message = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getColumnType(typeManager.getType(column.getDataType()), fileSchema, column, tableName, path))
+                    .map(column -> getParquetType(typeManager.getType(column.getDataType()), fileSchema, column, tableName, path))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(type -> new MessageType(fileSchema.getName(), type))
@@ -283,16 +317,6 @@ public class DeltaPageSourceProvider
             }
         }
         return TupleDomain.withColumnDomains(predicate.build());
-    }
-
-    public static Optional<org.apache.parquet.schema.Type> getColumnType(
-            Type prestoType,
-            MessageType messageType,
-            DeltaColumnHandle column,
-            SchemaTableName tableName,
-            Path path)
-    {
-        return getParquetType(prestoType, messageType, column, tableName, path);
     }
 
     public static Optional<org.apache.parquet.schema.Type> getParquetType(

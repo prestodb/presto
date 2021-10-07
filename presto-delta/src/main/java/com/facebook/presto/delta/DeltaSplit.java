@@ -20,8 +20,10 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
@@ -38,6 +40,7 @@ public class DeltaSplit
     private final long start;
     private final long length;
     private final long fileSize;
+    private final Map<String, String> partitionValues;
 
     @JsonCreator
     public DeltaSplit(
@@ -47,7 +50,8 @@ public class DeltaSplit
             @JsonProperty("filePath") String filePath,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize)
+            @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("partitionValues") Map<String, String> partitionValues)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -60,6 +64,7 @@ public class DeltaSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.partitionValues = ImmutableMap.copyOf(requireNonNull(partitionValues, "partitionValues id is null"));
     }
 
     @JsonProperty
@@ -102,6 +107,12 @@ public class DeltaSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    @JsonProperty
+    public Map<String, String> getPartitionValues()
+    {
+        return partitionValues;
     }
 
     @Override
