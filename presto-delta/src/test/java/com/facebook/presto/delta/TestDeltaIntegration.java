@@ -172,6 +172,68 @@ public class TestDeltaIntegration
         assertDeltaQuery(deltaTable, testQueryV13, expResultsQueryV13);
     }
 
+    @Test
+    public void readPartitionedTable()
+    {
+        String deltaTable = "time-travel-partition-changes-b";
+        String testQuery1 = format("SELECT * FROM \"%s\" WHERE id in (10, 15, 12, 13)", deltaTable);
+        String expResultsQuery1 = "SELECT * FROM VALUES(10, 0),(15, 1),(12, 0),(13, 1)";
+        assertDeltaQuery(deltaTable, testQuery1, expResultsQuery1);
+
+        // reorder the columns in output and query the partitioned table
+        String testQuery2 = format("SELECT part2, id FROM \"%s\" WHERE id in (16, 14, 19)", deltaTable);
+        String expResultsQuery2 = "SELECT * FROM VALUES(0, 16),(0, 14),(1, 19)";
+        assertDeltaQuery(deltaTable, testQuery2, expResultsQuery2);
+    }
+
+    @Test
+    public void readPartitionedTableAllDataTypes()
+    {
+        String deltaTable = "data-reader-partition-values";
+        String testQuery = format("SELECT * FROM \"%s\"", deltaTable);
+        String expResultsQuery = "SELECT * FROM VALUES" +
+                "( 0," +
+                "  cast(0 as bigint)," +
+                "  cast(0 as smallint), " +
+                "  cast(0 as tinyint), " +
+                "  true, " +
+                "  0.0, " +
+                "  cast(0.0 as double), " +
+                "  '0', " +
+                "  DATE '2021-09-08', " +
+                "  TIMESTAMP '2021-09-08 11:11:11', " +
+                "  cast(0 as decimal)," +
+                "  '0'" + // regular column
+                "), " +
+                "( 1," +
+                "  cast(1 as bigint)," +
+                "  cast(1 as smallint), " +
+                "  cast(1 as tinyint), " +
+                "  false, " +
+                "  1.0, " +
+                "  cast(1.0 as double), " +
+                "  '1', " +
+                "  DATE '2021-09-08', " +
+                "  TIMESTAMP '2021-09-08 11:11:11', " +
+                "  cast(1 as decimal), " +
+                "  '1'" + // regular column
+                "), " +
+                "( null," +
+                "  null," +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  '2'" + // regular column
+                ")";
+        assertDeltaQuery(deltaTable, testQuery, expResultsQuery);
+    }
+
     /**
      * Expected results for table "data-reader-primitives"
      */

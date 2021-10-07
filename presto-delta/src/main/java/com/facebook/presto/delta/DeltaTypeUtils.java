@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.delta.standalone.types.ArrayType;
 import io.delta.standalone.types.BinaryType;
 import io.delta.standalone.types.BooleanType;
@@ -39,6 +43,13 @@ import io.delta.standalone.types.StringType;
 import io.delta.standalone.types.StructType;
 import io.delta.standalone.types.TimestampType;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
@@ -47,6 +58,8 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.Decimals.isLongDecimal;
+import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -57,8 +70,14 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Double.parseDouble;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.parseFloat;
+import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 
 /**
@@ -112,6 +131,68 @@ public class DeltaTypeUtils
         }
 
         return convertDeltaPrimitiveTypeToPrestoPrimitiveType(tableName, columnName, deltaType).getTypeSignature();
+    }
+
+    public static Object convertPartitionValue(
+            String columnName,
+            String valueString,
+            Type type)
+    {
+        if (valueString == null) {
+            return null;
+        }
+
+        try {
+            if (type.equals(BOOLEAN)) {
+                checkArgument(valueString.equalsIgnoreCase("true") || valueString.equalsIgnoreCase("false"));
+                return Boolean.valueOf(valueString);
+            }
+            if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT)) {
+                return parseLong(valueString);
+            }
+            if (type.equals(REAL)) {
+                return (long) floatToRawIntBits(parseFloat(valueString));
+            }
+            if (type.equals(DOUBLE)) {
+                return parseDouble(valueString);
+            }
+            if (type instanceof VarcharType) {
+                Slice value = utf8Slice(valueString);
+                VarcharType varcharType = (VarcharType) type;
+                if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(value) > varcharType.getLengthSafe()) {
+                    throw new IllegalArgumentException();
+                }
+                return value;
+            }
+            if (type.equals(VARBINARY)) {
+                return utf8Slice(valueString);
+            }
+            if (isShortDecimal(type) || isLongDecimal(type)) {
+                com.facebook.presto.common.type.DecimalType decimalType = (com.facebook.presto.common.type.DecimalType) type;
+                BigDecimal decimal = new BigDecimal(valueString);
+                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
+                if (decimal.precision() > decimalType.getPrecision()) {
+                    throw new IllegalArgumentException();
+                }
+                BigInteger unscaledValue = decimal.unscaledValue();
+                return isShortDecimal(type) ? unscaledValue.longValue() : Decimals.encodeUnscaledValue(unscaledValue);
+            }
+            if (type.equals(DATE)) {
+                return LocalDate.parse(valueString, DateTimeFormatter.ISO_LOCAL_DATE).toEpochDay();
+            }
+            if (type.equals(TIMESTAMP)) {
+                // Delta partition serialized value contains up to the second precision
+                return Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(ZoneOffset.UTC) * 1_000;
+            }
+            throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
+                    format("Unsupported data type '%s' for partition column %s", type, columnName));
+        }
+        catch (IllegalArgumentException | DateTimeParseException e) {
+            throw new PrestoException(
+                    DELTA_INVALID_PARTITION_VALUE,
+                    format("Can not parse partition value '%s' of type '%s' for partition column '%s'", valueString, type, columnName),
+                    e);
+        }
     }
 
     private static Type convertDeltaPrimitiveTypeToPrestoPrimitiveType(SchemaTableName tableName, String columnName, DataType deltaType)

@@ -14,6 +14,7 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -35,7 +36,8 @@ public class TestDeltaSplit
                 "s3://bucket/path/to/delta/table/file1.parquet",
                 0,
                 200,
-                500);
+                500,
+                ImmutableMap.of("part1", "part1Val"));
 
         String json = codec.toJson(expected);
         DeltaSplit actual = codec.fromJson(json);
@@ -48,5 +50,6 @@ public class TestDeltaSplit
         assertEquals(actual.getLength(), expected.getLength());
         assertEquals(actual.getFileSize(), expected.getFileSize());
         assertEquals(actual.getSplitSizeInBytes(), expected.getSplitSizeInBytes());
+        assertEquals(actual.getPartitionValues(), expected.getPartitionValues());
     }
 }
