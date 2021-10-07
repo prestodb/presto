@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.minmaxby;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
@@ -37,7 +38,6 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

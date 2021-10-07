@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
-import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
