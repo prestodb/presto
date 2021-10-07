@@ -16,4 +16,5 @@ if(${VELOX_BUILD_TESTING})
 endif()
 add_library(velox_type_tz TimeZoneMap.h TimeZoneDatabase.cpp TimeZoneMap.cpp)
 
-target_link_libraries(velox_type_tz ${Boost_REGEX_LIBRARIES} ${FMT})
+target_link_libraries(velox_type_tz ${Boost_REGEX_LIBRARIES} ${FMT}
+                      ${FOLLY_WITH_DEPENDENCIES})
