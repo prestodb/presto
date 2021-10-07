@@ -185,6 +185,10 @@ struct StringView {
     return folly::dynamic(folly::StringPiece(data(), size()));
   }
 
+  explicit operator std::string_view() const {
+    return std::string_view(data(), size());
+  }
+
   std::string str() const {
     return std::string(data(), size());
   }
