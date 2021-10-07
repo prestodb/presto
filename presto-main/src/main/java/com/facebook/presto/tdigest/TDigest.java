@@ -61,7 +61,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static java.lang.Double.isNaN;
-import static java.lang.Double.sum;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.min;

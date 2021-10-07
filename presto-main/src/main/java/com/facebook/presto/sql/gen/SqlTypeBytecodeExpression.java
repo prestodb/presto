@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.Binding;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction;
