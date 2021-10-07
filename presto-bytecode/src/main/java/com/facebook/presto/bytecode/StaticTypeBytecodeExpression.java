@@ -11,15 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.gen;
+package com.facebook.presto.bytecode;
 
-import com.facebook.presto.bytecode.Binding;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.CallSiteBinder;
-import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction;
-import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 
 import java.lang.reflect.Method;
@@ -27,39 +22,21 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.util.Objects.requireNonNull;
 
-public class SqlTypeBytecodeExpression
+public class StaticTypeBytecodeExpression
         extends BytecodeExpression
 {
-    public static SqlTypeBytecodeExpression constantType(CallSiteBinder callSiteBinder, Type type)
-    {
-        requireNonNull(callSiteBinder, "callSiteBinder is null");
-        requireNonNull(type, "type is null");
-
-        Binding binding = callSiteBinder.bind(type, Type.class);
-        return new SqlTypeBytecodeExpression(type, binding, BOOTSTRAP_METHOD);
-    }
-
-    private static String generateName(Type type)
-    {
-        String name = type.getTypeSignature().toString();
-        if (name.length() > 20) {
-            // Use type base to reduce the identifier size in generated code
-            name = type.getTypeSignature().getBase();
-        }
-        return name.replaceAll("\\W+", "_");
-    }
-
-    private final Type type;
+    private final String typeName;
+    private final Class<?> javaType;
     private final Binding binding;
     private final Method bootstrapMethod;
 
-    private SqlTypeBytecodeExpression(Type type, Binding binding, Method bootstrapMethod)
+    public StaticTypeBytecodeExpression(Binding binding, Method bootstrapMethod, Class<?> sqlType, String typeName, Class<?> javaType)
     {
-        super(type(Type.class));
-        this.type = requireNonNull(type, "type is null");
+        super(type(sqlType));
+        this.typeName = requireNonNull(typeName, "type is null");
+        this.javaType = javaType;
         this.binding = requireNonNull(binding, "binding is null");
         this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
     }
@@ -67,7 +44,7 @@ public class SqlTypeBytecodeExpression
     @Override
     public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
-        return InvokeInstruction.invokeDynamic(generateName(type), binding.getType(), bootstrapMethod, binding.getBindingId());
+        return InvokeInstruction.invokeDynamic(typeName.replaceAll("\\W+", "_"), binding.getType(), bootstrapMethod, binding.getBindingId());
     }
 
     @Override
@@ -79,42 +56,38 @@ public class SqlTypeBytecodeExpression
     @Override
     protected String formatOneLine()
     {
-        return type.getTypeSignature().toString();
+        return typeName;
     }
 
     public BytecodeExpression getValue(BytecodeExpression block, BytecodeExpression position)
     {
-        Class<?> fromJavaElementType = type.getJavaType();
-
-        if (fromJavaElementType == boolean.class) {
+        if (javaType == boolean.class) {
             return invoke("getBoolean", boolean.class, block, position);
         }
-        if (fromJavaElementType == long.class) {
+        if (javaType == long.class) {
             return invoke("getLong", long.class, block, position);
         }
-        if (fromJavaElementType == double.class) {
+        if (javaType == double.class) {
             return invoke("getDouble", double.class, block, position);
         }
-        if (fromJavaElementType == Slice.class) {
+        if (javaType == Slice.class) {
             return invoke("getSlice", Slice.class, block, position);
         }
-        return invoke("getObject", Object.class, block, position).cast(fromJavaElementType);
+        return invoke("getObject", Object.class, block, position).cast(javaType);
     }
 
     public BytecodeExpression writeValue(BytecodeExpression blockBuilder, BytecodeExpression value)
     {
-        Class<?> fromJavaElementType = type.getJavaType();
-
-        if (fromJavaElementType == boolean.class) {
+        if (javaType == boolean.class) {
             return invoke("writeBoolean", void.class, blockBuilder, value);
         }
-        if (fromJavaElementType == long.class) {
+        if (javaType == long.class) {
             return invoke("writeLong", void.class, blockBuilder, value);
         }
-        if (fromJavaElementType == double.class) {
+        if (javaType == double.class) {
             return invoke("writeDouble", void.class, blockBuilder, value);
         }
-        if (fromJavaElementType == Slice.class) {
+        if (javaType == Slice.class) {
             return invoke("writeSlice", void.class, blockBuilder, value);
         }
         return invoke("writeObject", void.class, blockBuilder, value.cast(Object.class));
