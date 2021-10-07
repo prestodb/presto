@@ -47,9 +47,7 @@ class BlockingState {
       Operator* FOLLY_NONNULL op,
       BlockingReason reason);
 
-  static void setResume(
-      std::shared_ptr<BlockingState> state,
-      folly::Executor* FOLLY_NULLABLE executor = nullptr);
+  static void setResume(std::shared_ptr<BlockingState> state);
 
   Operator* FOLLY_NONNULL op() {
     return operator_;
@@ -105,13 +103,9 @@ class Driver {
   static folly::CPUThreadPoolExecutor* FOLLY_NONNULL
   executor(int32_t threads = 0);
 
-  static void run(
-      std::shared_ptr<Driver> self,
-      folly::Executor* FOLLY_NULLABLE executor = nullptr);
+  static void run(std::shared_ptr<Driver> self);
 
-  static void enqueue(
-      std::shared_ptr<Driver> instance,
-      folly::Executor* FOLLY_NULLABLE executor = nullptr);
+  static void enqueue(std::shared_ptr<Driver> instance);
 
   // Waits for activity on 'executor_' to finish and then makes a new
   // executor. Testing uses this to ensure that there are no live
