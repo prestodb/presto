@@ -213,18 +213,40 @@ inline std::unique_ptr<common::BytesRange> between(
       min, false, false, max, false, false, nullAllowed);
 }
 
+inline std::unique_ptr<common::BytesRange> betweenExclusive(
+    const std::string& min,
+    const std::string& max,
+    bool nullAllowed = false) {
+  return std::make_unique<common::BytesRange>(
+      min, false, true, max, false, true, nullAllowed);
+}
+
 inline std::unique_ptr<common::BytesRange> lessThanOrEqual(
     const std::string& max,
     bool nullAllowed = false) {
   return std::make_unique<common::BytesRange>(
-      "", true, true, max, false, false, nullAllowed);
+      "", true, false, max, false, false, nullAllowed);
+}
+
+inline std::unique_ptr<common::BytesRange> lessThan(
+    const std::string& max,
+    bool nullAllowed = false) {
+  return std::make_unique<common::BytesRange>(
+      "", true, false, max, false, true, nullAllowed);
 }
 
 inline std::unique_ptr<common::BytesRange> greaterThanOrEqual(
     const std::string& min,
     bool nullAllowed = false) {
   return std::make_unique<common::BytesRange>(
-      min, false, false, "", true, true, nullAllowed);
+      min, false, false, "", true, false, nullAllowed);
+}
+
+inline std::unique_ptr<common::BytesRange> greaterThan(
+    const std::string& min,
+    bool nullAllowed = false) {
+  return std::make_unique<common::BytesRange>(
+      min, false, true, "", true, false, nullAllowed);
 }
 
 inline std::unique_ptr<common::Filter> in(

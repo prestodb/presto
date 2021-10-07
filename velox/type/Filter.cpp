@@ -490,35 +490,63 @@ std::unique_ptr<Filter> MultiRange::mergeWith(const Filter* other) const {
       return this->clone(/*nullAllowed=*/false);
     case FilterKind::kDoubleRange:
     case FilterKind::kFloatRange:
-    case FilterKind::kBytesRange:
-    case FilterKind::kBytesValues:
-      // TODO Implement
+      // TODO: Implement
       VELOX_UNREACHABLE();
+    case FilterKind::kBytesValues:
+    case FilterKind::kBytesRange:
     case FilterKind::kMultiRange: {
-      const MultiRange* multiRangeOther = static_cast<const MultiRange*>(other);
       bool bothNullAllowed = nullAllowed_ && other->testNull();
-      bool bothNanAllowed = nanAllowed_ && multiRangeOther->nanAllowed_;
-      std::vector<std::unique_ptr<Filter>> merged;
-      for (auto const& filter : this->filters()) {
+      bool bothNanAllowed = nanAllowed_;
+      std::vector<const Filter*> otherFilters;
+
+      if (other->kind() == FilterKind::kMultiRange) {
+        auto multiRangeOther = static_cast<const MultiRange*>(other);
         for (auto const& filterOther : multiRangeOther->filters()) {
-          auto innerMerged = filter->mergeWith(filterOther.get());
+          otherFilters.emplace_back(filterOther.get());
+        }
+        bothNanAllowed = bothNanAllowed && multiRangeOther->nanAllowed();
+      } else {
+        otherFilters.emplace_back(other);
+      }
+
+      std::vector<std::string> byteValues;
+      std::vector<std::unique_ptr<Filter>> merged;
+      merged.reserve(this->filters().size() + otherFilters.size());
+
+      for (auto const& filter : this->filters()) {
+        for (auto const& filterOther : otherFilters) {
+          auto innerMerged = filter->mergeWith(filterOther);
           switch (innerMerged->kind()) {
             case FilterKind::kAlwaysFalse:
             case FilterKind::kIsNull:
-              break;
+              continue;
+            case FilterKind::kBytesValues: {
+              auto mergedBytesValues =
+                  static_cast<const BytesValues*>(innerMerged.get());
+              byteValues.reserve(
+                  byteValues.size() + mergedBytesValues->values().size());
+              for (const auto& value : mergedBytesValues->values()) {
+                byteValues.emplace_back(value);
+              }
+            }
             default:
-              merged.push_back(std::move(innerMerged));
+              merged.emplace_back(innerMerged.release());
           }
         }
+      }
+
+      if (!byteValues.empty()) {
+        merged.emplace_back(std::make_unique<BytesValues>(
+            std::move(byteValues), bothNullAllowed));
       }
 
       if (merged.empty()) {
         return nullOrFalse(bothNullAllowed);
       } else if (merged.size() == 1) {
-        return merged[0]->clone(bothNullAllowed);
+        return merged.front()->clone(bothNullAllowed);
       } else {
-        return std::unique_ptr<Filter>(
-            new MultiRange(std::move(merged), bothNullAllowed, bothNanAllowed));
+        return std::make_unique<MultiRange>(
+            std::move(merged), bothNullAllowed, bothNanAllowed);
       }
     }
     default:
@@ -847,4 +875,165 @@ std::unique_ptr<Filter> BigintMultiRange::mergeWith(const Filter* other) const {
       VELOX_UNREACHABLE();
   }
 }
+
+namespace {
+// compareResult = left < right for upper, right < left for lower
+bool mergeExclusive(int compareResult, bool left, bool right) {
+  return compareResult == 0 ? (left || right)
+                            : (compareResult < 0 ? left : right);
+}
+} // namespace
+
+std::unique_ptr<Filter> BytesRange::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return this->clone(false);
+    case FilterKind::kBytesValues:
+    case FilterKind::kMultiRange:
+      return other->mergeWith(this);
+    case FilterKind::kBytesRange: {
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+      auto otherRange = static_cast<const BytesRange*>(other);
+
+      bool upperUnbounded = false;
+      bool lowerUnbounded = false;
+      bool upperExclusive = false;
+      bool lowerExclusive = false;
+      std::string upper = "";
+      std::string lower = "";
+
+      if (lowerUnbounded_) {
+        lowerUnbounded = otherRange->lowerUnbounded_;
+        lowerExclusive = otherRange->lowerExclusive_;
+        lower = otherRange->lower_;
+      } else if (otherRange->lowerUnbounded_) {
+        lowerUnbounded = lowerUnbounded_;
+        lowerExclusive = lowerExclusive_;
+        lower = lower_;
+      } else {
+        lowerUnbounded = false;
+        auto compare = lower_.compare(otherRange->lower_);
+        lower = compare < 0 ? otherRange->lower_ : lower_;
+        lowerExclusive = mergeExclusive(
+            -compare, lowerExclusive_, otherRange->lowerExclusive_);
+      }
+
+      if (upperUnbounded_) {
+        upperUnbounded = otherRange->upperUnbounded_;
+        upperExclusive = otherRange->upperExclusive_;
+        upper = otherRange->upper_;
+      } else if (otherRange->upperUnbounded_) {
+        upperUnbounded = upperUnbounded_;
+        upperExclusive = upperExclusive_;
+        upper = upper_;
+      } else {
+        upperUnbounded = false;
+        auto compare = upper_.compare(otherRange->upper_);
+        upper = compare < 0 ? upper_ : otherRange->upper_;
+        upperExclusive = mergeExclusive(
+            compare, upperExclusive_, otherRange->upperExclusive_);
+      }
+
+      if (!lowerUnbounded && !upperUnbounded &&
+          (lower > upper ||
+           (lower == upper && (lowerExclusive || upperExclusive)))) {
+        return nullOrFalse(bothNullAllowed);
+      }
+
+      return std::make_unique<BytesRange>(
+          lower,
+          lowerUnbounded,
+          lowerExclusive,
+          upper,
+          upperUnbounded,
+          upperExclusive,
+          bothNullAllowed);
+    }
+
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter> BytesValues::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+    case FilterKind::kMultiRange:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return this->clone(false);
+    case FilterKind::kBytesValues: {
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      auto otherBytesValues = static_cast<const BytesValues*>(other);
+
+      if (this->upper_.compare(otherBytesValues->lower_) < 0 ||
+          otherBytesValues->upper_.compare(this->lower_) < 0) {
+        return nullOrFalse(bothNullAllowed);
+      }
+      const BytesValues* smallerFilter = this;
+      const BytesValues* largerFilter = otherBytesValues;
+      if (this->values().size() > otherBytesValues->values().size()) {
+        smallerFilter = otherBytesValues;
+        largerFilter = this;
+      }
+
+      std::vector<std::string> newValues;
+      newValues.reserve(smallerFilter->values().size());
+
+      for (const auto& value : smallerFilter->values()) {
+        if (largerFilter->values_.contains(value)) {
+          newValues.emplace_back(value);
+        }
+      }
+
+      if (newValues.empty()) {
+        return nullOrFalse(bothNullAllowed);
+      }
+
+      return std::make_unique<BytesValues>(
+          std::move(newValues), bothNullAllowed);
+    }
+    case FilterKind::kBytesRange: {
+      auto otherBytesRange = static_cast<const BytesRange*>(other);
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+      if (!testBytesRange(
+              otherBytesRange->isLowerUnbounded()
+                  ? std::nullopt
+                  : std::optional(otherBytesRange->lower()),
+              otherBytesRange->isUpperUnbounded()
+                  ? std::nullopt
+                  : std::optional(otherBytesRange->upper()),
+              bothNullAllowed)) {
+        return nullOrFalse(bothNullAllowed);
+      }
+
+      std::vector<std::string> newValues;
+      newValues.reserve(this->values().size());
+      for (const auto& value : this->values()) {
+        if (otherBytesRange->testBytes(value.data(), value.length())) {
+          newValues.emplace_back(value);
+        }
+      }
+
+      if (newValues.empty()) {
+        return nullOrFalse(bothNullAllowed);
+      }
+
+      return std::make_unique<BytesValues>(
+          std::move(newValues), bothNullAllowed);
+    }
+
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
 } // namespace facebook::velox::common

@@ -1082,10 +1082,7 @@ class BytesRange final : public AbstractRange {
             FilterKind::kBytesRange),
         lower_(other.lower_),
         upper_(other.upper_),
-        singleValue_(
-            !other.lowerExclusive_ && !other.upperExclusive_ &&
-            !other.lowerUnbounded_ && !other.upperUnbounded_ &&
-            other.lower_ == other.upper_) {}
+        singleValue_(other.singleValue_) {}
 
   std::unique_ptr<Filter> clone(
       std::optional<bool> nullAllowed = std::nullopt) const final {
@@ -1094,6 +1091,16 @@ class BytesRange final : public AbstractRange {
     } else {
       return std::make_unique<BytesRange>(*this);
     }
+  }
+
+  std::string toString() const final {
+    return fmt::format(
+        "BytesRange: {}{}, {}{} {}",
+        (lowerUnbounded_ || lowerExclusive_) ? "(" : "[",
+        lowerUnbounded_ ? "..." : lower_,
+        upperUnbounded_ ? "..." : upper_,
+        (upperUnbounded_ || upperExclusive_) ? ")" : "]",
+        nullAllowed_ ? "with nulls" : "no nulls");
   }
 
   bool testBytes(const char* value, int32_t length) const final;
@@ -1111,6 +1118,8 @@ class BytesRange final : public AbstractRange {
     return !singleValue_ || lower_.size() == length;
   }
 
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
   __m256si test8xLength(__m256si lengths) const final {
     using V32 = simd::Vectors<int32_t>;
     VELOX_DCHECK(singleValue_);
@@ -1119,6 +1128,14 @@ class BytesRange final : public AbstractRange {
 
   bool isSingleValue() const {
     return singleValue_;
+  }
+
+  bool isUpperUnbounded() const {
+    return upperUnbounded_;
+  }
+
+  bool isLowerUnbounded() const {
+    return lowerUnbounded_;
   }
 
   const std::string& lower() const {
@@ -1155,17 +1172,11 @@ class BytesValues final : public Filter {
   }
 
   BytesValues(const BytesValues& other, bool nullAllowed)
-      : Filter(true, nullAllowed, FilterKind::kBytesValues) {
-    VELOX_CHECK(!other.values_.empty(), "values must not be empty");
-
-    for (const auto& value : other.values_) {
-      lengths_.insert(value.size());
-      values_.insert(value);
-    }
-
-    lower_ = *std::min_element(other.values_.begin(), other.values_.end());
-    upper_ = *std::max_element(other.values_.begin(), other.values_.end());
-  }
+      : Filter(true, nullAllowed, FilterKind::kBytesValues),
+        lower_(other.lower_),
+        upper_(other.upper_),
+        values_(other.values_),
+        lengths_(other.lengths_) {}
 
   std::unique_ptr<Filter> clone(
       std::optional<bool> nullAllowed = std::nullopt) const final {
@@ -1189,6 +1200,12 @@ class BytesValues final : public Filter {
       std::optional<std::string_view> min,
       std::optional<std::string_view> max,
       bool hasNull) const final;
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
+  const folly::F14FastSet<std::string>& values() const {
+    return values_;
+  }
 
  private:
   std::string lower_;
@@ -1280,6 +1297,10 @@ class MultiRange final : public Filter {
   }
 
   std::unique_ptr<Filter> mergeWith(const Filter* other) const override final;
+
+  bool nanAllowed() const {
+    return nanAllowed_;
+  }
 
  private:
   const std::vector<std::unique_ptr<Filter>> filters_;

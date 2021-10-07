@@ -504,6 +504,30 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytes("banana", 6));
   EXPECT_FALSE(filter->testBytes("camel", 5));
   EXPECT_FALSE(filter->testBytes("_abc", 4));
+
+  // < b
+  filter = lessThan("b");
+  EXPECT_TRUE(filter->testBytes("a", 1));
+  EXPECT_FALSE(filter->testBytes("b", 1));
+  EXPECT_FALSE(filter->testBytes("c", 1));
+
+  // <= b
+  filter = lessThanOrEqual("b");
+  EXPECT_TRUE(filter->testBytes("a", 1));
+  EXPECT_TRUE(filter->testBytes("b", 1));
+  EXPECT_FALSE(filter->testBytes("c", 1));
+
+  // >= b
+  filter = greaterThanOrEqual("b");
+  EXPECT_FALSE(filter->testBytes("a", 1));
+  EXPECT_TRUE(filter->testBytes("b", 1));
+  EXPECT_TRUE(filter->testBytes("c", 1));
+
+  // > b
+  filter = greaterThan("b");
+  EXPECT_FALSE(filter->testBytes("a", 1));
+  EXPECT_FALSE(filter->testBytes("b", 1));
+  EXPECT_TRUE(filter->testBytes("c", 1));
 }
 
 TEST(FilterTest, bytesValues) {
@@ -754,6 +778,85 @@ void testMergeWithFloat(Filter* left, Filter* right) {
     ASSERT_EQ(merged->testFloat(f), left->testFloat(f) && right->testFloat(f));
   }
 }
+
+void testMergeWithBytes(Filter* left, Filter* right) {
+  auto merged = left->mergeWith(right);
+
+  ASSERT_EQ(merged->testNull(), left->testNull() && right->testNull())
+      << "left: " << left->toString() << ", right: " << right->toString()
+      << ", merged: " << merged->toString();
+
+  std::vector<std::string> testValues = {
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+      "f",
+      "g",
+      "h",
+      "i",
+      "j",
+      "k",
+      "l",
+      "m",
+      "n",
+      "o",
+      "p",
+      "q",
+      "r",
+      "s",
+      "t",
+      "u",
+      "v",
+      "w",
+      "x",
+      "y",
+      "z",
+      "abca",
+      "abcb",
+      "abcc",
+      "abcd",
+      "A",
+      "B",
+      "C",
+      "D",
+      "AB",
+      "AC",
+      "AD",
+      "1",
+      "2",
+      "11",
+      "22",
+      "12345",
+      "AbcDedFghIJkl",
+      "!@3456^&*()",
+      "!",
+      "#",
+      "^&",
+      "-=",
+      " ",
+      "[]",
+      "|",
+      "?",
+      "?!",
+      "!?!",
+      "/",
+      "<",
+      ">",
+      "=",
+      "//<<>>"};
+
+  for (const auto& test : testValues) {
+    ASSERT_EQ(
+        merged->testBytes(test.data(), test.size()),
+        left->testBytes(test.data(), test.size()) &&
+            right->testBytes(test.data(), test.size()))
+        << test << " "
+        << "left: " << left->toString() << ", right: " << right->toString()
+        << ", merged: " << merged->toString();
+  }
+}
 } // namespace
 
 TEST(FilterTest, mergeWithUntyped) {
@@ -949,4 +1052,114 @@ TEST(FilterTest, clone) {
   auto filter10 =
       createBigintValues({1, 10, 100, 10'000}, /*nullAllowed=*/false);
   EXPECT_TRUE(filter10->clone(/*nullAllowed*/ true)->testNull());
+}
+
+TEST(FilterTest, mergeWithBytesValues) {
+  std::vector<std::unique_ptr<Filter>> filters;
+
+  addUntypedFilters(filters);
+
+  filters.push_back(equal("a"));
+  filters.push_back(equal("ab"));
+  filters.push_back(equal("a", true));
+
+  filters.push_back(in({"e", "f", "g"}));
+  filters.push_back(in({"e", "f", "g", "h"}, true));
+
+  filters.push_back(in({"!", "!!jj", ">><<"}));
+  filters.push_back(
+      in({"!", "!!jj", ">><<", "[]", "12345", "123", "1", "2"}, true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithBytes(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, mergeWithBytesRange) {
+  std::vector<std::unique_ptr<Filter>> filters;
+
+  addUntypedFilters(filters);
+
+  filters.push_back(between("abca", "abcc"));
+  filters.push_back(between("abca", "abcc", true));
+
+  filters.push_back(between("b", "f"));
+  filters.push_back(between("b", "f", true));
+  filters.push_back(between("p", "t"));
+  filters.push_back(between("p", "t", true));
+  filters.push_back(betweenExclusive("a", "z"));
+  filters.push_back(betweenExclusive("a", "z", true));
+
+  filters.push_back(between("/", "<"));
+  filters.push_back(between("<<", ">>", true));
+  filters.push_back(between("ABCDE", "abcde"));
+  filters.push_back(between("1", "123456", true));
+
+  filters.push_back(lessThanOrEqual("k"));
+  filters.push_back(lessThanOrEqual("k", true));
+  filters.push_back(lessThanOrEqual("p"));
+  filters.push_back(lessThanOrEqual("p", true));
+  filters.push_back(lessThanOrEqual("!!"));
+  filters.push_back(lessThanOrEqual("?", true));
+
+  filters.push_back(greaterThanOrEqual("b"));
+  filters.push_back(greaterThanOrEqual("b", true));
+  filters.push_back(greaterThanOrEqual("e"));
+  filters.push_back(greaterThanOrEqual("e", true));
+
+  filters.push_back(lessThan("k"));
+  filters.push_back(lessThan("!!", true));
+  filters.push_back(lessThan("p"));
+  filters.push_back(lessThan("qq", true));
+  filters.push_back(lessThan("!>"));
+  filters.push_back(lessThan("?", true));
+
+  filters.push_back(greaterThan("b"));
+  filters.push_back(greaterThan("b", true));
+  filters.push_back(greaterThan("f"));
+  filters.push_back(greaterThan("e", true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithBytes(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, mergeWithBytesMultiRange) {
+  std::vector<std::unique_ptr<Filter>> filters;
+
+  addUntypedFilters(filters);
+
+  filters.push_back(between("b", "f"));
+  filters.push_back(between("b", "f", true));
+  filters.push_back(between("p", "t"));
+  filters.push_back(between("p", "t", true));
+
+  filters.push_back(lessThanOrEqual(">"));
+  filters.push_back(lessThanOrEqual("k", true));
+  filters.push_back(lessThanOrEqual("p"));
+  filters.push_back(lessThanOrEqual("<", true));
+
+  filters.push_back(equal("A"));
+  filters.push_back(equal("AB"));
+  filters.push_back(equal("A", true));
+
+  filters.push_back(in({"e", "f", "!", "h"}));
+  filters.push_back(in({"e", "f", "g", "h"}, true));
+
+  filters.push_back(orFilter(between("!", "f"), greaterThanOrEqual("h")));
+  filters.push_back(orFilter(between("b", "f"), lessThanOrEqual("a")));
+  filters.push_back(orFilter(between("b", "f"), between("p", "t")));
+  filters.push_back(orFilter(lessThanOrEqual("p"), greaterThanOrEqual("y")));
+  filters.push_back(orFilter(lessThan("p"), greaterThan("x")));
+  filters.push_back(orFilter(betweenExclusive("b", "f"), lessThanOrEqual("a")));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithBytes(left.get(), right.get());
+    }
+  }
 }
