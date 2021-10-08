@@ -40,6 +40,7 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorS
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -178,10 +179,11 @@ public class GenericAccumulatorFactory
         }
 
         checkState(accumulator instanceof FinalOnlyGroupedAccumulator);
-        ImmutableList.Builder<Integer> aggregateInputChannels = ImmutableList.builder();
+        ImmutableSet.Builder<Integer> aggregateInputChannels = ImmutableSet.builder();
         aggregateInputChannels.addAll(inputChannels);
         maskChannel.ifPresent(aggregateInputChannels::add);
-        return new SpillableFinalOnlyGroupedAccumulator(sourceTypes, aggregateInputChannels.build(), (FinalOnlyGroupedAccumulator) accumulator);
+        aggregateInputChannels.addAll(orderByChannels);
+        return new SpillableFinalOnlyGroupedAccumulator(sourceTypes, aggregateInputChannels.build().asList(), (FinalOnlyGroupedAccumulator) accumulator);
     }
 
     @Override
