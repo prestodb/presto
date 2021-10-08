@@ -2,6 +2,9 @@
 Release 0.263
 =============
 
+.. warning::
+    There is a correctness bug around ``ORDER BY`` aggregations when spilling is enabled which is introduced by :pr:`16788`
+
 **Details**
 ===========
 
