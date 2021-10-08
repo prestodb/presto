@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public class BooleanColumnStatistics
         extends ColumnStatistics
 {
@@ -32,6 +34,7 @@ public class BooleanColumnStatistics
             BooleanStatistics booleanStatistics)
     {
         super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        requireNonNull(booleanStatistics, "booleanStatistics is null");
         this.booleanStatistics = booleanStatistics;
     }
 
@@ -55,10 +58,7 @@ public class BooleanColumnStatistics
     public long getRetainedSizeInBytes()
     {
         long sizeInBytes = INSTANCE_SIZE + super.getMembersSizeInBytes();
-        if (booleanStatistics != null) {
-            return sizeInBytes + booleanStatistics.getRetainedSizeInBytes();
-        }
-        return sizeInBytes;
+        return sizeInBytes + booleanStatistics.getRetainedSizeInBytes();
     }
 
     @Override

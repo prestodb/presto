@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.STRING;
-import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -323,17 +322,14 @@ public class TestStringStatisticsBuilder
 
     private static ColumnStatistics stringColumnStatistics(Slice minimum, Slice maximum)
     {
-        return createColumnStatistics(
+        if (minimum == null && maximum == null) {
+            return new ColumnStatistics(100L, 100, null);
+        }
+        return new StringColumnStatistics(
                 100L,
                 100,
                 null,
-                null,
-                null,
-                minimum == null && maximum == null ? null : new StringStatistics(minimum, maximum, 100),
-                null,
-                null,
-                null,
-                null);
+                new StringStatistics(minimum, maximum, 100));
     }
 
     private void assertStringStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)
