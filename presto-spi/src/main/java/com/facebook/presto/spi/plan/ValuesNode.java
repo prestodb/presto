@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,6 +23,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -37,11 +39,13 @@ public final class ValuesNode
     private final List<List<RowExpression>> rows;
 
     @JsonCreator
-    public ValuesNode(@JsonProperty("id") PlanNodeId id,
+    public ValuesNode(
+            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("rows") List<List<RowExpression>> rows)
     {
-        super(id);
+        super(sourceLocation, id);
         this.outputVariables = immutableListCopyOf(outputVariables);
         this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
 

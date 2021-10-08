@@ -401,6 +401,7 @@ public class HiveParquetDereferencePushDown
             }
 
             TableScanNode newTableScan = new TableScanNode(
+                    tableScan.getSourceLocation(),
                     idAllocator.getNextId(),
                     tableScan.getTable(),
                     newOutputVariables,
@@ -414,7 +415,7 @@ public class HiveParquetDereferencePushDown
                 newProjectAssignmentBuilder.put(entry.getKey(), newExpression);
             }
 
-            return new ProjectNode(idAllocator.getNextId(), newTableScan, newProjectAssignmentBuilder.build(), project.getLocality());
+            return new ProjectNode(tableScan.getSourceLocation(), idAllocator.getNextId(), newTableScan, newProjectAssignmentBuilder.build(), project.getLocality());
         }
     }
 }

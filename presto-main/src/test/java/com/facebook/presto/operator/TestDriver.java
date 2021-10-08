@@ -103,8 +103,11 @@ public class TestDriver
 
     private static final FragmentResultCacheContext TESTING_FRAGMENT_RESULT_CACHE_CONTEXT = createFragmentResultCacheContext(
             new TestingFragmentResultCacheManager(),
-            new AggregationNode(new PlanNodeId("test-agg"),
+            new AggregationNode(
+                    Optional.empty(),
+                    new PlanNodeId("test-agg"),
                     new TableScanNode(
+                            Optional.empty(),
                             new PlanNodeId("test-scan"),
                             TESTING_TABLE_HANDLE,
                             ImmutableList.of(),

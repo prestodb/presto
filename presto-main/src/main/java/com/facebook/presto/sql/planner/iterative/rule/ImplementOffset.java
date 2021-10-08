@@ -75,6 +75,7 @@ public class ImplementOffset
         VariableReferenceExpression rowNumberSymbol = context.getVariableAllocator().newVariable("row_number", BIGINT);
 
         RowNumberNode rowNumberNode = new RowNumberNode(
+                parent.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 parent.getSource(),
                 ImmutableList.of(),
@@ -83,6 +84,7 @@ public class ImplementOffset
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(
+                parent.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 rowNumberNode,
                 castToRowExpression(new ComparisonExpression(

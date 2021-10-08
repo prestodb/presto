@@ -352,6 +352,7 @@ public class ExtractSpatialJoins
         PlanNode newRightNode = newRadiusVariable.map(variable -> addProjection(context, rightNode, variable, radius)).orElse(rightNode);
 
         JoinNode newJoinNode = new JoinNode(
+                joinNode.getSourceLocation(),
                 joinNode.getId(),
                 joinNode.getType(),
                 leftNode,
@@ -454,6 +455,7 @@ public class ExtractSpatialJoins
         RowExpression newFilter = RowExpressionNodeInliner.replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
         return Result.ofPlanNode(new SpatialJoinNode(
+                joinNode.getSourceLocation(),
                 nodeId,
                 SpatialJoinNode.Type.fromJoinNodeType(joinNode.getType()),
                 newLeftNode,
@@ -647,7 +649,7 @@ public class ExtractSpatialJoins
         }
 
         projections.put(variable, expression);
-        return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
+        return new ProjectNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
     }
 
     private static PlanNode addPartitioningNodes(Context context, FunctionAndTypeManager functionAndTypeManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<RowExpression> radius)
@@ -676,8 +678,9 @@ public class ExtractSpatialJoins
         projections.put(partitionsVariable, partitioningFunction);
 
         return new UnnestNode(
+                node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
-                new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL),
+                new ProjectNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), node, projections.build(), LOCAL),
                 node.getOutputVariables(),
                 ImmutableMap.of(partitionsVariable, ImmutableList.of(partitionVariable)),
                 Optional.empty());

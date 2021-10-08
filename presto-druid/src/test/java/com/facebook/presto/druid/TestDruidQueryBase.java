@@ -148,6 +148,7 @@ public class TestDruidQueryBase
                 TestingTransactionHandle.create(),
                 Optional.empty());
         return new TableScanNode(
+                Optional.empty(),
                 planBuilder.getIdAllocator().getNextId(),
                 tableHandle,
                 variables,
@@ -203,13 +204,13 @@ public class TestDruidQueryBase
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)
     {
-        return new LimitNode(pb.getIdAllocator().getNextId(), source, count, FINAL);
+        return new LimitNode(Optional.empty(), pb.getIdAllocator().getNextId(), source, count, FINAL);
     }
 
     protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)
     {
         ImmutableList<Ordering> ordering = IntStream.range(0, orderingColumns.size()).boxed().map(i -> new Ordering(variable(orderingColumns.get(i)), ascending.get(i) ? SortOrder.ASC_NULLS_FIRST : SortOrder.DESC_NULLS_FIRST)).collect(toImmutableList());
-        return new TopNNode(pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
+        return new TopNNode(Optional.empty(), pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
     }
 
     protected RowExpression getRowExpression(String sqlExpression, SessionHolder sessionHolder)

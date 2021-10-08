@@ -87,6 +87,11 @@ public class NodeRepresentation
         details.append('\n');
     }
 
+    public Optional<SourceLocation> getSourceLocation()
+    {
+        return sourceLocation;
+    }
+
     public PlanNodeId getId()
     {
         return id;
@@ -140,10 +145,5 @@ public class NodeRepresentation
     public List<PlanCostEstimate> getEstimatedCost()
     {
         return estimatedCost;
-    }
-
-    public Optional<SourceLocation> getSourceLocation()
-    {
-        return sourceLocation;
     }
 }

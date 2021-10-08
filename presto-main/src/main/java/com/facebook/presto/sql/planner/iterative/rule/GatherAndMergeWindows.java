@@ -157,7 +157,7 @@ public class GatherAndMergeWindows
                     return Optional.empty();
                 }
 
-                newTargetChild = new ProjectNode(project.getId(), newTargetChild, newAssignments, project.getLocality());
+                newTargetChild = new ProjectNode(project.getSourceLocation(), project.getId(), newTargetChild, newAssignments, project.getLocality());
             }
 
             WindowNode newTarget = (WindowNode) target.replaceChildren(ImmutableList.of(newTargetChild));
@@ -207,6 +207,7 @@ public class GatherAndMergeWindows
             functionsBuilder.putAll(child.getWindowFunctions());
 
             WindowNode mergedWindowNode = new WindowNode(
+                    parent.getSourceLocation(),
                     parent.getId(),
                     child.getSource(),
                     parent.getSpecification(),

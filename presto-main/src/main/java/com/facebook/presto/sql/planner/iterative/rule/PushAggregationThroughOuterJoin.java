@@ -139,6 +139,7 @@ public class PushAggregationThroughOuterJoin
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
+                aggregation.getSourceLocation(),
                 aggregation.getId(),
                 getInnerTable(join),
                 aggregation.getAggregations(),
@@ -151,6 +152,7 @@ public class PushAggregationThroughOuterJoin
         JoinNode rewrittenJoin;
         if (join.getType() == JoinNode.Type.LEFT) {
             rewrittenJoin = new JoinNode(
+                    join.getSourceLocation(),
                     join.getId(),
                     join.getType(),
                     join.getLeft(),
@@ -168,6 +170,7 @@ public class PushAggregationThroughOuterJoin
         }
         else {
             rewrittenJoin = new JoinNode(
+                    join.getSourceLocation(),
                     join.getId(),
                     join.getType(),
                     rewrittenAggregation,
@@ -248,6 +251,7 @@ public class PushAggregationThroughOuterJoin
 
         // Do a cross join with the aggregation over null
         JoinNode crossJoin = new JoinNode(
+                outerJoin.getSourceLocation(),
                 idAllocator.getNextId(),
                 JoinNode.Type.INNER,
                 outerJoin,
@@ -298,6 +302,7 @@ public class PushAggregationThroughOuterJoin
             sourcesVariableMappingBuilder.put(sourceVariable, nullVariable);
         }
         ValuesNode nullRow = new ValuesNode(
+                referenceAggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 nullVariables.build(),
                 ImmutableList.of(nullLiterals.build()));
@@ -339,6 +344,7 @@ public class PushAggregationThroughOuterJoin
 
         // create an aggregation node whose source is the null row.
         AggregationNode aggregationOverNullRow = new AggregationNode(
+                referenceAggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 nullRow,
                 aggregationsOverNullBuilder.build(),

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -40,6 +41,7 @@ public final class RowNumberNode
 
     @JsonCreator
     public RowNumberNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<VariableReferenceExpression> partitionBy,
@@ -47,7 +49,7 @@ public final class RowNumberNode
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(source, "source is null");
         requireNonNull(partitionBy, "partitionBy is null");
@@ -116,6 +118,6 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberVariable, maxRowCountPerPartition, hashVariable);
+        return new RowNumberNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberVariable, maxRowCountPerPartition, hashVariable);
     }
 }

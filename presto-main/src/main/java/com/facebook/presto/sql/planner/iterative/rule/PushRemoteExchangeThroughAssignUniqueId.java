@@ -69,8 +69,10 @@ public final class PushRemoteExchangeThroughAssignUniqueId
         }
 
         return Result.ofPlanNode(new AssignUniqueId(
+                node.getSourceLocation(),
                 assignUniqueId.getId(),
                 new ExchangeNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getType(),
                         node.getScope(),

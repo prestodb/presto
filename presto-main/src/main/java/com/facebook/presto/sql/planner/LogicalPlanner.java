@@ -227,10 +227,11 @@ public class LogicalPlanner
             checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
             VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(statement), "rows", BIGINT);
             PlanNode source = new ValuesNode(
+                    getSourceLocation(statement),
                     idAllocator.getNextId(),
                     ImmutableList.of(variable),
                     ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))));
-            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(variable));
+            return new OutputNode(source.getSourceLocation(), idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(variable));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
@@ -274,7 +275,7 @@ public class LogicalPlanner
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
         VariableReferenceExpression outputVariable = variableAllocator.newVariable(scope.getRelationType().getFieldByIndex(0));
-        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputVariable, statement.isVerbose());
+        root = new ExplainAnalyzeNode(getSourceLocation(statement), idAllocator.getNextId(), root, outputVariable, statement.isVerbose());
         return new RelationPlan(root, scope, ImmutableList.of(outputVariable));
     }
 
@@ -305,10 +306,12 @@ public class LogicalPlanner
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
 
         PlanNode planNode = new StatisticsWriterNode(
+                getSourceLocation(analyzeStatement),
                 idAllocator.getNextId(),
                 new AggregationNode(
+                        getSourceLocation(analyzeStatement),
                         idAllocator.getNextId(),
-                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()),
+                        new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(statisticAggregations.getGroupingVariables()),
                         ImmutableList.of(),
@@ -462,7 +465,7 @@ public class LogicalPlanner
         PlanNode source = plan.getRoot();
 
         if (!analysis.isCreateTableAsSelectWithData()) {
-            source = new LimitNode(idAllocator.getNextId(), source, 0L, FINAL);
+            source = new LimitNode(source.getSourceLocation(), idAllocator.getNextId(), source, 0L, FINAL);
         }
 
         List<VariableReferenceExpression> variables = plan.getFieldMappings();
@@ -485,8 +488,10 @@ public class LogicalPlanner
             StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
 
             TableFinishNode commitNode = new TableFinishNode(
+                    source.getSourceLocation(),
                     idAllocator.getNextId(),
                     new TableWriterNode(
+                            source.getSourceLocation(),
                             idAllocator.getNextId(),
                             source,
                             Optional.of(target),
@@ -512,8 +517,10 @@ public class LogicalPlanner
         }
 
         TableFinishNode commitNode = new TableFinishNode(
+                source.getSourceLocation(),
                 idAllocator.getNextId(),
                 new TableWriterNode(
+                        source.getSourceLocation(),
                         idAllocator.getNextId(),
                         source,
                         Optional.of(target),
@@ -541,6 +548,7 @@ public class LogicalPlanner
         TableHandle handle = analysis.getTableHandle(node.getTable());
         DeleteHandle deleteHandle = new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable());
         TableFinishNode commitNode = new TableFinishNode(
+                deleteNode.getSourceLocation(),
                 idAllocator.getNextId(),
                 deleteNode,
                 Optional.of(deleteHandle),
@@ -569,7 +577,7 @@ public class LogicalPlanner
             columnNumber++;
         }
 
-        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+        return new OutputNode(plan.getRoot().getSourceLocation(), idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)

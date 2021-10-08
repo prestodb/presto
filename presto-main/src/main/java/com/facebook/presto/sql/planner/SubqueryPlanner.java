@@ -226,7 +226,7 @@ class SubqueryPlanner
 
         SubqueryExpression uncoercedScalarSubquery = uncoercedSubquery(scalarSubquery);
         PlanBuilder subqueryPlan = createPlanBuilder(uncoercedScalarSubquery);
-        subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
+        subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subqueryPlan.getRoot()));
         subqueryPlan = subqueryPlan.appendProjections(coercions, variableAllocator, idAllocator);
 
         VariableReferenceExpression uncoercedScalarSubqueryVariable = subqueryPlan.translate(uncoercedScalarSubquery);
@@ -252,6 +252,7 @@ class SubqueryPlanner
         return new PlanBuilder(
                 subPlan.copyTranslations(),
                 new LateralJoinNode(
+                        subPlan.getRoot().getSourceLocation(),
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         subqueryNode,
@@ -446,7 +447,9 @@ class SubqueryPlanner
         PlanNode root = subPlan.getRoot();
         verifySubquerySupported(subqueryAssignments);
         return new PlanBuilder(translations,
-                new ApplyNode(idAllocator.getNextId(),
+                new ApplyNode(
+                        subqueryNode.getSourceLocation(),
+                        idAllocator.getNextId(),
                         root,
                         subqueryNode,
                         subqueryAssignments,
@@ -584,7 +587,7 @@ class SubqueryPlanner
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             FilterNode rewrittenNode = (FilterNode) context.defaultRewrite(node);
-            return new FilterNode(idAllocator.getNextId(), rewrittenNode.getSource(), castToRowExpression(replaceExpression(castToExpression(rewrittenNode.getPredicate()), mapping)));
+            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode.getSource(), castToRowExpression(replaceExpression(castToExpression(rewrittenNode.getPredicate()), mapping)));
         }
 
         @Override
@@ -597,6 +600,7 @@ class SubqueryPlanner
                             .collect(toImmutableList()))
                     .collect(toImmutableList());
             return new ValuesNode(
+                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     rewrittenNode.getOutputVariables(),
                     rewrittenRows);

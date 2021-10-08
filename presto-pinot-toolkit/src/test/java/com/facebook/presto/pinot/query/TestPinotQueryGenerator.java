@@ -460,7 +460,7 @@ public class TestPinotQueryGenerator
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         TableScanNode tableScanNode = tableScan(planBuilder, pinotTable, city, fare);
         AggregationNode agg = planBuilder.aggregation(aggBuilder -> aggBuilder.source(tableScanNode).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("sum(fare)", defaultSessionHolder)));
-        TopNNode topN = new TopNNode(planBuilder.getIdAllocator().getNextId(), agg, 50L, new OrderingScheme(ImmutableList.of(new Ordering(variable("city"), SortOrder.DESC_NULLS_FIRST))), TopNNode.Step.FINAL);
+        TopNNode topN = new TopNNode(Optional.empty(), planBuilder.getIdAllocator().getNextId(), agg, 50L, new OrderingScheme(ImmutableList.of(new Ordering(variable("city"), SortOrder.DESC_NULLS_FIRST))), TopNNode.Step.FINAL);
         testPinotQuery(pinotConfig, topN, "", defaultSessionHolder, ImmutableMap.of());
     }
 

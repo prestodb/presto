@@ -126,6 +126,7 @@ public class PlanNodeDecorrelator
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
             FilterNode newFilterNode = new FilterNode(
+                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     childDecorrelationResult.node,
                     castToRowExpression(ExpressionUtils.combineConjuncts(uncorrelatedPredicates)));
@@ -172,6 +173,7 @@ public class PlanNodeDecorrelator
 
             // Rewrite limit to aggregation on constant symbols
             AggregationNode aggregationNode = new AggregationNode(
+                    decorrelatedChildNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     decorrelatedChildNode,
                     ImmutableMap.of(),
@@ -224,6 +226,7 @@ public class PlanNodeDecorrelator
             }
 
             AggregationNode newAggregation = new AggregationNode(
+                    decorrelatedAggregation.getSourceLocation(),
                     decorrelatedAggregation.getId(),
                     decorrelatedAggregation.getSource(),
                     decorrelatedAggregation.getAggregations(),

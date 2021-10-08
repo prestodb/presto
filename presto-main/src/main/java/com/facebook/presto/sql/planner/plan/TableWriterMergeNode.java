@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -38,6 +39,7 @@ public class TableWriterMergeNode
 
     @JsonCreator
     public TableWriterMergeNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
@@ -45,7 +47,7 @@ public class TableWriterMergeNode
             @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation)
     {
-        super(requireNonNull(id, "id is null"));
+        super(sourceLocation, requireNonNull(id, "id is null"));
         this.source = requireNonNull(source, "source is null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.fragmentVariable = requireNonNull(fragmentVariable, "fragmentVariable is null");
@@ -108,7 +110,7 @@ public class TableWriterMergeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterMergeNode(getId(), getOnlyElement(newChildren), rowCountVariable, fragmentVariable, tableCommitContextVariable, statisticsAggregation);
+        return new TableWriterMergeNode(getSourceLocation(), getId(), getOnlyElement(newChildren), rowCountVariable, fragmentVariable, tableCommitContextVariable, statisticsAggregation);
     }
 
     @Override

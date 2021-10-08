@@ -516,6 +516,7 @@ public class TestCostCalculator
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
         UnionNode union = new UnionNode(
+                Optional.empty(),
                 new PlanNodeId("union"),
                 ImmutableList.of(ts1, ts2),
                 ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey_1", BIGINT)),
@@ -782,6 +783,7 @@ public class TestCostCalculator
 
         TpchTableHandle tableHandle = new TpchTableHandle("orders", 1.0);
         return new TableScanNode(
+                Optional.empty(),
                 new PlanNodeId(id),
                 new TableHandle(
                         new ConnectorId("tpch"),
@@ -807,6 +809,7 @@ public class TestCostCalculator
         AggregationNode.Aggregation aggregation = count(metadata.getFunctionAndTypeManager());
 
         return new AggregationNode(
+                Optional.empty(),
                 new PlanNodeId(id),
                 source,
                 ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "count", BIGINT), aggregation),
@@ -831,6 +834,7 @@ public class TestCostCalculator
         }
 
         return new JoinNode(
+                Optional.empty(),
                 new PlanNodeId(planNodeId),
                 JoinNode.Type.INNER,
                 left,
