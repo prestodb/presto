@@ -19,7 +19,11 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/arrow/Abi.h"
 
-namespace facebook::velox::arrow {
+namespace facebook::velox::memory {
+class MemoryPool;
+}
+
+namespace facebook::velox {
 
 /// Export a generic Velox Vector to an ArrowArray, as defined by Arrow's C data
 /// interface:
@@ -86,4 +90,33 @@ void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema);
 ///
 TypePtr importFromArrow(const ArrowSchema& arrowSchema);
 
-} // namespace facebook::velox::arrow
+/// Import an ArrowArray and ArrowSchema into a Velox vector.
+///
+/// This function takes both an ArrowArray (which contains the buffers) and an
+/// ArrowSchema (which describes the data type), since a Velox vector needs
+/// both (buffer and type). A memory pool is also required, since all vectors
+/// carry a pointer to it, but not really used in most cases - unless the
+/// conversion itself requires a new allocation. In most cases no new
+/// allocations are required, unless for arrays of varchars (or varbinaries) and
+/// complex types written out of order.
+///
+/// The new Velox vector returned contains only references to the underlying
+/// buffers, so it's the client's responsibility to ensure the buffer's
+/// lifetime.
+///
+/// The function throws in case the conversion fails.
+///
+/// Example usage:
+///
+///   ArrowSchema arrowSchema;
+///   ArrowArray arrowArray;
+///   ... // fills structures
+///   auto vector = arrow::importToArrow(arrowSchema, arrowArray, pool);
+///   ... // ensure buffers in arrowArray remain alive while vector is used.
+///
+VectorPtr importFromArrow(
+    const ArrowSchema& arrowSchema,
+    const ArrowArray& arrowArray,
+    memory::MemoryPool* pool);
+
+} // namespace facebook::velox

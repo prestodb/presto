@@ -15,9 +15,13 @@
  */
 
 #include "velox/vector/arrow/Bridge.h"
+#include "velox/buffer/Buffer.h"
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/memory/Memory.h"
+#include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::arrow {
+namespace facebook::velox {
 
 namespace {
 
@@ -381,4 +385,101 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
       "Unable to convert '{}' ArrowSchema format type to Velox.", format);
 }
 
-} // namespace facebook::velox::arrow
+namespace {
+struct BufferViewReleaser {
+  void addRef() const {}
+  void release() const {}
+};
+
+// Wraps a naked pointer using a Velox buffer view, without copying it. Adding a
+// dummy releaser as the buffer lifetime is fully controled by the client of the
+// API.
+BufferPtr wrapInBufferView(const void* buffer, size_t length) {
+  static const BufferViewReleaser kDummy;
+  return BufferView<BufferViewReleaser>::create(
+      static_cast<const uint8_t*>(buffer), length, kDummy);
+}
+
+// Dispatch based on the type.
+template <TypeKind kind>
+VectorPtr importFromArrowImpl(
+    memory::MemoryPool* pool,
+    const TypePtr& type,
+    BufferPtr nulls,
+    size_t length,
+    BufferPtr values,
+    int64_t nullCount) {
+  using T = typename TypeTraits<kind>::NativeType;
+  return std::make_shared<FlatVector<T>>(
+      pool,
+      type,
+      nulls,
+      length,
+      values,
+      std::vector<BufferPtr>(),
+      cdvi::EMPTY_METADATA,
+      std::nullopt,
+      nullCount == -1 ? std::nullopt : std::optional<int64_t>(nullCount));
+}
+} // namespace
+
+VectorPtr importFromArrow(
+    const ArrowSchema& arrowSchema,
+    const ArrowArray& arrowArray,
+    memory::MemoryPool* pool) {
+  VELOX_USER_CHECK_NULL(
+      arrowArray.dictionary,
+      "Dictionary encoded arrowArrays not supported yet.");
+  VELOX_USER_CHECK(
+      (arrowArray.n_children == 0) && (arrowArray.children == nullptr),
+      "Only flat buffers are supported for now.");
+  VELOX_USER_CHECK_EQ(
+      arrowArray.offset,
+      0,
+      "Offsets are not supported during arrow conversion yet.");
+  VELOX_CHECK_GE(arrowArray.length, 0, "Array length needs to be positive.");
+
+  // First parse and generate a Velox type.
+  auto type = importFromArrow(arrowSchema);
+  VELOX_CHECK(
+      type->isPrimitiveType(),
+      "Only conversion of primitive types is supported for now.");
+
+  // Wrap the nulls buffer into a Velox BufferView (zero-copy). Null buffer size
+  // needs to be at least one bit per element.
+  BufferPtr nulls = nullptr;
+
+  // If either greater than zero or -1 (unknown).
+  if (arrowArray.null_count != 0) {
+    VELOX_USER_CHECK_NOT_NULL(
+        arrowArray.buffers[0],
+        "Nulls buffer can't be null unless null_count is zero.");
+    nulls = wrapInBufferView(
+        arrowArray.buffers[0], bits::nbytes(arrowArray.length));
+  } else {
+    VELOX_USER_CHECK_NULL(
+        arrowArray.buffers[0],
+        "Nulls buffer must be nullptr when null_count is zero.");
+  }
+
+  // Wrap the values buffer into a Velox BufferView (also zero-copy).
+  VELOX_USER_CHECK_EQ(
+      arrowArray.n_buffers,
+      2,
+      "Expecting two buffers as input "
+      "(only simple types supported for now).");
+  auto values = wrapInBufferView(
+      arrowArray.buffers[1], arrowArray.length * type->cppSizeInBytes());
+
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      importFromArrowImpl,
+      type->kind(),
+      pool,
+      type,
+      nulls,
+      arrowArray.length,
+      values,
+      arrowArray.null_count);
+}
+
+} // namespace facebook::velox
