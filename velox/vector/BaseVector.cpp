@@ -589,13 +589,18 @@ bool isLazyNotLoaded(const BaseVector& vector) {
 
 // static
 bool BaseVector::isReusableFlatVector(const VectorPtr& vector) {
-  if (!vector.unique()) {
+  // If the main shared_ptr has more than one references, or if it's not a flat
+  // vector, can't reuse.
+  if (!vector.unique() || !isFlat(vector->encoding())) {
     return false;
   }
-  if (vector->encoding() == VectorEncoding::Simple::FLAT &&
-      (!vector->nulls() || vector->nulls()->unique())) {
-    auto& values = vector->values();
-    if (!values || values->unique()) {
+
+  // Now check if nulls and values buffers also have a single reference and are
+  // mutable.
+  const auto& nulls = vector->nulls();
+  if (!nulls || (vector->nulls()->unique() && vector->nulls()->isMutable())) {
+    const auto& values = vector->values();
+    if (!values || (values->unique() && values->isMutable())) {
       return true;
     }
   }

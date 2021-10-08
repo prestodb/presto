@@ -279,6 +279,9 @@ class ArrowBridgeImportTest : public ArrowBridgeExportTest {
     ArrowSchema arrowSchema{.release = mockRelease, .format = format};
     auto output = importFromArrow(arrowSchema, arrowArray, pool_.get());
 
+    // Buffer views are not reusable.
+    EXPECT_FALSE(BaseVector::isReusableFlatVector(output));
+
     EXPECT_EQ((nullCount > 0), output->mayHaveNulls());
     EXPECT_EQ(nullCount, *output->getNullCount());
     EXPECT_EQ(inputValues.size(), output->size());
