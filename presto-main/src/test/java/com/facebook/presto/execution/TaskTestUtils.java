@@ -114,6 +114,7 @@ public final class TaskTestUtils
         return new PlanFragment(
                 new PlanFragmentId(0),
                 new TableScanNode(
+                        Optional.empty(),
                         TABLE_SCAN_NODE_ID,
                         new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.empty()),
                         ImmutableList.of(VARIABLE),

@@ -91,6 +91,7 @@ public class TestWindowNode
         columnC = variableAllocator.newVariable("c", BIGINT);
 
         sourceNode = new ValuesNode(
+                Optional.empty(),
                 newId(),
                 ImmutableList.of(columnA, columnB, columnC),
                 ImmutableList.of());
@@ -119,6 +120,7 @@ public class TestWindowNode
         Optional<VariableReferenceExpression> hashVariable = Optional.of(columnB);
         Set<VariableReferenceExpression> prePartitionedInputs = ImmutableSet.of(columnA);
         WindowNode windowNode = new WindowNode(
+                Optional.empty(),
                 id,
                 sourceNode,
                 specification,

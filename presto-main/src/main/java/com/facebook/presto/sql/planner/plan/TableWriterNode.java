@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -57,6 +58,7 @@ public class TableWriterNode
 
     @JsonCreator
     public TableWriterNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") Optional<WriterTarget> target,
@@ -70,7 +72,7 @@ public class TableWriterNode
             @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(columns, "columns is null");
         requireNonNull(columnNames, "columnNames is null");
@@ -190,6 +192,7 @@ public class TableWriterNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new TableWriterNode(
+                getSourceLocation(),
                 getId(),
                 Iterables.getOnlyElement(newChildren),
                 target,

@@ -215,8 +215,10 @@ public class RewriteAggregationIfToFilter
         }
         return Result.ofPlanNode(
                 new AggregationNode(
+                        aggregationNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         new FilterNode(
+                                aggregationNode.getSourceLocation(),
                                 context.getIdAllocator().getNextId(),
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),

@@ -95,6 +95,7 @@ public class CanonicalPlanGenerator
         }
 
         return Optional.of(new AggregationNode(
+                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 aggregations.build(),
@@ -184,6 +185,7 @@ public class CanonicalPlanGenerator
         context.put(node.getGroupIdVariable(), groupId);
 
         return Optional.of(new GroupIdNode(
+                source.get().getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 groupingSets.build(),
@@ -224,6 +226,7 @@ public class CanonicalPlanGenerator
                 });
 
         return Optional.of(new UnnestNode(
+                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 node.getReplicateVariables().stream()
@@ -253,6 +256,7 @@ public class CanonicalPlanGenerator
         }
 
         return Optional.of(new ProjectNode(
+                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 new Assignments(assignments.build()),
@@ -286,6 +290,7 @@ public class CanonicalPlanGenerator
     {
         Optional<PlanNode> source = node.getSource().accept(this, context);
         return source.map(planNode -> new FilterNode(
+                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 planNode,
                 inlineVariables(context, node.getPredicate())));
@@ -308,6 +313,7 @@ public class CanonicalPlanGenerator
         }
 
         return Optional.of(new CanonicalTableScanNode(
+                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 getCanonicalTableHandle(node.getTable()),
                 outputVariables.build(),

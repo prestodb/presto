@@ -108,6 +108,7 @@ public class TransformCorrelatedScalarSubquery
 
         if (isAtMostScalar(rewrittenSubquery, context.getLookup())) {
             return Result.ofPlanNode(new LateralJoinNode(
+                    lateralJoinNode.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
                     lateralJoinNode.getInput(),
                     rewrittenSubquery,
@@ -119,8 +120,10 @@ public class TransformCorrelatedScalarSubquery
         VariableReferenceExpression unique = context.getVariableAllocator().newVariable("unique", BIGINT);
 
         LateralJoinNode rewrittenLateralJoinNode = new LateralJoinNode(
+                lateralJoinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 new AssignUniqueId(
+                        lateralJoinNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         lateralJoinNode.getInput(),
                         unique),
@@ -131,6 +134,7 @@ public class TransformCorrelatedScalarSubquery
 
         VariableReferenceExpression isDistinct = context.getVariableAllocator().newVariable("is_distinct", BooleanType.BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(
+                rewrittenLateralJoinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,
                 isDistinct,
@@ -138,6 +142,7 @@ public class TransformCorrelatedScalarSubquery
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(
+                markDistinctNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
                 castToRowExpression(new SimpleCaseExpression(

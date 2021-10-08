@@ -180,7 +180,7 @@ public class PushPartialAggregationThroughExchange
                 VariableReferenceExpression input = symbolMapper.map(output);
                 assignments.put(output, input);
             }
-            partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build(), LOCAL));
+            partials.add(new ProjectNode(exchange.getSourceLocation(), context.getIdAllocator().getNextId(), mappedPartial, assignments.build(), LOCAL));
         }
 
         for (PlanNode node : partials) {
@@ -197,6 +197,7 @@ public class PushPartialAggregationThroughExchange
                 exchange.getPartitioningScheme().getBucketToPartition());
 
         return new ExchangeNode(
+                aggregation.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 exchange.getType(),
                 exchange.getScope(),
@@ -254,6 +255,7 @@ public class PushPartialAggregationThroughExchange
         }
 
         PlanNode partial = new AggregationNode(
+                node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 node.getSource(),
                 intermediateAggregation,
@@ -266,6 +268,7 @@ public class PushPartialAggregationThroughExchange
                 node.getGroupIdVariable());
 
         return new AggregationNode(
+                node.getSourceLocation(),
                 node.getId(),
                 partial,
                 finalAggregation,

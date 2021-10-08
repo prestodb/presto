@@ -209,6 +209,7 @@ public class OptimizeMixedDistinctAggregations
             Map<VariableReferenceExpression, VariableReferenceExpression> coalesceVariables = coalesceVariablesBuilder.build();
 
             AggregationNode aggregationNode = new AggregationNode(
+                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     source,
                     aggregations.build(),
@@ -233,7 +234,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
 
-            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputVariables.build(), LOCAL);
+            return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), aggregationNode, outputVariables.build(), LOCAL);
         }
 
         @Override
@@ -393,7 +394,7 @@ public class OptimizeMixedDistinctAggregations
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 
-            return new ProjectNode(idAllocator.getNextId(), source, outputVariables.build(), LOCAL);
+            return new ProjectNode(source.getSourceLocation(), idAllocator.getNextId(), source, outputVariables.build(), LOCAL);
         }
 
         private GroupIdNode createGroupIdNode(
@@ -422,6 +423,7 @@ public class OptimizeMixedDistinctAggregations
             groups.add(ImmutableList.copyOf(group1));
 
             return new GroupIdNode(
+                    source.getSourceLocation(),
                     idAllocator.getNextId(),
                     source,
                     groups,
@@ -491,6 +493,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
             return new AggregationNode(
+                    groupIdNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     groupIdNode,
                     aggregations.build(),

@@ -235,18 +235,18 @@ public class TestPinotQueryBase
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)
     {
-        return new LimitNode(pb.getIdAllocator().getNextId(), source, count, FINAL);
+        return new LimitNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, FINAL);
     }
 
     protected DistinctLimitNode distinctLimit(PlanBuilder pb, List<VariableReferenceExpression> distinctVariables, long count, PlanNode source)
     {
-        return new DistinctLimitNode(pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty());
+        return new DistinctLimitNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty());
     }
 
     protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)
     {
         ImmutableList<Ordering> ordering = IntStream.range(0, orderingColumns.size()).boxed().map(i -> new Ordering(variable(orderingColumns.get(i)), ascending.get(i) ? SortOrder.ASC_NULLS_FIRST : SortOrder.DESC_NULLS_FIRST)).collect(toImmutableList());
-        return new TopNNode(pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
+        return new TopNNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
     }
 
     protected RowExpression getRowExpression(String sqlExpression, SessionHolder sessionHolder)

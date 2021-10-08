@@ -81,11 +81,11 @@ public class PushProjectionThroughUnion
                 assignments.put(variable, translatedExpression);
                 projectVariableMapping.put(entry.getKey(), variable);
             }
-            outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build(), parent.getLocality()));
+            outputSources.add(new ProjectNode(source.getSourceLocation(), context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build(), parent.getLocality()));
             outputLayout.forEach(variable -> mappings.put(variable, projectVariableMapping.get(variable)));
         }
 
         ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = mappings.build();
-        return Result.ofPlanNode(new UnionNode(parent.getId(), outputSources.build(), ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs)));
+        return Result.ofPlanNode(new UnionNode(source.getSourceLocation(), parent.getId(), outputSources.build(), ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs)));
     }
 }

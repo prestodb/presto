@@ -120,17 +120,18 @@ public class RemoveUnsupportedDynamicFilters
                         .filter(expression -> !expression.equals(TRUE_CONSTANT));
                 return new PlanWithConsumedDynamicFilters(
                         new JoinNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             node.getType(),
-                                joinDynamicFilterResult.getProbe(),
-                                joinDynamicFilterResult.getBuild(),
+                            joinDynamicFilterResult.getProbe(),
+                            joinDynamicFilterResult.getBuild(),
                             node.getCriteria(),
                             node.getOutputVariables(),
                             filter,
                             node.getLeftHashVariable(),
                             node.getRightHashVariable(),
                             node.getDistributionType(),
-                                joinDynamicFilterResult.getDynamicFilters()),
+                            joinDynamicFilterResult.getDynamicFilters()),
                         ImmutableSet.copyOf(joinDynamicFilterResult.getConsumed()));
             }
             return new PlanWithConsumedDynamicFilters(node, ImmutableSet.copyOf(joinDynamicFilterResult.getConsumed()));
@@ -145,6 +146,7 @@ public class RemoveUnsupportedDynamicFilters
                     || !joinDynamicFilterResult.getDynamicFilters().equals(node.getDynamicFilters())) {
                 return new PlanWithConsumedDynamicFilters(
                         new SemiJoinNode(
+                                node.getSourceLocation(),
                                 node.getId(),
                                 joinDynamicFilterResult.getProbe(),
                                 joinDynamicFilterResult.getBuild(),
@@ -207,7 +209,7 @@ public class RemoveUnsupportedDynamicFilters
             }
 
             if (!original.equals(modified) || source != node.getSource()) {
-                return new PlanWithConsumedDynamicFilters(new FilterNode(node.getId(), source, modified),
+                return new PlanWithConsumedDynamicFilters(new FilterNode(source.getSourceLocation(), node.getId(), source, modified),
                         consumedDynamicFilterIds.build());
             }
 
