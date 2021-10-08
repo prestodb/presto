@@ -11,25 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
-  velox_vector
-  BaseVector.cpp
-  ComplexVector.cpp
-  ConstantVector.cpp
-  DecodedVector.cpp
-  FlatVector.cpp
-  LazyVector.cpp
-  SequenceVector.cpp
-  SelectivityVector.cpp
-  SimpleVector.cpp
-  VectorStream.cpp
-  VectorEncoding.cpp)
+add_library(velox_arrow_bridge Bridge.cpp)
 
-target_link_libraries(velox_vector velox_memory velox_type velox_encode)
-
-add_subdirectory(arrow)
+target_link_libraries(velox_arrow_bridge velox_memory velox_type velox_buffer
+                      velox_exception)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
-  add_subdirectory(benchmarks)
 endif()
