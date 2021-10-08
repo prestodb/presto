@@ -13,8 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation.approxmostfrequent;
 
-@FunctionalInterface
-public interface BucketConsumer<K>
+import com.facebook.presto.operator.aggregation.approxmostfrequent.stream.StreamSummary;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+
+@AccumulatorStateMetadata(stateSerializerClass = ApproximateMostFrequentStateSerializer.class, stateFactoryClass = ApproximateMostFrequentStateFactory.class)
+public interface ApproximateMostFrequentState
+        extends AccumulatorState
 {
-    void process(K key, long value);
+    StreamSummary getStateSummary();
+
+    void setStateSummary(StreamSummary value);
 }

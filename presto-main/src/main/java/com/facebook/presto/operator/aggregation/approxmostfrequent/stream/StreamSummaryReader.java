@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.approxmostfrequent;
+package com.facebook.presto.operator.aggregation.approxmostfrequent.stream;
 
-import io.airlift.slice.DynamicSliceOutput;
+import com.facebook.presto.common.block.Block;
 
-public interface ApproximateMostFrequentBucketSerializer<K>
+@FunctionalInterface
+public interface StreamSummaryReader
 {
-    public void serialize(K key, long count, DynamicSliceOutput output);
+    void read(Block block, int position, long count);
 }
