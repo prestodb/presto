@@ -115,10 +115,10 @@ public class TestHiveSplitSource
         long halfOfSize = fileSize.toBytes() / 2;
         hiveSplitSource.addToQueue(new TestSplit(1, OptionalInt.empty(), fileSize));
 
-        HiveSplit first = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        MultipleHiveSplit first = (MultipleHiveSplit) getSplits(hiveSplitSource, 1).get(0);
         assertEquals(first.getLength(), halfOfSize);
 
-        HiveSplit second = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        MultipleHiveSplit second = (MultipleHiveSplit) getSplits(hiveSplitSource, 1).get(0);
         assertEquals(second.getLength(), fileSize.toBytes() - halfOfSize);
     }
 
@@ -144,7 +144,7 @@ public class TestHiveSplitSource
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
-        HiveSplit hiveSplit = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        MultipleHiveSplit hiveSplit = (MultipleHiveSplit) getSplits(hiveSplitSource, 1).get(0);
         CacheQuotaRequirement cacheQuotaRequirement = new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE);
         assertEquals(hiveSplit.getCacheQuotaRequirement().getQuota(), cacheQuotaRequirement.getQuota());
         assertEquals(hiveSplit.getCacheQuotaRequirement().getCacheQuotaScope(), cacheQuotaRequirement.getCacheQuotaScope());
@@ -168,7 +168,7 @@ public class TestHiveSplitSource
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
-        hiveSplit = (HiveSplit) getSplits(hiveSplitSource, OptionalInt.of(2), 1).get(0);
+        hiveSplit = (MultipleHiveSplit) getSplits(hiveSplitSource, OptionalInt.of(2), 1).get(0);
         cacheQuotaRequirement = new CacheQuotaRequirement(PARTITION, Optional.empty());
         assertEquals(hiveSplit.getCacheQuotaRequirement().getQuota(), cacheQuotaRequirement.getQuota());
         assertEquals(hiveSplit.getCacheQuotaRequirement().getCacheQuotaScope(), cacheQuotaRequirement.getCacheQuotaScope());
@@ -277,7 +277,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(10, SECONDS);
-            assertEquals(((HiveSplit) split).getPartitionDataColumnCount(), 33);
+            assertEquals(((MultipleHiveSplit) split).getPartitionDataColumnCount(), 33);
         }
         finally {
             // make sure the thread exits
@@ -398,7 +398,7 @@ public class TestHiveSplitSource
 
             connectorSplits = getSplits(hiveSplitSource, OptionalInt.of(0), 10);
             for (int i = 0; i < 10; i++) {
-                assertEquals(((HiveSplit) connectorSplits.get(i)).getPartitionDataColumnCount(), i);
+                assertEquals(((MultipleHiveSplit) connectorSplits.get(i)).getPartitionDataColumnCount(), i);
             }
             assertTrue(hiveSplitSource.isFinished());
         }

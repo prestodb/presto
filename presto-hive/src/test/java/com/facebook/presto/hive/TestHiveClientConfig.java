@@ -155,7 +155,11 @@ public class TestHiveClientConfig
                 .setOptimizedPartitionUpdateSerializationEnabled(false)
                 .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS))
                 .setMaterializedViewMissingPartitionsThreshold(100)
-                .setLooseMemoryAccountingEnabled(false));
+                .setLooseMemoryAccountingEnabled(false)
+                .setConcurrentSmallFileReadEnabled(false)
+                .setConcurrentSmallFileReadParallelism(5)
+                .setConcurrentSmallFileReadFileCountThreshold(10000)
+                .setConcurrentSmallFileReadFileSizeThreshold(1048576));
     }
 
     @Test
@@ -272,6 +276,10 @@ public class TestHiveClientConfig
                 .put("hive.partition-lease-duration", "4h")
                 .put("hive.loose-memory-accounting-enabled", "true")
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
+                .put("hive.concurrent-small-file-read-enabled", "true")
+                .put("hive.concurrent-small-file-read-parallelism", "10")
+                .put("hive.concurrent-small-file-read-file-count", "100000")
+                .put("hive.concurrent-small-file-read-file-size", "1024")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -384,7 +392,11 @@ public class TestHiveClientConfig
                 .setOptimizedPartitionUpdateSerializationEnabled(true)
                 .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS))
                 .setMaterializedViewMissingPartitionsThreshold(50)
-                .setLooseMemoryAccountingEnabled(true);
+                .setLooseMemoryAccountingEnabled(true)
+                .setConcurrentSmallFileReadEnabled(true)
+                .setConcurrentSmallFileReadParallelism(10)
+                .setConcurrentSmallFileReadFileCountThreshold(100000)
+                .setConcurrentSmallFileReadFileSizeThreshold(1024);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
