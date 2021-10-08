@@ -177,7 +177,7 @@ class RelationPlanner
         }
 
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
-        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
+        PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
         return new RelationPlan(root, scope, outputVariables);
     }
 
@@ -203,7 +203,7 @@ class RelationPlanner
                 }
             }
 
-            root = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
+            root = new ProjectNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
             mappings = newMappings.build();
         }
 
@@ -216,7 +216,9 @@ class RelationPlanner
         RelationPlan subPlan = process(node.getRelation(), context);
 
         double ratio = analysis.getSampleRatio(node);
-        PlanNode planNode = new SampleNode(idAllocator.getNextId(),
+        PlanNode planNode = new SampleNode(
+                getSourceLocation(node),
+                idAllocator.getNextId(),
                 subPlan.getRoot(),
                 ratio,
                 SampleNodeUtil.fromType(node.getType()));
@@ -340,7 +342,9 @@ class RelationPlanner
             }
         }
 
-        PlanNode root = new JoinNode(idAllocator.getNextId(),
+        PlanNode root = new JoinNode(
+                getSourceLocation(node),
+                idAllocator.getNextId(),
                 JoinNodeUtils.typeConvert(node.getType()),
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
@@ -377,7 +381,9 @@ class RelationPlanner
         if (node.getType() != INNER && !complexJoinExpressions.isEmpty()) {
             Expression joinedFilterCondition = ExpressionUtils.and(complexJoinExpressions);
             Expression rewrittenFilterCondition = translationMap.rewrite(joinedFilterCondition);
-            root = new JoinNode(idAllocator.getNextId(),
+            root = new JoinNode(
+                    getSourceLocation(node),
+                    idAllocator.getNextId(),
                     JoinNodeUtils.typeConvert(node.getType()),
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
@@ -406,7 +412,7 @@ class RelationPlanner
             Expression postInnerJoinCriteria;
             if (!postInnerJoinConditions.isEmpty()) {
                 postInnerJoinCriteria = ExpressionUtils.and(postInnerJoinConditions);
-                root = new FilterNode(idAllocator.getNextId(), root, castToRowExpression(postInnerJoinCriteria));
+                root = new FilterNode(getSourceLocation(postInnerJoinCriteria), idAllocator.getNextId(), root, castToRowExpression(postInnerJoinCriteria));
             }
         }
 
@@ -513,6 +519,7 @@ class RelationPlanner
         ProjectNode rightCoercion = new ProjectNode(idAllocator.getNextId(), right.getRoot(), rightCoercions.build());
 
         JoinNode join = new JoinNode(
+                getSourceLocation(node),
                 idAllocator.getNextId(),
                 JoinNodeUtils.typeConvert(node.getType()),
                 leftCoercion,
@@ -642,7 +649,7 @@ class RelationPlanner
         Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
         checkState(!unnestedVariablesIterator.hasNext(), "Not all output variables were matched with input variables");
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestVariables.build(), ordinalityVariable);
+        UnnestNode unnestNode = new UnnestNode(getSourceLocation(node), idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestVariables.build(), ordinalityVariable);
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputVariables());
     }
 
@@ -689,7 +696,7 @@ class RelationPlanner
             rowsBuilder.add(values.build());
         }
 
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build());
+        ValuesNode valuesNode = new ValuesNode(getSourceLocation(node), idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build());
         return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
 
@@ -760,10 +767,12 @@ class RelationPlanner
         Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
         checkState(!unnestedVariablesIterator.hasNext(), "Not all output variables were matched with input variables");
         ValuesNode valuesNode = new ValuesNode(
+                getSourceLocation(node),
                 idAllocator.getNextId(),
-                argumentVariables.build(), ImmutableList.of(values.build()));
+                argumentVariables.build(),
+                ImmutableList.of(values.build()));
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestVariables.build(), ordinalityVariable);
+        UnnestNode unnestNode = new UnnestNode(getSourceLocation(node), idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestVariables.build(), ordinalityVariable);
         return new RelationPlan(unnestNode, scope, unnestedVariables);
     }
 
@@ -829,7 +838,7 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
+        PlanNode planNode = new UnionNode(getSourceLocation(node), idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
         if (node.isDistinct().orElse(true)) {
             planNode = distinct(planNode);
         }
@@ -843,7 +852,7 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
+        PlanNode planNode = new IntersectNode(getSourceLocation(node), idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
@@ -854,7 +863,7 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
+        PlanNode planNode = new ExceptNode(getSourceLocation(node), idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
@@ -914,7 +923,9 @@ class RelationPlanner
 
     private PlanNode distinct(PlanNode node)
     {
-        return new AggregationNode(idAllocator.getNextId(),
+        return new AggregationNode(
+                node.getSourceLocation(),
+                idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
                 singleGroupingSet(node.getOutputVariables()),

@@ -232,7 +232,7 @@ class QueryPlanner
 
         // create table scan
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
-        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
+        PlanNode tableScan = new TableScanNode(getSourceLocation(node), idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
 
@@ -251,7 +251,7 @@ class QueryPlanner
                 variableAllocator.newVariable("partialrows", BIGINT),
                 variableAllocator.newVariable("fragment", VARBINARY));
 
-        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables);
+        return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables);
     }
 
     private static List<VariableReferenceExpression> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)
@@ -317,7 +317,7 @@ class QueryPlanner
     {
         Scope scope = Scope.create();
         return new RelationPlan(
-                new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
+                new ValuesNode(Optional.empty(), idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                 scope,
                 ImmutableList.of());
     }
@@ -333,7 +333,7 @@ class QueryPlanner
         subPlan = subqueryPlanner.handleSubqueries(subPlan, rewrittenBeforeSubqueries, node);
         Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
 
-        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), castToRowExpression(rewrittenAfterSubqueries)));
+        return subPlan.withNewRoot(new FilterNode(getSourceLocation(node), idAllocator.getNextId(), subPlan.getRoot(), castToRowExpression(rewrittenAfterSubqueries)));
     }
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions, RelationPlan parentRelationPlan)
@@ -411,6 +411,7 @@ class QueryPlanner
         }
 
         return new PlanBuilder(translations, new ProjectNode(
+                subPlan.getRoot().getSourceLocation(),
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 projections.build(),
@@ -427,6 +428,7 @@ class QueryPlanner
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(
+                subPlan.getRoot().getSourceLocation(),
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 assignments,
@@ -540,7 +542,7 @@ class QueryPlanner
         Optional<VariableReferenceExpression> groupIdVariable = Optional.empty();
         if (groupingSets.size() > 1) {
             groupIdVariable = Optional.of(variableAllocator.newVariable("groupId", BIGINT));
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdVariable.get());
+            GroupIdNode groupId = new GroupIdNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdVariable.get());
             subPlan = new PlanBuilder(groupingTranslations, groupId);
         }
         else {
@@ -548,7 +550,7 @@ class QueryPlanner
             aggregationArguments.stream().map(AssignmentUtils::identityAsSymbolReference).forEach(assignments::put);
             groupingSetMappings.forEach((key, value) -> assignments.put(key, castToRowExpression(asSymbolReference(value))));
 
-            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
+            ProjectNode project = new ProjectNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
             subPlan = new PlanBuilder(groupingTranslations, project);
         }
 
@@ -601,6 +603,7 @@ class QueryPlanner
         groupIdVariable.ifPresent(groupingKeys::add);
 
         AggregationNode aggregationNode = new AggregationNode(
+                subPlan.getRoot().getSourceLocation(),
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 aggregations,
@@ -709,7 +712,7 @@ class QueryPlanner
             newTranslations.put(groupingOperation, variable);
         }
 
-        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build(), LOCAL));
+        return new PlanBuilder(newTranslations, new ProjectNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), projections.build(), LOCAL));
     }
 
     private PlanBuilder window(PlanBuilder subPlan, OrderBy node)
@@ -847,6 +850,7 @@ class QueryPlanner
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
                     new WindowNode(
+                            subPlan.getRoot().getSourceLocation(),
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             new WindowNode.Specification(
@@ -878,6 +882,7 @@ class QueryPlanner
         if (node.getSelect().isDistinct()) {
             return subPlan.withNewRoot(
                     new AggregationNode(
+                            getSourceLocation(node),
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             ImmutableMap.of(),
@@ -911,7 +916,7 @@ class QueryPlanner
         OrderingScheme orderingScheme = toOrderingScheme(
                 orderByExpressions.stream().map(subPlan::translate).collect(toImmutableList()),
                 orderBy.get().getSortItems().stream().map(PlannerUtils::toSortOrder).collect(toImmutableList()));
-        planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
+        planNode = new SortNode(getSourceLocation(orderBy.get()), idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
 
         return subPlan.withNewRoot(planNode);
     }
@@ -924,6 +929,7 @@ class QueryPlanner
 
         return subPlan.withNewRoot(
                 new OffsetNode(
+                        getSourceLocation(offset.get()),
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         analysis.getOffset(offset.get())));
@@ -947,7 +953,7 @@ class QueryPlanner
 
         if (!limit.get().equalsIgnoreCase("all")) {
             long limitValue = Long.parseLong(limit.get());
-            subPlan = subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue, FINAL));
+            subPlan = subPlan.withNewRoot(new LimitNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), limitValue, FINAL));
         }
 
         return subPlan;

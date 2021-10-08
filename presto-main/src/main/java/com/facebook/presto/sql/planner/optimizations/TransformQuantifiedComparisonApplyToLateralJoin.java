@@ -141,6 +141,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             List<RowExpression> outputColumnReferences = ImmutableList.of(castToRowExpression(createSymbolReference(outputColumn)));
 
             subqueryPlan = new AggregationNode(
+                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
@@ -195,6 +196,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     Optional.empty());
 
             PlanNode lateralJoinNode = new LateralJoinNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,

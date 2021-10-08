@@ -234,7 +234,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
-            return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build())), node);
+            return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), inputs, rowsBuilder.build())), node);
         }
 
         private boolean isReducible(AggregationNode node, List<VariableReferenceExpression> inputs)
@@ -314,8 +314,8 @@ public class MetadataQueryOptimizer
                 }
             }
             Assignments assignments = assignmentsBuilder.build();
-            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())));
-            return new ProjectNode(idAllocator.getNextId(), valuesNode, assignments, LOCAL);
+            ValuesNode valuesNode = new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())));
+            return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), valuesNode, assignments, LOCAL);
         }
 
         /**

@@ -374,7 +374,7 @@ public class HiveFilterPushdown
             RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
             // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node
             if (FALSE_CONSTANT.equals(replacedExpression)) {
-                return new ValuesNode(idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
             }
             ConnectorPushdownFilterResult pushdownFilterResult = pushdownFilter(
                     session,
@@ -385,10 +385,11 @@ public class HiveFilterPushdown
 
             ConnectorTableLayout layout = pushdownFilterResult.getLayout();
             if (layout.getPredicate().isNone()) {
-                return new ValuesNode(idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
             }
 
             TableScanNode node = new TableScanNode(
+                    tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),
@@ -398,7 +399,7 @@ public class HiveFilterPushdown
 
             RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedConstraint();
             if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
-                return new FilterNode(idAllocator.getNextId(), node, replaceExpression(unenforcedFilter, symbolToColumnMapping.inverse()));
+                return new FilterNode(tableScan.getSourceLocation(), idAllocator.getNextId(), node, replaceExpression(unenforcedFilter, symbolToColumnMapping.inverse()));
             }
 
             return node;
@@ -419,10 +420,11 @@ public class HiveFilterPushdown
                     TRUE_CONSTANT,
                     handle.getLayout());
             if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                return new ValuesNode(idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
             }
 
             return new TableScanNode(
+                    tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),

@@ -451,6 +451,7 @@ public class AddExchanges
                 // add exchange + push function to child
                 child = withDerivedProperties(
                         new TopNRowNumberNode(
+                                node.getSourceLocation(),
                                 idAllocator.getNextId(),
                                 child.getNode(),
                                 node.getSpecification(),
@@ -518,6 +519,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
                                 new SortNode(
+                                        source.getSourceLocation(),
                                         idAllocator.getNextId(),
                                         source,
                                         node.getOrderingScheme(),
@@ -542,7 +544,7 @@ public class AddExchanges
 
             if (!child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
-                        new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount(), PARTIAL),
+                        new LimitNode(child.getNode().getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getCount(), PARTIAL),
                         child.getProperties());
 
                 child = withDerivedProperties(
@@ -563,7 +565,7 @@ public class AddExchanges
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
-                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctVariables(), node.getHashVariable())),
+                                new DistinctLimitNode(child.getNode().getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctVariables(), node.getHashVariable())),
                         child.getProperties());
             }
 
@@ -714,6 +716,7 @@ public class AddExchanges
             if (child instanceof ExchangeNode) {
                 ExchangeNode exchangeNode = (ExchangeNode) child;
                 gather = new ExchangeNode(
+                        exchangeNode.getSourceLocation(),
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
@@ -884,7 +887,9 @@ public class AddExchanges
 
         private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
         {
-            JoinNode result = new JoinNode(node.getId(),
+            JoinNode result = new JoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
                     node.getType(),
                     newLeft.getNode(),
                     newRight.getNode(),
@@ -1199,6 +1204,7 @@ public class AddExchanges
 
                 ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = outputToSourcesMapping.build();
                 UnionNode newNode = new UnionNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         partitionedSources.build(),
                         ImmutableList.copyOf(outputsToInputs.keySet()),
@@ -1255,6 +1261,7 @@ public class AddExchanges
                         // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
                         return new PlanWithProperties(
                                 new ExchangeNode(
+                                        node.getSourceLocation(),
                                         idAllocator.getNextId(),
                                         REPARTITION,
                                         REMOTE_STREAMING,
@@ -1274,6 +1281,7 @@ public class AddExchanges
                 // We should consider supporting multiple table scans, at least for Presto on Spark where
                 // it could be easier to implement and round robin exchanges are much more expensive.
                 result = new ExchangeNode(
+                        node.getSourceLocation(),
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
@@ -1293,6 +1301,7 @@ public class AddExchanges
                             .collect(toImmutableList());
 
                     result = new ExchangeNode(
+                            node.getSourceLocation(),
                             idAllocator.getNextId(),
                             GATHER,
                             REMOTE_STREAMING,
@@ -1316,7 +1325,7 @@ public class AddExchanges
 
                 // add local union for all unpartitioned inputs
                 ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = mappings.build();
-                result = new UnionNode(node.getId(), singleNodeChildren, ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs));
+                result = new UnionNode(node.getSourceLocation(), node.getId(), singleNodeChildren, ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs));
             }
             else {
                 throw new IllegalStateException("both singleNodeChildren distributedChildren are empty");

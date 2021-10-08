@@ -245,7 +245,7 @@ public class ImplementIntersectAndExceptAsUnion
             }
 
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mapping = outputsToInputs.build();
-            return new UnionNode(idAllocator.getNextId(), nodes, ImmutableList.copyOf(mapping.keySet()), fromListMultimap(mapping));
+            return new UnionNode(nodes.get(0).getSourceLocation(), idAllocator.getNextId(), nodes, ImmutableList.copyOf(mapping.keySet()), fromListMultimap(mapping));
         }
 
         private AggregationNode computeCounts(UnionNode sourceNode, List<VariableReferenceExpression> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)
@@ -267,7 +267,9 @@ public class ImplementIntersectAndExceptAsUnion
                         Optional.empty()));
             }
 
-            return new AggregationNode(idAllocator.getNextId(),
+            return new AggregationNode(
+                    sourceNode.getSourceLocation(),
+                    idAllocator.getNextId(),
                     sourceNode,
                     aggregations.build(),
                     singleGroupingSet(originalColumns),
@@ -282,7 +284,7 @@ public class ImplementIntersectAndExceptAsUnion
             ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
                     .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, createSymbolReference(column), new GenericLiteral("BIGINT", "1")))
                     .collect(toImmutableList());
-            return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicates)));
+            return new FilterNode(aggregation.getSourceLocation(), idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicates)));
         }
 
         private FilterNode addFilterForExcept(AggregationNode aggregation, VariableReferenceExpression firstSource, List<VariableReferenceExpression> remainingSources)
@@ -293,7 +295,7 @@ public class ImplementIntersectAndExceptAsUnion
                 predicatesBuilder.add(new ComparisonExpression(EQUAL, createSymbolReference(variable), new GenericLiteral("BIGINT", "0")));
             }
 
-            return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicatesBuilder.build())));
+            return new FilterNode(aggregation.getSourceLocation(), idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicatesBuilder.build())));
         }
 
         private ProjectNode project(PlanNode node, List<VariableReferenceExpression> columns)

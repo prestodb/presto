@@ -132,6 +132,7 @@ public class RewriteSpatialPartitioningAggregation
 
         return Result.ofPlanNode(
                 new AggregationNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),

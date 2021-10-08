@@ -46,6 +46,7 @@ public class MergeLimitWithTopN
 
         return Result.ofPlanNode(
                 new TopNNode(
+                        parent.getSourceLocation(),
                         parent.getId(),
                         child.getSource(),
                         Math.min(parent.getCount(), child.getCount()),

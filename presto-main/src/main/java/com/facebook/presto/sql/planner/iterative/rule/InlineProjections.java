@@ -141,8 +141,10 @@ public class InlineProjections
 
         return Result.ofPlanNode(
                 new ProjectNode(
+                        parent.getSourceLocation(),
                         parent.getId(),
                         new ProjectNode(
+                                parent.getSourceLocation(),
                                 child.getId(),
                                 child.getSource(),
                                 childAssignments.build(),
