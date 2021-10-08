@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public class DoubleColumnStatistics
         extends ColumnStatistics
 {
@@ -32,6 +34,7 @@ public class DoubleColumnStatistics
             DoubleStatistics doubleStatistics)
     {
         super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        requireNonNull(doubleStatistics, "doubleStatistics is null");
         this.doubleStatistics = doubleStatistics;
     }
 
@@ -55,10 +58,7 @@ public class DoubleColumnStatistics
     public long getRetainedSizeInBytes()
     {
         long sizeInBytes = INSTANCE_SIZE + getMembersSizeInBytes();
-        if (doubleStatistics != null) {
-            return sizeInBytes + doubleStatistics.getRetainedSizeInBytes();
-        }
-        return sizeInBytes;
+        return sizeInBytes + doubleStatistics.getRetainedSizeInBytes();
     }
 
     @Override

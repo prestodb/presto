@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public class BinaryColumnStatistics
         extends ColumnStatistics
 {
@@ -32,6 +34,7 @@ public class BinaryColumnStatistics
             BinaryStatistics binaryStatistics)
     {
         super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        requireNonNull(binaryStatistics, "binaryStatistics is null");
         this.binaryStatistics = binaryStatistics;
     }
 
@@ -55,10 +58,7 @@ public class BinaryColumnStatistics
     public long getRetainedSizeInBytes()
     {
         long sizeInBytes = INSTANCE_SIZE + super.getMembersSizeInBytes();
-        if (binaryStatistics != null) {
-            return sizeInBytes + binaryStatistics.getRetainedSizeInBytes();
-        }
-        return sizeInBytes;
+        return sizeInBytes + binaryStatistics.getRetainedSizeInBytes();
     }
 
     @Override

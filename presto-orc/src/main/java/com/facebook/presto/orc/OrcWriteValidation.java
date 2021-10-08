@@ -83,7 +83,6 @@ import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
-import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -605,7 +604,7 @@ public class OrcWriteValidation
             ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
             // if there are no rows, there will be no stats
             if (rowCount > 0) {
-                statisticsBuilders.add(createColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
+                statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null));
                 columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
             }
             return statisticsBuilders.build();
@@ -763,7 +762,7 @@ public class OrcWriteValidation
         @Override
         public ColumnStatistics buildColumnStatistics()
         {
-            return createColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null);
+            return new ColumnStatistics(rowCount, 0, null);
         }
     }
 

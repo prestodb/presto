@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public class StringColumnStatistics
         extends ColumnStatistics
 {
@@ -32,6 +34,7 @@ public class StringColumnStatistics
             StringStatistics stringStatistics)
     {
         super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        requireNonNull(stringStatistics, "stringStatistics is null");
         this.stringStatistics = stringStatistics;
     }
 
@@ -55,10 +58,7 @@ public class StringColumnStatistics
     public long getRetainedSizeInBytes()
     {
         long sizeInBytes = INSTANCE_SIZE + getMembersSizeInBytes();
-        if (stringStatistics != null) {
-            return sizeInBytes + stringStatistics.getRetainedSizeInBytes();
-        }
-        return sizeInBytes;
+        return sizeInBytes + stringStatistics.getRetainedSizeInBytes();
     }
 
     @Override

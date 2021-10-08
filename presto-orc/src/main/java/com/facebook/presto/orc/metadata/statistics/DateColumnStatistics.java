@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public class DateColumnStatistics
         extends ColumnStatistics
 {
@@ -32,6 +34,7 @@ public class DateColumnStatistics
             DateStatistics dateStatistics)
     {
         super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        requireNonNull(dateStatistics, "dateStatistics is null");
         this.dateStatistics = dateStatistics;
     }
 
@@ -55,10 +58,7 @@ public class DateColumnStatistics
     public long getRetainedSizeInBytes()
     {
         long sizeInBytes = INSTANCE_SIZE + getMembersSizeInBytes();
-        if (dateStatistics != null) {
-            return sizeInBytes + dateStatistics.getRetainedSizeInBytes();
-        }
-        return sizeInBytes;
+        return sizeInBytes + dateStatistics.getRetainedSizeInBytes();
     }
 
     @Override

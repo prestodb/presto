@@ -82,7 +82,6 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toFileStatistics;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryptionGroup;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
-import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -598,7 +597,7 @@ public class OrcWriter
 
         // the 0th column is a struct column for the whole row
         columnEncodings.put(0, new ColumnEncoding(DIRECT, 0));
-        columnStatistics.put(0, createColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
+        columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null));
 
         Map<Integer, ColumnEncoding> unencryptedColumnEncodings = columnEncodings.entrySet().stream()
                 .filter(entry -> !dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).isPresent())
@@ -775,16 +774,9 @@ public class OrcWriter
             verify(isRootNode && nodeAndSubNodeStats.isEmpty() || nodeAndSubNodeStats.size() == 1 && nodeAndSubNodeStats.get(group) != null,
                     "nodeAndSubNodeStats should only be present for subnodes of a group");
             nodeAndSubNodeStats.computeIfAbsent(group, x -> new ArrayList<>()).add(columnStatistics);
-            unencryptedStats.add(createColumnStatistics(
+            unencryptedStats.add(new ColumnStatistics(
                     columnStatistics.getNumberOfValues(),
                     columnStatistics.getMinAverageValueSizeInBytes(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
                     null));
             for (Integer fieldIndex : orcTypes.get(index).getFieldTypeIndexes()) {
                 addStatsRecursive(allStats, fieldIndex, nodeAndSubNodeStats, unencryptedStats, encryptedStats);

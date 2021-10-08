@@ -23,7 +23,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -95,17 +94,10 @@ public class LongDecimalStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics();
-        return createColumnStatistics(
-                nonNullValueCount,
-                decimalStatistics.map(s -> DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES).orElse(0L),
-                null,
-                null,
-                null,
-                null,
-                null,
-                decimalStatistics.orElse(null),
-                null,
-                null);
+        if (decimalStatistics.isPresent()) {
+            return new DecimalColumnStatistics(nonNullValueCount, DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES, null, decimalStatistics.get());
+        }
+        return new ColumnStatistics(nonNullValueCount, 0, null);
     }
 
     public static Optional<DecimalStatistics> mergeDecimalStatistics(List<ColumnStatistics> stats)
