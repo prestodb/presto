@@ -388,6 +388,7 @@ void Task::setAllOutputConsumed() {
   partitionedOutputConsumed_ = true;
   if (!numDrivers_ && state_ == kRunning) {
     state_ = kFinished;
+    taskStats_.endTimeMs = getCurrentTimeMs();
     stateChangedLocked();
   }
 }

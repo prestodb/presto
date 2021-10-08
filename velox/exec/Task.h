@@ -60,6 +60,10 @@ struct TaskStats {
 
   // Epoch time (ms) when last split is fetched from the task by an operator.
   uint64_t lastSplitStartTimeMs{0};
+
+  // Epoch time (ms) when the task completed, e.g. all splits were processed and
+  // results have been consumed.
+  uint64_t endTimeMs{0};
 };
 
 class JoinBridge;
