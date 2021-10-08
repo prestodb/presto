@@ -77,8 +77,6 @@ import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
-import com.facebook.presto.operator.aggregation.approxmostfrequent.BigintApproximateMostFrequent;
-import com.facebook.presto.operator.aggregation.approxmostfrequent.VarcharApproximateMostFrequent;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
@@ -306,6 +304,7 @@ import static com.facebook.presto.operator.aggregation.RealAverageAggregation.RE
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION;
+import static com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent.APPROXIMATE_MOST_FREQUENT;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetAggregationFunction.SET_AGG;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetUnionFunction.SET_UNION;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
@@ -637,8 +636,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(ClassificationPrecisionAggregation.class)
                 .aggregates(ClassificationRecallAggregation.class)
                 .aggregates(ClassificationThresholdsAggregation.class)
-                .aggregates(VarcharApproximateMostFrequent.class)
-                .aggregates(BigintApproximateMostFrequent.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
@@ -827,6 +824,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST)
+                .function(APPROXIMATE_MOST_FREQUENT)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
