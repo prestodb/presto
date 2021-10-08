@@ -88,6 +88,12 @@ public class TestSpilledAggregations
     }
 
     @Test
+    public void testDistinctAndOrderBySpillingWithDifferentOrderByColumn()
+    {
+        assertQuery("Select custkey, orderpriority, sum(custkey), array_agg(orderkey ORDER BY orderdate) from orders WHERE custkey = 1499 group by custkey, orderpriority");
+    }
+
+    @Test
     public void testDistinctSpillingCount()
     {
         assertQuery("SELECT orderpriority, custkey, sum(custkey), count(DISTINCT totalprice) FROM orders GROUP BY orderpriority, custkey ORDER BY 1, 2");
