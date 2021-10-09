@@ -31,5 +31,6 @@
     "install": "webpack --config webpack.config.js",
     "package": "webpack -p --config webpack.config.js",
     "watch": "webpack --config webpack.config.js --watch"
-  }
+  },
+  "packageManager": "yarn@3.0.2"
 }
