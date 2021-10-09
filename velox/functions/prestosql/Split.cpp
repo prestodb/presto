@@ -122,9 +122,17 @@ class SplitFunction : public exec::VectorFunction {
         });
       } else {
         const I limit = limits->valueAt<I>(0);
-        rows.applyToSelected([&](vector_size_t row) {
-          applyInner<true, I>(rawStrings[row], delim, limit, row, builder);
-        });
+        // Limit must be positive.
+        if (limit > 0) {
+          rows.applyToSelected([&](vector_size_t row) {
+            applyInner<true, I>(rawStrings[row], delim, limit, row, builder);
+          });
+        } else {
+          auto pex = std::make_exception_ptr(
+              std::invalid_argument("Limit must be positive"));
+          rows.applyToSelected(
+              [&](vector_size_t row) { context->setError(row, pex); });
+        }
       }
 
       // Ensure that our result elements vector uses the same string buffer as
@@ -134,7 +142,7 @@ class SplitFunction : public exec::VectorFunction {
     } else {
       // The rest of the cases are handled through this general path and no
       // direct access.
-      applyDecoded<I>(rows, strings, delims, limits, builder);
+      applyDecoded<I>(rows, context, strings, delims, limits, builder);
 
       // Ensure that our result elements vector uses the same string buffer as
       // the input vector of strings.
@@ -149,6 +157,7 @@ class SplitFunction : public exec::VectorFunction {
   template <typename I>
   void applyDecoded(
       const SelectivityVector& rows,
+      exec::EvalCtx* context,
       DecodedVector* strings,
       DecodedVector* delims,
       DecodedVector* limits,
@@ -165,12 +174,19 @@ class SplitFunction : public exec::VectorFunction {
       });
     } else {
       rows.applyToSelected([&](vector_size_t row) {
-        applyInner<true, I>(
-            strings->valueAt<StringView>(row),
-            delims->valueAt<StringView>(row),
-            limits->valueAt<I>(row),
-            row,
-            builder);
+        const I limit = limits->valueAt<I>(row);
+        if (limit > 0) {
+          applyInner<true, I>(
+              strings->valueAt<StringView>(row),
+              delims->valueAt<StringView>(row),
+              limit,
+              row,
+              builder);
+        } else {
+          auto pex = std::make_exception_ptr(
+              std::invalid_argument("Limit must be positive"));
+          context->setError(row, pex);
+        }
       });
     }
   }
