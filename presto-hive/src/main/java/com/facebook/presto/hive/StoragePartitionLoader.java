@@ -34,6 +34,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
@@ -62,6 +63,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntPredicate;
 
 import static com.facebook.presto.hive.HiveBucketing.getVirtualBucketNumber;
@@ -70,7 +72,10 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
 import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingBuckets;
+import static com.facebook.presto.hive.HiveSessionProperties.getConcurrentSmallFileReadFileCountThreshold;
+import static com.facebook.presto.hive.HiveSessionProperties.getConcurrentSmallFileReadFileSizeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
@@ -115,6 +120,12 @@ public class StoragePartitionLoader
     private final LoadingCache<Configuration, HoodieROTablePathFilter> hoodiePathFilterLoadingCache;
     private final boolean partialAggregationsPushedDown;
 
+    private final long concurrentSmallFileReadFileCountThreshold;
+    private final long concurrentSmallFileReadFileSizeThreshold;
+    private final AtomicLong fileCount = new AtomicLong(0);
+    private final AtomicLong fileSize = new AtomicLong(0);
+    private final long maxSplitSize;
+
     public StoragePartitionLoader(
             Table table,
             Optional<Domain> pathDomain,
@@ -143,6 +154,9 @@ public class StoragePartitionLoader
                 .maximumSize(1000)
                 .build(CacheLoader.from((Function<Configuration, HoodieROTablePathFilter>) HoodieROTablePathFilter::new));
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        this.concurrentSmallFileReadFileCountThreshold = getConcurrentSmallFileReadFileCountThreshold(session);
+        this.concurrentSmallFileReadFileSizeThreshold = getConcurrentSmallFileReadFileSizeThreshold(session);
+        this.maxSplitSize = getMaxSplitSize(session).toBytes();
     }
 
     @Override
@@ -166,6 +180,22 @@ public class StoragePartitionLoader
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
         ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
+        ContentSummary contentSummary = fs.getContentSummary(path);
+        fileCount.getAndAdd(contentSummary.getFileCount());
+        fileSize.getAndAdd(contentSummary.getLength());
+        if (fileCount.get() > concurrentSmallFileReadFileCountThreshold) {
+            long avgSize = fileSize.get() / fileCount.get();
+            if (avgSize < concurrentSmallFileReadFileSizeThreshold) {
+                hiveSplitSource.getFitForConcurrentSmallFileRead().getAndSet(true);
+            }
+            else if (avgSize > maxSplitSize) {
+                long fitSplitSize = maxSplitSize;
+                while (fitSplitSize < avgSize) {
+                    fitSplitSize *= 2;
+                }
+                hiveSplitSource.getMaxSplitSize().getAndSet(fitSplitSize);
+            }
+        }
         boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
 
         if (inputFormat instanceof SymlinkTextInputFormat) {

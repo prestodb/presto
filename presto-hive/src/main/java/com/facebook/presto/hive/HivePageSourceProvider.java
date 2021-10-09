@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static com.facebook.presto.hive.HiveSessionProperties.getConcurrentSmallFileReadParallelism;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -131,13 +132,40 @@ public class HivePageSourceProvider
             List<ColumnHandle> columns,
             SplitContext splitContext)
     {
+        MultipleHiveSplit multipleHiveSplit = (MultipleHiveSplit) split;
+        if (multipleHiveSplit.getHiveSplits().size() == 1) {
+            return createNormalPageSource(
+                    session,
+                    multipleHiveSplit.getHiveSplits().get(0),
+                    layout,
+                    columns,
+                    splitContext);
+        }
+        ImmutableList.Builder<ConnectorPageSource> delegates = ImmutableList.builder();
+        for (HiveSplit hiveSplit : multipleHiveSplit.getHiveSplits()) {
+            delegates.add(createNormalPageSource(
+                    session,
+                    hiveSplit,
+                    layout,
+                    columns,
+                    splitContext));
+        }
+        return new ConcurrentMultipleHivePageSource(delegates.build(), Math.min(getConcurrentSmallFileReadParallelism(session), multipleHiveSplit.getHiveSplits().size()));
+    }
+
+    public ConnectorPageSource createNormalPageSource(
+            ConnectorSession session,
+            HiveSplit hiveSplit,
+            ConnectorTableLayoutHandle layout,
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
+    {
         HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout;
 
         List<HiveColumnHandle> selectedColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
 
-        HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getPath());
 
         Configuration configuration = hdfsEnvironment.getConfiguration(

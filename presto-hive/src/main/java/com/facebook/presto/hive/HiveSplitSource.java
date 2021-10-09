@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.failedFuture;
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
@@ -54,7 +55,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERI
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isConcurrentSmallFileReadEnabled;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.CLOSED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.FAILED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.INITIAL;
@@ -82,7 +83,7 @@ class HiveSplitSource
     private final AtomicInteger bufferedInternalSplitCount = new AtomicInteger();
     private final long maxOutstandingSplitsBytes;
 
-    private final DataSize maxSplitSize;
+    private final AtomicLong maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final boolean useRewindableSplitSource;
     private final AtomicInteger remainingInitialSplits;
@@ -95,6 +96,9 @@ class HiveSplitSource
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
 
+    private final boolean concurrentSmallFileReadEnabled;
+    private final AtomicBoolean fitForConcurrentSmallFileRead = new AtomicBoolean(false);
+
     private HiveSplitSource(
             ConnectorSession session,
             String databaseName,
@@ -105,7 +109,8 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             CounterStat highMemorySplitSourceCounter,
-            boolean useRewindableSplitSource)
+            boolean useRewindableSplitSource,
+            boolean concurrentSmallFileReadEnabled)
     {
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -117,10 +122,11 @@ class HiveSplitSource
         this.splitLoader = requireNonNull(splitLoader, "splitLoader is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
 
-        this.maxSplitSize = getMaxSplitSize(session);
+        this.maxSplitSize = new AtomicLong(HiveSessionProperties.getMaxSplitSize(session).toBytes());
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.useRewindableSplitSource = useRewindableSplitSource;
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
+        this.concurrentSmallFileReadEnabled = concurrentSmallFileReadEnabled;
     }
 
     public static HiveSplitSource allAtOnce(
@@ -181,7 +187,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 highMemorySplitSourceCounter,
-                false);
+                false,
+                isConcurrentSmallFileReadEnabled(session));
     }
 
     public static HiveSplitSource bucketed(
@@ -262,7 +269,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 highMemorySplitSourceCounter,
-                false);
+                false,
+                isConcurrentSmallFileReadEnabled(session));
     }
 
     public static HiveSplitSource bucketedRewindable(
@@ -354,7 +362,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 highMemorySplitSourceCounter,
-                true);
+                true,
+                isConcurrentSmallFileReadEnabled(session));
     }
 
     /**
@@ -457,72 +466,15 @@ class HiveSplitSource
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
-            for (InternalHiveSplit internalSplit : internalSplits) {
-                long maxSplitBytes = maxSplitSize.toBytes();
-                if (remainingInitialSplits.get() > 0) {
-                    if (remainingInitialSplits.getAndDecrement() > 0) {
-                        maxSplitBytes = maxInitialSplitSize.toBytes();
-                    }
-                }
-                InternalHiveBlock block = internalSplit.currentBlock();
-                long splitBytes;
-                if (internalSplit.isSplittable()) {
-                    long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
-                    if (remainingBlockBytes <= maxSplitBytes) {
-                        splitBytes = remainingBlockBytes;
-                    }
-                    else if (maxSplitBytes * 2 >= remainingBlockBytes) {
-                        //  Second to last split in this block, generate two evenly sized splits
-                        splitBytes = remainingBlockBytes / 2;
-                    }
-                    else {
-                        splitBytes = maxSplitBytes;
-                    }
-                }
-                else {
-                    splitBytes = internalSplit.getEnd() - internalSplit.getStart();
-                }
-
-                resultBuilder.add(new HiveSplit(
-                        databaseName,
-                        tableName,
-                        internalSplit.getPartitionName(),
-                        internalSplit.getPath(),
-                        internalSplit.getStart(),
-                        splitBytes,
-                        internalSplit.getFileSize(),
-                        internalSplit.getFileModifiedTime(),
-                        internalSplit.getPartitionInfo().getStorage(),
-                        internalSplit.getPartitionKeys(),
-                        block.getAddresses(),
-                        internalSplit.getReadBucketNumber(),
-                        internalSplit.getTableBucketNumber(),
-                        internalSplit.getNodeSelectionStrategy(),
-                        internalSplit.getPartitionInfo().getPartitionDataColumnCount(),
-                        internalSplit.getTableToPartitionMapping(),
-                        internalSplit.getBucketConversion(),
-                        internalSplit.isS3SelectPushdownEnabled(),
-                        internalSplit.getExtraFileInfo(),
-                        cacheQuotaRequirement,
-                        internalSplit.getEncryptionInformation(),
-                        internalSplit.getCustomSplitInfo(),
-                        internalSplit.getPartitionInfo().getRedundantColumnDomains()));
-
-                internalSplit.increaseStart(splitBytes);
-
-                if (internalSplit.isDone()) {
-                    removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
-
-                    // rewindable split sources keep their splits forever
-                    if (!useRewindableSplitSource && queues.decrementAndGetPartitionReferences(internalSplit) == 0) {
-                        removedEstimatedSizeInBytes += internalSplit.getPartitionInfo().getEstimatedSizeInBytes();
-                    }
-                }
-                else {
-                    splitsToInsertBuilder.add(internalSplit);
-                }
+            if (concurrentSmallFileReadEnabled && fitForConcurrentSmallFileRead.get()) {
+                List<InternalHiveSplit> bucketSplits = internalSplits.stream().filter(split -> split.getReadBucketNumber().isPresent()).collect(Collectors.toList());
+                List<InternalHiveSplit> nonBucketSplits = internalSplits.stream().filter(split -> !split.getReadBucketNumber().isPresent()).collect(Collectors.toList());
+                removedEstimatedSizeInBytes += buildSplitForNormalRead(resultBuilder, splitsToInsertBuilder, bucketSplits);
+                removedEstimatedSizeInBytes += buildSplitForConcurrentSmallFileRead(resultBuilder, nonBucketSplits);
             }
-
+            else {
+                removedEstimatedSizeInBytes = buildSplitForNormalRead(resultBuilder, splitsToInsertBuilder, internalSplits);
+            }
             // For rewindable split source, we keep all the splits in memory.
             if (!useRewindableSplitSource) {
                 estimatedSplitSizeInBytes.addAndGet(-removedEstimatedSizeInBytes);
@@ -530,7 +482,7 @@ class HiveSplitSource
 
             List<InternalHiveSplit> splitsToInsert = splitsToInsertBuilder.build();
             List<ConnectorSplit> result = resultBuilder.build();
-            bufferedInternalSplitCount.addAndGet(splitsToInsert.size() - result.size());
+            bufferedInternalSplitCount.addAndGet(splitsToInsert.size() - internalSplits.size());
 
             return new AsyncQueue.BorrowResult<>(splitsToInsert, result);
         });
@@ -556,6 +508,143 @@ class HiveSplitSource
         }, directExecutor());
 
         return toCompletableFuture(transform);
+    }
+
+    private int buildSplitForNormalRead(
+            ImmutableList.Builder<ConnectorSplit> resultBuilder,
+            ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder,
+            List<InternalHiveSplit> internalSplits)
+    {
+        int removedEstimatedSizeInBytes = 0;
+        for (InternalHiveSplit internalSplit : internalSplits) {
+            long splitBytes = calculateSplitSize(internalSplit);
+
+            resultBuilder.add(new MultipleHiveSplit(ImmutableList.of((new HiveSplit(
+                    databaseName,
+                    tableName,
+                    internalSplit.getPartitionName(),
+                    internalSplit.getPath(),
+                    internalSplit.getStart(),
+                    splitBytes,
+                    internalSplit.getFileSize(),
+                    internalSplit.getFileModifiedTime(),
+                    internalSplit.getPartitionInfo().getStorage(),
+                    internalSplit.getPartitionKeys(),
+                    internalSplit.currentBlock().getAddresses(),
+                    internalSplit.getReadBucketNumber(),
+                    internalSplit.getTableBucketNumber(),
+                    internalSplit.getNodeSelectionStrategy(),
+                    internalSplit.getPartitionInfo().getPartitionDataColumnCount(),
+                    internalSplit.getTableToPartitionMapping(),
+                    internalSplit.getBucketConversion(),
+                    internalSplit.isS3SelectPushdownEnabled(),
+                    internalSplit.getExtraFileInfo(),
+                    cacheQuotaRequirement,
+                    internalSplit.getEncryptionInformation(),
+                    internalSplit.getCustomSplitInfo(),
+                    internalSplit.getPartitionInfo().getRedundantColumnDomains())))));
+
+            internalSplit.increaseStart(splitBytes);
+
+            if (internalSplit.isDone()) {
+                removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+
+                // rewindable split sources keep their splits forever
+                if (!useRewindableSplitSource && queues.decrementAndGetPartitionReferences(internalSplit) == 0) {
+                    removedEstimatedSizeInBytes += internalSplit.getPartitionInfo().getEstimatedSizeInBytes();
+                }
+            }
+            else {
+                splitsToInsertBuilder.add(internalSplit);
+            }
+        }
+        return removedEstimatedSizeInBytes;
+    }
+
+    private int buildSplitForConcurrentSmallFileRead(
+            ImmutableList.Builder<ConnectorSplit> resultBuilder,
+            List<InternalHiveSplit> internalSplits)
+    {
+        int removedEstimatedSizeInBytes = 0;
+        List<HiveSplit> currentSplits = new ArrayList<>();
+        long maxSplitBytes = maxSplitSize.get();
+        long currentBytes = 0;
+        for (InternalHiveSplit internalSplit : internalSplits) {
+            while (!internalSplit.isDone()) {
+                long splitBytes = calculateSplitSize(internalSplit);
+                if (currentBytes + splitBytes > maxSplitBytes && currentSplits.size() > 0) {
+                    resultBuilder.add(new MultipleHiveSplit(currentSplits));
+                    currentBytes = 0;
+                    currentSplits.clear();
+                }
+                currentBytes += splitBytes;
+                currentSplits.add(new HiveSplit(
+                        databaseName,
+                        tableName,
+                        internalSplit.getPartitionName(),
+                        internalSplit.getPath(),
+                        internalSplit.getStart(),
+                        splitBytes,
+                        internalSplit.getFileSize(),
+                        internalSplit.getFileModifiedTime(),
+                        internalSplit.getPartitionInfo().getStorage(),
+                        internalSplit.getPartitionKeys(),
+                        internalSplit.currentBlock().getAddresses(),
+                        internalSplit.getReadBucketNumber(),
+                        internalSplit.getTableBucketNumber(),
+                        internalSplit.getNodeSelectionStrategy(),
+                        internalSplit.getPartitionInfo().getPartitionDataColumnCount(),
+                        internalSplit.getTableToPartitionMapping(),
+                        internalSplit.getBucketConversion(),
+                        internalSplit.isS3SelectPushdownEnabled(),
+                        internalSplit.getExtraFileInfo(),
+                        cacheQuotaRequirement,
+                        internalSplit.getEncryptionInformation(),
+                        internalSplit.getCustomSplitInfo(),
+                        internalSplit.getPartitionInfo().getRedundantColumnDomains()));
+                internalSplit.increaseStart(splitBytes);
+            }
+
+            removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+
+            // rewindable split sources keep their splits forever
+            if (!useRewindableSplitSource && queues.decrementAndGetPartitionReferences(internalSplit) == 0) {
+                removedEstimatedSizeInBytes += internalSplit.getPartitionInfo().getEstimatedSizeInBytes();
+            }
+        }
+        if (currentSplits.size() > 0) {
+            resultBuilder.add(new MultipleHiveSplit(currentSplits));
+        }
+        return removedEstimatedSizeInBytes;
+    }
+
+    private long calculateSplitSize(InternalHiveSplit internalSplit)
+    {
+        long maxSplitBytes = maxSplitSize.get();
+        if (remainingInitialSplits.get() > 0) {
+            if (remainingInitialSplits.getAndDecrement() > 0) {
+                maxSplitBytes = maxInitialSplitSize.toBytes();
+            }
+        }
+        InternalHiveBlock block = internalSplit.currentBlock();
+        long splitBytes;
+        if (internalSplit.isSplittable()) {
+            long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
+            if (remainingBlockBytes <= maxSplitBytes) {
+                splitBytes = remainingBlockBytes;
+            }
+            else if (maxSplitBytes * 2 >= remainingBlockBytes) {
+                //  Second to last split in this block, generate two evenly sized splits
+                splitBytes = remainingBlockBytes / 2;
+            }
+            else {
+                splitBytes = maxSplitBytes;
+            }
+        }
+        else {
+            splitBytes = internalSplit.getEnd() - internalSplit.getStart();
+        }
+        return splitBytes;
     }
 
     @Override
@@ -593,6 +682,16 @@ class HiveSplitSource
             splitLoader.stop();
             queues.noMoreSplits();
         }
+    }
+
+    public AtomicBoolean getFitForConcurrentSmallFileRead()
+    {
+        return fitForConcurrentSmallFileRead;
+    }
+
+    public AtomicLong getMaxSplitSize()
+    {
+        return maxSplitSize;
     }
 
     private static OptionalInt toBucketNumber(ConnectorPartitionHandle partitionHandle)

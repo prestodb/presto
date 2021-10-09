@@ -38,6 +38,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingParti
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -125,6 +126,10 @@ public final class HiveSessionProperties
     public static final String CACHE_ENABLED = "cache_enabled";
     public static final String ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING = "enable_loose_memory_based_accounting";
     public static final String MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD = "materialized_view_missing_partitions_threshold";
+    public static final String CONCURRENT_SMALL_FILE_READ_ENABLED = "concurrent_small_file_read_enabled";
+    public static final String CONCURRENT_SMALL_FILE_READ_PARALLELISM = "concurrent_small_file_read_parallelism";
+    public static final String CONCURRENT_SMALL_FILE_READ_FILE_COUNT_THRESHOLD = "concurrent_small_file_read_file_count_threshold";
+    public static final String CONCURRENT_SMALL_FILE_READ_FILE_SIZE_THRESHOLD = "concurrent_small_file_read_file_size_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -593,7 +598,25 @@ public final class HiveSessionProperties
                         MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD,
                         "Materialized views with missing partitions more than this threshold falls back to the base tables at read time",
                         hiveClientConfig.getMaterializedViewMissingPartitionsThreshold(),
-                        true));
+                        true),
+                booleanProperty(
+                        CONCURRENT_SMALL_FILE_READ_ENABLED,
+                        "Enable concurrent reading files in a driver",
+                        hiveClientConfig.isConcurrentSmallFileReadEnabled(),
+                        false),
+                integerProperty(
+                        CONCURRENT_SMALL_FILE_READ_PARALLELISM,
+                        "Parallelism to read files in a driver",
+                        hiveClientConfig.getConcurrentSmallFileReadParallelism(),
+                        false),
+                longProperty(CONCURRENT_SMALL_FILE_READ_FILE_COUNT_THRESHOLD,
+                        "file count thrshold to enable concurrent reading files in a driver",
+                        hiveClientConfig.getConcurrentSmallFileReadFileCountThreshold(),
+                        false),
+                longProperty(CONCURRENT_SMALL_FILE_READ_FILE_SIZE_THRESHOLD,
+                        "avg file count threshold to enable concurrent reading files in a driver",
+                        hiveClientConfig.getConcurrentSmallFileReadFileSizeThreshold(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1037,5 +1060,25 @@ public final class HiveSessionProperties
     public static int getMaterializedViewMissingPartitionsThreshold(ConnectorSession session)
     {
         return session.getProperty(MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.class);
+    }
+
+    public static boolean isConcurrentSmallFileReadEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CONCURRENT_SMALL_FILE_READ_ENABLED, Boolean.class);
+    }
+
+    public static int getConcurrentSmallFileReadParallelism(ConnectorSession session)
+    {
+        return session.getProperty(CONCURRENT_SMALL_FILE_READ_PARALLELISM, Integer.class);
+    }
+
+    public static long getConcurrentSmallFileReadFileCountThreshold(ConnectorSession session)
+    {
+        return session.getProperty(CONCURRENT_SMALL_FILE_READ_FILE_COUNT_THRESHOLD, Long.class);
+    }
+
+    public static long getConcurrentSmallFileReadFileSizeThreshold(ConnectorSession session)
+    {
+        return session.getProperty(CONCURRENT_SMALL_FILE_READ_FILE_SIZE_THRESHOLD, Long.class);
     }
 }

@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -40,7 +39,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
-        implements ConnectorSplit
 {
     private final String path;
     private final long start;
@@ -204,7 +202,6 @@ public class HiveSplit
         return addresses;
     }
 
-    @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         if (sortedCandidates == null || sortedCandidates.isEmpty()) {
@@ -254,7 +251,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         return nodeSelectionStrategy;
@@ -296,7 +292,6 @@ public class HiveSplit
         return redundantColumnDomains;
     }
 
-    @Override
     public Object getInfo()
     {
         return ImmutableMap.builder()
@@ -315,7 +310,6 @@ public class HiveSplit
                 .build();
     }
 
-    @Override
     public Object getSplitIdentifier()
     {
         return ImmutableMap.builder()
@@ -325,7 +319,6 @@ public class HiveSplit
                 .build();
     }
 
-    @Override
     public OptionalLong getSplitSizeInBytes()
     {
         return OptionalLong.of(getLength());

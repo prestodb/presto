@@ -48,7 +48,7 @@ public class HiveHandleResolver
     @Override
     public Class<? extends ConnectorSplit> getSplitClass()
     {
-        return HiveSplit.class;
+        return MultipleHiveSplit.class;
     }
 
     @Override

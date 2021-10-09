@@ -197,6 +197,11 @@ public class HiveClientConfig
     private boolean enableLooseMemoryAccounting;
     private int materializedViewMissingPartitionsThreshold = 100;
 
+    private boolean concurrentSmallFileReadEnabled;
+    private int concurrentSmallFileReadParallelism = 5;
+    private long concurrentSmallFileReadFileCountThreshold = 10000;
+    private long concurrentSmallFileReadFileSizeThreshold = 1 * 1024 * 1024;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1667,5 +1672,53 @@ public class HiveClientConfig
     public int getMaterializedViewMissingPartitionsThreshold()
     {
         return this.materializedViewMissingPartitionsThreshold;
+    }
+
+    public boolean isConcurrentSmallFileReadEnabled()
+    {
+        return concurrentSmallFileReadEnabled;
+    }
+
+    @Config("hive.concurrent-small-file-read-enabled")
+    public HiveClientConfig setConcurrentSmallFileReadEnabled(boolean concurrentSmallFileReadEnabled)
+    {
+        this.concurrentSmallFileReadEnabled = concurrentSmallFileReadEnabled;
+        return this;
+    }
+
+    public int getConcurrentSmallFileReadParallelism()
+    {
+        return concurrentSmallFileReadParallelism;
+    }
+
+    @Config("hive.concurrent-small-file-read-parallelism")
+    public HiveClientConfig setConcurrentSmallFileReadParallelism(int concurrentSmallFileReadParallelism)
+    {
+        this.concurrentSmallFileReadParallelism = concurrentSmallFileReadParallelism;
+        return this;
+    }
+
+    public long getConcurrentSmallFileReadFileCountThreshold()
+    {
+        return concurrentSmallFileReadFileCountThreshold;
+    }
+
+    @Config("hive.concurrent-small-file-read-file-count")
+    public HiveClientConfig setConcurrentSmallFileReadFileCountThreshold(long concurrentSmallFileReadFileCountThreshold)
+    {
+        this.concurrentSmallFileReadFileCountThreshold = concurrentSmallFileReadFileCountThreshold;
+        return this;
+    }
+
+    public long getConcurrentSmallFileReadFileSizeThreshold()
+    {
+        return concurrentSmallFileReadFileSizeThreshold;
+    }
+
+    @Config("hive.concurrent-small-file-read-file-size")
+    public HiveClientConfig setConcurrentSmallFileReadFileSizeThreshold(long concurrentSmallFileReadFileSizeThreshold)
+    {
+        this.concurrentSmallFileReadFileSizeThreshold = concurrentSmallFileReadFileSizeThreshold;
+        return this;
     }
 }

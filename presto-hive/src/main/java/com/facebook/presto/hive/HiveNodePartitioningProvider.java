@@ -85,7 +85,7 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> ((HiveSplit) value).getReadBucketNumber()
+        return value -> ((MultipleHiveSplit) value).getReadBucketNumber()
                 .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
     }
 
