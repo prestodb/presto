@@ -53,7 +53,6 @@ class BenchmarkHelper {
   // depth-2 stick.
   void runForEachPool(std::function<void(MemoryPool&)> allocSequence) {
     folly::CPUThreadPoolExecutor threadPool(leaves_.size());
-    std::vector<folly::SemiFuture<folly::Unit>> futures;
     for (auto& pool : leaves_) {
       threadPool.add([&]() { allocSequence(*pool); });
     }
@@ -190,6 +189,26 @@ void addNLeaves(
 
 // No periodic aggregation, should have similar perf
 // with single leaf runs.
+BENCHMARK(FlatTree, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  addNLeaves(manager.getRoot(), 10 * 20);
+  BenchmarkHelper helper{manager};
+  suspender.dismiss();
+  helper.runForEachPool([iters](MemoryPool& pool) {
+    void* p = pool.allocate(kMemoryFootprintIncrement);
+    for (size_t i = 1; i < iters; ++i) {
+      pool.reallocate(
+          p,
+          i * kMemoryFootprintIncrement,
+          (i + 1) * kMemoryFootprintIncrement);
+    }
+    pool.free(p, iters * kMemoryFootprintIncrement);
+  });
+}
+
+// No periodic aggregation, should have similar perf
+// with single leaf runs.
 BENCHMARK(DeeperTree, iters) {
   folly::BenchmarkSuspender suspender;
   MemoryManager<MemoryAllocator, kNoAlignment> manager{};
@@ -197,6 +216,47 @@ BENCHMARK(DeeperTree, iters) {
     auto& child = manager.getRoot().addChild(
         "query_fragment_" + folly::to<std::string>(i));
     addNLeaves(child, 20);
+  }
+  BenchmarkHelper helper{manager};
+  suspender.dismiss();
+  helper.runForEachPool([iters](MemoryPool& pool) {
+    void* p = pool.allocate(kMemoryFootprintIncrement);
+    for (size_t i = 1; i < iters; ++i) {
+      pool.reallocate(
+          p,
+          i * kMemoryFootprintIncrement,
+          (i + 1) * kMemoryFootprintIncrement);
+    }
+    pool.free(p, iters * kMemoryFootprintIncrement);
+  });
+}
+
+BENCHMARK(FlatSubtree, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  auto& child = manager.getRoot().addChild("query_fragment_1");
+  addNLeaves(child, 10 * 20);
+  BenchmarkHelper helper{manager};
+  suspender.dismiss();
+  helper.runForEachPool([iters](MemoryPool& pool) {
+    void* p = pool.allocate(kMemoryFootprintIncrement);
+    for (size_t i = 1; i < iters; ++i) {
+      pool.reallocate(
+          p,
+          i * kMemoryFootprintIncrement,
+          (i + 1) * kMemoryFootprintIncrement);
+    }
+    pool.free(p, iters * kMemoryFootprintIncrement);
+  });
+}
+
+BENCHMARK(FlatSticks, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  for (size_t i = 0; i < 10 * 20; ++i) {
+    auto& child = manager.getRoot().addChild(
+        "query_fragment_" + folly::to<std::string>(i));
+    addNLeaves(child, 1);
   }
   BenchmarkHelper helper{manager};
   suspender.dismiss();
