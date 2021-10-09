@@ -11,20 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-add_executable(
-  velox_functions_spark_test
-  ArithmeticTest.cpp
-  HashTest.cpp
-  InTest.cpp
-  LeastGreatestTest.cpp
-  RegexFunctionsTest.cpp
-  SplitFunctionsTest.cpp
-  StringTest.cpp
-  SubscriptTest.cpp)
-
-add_test(velox_functions_spark_test velox_functions_spark_test)
+add_executable(velox_sparksql_benchmarks_in In.cpp)
 
 target_link_libraries(
-  velox_functions_spark_test velox_functions_spark velox_functions_test_lib
-  ${FMT} ${GTEST_BOTH_LIBRARIES} ${gflags_LIBRARIES})
+  velox_sparksql_benchmarks_in
+  velox_functions_prestosql
+  velox_functions_spark
+  velox_expression
+  velox_exec_test_lib
+  velox_exec_test_util
+  velox_vector_test_lib
+  velox_vector_fuzzer
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FOLLY_BENCHMARK})

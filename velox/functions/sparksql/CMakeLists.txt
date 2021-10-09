@@ -15,6 +15,7 @@ add_library(
   velox_functions_spark OBJECT
   ArraySort.cpp
   Hash.cpp
+  In.cpp
   LeastGreatest.cpp
   RegexFunctions.cpp
   Register.cpp
@@ -25,10 +26,12 @@ add_library(
   Subscript.cpp)
 
 target_link_libraries(velox_functions_spark velox_functions_lib
-                      velox_functions_prestosql)
+                      velox_functions_prestosql Folly::folly)
 
 set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
                                                    high_memory_pool)
+
+add_subdirectory(benchmarks)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
