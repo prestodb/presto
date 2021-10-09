@@ -39,8 +39,8 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * A set containing values that are uniquely identifiable.
- * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
- * or collectively excluded (aka !whitelist).
+ * Assumes an infinite number of possible values. The values may be collectively included (aka allowlist)
+ * or collectively excluded (aka !allowlist).
  */
 public class EquatableValueSet
         implements ValueSet

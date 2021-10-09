@@ -28,8 +28,8 @@ import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL
 
 public class VerifierConfig
 {
-    private Optional<Set<String>> whitelist = Optional.empty();
-    private Optional<Set<String>> blacklist = Optional.empty();
+    private Optional<Set<String>> allowlist = Optional.empty();
+    private Optional<Set<String>> blocklist = Optional.empty();
 
     private String sourceQuerySupplier = MYSQL_SOURCE_QUERY_SUPPLIER;
 
@@ -55,34 +55,34 @@ public class VerifierConfig
     private boolean explain;
 
     @NotNull
-    public Optional<Set<String>> getWhitelist()
+    public Optional<Set<String>> getAllowlist()
     {
-        return whitelist;
+        return allowlist;
     }
 
-    @ConfigDescription("Names of queries which are whitelisted. Whitelist is applied before the blacklist")
-    @Config("whitelist")
-    public VerifierConfig setWhitelist(String whitelist)
+    @ConfigDescription("Names of queries which are allowlisted. Allowlist is applied before the blocklist")
+    @Config("allowlist")
+    public VerifierConfig setAllowlist(String allowlist)
     {
-        this.whitelist = whitelist == null ?
+        this.allowlist = allowlist == null ?
                 Optional.empty() :
-                Optional.of(ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(whitelist)));
+                Optional.of(ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(allowlist)));
         return this;
     }
 
     @NotNull
-    public Optional<Set<String>> getBlacklist()
+    public Optional<Set<String>> getBlocklist()
     {
-        return blacklist;
+        return blocklist;
     }
 
-    @ConfigDescription("Names of queries which are blacklisted")
-    @Config("blacklist")
-    public VerifierConfig setBlacklist(String blacklist)
+    @ConfigDescription("Names of queries which are blocklisted")
+    @Config("blocklist")
+    public VerifierConfig setBlocklist(String blocklist)
     {
-        this.blacklist = blacklist == null ?
+        this.blocklist = blocklist == null ?
                 Optional.empty() :
-                Optional.of(ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(blacklist)));
+                Optional.of(ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(blocklist)));
         return this;
     }
 

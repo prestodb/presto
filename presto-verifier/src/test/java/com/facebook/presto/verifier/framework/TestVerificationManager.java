@@ -165,8 +165,8 @@ public class TestVerificationManager
                 new MockPrestoAction(GENERIC_INTERNAL_ERROR),
                 new VerifierConfig()
                         .setTestId("test")
-                        .setWhitelist("q2,q3,q4,q5,q6")
-                        .setBlacklist("q2"));
+                        .setAllowlist("q2,q3,q4,q5,q6")
+                        .setBlocklist("q2"));
         manager.start();
         assertEquals(manager.getQueriesSubmitted().get(), 0);
 

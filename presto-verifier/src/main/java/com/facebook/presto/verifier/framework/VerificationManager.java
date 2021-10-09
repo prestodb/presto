@@ -95,8 +95,8 @@ public class VerificationManager
 
     private final String testId;
 
-    private final Optional<Set<String>> whitelist;
-    private final Optional<Set<String>> blacklist;
+    private final Optional<Set<String>> allowlist;
+    private final Optional<Set<String>> blocklist;
     private final int maxConcurrency;
     private final int suiteRepetitions;
     private final int queryRepetitions;
@@ -130,8 +130,8 @@ public class VerificationManager
 
         this.testId = requireNonNull(config.getTestId(), "testId is null");
 
-        this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
-        this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
+        this.allowlist = requireNonNull(config.getAllowlist(), "allowlist is null");
+        this.blocklist = requireNonNull(config.getBlocklist(), "blocklist is null");
         this.maxConcurrency = config.getMaxConcurrency();
         this.suiteRepetitions = config.getSuiteRepetitions();
         this.queryRepetitions = config.getQueryRepetitions();
@@ -149,8 +149,8 @@ public class VerificationManager
         List<SourceQuery> sourceQueries = sourceQuerySupplier.get();
         log.info("Total Queries: %s", sourceQueries.size());
         sourceQueries = applyOverrides(sourceQueries);
-        sourceQueries = applyWhitelist(sourceQueries);
-        sourceQueries = applyBlacklist(sourceQueries);
+        sourceQueries = applyAllowlist(sourceQueries);
+        sourceQueries = applyBlocklist(sourceQueries);
         sourceQueries = filterQueryType(sourceQueries);
         sourceQueries = applyCustomFilters(sourceQueries);
 
@@ -203,27 +203,27 @@ public class VerificationManager
                 .collect(toImmutableList());
     }
 
-    private List<SourceQuery> applyWhitelist(List<SourceQuery> sourceQueries)
+    private List<SourceQuery> applyAllowlist(List<SourceQuery> sourceQueries)
     {
-        if (!whitelist.isPresent()) {
+        if (!allowlist.isPresent()) {
             return sourceQueries;
         }
         List<SourceQuery> selected = sourceQueries.stream()
-                .filter(sourceQuery -> whitelist.get().contains(sourceQuery.getName()))
+                .filter(sourceQuery -> allowlist.get().contains(sourceQuery.getName()))
                 .collect(toImmutableList());
-        log.info("Applying whitelist... Remaining queries: %s", selected.size());
+        log.info("Applying allowlist... Remaining queries: %s", selected.size());
         return selected;
     }
 
-    private List<SourceQuery> applyBlacklist(List<SourceQuery> sourceQueries)
+    private List<SourceQuery> applyBlocklist(List<SourceQuery> sourceQueries)
     {
-        if (!blacklist.isPresent()) {
+        if (!blocklist.isPresent()) {
             return sourceQueries;
         }
         List<SourceQuery> selected = sourceQueries.stream()
-                .filter(sourceQuery -> !blacklist.get().contains(sourceQuery.getName()))
+                .filter(sourceQuery -> !blocklist.get().contains(sourceQuery.getName()))
                 .collect(toImmutableList());
-        log.info("Applying blacklist... Remaining queries: %s", selected.size());
+        log.info("Applying blocklist... Remaining queries: %s", selected.size());
         return selected;
     }
 

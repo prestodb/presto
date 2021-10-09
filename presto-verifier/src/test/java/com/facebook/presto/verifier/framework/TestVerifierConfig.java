@@ -28,8 +28,8 @@ public class TestVerifierConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(VerifierConfig.class)
-                .setWhitelist(null)
-                .setBlacklist(null)
+                .setAllowlist(null)
+                .setBlocklist(null)
                 .setSourceQuerySupplier("mysql")
                 .setEventClients("human-readable")
                 .setJsonEventLogFile(null)
@@ -53,8 +53,8 @@ public class TestVerifierConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("whitelist", "a,b,c")
-                .put("blacklist", "b,d,f")
+                .put("allowlist", "a,b,c")
+                .put("blocklist", "b,d,f")
                 .put("source-query.supplier", "custom-supplier")
                 .put("event-clients", "json,human-readable")
                 .put("json.log-file", "verifier-json.log")
@@ -74,8 +74,8 @@ public class TestVerifierConfig
                 .put("explain", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
-                .setWhitelist("a,b,c")
-                .setBlacklist("b,d,f")
+                .setAllowlist("a,b,c")
+                .setBlocklist("b,d,f")
                 .setSourceQuerySupplier("custom-supplier")
                 .setEventClients("json,human-readable")
                 .setJsonEventLogFile("verifier-json.log")

@@ -66,7 +66,7 @@ The following steps summarize the workflow of Verifier.
 
 * **Query Pre-processing and Filtering**
    * Applies overrides to the catalog, schema, username, and password of each query.
-   * Filters queries according to whitelist and blacklist. Whitelist is applied before blacklist.
+   * Filters queries according to allowlist and blocklist. Allowlist is applied before blocklist.
    * Filters out queries with invalid syntax.
    * Filters out queries not supported for validation. ``Select``, ``Insert``, and
      ``CreateTableAsSelect`` are supported.
@@ -218,10 +218,10 @@ General Configuration
 =========================================== ===============================================================================
 Name                                        Description
 =========================================== ===============================================================================
-``whitelist``                               A comma-separated list specifying the names of the queries within the suite
+``allowlist``                               A comma-separated list specifying the names of the queries within the suite
                                             to verify.
-``blacklist``                               A comma-separated list specifying the names of the queries to be excluded
-                                            from the suite. ``blacklist`` is applied after ``whitelist``.
+``blocklist``                               A comma-separated list specifying the names of the queries to be excluded
+                                            from the suite. ``blocklist`` is applied after ``allowlist``.
 ``source-query-supplier``                   The name of the source query supplier. Supports ``mysql``.
 ``source-query.table-name``                 The name of the table that holds verifier queries. Available only when
                                             ``source-query-supplier`` is ``mysql``.

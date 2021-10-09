@@ -248,8 +248,8 @@ public final class DiscoveryNodeManager
 
     private synchronized void refreshNodesInternal()
     {
-        // This is currently a blacklist.
-        // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
+        // This is currently a blocklist.
+        // TODO: make it a allowlist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failureDetector.getFailed().contains(service))
                 // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check

@@ -151,7 +151,7 @@ SPI Changes
 * Make ``NodeManager`` specific to a connector instance.
 * Replace ``ConnectorFactoryContext`` with ``ConnectorContext``.
 * Use ``@SqlNullable`` for functions instead of ``@Nullable``.
-* Use a whitelist model for plugin class loading. This prevents connectors
+* Use a allowlist model for plugin class loading. This prevents connectors
   from seeing any classes that are not part of the JDK (bootstrap classes)
   or the SPI.
 * Update ``presto-maven-plugin``, which provides a Maven packaging and

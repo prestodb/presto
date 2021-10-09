@@ -73,7 +73,7 @@ public class TestEquatableValueSet
 
         EquatableValueSet complement = (EquatableValueSet) EquatableValueSet.all(TestingIdType.ID).subtract(equatables);
 
-        // Whitelist
+        // Allowlist
         assertEquals(equatables.getType(), TestingIdType.ID);
         assertFalse(equatables.isNone());
         assertFalse(equatables.isAll());
@@ -85,7 +85,7 @@ public class TestEquatableValueSet
         assertFalse(equatables.containsValue(1L));
         assertTrue(equatables.containsValue(10L));
 
-        // Blacklist
+        // Blocklist
         assertEquals(complement.getType(), TestingIdType.ID);
         assertFalse(complement.isNone());
         assertFalse(complement.isAll());
@@ -105,7 +105,7 @@ public class TestEquatableValueSet
 
         EquatableValueSet complement = (EquatableValueSet) EquatableValueSet.all(TestingIdType.ID).subtract(equatables);
 
-        // Whitelist
+        // Allowlist
         assertEquals(equatables.getType(), TestingIdType.ID);
         assertFalse(equatables.isNone());
         assertFalse(equatables.isAll());
@@ -119,7 +119,7 @@ public class TestEquatableValueSet
         assertTrue(equatables.containsValue(3L));
         assertFalse(equatables.containsValue(4L));
 
-        // Blacklist
+        // Blocklist
         assertEquals(complement.getType(), TestingIdType.ID);
         assertFalse(complement.isNone());
         assertFalse(complement.isAll());

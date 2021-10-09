@@ -70,12 +70,12 @@ public class DruidFilterExpressionConverter
 
     private DruidExpression handleIn(
             SpecialFormExpression specialForm,
-            boolean isWhitelist,
+            boolean isAllowlist,
             Function<VariableReferenceExpression, Selection> context)
     {
         return derived(format("(%s %s (%s))",
                 specialForm.getArguments().get(0).accept(this, context).getDefinition(),
-                isWhitelist ? "IN" : "NOT IN",
+                isAllowlist ? "IN" : "NOT IN",
                 specialForm.getArguments().subList(1, specialForm.getArguments().size()).stream()
                         .map(argument -> argument.accept(this, context).getDefinition())
                         .collect(Collectors.joining(", "))));

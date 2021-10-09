@@ -79,7 +79,7 @@ public class PluginManager
     // Therefore, in the former case Afterburner won't be able to load the connector classes
     // as AppClassLoader doesn't see them, and in the latter case the PluginClassLoader won't be
     // able to load the AfterBurner classes themselves. So, our solution is to use the PluginClassLoader
-    // and whitelist the AfterBurner classes here, so that the PluginClassLoader can load the
+    // and allowlist the AfterBurner classes here, so that the PluginClassLoader can load the
     // AfterBurner classes.
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("com.facebook.presto.spi.")

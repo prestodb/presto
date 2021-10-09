@@ -33,8 +33,8 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * A set containing values that are uniquely identifiable.
- * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
- * or collectively excluded (aka !whitelist).
+ * Assumes an infinite number of possible values. The values may be collectively included (aka allowlist)
+ * or collectively excluded (aka !allowlist).
  * This structure is used with comparable, but not orderable types like "json", "map".
  */
 @ThriftStruct
