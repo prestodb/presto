@@ -27,16 +27,19 @@ TEST(Type, Array) {
   EXPECT_STREQ(arr0->kindName(), "ARRAY");
   EXPECT_EQ(arr0->isPrimitiveType(), false);
   EXPECT_STREQ(arr0->elementType()->kindName(), "ARRAY");
-  int32_t n = 0;
-  for (auto& i : *arr0) {
-    if (n == 0) {
-      EXPECT_EQ(i->toString(), "ARRAY<ARRAY<INTEGER>>");
-    } else {
-      FAIL();
-    }
-    ++n;
-  }
-  EXPECT_EQ(n, 1);
+  EXPECT_EQ(arr0->childAt(0)->toString(), "ARRAY<ARRAY<INTEGER>>");
+  EXPECT_THROW(arr0->childAt(1), VeloxUserError);
+}
+
+TEST(Type, FixedLenArray) {
+  auto arr0 = FIXED_SIZE_ARRAY(3, INTEGER());
+  EXPECT_EQ("FIXED_SIZE_ARRAY(3)<INTEGER>", arr0->toString());
+  EXPECT_EQ(arr0->size(), 1);
+  EXPECT_STREQ(arr0->kindName(), "FIXED_SIZE_ARRAY");
+  EXPECT_EQ(arr0->isPrimitiveType(), false);
+  EXPECT_STREQ(arr0->elementType()->kindName(), "INTEGER");
+  EXPECT_EQ(arr0->childAt(0)->toString(), "INTEGER");
+  EXPECT_THROW(arr0->childAt(1), VeloxUserError);
 }
 
 TEST(Type, Integer) {

@@ -196,6 +196,17 @@ folly::dynamic ArrayType::serialize() const {
   return obj;
 }
 
+FixedSizeArrayType::FixedSizeArrayType(
+    FixedSizeArrayType::size_type len,
+    std::shared_ptr<const Type> child)
+    : ArrayType(child), len_(len) {}
+
+std::string FixedSizeArrayType::toString() const {
+  std::stringstream ss;
+  ss << "FIXED_SIZE_ARRAY(" << len_ << ")<" << child_->toString() << ">";
+  return ss.str();
+}
+
 const std::shared_ptr<const Type>& MapType::childAt(uint32_t idx) const {
   if (idx == 0) {
     return keyType();
@@ -473,6 +484,13 @@ void OpaqueType::registerSerializationTypeErased(
 std::shared_ptr<const ArrayType> ARRAY(
     std::shared_ptr<const Type> elementType) {
   return std::make_shared<const ArrayType>(std::move(elementType));
+}
+
+std::shared_ptr<const FixedSizeArrayType> FIXED_SIZE_ARRAY(
+    FixedSizeArrayType::size_type len,
+    std::shared_ptr<const Type> elementType) {
+  return std::make_shared<const FixedSizeArrayType>(
+      len, std::move(elementType));
 }
 
 std::shared_ptr<const RowType> ROW(
