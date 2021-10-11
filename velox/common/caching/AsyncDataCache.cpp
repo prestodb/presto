@@ -420,8 +420,7 @@ void CacheShard::updateStats(CacheStats& stats) {
 AsyncDataCache::AsyncDataCache(
     std::unique_ptr<MappedMemory> mappedMemory,
     uint64_t maxBytes)
-    : fileIds_(fileIdsShared()),
-      mappedMemory_(std::move(mappedMemory)),
+    : mappedMemory_(std::move(mappedMemory)),
       cachedPages_(0),
       maxBytes_(maxBytes) {
   for (auto i = 0; i < kNumShards; ++i) {

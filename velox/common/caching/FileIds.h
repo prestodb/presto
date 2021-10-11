@@ -21,9 +21,4 @@ namespace facebook::velox {
 // Returns a process-wide map of file path to id and id to file path.
 StringIdMap& fileIds();
 
-// Returns a shared_ptr to fileIds(). Needed to control destruction
-// order at end of process, so that caches that pin ids to names keep
-// the map alive.
-const std::shared_ptr<StringIdMap>& fileIdsShared();
-
 } // namespace facebook::velox

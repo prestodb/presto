@@ -635,8 +635,6 @@ class AsyncDataCache : public memory::MappedMemory,
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
   static constexpr int32_t kShardMask = kNumShards - 1;
-  // Keeps the id to file map alive as long as 'this' is live.
-  std::shared_ptr<StringIdMap> fileIds_;
   std::unique_ptr<memory::MappedMemory> mappedMemory_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
   int32_t shardCounter_{};
