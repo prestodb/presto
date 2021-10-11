@@ -17,6 +17,7 @@
 #include "velox/dwio/common/encryption/Encryption.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 namespace encryption {
@@ -29,4 +30,5 @@ bool operator==(const EncryptionProperties& a, const EncryptionProperties& b) {
 } // namespace encryption
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

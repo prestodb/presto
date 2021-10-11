@@ -26,7 +26,7 @@
 #include <cstdio>
 #include <cstring>
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 using namespace folly::io;

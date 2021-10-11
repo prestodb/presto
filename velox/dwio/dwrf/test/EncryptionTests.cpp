@@ -20,12 +20,12 @@
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
-using namespace facebook::dwio;
-using namespace facebook::dwio::common;
-using namespace facebook::dwio::common::encryption;
-using namespace facebook::dwio::common::encryption::test;
+using namespace facebook::velox::dwio;
+using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::dwio::common::encryption;
+using namespace facebook::velox::dwio::common::encryption::test;
 using namespace facebook::velox::dwrf::encryption;
-using namespace facebook::dwio::type::fbhive;
+using namespace facebook::velox::dwio::type::fbhive;
 
 TEST(Encryption, NotEncrypted) {
   HiveTypeParser parser;

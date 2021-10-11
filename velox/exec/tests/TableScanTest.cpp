@@ -120,7 +120,7 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     auto split = std::make_shared<HiveConnectorSplit>(
         kHiveConnectorId,
         filePath,
-        facebook::dwio::common::FileFormat::ORC,
+        facebook::velox::dwio::common::FileFormat::ORC,
         0,
         fs::file_size(filePath),
         partitionKeys);
@@ -531,7 +531,7 @@ TEST_P(TableScanTest, validFileNoData) {
   auto split = std::make_shared<HiveConnectorSplit>(
       kHiveConnectorId,
       "file:" + filePath,
-      facebook::dwio::common::FileFormat::ORC,
+      facebook::velox::dwio::common::FileFormat::ORC,
       0,
       fs::file_size(filePath) / 2);
 
@@ -1394,7 +1394,7 @@ TEST_P(TableScanTest, bucket) {
     splits.emplace_back(std::make_shared<HiveConnectorSplit>(
         kHiveConnectorId,
         filePaths[i]->path,
-        facebook::dwio::common::FileFormat::ORC,
+        facebook::velox::dwio::common::FileFormat::ORC,
         0,
         fs::file_size(filePaths[i]->path),
         std::unordered_map<std::string, std::optional<std::string>>(),

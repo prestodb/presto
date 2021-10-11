@@ -17,7 +17,7 @@
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/common/exception/Exception.h"
 
-namespace facebook::dwio::common {
+namespace facebook::velox::dwio::common {
 
 using velox::Type;
 using velox::TypeKind;
@@ -74,4 +74,4 @@ std::shared_ptr<const TypeWithId> TypeWithId::create_(
       type, std::move(children), myId, maxId, column);
 }
 
-} // namespace facebook::dwio::common
+} // namespace facebook::velox::dwio::common

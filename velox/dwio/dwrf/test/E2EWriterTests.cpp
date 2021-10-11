@@ -28,13 +28,13 @@
 #include "velox/vector/FlatVector.h"
 
 using namespace ::testing;
-using namespace facebook::dwio::common;
-using namespace facebook::dwio::common::encryption;
-using namespace facebook::dwio::common::encryption::test;
+using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::dwio::common::encryption;
+using namespace facebook::velox::dwio::common::encryption::test;
 using namespace facebook::velox::test;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::dwrf::encryption;
-using namespace facebook::dwio::type::fbhive;
+using namespace facebook::velox::dwio::type::fbhive;
 using namespace facebook::velox;
 using facebook::velox::memory::MemoryPool;
 using folly::Random;

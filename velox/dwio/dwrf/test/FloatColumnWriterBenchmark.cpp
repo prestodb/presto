@@ -22,7 +22,7 @@
 #include "velox/type/Type.h"
 #include "velox/vector/FlatVector.h"
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 

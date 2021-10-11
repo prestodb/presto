@@ -21,7 +21,7 @@
 #include "folly/Conv.h"
 #include "velox/dwio/common/TypeUtils.h"
 
-namespace facebook::dwio::common {
+namespace facebook::velox::dwio::common {
 
 using common::typeutils::CompatChecker;
 using velox::RowType;
@@ -348,4 +348,4 @@ void ColumnSelector::logFilter() const {
   getLog()->logColumnFilter(filter_, numColumns, numNodes, hasSchema());
 }
 
-} // namespace facebook::dwio::common
+} // namespace facebook::velox::dwio::common

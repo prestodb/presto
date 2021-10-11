@@ -32,8 +32,8 @@
 #include <numeric>
 
 using namespace ::testing;
-using namespace facebook::dwio::common;
-using namespace facebook::dwio::type::fbhive;
+using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::dwio::type::fbhive;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::test;

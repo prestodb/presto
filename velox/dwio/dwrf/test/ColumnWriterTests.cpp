@@ -33,10 +33,10 @@
 #include "velox/type/Type.h"
 #include "velox/vector/DictionaryVector.h"
 using namespace ::testing;
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::test;
-using namespace facebook::dwio::type::fbhive;
+using namespace facebook::velox::dwio::type::fbhive;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
 using folly::Random;

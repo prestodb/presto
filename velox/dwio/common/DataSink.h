@@ -23,7 +23,7 @@
 #include "velox/dwio/common/IoStatistics.h"
 #include "velox/dwio/common/MetricsLog.h"
 
-namespace facebook::dwio::common {
+namespace facebook::velox::dwio::common {
 
 /**
  * An abstract interface for providing DWIO writer a data sink
@@ -195,15 +195,15 @@ class MemorySink : public DataSink {
   DataBuffer<char> data_;
 };
 
-} // namespace facebook::dwio::common
+} // namespace facebook::velox::dwio::common
 
-#define VELOX_STATIC_REGISTER_DATA_SINK(function)                    \
-  namespace {                                                        \
-  static bool FB_ANONYMOUS_VARIABLE(g_DataSinkFunction) =            \
-      facebook::dwio::common::DataSink::registerFactory((function)); \
+#define VELOX_STATIC_REGISTER_DATA_SINK(function)                           \
+  namespace {                                                               \
+  static bool FB_ANONYMOUS_VARIABLE(g_DataSinkFunction) =                   \
+      facebook::velox::dwio::common::DataSink::registerFactory((function)); \
   }
 
-#define VELOX_REGISTER_DATA_SINK_METHOD_DEFINITION(class, function) \
-  void class ::registerFactory() {                                  \
-    facebook::dwio::common::DataSink::registerFactory((function));  \
+#define VELOX_REGISTER_DATA_SINK_METHOD_DEFINITION(class, function)       \
+  void class ::registerFactory() {                                        \
+    facebook::velox::dwio::common::DataSink::registerFactory((function)); \
   }

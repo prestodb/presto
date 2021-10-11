@@ -18,8 +18,8 @@
 #include "folly/init/Init.h"
 #include "velox/dwio/common/ChainedBuffer.h"
 
-using namespace facebook::dwio;
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio;
+using namespace facebook::velox::dwio::common;
 
 BENCHMARK(DataBufferOps, iters) {
   auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();

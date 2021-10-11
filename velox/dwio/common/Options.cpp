@@ -17,6 +17,7 @@
 #include "velox/dwio/common/Options.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -62,4 +63,5 @@ std::string toString(FileFormat fmt) {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

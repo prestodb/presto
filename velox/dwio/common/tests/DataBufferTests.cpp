@@ -21,6 +21,7 @@
 #include "velox/dwio/common/DataBuffer.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 using namespace facebook::velox::memory;
@@ -239,4 +240,5 @@ TEST(DataBuffer, Move) {
 }
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

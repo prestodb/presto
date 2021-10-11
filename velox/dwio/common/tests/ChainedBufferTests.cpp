@@ -21,6 +21,7 @@
 using namespace ::testing;
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -248,4 +249,5 @@ TEST(ChainedBufferTests, testPowerOf2) {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

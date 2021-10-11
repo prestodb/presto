@@ -47,7 +47,7 @@ HiveDataSink::HiveDataSink(
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
 
-  auto sink = facebook::dwio::common::DataSink::create(filePath);
+  auto sink = facebook::velox::dwio::common::DataSink::create(filePath);
   writer_ = std::make_unique<Writer>(options, std::move(sink), *memoryPool);
 }
 

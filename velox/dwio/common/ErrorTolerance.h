@@ -19,6 +19,7 @@
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -64,4 +65,5 @@ struct ErrorTolerance {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

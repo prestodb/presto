@@ -19,6 +19,7 @@
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -68,4 +69,5 @@ class Closeable {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

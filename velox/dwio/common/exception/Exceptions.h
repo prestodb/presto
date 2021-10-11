@@ -23,6 +23,7 @@
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -118,4 +119,5 @@ using EOF_error = exception_error<EOFError>;
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

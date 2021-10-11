@@ -38,9 +38,10 @@
 #include "folly/container/F14Map.h"
 #include "velox/dwio/common/exception/Exception.h"
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -321,4 +322,5 @@ VELOX_REGISTER_INPUT_STREAM_METHOD_DEFINITION(
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

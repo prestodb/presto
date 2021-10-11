@@ -35,6 +35,7 @@
 #include "velox/dwio/common/MetricsLog.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -251,15 +252,16 @@ class ReferenceableInputStream : public InputStream {
 };
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook
 
-#define VELOX_STATIC_REGISTER_INPUT_STREAM(function)                    \
-  namespace {                                                           \
-  static bool FB_ANONYMOUS_VARIABLE(g_InputStreamFunction) =            \
-      facebook::dwio::common::InputStream::registerFactory((function)); \
+#define VELOX_STATIC_REGISTER_INPUT_STREAM(function)                           \
+  namespace {                                                                  \
+  static bool FB_ANONYMOUS_VARIABLE(g_InputStreamFunction) =                   \
+      facebook::velox::dwio::common::InputStream::registerFactory((function)); \
   }
 
-#define VELOX_REGISTER_INPUT_STREAM_METHOD_DEFINITION(class, function) \
-  void class ::registerFactory() {                                     \
-    facebook::dwio::common::InputStream::registerFactory((function));  \
+#define VELOX_REGISTER_INPUT_STREAM_METHOD_DEFINITION(class, function)       \
+  void class ::registerFactory() {                                           \
+    facebook::velox::dwio::common::InputStream::registerFactory((function)); \
   }

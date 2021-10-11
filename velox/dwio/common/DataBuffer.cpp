@@ -16,7 +16,7 @@
 
 #include "velox/dwio/common/DataBuffer.h"
 
-namespace facebook::dwio::common {
+namespace facebook::velox::dwio::common {
 
 namespace {
 
@@ -56,4 +56,4 @@ velox::memory::AbstractMemoryPool& DataBufferFactory::failAllOperationPool() {
   return pool;
 }
 
-} // namespace facebook::dwio::common
+} // namespace facebook::velox::dwio::common

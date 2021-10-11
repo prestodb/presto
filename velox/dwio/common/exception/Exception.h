@@ -19,6 +19,7 @@
 #include "velox/common/base/VeloxException.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 namespace exception {
@@ -103,20 +104,21 @@ class LoggedException : public velox::VeloxException {
 } // namespace exception
 } // namespace common
 
-#define DWIO_WARN_IF(e, ...)                                                   \
-  ({                                                                           \
-    auto const& _tmp = (e);                                                    \
-    if (_tmp) {                                                                \
-      auto logger = ::facebook::dwio::common::exception::getExceptionLogger(); \
-      if (logger) {                                                            \
-        logger->logWarning(                                                    \
-            __FILE__,                                                          \
-            __LINE__,                                                          \
-            __FUNCTION__,                                                      \
-            #e,                                                                \
-            ::folly::to<std::string>(__VA_ARGS__).c_str());                    \
-      }                                                                        \
-    }                                                                          \
+#define DWIO_WARN_IF(e, ...)                                                \
+  ({                                                                        \
+    auto const& _tmp = (e);                                                 \
+    if (_tmp) {                                                             \
+      auto logger =                                                         \
+          ::facebook::velox::dwio::common::exception::getExceptionLogger(); \
+      if (logger) {                                                         \
+        logger->logWarning(                                                 \
+            __FILE__,                                                       \
+            __LINE__,                                                       \
+            __FUNCTION__,                                                   \
+            #e,                                                             \
+            ::folly::to<std::string>(__VA_ARGS__).c_str());                 \
+      }                                                                     \
+    }                                                                       \
   })
 
 #define DWIO_WARN(...) DWIO_WARN_IF(true, ##__VA_ARGS__)
@@ -176,19 +178,19 @@ containing information about the file, line, and function where it happened.
       errorSource,                                                    \
       errorCode))
 
-#define DWIO_RAISE(...)                                     \
-  DWIO_EXCEPTION_CUSTOM(                                    \
-      facebook::dwio::common::exception::LoggedException,   \
-      ::facebook::velox::error_source::kErrorSourceRuntime, \
-      ::facebook::velox::error_code::kUnknown,              \
+#define DWIO_RAISE(...)                                          \
+  DWIO_EXCEPTION_CUSTOM(                                         \
+      facebook::velox::dwio::common::exception::LoggedException, \
+      ::facebook::velox::error_source::kErrorSourceRuntime,      \
+      ::facebook::velox::error_code::kUnknown,                   \
       ##__VA_ARGS__)
 
-#define DWIO_ENSURE(expr, ...)                              \
-  DWIO_ENFORCE_CUSTOM(                                      \
-      facebook::dwio::common::exception::LoggedException,   \
-      expr,                                                 \
-      ::facebook::velox::error_source::kErrorSourceRuntime, \
-      ::facebook::velox::error_code::kUnknown,              \
+#define DWIO_ENSURE(expr, ...)                                   \
+  DWIO_ENFORCE_CUSTOM(                                           \
+      facebook::velox::dwio::common::exception::LoggedException, \
+      expr,                                                      \
+      ::facebook::velox::error_source::kErrorSourceRuntime,      \
+      ::facebook::velox::error_code::kUnknown,                   \
       ##__VA_ARGS__)
 
 #define DWIO_ENSURE_NOT_NULL(p, ...) \
@@ -255,4 +257,5 @@ containing information about the file, line, and function where it happened.
       ##__VA_ARGS__);
 
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

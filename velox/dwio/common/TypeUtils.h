@@ -21,7 +21,7 @@
 
 #include <unordered_set>
 
-namespace facebook::dwio::common::typeutils {
+namespace facebook::velox::dwio::common::typeutils {
 class SelectedTypeBuilder {
  public:
   static std::shared_ptr<const TypeWithId> build(
@@ -194,4 +194,4 @@ class CompatChecker {
   std::unordered_set<uint32_t> compat_;
 };
 
-} // namespace facebook::dwio::common::typeutils
+} // namespace facebook::velox::dwio::common::typeutils

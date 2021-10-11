@@ -18,8 +18,8 @@
 #include "velox/dwio/common/Retry.h"
 
 using namespace std::chrono_literals;
-using namespace facebook::dwio::common;
-using namespace facebook::dwio::common::retrypolicy;
+using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::dwio::common::retrypolicy;
 
 template <uint8_t ExceptionCount>
 class Raise {

@@ -18,7 +18,7 @@
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/dwrf/common/BufferedInput.h"
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 
 TEST(TestBufferedInput, ZeroLengthStream) {

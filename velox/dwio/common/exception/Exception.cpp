@@ -18,6 +18,7 @@
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 namespace exception {
@@ -42,4 +43,5 @@ ExceptionLogger* getExceptionLogger() {
 } // namespace exception
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

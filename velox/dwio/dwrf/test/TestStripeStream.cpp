@@ -24,14 +24,14 @@
 #include "velox/type/Type.h"
 
 using namespace testing;
-using namespace facebook::dwio::common;
-using namespace facebook::dwio::common::encryption::test;
+using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::dwio::common::encryption::test;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::dwrf::encryption;
 using namespace facebook::velox::memory;
 
-using facebook::dwio::type::fbhive::HiveTypeParser;
 using facebook::velox::RowType;
+using facebook::velox::dwio::type::fbhive::HiveTypeParser;
 
 class RecordingInputStream : public MemoryInputStream {
  public:
@@ -506,12 +506,12 @@ class TestStripeStreams : public StripeStreamsBase {
         throwIfNotFound));
   }
 
-  const facebook::dwio::common::ColumnSelector& getColumnSelector()
+  const facebook::velox::dwio::common::ColumnSelector& getColumnSelector()
       const override {
     VELOX_UNSUPPORTED();
   }
 
-  const facebook::dwio::common::RowReaderOptions& getRowReaderOptions()
+  const facebook::velox::dwio::common::RowReaderOptions& getRowReaderOptions()
       const override {
     VELOX_UNSUPPORTED();
   }

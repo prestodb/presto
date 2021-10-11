@@ -66,7 +66,8 @@ void HiveConnectorTestBase::writeToFile(
   facebook::velox::dwrf::WriterOptions options;
   options.config = config;
   options.schema = vectors[0]->type();
-  auto sink = std::make_unique<facebook::dwio::common::FileSink>(filePath);
+  auto sink =
+      std::make_unique<facebook::velox::dwio::common::FileSink>(filePath);
   facebook::velox::dwrf::Writer writer{
       options,
       std::move(sink),

@@ -23,6 +23,7 @@
 #include <string>
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -68,4 +69,5 @@ std::string format_error_string(std::string fmt...) {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

@@ -19,7 +19,7 @@
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 
 using namespace ::testing;
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::memory;
 
 namespace facebook::velox::dwrf {

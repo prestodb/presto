@@ -19,9 +19,9 @@
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
 
-using namespace facebook::dwio::common;
-using facebook::dwio::type::fbhive::HiveTypeParser;
+using namespace facebook::velox::dwio::common;
 using facebook::velox::RowType;
+using facebook::velox::dwio::type::fbhive::HiveTypeParser;
 
 TEST(TestColumnSelector, testBasicFilterTree) {
   const auto schema =

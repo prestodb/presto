@@ -19,6 +19,7 @@
 #include "velox/type/Type.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace type {
 
@@ -32,4 +33,5 @@ class TypeParser {
 
 } // namespace type
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

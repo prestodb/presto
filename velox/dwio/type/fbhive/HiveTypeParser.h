@@ -26,6 +26,7 @@
 #include "velox/dwio/type/TypeParser.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace type {
 namespace fbhive {
@@ -154,4 +155,5 @@ class HiveTypeParser : public type::TypeParser {
 } // namespace fbhive
 } // namespace type
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

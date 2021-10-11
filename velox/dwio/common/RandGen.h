@@ -20,6 +20,7 @@
 #include <random>
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -69,4 +70,5 @@ class RandGen {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

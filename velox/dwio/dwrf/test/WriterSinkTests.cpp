@@ -20,7 +20,7 @@
 #include "velox/dwio/dwrf/writer/WriterSink.h"
 
 using namespace ::testing;
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 

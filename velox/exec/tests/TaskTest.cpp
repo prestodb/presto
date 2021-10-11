@@ -25,7 +25,11 @@ class TaskTest : public testing::Test {};
 TEST_F(TaskTest, splitGroup) {
   // Create single hive connector split and the task.
   auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
-      "test", "file:/tmp/abc", facebook::dwio::common::FileFormat::ORC, 0, 100);
+      "test",
+      "file:/tmp/abc",
+      facebook::velox::dwio::common::FileFormat::ORC,
+      0,
+      100);
   core::PlanNodeId planNodeId{"0"};
   auto queryCtx = std::make_shared<core::QueryCtx>();
   exec::Task task("0", nullptr, 0, queryCtx);

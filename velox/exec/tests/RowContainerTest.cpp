@@ -26,7 +26,7 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::test;
-using namespace facebook::dwio;
+using namespace facebook::velox::dwio;
 
 class RowContainerTest : public testing::Test {
  protected:
@@ -40,7 +40,7 @@ class RowContainerTest : public testing::Test {
       const size_t size,
       std::function<void(RowVectorPtr)> customizeData) {
     std::string schema = fmt::format("struct<{}>", columns);
-    facebook::dwio::type::fbhive::HiveTypeParser parser;
+    facebook::velox::dwio::type::fbhive::HiveTypeParser parser;
     auto rowType =
         std::dynamic_pointer_cast<const RowType>(parser.parse(schema));
     auto batch = std::static_pointer_cast<RowVector>(

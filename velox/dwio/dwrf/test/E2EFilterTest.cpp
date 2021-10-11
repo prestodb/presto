@@ -33,10 +33,10 @@
 
 DEFINE_int32(timing_repeats, 0, "Count of repeats for timing filter tests");
 
-namespace facebook::dwio::dwrf {
+namespace facebook::velox::dwio::dwrf {
 using namespace facebook::velox::test;
 using namespace facebook::velox::dwrf;
-using namespace facebook::dwio::type::fbhive;
+using namespace facebook::velox::dwio::type::fbhive;
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 
@@ -899,7 +899,7 @@ class E2EFilterTest : public testing::Test {
   std::unordered_map<std::string, std::array<int32_t, 2>> filterCoverage_;
   folly::Random::DefaultGenerator rng_;
   bool useVInts_ = true;
-}; // namespace facebook::dwio::dwrf
+}; // namespace facebook::velox::dwio::dwrf
 
 TEST_F(E2EFilterTest, integerDirect) {
   testWithTypes(
@@ -1022,4 +1022,4 @@ TEST_F(E2EFilterTest, listAndMap) {
       10);
 }
 
-} // namespace facebook::dwio::dwrf
+} // namespace facebook::velox::dwio::dwrf

@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <velox/common/memory/Memory.h>
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 

@@ -19,7 +19,7 @@
 #include "velox/dwio/dwrf/common/Range.h"
 
 using namespace ::testing;
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 
 namespace facebook::velox::dwrf {
 

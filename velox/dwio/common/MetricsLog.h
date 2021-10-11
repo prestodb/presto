@@ -20,6 +20,7 @@
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -196,4 +197,5 @@ DwioMetricsLogFactory& getMetricsLogFactory();
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

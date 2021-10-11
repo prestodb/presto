@@ -23,8 +23,8 @@
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
 using namespace ::testing;
-using namespace facebook::dwio::common;
-using namespace facebook::dwio::type::fbhive;
+using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::dwio::type::fbhive;
 using namespace facebook::velox::memory;
 
 namespace facebook::velox::dwrf {

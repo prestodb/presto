@@ -22,7 +22,7 @@
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 
 using namespace ::testing;
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 using namespace facebook::velox::memory;

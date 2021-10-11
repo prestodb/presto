@@ -32,6 +32,7 @@ class ColumnReaderFactory;
 } // namespace facebook::velox::dwrf
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -487,4 +488,5 @@ class ReaderOptions {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

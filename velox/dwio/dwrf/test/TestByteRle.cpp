@@ -21,7 +21,7 @@
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 

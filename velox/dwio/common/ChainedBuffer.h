@@ -21,6 +21,7 @@
 #include "velox/dwio/common/DataBuffer.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -215,4 +216,5 @@ class ChainedBuffer {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

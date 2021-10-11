@@ -79,8 +79,8 @@ class MultiFragmentTest : public OperatorTestBase {
     facebook::velox::dwrf::WriterOptions options;
     options.config = std::make_shared<facebook::velox::dwrf::Config>();
     options.schema = rowType_;
-    auto sink = std::make_unique<facebook::dwio::common::FileSink>(
-        filePath, facebook::dwio::common::MetricsLog::voidLog());
+    auto sink = std::make_unique<facebook::velox::dwio::common::FileSink>(
+        filePath, facebook::velox::dwio::common::MetricsLog::voidLog());
     facebook::velox::dwrf::Writer writer{options, std::move(sink), *pool_};
 
     for (size_t i = 0; i < vectors.size(); ++i) {
@@ -117,7 +117,7 @@ class MultiFragmentTest : public OperatorTestBase {
           std::make_shared<HiveConnectorSplit>(
               kHiveConnectorId,
               "file:" + filePath->path,
-              facebook::dwio::common::FileFormat::ORC),
+              facebook::velox::dwio::common::FileFormat::ORC),
           -1);
       task->addSplit("0", std::move(split));
       VLOG(1) << filePath->path << "\n";

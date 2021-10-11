@@ -23,6 +23,7 @@
 #include "velox/dwio/common/InputStream.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -75,4 +76,5 @@ class MemoryInputStream : public ReferenceableInputStream {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

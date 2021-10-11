@@ -22,7 +22,7 @@
 #include "velox/dwio/dwrf/common/IntEncoder.h"
 #include "velox/dwio/dwrf/common/Range.h"
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;

@@ -22,12 +22,12 @@
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/dwio/type/fbhive/HiveTypeSerializer.h"
 
-using namespace facebook::dwio;
-using namespace facebook::dwio::common;
-using facebook::dwio::common::typeutils::CompatChecker;
-using facebook::dwio::common::typeutils::SelectedTypeBuilder;
-using facebook::dwio::type::fbhive::HiveTypeParser;
-using facebook::dwio::type::fbhive::HiveTypeSerializer;
+using namespace facebook::velox::dwio;
+using namespace facebook::velox::dwio::common;
+using facebook::velox::dwio::common::typeutils::CompatChecker;
+using facebook::velox::dwio::common::typeutils::SelectedTypeBuilder;
+using facebook::velox::dwio::type::fbhive::HiveTypeParser;
+using facebook::velox::dwio::type::fbhive::HiveTypeSerializer;
 
 TEST(TestType, selectedType) {
   auto type = HiveTypeParser().parse(

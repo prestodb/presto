@@ -20,7 +20,7 @@
 #include "velox/dwio/type/fbhive/HiveTypeSerializer.h"
 
 using namespace facebook::velox::dwrf;
-using namespace facebook::dwio::type::fbhive;
+using namespace facebook::velox::dwio::type::fbhive;
 
 TEST(ProtoUtilsTests, AllTypes) {
   std::vector<std::string> types{

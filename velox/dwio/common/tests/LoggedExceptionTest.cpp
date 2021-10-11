@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "velox/dwio/common/exception/Exception.h"
 
-using namespace facebook::dwio::common::exception;
+using namespace facebook::velox::dwio::common::exception;
 using namespace facebook::velox;
 
 namespace {

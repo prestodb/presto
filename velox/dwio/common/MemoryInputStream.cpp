@@ -19,6 +19,7 @@
 #include <cstring>
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -59,4 +60,5 @@ const void* MemoryInputStream::readReferenceOnly(
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

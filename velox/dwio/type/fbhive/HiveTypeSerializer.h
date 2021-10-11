@@ -22,6 +22,7 @@
 #include "velox/type/Type.h"
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace type {
 namespace fbhive {
@@ -46,4 +47,5 @@ class HiveTypeSerializer {
 } // namespace fbhive
 } // namespace type
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

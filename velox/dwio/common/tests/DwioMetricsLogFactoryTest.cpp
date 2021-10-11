@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "velox/dwio/common/MetricsLog.h"
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 
 namespace {
 class TestingDwioMetricsLog : public MetricsLog {

@@ -26,10 +26,10 @@
 #include <algorithm>
 
 using namespace ::testing;
-using namespace facebook::dwio;
-using namespace facebook::dwio::common;
-using namespace facebook::dwio::common::encryption;
-using namespace facebook::dwio::common::encryption::test;
+using namespace facebook::velox::dwio;
+using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::dwio::common::encryption;
+using namespace facebook::velox::dwio::common::encryption::test;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 

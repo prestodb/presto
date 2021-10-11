@@ -27,6 +27,7 @@ using facebook::velox::Type;
 using facebook::velox::TypeKind;
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace type {
 namespace fbhive {
@@ -231,4 +232,5 @@ TokenMetadata* HiveTypeParser::getMetadata(TokenType type) const {
 } // namespace fbhive
 } // namespace type
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

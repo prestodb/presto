@@ -20,26 +20,27 @@
 
 #include "gtest/gtest.h"
 
-using namespace facebook;
+using namespace facebook::velox;
+using namespace facebook::velox::dwio::common;
 
 TEST(ReadFileInputStream, SimpleUsage) {
   std::string fileData;
   {
-    velox::InMemoryWriteFile writeFile(&fileData);
+    InMemoryWriteFile writeFile(&fileData);
     writeFile.append("aaaaa");
     writeFile.append("bbbbb");
     writeFile.append("ccccc");
   }
-  velox::InMemoryReadFile readFile(fileData);
-  dwio::common::ReadFileInputStream inputStream(&readFile);
+  InMemoryReadFile readFile(fileData);
+  ReadFileInputStream inputStream(&readFile);
   ASSERT_EQ(inputStream.getLength(), 15);
   auto buf = std::make_unique<char[]>(15);
 
-  inputStream.read(buf.get(), 7, 4, dwio::common::LogType::STREAM);
+  inputStream.read(buf.get(), 7, 4, LogType::STREAM);
   std::string_view read_value(buf.get(), 7);
   ASSERT_EQ(read_value, "abbbbbc");
 
-  inputStream.read(buf.get(), 15, 0, dwio::common::LogType::STREAM);
+  inputStream.read(buf.get(), 15, 0, LogType::STREAM);
   read_value = {buf.get(), 15};
   ASSERT_EQ(read_value, "aaaaabbbbbccccc");
 }

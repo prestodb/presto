@@ -23,10 +23,10 @@
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
-using namespace facebook::dwio;
+using namespace facebook::velox::dwio;
 using namespace facebook::velox::cache;
 
-using facebook::dwio::common::Region;
+using facebook::velox::dwio::common::Region;
 using memory::MappedMemory;
 
 // Testing stream producing deterministic data. The byte at offset is

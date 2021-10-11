@@ -25,7 +25,7 @@
 using namespace ::testing;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 
 using facebook::velox::memory::MemoryPool;
 

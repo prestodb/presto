@@ -20,7 +20,7 @@
 #include <vector>
 #include "velox/type/Type.h"
 
-namespace facebook::dwio::common {
+namespace facebook::velox::dwio::common {
 
 class TypeWithId : public velox::Tree<std::shared_ptr<const TypeWithId>> {
  public:
@@ -60,4 +60,4 @@ class TypeWithId : public velox::Tree<std::shared_ptr<const TypeWithId>> {
       uint32_t column);
 };
 
-} // namespace facebook::dwio::common
+} // namespace facebook::velox::dwio::common

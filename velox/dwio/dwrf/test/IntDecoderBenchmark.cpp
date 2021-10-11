@@ -27,7 +27,7 @@
 #include "velox/dwio/dwrf/common/IntCodecCommon.h"
 #include "velox/dwio/dwrf/common/IntDecoder.h"
 
-using namespace facebook::dwio;
+using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwrf;
 
 const size_t kNumElements = 1000000;

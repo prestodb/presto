@@ -21,7 +21,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-namespace facebook::dwio::common {
+namespace facebook::velox::dwio::common {
 
 FileSink::FileSink(
     const std::string& name,
@@ -108,4 +108,4 @@ static std::unique_ptr<DataSink> fileSink(
 
 VELOX_REGISTER_DATA_SINK_METHOD_DEFINITION(FileSink, fileSink);
 
-} // namespace facebook::dwio::common
+} // namespace facebook::velox::dwio::common

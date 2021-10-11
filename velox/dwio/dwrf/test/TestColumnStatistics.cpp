@@ -19,7 +19,7 @@
 #include <cmath>
 #include "velox/dwio/dwrf/writer/StatisticsBuilder.h"
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 
 StatisticsBuilderOptions options{16};

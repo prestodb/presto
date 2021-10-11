@@ -20,6 +20,7 @@
 #include <utility>
 
 namespace facebook {
+namespace velox {
 namespace dwio {
 namespace common {
 
@@ -89,4 +90,5 @@ IoStatistics::operationStats() const {
 
 } // namespace common
 } // namespace dwio
+} // namespace velox
 } // namespace facebook

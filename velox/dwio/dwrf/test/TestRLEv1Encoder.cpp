@@ -24,7 +24,7 @@
 
 const int32_t DEFAULT_MEM_STREAM_SIZE = 1024 * 1024; // 1M
 
-using namespace facebook::dwio::common;
+using namespace facebook::velox::dwio::common;
 
 namespace facebook::velox::dwrf {
 

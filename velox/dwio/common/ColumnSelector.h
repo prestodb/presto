@@ -20,7 +20,7 @@
 #include "velox/dwio/common/MetricsLog.h"
 #include "velox/dwio/common/TypeWithId.h"
 
-namespace facebook::dwio::common {
+namespace facebook::velox::dwio::common {
 
 /**
  * A quick answer to tell special cases - READ ALL
@@ -380,4 +380,4 @@ class ColumnSelector {
   ColumnFilter filter_;
 };
 
-} // namespace facebook::dwio::common
+} // namespace facebook::velox::dwio::common
