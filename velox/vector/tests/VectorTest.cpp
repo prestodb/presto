@@ -1210,3 +1210,9 @@ TEST_F(VectorTest, valueHook) {
   lazy->load(rows, &hook);
   EXPECT_EQ(hook.errors(), 0);
 }
+
+TEST_F(VectorTest, byteSize) {
+  constexpr vector_size_t count = std::numeric_limits<vector_size_t>::max();
+  constexpr uint64_t expected = count * sizeof(int64_t);
+  EXPECT_EQ(BaseVector::byteSize<int64_t>(count), expected);
+}

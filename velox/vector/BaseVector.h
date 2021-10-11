@@ -452,7 +452,7 @@ class BaseVector {
   }
 
   template <typename T>
-  static inline vector_size_t byteSize(vector_size_t count) {
+  static inline uint64_t byteSize(vector_size_t count) {
     return sizeof(T) * count;
   }
 
@@ -627,7 +627,7 @@ class BaseVector {
 };
 
 template <>
-vector_size_t BaseVector::byteSize<bool>(vector_size_t count);
+uint64_t BaseVector::byteSize<bool>(vector_size_t count);
 
 using VectorPtr = std::shared_ptr<BaseVector>;
 

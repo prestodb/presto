@@ -287,7 +287,7 @@ void FlatVector<T>::resize(vector_size_t size) {
   if (!values_) {
     return;
   }
-  vector_size_t minBytes = BaseVector::byteSize<T>(size);
+  const uint64_t minBytes = BaseVector::byteSize<T>(size);
   if (values_->capacity() < minBytes) {
     AlignedBuffer::reallocate<T>(&values_, size);
     rawValues_ = values_->asMutable<T>();

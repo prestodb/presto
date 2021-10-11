@@ -68,7 +68,7 @@ void BaseVector::allocateNulls() {
 }
 
 template <>
-vector_size_t BaseVector::byteSize<bool>(vector_size_t count) {
+uint64_t BaseVector::byteSize<bool>(vector_size_t count) {
   return bits::nbytes(count);
 }
 
