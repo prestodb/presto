@@ -66,7 +66,6 @@ public class TestDeltaTableHandle
 {
     @Test
     public void testJsonRoundTrip()
-            throws Exception
     {
         List<DeltaColumn> columns = ImmutableList.of(
                 new DeltaColumn("c1", parseTypeSignature(StandardTypes.REAL), true, true),
@@ -94,18 +93,12 @@ public class TestDeltaTableHandle
                                         Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
                         false)));
 
-        DeltaTableHandle expected = new DeltaTableHandle(
-                "delta",
-                deltaTable,
-                predicate,
-                Optional.of("predicateString"));
+        DeltaTableHandle expected = new DeltaTableHandle("delta", deltaTable);
 
         String json = getJsonCodec().toJson(expected);
         DeltaTableHandle actual = getJsonCodec().fromJson(json);
 
         assertEquals(actual.getDeltaTable(), expected.getDeltaTable());
-        assertEquals(actual.getPredicate(), expected.getPredicate());
-        assertEquals(actual.getPredicateString(), expected.getPredicateString());
     }
 
     private JsonCodec<DeltaTableHandle> getJsonCodec()

@@ -78,7 +78,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
 
     protected static String goldenTablePath(String tableName)
     {
-        return TestDeltaIntegration.class.getClassLoader().getResource(tableName).toString();
+        return AbstractDeltaDistributedQueryTestBase.class.getClassLoader().getResource(tableName).toString();
     }
 
     private static DistributedQueryRunner createDeltaQueryRunner(Map<String, String> extraProperties)
@@ -133,7 +133,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
      * @param deltaTableName Name of the delta table which is on the classpath.
      * @param hiveTableName Name of the Hive table that the Delta table is to be registered as in HMS
      */
-    private void registerDeltaTableInHMS(String deltaTableName, String hiveTableName)
+    protected void registerDeltaTableInHMS(String deltaTableName, String hiveTableName)
     {
         getQueryRunner().execute(format(
                 "CREATE TABLE %s.\"%s\".\"%s\" (dummyColumn INT) WITH (external_location = '%s')",
@@ -146,7 +146,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     /**
      * Drop the given table from HMS
      */
-    private void unregisterDeltaTableInHMS(String hiveTableName)
+    protected void unregisterDeltaTableInHMS(String hiveTableName)
     {
         getQueryRunner().execute(
                 format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", HIVE_CATALOG, DELTA_SCHEMA, hiveTableName));

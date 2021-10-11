@@ -156,7 +156,7 @@ public class DeltaPageSourceProvider
                 isParquetBatchReadsEnabled(session),
                 isParquetBatchReaderVerificationEnabled(session),
                 typeManager,
-                deltaTableHandle.getPredicate(),
+                deltaTableLayoutHandle.getPredicate(),
                 fileFormatDataSourceStats);
 
         return new DeltaPageSource(
