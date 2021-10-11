@@ -15,39 +15,9 @@ package com.facebook.presto.delta;
 
 import com.facebook.airlift.configuration.Config;
 
-import javax.validation.constraints.NotNull;
-
 public class DeltaConfig
 {
-    private boolean partitionPruningEnabled = true;
-    private boolean filterPushdownEnabled = true;
     private int maxSplitsBatchSize = 200;
-
-    @NotNull
-    public boolean isPartitionPruningEnabled()
-    {
-        return partitionPruningEnabled;
-    }
-
-    @Config("delta.partition-pruning-enabled")
-    public DeltaConfig setPartitionPruningEnabled(boolean partitionPruningEnabled)
-    {
-        this.partitionPruningEnabled = partitionPruningEnabled;
-        return this;
-    }
-
-    @NotNull
-    public boolean isFilterPushdownEnabled()
-    {
-        return filterPushdownEnabled;
-    }
-
-    @Config("delta.filter-pushdown-enabled")
-    public DeltaConfig setFilterPushdownEnabled(boolean filterPushdownEnabled)
-    {
-        this.filterPushdownEnabled = filterPushdownEnabled;
-        return this;
-    }
 
     public int getMaxSplitsBatchSize()
     {

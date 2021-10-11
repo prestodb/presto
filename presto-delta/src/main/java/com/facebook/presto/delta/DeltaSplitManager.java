@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -44,13 +45,15 @@ public class DeltaSplitManager
     private final String connectorId;
     private final DeltaConfig deltaConfig;
     private final DeltaClient deltaClient;
+    private final TypeManager typeManager;
 
     @Inject
-    public DeltaSplitManager(DeltaConnectorId connectorId, DeltaConfig deltaConfig, DeltaClient deltaClient)
+    public DeltaSplitManager(DeltaConnectorId connectorId, DeltaConfig deltaConfig, DeltaClient deltaClient, TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.deltaConfig = requireNonNull(deltaConfig, "deltaConfig is null");
         this.deltaClient = requireNonNull(deltaClient, "deltaClient is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -60,7 +63,7 @@ public class DeltaSplitManager
             ConnectorTableLayoutHandle layout,
             SplitSchedulingContext splitSchedulingContext)
     {
-        return new DeltaSplitSource(session, ((DeltaTableLayoutHandle) layout).getTable().getDeltaTable());
+        return new DeltaSplitSource(session, ((DeltaTableLayoutHandle) layout));
     }
 
     private class DeltaSplitSource
@@ -70,10 +73,13 @@ public class DeltaSplitManager
         private final CloseableIterator<AddFile> fileIterator;
         private final int maxBatchSize;
 
-        DeltaSplitSource(ConnectorSession session, DeltaTable deltaTable)
+        DeltaSplitSource(ConnectorSession session, DeltaTableLayoutHandle deltaTableHandle)
         {
-            this.deltaTable = deltaTable;
-            this.fileIterator = deltaClient.listFiles(session, deltaTable);
+            this.deltaTable = deltaTableHandle.getTable().getDeltaTable();
+            this.fileIterator = DeltaExpressionUtils.iterateWithPartitionPruning(
+                    deltaClient.listFiles(session, deltaTable),
+                    deltaTableHandle.getPredicate(),
+                    typeManager);
             this.maxBatchSize = deltaConfig.getMaxSplitsBatchSize();
         }
 

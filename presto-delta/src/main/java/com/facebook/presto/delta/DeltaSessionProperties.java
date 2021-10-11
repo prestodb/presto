@@ -29,8 +29,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 
 public final class DeltaSessionProperties
 {
-    public static final String PARTITION_PRUNING_ENABLED = "partition_pruning_enabled";
-    public static final String FILTER_PUSHDOWN_ENABLED = "filter_pushdown_enabled";
     private static final String CACHE_ENABLED = "cache_enabled";
     private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
@@ -46,16 +44,6 @@ public final class DeltaSessionProperties
             CacheConfig cacheConfig)
     {
         sessionProperties = ImmutableList.of(
-                booleanProperty(
-                        PARTITION_PRUNING_ENABLED,
-                        "Enable partition pruning in Delta tables",
-                        deltaConfigConfig.isPartitionPruningEnabled(),
-                        false),
-                booleanProperty(
-                        FILTER_PUSHDOWN_ENABLED,
-                        "Enable filter pushdown into Delta tables",
-                        deltaConfigConfig.isFilterPushdownEnabled(),
-                        false),
                 booleanProperty(
                         CACHE_ENABLED,
                         "Enable cache for Delta tables",
