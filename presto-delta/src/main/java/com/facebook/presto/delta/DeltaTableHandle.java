@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.delta;
 
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,20 +28,12 @@ public final class DeltaTableHandle
 {
     private final String connectorId;
     private final DeltaTable deltaTable;
-    private final TupleDomain<DeltaColumnHandle> predicate;
-    private final Optional<String> predicateString;
 
     @JsonCreator
-    public DeltaTableHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("deltaTable") DeltaTable deltaTable,
-            @JsonProperty("predicate") TupleDomain<DeltaColumnHandle> predicate,
-            @JsonProperty("predicateString") Optional<String> predicateString)
+    public DeltaTableHandle(@JsonProperty("connectorId") String connectorId, @JsonProperty("deltaTable") DeltaTable deltaTable)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.deltaTable = requireNonNull(deltaTable, "deltaTable is null");
-        this.predicate = requireNonNull(predicate, "predicate is null");
-        this.predicateString = requireNonNull(predicateString, "predicateString is null");
     }
 
     @JsonProperty
@@ -58,18 +48,6 @@ public final class DeltaTableHandle
         return deltaTable;
     }
 
-    @JsonProperty
-    public TupleDomain<DeltaColumnHandle> getPredicate()
-    {
-        return predicate;
-    }
-
-    @JsonProperty
-    public Optional<String> getPredicateString()
-    {
-        return predicateString;
-    }
-
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(deltaTable.getSchemaName(), deltaTable.getTableName());
@@ -78,7 +56,7 @@ public final class DeltaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, deltaTable, predicate);
+        return Objects.hash(connectorId, deltaTable);
     }
 
     @Override
@@ -93,8 +71,7 @@ public final class DeltaTableHandle
 
         DeltaTableHandle other = (DeltaTableHandle) obj;
         return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.deltaTable, other.deltaTable) &&
-                Objects.equals(this.predicate, other.predicate);
+                Objects.equals(this.deltaTable, other.deltaTable);
     }
 
     @Override
@@ -103,7 +80,6 @@ public final class DeltaTableHandle
         return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("table", toSchemaTableName())
-                .add("predicate", predicateString)
                 .toString();
     }
 }

@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.delta.DeltaExpressionUtils.splitPredicate;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
@@ -140,7 +141,7 @@ public class DeltaMetadata
                 deltaTableName.getSnapshotId(),
                 deltaTableName.getTimestampMillisUtc());
         if (table.isPresent()) {
-            return new DeltaTableHandle(connectorId, table.get(), TupleDomain.all(), Optional.empty());
+            return new DeltaTableHandle(connectorId, table.get());
         }
         return null;
     }
@@ -153,8 +154,28 @@ public class DeltaMetadata
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         DeltaTableHandle tableHandle = (DeltaTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new DeltaTableLayoutHandle(tableHandle));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+
+        // Split the predicate into partition column predicate and other column predicates
+        // Only the partition column predicate is fully enforced. Other predicate is partially enforced (best effort).
+        List<TupleDomain<ColumnHandle>> predicate = splitPredicate(constraint.getSummary());
+        TupleDomain<ColumnHandle> unenforcedPredicate = predicate.get(1);
+
+        DeltaTableLayoutHandle newDeltaTableLayoutHandle = new DeltaTableLayoutHandle(
+                tableHandle,
+                constraint.getSummary().transform(DeltaColumnHandle.class::cast),
+                Optional.of(constraint.getSummary().toString(session.getSqlFunctionProperties())));
+
+        ConnectorTableLayout newLayout = new ConnectorTableLayout(
+                newDeltaTableLayoutHandle,
+                Optional.empty(),
+                constraint.getSummary(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty());
+
+        return ImmutableList.of(new ConnectorTableLayoutResult(newLayout, unenforcedPredicate));
     }
 
     @Override

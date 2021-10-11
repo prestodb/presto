@@ -25,8 +25,6 @@ public class TestDeltaConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DeltaConfig.class)
-                .setPartitionPruningEnabled(true)
-                .setFilterPushdownEnabled(true)
                 .setMaxSplitsBatchSize(200));
     }
 
@@ -34,14 +32,10 @@ public class TestDeltaConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("delta.partition-pruning-enabled", "false")
-                .put("delta.filter-pushdown-enabled", "false")
                 .put("delta.max-splits-batch-size", "400")
                 .build();
 
         DeltaConfig expected = new DeltaConfig()
-                .setFilterPushdownEnabled(false)
-                .setPartitionPruningEnabled(false)
                 .setMaxSplitsBatchSize(400);
 
         ConfigAssertions.assertFullMapping(properties, expected);
