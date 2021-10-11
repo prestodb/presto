@@ -13,13 +13,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/functions/lib/StringEncodingUtils.h"
+#include "velox/functions/lib/string/StringImpl.h"
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::functions {
 
 ///  reverse(Array[E]) -> Array[E]
 ///  Takes any array as an input and returns the reversed array.
+
+///  reverse(Varchar) -> Varchar
+///  Takes any Varchar as an input and returns the reversed varchar.
 class ReverseFunction : public exec::VectorFunction {
+ private:
+  /// String encoding wrappable function
+  template <bool isAscii>
+  struct ApplyVarcharInternal {
+    static void apply(
+        const SelectivityVector& rows,
+        const FlatVector<StringView>* input,
+        FlatVector<StringView>* results) {
+      rows.applyToSelected([&](int row) {
+        auto proxy = exec::StringProxy<FlatVector<StringView>>(results, row);
+        stringImpl::reverse<isAscii>(proxy, input->valueAt(row).getString());
+        proxy.finalize();
+      });
+    }
+  };
+
  public:
   void apply(
       const SelectivityVector& rows,
@@ -28,10 +52,52 @@ class ReverseFunction : public exec::VectorFunction {
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
-    auto vector = args[0].get();
-    // We need the vector to have an array.
-    VELOX_CHECK(vector->type()->isArray());
 
+    switch (args[0]->typeKind()) {
+      case TypeKind::ARRAY:
+        applyArray(rows, args, context, result);
+        return;
+      case TypeKind::VARCHAR:
+        applyVarchar(rows, args, context, result);
+        return;
+      default:
+        VELOX_FAIL(
+            "Unsupported input type for 'reverse' function: {}",
+            args[0]->type()->toString());
+    }
+  }
+
+  void applyVarchar(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      exec::EvalCtx* context,
+      VectorPtr* result) const {
+    BaseVector* inputStringsVector = args[0].get();
+    auto inputStringVector = inputStringsVector->as<FlatVector<StringView>>();
+
+    auto ascii = isAscii(inputStringsVector, rows);
+
+    prepareFlatResultsVector(result, rows, context, args[0]);
+    auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
+
+    StringEncodingTemplateWrapper<ApplyVarcharInternal>::apply(
+        ascii, rows, inputStringVector, resultFlatVector);
+  }
+
+  bool ensureStringEncodingSetAtAllInputs() const override {
+    return true;
+  }
+
+  bool propagateStringEncodingFromAllInputs() const override {
+    return true;
+  }
+
+  void applyArray(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      exec::EvalCtx* context,
+      VectorPtr* result) const {
+    auto vector = args[0].get();
     auto arrayVector = vector->as<ArrayVector>();
     auto elementCount = arrayVector->elements()->size();
 
@@ -77,6 +143,11 @@ class ReverseFunction : public exec::VectorFunction {
             .typeVariable("T")
             .returnType("array(T)")
             .argumentType("array(T)")
+            .build(),
+        // varchar -> varchar
+        exec::FunctionSignatureBuilder()
+            .returnType("varchar")
+            .argumentType("varchar")
             .build(),
     };
   }

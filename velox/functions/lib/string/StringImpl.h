@@ -555,4 +555,15 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
   output = TOutString(input.data() + start, lastNonWhiteSpace - start);
 }
 
+template <bool ascii, typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE void reverse(TOutString& output, const TInString& input) {
+  auto inputSize = input.size();
+  output.resize(inputSize);
+
+  if constexpr (ascii) {
+    reverseAscii(output.data(), input.data(), inputSize);
+  } else {
+    reverseUnicode(output.data(), input.data(), inputSize);
+  }
+}
 } // namespace facebook::velox::functions::stringImpl

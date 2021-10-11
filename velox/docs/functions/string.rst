@@ -101,6 +101,9 @@ String Functions
 
     Converts ``string`` to uppercase.
 
+.. function:: reverse(string) -> varchar
+
+    Reverses ``string``.
 
 Unicode Functions
 -----------------

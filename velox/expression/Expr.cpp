@@ -1025,8 +1025,9 @@ void Expr::applyFunction(
     EvalCtx* context,
     VectorPtr* result) {
   computeIsAsciiForInputs(vectorFunction_.get(), inputValues_, rows);
-  auto isAscii =
-      computeIsAsciiForResult(vectorFunction_.get(), inputValues_, rows);
+  auto isAscii = type()->isVarchar()
+      ? computeIsAsciiForResult(vectorFunction_.get(), inputValues_, rows)
+      : std::nullopt;
   applyVectorFunction(rows, context, result);
   if (isAscii.has_value()) {
     (*result)->asUnchecked<SimpleVector<StringView>>()->setIsAscii(

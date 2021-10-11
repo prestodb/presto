@@ -19,11 +19,13 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
+#include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::functions {
 
+using namespace stringCore;
 namespace {
 
 /// Check if the input vector's  buffers are single referenced
@@ -35,31 +37,6 @@ bool hasSingleReferencedBuffers(const FlatVector<StringView>* vec) {
   }
   return true;
 };
-
-/// Helper function that prepares a string result vector and initializes it.
-/// It will use the input argToReuse vector instead of creating new one when
-/// possible. Returns true if argToReuse vector was moved to results
-VectorPtr emptyVectorPtr;
-bool prepareFlatResultsVector(
-    VectorPtr* result,
-    const SelectivityVector& rows,
-    exec::EvalCtx* context,
-    VectorPtr& argToReuse = emptyVectorPtr) {
-  if (!*result && argToReuse && argToReuse.unique()) {
-    // Move input vector to result
-    VELOX_CHECK(
-        argToReuse.get()->encoding() == VectorEncoding::Simple::FLAT &&
-        argToReuse.get()->typeKind() == TypeKind::VARCHAR);
-
-    *result = std::move(argToReuse);
-    return true;
-  }
-  // This will allocate results if not allocated
-  BaseVector::ensureWritable(rows, VARCHAR(), context->pool(), result);
-
-  VELOX_CHECK((*result).get()->encoding() == VectorEncoding::Simple::FLAT);
-  return false;
-}
 
 /**
  * substr(string, start) -> varchar
@@ -206,6 +183,7 @@ class SubstrFunction : public exec::VectorFunction {
     auto lengthArgVectorEncoding =
         noLengthVector ? startArgVectorEncoding : lengthsVector->encoding();
 
+    VectorPtr emptyVectorPtr;
     prepareFlatResultsVector(
         result,
         rows,
@@ -416,7 +394,8 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
     }
 
     // Not in place path
-    prepareFlatResultsVector(result, rows, context);
+    VectorPtr emptyVectorPtr;
+    prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
     auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
 
     StringEncodingTemplateWrapper<ApplyInternal>::apply(
@@ -458,7 +437,8 @@ class ConcatFunction : public exec::VectorFunction {
       exec::Expr* /* unused */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    prepareFlatResultsVector(result, rows, context);
+    VectorPtr emptyVectorPtr;
+    prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
     auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -736,7 +716,8 @@ class Replace : public exec::VectorFunction {
       return;
     }
     // Not in place path
-    prepareFlatResultsVector(result, rows, context);
+    VectorPtr emptyVectorPtr;
+    prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
     auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
 
     applyInternal(

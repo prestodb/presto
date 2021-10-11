@@ -15,8 +15,11 @@
  */
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
+#include "velox/functions/lib/string/StringCore.h"
 
 namespace facebook::velox::functions::sparksql {
+
+using namespace stringCore;
 namespace {
 
 template <bool isAscii>
