@@ -23,42 +23,47 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.List;
 
-public class StaticCatalogStoreConfig
-{
+public class StaticCatalogStoreConfig {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private File catalogConfigurationDir = new File("etc/catalog/");
     private List<String> disabledCatalogs;
+    private Integer intervalTime;
 
     @NotNull
-    public File getCatalogConfigurationDir()
-    {
+    public File getCatalogConfigurationDir() {
         return catalogConfigurationDir;
     }
 
     @LegacyConfig("plugin.config-dir")
     @Config("catalog.config-dir")
-    public StaticCatalogStoreConfig setCatalogConfigurationDir(File dir)
-    {
+    public StaticCatalogStoreConfig setCatalogConfigurationDir(File dir) {
         this.catalogConfigurationDir = dir;
         return this;
     }
 
-    public List<String> getDisabledCatalogs()
-    {
+    public List<String> getDisabledCatalogs() {
         return disabledCatalogs;
     }
 
     @Config("catalog.disabled-catalogs")
-    public StaticCatalogStoreConfig setDisabledCatalogs(String catalogs)
-    {
+    public StaticCatalogStoreConfig setDisabledCatalogs(String catalogs) {
         this.disabledCatalogs = (catalogs == null) ? null : SPLITTER.splitToList(catalogs);
         return this;
     }
 
-    public StaticCatalogStoreConfig setDisabledCatalogs(List<String> catalogs)
-    {
+    public StaticCatalogStoreConfig setDisabledCatalogs(List<String> catalogs) {
         this.disabledCatalogs = (catalogs == null) ? null : ImmutableList.copyOf(catalogs);
+        return this;
+    }
+
+    public Integer getIntervalTime() {
+        return intervalTime;
+    }
+
+    @Config("catalog.interval-time")
+    public StaticCatalogStoreConfig setIntervalTime(Integer intervalTime) {
+        this.intervalTime = intervalTime;
         return this;
     }
 }
