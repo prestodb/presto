@@ -14,10 +14,49 @@
  * limitations under the License.
  */
 
+#include <string>
+#include <unordered_set>
+#include <vector>
+
+#include "folly/String.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/CoreFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
+
+/// ExpressionFuzzerMain is an executable that leverages ExpressionFuzzer and
+/// VectorFuzzer to automatically generate and execute expression tests. It
+/// works by:
+///
+///  1. Taking an initial set of available function signatures.
+///  2. Generating a random expression tree based on the available function
+///     signatures.
+///  3. Generating a random set of input data (vector), with a variety of
+///     encodings and data layouts.
+///  4. Executing the expression using the common and simplified eval paths, and
+///     asserting results are the exact same.
+///  5. Rinse and repeat.
+///
+/// The common usage pattern is as following:
+///
+///  $ ./velox_expression_fuzzer_main --steps 10000
+///
+/// The important flags that control Fuzzer's behavior are:
+///
+///  --steps: how many iterations to run
+///  --seed: pass a deterministic seed to reproduce the behavior (each iteration
+///          will print a seed as part of the logs).
+///  --v=1: verbose logging; print a lot more details about the execution.
+///  --only: restrict the functions to fuzz.
+///  --batch_size: size of input vector batches generated.
+///
+/// e.g:
+///
+///  $ ./velox_expression_fuzzer_main \
+///         --steps 10000 \
+///         --seed 123 \
+///         --v=1 \
+///         --only "substr,trim"
 
 DEFINE_int64(
     seed,
@@ -25,9 +64,46 @@ DEFINE_int64(
     "Initial seed for random number generator "
     "(use it to reproduce previous results).");
 
+DEFINE_string(
+    only,
+    "",
+    "If specified, Fuzzer will only choose functions from "
+    "this comma separated list of function names "
+    "(e.g: --only \"split\" or --only \"substr,ltrim\").");
+
 DEFINE_int32(steps, 1, "Number of expressions to generate.");
 
 using namespace facebook::velox;
+
+// Parse the comma separated list of funciton names, and use it to filter the
+// input signatures.
+FunctionSignatureMap filterSignatures(
+    const FunctionSignatureMap& input,
+    const std::string& onlyFunctions) {
+  if (onlyFunctions.empty()) {
+    return input;
+  }
+
+  // Parse, lower case and trim it.
+  std::vector<folly::StringPiece> nameList;
+  folly::split(',', onlyFunctions, nameList);
+  std::unordered_set<std::string> nameSet;
+
+  for (const auto& it : nameList) {
+    auto str = folly::trimWhitespace(it).toString();
+    folly::toLowerAscii(str);
+    nameSet.insert(str);
+  }
+
+  // Use the generated set to filter the input signatures.
+  FunctionSignatureMap output;
+  for (const auto& it : input) {
+    if (nameSet.count(it.first) > 0) {
+      output.insert(it);
+    }
+  }
+  return output;
+}
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -36,6 +112,9 @@ int main(int argc, char** argv) {
   functions::registerFunctions();
   functions::registerVectorFunctions();
 
-  test::expressionFuzzer(getFunctionSignatures(), FLAGS_steps, FLAGS_seed);
+  test::expressionFuzzer(
+      filterSignatures(getFunctionSignatures(), FLAGS_only),
+      FLAGS_steps,
+      FLAGS_seed);
   return 0;
 }

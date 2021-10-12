@@ -53,14 +53,13 @@ bool prepareFlatResultsVector(
     VELOX_CHECK(
         argToReuse.get()->encoding() == VectorEncoding::Simple::FLAT &&
         argToReuse.get()->typeKind() == TypeKind::VARCHAR);
-
     *result = std::move(argToReuse);
     return true;
   }
   // This will allocate results if not allocated
   BaseVector::ensureWritable(rows, VARCHAR(), context->pool(), result);
 
-  VELOX_CHECK((*result).get()->encoding() == VectorEncoding::Simple::FLAT);
+  VELOX_CHECK_EQ((*result).get()->encoding(), VectorEncoding::Simple::FLAT);
   return false;
 }
 

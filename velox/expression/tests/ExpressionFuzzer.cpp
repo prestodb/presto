@@ -364,6 +364,8 @@ class ExpressionFuzzer {
 
  public:
   void go(size_t steps) {
+    VELOX_CHECK(!signatures_.empty(), "No function signatures available.");
+
     for (size_t i = 0; i < steps; ++i) {
       LOG(INFO) << "==============================> Started iteration " << i
                 << " (seed: " << currentSeed_ << ")";
