@@ -322,11 +322,9 @@ class VectorMaker {
         BaseVector::countNulls(nulls, 0, size));
   }
 
-  /// Create a ArrayVector<T>
-  /// size and null for individual array is determined by sizeAt and isNullAt
-  /// value for elements of each array in a given row is determined by valueAt.
   template <typename T>
-  ArrayVectorPtr arrayVector(
+  ArrayVectorPtr arrayVectorImpl(
+      std::shared_ptr<const Type> type,
       vector_size_t size,
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
@@ -354,7 +352,7 @@ class VectorMaker {
 
     return std::make_shared<ArrayVector>(
         pool_,
-        ARRAY(CppToType<T>::create()),
+        type,
         nulls,
         size,
         offsets,
@@ -364,10 +362,45 @@ class VectorMaker {
   }
 
   /// Create a ArrayVector<T>
-  /// array elements are created based on input std::vectors and are
-  /// non-nullable.
+  /// size and null for individual array is determined by sizeAt and isNullAt
+  /// value for elements of each array in a given row is determined by valueAt.
   template <typename T>
-  ArrayVectorPtr arrayVector(const std::vector<std::vector<T>>& data) {
+  ArrayVectorPtr arrayVector(
+      vector_size_t size,
+      std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
+      std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
+          valueAt,
+      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr) {
+    return arrayVectorImpl(
+        ARRAY(CppToType<T>::create()), size, sizeAt, valueAt, isNullAt);
+  }
+
+  /// Create a FixedArrayVector<T>
+  /// size and null for individual array is determined by sizeAt and isNullAt
+  /// value for elements of each array in a given row is determined by valueAt.
+  template <typename T>
+  ArrayVectorPtr fixedSizeArrayVector(
+      int len,
+      vector_size_t size,
+      std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
+          valueAt,
+      std::function<bool(vector_size_t /*row */)> isNullAt) {
+    return arrayVectorImpl(
+        FIXED_SIZE_ARRAY(len, CppToType<T>::create()),
+        size,
+        [=](vector_size_t i) -> vector_size_t {
+          // All entries are the same fixed size, _except_ null entries are size
+          // 0.
+          return isNullAt(i) ? 0 : len;
+        }, // sizeAt
+        valueAt,
+        isNullAt);
+  }
+
+  template <typename T>
+  ArrayVectorPtr arrayVectorImpl(
+      std::shared_ptr<const Type> type,
+      const std::vector<std::vector<T>>& data) {
     vector_size_t size = data.size();
     BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_);
     BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool_);
@@ -396,14 +429,25 @@ class VectorMaker {
     }
 
     return std::make_shared<ArrayVector>(
-        pool_,
-        ARRAY(CppToType<T>::create()),
-        nullptr,
-        size,
-        offsets,
-        sizes,
-        flatVector,
-        0);
+        pool_, type, nullptr, size, offsets, sizes, flatVector, 0);
+  }
+
+  /// Create a ArrayVector<T>
+  /// array elements are created based on input std::vectors and are
+  /// non-nullable.
+  template <typename T>
+  ArrayVectorPtr arrayVector(const std::vector<std::vector<T>>& data) {
+    return arrayVectorImpl(ARRAY(CppToType<T>::create()), data);
+  }
+
+  /// Create a FixedSizeArrayVector<T>
+  /// array elements are created based on input std::vectors and are
+  /// non-nullable.  All vectors should be the same size.
+  template <typename T>
+  ArrayVectorPtr fixedSizeArrayVector(
+      int len,
+      const std::vector<std::vector<T>>& data) {
+    return arrayVectorImpl(FIXED_SIZE_ARRAY(len, CppToType<T>::create()), data);
   }
 
   /// Create an ArrayVector<ROW> from nested std::vectors of Variants.
@@ -411,11 +455,9 @@ class VectorMaker {
       const RowTypePtr& rowType,
       const std::vector<std::vector<variant>>& data);
 
-  /// Create a ArrayVector<T>
-  /// array elements are created based on input std::vectors and are
-  /// nullable. Only null array elements are supported; not null arrays.
   template <typename T>
-  ArrayVectorPtr arrayVectorNullable(
+  ArrayVectorPtr arrayVectorNullableImpl(
+      std::shared_ptr<const Type> type,
       const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
     vector_size_t size = data.size();
     BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_);
@@ -467,14 +509,28 @@ class VectorMaker {
     flatVector->setNullCount(elementNullCount);
 
     return std::make_shared<ArrayVector>(
-        pool_,
-        ARRAY(CppToType<T>::create()),
-        nulls,
-        size,
-        offsets,
-        sizes,
-        flatVector,
-        nullCount);
+        pool_, type, nulls, size, offsets, sizes, flatVector, nullCount);
+  }
+
+  /// Create a ArrayVector<T>
+  /// array elements are created based on input std::vectors and are
+  /// nullable. Only null array elements are supported; not null arrays.
+  template <typename T>
+  ArrayVectorPtr arrayVectorNullable(
+      const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
+    return arrayVectorNullableImpl(ARRAY(CppToType<T>::create()), data);
+  }
+
+  /// Create a FixedSizeArrayVector<T> array elements are created
+  /// based on input std::vectors and are nullable.  Only null array
+  /// elements are supported; not null arrays.  All vectors should be
+  /// the same size.
+  template <typename T>
+  ArrayVectorPtr fixedSizeArrayVectorNullable(
+      int len,
+      const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
+    return arrayVectorNullableImpl(
+        FIXED_SIZE_ARRAY(len, CppToType<T>::create()), data);
   }
 
   ArrayVectorPtr allNullArrayVector(

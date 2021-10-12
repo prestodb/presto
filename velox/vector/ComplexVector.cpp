@@ -414,6 +414,7 @@ void ArrayVector::copy(
   BaseVector::ensureWritable(
       SelectivityVector::empty(), elements_->type(), pool(), &elements_);
   auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
+  auto wantWidth = type()->isFixedWidth() ? type()->fixedElementsWidth() : 0;
   for (int32_t i = 0; i < count; ++i) {
     if (source->isNullAt(sourceIndex + i)) {
       setNull(targetIndex + i, true);
@@ -425,6 +426,16 @@ void ArrayVector::copy(
       vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
       vector_size_t childSize = elements_->size();
       if (copySize > 0) {
+        // If we are populating a FixedSizeArray we validate here that
+        // the entries we are populating are the correct sizes.
+        if (wantWidth != 0) {
+          VELOX_CHECK_EQ(
+              copySize,
+              wantWidth,
+              "Invalid length element at index {}, wrappedIndex {}",
+              i,
+              wrappedIndex);
+        }
         elements_->resize(childSize + copySize);
         elements_->copy(
             sourceArray->elements_.get(),

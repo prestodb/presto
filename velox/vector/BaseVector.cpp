@@ -264,6 +264,33 @@ VectorPtr BaseVector::create(
     case TypeKind::ARRAY: {
       BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
       BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
+      // When constructing FixedSizeArray types we validate the
+      // provided lengths are of the expected size. But
+      // BaseVector::create constructs the array with the
+      // sizes/offsets all set to zero -- presumably because the
+      // caller will fill them in later by directly manipulating
+      // rawSizes/rawOffsets. This makes the sanity check in the
+      // FixedSizeArray constructor less powerful than it would be if
+      // we knew the sizes / offsets were going to populate them with
+      // in advance and they were immutable after constructing the
+      // array.
+      //
+      // For now to support the current code structure of "create then
+      // populate" for BaseVector::create(), in the case of
+      // FixedSizeArrays we pre-initialize the sizes / offsets here
+      // with what we expect them to be so the constructor validation
+      // passes. The code that subsequently manipulates the
+      // sizes/offsets directly should also validate they are
+      // continuing to upload the fixedSize constraint.
+      if (type->isFixedWidth()) {
+        auto rawOffsets = offsets->asMutable<vector_size_t>();
+        auto rawSizes = sizes->asMutable<vector_size_t>();
+        const auto width = type->fixedElementsWidth();
+        for (vector_size_t i = 0; i < size; ++i) {
+          *rawSizes++ = width;
+          *rawOffsets++ = width * i;
+        }
+      }
       auto elementType = type->as<TypeKind::ARRAY>().elementType();
       auto elements = create(elementType, 0, pool);
       return std::make_shared<ArrayVector>(

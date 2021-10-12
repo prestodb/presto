@@ -234,7 +234,8 @@ class VectorTest : public testing::Test {
       bool withNulls,
       BufferPtr* nulls,
       BufferPtr* offsets,
-      BufferPtr* sizes) {
+      BufferPtr* sizes,
+      int forceWidth) {
     int32_t offsetBytes = numRows * sizeof(vector_size_t);
     *offsets = AlignedBuffer::allocate<char>(offsetBytes, pool_.get());
     *sizes = AlignedBuffer::allocate<char>(offsetBytes, pool_.get());
@@ -251,18 +252,21 @@ class VectorTest : public testing::Test {
       (*nulls)->setSize(bytes);
     }
     for (int32_t i = 0; i < numRows; ++i) {
-      int32_t size = i % 7;
+      int32_t size = (forceWidth > 0) ? forceWidth : i % 7;
       if (withNulls && i % 5 == 0) {
         bits::setNull((*nulls)->asMutable<uint64_t>(), i, true);
-        (*offsets)->asMutable<vector_size_t>()[i] = 0;
-        (*sizes)->asMutable<vector_size_t>()[i] = 0;
-        continue;
+        if (forceWidth == 0) {
+          // in forceWidth case, the size of a null element is still
+          // the same as a non-null element.
+          (*offsets)->asMutable<vector_size_t>()[i] = 0;
+          (*sizes)->asMutable<vector_size_t>()[i] = 0;
+          continue;
+        }
       }
       (*offsets)->asMutable<vector_size_t>()[i] = offset;
       (*sizes)->asMutable<vector_size_t>()[i] = size;
       offset += size;
     }
-    setOffsetsAndSizesByNulls(numRows, nulls, offsets, sizes);
     return offset;
   }
 
@@ -271,11 +275,29 @@ class VectorTest : public testing::Test {
     BufferPtr offsets;
     BufferPtr sizes;
     int32_t numElements =
-        createRepeated(numRows, withNulls, &nulls, &offsets, &sizes);
+        createRepeated(numRows, withNulls, &nulls, &offsets, &sizes, 0);
     VectorPtr elements = createRow(numElements, withNulls);
     return std::make_shared<ArrayVector>(
         pool_.get(),
         ARRAY(elements->type()),
+        nulls,
+        numRows,
+        offsets,
+        sizes,
+        elements,
+        BaseVector::countNulls(nulls, numRows));
+  }
+
+  VectorPtr createFixedSizeArray(int32_t numRows, bool withNulls, int width) {
+    BufferPtr nulls;
+    BufferPtr offsets;
+    BufferPtr sizes;
+    int32_t numElements =
+        createRepeated(numRows, withNulls, &nulls, &offsets, &sizes, width);
+    VectorPtr elements = createRow(numElements, withNulls);
+    return std::make_shared<ArrayVector>(
+        pool_.get(),
+        FIXED_SIZE_ARRAY(width, elements->type()),
         nulls,
         numRows,
         offsets,
@@ -755,7 +777,7 @@ VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
   BufferPtr offsets;
   BufferPtr sizes;
   int32_t numElements =
-      createRepeated(numRows, withNulls, &nulls, &offsets, &sizes);
+      createRepeated(numRows, withNulls, &nulls, &offsets, &sizes, 0);
   VectorPtr elements = createRow(numElements, withNulls);
   auto keysBase = BaseVector::create(VARCHAR(), 7, pool_.get());
   auto flatKeys = keysBase->as<FlatVector<StringView>>();
@@ -852,6 +874,19 @@ TEST_F(VectorTest, array) {
   auto baseArray = createArray(vectorSize_, false);
   testCopy(baseArray, numIterations_);
   baseArray = createArray(vectorSize_, true);
+  testCopy(baseArray, numIterations_);
+  auto allNull =
+      BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
+  testCopy(allNull, numIterations_);
+
+  testMove(baseArray, 5, 23);
+}
+
+TEST_F(VectorTest, fixedSizeArray) {
+  const int width = 7;
+  auto baseArray = createFixedSizeArray(vectorSize_, false, width);
+  testCopy(baseArray, numIterations_);
+  baseArray = createFixedSizeArray(vectorSize_, true, width);
   testCopy(baseArray, numIterations_);
   auto allNull =
       BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
