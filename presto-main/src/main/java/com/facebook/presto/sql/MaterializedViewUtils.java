@@ -15,24 +15,43 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
+import com.facebook.presto.sql.planner.LiteralEncoder;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.ConnectorMaterializedViewDefinition.TableColumn;
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
+import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class MaterializedViewUtils
@@ -114,6 +133,56 @@ public class MaterializedViewUtils
             return new Identity(owner.get(), Optional.empty());
         }
         return session.getIdentity();
+    }
+
+    public static Map<SchemaTableName, Expression> generateBaseTablePredicates(Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> predicatesFromBaseTables, Metadata metadata)
+    {
+        Map<SchemaTableName, Expression> baseTablePredicates = new HashMap<>();
+
+        for (SchemaTableName baseTable : predicatesFromBaseTables.keySet()) {
+            MaterializedViewStatus.MaterializedDataPredicates predicatesInfo = predicatesFromBaseTables.get(baseTable);
+            List<String> partitionKeys = predicatesInfo.getColumnNames();
+            ImmutableList<Expression> keyExpressions = partitionKeys.stream().map(Identifier::new).collect(toImmutableList());
+            List<TupleDomain<String>> predicateDisjuncts = predicatesInfo.getPredicateDisjuncts();
+            Expression disjunct = null;
+
+            for (TupleDomain<String> predicateDisjunct : predicateDisjuncts) {
+                Expression conjunct = null;
+                Iterator<Expression> keyExpressionsIterator = keyExpressions.stream().iterator();
+                Map<String, NullableValue> predicateKeyValue = extractFixedValues(predicateDisjunct)
+                        .orElseThrow(() -> new IllegalStateException("predicateKeyValue is not present!"));
+
+                for (String key : partitionKeys) {
+                    NullableValue nullableValue = predicateKeyValue.get(key);
+                    Expression expression;
+
+                    if (nullableValue.isNull()) {
+                        expression = new IsNullPredicate(keyExpressionsIterator.next());
+                    }
+                    else {
+                        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+                        Expression valueExpression = literalEncoder.toExpression(nullableValue.getValue(), nullableValue.getType(), false);
+                        expression = new ComparisonExpression(EQUAL, keyExpressionsIterator.next(), valueExpression);
+                    }
+
+                    conjunct = conjunct == null ? expression : new LogicalBinaryExpression(AND, conjunct, expression);
+                }
+
+                disjunct = conjunct == null ? disjunct : disjunct == null ? conjunct : new LogicalBinaryExpression(OR, disjunct, conjunct);
+            }
+            // If no (fresh) partitions are found for table, that means we should not select from it
+            if (disjunct == null) {
+                disjunct = FALSE_LITERAL;
+            }
+            baseTablePredicates.put(baseTable, disjunct);
+        }
+
+        return baseTablePredicates;
+    }
+
+    public static Map<SchemaTableName, Expression> generateFalsePredicates(List<SchemaTableName> baseTables)
+    {
+        return baseTables.stream().collect(toImmutableMap(table -> table, table -> BooleanLiteral.FALSE_LITERAL));
     }
 
     private static Map<String, TableColumn> getOriginalColumnsFromAnalysis(Node viewQuery, Analysis analysis)
