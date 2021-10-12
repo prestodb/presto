@@ -13,8 +13,14 @@
 # limitations under the License.
 
 add_executable(
-  velox_common_test ExceptionTests.cpp RangeTest.cpp BitUtilTest.cpp
-                    RawVectorTest.cpp StatsReporterTest.cpp SimdUtilTest.cpp)
+  velox_common_test
+  ExceptionTests.cpp
+  RangeTest.cpp
+  BitUtilTest.cpp
+  BloomFilterTest.cpp
+  RawVectorTest.cpp
+  StatsReporterTest.cpp
+  SimdUtilTest.cpp)
 
 add_test(velox_common_test velox_common_test)
 
