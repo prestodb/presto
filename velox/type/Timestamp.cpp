@@ -18,14 +18,25 @@
 #include "velox/external/date/tz.h"
 
 namespace facebook::velox {
+namespace {
+
+inline int64_t deltaWithTimezone(const date::time_zone& zone, int64_t seconds) {
+  auto tp = std::chrono::time_point<std::chrono::system_clock>(
+      std::chrono::seconds(seconds));
+  auto epoch = zone.to_local(tp).time_since_epoch();
+  int64_t delta =
+      seconds - std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
+  return delta;
+}
+
+} // namespace
 
 void Timestamp::toTimezone(const date::time_zone& zone) {
-  auto tp = std::chrono::time_point<std::chrono::system_clock>(
-      std::chrono::seconds(seconds_));
-  auto epoch = zone.to_local(tp).time_since_epoch();
-  int64_t delta = seconds_ -
-      std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
-  seconds_ += delta;
+  seconds_ += deltaWithTimezone(zone, seconds_);
+}
+
+void Timestamp::toTimezoneUTC(const date::time_zone& zone) {
+  seconds_ -= deltaWithTimezone(zone, seconds_);
 }
 
 void parseTo(folly::StringPiece in, ::facebook::velox::Timestamp& out) {

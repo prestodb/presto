@@ -130,3 +130,28 @@ TEST_F(DateTimeFunctionsTest, millisecond) {
   EXPECT_EQ(123, millisecond(Timestamp(-1, 123000000)));
   EXPECT_EQ(12300, millisecond(Timestamp(-1, 12300000000)));
 }
+
+TEST_F(DateTimeFunctionsTest, hour) {
+  const auto hour = [&](std::optional<Timestamp> date) {
+    return evaluateOnce<int64_t>("hour(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, hour(std::nullopt));
+  EXPECT_EQ(0, hour(Timestamp(0, 0)));
+  EXPECT_EQ(23, hour(Timestamp(-1, 9000)));
+  EXPECT_EQ(7, hour(Timestamp(4000000000, 0)));
+  EXPECT_EQ(7, hour(Timestamp(4000000000, 123000000)));
+  EXPECT_EQ(10, hour(Timestamp(998474645, 321000000)));
+  EXPECT_EQ(19, hour(Timestamp(998423705, 321000000)));
+
+  queryCtx_->setConfigOverridesUnsafe({
+      {core::QueryCtx::kSessionTimezone, "Pacific/Apia"},
+      {core::QueryCtx::kAdjustTimestampToTimezone, "true"},
+  });
+  EXPECT_EQ(std::nullopt, hour(std::nullopt));
+  EXPECT_EQ(13, hour(Timestamp(0, 0)));
+  EXPECT_EQ(12, hour(Timestamp(-1, 12300000000)));
+  EXPECT_EQ(21, hour(Timestamp(4000000000, 0)));
+  EXPECT_EQ(21, hour(Timestamp(4000000000, 123000000)));
+  EXPECT_EQ(23, hour(Timestamp(998474645, 321000000)));
+  EXPECT_EQ(8, hour(Timestamp(998423705, 321000000)));
+}

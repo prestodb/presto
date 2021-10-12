@@ -73,6 +73,7 @@ void registerVectorFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_to_utf8, "to_utf8");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_from_unixtime, "from_unixtime");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_hour, "hour");
 
   // TODO Fix Koski parser and clean this up.
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "ROW");

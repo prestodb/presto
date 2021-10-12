@@ -222,5 +222,43 @@ TEST(DateTimeUtilTest, toTimezone) {
   EXPECT_EQ(ts, fromTimestampString("2021-03-15 07:00:00"));
 }
 
+TEST(DateTimeUtilTest, toTimezoneUTC) {
+  auto* laZone = date::locate_zone("America/Los_Angeles");
+
+  // The LA time when GMT gets to "1970-01-01 00:00:00" (8h behind).
+  auto ts = fromTimestampString("1970-01-01 00:00:00");
+  ts.toTimezoneUTC(*laZone);
+  EXPECT_EQ(ts, fromTimestampString("1969-12-31 16:00:00"));
+
+  // Set on a random date/time and try some variations.
+  ts = fromTimestampString("2020-04-23 04:23:37");
+
+  // To LA:
+  auto tsCopy = ts;
+  tsCopy.toTimezoneUTC(*laZone);
+  EXPECT_EQ(tsCopy, fromTimestampString("2020-04-22 21:23:37"));
+
+  // To Sao Paulo:
+  tsCopy = ts;
+  tsCopy.toTimezoneUTC(*date::locate_zone("America/Sao_Paulo"));
+  EXPECT_EQ(tsCopy, fromTimestampString("2020-04-23 01:23:37"));
+
+  // Moscow:
+  tsCopy = ts;
+  tsCopy.toTimezoneUTC(*date::locate_zone("Europe/Moscow"));
+  EXPECT_EQ(tsCopy, fromTimestampString("2020-04-23 07:23:37"));
+
+  // Probe LA's daylight savings boundary (starts at 2021-13-14 02:00am).
+  // Before it starts, 8h offset:
+  ts = fromTimestampString("2021-03-14 00:00:00");
+  ts.toTimezoneUTC(*laZone);
+  EXPECT_EQ(ts, fromTimestampString("2021-03-13 16:00:00"));
+
+  // After it starts, 7h offset:
+  ts = fromTimestampString("2021-03-15 00:00:00");
+  ts.toTimezoneUTC(*laZone);
+  EXPECT_EQ(ts, fromTimestampString("2021-03-14 17:00:00"));
+}
+
 } // namespace
 } // namespace facebook::velox::util

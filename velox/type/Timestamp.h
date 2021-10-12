@@ -57,7 +57,21 @@ struct Timestamp {
 
   // Converts the unix epoch represented by this object (assumes it's GMT)
   // to the given timezone.
+  // For example, ts.toTimezone("Pacific/Apia") converts ts to represent
+  // the time in GMT when time zone Pacific/Apia reaches ts.
+  // Timestamp ts{0, 0};
+  // ts.Timezone("Pacific/Apia");
+  // ts.toString() returns January 1, 1970 11:00:00
   void toTimezone(const date::time_zone& zone);
+
+  // Converts the unix epoch represented by this object to the time in
+  // in time zone `zone` when GMT reaches this timestamp.
+  // For example, ts.toTimezone("Pacific/Apia") converts ts to represent
+  // the time in Pacific/Apia when GMT reaches ts.
+  // Timestamp ts{0, 0};
+  // ts.Timezone("Pacific/Apia");
+  // ts.toString() returns December 31, 1969 13:00:00
+  void toTimezoneUTC(const date::time_zone& zone);
 
   bool operator==(const Timestamp& b) const {
     return seconds_ == b.seconds_ && nanos_ == b.nanos_;
