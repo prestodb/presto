@@ -24,8 +24,8 @@ void registerCompareFunctions(const std::string& prefix) {
   registerBinaryScalar<udf_eq, bool>({prefix + "equalto"});
   registerBinaryScalar<udf_neq, bool>({prefix + "notequalto"});
   registerBinaryScalar<udf_lt, bool>({prefix + "lessthan"});
-  registerBinaryScalar<udf_gt, bool>({prefix + "lessthanorequal"});
-  registerBinaryScalar<udf_lte, bool>({prefix + "greaterthan"});
+  registerBinaryScalar<udf_gt, bool>({prefix + "greaterthan"});
+  registerBinaryScalar<udf_lte, bool>({prefix + "lessthanorequal"});
   registerBinaryScalar<udf_gte, bool>({prefix + "greaterthanorequal"});
 
   registerFunction<udf_between<int8_t>, bool, int8_t, int8_t, int8_t>(
