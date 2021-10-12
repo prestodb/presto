@@ -38,6 +38,7 @@ public class FileFragmentResultCacheConfig
     private Duration cacheTtl = new Duration(2, DAYS);
     private DataSize maxInFlightSize = new DataSize(1, GIGABYTE);
     private DataSize maxSinglePagesSize = new DataSize(500, MEGABYTE);
+    private DataSize maxCacheSize = new DataSize(100, GIGABYTE);
 
     public boolean isCachingEnabled()
     {
@@ -131,6 +132,20 @@ public class FileFragmentResultCacheConfig
     public FileFragmentResultCacheConfig setMaxSinglePagesSize(DataSize maxSinglePagesSize)
     {
         this.maxSinglePagesSize = maxSinglePagesSize;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getMaxCacheSize()
+    {
+        return maxCacheSize;
+    }
+
+    @Config("fragment-result-cache.max-cache-size")
+    @ConfigDescription("Maximum on-disk size of this fragment result cache")
+    public FileFragmentResultCacheConfig setMaxCacheSize(DataSize maxCacheSize)
+    {
+        this.maxCacheSize = maxCacheSize;
         return this;
     }
 }
