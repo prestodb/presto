@@ -74,16 +74,19 @@ class MockStreamInformation : public StreamInformation {
   const StreamIdentifier& streamIdentifier_;
 };
 
-class MockStripeStreams : public StripeStreamsBase {
+class TestStripeStreams : public StripeStreamsBase {
  public:
-  MockStripeStreams(
+  TestStripeStreams(
       WriterContext& context,
       const proto::StripeFooter& footer,
-      const std::shared_ptr<const RowType>& rowType)
+      const std::shared_ptr<const RowType>& rowType,
+      bool returnFlatVector = false)
       : StripeStreamsBase{&memory::getProcessDefaultMemoryManager().getRoot()},
         context_{context},
         footer_{footer},
-        selector_{rowType} {}
+        selector_{rowType} {
+    options_.setReturnFlatVector(returnFlatVector);
+  }
 
   std::unique_ptr<SeekableInputStream> getStream(
       const StreamIdentifier& si,
@@ -318,7 +321,7 @@ void testDataTypeWriter(
       return *sf.add_encoding();
     });
 
-    MockStripeStreams streams(context, sf, rowType);
+    TestStripeStreams streams(context, sf, rowType);
     auto typeWithId = TypeWithId::create(rowType);
     auto reqType = typeWithId->childAt(0);
     auto reader = ColumnReader::build(reqType, reqType, streams, sequence);
@@ -574,27 +577,63 @@ TEST(ColumnWriterTests, TestBinaryWriterAllNulls) {
 }
 
 template <typename T>
-std::string getValue(VectorPtr& batch, const uint32_t offset) {
-  auto scalarBatch = std::dynamic_pointer_cast<FlatVector<T>>(batch);
-  return std::to_string(scalarBatch->valueAt(offset));
-}
+struct ValueOf {
+  static std::string get(const VectorPtr& batch, const uint32_t offset) {
+    auto scalarBatch = std::dynamic_pointer_cast<FlatVector<T>>(batch);
+    return std::to_string(scalarBatch->valueAt(offset));
+  }
+};
 
 template <>
-std::string getValue<StringView>(VectorPtr& batch, const uint32_t offset) {
-  auto scalarBatch = std::dynamic_pointer_cast<FlatVector<StringView>>(batch);
-  return scalarBatch->valueAt(offset).str();
-}
+struct ValueOf<bool> {
+  static std::string get(const VectorPtr& batch, const uint32_t offset) {
+    auto scalarBatch = std::dynamic_pointer_cast<FlatVector<bool>>(batch);
+    return folly::to<std::string>(scalarBatch->valueAt(offset));
+  }
+};
 
 template <>
-std::string getValue<Map<int, int>>(VectorPtr& batch, const uint32_t offset) {
-  auto mapBatch = std::dynamic_pointer_cast<MapVector>(batch);
-  auto keyBatch =
-      std::dynamic_pointer_cast<FlatVector<int32_t>>(mapBatch->mapKeys());
-  auto valueBatch =
-      std::dynamic_pointer_cast<FlatVector<int32_t>>(mapBatch->mapValues());
-  return std::to_string(keyBatch->valueAt(offset)) + " : " +
-      std::to_string(valueBatch->valueAt(offset));
-}
+struct ValueOf<StringView> {
+  static std::string get(const VectorPtr& batch, const uint32_t offset) {
+    auto scalarBatch = std::dynamic_pointer_cast<FlatVector<StringView>>(batch);
+    return scalarBatch->valueAt(offset).str();
+  }
+};
+
+template <typename keyT, typename valueT>
+struct ValueOf<Map<keyT, valueT>> {
+  static std::string get(const VectorPtr& batch, const uint32_t offset) {
+    auto mapBatch = std::dynamic_pointer_cast<MapVector>(batch);
+    return folly::to<std::string>(
+        "map at ",
+        offset,
+        " child: ",
+        mapBatch->offsetAt(offset),
+        ":",
+        mapBatch->sizeAt(offset));
+  }
+};
+
+template <typename elemT>
+struct ValueOf<Array<elemT>> {
+  static std::string get(const VectorPtr& batch, const uint32_t offset) {
+    auto arrayBatch = std::dynamic_pointer_cast<ArrayVector>(batch);
+    return folly::to<std::string>(
+        "array at ",
+        offset,
+        " child: ",
+        arrayBatch->offsetAt(offset),
+        ":",
+        arrayBatch->sizeAt(offset));
+  }
+};
+
+template <typename... T>
+struct ValueOf<Row<T...>> {
+  static std::string get(const VectorPtr& /* batch */, const uint32_t offset) {
+    return folly::to<std::string>("row at ", offset);
+  }
+};
 
 template <typename T>
 std::string getNullCountStr(const T& vector) {
@@ -622,8 +661,8 @@ void printMap(const std::string& title, const VectorPtr& batch) {
           << ", Values Null count: " << getNullCountStr(*values);
 
   for (int32_t i = 0; i < keys->size(); ++i) {
-    VLOG(3) << "[" << i << "]: " << getValue<TKEY>(keys, i) << " -> "
-            << (values->isNullAt(i) ? "null" : getValue<TVALUE>(values, i));
+    VLOG(3) << "[" << i << "]: " << ValueOf<TKEY>::get(keys, i) << " -> "
+            << (values->isNullAt(i) ? "null" : ValueOf<TVALUE>::get(values, i));
   }
 }
 
@@ -672,31 +711,38 @@ void testMapWriter(
       return *sf.add_encoding();
     });
 
-    MockStripeStreams streams(context, sf, rowType);
-    const auto reader =
-        ColumnReader::build(dataTypeWithId, dataTypeWithId, streams, false);
-    VectorPtr out;
+    auto validate = [&](bool returnFlatVector = false) {
+      TestStripeStreams streams(context, sf, rowType, returnFlatVector);
+      const auto reader =
+          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams);
+      VectorPtr out;
 
-    // Read map
-    for (auto strideI = 0; strideI < strideCount; ++strideI) {
-      reader->next(batch->size(), out);
-      ASSERT_EQ(out->size(), batch->size()) << "Batch size mismatch";
+      // Read map
+      for (auto strideI = 0; strideI < strideCount; ++strideI) {
+        reader->next(batch->size(), out);
+        ASSERT_EQ(out->size(), batch->size()) << "Batch size mismatch";
 
-      if (printMaps) {
-        printMap<TKEY, TVALUE>("Result", out);
+        if (printMaps) {
+          printMap<TKEY, TVALUE>("Result", out);
+        }
+
+        for (int32_t i = 0; i < batch->size(); ++i) {
+          ASSERT_TRUE(batch->equalValueAt(out.get(), i, i))
+              << "Row mismatch at index " << i;
+        }
       }
 
-      for (int32_t i = 0; i < batch->size(); ++i) {
-        ASSERT_TRUE(batch->equalValueAt(out.get(), i, i))
-            << "Row mismatch at index " << i;
-      }
+      // Reader API requires the caller to read the Stripe for number of
+      // values and iterate only until that number.
+      // It does not support hasNext/next protocol.
+      // Use a bigger number like 50, as some values may be bit packed.
+      EXPECT_THROW({ reader->next(50, out); }, exception::LoggedException);
+    };
+
+    validate();
+    if (useFlatMap) {
+      validate(true);
     }
-
-    // Reader API requires the caller to read the Stripe for number of
-    // values and iterate only until that number.
-    // It does not support hasNext/next protocol.
-    // Use a bigger number like 50, as some values may be bit packed.
-    EXPECT_THROW({ reader->next(50, out); }, exception::LoggedException);
 
     context.nextStripe();
 
@@ -791,15 +837,15 @@ TEST(ColumnWriterTests, TestMapWriterInt8Key) {
 
 TEST(ColumnWriterTests, TestMapWriterStringKey) {
   using keyType = StringView;
-  using valueType = int32_t;
+  using valueType = StringView;
   using b = MapBuilder<keyType, valueType>;
 
   std::unique_ptr<ScopedMemoryPool> scopedPool = getDefaultScopedMemoryPool();
   auto& pool = *scopedPool;
   auto batch = b::create(
       pool,
-      {b::row{b::pair{"1", 3}, b::pair{"2", 2}},
-       b::row{b::pair{"2", 5}, b::pair{"3", 8}}});
+      {b::row{b::pair{"1", "3"}, b::pair{"2", "2"}},
+       b::row{b::pair{"2", "5"}, b::pair{"3", "8"}}});
 
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
@@ -884,9 +930,8 @@ TEST(ColumnWriterTests, TestMapWriterBinaryKey) {
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
 }
 
-TEST(ColumnWriterTests, TestMapWriterNestedMap) {
-  using keyType = int32_t;
-  using valueType = Map<int32_t, int32_t>;
+template <typename keyType, typename valueType>
+void testMapWriterImpl() {
   auto type = CppToType<Map<keyType, valueType>>::create();
 
   std::unique_ptr<ScopedMemoryPool> scopedPool = getDefaultScopedMemoryPool();
@@ -894,6 +939,21 @@ TEST(ColumnWriterTests, TestMapWriterNestedMap) {
   auto batch = BatchMaker::createVector<TypeKind::MAP>(type, 100, pool);
 
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false, false);
+  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true, false);
+}
+
+TEST(ColumnWriterTests, TestMapWriterNestedMap) {
+  testMapWriterImpl<int32_t, bool>();
+  testMapWriterImpl<int32_t, Array<int32_t>>();
+  testMapWriterImpl<int32_t, Array<bool>>();
+  testMapWriterImpl<int32_t, Array<StringView>>();
+  testMapWriterImpl<int32_t, Map<int32_t, bool>>();
+  testMapWriterImpl<int32_t, Map<int32_t, int32_t>>();
+  testMapWriterImpl<int32_t, Map<int32_t, StringView>>();
+  testMapWriterImpl<int32_t, Map<int32_t, Array<int32_t>>>();
+  testMapWriterImpl<int32_t, Map<int32_t, Map<int32_t, StringView>>>();
+  testMapWriterImpl<int32_t, Map<int32_t, Row<int32_t, bool, StringView>>>();
+  testMapWriterImpl<int32_t, Row<int32_t, bool, StringView>>();
 }
 
 TEST(ColumnWriterTests, TestMapWriterDifferentStripeBatches) {
@@ -1518,7 +1578,7 @@ struct IntegerColumnWriterTypedTestCase {
       // Read and verify.
       const size_t nodeId = 1;
       auto rowType = ROW({{"integral_column", type}});
-      MockStripeStreams streams(context, stripeFooter, rowType);
+      TestStripeStreams streams(context, stripeFooter, rowType);
       EncodingKey key{nodeId};
       const auto& encoding = streams.getEncoding(key);
       if (writeDirect) {
@@ -1533,7 +1593,7 @@ struct IntegerColumnWriterTypedTestCase {
       }
       typeWithId = TypeWithId::create(rowType);
       auto reqType = typeWithId->childAt(0);
-      auto columnReader = ColumnReader::build(reqType, reqType, streams, false);
+      auto columnReader = ColumnReader::build(reqType, reqType, streams);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         // TODO Make reuse work
@@ -2386,7 +2446,7 @@ struct StringColumnWriterTestCase {
       // Read and verify.
       const size_t nodeId = 1;
       auto rowType = ROW({{"string_column", type}});
-      MockStripeStreams streams(context, stripeFooter, rowType);
+      TestStripeStreams streams(context, stripeFooter, rowType);
       EncodingKey key{nodeId};
       const auto& encoding = streams.getEncoding(key);
       if (writeDirect) {
@@ -2401,7 +2461,7 @@ struct StringColumnWriterTestCase {
       }
       typeWithId = TypeWithId::create(rowType);
       auto reqType = typeWithId->childAt(0);
-      auto columnReader = ColumnReader::build(reqType, reqType, streams, false);
+      auto columnReader = ColumnReader::build(reqType, reqType, streams);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         if (!writeDirect) {
@@ -2844,7 +2904,7 @@ TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
   ASSERT_EQ(enc.kind(), proto::ColumnEncoding_Kind_DICTIONARY);
 
   // get data stream
-  MockStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
   StreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
   auto stream = streams.getStream(si, true);
 
@@ -2890,7 +2950,7 @@ TEST(ColumnWriterTests, ShortDictWriterDictValueOverflow) {
   ASSERT_EQ(enc.kind(), proto::ColumnEncoding_Kind_DICTIONARY);
 
   // get data stream
-  MockStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
   StreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
   auto stream = streams.getStream(si, true);
 
@@ -2930,7 +2990,7 @@ TEST(ColumnWriterTests, RemovePresentStream) {
   });
 
   // get data stream
-  MockStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
   StreamIdentifier si{1, 0, 0, proto::Stream_Kind_PRESENT};
   ASSERT_EQ(streams.getStream(si, false), nullptr);
 }
@@ -3062,12 +3122,12 @@ struct DictColumnWriterTestCase {
     });
 
     // Reading the vector out
-    MockStripeStreams streams(context, sf, rowType);
+    TestStripeStreams streams(context, sf, rowType);
     EXPECT_CALL(streams.getMockStrideIndexProvider(), getStrideIndex())
         .WillRepeatedly(Return(0));
     auto rowTypeWithId = TypeWithId::create(rowType);
     auto reqType = rowTypeWithId->childAt(0);
-    auto reader = ColumnReader::build(reqType, reqType, streams, false);
+    auto reader = ColumnReader::build(reqType, reqType, streams);
     VectorPtr out;
     reader->next(batch->size(), out);
     compareResults(batch, out);
