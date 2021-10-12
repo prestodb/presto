@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -156,6 +157,8 @@ public class Analysis
 
     // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
+
+    private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -656,7 +659,7 @@ public class Analysis
         tablesForView.pop();
     }
 
-    public void registerMaterializedViewForAnalysis(Table materializedView)
+    public void registerMaterializedViewForAnalysis(QualifiedObjectName materializedViewName, Table materializedView, String materializedViewSql)
     {
         requireNonNull(materializedView, "materializedView is null");
         if (materializedViewAnalysisStateMap.containsKey(materializedView)) {
@@ -665,6 +668,8 @@ public class Analysis
         else {
             materializedViewAnalysisStateMap.put(materializedView, VISITING);
         }
+
+        materializedViews.put(materializedViewName, materializedViewSql);
     }
 
     public void unregisterMaterializedViewForAnalysis(Table materializedView)
@@ -785,7 +790,45 @@ public class Analysis
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferencesForAccessControl(Session session)
     {
-        return isCheckAccessControlOnUtilizedColumnsOnly(session) ? utilizedTableColumnReferences : tableColumnReferences;
+        Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> references = isCheckAccessControlOnUtilizedColumnsOnly(session) ? utilizedTableColumnReferences : tableColumnReferences;
+        return buildMaterializedViewAccessControl(references);
+    }
+
+    /**
+     * For a query on materialized view, only check the actual required access controls for its base tables. For the materialized view,
+     * will not check access control by replacing with AllowAllAccessControl.
+     **/
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> buildMaterializedViewAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences)
+    {
+        if (!(getStatement() instanceof Query) || materializedViews.isEmpty()) {
+            return tableColumnReferences;
+        }
+
+        Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> newTableColumnReferences = new LinkedHashMap<>();
+
+        tableColumnReferences.forEach((accessControlInfo, references) -> {
+            AccessControlInfo allowAllAccessControlInfo = new AccessControlInfo(new AllowAllAccessControl(), accessControlInfo.getIdentity());
+            Map<QualifiedObjectName, Set<String>> newAllowAllReferences = newTableColumnReferences.getOrDefault(allowAllAccessControlInfo, new LinkedHashMap<>());
+
+            Map<QualifiedObjectName, Set<String>> newOtherReferences = new LinkedHashMap<>();
+
+            references.forEach((table, columns) -> {
+                if (materializedViews.containsKey(table)) {
+                    newAllowAllReferences.computeIfAbsent(table, key -> new HashSet<>()).addAll(columns);
+                }
+                else {
+                    newOtherReferences.put(table, columns);
+                }
+            });
+            if (!newAllowAllReferences.isEmpty()) {
+                newTableColumnReferences.put(allowAllAccessControlInfo, newAllowAllReferences);
+            }
+            if (!newOtherReferences.isEmpty()) {
+                newTableColumnReferences.put(accessControlInfo, newOtherReferences);
+            }
+        });
+
+        return newTableColumnReferences;
     }
 
     public void markRedundantOrderBy(OrderBy orderBy)
