@@ -195,7 +195,7 @@ class ColumnWriter {
     return context_.isIndexEnabled;
   }
 
-  bool useDictionaryEncoding() const {
+  virtual bool useDictionaryEncoding() const {
     return (sequence_ == 0 ||
             !context_.getConfig(Config::MAP_FLAT_DISABLE_DICT_ENCODING)) &&
         !context_.isLowMemoryMode();

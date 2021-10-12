@@ -960,6 +960,14 @@ class StringColumnWriter : public ColumnWriter {
     strideOffsets_.clear();
   }
 
+ protected:
+  bool useDictionaryEncoding() const override {
+    return (sequence_ == 0 ||
+            !context_.getConfig(
+                Config::MAP_FLAT_DISABLE_DICT_ENCODING_STRING)) &&
+        !context_.isLowMemoryMode();
+  }
+
  private:
   uint64_t writeDict(DecodedVector& decodedVector, const Ranges& ranges);
 

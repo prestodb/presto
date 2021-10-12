@@ -114,6 +114,10 @@ Config::Entry<bool> Config::MAP_FLAT_DISABLE_DICT_ENCODING(
     "orc.map.flat.disable.dict.encoding",
     true);
 
+Config::Entry<bool> Config::MAP_FLAT_DISABLE_DICT_ENCODING_STRING(
+    "orc.map.flat.disable.dict.encoding.string",
+    true);
+
 Config::Entry<bool> Config::MAP_FLAT_DICT_SHARE(
     "orc.map.flat.dict.share",
     true);

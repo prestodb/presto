@@ -102,6 +102,7 @@ class Config {
   static Entry<uint32_t> STRING_STATS_LIMIT;
   static Entry<bool> FLATTEN_MAP;
   static Entry<bool> MAP_FLAT_DISABLE_DICT_ENCODING;
+  static Entry<bool> MAP_FLAT_DISABLE_DICT_ENCODING_STRING;
   static Entry<bool> MAP_FLAT_DICT_SHARE;
   static Entry<const std::vector<uint32_t>> MAP_FLAT_COLS;
   static Entry<uint32_t> MAP_FLAT_MAX_KEYS;
