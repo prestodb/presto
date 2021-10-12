@@ -65,8 +65,29 @@ struct udf_is_deterministic<
     util::detail::void_t<decltype(T::is_deterministic)>>
     : std::integral_constant<bool, T::is_deterministic> {};
 
+// Most functions are producing ASCII results for ASCII inputs, but we assume
+// they are not unless specified explicitly.
+template <class T, class = void>
+struct udf_is_default_ascii_behavior : std::false_type {};
+
+template <class T>
+struct udf_is_default_ascii_behavior<
+    T,
+    util::detail::void_t<decltype(T::is_default_ascii_behavior)>>
+    : std::integral_constant<bool, T::is_default_ascii_behavior> {};
+
+template <class T, class = void>
+struct udf_reuse_strings_from_arg : std::integral_constant<int32_t, -1> {};
+
+template <class T>
+struct udf_reuse_strings_from_arg<
+    T,
+    util::detail::void_t<decltype(T::reuse_strings_from_arg)>>
+    : std::integral_constant<int32_t, T::reuse_strings_from_arg> {};
+
 KOKSI_MEMBER_CHECKER(udf_has_call, &T::call)
 KOKSI_MEMBER_CHECKER(udf_has_callNullable, &T::callNullable)
+KOKSI_MEMBER_CHECKER(udf_has_callAscii, &T::callAscii)
 
 // If a UDF doesn't declare a default help(),
 template <class T, class = void>
@@ -149,6 +170,7 @@ class IScalarFunction {
   virtual std::vector<std::shared_ptr<const Type>> argTypes() const = 0;
   virtual std::string getName() const = 0;
   virtual bool isDeterministic() const = 0;
+  virtual int32_t reuseStringsFromArg() const = 0;
   virtual variant callDynamic(const std::vector<variant>& inputs) = 0;
 
   FunctionKey key() const;
@@ -173,6 +195,10 @@ class ScalarFunctionMetadata : public IScalarFunction {
 
   bool isDeterministic() const final {
     return udf_is_deterministic<Fun>();
+  }
+
+  int32_t reuseStringsFromArg() const final {
+    return udf_reuse_strings_from_arg<Fun>();
   }
 
   std::shared_ptr<const Type> returnType() const final {
@@ -223,6 +249,9 @@ class UDFHolder final
       "UDF must implement at least one of `call` or `callNullable`");
   static constexpr bool is_default_null_behavior =
       !udf_has_callNullable<Fun>::value;
+  static constexpr bool has_ascii = udf_has_callAscii<Fun>::value;
+  static constexpr bool is_default_ascii_behavior =
+      udf_is_default_ascii_behavior<Fun>();
 
   using Metadata = core::ScalarFunctionMetadata<Fun, TReturn, TArgs...>;
 
@@ -278,6 +307,18 @@ class UDFHolder final
       } else {
         return false;
       }
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE bool callAscii(
+      typename Exec::template resolver<TReturn>::out_type& out,
+      const typename Exec::template resolver<TArgs>::in_type&... args) {
+    if constexpr (udf_has_callAscii<Fun>::value) {
+      return instance_.callAscii(out, args...);
+    } else if constexpr (udf_has_call<Fun>::value) {
+      return instance_.call(out, args...);
+    } else {
+      return instance_.callNullable(out, (&args)...);
     }
   }
 

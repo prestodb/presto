@@ -31,6 +31,7 @@
 #include "velox/common/encode/Base64.h"
 #include "velox/external/md5/md5.h"
 #include "velox/functions/lib/string/StringCore.h"
+#include "velox/type/StringView.h"
 
 namespace facebook::velox::functions::stringImpl {
 using namespace stringCore;
@@ -466,7 +467,7 @@ FOLLY_ALWAYS_INLINE void trimAsciiWhiteSpace(
     TOutString& output,
     const TInString& input) {
   if (input.empty()) {
-    output = TOutString("");
+    output.setEmpty();
     return;
   }
 
@@ -477,7 +478,7 @@ FOLLY_ALWAYS_INLINE void trimAsciiWhiteSpace(
     }
   }
   if (curPos >= input.end()) {
-    output = TOutString("");
+    output.setEmpty();
     return;
   }
   auto start = curPos;
@@ -487,7 +488,7 @@ FOLLY_ALWAYS_INLINE void trimAsciiWhiteSpace(
       curPos--;
     }
   }
-  output = TOutString(start, curPos - start + 1);
+  output.setNoCopy(StringView(start, curPos - start + 1));
 }
 
 template <
@@ -499,7 +500,7 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
     TOutString& output,
     const TInString& input) {
   if (input.empty()) {
-    output = TOutString("");
+    output.setEmpty();
     return;
   }
 
@@ -510,7 +511,8 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
       auto codePoint = utf8proc_codepoint(input.data() + curPos, codePointSize);
       // Invalid encoding, return the remaining of the input
       if (UNLIKELY(-1 == codePoint)) {
-        output = TOutString(input.data() + curPos, input.size() - curPos);
+        output.setNoCopy(
+            StringView(input.data() + curPos, input.size() - curPos));
         break;
       }
 
@@ -522,7 +524,7 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
     }
   }
   if (curPos >= input.size()) {
-    output = TOutString("");
+    output.setEmpty();
     return;
   }
   size_t start = curPos;
@@ -535,7 +537,8 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
       auto codePoint = utf8proc_codepoint(input.data() + curPos, codePointSize);
       // Invalid encoding, return the remaining of the input
       if (UNLIKELY(-1 == codePoint)) {
-        output = TOutString(input.data() + start, input.size() - start);
+        output.setNoCopy(
+            StringView(input.data() + start, input.size() - start));
         return;
       }
 
@@ -552,7 +555,7 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
       curPos += codePointSize;
     }
   }
-  output = TOutString(input.data() + start, lastNonWhiteSpace - start);
+  output.setNoCopy(StringView(input.data() + start, lastNonWhiteSpace - start));
 }
 
 template <bool ascii, typename TOutString, typename TInString>

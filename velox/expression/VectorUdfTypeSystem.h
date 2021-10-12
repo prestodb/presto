@@ -792,14 +792,29 @@ class StringProxy<FlatVector<StringView>, false /*reuseInput*/>
   /// Not called by the UDF Implementation. Should be called at the end to
   /// finalize the allocation and the string writing
   void finalize() {
-    VELOX_CHECK(size() == 0 || data());
-    if (dataBuffer_) {
-      dataBuffer_->setSize(dataBuffer_->size() + size());
+    if (!finalized_) {
+      VELOX_CHECK(size() == 0 || data());
+      if (dataBuffer_) {
+        dataBuffer_->setSize(dataBuffer_->size() + size());
+      }
+      vector_->setNoCopy(offset_, StringView(data(), size()));
     }
-    vector_->setNoCopy(offset_, StringView(data(), size()));
+  }
+
+  void setEmpty() {
+    static const StringView kEmpty("");
+    vector_->setNoCopy(offset_, kEmpty);
+    finalized_ = true;
+  }
+
+  void setNoCopy(StringView value) {
+    vector_->setNoCopy(offset_, value);
+    finalized_ = true;
   }
 
  private:
+  bool finalized_{false};
+
   /// The buffer that the output string uses for its allocation set during
   /// reserve() call
   Buffer* dataBuffer_ = nullptr;

@@ -59,6 +59,7 @@ class VectorAdapter : public VectorFunction {
     result_vector_t* result;
     VectorWriter<typename FUNC::return_type> resultWriter;
     EvalCtx* context;
+    bool allAscii{false};
   };
 
  public:
@@ -73,7 +74,26 @@ class VectorAdapter : public VectorFunction {
       VectorPtr* result) const override {
     ApplyContext applyContext{&rows, caller, context, result};
     DecodedArgs decodedArgs{rows, args, context};
+
+    // Enable fast all-ASCII path if all string inputs are ASCII and the
+    // function provides ASCII-only path.
+    if constexpr (FUNC::has_ascii) {
+      applyContext.allAscii = isAsciiArgs(rows, args);
+    }
+
     unpack<0>(applyContext, true, decodedArgs);
+
+    // Check if the function reuses input strings for the result and add
+    // references to input string buffers to result vector.
+    auto reuseStringsFromArg = fn_->reuseStringsFromArg();
+    if (reuseStringsFromArg >= 0) {
+      VELOX_CHECK_EQ((*result)->typeKind(), TypeKind::VARCHAR);
+      VELOX_CHECK_LT(reuseStringsFromArg, args.size());
+      VELOX_CHECK_EQ(args[reuseStringsFromArg]->typeKind(), TypeKind::VARCHAR);
+
+      (*result)->as<FlatVector<StringView>>()->acquireSharedStringBuffers(
+          decodedArgs.at(reuseStringsFromArg)->base());
+    }
   }
 
   bool isDeterministic() const override {
@@ -84,7 +104,38 @@ class VectorAdapter : public VectorFunction {
     return fn_->is_default_null_behavior;
   }
 
+  bool ensureStringEncodingSetAtAllInputs() const override {
+    return fn_->has_ascii;
+  }
+
+  bool propagateStringEncodingFromAllInputs() const override {
+    return fn_->is_default_ascii_behavior;
+  }
+
  private:
+  /// Return true if at least one argument has type VARCHAR and all VARCHAR
+  /// arguments are all-ASCII for the specified rows.
+  static bool isAsciiArgs(
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args) {
+    bool hasStringArgs = false;
+    bool allAscii = true;
+    for (auto& arg : args) {
+      if (arg->type()->isVarchar()) {
+        hasStringArgs = true;
+        auto stringArg = arg->asUnchecked<SimpleVector<StringView>>();
+        if (auto isAscii = stringArg->isAscii(rows)) {
+          if (!isAscii.value()) {
+            allAscii = false;
+            break;
+          }
+        }
+      }
+    }
+
+    return hasStringArgs && allAscii;
+  }
+
   template <
       int32_t POSITION,
       typename... TReader,
@@ -159,11 +210,21 @@ class VectorAdapter : public VectorFunction {
       }
     } else {
       if (allNotNull) {
-        applyContext.applyToSelectedNoThrow([&](auto row) {
-          applyContext.resultWriter.setOffset(row);
-          applyContext.resultWriter.commit(static_cast<char>(doApplyNotNull<0>(
-              row, applyContext.resultWriter.current(), readers...)));
-        });
+        if (applyContext.allAscii) {
+          applyContext.applyToSelectedNoThrow([&](auto row) {
+            applyContext.resultWriter.setOffset(row);
+            applyContext.resultWriter.commit(
+                static_cast<char>(doApplyAsciiNotNull<0>(
+                    row, applyContext.resultWriter.current(), readers...)));
+          });
+        } else {
+          applyContext.applyToSelectedNoThrow([&](auto row) {
+            applyContext.resultWriter.setOffset(row);
+            applyContext.resultWriter.commit(
+                static_cast<char>(doApplyNotNull<0>(
+                    row, applyContext.resultWriter.current(), readers...)));
+          });
+        }
       } else {
         applyContext.applyToSelectedNoThrow([&](auto row) {
           applyContext.resultWriter.setOffset(row);
@@ -289,6 +350,31 @@ class VectorAdapter : public VectorFunction {
   FOLLY_ALWAYS_INLINE bool
   doApplyNotNull(size_t /*idx*/, T& target, const Values&... values) const {
     return (*fn_).call(target, values...);
+  }
+
+  template <
+      size_t POSITION,
+      typename R0,
+      typename... TStuff,
+      std::enable_if_t<POSITION != FUNC::num_args, int32_t> = 0>
+  FOLLY_ALWAYS_INLINE bool doApplyAsciiNotNull(
+      size_t idx,
+      T& target,
+      R0& currentReader,
+      const TStuff&... extra) const {
+    decltype(currentReader[idx]) v0 = currentReader[idx];
+    return doApplyAsciiNotNull<POSITION + 1>(idx, target, extra..., v0);
+  }
+
+  template <
+      size_t POSITION,
+      typename... Values,
+      std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
+  FOLLY_ALWAYS_INLINE bool doApplyAsciiNotNull(
+      size_t /*idx*/,
+      T& target,
+      const Values&... values) const {
+    return (*fn_).callAscii(target, values...);
   }
 };
 
