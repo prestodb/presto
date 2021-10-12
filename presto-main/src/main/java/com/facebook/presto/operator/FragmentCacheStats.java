@@ -25,6 +25,9 @@ public class FragmentCacheStats
     private final AtomicLong cacheRemoval = new AtomicLong();
     private final AtomicLong cacheEntries = new AtomicLong();
 
+    // Total on-disk size in bytes.
+    private final AtomicLong cacheSizeInBytes = new AtomicLong();
+
     public void incrementCacheHit()
     {
         hit.getAndIncrement();
@@ -38,6 +41,11 @@ public class FragmentCacheStats
     public void addInFlightBytes(long bytes)
     {
         inFlightBytes.addAndGet(bytes);
+    }
+
+    public void addCacheSizeInBytes(long bytes)
+    {
+        cacheSizeInBytes.addAndGet(bytes);
     }
 
     public void incrementCacheRemoval()
@@ -83,5 +91,11 @@ public class FragmentCacheStats
     public long getCacheEntries()
     {
         return cacheEntries.get();
+    }
+
+    @Managed
+    public long getCacheSizeInBytes()
+    {
+        return cacheSizeInBytes.get();
     }
 }

@@ -65,14 +65,18 @@ public class FileFragmentResultCacheManager
     private static final Logger log = Logger.get(FileFragmentResultCacheManager.class);
 
     private final Path baseDirectory;
+    // Max size for the in-memory buffer.
     private final long maxInFlightBytes;
+    // Size limit for every single page.
     private final long maxSinglePagesBytes;
+    // Max on-disk size for this fragment result cache.
+    private final long maxCacheBytes;
     private final PagesSerdeFactory pagesSerdeFactory;
     private final FragmentCacheStats fragmentCacheStats;
     private final ExecutorService flushExecutor;
     private final ExecutorService removalExecutor;
 
-    private final Cache<CacheKey, Path> cache;
+    private final Cache<CacheKey, CacheEntry> cache;
 
     // TODO: Decouple CacheKey by encoding PlanNode and SplitIdentifier separately so we don't have to keep too many objects in memory
     @Inject
@@ -89,6 +93,7 @@ public class FileFragmentResultCacheManager
         this.baseDirectory = Paths.get(cacheConfig.getBaseDirectory());
         this.maxInFlightBytes = cacheConfig.getMaxInFlightSize().toBytes();
         this.maxSinglePagesBytes = cacheConfig.getMaxSinglePagesSize().toBytes();
+        this.maxCacheBytes = cacheConfig.getMaxCacheSize().toBytes();
         // pagesSerde is not thread safe
         this.pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, cacheConfig.isBlockEncodingCompressionEnabled());
         this.fragmentCacheStats = requireNonNull(fragmentCacheStats, "fragmentCacheStats is null");
@@ -132,7 +137,11 @@ public class FileFragmentResultCacheManager
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
         long resultSize = getPagesSize(result);
-        if (fragmentCacheStats.getInFlightBytes() + resultSize > maxInFlightBytes || cache.getIfPresent(key) != null || resultSize > maxSinglePagesBytes) {
+        if (fragmentCacheStats.getInFlightBytes() + resultSize > maxInFlightBytes ||
+                cache.getIfPresent(key) != null ||
+                resultSize > maxSinglePagesBytes ||
+                // Here we use the logical size resultSize as an estimate for admission control.
+                fragmentCacheStats.getCacheSizeInBytes() + resultSize > maxCacheBytes) {
             return immediateFuture(null);
         }
 
@@ -150,13 +159,14 @@ public class FileFragmentResultCacheManager
 
     private void cachePages(CacheKey key, Path path, List<Page> pages, long resultSize)
     {
-        // TODO: To support both memory and disk limit, we should check cache size before putting to cache and use written bytes as weight for cache
         try {
             Files.createFile(path);
             try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
                 writePages(pagesSerdeFactory.createPagesSerde(), output, pages.iterator());
-                cache.put(key, path);
+                long resultPhysicalBytes = output.size();
+                cache.put(key, new CacheEntry(path, resultPhysicalBytes));
                 fragmentCacheStats.incrementCacheEntries();
+                fragmentCacheStats.addCacheSizeInBytes(resultPhysicalBytes);
             }
             catch (UncheckedIOException | IOException e) {
                 log.warn(e, "%s encountered an error while writing to path %s", Thread.currentThread().getName(), path);
@@ -189,20 +199,20 @@ public class FileFragmentResultCacheManager
     public Optional<Iterator<Page>> get(String serializedPlan, Split split)
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
-        Path path = cache.getIfPresent(key);
-        if (path == null) {
+        CacheEntry cacheEntry = cache.getIfPresent(key);
+        if (cacheEntry == null) {
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
         }
 
         try {
-            InputStream inputStream = newInputStream(path);
+            InputStream inputStream = newInputStream(cacheEntry.getPath());
             Iterator<Page> result = readPages(pagesSerdeFactory.createPagesSerde(), new InputStreamSliceInput(inputStream));
             fragmentCacheStats.incrementCacheHit();
             return Optional.of(closeWhenExhausted(result, inputStream));
         }
         catch (UncheckedIOException | IOException e) {
-            log.error(e, "read path %s error", path);
+            log.error(e, "read path %s error", cacheEntry.getPath());
             // there might be a chance the file has been deleted. We would return cache miss in this case.
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
@@ -281,15 +291,39 @@ public class FileFragmentResultCacheManager
         }
     }
 
+    private static class CacheEntry
+    {
+        private final Path path;
+        private final long resultBytes;
+
+        public Path getPath()
+        {
+            return path;
+        }
+
+        public long getResultBytes()
+        {
+            return resultBytes;
+        }
+
+        public CacheEntry(Path path, long resultBytes)
+        {
+            this.path = requireNonNull(path, "path is null");
+            this.resultBytes = resultBytes;
+        }
+    }
+
     private class CacheRemovalListener
-            implements RemovalListener<CacheKey, Path>
+            implements RemovalListener<CacheKey, CacheEntry>
     {
         @Override
-        public void onRemoval(RemovalNotification<CacheKey, Path> notification)
+        public void onRemoval(RemovalNotification<CacheKey, CacheEntry> notification)
         {
-            removalExecutor.submit(() -> tryDeleteFile(notification.getValue()));
+            CacheEntry cacheEntry = notification.getValue();
+            removalExecutor.submit(() -> tryDeleteFile(cacheEntry.getPath()));
             fragmentCacheStats.incrementCacheRemoval();
             fragmentCacheStats.decrementCacheEntries();
+            fragmentCacheStats.addCacheSizeInBytes(-cacheEntry.getResultBytes());
         }
     }
 }
