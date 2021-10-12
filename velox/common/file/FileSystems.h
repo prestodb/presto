@@ -62,12 +62,4 @@ void registerFileSystem(
 // Register the local filesystem.
 void registerLocalFileSystem();
 
-// Register all filesystems.
-// Ideally, the prefix for each filesystem would be different,
-// eg. s3://, hdfs://, file://. The filename string should contain this prefix.
-// However, prefix uniqueness is not checked and each registered file system is
-// tried in the order it was registered.
-// So keep this in mind if multiple file systems could match the same prefix.
-void registerAllFileSystems();
-
 } // namespace facebook::velox::filesystems

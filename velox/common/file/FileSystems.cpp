@@ -117,9 +117,4 @@ void registerLocalFileSystem() {
       LocalFileSystem::schemeMatcher(), LocalFileSystem::fileSystemGenerator());
 }
 
-// Register FileSystems.
-void registerAllFileSystems() {
-  registerLocalFileSystem();
-}
-
 } // namespace facebook::velox::filesystems
