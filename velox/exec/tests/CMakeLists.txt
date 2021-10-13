@@ -13,10 +13,8 @@
 # limitations under the License.
 add_subdirectory(utils)
 
-add_library(
-  velox_exec_test_lib
-  PlanBuilder.cpp QueryAssertions.cpp Cursor.cpp OperatorTestBase.cpp
-  HiveConnectorTestBase.cpp TempFilePath.cpp)
+add_library(velox_exec_test_lib PlanBuilder.cpp QueryAssertions.cpp Cursor.cpp
+                                OperatorTestBase.cpp HiveConnectorTestBase.cpp)
 
 target_link_libraries(
   velox_exec_test_lib

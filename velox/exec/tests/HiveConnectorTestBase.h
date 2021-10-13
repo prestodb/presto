@@ -17,7 +17,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/tests/OperatorTestBase.h"
-#include "velox/exec/tests/TempFilePath.h"
+#include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 #include <folly/executors/IOThreadPoolExecutor.h>

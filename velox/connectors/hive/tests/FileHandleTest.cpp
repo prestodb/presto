@@ -21,7 +21,7 @@
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Arena.h"
-#include "velox/exec/tests/TempFilePath.h"
+#include "velox/exec/tests/utils/TempFilePath.h"
 
 using namespace facebook::velox;
 

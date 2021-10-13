@@ -11,6 +11,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_exec_test_util FunctionUtils.cpp)
-target_link_libraries(velox_exec_test_util velox_exec velox_parse_parser
-                      velox_expression)
+add_library(velox_exec_test_util FunctionUtils.cpp TempFilePath.cpp)
+target_link_libraries(velox_exec_test_util)

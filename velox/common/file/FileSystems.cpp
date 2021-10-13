@@ -22,9 +22,9 @@
 
 namespace facebook::velox::filesystems {
 
-constexpr std::string_view kFileScheme("file:");
-
 namespace {
+
+constexpr std::string_view kFileScheme("file:");
 
 using RegisteredFileSystems = std::vector<std::pair<
     std::function<bool(std::string_view)>,

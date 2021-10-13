@@ -16,7 +16,7 @@
 
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/exec/tests/TempFilePath.h"
+#include "velox/exec/tests/utils/TempFilePath.h"
 
 #include "gtest/gtest.h"
 
@@ -77,7 +77,7 @@ TEST(InMemoryFile, writeAndRead) {
   readData(&readFile);
 }
 
-TEST(LocalFile, WriteAndRead) {
+TEST(LocalFile, writeAndRead) {
   auto tempFile = ::exec::test::TempFilePath::create();
   const auto& filename = tempFile->path.c_str();
   remove(filename);
@@ -89,7 +89,7 @@ TEST(LocalFile, WriteAndRead) {
   readData(&readFile);
 }
 
-TEST(LocalFile, ViaRegistry) {
+TEST(LocalFile, viaRegistry) {
   filesystems::registerLocalFileSystem();
   const char filename[] = "/tmp/test";
   remove(filename);
