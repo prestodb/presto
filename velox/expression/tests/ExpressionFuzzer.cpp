@@ -40,6 +40,11 @@ DEFINE_int32(
     "Chance of adding a null constant to the plan, or null value in a vector "
     "(expressed using '1 in x' semantic).");
 
+DEFINE_bool(
+    retry_with_try,
+    false,
+    "Retry failed expressions by wrapping it using a try() statement.");
+
 namespace facebook::velox::test {
 
 namespace {
@@ -273,6 +278,20 @@ class ExpressionFuzzer {
     return folly::Random::oneIn(n, rng_);
   }
 
+  void printRowVector(const RowVectorPtr& rowVector) {
+    LOG(INFO) << "RowVector contents:";
+
+    for (size_t i = 0; i < rowVector->childrenSize(); ++i) {
+      LOG(INFO) << "Column C" << i << ":";
+      auto child = rowVector->childAt(i);
+
+      // If verbose mode, print the whole vector.
+      for (size_t j = 0; j < child->size(); ++j) {
+        LOG(INFO) << "\tC" << i << "[" << j << "]: " << child->toString(j);
+      }
+    }
+  }
+
   RowVectorPtr generateRowVector() {
     std::vector<VectorPtr> vectors;
     vectors.reserve(inputRowTypes_.size());
@@ -281,17 +300,6 @@ class ExpressionFuzzer {
     for (const auto& inputRowType : inputRowTypes_) {
       auto vector = vectorFuzzer_.fuzz(inputRowType);
 
-      // If verbose mode, print the whole vector.
-      if (VLOG_IS_ON(1)) {
-        for (size_t i = 0; i < vector->size(); ++i) {
-          if (vector->isNullAt(i)) {
-            LOG(INFO) << "C" << idx << "[" << i << "]: null";
-          } else {
-            LOG(INFO) << "C" << idx << "[" << i << "]: " << vector->toString(i);
-          }
-        }
-      }
-      LOG(INFO) << "\t" << vector->toString();
       vectors.emplace_back(vector);
       ++idx;
     }
@@ -362,6 +370,84 @@ class ExpressionFuzzer {
         chosen->returnType, args, chosen->name);
   }
 
+  // Executes an expression. Returns:
+  //
+  //  - true if both succeeded and returned the exact same results.
+  //  - false if both failed with compatible exceptions.
+  //  - throws otherwise (incompatible exceptions or different results).
+  bool executeExpression(
+      const core::TypedExprPtr& plan,
+      const RowVectorPtr& rowVector,
+      bool canThrow) {
+    LOG(INFO) << "Executing expression: " << plan->toString();
+
+    if (rowVector) {
+      LOG(INFO) << rowVector->childrenSize() << " vectors as input:";
+      for (const auto& child : rowVector->children()) {
+        LOG(INFO) << "\t" << child->toString();
+      }
+
+      if (VLOG_IS_ON(1)) {
+        printRowVector(rowVector);
+      }
+    }
+
+    // Execute expression plan using both common and simplified evals.
+    std::vector<VectorPtr> commonEvalResult(1);
+    std::vector<VectorPtr> simplifiedEvalResult(1);
+
+    std::exception_ptr exceptionCommonPtr;
+    std::exception_ptr exceptionSimplifiedPtr;
+
+    VLOG(1) << "Starting common eval execution.";
+    SelectivityVector rows{rowVector ? rowVector->size() : 1};
+
+    // Execute with common expression eval path.
+    try {
+      exec::ExprSet exprSetCommon({plan}, &execCtx_);
+      exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
+
+      exprSetCommon.eval(rows, &evalCtxCommon, &commonEvalResult);
+    } catch (...) {
+      if (!canThrow) {
+        LOG(ERROR)
+            << "Common eval wasn't supposed to throw, but it did. Aborting.";
+        throw;
+      }
+      exceptionCommonPtr = std::current_exception();
+    }
+
+    VLOG(1) << "Starting simplified eval execution.";
+
+    // Execute with simplified expression eval path.
+    try {
+      exec::ExprSetSimplified exprSetSimplified({plan}, &execCtx_);
+      exec::EvalCtx evalCtxSimplified(
+          &execCtx_, &exprSetSimplified, rowVector.get());
+
+      exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
+    } catch (...) {
+      if (!canThrow) {
+        LOG(ERROR)
+            << "Simplified eval wasn't supposed to throw, but it did. Aborting.";
+        throw;
+      }
+      exceptionSimplifiedPtr = std::current_exception();
+    }
+
+    // Compare results or exceptions (if any). Fail is anything is different.
+    if (exceptionCommonPtr || exceptionSimplifiedPtr) {
+      // Throws in case exceptions are not compatible. If they are compatible,
+      // return false to signal that the expression failed.
+      compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+      return false;
+    } else {
+      // Throws in case output is different.
+      compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
+    }
+    return true;
+  }
+
  public:
   void go(size_t steps) {
     VELOX_CHECK(!signatures_.empty(), "No function signatures available.");
@@ -375,60 +461,22 @@ class ExpressionFuzzer {
       size_t idx = folly::Random::rand32(signatures_.size(), rng_);
       const auto& rootType = signatures_[idx].returnType;
 
-      // Generate an expression tree.
+      // Generate expression tree and input data vectors.
       auto plan = generateExpression(rootType);
-      LOG(INFO) << "Generated expression: " << plan->toString();
-
-      // Generate the input data vectors.
       auto rowVector = generateRowVector();
-      SelectivityVector rows{rowVector ? rowVector->size() : 1};
 
-      if (rowVector) {
-        LOG(INFO) << "Generated " << rowVector->childrenSize() << " vectors:";
-        for (const auto& child : rowVector->children()) {
-          LOG(INFO) << "\t" << child->toString();
-        }
-      }
-
-      // Execute expression using both common and simplified evals.
-      std::vector<VectorPtr> commonEvalResult(1);
-      std::vector<VectorPtr> simplifiedEvalResult(1);
-
-      std::exception_ptr exceptionCommonPtr;
-      std::exception_ptr exceptionSimplifiedPtr;
-
-      VLOG(1) << "Starting common eval execution.";
-
-      // Execute with common expression eval path.
-      try {
-        exec::ExprSet exprSetCommon({plan}, &execCtx_);
-        exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
-
-        exprSetCommon.eval(rows, &evalCtxCommon, &commonEvalResult);
-      } catch (...) {
-        exceptionCommonPtr = std::current_exception();
-      }
-
-      VLOG(1) << "Starting simplified eval execution.";
-
-      // Execute with simplified expression eval path.
-      try {
-        exec::ExprSetSimplified exprSetSimplified({plan}, &execCtx_);
-        exec::EvalCtx evalCtxSimplified(
-            &execCtx_, &exprSetSimplified, rowVector.get());
-
-        exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
-      } catch (...) {
-        exceptionSimplifiedPtr = std::current_exception();
-      }
-
-      // Compare results or exceptions (if any). Fail is anything is different.
-      if (exceptionCommonPtr || exceptionSimplifiedPtr) {
-        compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+      // If both paths threw compatible exceptions, we add a try() function to
+      // the expression's root and execute it again. This time the expression
+      // cannot throw.
+      if (!executeExpression(plan, rowVector, true) && FLAGS_retry_with_try) {
         LOG(INFO)
-            << "Both paths failed with compatible exceptions. Continuing.";
-      } else {
-        compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
+            << "Both paths failed with compatible exceptions. Retrying expression using try().";
+
+        plan = std::make_shared<core::CallTypedExpr>(
+            plan->type(), std::vector<core::TypedExprPtr>{plan}, "try");
+
+        // At this point, the function throws if anything goes wrong.
+        executeExpression(plan, rowVector, false);
       }
 
       LOG(INFO) << "==============================> Done with iteration " << i;
