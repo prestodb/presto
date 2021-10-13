@@ -153,6 +153,7 @@ public class TestHiveClientConfig
                 .setManifestVerificationEnabled(false)
                 .setUndoMetastoreOperationsEnabled(true)
                 .setOptimizedPartitionUpdateSerializationEnabled(false)
+                .setVerboseRuntimeStatsEnabled(false)
                 .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS))
                 .setMaterializedViewMissingPartitionsThreshold(100)
                 .setLooseMemoryAccountingEnabled(false));
@@ -271,6 +272,7 @@ public class TestHiveClientConfig
                 .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
                 .put("hive.partition-lease-duration", "4h")
                 .put("hive.loose-memory-accounting-enabled", "true")
+                .put("hive.verbose-runtime-stats-enabled", "true")
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
                 .build();
 
@@ -382,6 +384,7 @@ public class TestHiveClientConfig
                 .setManifestVerificationEnabled(true)
                 .setUndoMetastoreOperationsEnabled(false)
                 .setOptimizedPartitionUpdateSerializationEnabled(true)
+                .setVerboseRuntimeStatsEnabled(true)
                 .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS))
                 .setMaterializedViewMissingPartitionsThreshold(50)
                 .setLooseMemoryAccountingEnabled(true);
