@@ -36,6 +36,7 @@ class Re2FunctionsTest : public test::FunctionBaseTest {
         "re2_search", re2SearchSignatures(), makeRe2Search);
     exec::registerStatefulVectorFunction(
         "re2_extract", re2ExtractSignatures(), makeRe2Extract);
+    exec::registerStatefulVectorFunction("like", likeSignatures(), makeLike);
   }
 };
 
@@ -322,6 +323,68 @@ TEST_F(Re2FunctionsTest, regexExtractConstantPatternNoGroupId) {
 
   EXPECT_EQ(extract("a1 b2 c3", "\\d+"), "1");
   EXPECT_EQ(extract("a b245 c3", "\\d+"), "245");
+}
+
+TEST_F(Re2FunctionsTest, likePattern) {
+  auto like = [&](std::optional<std::string> str,
+                  std::optional<std::string> pattern) {
+    return evaluateOnce<bool>("like(c0, '" + *pattern + "')", str);
+  };
+
+  EXPECT_EQ(like("abc", "%b%"), true);
+  EXPECT_EQ(like("bcd", "%b%"), true);
+  EXPECT_EQ(like("cde", "%b%"), false);
+
+  EXPECT_EQ(like("abc", "_b%"), true);
+  EXPECT_EQ(like("bcd", "_b%"), false);
+  EXPECT_EQ(like("cde", "_b%"), false);
+
+  EXPECT_EQ(like("abc", "b%"), false);
+  EXPECT_EQ(like("bcd", "b%"), true);
+  EXPECT_EQ(like("cde", "b%"), false);
+
+  EXPECT_EQ(like("abc", "B%"), false);
+  EXPECT_EQ(like("bcd", "B%"), false);
+  EXPECT_EQ(like("cde", "B%"), false);
+
+  EXPECT_EQ(like("stringwithmorethan16chars", "string%"), true);
+  EXPECT_EQ(
+      like("stringwithmorethan16chars", "stringwithmorethan16chars"), true);
+  EXPECT_EQ(
+      like("stringwithmorethan16chars", "stringwithlessthan16chars"), false);
+
+  EXPECT_EQ(
+      like(
+          u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 abc",
+          u8"\u4FE1\u5FF5 \u7231%"),
+      true);
+  EXPECT_EQ(
+      like(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ", u8"\u4FE1%\u7231%"),
+      true);
+  EXPECT_EQ(
+      like(
+          u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ",
+          u8"\u7231\u4FE1%\u7231%"),
+      false);
+}
+
+TEST_F(Re2FunctionsTest, likePatternAndEscape) {
+  auto like = ([&](std::optional<std::string> str,
+                   std::optional<std::string> pattern,
+                   std::optional<char> escape) {
+    return evaluateOnce<bool>(
+        "like(c0, '" + *pattern + "', '" + *escape + "')", str);
+  });
+
+  EXPECT_EQ(like("a_c", "%#_%", '#'), true);
+  EXPECT_EQ(like("_cd", "%#_%", '#'), true);
+  EXPECT_EQ(like("cde", "%#_%", '#'), false);
+
+  EXPECT_EQ(like("a%c", "%#%%", '#'), true);
+  EXPECT_EQ(like("%cd", "%#%%", '#'), true);
+  EXPECT_EQ(like("cde", "%#%%", '#'), false);
+
+  EXPECT_THROW(like("abcd", "a#}#+", '#'), std::exception);
 }
 
 } // namespace

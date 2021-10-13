@@ -65,6 +65,7 @@ void registerVectorFunctions() {
   exec::registerStatefulVectorFunction(
       "width_bucket", widthBucketArraySignature(), makeWidthBucketArray);
 
+  exec::registerStatefulVectorFunction("like", likeSignatures(), makeLike);
   exec::registerStatefulVectorFunction(
       "regexp_extract", re2ExtractSignatures(), makeRe2Extract);
   exec::registerStatefulVectorFunction(

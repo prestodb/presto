@@ -116,6 +116,61 @@ bool re2Extract(
   }
 }
 
+std::string
+likePatternToRe2(StringView pattern, char escapeChar, bool& validPattern) {
+  std::string regex;
+  validPattern = true;
+  regex.reserve(pattern.size() * 2);
+  regex.append("^");
+  bool escaped = false;
+  for (const char c : pattern) {
+    if (escaped && !(c == '%' || c == '_' || c == escapeChar)) {
+      validPattern = false;
+    }
+    if (!escaped && (c == escapeChar)) {
+      escaped = true;
+    } else {
+      switch (c) {
+        case '%':
+          regex.append(escaped ? "%" : ".*");
+          escaped = false;
+          break;
+        case '_':
+          regex.append(escaped ? "_" : ".");
+          escaped = false;
+          break;
+        // Escape all the meta characters in re2
+        case '\\':
+        case '|':
+        case '^':
+        case '$':
+        case '.':
+        case '*':
+        case '+':
+        case '?':
+        case '(':
+        case ')':
+        case '[':
+        case ']':
+        case '{':
+        case '}':
+          regex.append("\\");
+        // Append the meta character after the escape. Note: The fallthrough is
+        // intentional.
+        default:
+          regex.append(1, c);
+          escaped = false;
+      }
+    }
+  }
+  if (escaped) {
+    validPattern = false;
+  }
+
+  regex.append("$");
+  return regex;
+}
+
 template <bool (*Fn)(StringView, const RE2&)>
 class Re2MatchConstantPattern final : public VectorFunction {
  public:
@@ -300,6 +355,60 @@ class Re2SearchAndExtract final : public VectorFunction {
   }
 };
 
+class LikeConstantPattern final : public VectorFunction {
+ public:
+  LikeConstantPattern(StringView pattern, char escapeChar)
+      : re_(toStringPiece(likePatternToRe2(pattern, escapeChar, validPattern_)),
+            RE2::Quiet) {}
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      Expr* /* caller */,
+      EvalCtx* context,
+      VectorPtr* resultRef) const final {
+    VELOX_CHECK(args.size() == 2 || args.size() == 3);
+
+    if (!validPattern_) {
+      auto error = std::make_exception_ptr(std::invalid_argument(
+          "Escape character must be followed by '%%', '_' or the escape character itself\""));
+      rows.applyToSelected([&](auto row) { context->setError(row, error); });
+      return;
+    }
+
+    // apply() will not be invoked if the selection is empty.
+    checkForBadPattern(re_);
+
+    FlatVector<bool>& result =
+        ensureWritableBool(rows, context->pool(), resultRef);
+
+    exec::DecodedArgs decodedArgs(rows, args, context);
+    auto toSearch = decodedArgs.at(0);
+    if (toSearch->isIdentityMapping()) {
+      auto rawStrings = toSearch->data<StringView>();
+      rows.applyToSelected([&](vector_size_t i) {
+        result.set(i, re2FullMatch(rawStrings[i], re_));
+      });
+      return;
+    }
+
+    if (toSearch->isConstantMapping()) {
+      bool match = re2FullMatch(toSearch->valueAt<StringView>(0), re_);
+      rows.applyToSelected([&](vector_size_t i) { result.set(i, match); });
+      return;
+    }
+
+    // Since the likePattern and escapeChar (2nd and 3rd args) are both
+    // constants, so the first arg is expected to be either of flat or constant
+    // vector only. This code path is unreachable.
+    VELOX_UNREACHABLE();
+  }
+
+ private:
+  RE2 re_;
+  bool validPattern_;
+};
+
 template <bool (*Fn)(StringView, const RE2&)>
 std::shared_ptr<VectorFunction> makeRe2MatchImpl(
     const std::string& name,
@@ -435,6 +544,78 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures() {
           .argumentType("varchar")
           .argumentType("varchar")
           .argumentType("integer")
+          .build(),
+  };
+}
+
+std::shared_ptr<exec::VectorFunction> makeLike(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  auto numArgs = inputArgs.size();
+  VELOX_USER_CHECK(
+      numArgs == 2 || numArgs == 3,
+      "{} requires 2 or 3 arguments, but got {}",
+      name,
+      numArgs);
+
+  VELOX_USER_CHECK(
+      inputArgs[0].type->isVarchar(),
+      "{} requires first argument of type VARCHAR, but got {}",
+      name,
+      inputArgs[0].type->toString());
+
+  VELOX_USER_CHECK(
+      inputArgs[1].type->isVarchar(),
+      "{} requires second argument of type VARCHAR, but got {}",
+      name,
+      inputArgs[1].type->toString());
+
+  char escapeChar;
+  if (numArgs == 3) {
+    VELOX_USER_CHECK(
+        inputArgs[2].type->isVarchar(),
+        "{} requires third argument of type VARCHAR, but got {}",
+        name,
+        inputArgs[2].type->toString());
+
+    BaseVector* escape = inputArgs[2].constantValue.get();
+    VELOX_USER_CHECK(
+        escape != nullptr,
+        "{} requires third argument to be a constant of type VARCHAR",
+        name,
+        inputArgs[2].type->toString());
+
+    auto constantEscape = escape->as<ConstantVector<StringView>>();
+
+    // Escape char should be a single char value
+    VELOX_USER_CHECK_EQ(constantEscape->valueAt(0).size(), 1);
+    escapeChar = constantEscape->valueAt(0).data()[0];
+  }
+
+  BaseVector* constantPattern = inputArgs[1].constantValue.get();
+  VELOX_USER_CHECK(
+      constantPattern != nullptr,
+      "{} requires second argument to be a constant of type VARCHAR",
+      name,
+      inputArgs[1].type->toString());
+  auto pattern = constantPattern->as<ConstantVector<StringView>>()->valueAt(0);
+  return std::make_shared<LikeConstantPattern>(pattern, escapeChar);
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures() {
+  // varchar, varchar -> boolean
+  // varchar, varchar, varchar -> boolean
+  return {
+      exec::FunctionSignatureBuilder()
+          .returnType("boolean")
+          .argumentType("varchar")
+          .argumentType("varchar")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .returnType("boolean")
+          .argumentType("varchar")
+          .argumentType("varchar")
+          .argumentType("varchar")
           .build(),
   };
 }

@@ -56,6 +56,8 @@ using exec::SignatureBinder;
 static std::unordered_set<std::string> kSkipFunctions = {
     "strpos",
     "replace",
+    // Fails because like requires 2nd arg to be a constant of type VARCHAR.
+    "like",
 };
 
 // Called if at least one of the ptrs has an exception.

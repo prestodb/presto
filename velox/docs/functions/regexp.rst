@@ -33,3 +33,17 @@ See https://github.com/google/re2/wiki/Syntax for more information.
     the entire string by anchoring the pattern using ``^`` and ``$``::
 
         SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
+
+.. function:: like(string, pattern) -> boolean
+              like(string, pattern, escape) -> boolean
+
+    Evaluates if the ``string`` matches the ``pattern``. Patterns can contain
+    regular characters as well as wildcards. Wildcard characters can be escaped
+    using the single character specified for the ``escape`` parameter.
+    Matching is case sensitive.
+
+    Note: The wildcard '%' represents 0, 1 or multiple characters and the
+    wildcard '_' represents exactly one character.
+
+        SELECT like('abc', '%b%'); -- true
+        SELECT like('a_c', '%#_%', '#'); -- true

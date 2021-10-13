@@ -73,4 +73,10 @@ std::shared_ptr<exec::VectorFunction> makeRe2Extract(
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures();
 
+std::shared_ptr<exec::VectorFunction> makeLike(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures();
+
 } // namespace facebook::velox::functions
