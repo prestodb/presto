@@ -150,7 +150,6 @@ public class StripeReader
             SharedBuffer sharedDecompressionBuffer)
             throws IOException
     {
-        runtimeStats.addMetricValue("OrcStripeCount", 1);
         StripeId stripeId = new StripeId(orcDataSource.getId(), stripe.getOffset());
 
         // read the stripe footer
@@ -202,7 +201,6 @@ public class StripeReader
 
             // if all row groups are skipped, return null
             if (selectedRowGroups.isEmpty()) {
-                runtimeStats.addMetricValue("OrcSkippedStripe", 1);
                 // set accounted memory usage to zero
                 systemMemoryUsage.close();
                 return null;
