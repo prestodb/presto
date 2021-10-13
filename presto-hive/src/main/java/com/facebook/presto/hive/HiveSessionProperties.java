@@ -126,6 +126,7 @@ public final class HiveSessionProperties
     public static final String CACHE_ENABLED = "cache_enabled";
     public static final String ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING = "enable_loose_memory_based_accounting";
     public static final String MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD = "materialized_view_missing_partitions_threshold";
+    public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -586,6 +587,11 @@ public final class HiveSessionProperties
                         cacheConfig.isCachingEnabled(),
                         false),
                 booleanProperty(
+                        VERBOSE_RUNTIME_STATS_ENABLED,
+                        "Enable tracking all runtime stats. Note that this may affect query performance.",
+                        hiveClientConfig.isVerboseRuntimeStatsEnabled(),
+                        false),
+                booleanProperty(
                         ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING,
                         "Enable loose memory accounting to avoid OOMing existing queries",
                         hiveClientConfig.isLooseMemoryAccountingEnabled(),
@@ -1043,5 +1049,10 @@ public final class HiveSessionProperties
     public static int getMaterializedViewMissingPartitionsThreshold(ConnectorSession session)
     {
         return session.getProperty(MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.class);
+    }
+
+    public static boolean isVerboseRuntimeStatsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
     }
 }

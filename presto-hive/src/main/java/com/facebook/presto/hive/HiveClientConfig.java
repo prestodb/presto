@@ -197,6 +197,8 @@ public class HiveClientConfig
     private boolean enableLooseMemoryAccounting;
     private int materializedViewMissingPartitionsThreshold = 100;
 
+    private boolean verboseRuntimeStatsEnabled;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1628,6 +1630,19 @@ public class HiveClientConfig
     public boolean isOptimizedPartitionUpdateSerializationEnabled()
     {
         return optimizedPartitionUpdateSerializationEnabled;
+    }
+
+    @Config("hive.verbose-runtime-stats-enabled")
+    @ConfigDescription("Enable tracking all runtime stats. Note that this may affect query performance")
+    public HiveClientConfig setVerboseRuntimeStatsEnabled(boolean verboseRuntimeStatsEnabled)
+    {
+        this.verboseRuntimeStatsEnabled = verboseRuntimeStatsEnabled;
+        return this;
+    }
+
+    public boolean isVerboseRuntimeStatsEnabled()
+    {
+        return verboseRuntimeStatsEnabled;
     }
 
     @Config("hive.partition-lease-duration")

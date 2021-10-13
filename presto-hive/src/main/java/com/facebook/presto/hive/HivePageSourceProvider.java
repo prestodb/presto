@@ -207,7 +207,13 @@ public class HivePageSourceProvider
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new), Optional.of(hiveSplit.getFileSize()), hiveSplit.getFileModifiedTime()),
+                new HiveFileContext(
+                        splitContext.isCacheable(),
+                        cacheQuota,
+                        hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
+                        Optional.of(hiveSplit.getFileSize()),
+                        hiveSplit.getFileModifiedTime(),
+                        HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
@@ -318,7 +324,13 @@ public class HivePageSourceProvider
                             handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate())).orElse(layout.getDomainPredicate()),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new), Optional.of(split.getFileSize()), split.getFileModifiedTime()),
+                    new HiveFileContext(
+                            splitContext.isCacheable(),
+                            cacheQuota,
+                            split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
+                            Optional.of(split.getFileSize()),
+                            split.getFileModifiedTime(),
+                            HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
                     encryptionInformation);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
