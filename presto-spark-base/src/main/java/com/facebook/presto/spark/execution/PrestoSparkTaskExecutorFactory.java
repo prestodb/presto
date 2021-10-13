@@ -178,7 +178,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final NodeMemoryConfig nodeMemoryConfig;
     private final DataSize maxRevocableMemory;
-    private final DataSize maxSpillMemory;
+    private final DataSize maxQuerySpillPerNode;
     private final DataSize sinkMaxBufferSize;
 
     private final boolean perOperatorCpuTimerEnabled;
@@ -234,7 +234,7 @@ public class PrestoSparkTaskExecutorFactory
                 authenticatorProviders,
                 nodeMemoryConfig,
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getQueryMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskCpuTimerEnabled(),
@@ -263,7 +263,7 @@ public class PrestoSparkTaskExecutorFactory
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             NodeMemoryConfig nodeMemoryConfig,
             DataSize maxRevocableMemory,
-            DataSize maxSpillMemory,
+            DataSize maxQuerySpillPerNode,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
@@ -291,7 +291,7 @@ public class PrestoSparkTaskExecutorFactory
         // Ordering is needed to make sure serialized plans are consistent for the same map
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
-        this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
+        this.maxQuerySpillPerNode = requireNonNull(maxQuerySpillPerNode, "maxQuerySpillPerNode is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
@@ -383,7 +383,7 @@ public class PrestoSparkTaskExecutorFactory
 
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), maxTotalMemory);
 
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillMemory);
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxQuerySpillPerNode);
 
         QueryContext queryContext = new QueryContext(
                 session.getQueryId(),
@@ -395,7 +395,7 @@ public class PrestoSparkTaskExecutorFactory
                 new TestingGcMonitor(),
                 notificationExecutor,
                 yieldExecutor,
-                maxSpillMemory,
+                maxQuerySpillPerNode,
                 spillSpaceTracker,
                 memoryReservationSummaryJsonCodec);
         queryContext.setVerboseExceededMemoryLimitErrorsEnabled(isVerboseExceededMemoryLimitErrorsEnabled(session));
