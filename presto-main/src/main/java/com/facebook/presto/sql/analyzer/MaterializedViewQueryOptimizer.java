@@ -268,6 +268,9 @@ public class MaterializedViewQueryOptimizer
     @Override
     protected Node visitSingleColumn(SingleColumn node, Void context)
     {
+        // For a single table, without sub-queries, the column prefix is unnecessary. Here It is removed so that it can be mapped to the view column properly.
+        // For relations other than single table, it needs to be reserved to differentiate columns from different tables.
+        // One way to do so is to process the prefix within `visitDereferenceExpression()` since the prefix information is saved as `base` in `DereferenceExpression` node.
         node = removeSingleColumnPrefix(node, removablePrefix);
         Expression expression = node.getExpression();
         Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
@@ -277,10 +280,15 @@ public class MaterializedViewQueryOptimizer
                 (!expressionsInGroupBy.isPresent() || !expressionsInGroupBy.get().contains(expression))) {
             throw new IllegalStateException("Query a column presents in materialized view group by: " + expression.toString());
         }
-        // For a single table, without sub-queries, the column prefix is unnecessary. Here It is removed so that it can be mapped to the view column properly.
-        // For relations other than single table, it needs to be reserved to differentiate columns from different tables.
-        // One way to do so is to process the prefix within `visitDereferenceExpression()` since the prefix information is saved as `base` in `DereferenceExpression` node.
-        return new SingleColumn((Expression) process(expression, context), node.getAlias());
+
+        Expression processedColumn = (Expression) process(expression, context);
+        Optional<Identifier> alias = node.getAlias();
+
+        // If a column name was rewritten, make sure we re-alias to same name as base query
+        if (!alias.isPresent() && processedColumn instanceof Identifier && !processedColumn.equals(node.getExpression())) {
+            alias = Optional.of((Identifier) node.getExpression());
+        }
+        return new SingleColumn(processedColumn, alias);
     }
 
     @Override
