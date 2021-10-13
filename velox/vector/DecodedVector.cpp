@@ -347,7 +347,7 @@ void DecodedVector::setBaseData(
       return;
 
     case VectorEncoding::Simple::CONSTANT: {
-      if (!vector.isScalar() && !vector.isNullAt(0)) {
+      if (!vector.isScalar()) {
         baseVector_ = vector.wrappedVector();
         constantIndex_ = vector.wrappedIndex(0);
       }

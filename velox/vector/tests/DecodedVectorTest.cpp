@@ -109,13 +109,13 @@ class DecodedVectorTest : public testing::Test {
     DecodedVector decoded(*constantVector, selection);
     EXPECT_TRUE(decoded.isConstantMapping());
     EXPECT_FALSE(decoded.isIdentityMapping());
+    EXPECT_EQ(base->encoding(), decoded.base()->encoding());
     bool isNull = base->isNullAt(index);
     if (isNull) {
       for (int32_t i = 0; i < 100; i++) {
         EXPECT_TRUE(decoded.isNullAt(i)) << "at " << i;
       }
     } else {
-      EXPECT_EQ(base->encoding(), decoded.base()->encoding());
       for (int32_t i = 0; i < 100; i++) {
         EXPECT_FALSE(decoded.isNullAt(i));
         EXPECT_TRUE(base->equalValueAt(decoded.base(), index, decoded.index(i)))
