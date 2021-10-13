@@ -21,9 +21,6 @@
 
 namespace facebook::velox::exec {
 
-using OperationTimer = CpuWallTimer;
-using OperationTiming = CpuWallTiming;
-
 // Represents a column that is copied from input to output, possibly
 // with cardinality change, i.e. values removed or duplicated.
 struct IdentityProjection {
@@ -113,12 +110,12 @@ struct OperatorStats {
   uint64_t rawInputBytes = 0;
   uint64_t rawInputPositions = 0;
 
-  OperationTiming addInputTiming;
+  CpuWallTiming addInputTiming;
   // Bytes of input in terms of retained size of input vectors.
   uint64_t inputBytes = 0;
   uint64_t inputPositions = 0;
 
-  OperationTiming getOutputTiming;
+  CpuWallTiming getOutputTiming;
   // Bytes of output in terms of retained size of vectors.
   uint64_t outputBytes = 0;
   uint64_t outputPositions = 0;
@@ -127,7 +124,7 @@ struct OperatorStats {
 
   uint64_t blockedWallNanos = 0;
 
-  OperationTiming finishTiming;
+  CpuWallTiming finishTiming;
 
   MemoryStats memoryStats;
 

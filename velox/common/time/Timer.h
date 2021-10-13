@@ -37,7 +37,10 @@ class MicrosecondTimer {
   uint64_t* timer_;
 };
 
-// Returns the current epoch time in milliseconds
+// Returns the current epoch time in milliseconds.
 size_t getCurrentTimeMs();
+
+// Returns the current epoch time in microseconds.
+size_t getCurrentTimeMicro();
 
 } // namespace facebook::velox

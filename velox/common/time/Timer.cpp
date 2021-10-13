@@ -25,4 +25,9 @@ size_t getCurrentTimeMs() {
       .count();
 }
 
+size_t getCurrentTimeMicro() {
+  return duration_cast<microseconds>(system_clock::now().time_since_epoch())
+      .count();
+}
+
 } // namespace facebook::velox

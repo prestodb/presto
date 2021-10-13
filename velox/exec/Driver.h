@@ -165,6 +165,8 @@ class Driver {
   }
 
  private:
+  void enqueueInternal();
+
   core::StopReason runInternal(
       std::shared_ptr<Driver>& self,
       std::shared_ptr<BlockingState>* FOLLY_NONNULL blockingState);
@@ -181,6 +183,12 @@ class Driver {
 
   // Set via 'cancelPool_' and serialized by 'cancelPool_'s mutex.
   core::ThreadState state_;
+
+  // Timer used to track down the time we are sitting in the driver queue.
+  size_t queueTimeStartMicros_{0};
+  // Index of the current operator to run (or the 1st one if we haven't started
+  // yet). Used to determine which operator's queueTime we should update.
+  size_t curOpIndex_{0};
 
   std::vector<std::unique_ptr<Operator>> operators_;
 

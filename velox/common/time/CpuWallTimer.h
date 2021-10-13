@@ -38,7 +38,8 @@ struct CpuWallTiming {
     cpuNanos = 0;
   }
 };
-// Adds elapsed CPU and wall time to an OperationTiming.
+
+// Adds elapsed CPU and wall time to an CpuWallTiming.
 class CpuWallTimer {
  public:
   explicit CpuWallTimer(CpuWallTiming& timing);
