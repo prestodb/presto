@@ -257,6 +257,35 @@ class ExpressionFuzzer {
       }
     }
 
+    // We sort the available signatures to ensure we can deterministically
+    // generate expressions across platforms. We just do this once and the
+    // vector is small, so it doesn't need to be very efficient.
+    std::sort(
+        signatures_.begin(),
+        signatures_.end(),
+        // Returns true if lhs is less (comes before).
+        [](const CallableSignature& lhs, const CallableSignature& rhs) {
+          // The comparison logic is the following:
+          //
+          // 1. Compare based on function name.
+          // 2. If names are the same, compare the number of args.
+          // 3. If number of args are the same, look for any different arg
+          // types.
+          // 4. If all arg types are the same, compare return type.
+          if (lhs.name == rhs.name) {
+            if (lhs.args.size() == rhs.args.size()) {
+              for (size_t i = 0; i < lhs.args.size(); ++i) {
+                if (!lhs.args[i]->kindEquals(rhs.args[i])) {
+                  return lhs.args[i]->toString() < rhs.args[i]->toString();
+                }
+              }
+              return lhs.returnType->toString() < rhs.returnType->toString();
+            }
+            return lhs.args.size() < rhs.args.size();
+          }
+          return lhs.name < rhs.name;
+        });
+
     // Generates signaturesMap, which maps a given type to the function
     // signature that returns it.
     for (const auto& it : signatures_) {
