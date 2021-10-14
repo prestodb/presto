@@ -69,6 +69,8 @@ void registerVectorFunctions() {
   exec::registerStatefulVectorFunction(
       "regexp_extract", re2ExtractSignatures(), makeRe2Extract);
   exec::registerStatefulVectorFunction(
+      "regexp_extract_all", re2ExtractSignatures(), makeRe2ExtractAll);
+  exec::registerStatefulVectorFunction(
       "regexp_like", re2SearchSignatures(), makeRe2Search);
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_to_utf8, "to_utf8");

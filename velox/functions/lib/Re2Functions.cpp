@@ -17,10 +17,13 @@
 
 #include <re2/re2.h>
 #include <optional>
+#include <string>
 
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/functions/lib/ArrayBuilder.h"
+#include "velox/type/StringView.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::functions {
@@ -409,6 +412,150 @@ class LikeConstantPattern final : public VectorFunction {
   bool validPattern_;
 };
 
+void re2ExtractAll(
+    ArrayBuilder<Varchar>& builder,
+    const RE2& re,
+    const exec::LocalDecodedVector& inputStrs,
+    const int row,
+    std::vector<re2::StringPiece>& groups,
+    int32_t groupId) {
+  ArrayBuilder<Varchar>::Ref array = builder.startArray(row);
+  const StringView str = inputStrs->valueAt<StringView>(row);
+  const re2::StringPiece input = toStringPiece(str);
+  size_t pos = 0;
+
+  while (re.Match(
+      input, pos, input.size(), RE2::UNANCHORED, groups.data(), groupId + 1)) {
+    DCHECK_GT(groups.size(), groupId);
+
+    const re2::StringPiece fullMatch = groups[0];
+    const re2::StringPiece subMatch = groups[groupId];
+
+    array.emplace_back(subMatch.data(), subMatch.size());
+    pos = fullMatch.data() + fullMatch.size() - input.data();
+  }
+}
+
+template <typename T>
+class Re2ExtractAllConstantPattern final : public VectorFunction {
+ public:
+  explicit Re2ExtractAllConstantPattern(StringView pattern)
+      : re_(toStringPiece(pattern), RE2::Quiet) {}
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      Expr*,
+      EvalCtx* context,
+      VectorPtr* resultRef) const final {
+    VELOX_CHECK(args.size() == 2 || args.size() == 3);
+    checkForBadPattern(re_);
+
+    ArrayBuilder<Varchar> builder(
+        rows.size(), rows.countSelected() * 3, context->pool());
+    exec::LocalDecodedVector inputStrs(context, *args[0], rows);
+    FOLLY_DECLARE_REUSED(groups, std::vector<re2::StringPiece>);
+
+    if (args.size() == 2) {
+      // Case 1: No groupId -- use 0 as the default groupId
+      //
+      groups.resize(1);
+      rows.applyToSelected([&](vector_size_t row) {
+        re2ExtractAll(builder, re_, inputStrs, row, groups, 0);
+      });
+    } else if (const auto _groupId = getIfConstant<T>(*args[2])) {
+      // Case 2: Constant groupId
+      //
+      checkForBadGroupId(*_groupId, re_);
+      groups.resize(*_groupId + 1);
+      rows.applyToSelected([&](vector_size_t row) {
+        re2ExtractAll(builder, re_, inputStrs, row, groups, *_groupId);
+      });
+    } else {
+      // Case 3: Variable groupId, so resize the groups vector to accommodate
+      // the largest group id referenced.
+      //
+      exec::LocalDecodedVector groupIds(context, *args[2], rows);
+      T maxGroupId = 0, minGroupId = 0;
+      rows.applyToSelected([&](vector_size_t row) {
+        maxGroupId = std::max(groupIds->valueAt<T>(row), maxGroupId);
+        minGroupId = std::min(groupIds->valueAt<T>(row), minGroupId);
+      });
+      checkForBadGroupId(maxGroupId, re_);
+      checkForBadGroupId(minGroupId, re_);
+      groups.resize(maxGroupId + 1);
+      rows.applyToSelected([&](vector_size_t row) {
+        const T groupId = groupIds->valueAt<T>(row);
+        checkForBadGroupId(groupId, re_);
+        re2ExtractAll(builder, re_, inputStrs, row, groups, groupId);
+      });
+    }
+    builder.setStringBuffers(
+        args[0]->asFlatVector<StringView>()->stringBuffers());
+    std::shared_ptr<ArrayVector> arrayVector =
+        std::move(builder).finish(context->pool());
+    context->moveOrCopyResult(arrayVector, rows, resultRef);
+  }
+
+ private:
+  RE2 re_;
+};
+
+template <typename T>
+class Re2ExtractAll final : public VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      Expr* expr,
+      EvalCtx* context,
+      VectorPtr* resultRef) const final {
+    VELOX_CHECK(args.size() == 2 || args.size() == 3);
+    // Use Re2ExtractAllConstantPattern if it's constant regexp pattern.
+    //
+    if (auto pattern = getIfConstant<StringView>(*args[1])) {
+      Re2ExtractAllConstantPattern<T>(*pattern).apply(
+          rows, args, expr, context, resultRef);
+      return;
+    }
+
+    ArrayBuilder<Varchar> builder(
+        rows.size(), rows.countSelected() * 3, context->pool());
+    exec::LocalDecodedVector inputStrs(context, *args[0], rows);
+    exec::LocalDecodedVector pattern(context, *args[1], rows);
+    FOLLY_DECLARE_REUSED(groups, std::vector<re2::StringPiece>);
+
+    if (args.size() == 2) {
+      // Case 1: No groupId -- use 0 as the default groupId
+      //
+      groups.resize(1);
+      rows.applyToSelected([&](vector_size_t row) {
+        RE2 re(toStringPiece(pattern->valueAt<StringView>(row)), RE2::Quiet);
+        checkForBadPattern(re);
+        re2ExtractAll(builder, re, inputStrs, row, groups, 0);
+      });
+    } else {
+      // Case 2: Has groupId
+      //
+      exec::LocalDecodedVector groupIds(context, *args[2], rows);
+      rows.applyToSelected([&](vector_size_t row) {
+        const T groupId = groupIds->valueAt<T>(row);
+        RE2 re(toStringPiece(pattern->valueAt<StringView>(row)), RE2::Quiet);
+        checkForBadPattern(re);
+        checkForBadGroupId(groupId, re);
+        groups.resize(groupId + 1);
+        re2ExtractAll(builder, re, inputStrs, row, groups, groupId);
+      });
+    }
+
+    builder.setStringBuffers(
+        args[0]->asFlatVector<StringView>()->stringBuffers());
+    std::shared_ptr<ArrayVector> arrayVector =
+        std::move(builder).finish(context->pool());
+    context->moveOrCopyResult(arrayVector, rows, resultRef);
+  }
+};
+
 template <bool (*Fn)(StringView, const RE2&)>
 std::shared_ptr<VectorFunction> makeRe2MatchImpl(
     const std::string& name,
@@ -618,6 +765,63 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures() {
           .argumentType("varchar")
           .build(),
   };
+}
+
+std::shared_ptr<VectorFunction> makeRe2ExtractAll(
+    const std::string& name,
+    const std::vector<VectorFunctionArg>& inputArgs) {
+  auto numArgs = inputArgs.size();
+  VELOX_USER_CHECK(
+      numArgs == 2 || numArgs == 3,
+      "{} requires 2 or 3 arguments, but got {}",
+      name,
+      numArgs);
+
+  VELOX_USER_CHECK(
+      inputArgs[0].type->isVarchar(),
+      "{} requires first argument of type VARCHAR, but got {}",
+      name,
+      inputArgs[0].type->toString());
+
+  VELOX_USER_CHECK(
+      inputArgs[1].type->isVarchar(),
+      "{} requires second argument of type VARCHAR, but got {}",
+      name,
+      inputArgs[1].type->toString());
+
+  TypeKind groupIdTypeKind = TypeKind::INTEGER;
+  if (numArgs == 3) {
+    groupIdTypeKind = inputArgs[2].type->kind();
+    VELOX_USER_CHECK(
+        groupIdTypeKind == TypeKind::INTEGER ||
+            groupIdTypeKind == TypeKind::BIGINT,
+        "{} requires third argument of type INTEGER or BIGINT, but got {}",
+        name,
+        mapTypeKindToName(groupIdTypeKind));
+  }
+
+  BaseVector* constantPattern = inputArgs[1].constantValue.get();
+  if (constantPattern != nullptr && !constantPattern->isNullAt(0)) {
+    auto pattern =
+        constantPattern->as<ConstantVector<StringView>>()->valueAt(0);
+    switch (groupIdTypeKind) {
+      case TypeKind::INTEGER:
+        return std::make_shared<Re2ExtractAllConstantPattern<int32_t>>(pattern);
+      case TypeKind::BIGINT:
+        return std::make_shared<Re2ExtractAllConstantPattern<int64_t>>(pattern);
+      default:
+        VELOX_UNREACHABLE();
+    }
+  }
+
+  switch (groupIdTypeKind) {
+    case TypeKind::INTEGER:
+      return std::make_shared<Re2ExtractAll<int32_t>>();
+    case TypeKind::BIGINT:
+      return std::make_shared<Re2ExtractAll<int64_t>>();
+    default:
+      VELOX_UNREACHABLE();
+  }
 }
 
 } // namespace facebook::velox::functions

@@ -79,4 +79,25 @@ std::shared_ptr<exec::VectorFunction> makeLike(
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures();
 
+/// re2ExtractAll(string, pattern, group_id) → array<string>
+/// re2ExtractAll(string, pattern) → array<string>
+///
+/// If string has a substring that matches the given pattern, returns ALL of the
+/// substrings matching the given group in the pattern. pattern will be parsed
+/// using the RE2 pattern syntax, a subset of PCRE. Groups are 1-indexed.
+/// Providing zero as the group_id extracts and returns the entire match; this
+/// is more efficient than extracting a subgroup. Extracting the first subgroup
+/// is more efficient than extracting larger indexes; use non-capturing
+/// subgroups (?:...) if the pattern includes groups that don't need to be
+/// captured.
+///
+/// If the pattern is invalid or the group id is out of range, throws an
+/// exception. If the pattern does not match, returns null.
+///
+/// If group_id parameter is not specified, extracts and returns the entire
+/// match.
+std::shared_ptr<exec::VectorFunction> makeRe2ExtractAll(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
 } // namespace facebook::velox::functions

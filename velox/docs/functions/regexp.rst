@@ -21,6 +21,13 @@ See https://github.com/google/re2/wiki/Syntax for more information.
 
         SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2); -- 'a'
 
+.. function:: regexp_extract_all(string, pattern, group) -> array(varchar)
+
+    Finds all occurrences of the regular expression ``pattern`` in
+    ``string`` and returns the capturing group number ``group``::
+
+        SELECT regexp_extract_all('1a 2b 14m', '(\d+)([a-z]+)', 2); -- ['a', 'b', 'm']
+
 .. function:: regexp_like(string, pattern) -> boolean
 
     Evaluates the regular expression ``pattern`` and determines if it is

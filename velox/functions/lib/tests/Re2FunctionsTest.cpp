@@ -19,9 +19,14 @@
 #include <gtest/gtest.h>
 #include <functional>
 #include <optional>
+#include <string>
 
+#include "velox/common/base/VeloxException.h"
 #include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/type/StringView.h"
+#include "velox/vector/ComplexVector.h"
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -36,8 +41,18 @@ class Re2FunctionsTest : public test::FunctionBaseTest {
         "re2_search", re2SearchSignatures(), makeRe2Search);
     exec::registerStatefulVectorFunction(
         "re2_extract", re2ExtractSignatures(), makeRe2Extract);
+    exec::registerStatefulVectorFunction(
+        "re2_extract_all", re2ExtractSignatures(), makeRe2ExtractAll);
     exec::registerStatefulVectorFunction("like", likeSignatures(), makeLike);
   }
+
+ protected:
+  template <typename T>
+  void testRe2ExtractAll(
+      const std::vector<std::optional<std::string>>& inputs,
+      const std::vector<std::optional<std::string>>& patterns,
+      const std::vector<std::optional<T>>& groupIds,
+      const std::vector<std::optional<std::vector<std::string>>>& output);
 };
 
 template <typename Table, typename Row, std::size_t... I>
@@ -385,6 +400,233 @@ TEST_F(Re2FunctionsTest, likePatternAndEscape) {
   EXPECT_EQ(like("cde", "%#%%", '#'), false);
 
   EXPECT_THROW(like("abcd", "a#}#+", '#'), std::exception);
+}
+
+template <typename T>
+void Re2FunctionsTest::testRe2ExtractAll(
+    const std::vector<std::optional<std::string>>& inputs,
+    const std::vector<std::optional<std::string>>& patterns,
+    const std::vector<std::optional<T>>& groupIds,
+    const std::vector<std::optional<std::vector<std::string>>>& output) {
+  std::string constantPattern = "";
+  std::string constantGroupId = "";
+  std::string expression = "";
+
+  auto result = [&] {
+    auto input = makeFlatVector<StringView>(
+        inputs.size(),
+        [&inputs](vector_size_t row) {
+          return inputs[row] ? StringView(*inputs[row]) : StringView();
+        },
+        [&inputs](vector_size_t row) { return !inputs[row].has_value(); });
+
+    auto pattern = makeFlatVector<StringView>(
+        patterns.size(),
+        [&patterns](vector_size_t row) {
+          return patterns[row] ? StringView(*patterns[row]) : StringView();
+        },
+        [&patterns](vector_size_t row) { return !patterns[row].has_value(); });
+    if (patterns.size() == 1) {
+      // Constant pattern
+      constantPattern = std::string(", '") + patterns[0].value() + "'";
+    }
+
+    auto groupId = makeFlatVector<T>(
+        groupIds.size(),
+        [&groupIds](vector_size_t row) {
+          return groupIds[row] ? *groupIds[row] : 0;
+        },
+        [&groupIds](vector_size_t row) { return !groupIds[row].has_value(); });
+    if (groupIds.size() == 1) {
+      // constant groupId
+      constantGroupId = std::string(", ") + std::to_string(groupIds[0].value());
+    }
+
+    if (!constantPattern.empty()) {
+      if (groupIds.empty()) {
+        // Case 1: constant pattern, no groupId
+        // for example: expression = re2_extract_all(c0, '(\\d+)([a-z]+)')
+        expression = std::string("re2_extract_all(c0") + constantPattern + ")";
+        return evaluate<ArrayVector>(expression, makeRowVector({input}));
+      } else if (!constantGroupId.empty()) {
+        // Case 2: constant pattern, constant groupId
+        // for example: expression = re2_extract_all(c0, '(\\d+)([a-z]+)', 1)
+        expression = std::string("re2_extract_all(c0") + constantPattern +
+            constantGroupId + ")";
+        return evaluate<ArrayVector>(expression, makeRowVector({input}));
+      } else {
+        // Case 3: constant pattern, variable groupId
+        // for example: expression = re2_extract_all(c0, '(\\d+)([a-z]+)', c1)
+        expression =
+            std::string("re2_extract_all(c0") + constantPattern + ", c1)";
+        return evaluate<ArrayVector>(
+            expression, makeRowVector({input, groupId}));
+      }
+    }
+
+    // Case 4: variable pattern, no groupId
+    if (groupIds.empty()) {
+      // for example: expression = re2_extract_all(c0, c1)
+      expression = std::string("re2_extract_all(c0, c1)");
+      return evaluate<ArrayVector>(expression, makeRowVector({input, pattern}));
+    }
+
+    // Case 5: variable pattern, constant groupId
+    if (!constantGroupId.empty()) {
+      // for example: expression = re2_extract_all(c0, c1, 0)
+      expression =
+          std::string("re2_extract_all(c0, c1") + constantGroupId + ")";
+      return evaluate<ArrayVector>(expression, makeRowVector({input, pattern}));
+    }
+
+    // Case 6: variable pattern, variable groupId
+    expression = std::string("re2_extract_all(c0, c1, c2)");
+    return evaluate<ArrayVector>(
+        expression, makeRowVector({input, pattern, groupId}));
+  }();
+
+  // Creating vectors for output string vectors
+  auto sizeAtOutput = [&output](vector_size_t row) {
+    return output[row] ? output[row]->size() : 0;
+  };
+  auto valueAtOutput = [&output](vector_size_t row, vector_size_t idx) {
+    return output[row] ? StringView(output[row]->at(idx)) : StringView("");
+  };
+  auto nullAtOutput = [&output](vector_size_t row) {
+    return !output[row].has_value();
+  };
+  auto expectedResult = makeArrayVector<StringView>(
+      output.size(), sizeAtOutput, valueAtOutput, nullAtOutput);
+
+  // Checking the results
+  assertEqualVectors(expectedResult, result);
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllConstantPatternNoGroupId) {
+  const std::vector<std::optional<std::string>> inputs = {
+      "  123a   2b   14m  ", "123a 2b     14m", "123a2b14m"};
+  const std::vector<std::optional<std::string>> constantPattern = {
+      "(\\d+)([a-z]+)"};
+  const std::vector<std::optional<int32_t>> intNoGroupId = {};
+  const std::vector<std::optional<int64_t>> bigNoGroupId = {};
+  const std::vector<std::optional<std::vector<std::string>>> expectedOutputs = {
+      {{"123a", "2b", "14m"}},
+      {{"123a", "2b", "14m"}},
+      {{"123a", "2b", "14m"}}};
+
+  testRe2ExtractAll(inputs, constantPattern, intNoGroupId, expectedOutputs);
+  testRe2ExtractAll(inputs, constantPattern, bigNoGroupId, expectedOutputs);
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllConstantPatternConstantGroupId) {
+  const std::vector<std::optional<std::string>> inputs = {
+      "  123a   2b   14m  ", "123a 2b     14m", "123a2b14m"};
+  const std::vector<std::optional<std::string>> constantPattern = {
+      "(\\d+)([a-z]+)"};
+  const std::vector<std::optional<int32_t>> intGroupIds = {1};
+  const std::vector<std::optional<int64_t>> bigGroupIds = {1};
+  const std::vector<std::optional<std::vector<std::string>>> expectedOutputs = {
+      {{"123", "2", "14"}}, {{"123", "2", "14"}}, {{"123", "2", "14"}}};
+
+  testRe2ExtractAll(inputs, constantPattern, intGroupIds, expectedOutputs);
+  testRe2ExtractAll(inputs, constantPattern, bigGroupIds, expectedOutputs);
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllConstantPatternVariableGroupId) {
+  const std::vector<std::optional<std::string>> inputs = {
+      "  123a   2b   14m  ",
+      "123a 2b     14m",
+      "123a2b14m",
+      "123a2b14m",
+      "123a2b14m",
+      "123a2b14m"};
+  const std::vector<std::optional<std::string>> constantPattern = {
+      "(\\d+)([a-z]+)"};
+  const std::vector<std::optional<int32_t>> intGroupIds = {0, 1, 2, 0, 1, 2};
+  const std::vector<std::optional<int64_t>> bigGroupIds = {0, 1, 2, 0, 1, 2};
+  const std::vector<std::optional<std::vector<std::string>>> expectedOutputs = {
+      {{"123a", "2b", "14m"}},
+      {{"123", "2", "14"}},
+      {{"a", "b", "m"}},
+      {{"123a", "2b", "14m"}},
+      {{"123", "2", "14"}},
+      {{"a", "b", "m"}}};
+
+  testRe2ExtractAll(inputs, constantPattern, intGroupIds, expectedOutputs);
+  testRe2ExtractAll(inputs, constantPattern, bigGroupIds, expectedOutputs);
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllVariablePatternNoGroupId) {
+  const std::vector<std::optional<std::string>> inputs = {
+      "  123a   2b   14m  ", "123a 2b     14m", "123a2b14m"};
+  const std::vector<std::optional<std::string>> patterns = {
+      "(\\d+)([a-z]+)", "([a-z]+)", "(\\d+)"};
+  const std::vector<std::optional<int32_t>> intGroupIds = {};
+  const std::vector<std::optional<int64_t>> bigGroupIds = {};
+  const std::vector<std::optional<std::vector<std::string>>> expectedOutputs = {
+      {{"123a", "2b", "14m"}}, {{"a", "b", "m"}}, {{"123", "2", "14"}}};
+
+  testRe2ExtractAll(inputs, patterns, intGroupIds, expectedOutputs);
+  testRe2ExtractAll(inputs, patterns, bigGroupIds, expectedOutputs);
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllVariablePatternConstantGroupId) {
+  const std::vector<std::optional<std::string>> inputs = {
+      "  123a   2b   14m  ", "a123 b2     m14", "123a2b14m"};
+  const std::vector<std::optional<std::string>> patterns = {
+      "(\\d+)([a-z]+)", "([a-z]+)(\\d+)", "(\\d+)([a-b]+)"};
+  const std::vector<std::optional<int32_t>> intGroupIds = {0};
+  const std::vector<std::optional<int64_t>> bigGroupIds = {1};
+
+  const std::vector<std::optional<std::vector<std::string>>>
+      expectedOutputsInt = {
+          {{"123a", "2b", "14m"}}, {{"a123", "b2", "m14"}}, {{"123a", "2b"}}};
+  const std::vector<std::optional<std::vector<std::string>>>
+      expectedOutputsBigInt = {
+          {{"123", "2", "14"}}, {{"a", "b", "m"}}, {{"123", "2"}}};
+
+  testRe2ExtractAll(inputs, patterns, intGroupIds, expectedOutputsInt);
+  testRe2ExtractAll(inputs, patterns, bigGroupIds, expectedOutputsBigInt);
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllVariablePatternVariableGroupId) {
+  const std::vector<std::optional<std::string>> inputs = {
+      "  123a   2b   14m  ", "a123 b2     m14", "123a2b14m"};
+  const std::vector<std::optional<std::string>> patterns = {
+      "(\\d+)([a-z]+)", "([a-z]+)(\\d+)", "(\\d+)([a-b]+)"};
+  const std::vector<std::optional<int32_t>> intGroupIds = {0, 1, 2};
+  const std::vector<std::optional<int64_t>> bigGroupIds = {1, 2, 0};
+
+  const std::vector<std::optional<std::vector<std::string>>>
+      expectedOutputsInt = {
+          {{"123a", "2b", "14m"}}, {{"a", "b", "m"}}, {{"a", "b"}}};
+  const std::vector<std::optional<std::vector<std::string>>>
+      expectedOutputsBigInt = {
+          {{"123", "2", "14"}}, {{"123", "2", "14"}}, {{"123a", "2b"}}};
+
+  testRe2ExtractAll(inputs, patterns, intGroupIds, expectedOutputsInt);
+  testRe2ExtractAll(inputs, patterns, bigGroupIds, expectedOutputsBigInt);
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllNoMatch) {
+  const std::vector<std::optional<int32_t>> noGroupId = {};
+  const std::vector<std::optional<int32_t>> groupIds0 = {0};
+
+  testRe2ExtractAll({""}, {"[0-9]+"}, noGroupId, {{{}}});
+  testRe2ExtractAll({"(╯°□°)╯︵ ┻━┻"}, {"[0-9]+"}, noGroupId, {{{}}});
+  testRe2ExtractAll({"abcde"}, {"[0-9]+"}, groupIds0, {{{}}});
+}
+
+TEST_F(Re2FunctionsTest, regexExtractAllBadArgs) {
+  const auto eval = [&](std::optional<std::string> str,
+                        std::optional<std::string> pattern,
+                        std::optional<int32_t> groupId) {
+    const std::string expression = "re2_extract_all(c0, c1, c2)";
+    return evaluateOnce<std::string>(expression, str, pattern, groupId);
+  };
+  EXPECT_EQ(eval("123", std::nullopt, 0), std::nullopt);
+  EXPECT_EQ(eval(std::nullopt, "(\\d+)", 0), std::nullopt);
+  EXPECT_THROW(eval("123", "(\\d+)", 99), VeloxException);
 }
 
 } // namespace
