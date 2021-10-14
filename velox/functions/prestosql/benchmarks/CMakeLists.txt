@@ -39,3 +39,7 @@ target_link_libraries(velox_functions_benchmarks_string_ascii_utf_functions
 
 add_executable(velox_functions_benchmarks_not NotBenchmark.cpp)
 target_link_libraries(velox_functions_benchmarks_not ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_benchmarks_date_time DateTimeBenchmark.cpp)
+target_link_libraries(velox_functions_benchmarks_date_time
+                      ${BENCHMARK_DEPENDENCIES})
