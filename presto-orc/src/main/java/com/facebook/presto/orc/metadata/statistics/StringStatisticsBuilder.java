@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -127,10 +126,9 @@ public class StringStatisticsBuilder
         Optional<StringStatistics> stringStatistics = buildStringStatistics();
         if (stringStatistics.isPresent()) {
             verify(nonNullValueCount > 0);
-            long minAverageSizeBytes = STRING_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount;
-            return new StringColumnStatistics(nonNullValueCount, minAverageSizeBytes, null, stringStatistics.get());
+            return new StringColumnStatistics(nonNullValueCount, null, stringStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, 0, null);
+        return new ColumnStatistics(nonNullValueCount, null);
     }
 
     public static Optional<StringStatistics> mergeStringStatistics(List<ColumnStatistics> stats)

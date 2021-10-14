@@ -18,6 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static java.util.Objects.requireNonNull;
 
 public class StringColumnStatistics
@@ -29,11 +30,10 @@ public class StringColumnStatistics
 
     public StringColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             HiveBloomFilter bloomFilter,
             StringStatistics stringStatistics)
     {
-        super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        super(numberOfValues, bloomFilter);
         requireNonNull(stringStatistics, "stringStatistics is null");
         this.stringStatistics = stringStatistics;
     }
@@ -45,11 +45,17 @@ public class StringColumnStatistics
     }
 
     @Override
+    public long getMinAverageValueSizeInBytes()
+    {
+        long numberOfValues = getNumberOfValues();
+        return STRING_VALUE_BYTES_OVERHEAD + (numberOfValues > 0 ? stringStatistics.getSum() / numberOfValues : 0);
+    }
+
+    @Override
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
         return new StringColumnStatistics(
                 getNumberOfValues(),
-                getMinAverageValueSizeInBytes(),
                 bloomFilter,
                 stringStatistics);
     }

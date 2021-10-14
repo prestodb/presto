@@ -36,17 +36,14 @@ public class ColumnStatistics
 
     private final boolean hasNumberOfValues;
     private final long numberOfValues;
-    private final long minAverageValueSizeInBytes;
     private final HiveBloomFilter bloomFilter;
 
     public ColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             HiveBloomFilter bloomFilter)
     {
         this.hasNumberOfValues = numberOfValues != null;
         this.numberOfValues = hasNumberOfValues ? numberOfValues : 0;
-        this.minAverageValueSizeInBytes = minAverageValueSizeInBytes;
         this.bloomFilter = bloomFilter;
     }
 
@@ -72,8 +69,7 @@ public class ColumnStatistics
      */
     public long getMinAverageValueSizeInBytes()
     {
-        // it is ok to return 0 if the size does not exist given it is a lower bound
-        return minAverageValueSizeInBytes;
+        return 0;
     }
 
     public BooleanStatistics getBooleanStatistics()
@@ -118,7 +114,7 @@ public class ColumnStatistics
 
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
-        return new ColumnStatistics(getNumberOfValues(), minAverageValueSizeInBytes, bloomFilter);
+        return new ColumnStatistics(getNumberOfValues(), bloomFilter);
     }
 
     protected final long getMembersSizeInBytes()
@@ -183,20 +179,16 @@ public class ColumnStatistics
 
     public static ColumnStatistics mergeColumnStatistics(List<ColumnStatistics> stats)
     {
+        if (stats.size() == 0) {
+            return new ColumnStatistics(0L, null);
+        }
+
         long numberOfRows = stats.stream()
                 .mapToLong(ColumnStatistics::getNumberOfValues)
                 .sum();
 
-        long minAverageValueBytes = 0;
-        if (numberOfRows > 0) {
-            minAverageValueBytes = stats.stream()
-                    .mapToLong(s -> s.getMinAverageValueSizeInBytes() * s.getNumberOfValues())
-                    .sum() / numberOfRows;
-        }
-
         return createColumnStatistics(
                 numberOfRows,
-                minAverageValueBytes,
                 mergeBooleanStatistics(stats).orElse(null),
                 mergeIntegerStatistics(stats).orElse(null),
                 mergeDoubleStatistics(stats).orElse(null),
@@ -209,7 +201,6 @@ public class ColumnStatistics
 
     public static ColumnStatistics createColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             BooleanStatistics booleanStatistics,
             IntegerStatistics integerStatistics,
             DoubleStatistics doubleStatistics,
@@ -220,33 +211,33 @@ public class ColumnStatistics
             HiveBloomFilter bloomFilter)
     {
         if (booleanStatistics != null) {
-            return new BooleanColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, booleanStatistics);
+            return new BooleanColumnStatistics(numberOfValues, bloomFilter, booleanStatistics);
         }
 
         if (integerStatistics != null) {
-            return new IntegerColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, integerStatistics);
+            return new IntegerColumnStatistics(numberOfValues, bloomFilter, integerStatistics);
         }
 
         if (doubleStatistics != null) {
-            return new DoubleColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, doubleStatistics);
+            return new DoubleColumnStatistics(numberOfValues, bloomFilter, doubleStatistics);
         }
 
         if (stringStatistics != null) {
-            return new StringColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, stringStatistics);
+            return new StringColumnStatistics(numberOfValues, bloomFilter, stringStatistics);
         }
 
         if (dateStatistics != null) {
-            return new DateColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, dateStatistics);
+            return new DateColumnStatistics(numberOfValues, bloomFilter, dateStatistics);
         }
 
         if (decimalStatistics != null) {
-            return new DecimalColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, decimalStatistics);
+            return new DecimalColumnStatistics(numberOfValues, bloomFilter, decimalStatistics);
         }
 
         if (binaryStatistics != null) {
-            return new BinaryColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter, binaryStatistics);
+            return new BinaryColumnStatistics(numberOfValues, bloomFilter, binaryStatistics);
         }
 
-        return new ColumnStatistics(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        return new ColumnStatistics(numberOfValues, bloomFilter);
     }
 }

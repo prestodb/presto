@@ -29,11 +29,10 @@ public class DecimalColumnStatistics
 
     public DecimalColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             HiveBloomFilter bloomFilter,
             DecimalStatistics decimalStatistics)
     {
-        super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        super(numberOfValues, bloomFilter);
         requireNonNull(decimalStatistics, "decimalStatistics is null");
         this.decimalStatistics = decimalStatistics;
     }
@@ -45,11 +44,16 @@ public class DecimalColumnStatistics
     }
 
     @Override
+    public long getMinAverageValueSizeInBytes()
+    {
+        return decimalStatistics.getMinAverageValueSizeInBytes();
+    }
+
+    @Override
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
         return new DecimalColumnStatistics(
                 getNumberOfValues(),
-                getMinAverageValueSizeInBytes(),
                 bloomFilter,
                 decimalStatistics);
     }
