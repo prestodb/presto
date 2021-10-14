@@ -18,6 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanColumnStatistics
@@ -29,11 +30,10 @@ public class BooleanColumnStatistics
 
     public BooleanColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             HiveBloomFilter bloomFilter,
             BooleanStatistics booleanStatistics)
     {
-        super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        super(numberOfValues, bloomFilter);
         requireNonNull(booleanStatistics, "booleanStatistics is null");
         this.booleanStatistics = booleanStatistics;
     }
@@ -45,11 +45,16 @@ public class BooleanColumnStatistics
     }
 
     @Override
+    public long getMinAverageValueSizeInBytes()
+    {
+        return BOOLEAN_VALUE_BYTES;
+    }
+
+    @Override
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
         return new BooleanColumnStatistics(
                 getNumberOfValues(),
-                getMinAverageValueSizeInBytes(),
                 bloomFilter,
                 booleanStatistics);
     }

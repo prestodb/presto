@@ -18,6 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class IntegerColumnStatistics
@@ -29,11 +30,10 @@ public class IntegerColumnStatistics
 
     public IntegerColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             HiveBloomFilter bloomFilter,
             IntegerStatistics integerStatistics)
     {
-        super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        super(numberOfValues, bloomFilter);
         requireNonNull(integerStatistics, "integerStatistics is null");
         this.integerStatistics = integerStatistics;
     }
@@ -45,11 +45,16 @@ public class IntegerColumnStatistics
     }
 
     @Override
+    public long getMinAverageValueSizeInBytes()
+    {
+        return INTEGER_VALUE_BYTES;
+    }
+
+    @Override
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
         return new IntegerColumnStatistics(
                 getNumberOfValues(),
-                getMinAverageValueSizeInBytes(),
                 bloomFilter,
                 integerStatistics);
     }

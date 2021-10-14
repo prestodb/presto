@@ -18,6 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
 import static java.util.Objects.requireNonNull;
 
 public class BinaryColumnStatistics
@@ -29,11 +30,10 @@ public class BinaryColumnStatistics
 
     public BinaryColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             HiveBloomFilter bloomFilter,
             BinaryStatistics binaryStatistics)
     {
-        super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        super(numberOfValues, bloomFilter);
         requireNonNull(binaryStatistics, "binaryStatistics is null");
         this.binaryStatistics = binaryStatistics;
     }
@@ -45,11 +45,17 @@ public class BinaryColumnStatistics
     }
 
     @Override
+    public long getMinAverageValueSizeInBytes()
+    {
+        long numberOfValues = getNumberOfValues();
+        return BINARY_VALUE_BYTES_OVERHEAD + (numberOfValues > 0 ? binaryStatistics.getSum() / numberOfValues : 0);
+    }
+
+    @Override
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
         return new BinaryColumnStatistics(
                 getNumberOfValues(),
-                getMinAverageValueSizeInBytes(),
                 bloomFilter,
                 binaryStatistics);
     }
