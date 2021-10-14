@@ -195,9 +195,7 @@ HiveDataSource::HiveDataSource(
     readerOutputType_ = ROW(std::move(names), std::move(types));
   }
 
-  columnReaderFactory_ =
-      std::make_unique<dwrf::SelectiveColumnReaderFactory>(scanSpec_.get());
-  rowReaderOpts_.setColumnReaderFactory(columnReaderFactory_.get());
+  rowReaderOpts_.setScanSpec(scanSpec_.get());
 
   ioStats_ = std::make_shared<dwio::common::IoStatistics>();
 }
@@ -205,12 +203,11 @@ HiveDataSource::HiveDataSource(
 namespace {
 bool testFilters(
     common::ScanSpec* scanSpec,
-    dwrf::DwrfReader* reader,
+    dwio::common::Reader* reader,
     const std::string& filePath) {
-  auto stats = reader->getStatistics();
-  auto totalRows = reader->getFooter().numberofrows();
-  const auto& fileTypeWithId = reader->getTypeWithId();
-  const auto& rowType = reader->getType();
+  auto totalRows = reader->numberOfRows();
+  const auto& fileTypeWithId = reader->typeWithId();
+  const auto& rowType = reader->rowType();
   for (const auto& child : scanSpec->children()) {
     if (child->filter()) {
       const auto& name = child->fieldName();
@@ -222,11 +219,11 @@ bool testFilters(
         }
       } else {
         const auto& typeWithId = fileTypeWithId->childByName(name);
-        auto columnStats = reader->getColumnStatistics(typeWithId->id);
+        auto columnStats = reader->columnStatistics(typeWithId->id);
         if (!testFilter(
                 child->filter(),
                 columnStats.get(),
-                totalRows,
+                totalRows.value(),
                 typeWithId->type)) {
           VLOG(1) << "Skipping " << filePath
                   << " based on stats and filter for column "
@@ -284,10 +281,7 @@ void HiveDataSource::addDynamicFilter(
   }
   scanSpec_->resetCachedValues();
 
-  auto columnReader =
-      dynamic_cast<SelectiveColumnReader*>(rowReader_->columnReader());
-  assert(columnReader);
-  columnReader->resetFilterCaches();
+  rowReader_->resetFilterCaches();
 }
 
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
@@ -328,18 +322,28 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
     dataCacheConfig->filenum = fileHandle_->uuid.id();
     readerOpts_.setDataCacheConfig(std::move(dataCacheConfig));
   }
+  if (readerOpts_.getFileFormat() != dwio::common::FileFormat::UNKNOWN) {
+    VELOX_CHECK(
+        readerOpts_.getFileFormat() == split_->fileFormat,
+        "HiveDataSource received splits of different formats: {} and {}",
+        toString(readerOpts_.getFileFormat()),
+        toString(split_->fileFormat));
+  } else {
+    readerOpts_.setFileFormat(split_->fileFormat);
+  }
+
   // We run with the default BufferedInputFactory and no DataCacheConfig if
   // there is no DataCache and the MappedMemory is not an AsyncDataCache.
-  reader_ = dwrf::DwrfReader::create(
-      std::make_unique<dwio::common::ReadFileInputStream>(
-          fileHandle_->file.get(),
-          dwio::common::MetricsLog::voidLog(),
-          ioStats_.get()),
-      readerOpts_);
+  reader_ = dwio::common::getReaderFactory(readerOpts_.getFileFormat())
+                ->createReader(
+                    std::make_unique<dwio::common::ReadFileInputStream>(
+                        fileHandle_->file.get(),
+                        dwio::common::MetricsLog::voidLog(),
+                        ioStats_.get()),
+                    readerOpts_);
 
   emptySplit_ = false;
-  if (reader_->getFooter().has_numberofrows() &&
-      reader_->getFooter().numberofrows() == 0) {
+  if (reader_->numberOfRows() == 0) {
     emptySplit_ = true;
     return;
   }
@@ -347,12 +351,12 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   // Check filters and see if the whole split can be skipped
   if (!testFilters(scanSpec_.get(), reader_.get(), split_->filePath)) {
     emptySplit_ = true;
-    ++skippedSplits_;
-    skippedSplitBytes_ += split_->length;
+    ++runtimeStats_.skippedSplits;
+    runtimeStats_.skippedSplitBytes += split_->length;
     return;
   }
 
-  auto fileType = reader_->getType();
+  auto fileType = reader_->rowType();
 
   for (int i = 0; i < readerOutputType_->size(); i++) {
     auto fieldName = readerOutputType_->nameOf(i);
@@ -481,7 +485,7 @@ RowVectorPtr HiveDataSource::next(uint64_t size) {
         pool_, outputType_, BufferPtr(nullptr), rowsRemaining, outputColumns);
   }
 
-  skippedStrides_ += rowReader_->skippedStrides();
+  rowReader_->updateRuntimeStats(runtimeStats_);
 
   split_.reset();
   reader_.reset();
@@ -511,18 +515,17 @@ void HiveDataSource::setNullConstantValue(
 }
 
 std::unordered_map<std::string, int64_t> HiveDataSource::runtimeStats() {
-  return {
-      {"skippedSplits", skippedSplits_},
-      {"skippedSplitBytes", skippedSplitBytes_},
-      {"skippedStrides", skippedStrides_},
-      {"numPrefetch", ioStats_->prefetch().count()},
-      {"prefetchBytes", ioStats_->prefetch().bytes()},
-      {"numStorageRead", ioStats_->read().count()},
-      {"storageReadBytes", ioStats_->read().bytes()},
-      {"numLocalRead", ioStats_->ssdRead().count()},
-      {"localReadBytes", ioStats_->ssdRead().bytes()},
-      {"numRamRead", ioStats_->ramHit().count()},
-      {"ramReadBytes", ioStats_->ramHit().bytes()}};
+  auto res = runtimeStats_.toMap();
+  res.insert(
+      {{"numPrefetch", ioStats_->prefetch().count()},
+       {"prefetchBytes", ioStats_->prefetch().bytes()},
+       {"numStorageRead", ioStats_->read().count()},
+       {"storageReadBytes", ioStats_->read().bytes()},
+       {"numLocalRead", ioStats_->ssdRead().count()},
+       {"localReadBytes", ioStats_->ssdRead().bytes()},
+       {"numRamRead", ioStats_->ramHit().count()},
+       {"ramReadBytes", ioStats_->ramHit().bytes()}});
+  return res;
 }
 
 HiveConnector::HiveConnector(

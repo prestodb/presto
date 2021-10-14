@@ -570,10 +570,9 @@ TEST(E2EWriterTests, PartialStride) {
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;
   auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
-  ASSERT_EQ(
-      size - nullCount, reader->getColumnStatistics(1)->getNumberOfValues())
-      << reader->getColumnStatistics(1)->toString();
-  ASSERT_EQ(true, reader->getColumnStatistics(1)->hasNull().value());
+  ASSERT_EQ(size - nullCount, reader->columnStatistics(1)->getNumberOfValues())
+      << reader->columnStatistics(1)->toString();
+  ASSERT_EQ(true, reader->columnStatistics(1)->hasNull().value());
 }
 
 namespace facebook::velox::dwrf {

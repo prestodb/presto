@@ -90,7 +90,8 @@ void verifyFlatMapReading(
   rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
   auto reader =
       DwrfReader::create(std::make_unique<FileInputStream>(file), readerOpts);
-  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
   VectorPtr batch;
 
   int32_t batchId = 0;

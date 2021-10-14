@@ -32,9 +32,9 @@ constexpr uint64_t FILE_PRELOAD_THRESHOLD = 1024 * 1024 * 8;
 
 class ReaderBase;
 
-class FooterStatisticsImpl : public Statistics {
+class FooterStatisticsImpl : public dwio::common::Statistics {
  private:
-  std::vector<std::unique_ptr<ColumnStatistics>> colStats_;
+  std::vector<std::unique_ptr<dwio::common::ColumnStatistics>> colStats_;
 
   FooterStatisticsImpl(const FooterStatisticsImpl&) = delete;
   FooterStatisticsImpl(FooterStatisticsImpl&&) = delete;
@@ -48,7 +48,7 @@ class FooterStatisticsImpl : public Statistics {
 
   virtual ~FooterStatisticsImpl() override = default;
 
-  virtual const ColumnStatistics& getColumnStatistics(
+  virtual const dwio::common::ColumnStatistics& getColumnStatistics(
       uint32_t columnId) const override {
     return *colStats_.at(columnId);
   }
@@ -188,9 +188,10 @@ class ReaderBase {
     return kEmpty;
   }
 
-  std::unique_ptr<Statistics> getStatistics() const;
+  std::unique_ptr<dwio::common::Statistics> getStatistics() const;
 
-  std::unique_ptr<ColumnStatistics> getColumnStatistics(uint32_t index) const;
+  std::unique_ptr<dwio::common::ColumnStatistics> getColumnStatistics(
+      uint32_t index) const;
 
   std::unique_ptr<SeekableInputStream> createDecompressedStream(
       std::unique_ptr<SeekableInputStream> compressed,

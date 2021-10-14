@@ -24,6 +24,7 @@
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ErrorTolerance.h"
 #include "velox/dwio/common/InputStream.h"
+#include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/encryption/Encryption.h"
 
 namespace facebook::velox::dwrf {
@@ -93,7 +94,7 @@ class RowReaderOptions {
   bool returnFlatVector_ = false;
   ErrorTolerance errorTolerance_;
   std::shared_ptr<ColumnSelector> selector_;
-  velox::dwrf::ColumnReaderFactory* columnReaderFactory_ = nullptr;
+  velox::common::ScanSpec* scanSpec_ = nullptr;
   std::unordered_set<uint32_t> flatmapNodeIdAsStruct_;
 
  public:
@@ -104,7 +105,7 @@ class RowReaderOptions {
     projectSelectedType = other.projectSelectedType;
     errorTolerance_ = other.errorTolerance_;
     selector_ = other.selector_;
-    columnReaderFactory_ = other.columnReaderFactory_;
+    scanSpec_ = other.scanSpec_;
     returnFlatVector_ = other.returnFlatVector_;
     flatmapNodeIdAsStruct_ = other.flatmapNodeIdAsStruct_;
   }
@@ -225,12 +226,12 @@ class RowReaderOptions {
     return errorTolerance_;
   }
 
-  velox::dwrf::ColumnReaderFactory* getColumnReaderFactory() const {
-    return columnReaderFactory_;
+  velox::common::ScanSpec* getScanSpec() const {
+    return scanSpec_;
   }
 
-  void setColumnReaderFactory(velox::dwrf::ColumnReaderFactory* factory) {
-    columnReaderFactory_ = factory;
+  void setScanSpec(velox::common::ScanSpec* scanSpec) {
+    scanSpec_ = scanSpec;
   }
 
   void setFlatmapNodeIdsAsStruct(

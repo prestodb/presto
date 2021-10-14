@@ -98,7 +98,8 @@ std::vector<uint32_t> SelectiveColumnReader::filterRowGroups(
   std::vector<uint32_t> stridesToSkip;
   for (auto i = 0; i < index_->entry_size(); i++) {
     const auto& entry = index_->entry(i);
-    auto columnStats = ColumnStatistics::fromProto(entry.statistics(), context);
+    auto columnStats =
+        buildColumnStatisticsFromProto(entry.statistics(), context);
     if (!testFilter(filter, columnStats.get(), rowGroupSize, type_)) {
       stridesToSkip.push_back(i); // Skipping stride based on column stats.
     }

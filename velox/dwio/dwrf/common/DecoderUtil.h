@@ -27,7 +27,7 @@ using RowSet = folly::Range<const int32_t*>;
 namespace common {
 class AlwaysTrue;
 template <typename TFilter, typename T>
-bool applyFilter(TFilter& filter, T value);
+static bool applyFilter(TFilter& filter, T value);
 } // namespace common
 } // namespace facebook::velox
 

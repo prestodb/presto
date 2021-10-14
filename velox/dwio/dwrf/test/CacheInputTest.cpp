@@ -31,7 +31,7 @@ using memory::MappedMemory;
 
 // Testing stream producing deterministic data. The byte at offset is
 // the low byte of 'seed_' + offset.
-class TestInputStream : public common::InputStream {
+class TestInputStream : public facebook::velox::dwio::common::InputStream {
  public:
   TestInputStream(const std::string& path, uint64_t seed, uint64_t length)
       : InputStream(path), seed_(seed), length_(length) {}
@@ -44,8 +44,11 @@ class TestInputStream : public common::InputStream {
     return 1024 * 1024;
   }
 
-  void read(void* buffer, uint64_t length, uint64_t offset, common::LogType)
-      override {
+  void read(
+      void* buffer,
+      uint64_t length,
+      uint64_t offset,
+      facebook::velox::dwio::common::LogType) override {
     int fill;
     uint64_t content = offset + seed_;
     uint64_t available = std::min(length_ - offset, length);
@@ -69,15 +72,16 @@ class TestInputStream : public common::InputStream {
 };
 class TestInputStreamHolder : public dwrf::AbstractInputStreamHolder {
  public:
-  explicit TestInputStreamHolder(std::shared_ptr<common::InputStream> stream)
+  explicit TestInputStreamHolder(
+      std::shared_ptr<facebook::velox::dwio::common::InputStream> stream)
       : stream_(std::move(stream)) {}
 
-  common::InputStream& get() override {
+  facebook::velox::dwio::common::InputStream& get() override {
     return *stream_;
   }
 
  private:
-  std::shared_ptr<common::InputStream> stream_;
+  std::shared_ptr<facebook::velox::dwio::common::InputStream> stream_;
 };
 
 class CacheTest : public testing::Test {
@@ -89,13 +93,13 @@ class CacheTest : public testing::Test {
     TestInputStream* file;
     std::unique_ptr<dwrf::CachedBufferedInput> input;
     std::vector<std::unique_ptr<dwrf::SeekableInputStream>> streams;
-    std::vector<common::Region> regions;
+    std::vector<facebook::velox::dwio::common::Region> regions;
   };
 
   void SetUp() override {
     executor_ = std::make_unique<folly::IOThreadPoolExecutor>(10, 10);
     rng_.seed(1);
-    ioStats_ = std::make_shared<common::IoStatistics>();
+    ioStats_ = std::make_shared<facebook::velox::dwio::common::IoStatistics>();
   }
 
   void TearDown() override {
@@ -129,7 +133,7 @@ class CacheTest : public testing::Test {
     return lease.id();
   }
 
-  std::shared_ptr<common::InputStream>
+  std::shared_ptr<facebook::velox::dwio::common::InputStream>
   inputByPath(const std::string& path, uint64_t& fileId, uint64_t& groupId) {
     std::lock_guard<std::mutex> l(mutex_);
     StringIdLease lease(fileIds(), path);
@@ -148,13 +152,13 @@ class CacheTest : public testing::Test {
   }
 
   std::unique_ptr<StripeData> makeStripeData(
-      std::shared_ptr<common::InputStream> inputStream,
+      std::shared_ptr<facebook::velox::dwio::common::InputStream> inputStream,
       std::shared_ptr<ScanTracker> tracker,
       uint64_t fileId,
       uint64_t groupId,
       int64_t offset) {
     auto data = std::make_unique<StripeData>();
-    common::DataCacheConfig config{nullptr, fileId};
+    facebook::velox::dwio::common::DataCacheConfig config{nullptr, fileId};
     data->input = std::make_unique<dwrf::CachedBufferedInput>(
         *inputStream,
         *pool_,
@@ -214,7 +218,7 @@ class CacheTest : public testing::Test {
       dwrf::SeekableInputStream& stream,
       const std::vector<uint64_t>& offsets,
       int32_t i,
-      common::Region region) {
+      facebook::velox::dwio::common::Region region) {
     const void* data;
     int32_t size;
     int64_t numRead = 0;
@@ -251,7 +255,7 @@ class CacheTest : public testing::Test {
     constexpr int32_t kReadAhead = 8;
     uint64_t fileId;
     uint64_t groupId;
-    std::shared_ptr<common::InputStream> input =
+    std::shared_ptr<facebook::velox::dwio::common::InputStream> input =
         inputByPath(filename, fileId, groupId);
     for (auto stripeIndex = 0; stripeIndex < numStripes; ++stripeIndex) {
       stripes.push_back(makeStripeData(
@@ -260,7 +264,7 @@ class CacheTest : public testing::Test {
           fileId,
           groupId,
           stripeIndex * streamStarts_[kMaxStreams - 1]));
-      stripes.back()->input->load(common::LogType::TEST);
+      stripes.back()->input->load(facebook::velox::dwio::common::LogType::TEST);
       if (stripeIndex > 0) {
         while (stripes.size() < kReadAhead) {
           stripes.push_back(makeStripeData(
@@ -270,13 +274,14 @@ class CacheTest : public testing::Test {
               groupId,
               stripeIndex * streamStarts_[kMaxStreams - 1]));
           if (stripes.back()->input->shouldPreload()) {
-            stripes.back()->input->load(common::LogType::TEST);
+            stripes.back()->input->load(
+                facebook::velox::dwio::common::LogType::TEST);
           }
         }
       }
       auto currentStripe = std::move(stripes.front());
       stripes.pop_front();
-      currentStripe->input->load(common::LogType::TEST);
+      currentStripe->input->load(facebook::velox::dwio::common::LogType::TEST);
       for (auto i = 0; i < numColumns; ++i) {
         int32_t columnIndex = i * (kMaxStreams / numColumns);
         if (shouldRead(columnIndex, readPct, readPctModulo)) {
@@ -289,11 +294,13 @@ class CacheTest : public testing::Test {
   // Serializes 'pathToInput_' and 'fileIds_' in multithread test.
   std::mutex mutex_;
   std::vector<StringIdLease> fileIds_;
-  folly::F14FastMap<uint64_t, std::shared_ptr<common::InputStream>>
+  folly::F14FastMap<
+      uint64_t,
+      std::shared_ptr<facebook::velox::dwio::common::InputStream>>
       pathToInput_;
-  common::DataCacheConfig config_;
+  facebook::velox::dwio::common::DataCacheConfig config_;
   std::unique_ptr<AsyncDataCache> cache_;
-  std::shared_ptr<common::IoStatistics> ioStats_;
+  std::shared_ptr<facebook::velox::dwio::common::IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};

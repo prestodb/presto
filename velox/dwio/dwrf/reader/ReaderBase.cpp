@@ -22,8 +22,10 @@
 
 namespace facebook::velox::dwrf {
 
+using dwio::common::ColumnStatistics;
 using dwio::common::InputStream;
 using dwio::common::LogType;
+using dwio::common::Statistics;
 using dwio::common::encryption::DecrypterFactory;
 using encryption::DecryptionHandler;
 using memory::MemoryPool;
@@ -56,7 +58,7 @@ FooterStatisticsImpl::FooterStatisticsImpl(
             group.statistics(nodeIndex), &decrypter);
         for (uint32_t statsIndex = 0; statsIndex < stats->statistics_size();
              ++statsIndex) {
-          colStats_[node + statsIndex] = ColumnStatistics::fromProto(
+          colStats_[node + statsIndex] = buildColumnStatisticsFromProto(
               stats->statistics(statsIndex), statsContext);
         }
       }
@@ -66,7 +68,7 @@ FooterStatisticsImpl::FooterStatisticsImpl(
   for (int32_t i = 0; i < footer.statistics_size(); i++) {
     if (!colStats_[i]) {
       colStats_[i] =
-          ColumnStatistics::fromProto(footer.statistics(i), statsContext);
+          buildColumnStatisticsFromProto(footer.statistics(i), statsContext);
     }
   }
 }
@@ -251,7 +253,7 @@ std::unique_ptr<ColumnStatistics> ReaderBase::getColumnStatistics(
   StatsContext statsContext(getWriterVersion());
   if (!handler_->isEncrypted(index)) {
     auto& stats = footer_->statistics(index);
-    return ColumnStatistics::fromProto(stats, statsContext);
+    return buildColumnStatisticsFromProto(stats, statsContext);
   }
 
   auto root = handler_->getEncryptionRoot(index);
@@ -262,7 +264,7 @@ std::unique_ptr<ColumnStatistics> ReaderBase::getColumnStatistics(
   // if key is not loaded, return plaintext stats
   if (!decrypter.isKeyLoaded()) {
     auto& stats = footer_->statistics(index);
-    return ColumnStatistics::fromProto(stats, statsContext);
+    return buildColumnStatisticsFromProto(stats, statsContext);
   }
 
   // find the right offset inside the group
@@ -276,7 +278,7 @@ std::unique_ptr<ColumnStatistics> ReaderBase::getColumnStatistics(
   DWIO_ENSURE_LT(nodeIndex, group.nodes_size());
   auto stats = readProtoFromString<proto::FileStatistics>(
       group.statistics(nodeIndex), &decrypter);
-  return ColumnStatistics::fromProto(
+  return buildColumnStatisticsFromProto(
       stats->statistics(index - root), statsContext);
 }
 

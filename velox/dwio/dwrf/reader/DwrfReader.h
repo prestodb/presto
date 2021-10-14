@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/common/ReaderFactory.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/DwrfReaderShared.h"
 
@@ -28,13 +29,12 @@ class DwrfRowReader : public DwrfRowReaderShared {
   }
 
   void createColumnReaderImpl(StripeStreams& stripeStreams) override {
-    columnReader_ =
-        (options_.getColumnReaderFactory() ? options_.getColumnReaderFactory()
-                                           : ColumnReaderFactory::baseFactory())
-            ->build(
-                getColumnSelector().getSchemaWithId(),
-                getReader().getSchemaWithId(),
-                stripeStreams);
+    columnReader_ = (columnReaderFactory_ ? columnReaderFactory_.get()
+                                          : ColumnReaderFactory::baseFactory())
+                        ->build(
+                            getColumnSelector().getSchemaWithId(),
+                            getReader().getSchemaWithId(),
+                            stripeStreams);
   }
 
   void seekImpl() override {
@@ -55,15 +55,18 @@ class DwrfRowReader : public DwrfRowReaderShared {
   ~DwrfRowReader() override = default;
 
   // Returns number of rows read. Guaranteed to be less then or equal to size.
-  uint64_t next(uint64_t size, VectorPtr& result);
+  uint64_t next(uint64_t size, VectorPtr& result) override;
 
-  int64_t skippedStrides() const {
-    return skippedStrides_;
+  void updateRuntimeStats(
+      dwio::common::RuntimeStatistics& stats) const override {
+    stats.skippedStrides += skippedStrides_;
   }
 
   ColumnReader* columnReader() {
     return columnReader_.get();
   }
+
+  void resetFilterCaches() override;
 
  private:
   void checkSkipStrides(const StatsContext& context, uint64_t strideSize);
@@ -91,10 +94,8 @@ class DwrfReader : public DwrfReaderShared {
 
   ~DwrfReader() override = default;
 
-  std::unique_ptr<DwrfRowReader> createRowReader() const;
-
-  std::unique_ptr<DwrfRowReader> createRowReader(
-      const dwio::common::RowReaderOptions& options) const;
+  std::unique_ptr<dwio::common::RowReader> createRowReader(
+      const dwio::common::RowReaderOptions& options = {}) const override;
 
   /**
    * Create a reader to the for the dwrf file.
@@ -107,5 +108,20 @@ class DwrfReader : public DwrfReaderShared {
 
   friend class E2EEncryptionTest;
 };
+
+class DwrfReaderFactory : public dwio::common::ReaderFactory {
+ public:
+  DwrfReaderFactory() : ReaderFactory(dwio::common::FileFormat::ORC) {}
+
+  std::unique_ptr<dwio::common::Reader> createReader(
+      std::unique_ptr<dwio::common::InputStream> stream,
+      const dwio::common::ReaderOptions& options) override {
+    return DwrfReader::create(std::move(stream), options);
+  }
+};
+
+void registerDwrfReaderFactory();
+
+void unregisterDwrfReaderFactory();
 
 } // namespace facebook::velox::dwrf

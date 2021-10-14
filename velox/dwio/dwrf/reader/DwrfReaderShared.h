@@ -17,13 +17,16 @@
 #pragma once
 
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/common/Reader.h"
+#include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/ReaderBase.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
 
 namespace facebook::velox::dwrf {
 
 class DwrfRowReaderShared : public StrideIndexProvider,
-                            public StripeReaderBase {
+                            public StripeReaderBase,
+                            public dwio::common::RowReader {
  protected:
   // footer
   std::vector<uint64_t> firstRowOfStripe;
@@ -40,6 +43,7 @@ class DwrfRowReaderShared : public StrideIndexProvider,
   uint64_t strideIndex_;
   std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache_;
   dwio::common::RowReaderOptions options_;
+  std::unique_ptr<ColumnReaderFactory> columnReaderFactory_;
 
   // column selector
   std::shared_ptr<dwio::common::ColumnSelector> columnSelector_;
@@ -49,7 +53,7 @@ class DwrfRowReaderShared : public StrideIndexProvider,
 
   size_t estimatedRowSizeHelper(
       const proto::Footer& footer,
-      const Statistics& stats,
+      const dwio::common::Statistics& stats,
       uint32_t nodeId) const;
 
   std::shared_ptr<const RowType> getType() const {
@@ -121,10 +125,10 @@ class DwrfRowReaderShared : public StrideIndexProvider,
   size_t estimatedReaderMemory() const;
 
   // Estimate the row size for projected columns
-  size_t estimatedRowSize() const;
+  size_t estimatedRowSize() const override;
 };
 
-class DwrfReaderShared {
+class DwrfReaderShared : public dwio::common::Reader {
  protected:
   std::shared_ptr<ReaderBase> readerBase_;
   const dwio::common::ReaderOptions& options_;
@@ -175,19 +179,21 @@ class DwrfReaderShared {
     return readerBase_->getFileLength();
   }
 
-  std::unique_ptr<Statistics> getStatistics() const {
+  std::unique_ptr<dwio::common::Statistics> getStatistics() const {
     return readerBase_->getStatistics();
   }
 
-  std::unique_ptr<ColumnStatistics> getColumnStatistics(uint32_t nodeId) const {
+  std::unique_ptr<dwio::common::ColumnStatistics> columnStatistics(
+      uint32_t nodeId) const override {
     return readerBase_->getColumnStatistics(nodeId);
   }
 
-  const std::shared_ptr<const RowType>& getType() const {
+  const std::shared_ptr<const RowType>& rowType() const override {
     return readerBase_->getSchema();
   }
 
-  const std::shared_ptr<const dwio::common::TypeWithId>& getTypeWithId() const {
+  const std::shared_ptr<const dwio::common::TypeWithId>& typeWithId()
+      const override {
     return readerBase_->getSchemaWithId();
   }
 
@@ -197,6 +203,13 @@ class DwrfReaderShared {
 
   const proto::Footer& getFooter() const {
     return readerBase_->getFooter();
+  }
+
+  std::optional<uint64_t> numberOfRows() const override {
+    auto& footer = readerBase_->getFooter();
+    if (footer.has_numberofrows())
+      return footer.numberofrows();
+    return std::nullopt;
   }
 
   static uint64_t getMemoryUse(

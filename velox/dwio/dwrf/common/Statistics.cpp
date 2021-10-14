@@ -18,13 +18,28 @@
 
 namespace facebook::velox::dwrf {
 
-std::unique_ptr<ColumnStatistics> ColumnStatistics::fromProto(
+using namespace dwio::common;
+
+std::unique_ptr<ColumnStatistics> buildColumnStatisticsFromProto(
     const proto::ColumnStatistics& s,
     const StatsContext& statsContext) {
+  ColumnStatistics colStats(
+      s.has_numberofvalues() ? std::optional(s.numberofvalues()) : std::nullopt,
+      s.has_hasnull() ? std::optional(s.hasnull()) : std::nullopt,
+      s.has_rawsize() ? std::optional(s.rawsize()) : std::nullopt,
+      s.has_size() ? std::optional(s.size()) : std::nullopt);
+
   // detailed stats is only defined when has non-null value
   if (!s.has_numberofvalues() || s.numberofvalues() > 0) {
     if (s.has_intstatistics()) {
-      return std::make_unique<IntegerColumnStatistics>(s);
+      const auto& intStats = s.intstatistics();
+      return std::make_unique<IntegerColumnStatistics>(
+          colStats,
+          intStats.has_minimum() ? std::optional(intStats.minimum())
+                                 : std::nullopt,
+          intStats.has_maximum() ? std::optional(intStats.maximum())
+                                 : std::nullopt,
+          intStats.has_sum() ? std::optional(intStats.sum()) : std::nullopt);
     } else if (s.has_doublestatistics()) {
       const auto& dStats = s.doublestatistics();
       // Comparing against NaN doesn't make sense, and to prevent downstream
@@ -34,7 +49,13 @@ std::unique_ptr<ColumnStatistics> ColumnStatistics::fromProto(
           (dStats.has_maximum() && std::isnan(dStats.maximum())) ||
           (dStats.has_sum() && std::isnan(dStats.sum()));
       if (!hasNan) {
-        return std::make_unique<DoubleColumnStatistics>(s);
+        return std::make_unique<DoubleColumnStatistics>(
+            colStats,
+            dStats.has_minimum() ? std::optional(dStats.minimum())
+                                 : std::nullopt,
+            dStats.has_maximum() ? std::optional(dStats.maximum())
+                                 : std::nullopt,
+            dStats.has_sum() ? std::optional(dStats.sum()) : std::nullopt);
       }
     } else if (s.has_stringstatistics()) {
       // DWRF_5_0 is the first version that string stats are saved as UTF8
@@ -42,16 +63,39 @@ std::unique_ptr<ColumnStatistics> ColumnStatistics::fromProto(
       if (statsContext.writerVersion >= WriterVersion::DWRF_5_0 ||
           statsContext.writerName == kPrestoWriter ||
           statsContext.writerName == kDwioWriter) {
-        return std::make_unique<StringColumnStatistics>(s);
+        const auto& strStats = s.stringstatistics();
+        return std::make_unique<StringColumnStatistics>(
+            colStats,
+            strStats.has_minimum() ? std::optional(strStats.minimum())
+                                   : std::nullopt,
+            strStats.has_maximum() ? std::optional(strStats.maximum())
+                                   : std::nullopt,
+            // In proto, length(sum) is defined as sint. We need to make sure
+            // length is not negative
+            (strStats.has_sum() && strStats.sum() >= 0)
+                ? std::optional(strStats.sum())
+                : std::nullopt);
       }
     } else if (s.has_bucketstatistics()) {
-      return std::make_unique<BooleanColumnStatistics>(s);
+      const auto& bucketStats = s.bucketstatistics();
+      // Need to make sure there is at least one bucket. True count is saved in
+      // bucket 0
+      if (bucketStats.count_size() > 0) {
+        return std::make_unique<BooleanColumnStatistics>(
+            colStats, bucketStats.count(0));
+      }
     } else if (s.has_binarystatistics()) {
-      return std::make_unique<BinaryColumnStatistics>(s);
+      const auto& binStats = s.binarystatistics();
+      // In proto, length(sum) is defined as sint. We need to make sure length
+      // is not negative
+      if (binStats.has_sum() && binStats.sum() >= 0) {
+        return std::make_unique<BinaryColumnStatistics>(
+            colStats, static_cast<uint64_t>(binStats.sum()));
+      }
     }
   }
 
   // for all other case, return only basic stats
-  return std::make_unique<ColumnStatistics>(s);
+  return std::make_unique<ColumnStatistics>(colStats);
 }
 } // namespace facebook::velox::dwrf

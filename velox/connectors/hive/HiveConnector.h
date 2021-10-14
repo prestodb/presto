@@ -18,9 +18,9 @@
 #include "velox/common/caching/DataCache.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/dwrf/common/CachedBufferedInput.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/reader/ScanSpec.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/expression/Expr.h"
@@ -171,25 +171,17 @@ class HiveDataSource : public DataSource {
   std::vector<std::string> regularColumns_;
   std::shared_ptr<dwio::common::IoStatistics> ioStats_;
   std::unique_ptr<dwrf::BufferedInputFactory> bufferedInputFactory_;
-  std::unique_ptr<dwrf::ColumnReaderFactory> columnReaderFactory_;
   std::unique_ptr<common::ScanSpec> scanSpec_;
   std::shared_ptr<HiveConnectorSplit> split_;
   dwio::common::ReaderOptions readerOpts_;
   dwio::common::RowReaderOptions rowReaderOpts_;
-  std::unique_ptr<dwrf::DwrfReader> reader_;
-  std::unique_ptr<dwrf::DwrfRowReader> rowReader_;
+  std::unique_ptr<dwio::common::Reader> reader_;
+  std::unique_ptr<dwio::common::RowReader> rowReader_;
   std::unique_ptr<exec::ExprSet> remainingFilterExprSet_;
   std::shared_ptr<const RowType> readerOutputType_;
   bool emptySplit_;
 
-  // Number of splits skipped based on statistics.
-  int64_t skippedSplits_{0};
-
-  // Total bytes in splits skipped based on statistics.
-  int64_t skippedSplitBytes_{0};
-
-  // Number of strides (row groups) skipped based on statistics.
-  int64_t skippedStrides_{0};
+  dwio::common::RuntimeStatistics runtimeStats_;
 
   VectorPtr output_;
   FileHandleCachedPtr fileHandle_;

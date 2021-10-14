@@ -27,7 +27,7 @@
 
 namespace facebook {
 namespace velox {
-namespace dwrf {
+namespace dwio::common {
 class ColumnStatistics;
 }
 namespace common {
@@ -306,7 +306,7 @@ class ScanSpec {
 // filter. True, otherwise.
 bool testFilter(
     common::Filter* filter,
-    dwrf::ColumnStatistics* stats,
+    dwio::common::ColumnStatistics* stats,
     uint64_t totalRows,
     const TypePtr& type);
 

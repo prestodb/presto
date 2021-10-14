@@ -1137,12 +1137,12 @@ void testMapWriterStats(const std::shared_ptr<const RowType> type) {
 
   for (int32_t i = 0; i < mapReader->getFooter().statistics_size(); ++i) {
     LOG(INFO) << "Stats " << i
-              << "     map: " << mapReader->getColumnStatistics(i)->toString();
-    LOG(INFO) << "Stats " << i << " flatmap: "
-              << flatMapReader->getColumnStatistics(i)->toString();
-    auto mapReaderStatString = mapReader->getColumnStatistics(i)->toString();
+              << "     map: " << mapReader->columnStatistics(i)->toString();
+    LOG(INFO) << "Stats " << i
+              << " flatmap: " << flatMapReader->columnStatistics(i)->toString();
+    auto mapReaderStatString = mapReader->columnStatistics(i)->toString();
     auto flatMapReaderStatString =
-        flatMapReader->getColumnStatistics(i)->toString();
+        flatMapReader->columnStatistics(i)->toString();
 
     removeSizeFromStats(mapReaderStatString);
     removeSizeFromStats(flatMapReaderStatString);

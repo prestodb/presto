@@ -20,8 +20,8 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/dwio/common/ColumnSelector.h"
+#include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
-#include "velox/dwio/dwrf/reader/ScanSpec.h"
 #include "velox/type/Filter.h"
 
 extern bool enableDense;

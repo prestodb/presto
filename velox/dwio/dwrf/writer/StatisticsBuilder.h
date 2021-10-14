@@ -23,7 +23,7 @@
 namespace facebook::velox::dwrf {
 
 namespace {
-inline bool isEmpty(const ColumnStatistics& stats) {
+inline bool isEmpty(const dwio::common::ColumnStatistics& stats) {
   auto valueCount = stats.getNumberOfValues();
   return valueCount.has_value() && valueCount.value() == 0;
 }
@@ -63,7 +63,7 @@ struct StatisticsBuilderOptions {
  * Base class for stats builder. Stats builder is used in writer and file merge
  * to collect and merge stats.
  */
-class StatisticsBuilder : public virtual ColumnStatistics {
+class StatisticsBuilder : public virtual dwio::common::ColumnStatistics {
  public:
   explicit StatisticsBuilder(const StatisticsBuilderOptions& options)
       : initialSize_{options.initialSize} {
@@ -96,7 +96,7 @@ class StatisticsBuilder : public virtual ColumnStatistics {
    * Merge stats of same type. This is used in writer to aggregate file level
    * stats.
    */
-  virtual void merge(const ColumnStatistics& other);
+  virtual void merge(const dwio::common::ColumnStatistics& other);
 
   /*
    * Reset. Used in the place where row index entry level stats in captured.
@@ -110,7 +110,7 @@ class StatisticsBuilder : public virtual ColumnStatistics {
    */
   virtual void toProto(proto::ColumnStatistics& stats) const;
 
-  std::unique_ptr<ColumnStatistics> build() const;
+  std::unique_ptr<dwio::common::ColumnStatistics> build() const;
 
   static std::unique_ptr<StatisticsBuilder> create(
       TypeKind type,
@@ -134,7 +134,7 @@ class StatisticsBuilder : public virtual ColumnStatistics {
 };
 
 class BooleanStatisticsBuilder : public StatisticsBuilder,
-                                 public BooleanColumnStatistics {
+                                 public dwio::common::BooleanColumnStatistics {
  public:
   explicit BooleanStatisticsBuilder(const StatisticsBuilderOptions& options)
       : StatisticsBuilder{options} {
@@ -150,7 +150,7 @@ class BooleanStatisticsBuilder : public StatisticsBuilder,
     }
   }
 
-  void merge(const ColumnStatistics& other) override;
+  void merge(const dwio::common::ColumnStatistics& other) override;
 
   void reset() override {
     StatisticsBuilder::reset();
@@ -166,7 +166,7 @@ class BooleanStatisticsBuilder : public StatisticsBuilder,
 };
 
 class IntegerStatisticsBuilder : public StatisticsBuilder,
-                                 public IntegerColumnStatistics {
+                                 public dwio::common::IntegerColumnStatistics {
  public:
   explicit IntegerStatisticsBuilder(const StatisticsBuilderOptions& options)
       : StatisticsBuilder{options} {
@@ -186,7 +186,7 @@ class IntegerStatisticsBuilder : public StatisticsBuilder,
     addWithOverflowCheck(sum_, value, count);
   }
 
-  void merge(const ColumnStatistics& other) override;
+  void merge(const dwio::common::ColumnStatistics& other) override;
 
   void reset() override {
     StatisticsBuilder::reset();
@@ -208,7 +208,7 @@ static_assert(
     "infinity not defined");
 
 class DoubleStatisticsBuilder : public StatisticsBuilder,
-                                public DoubleColumnStatistics {
+                                public dwio::common::DoubleColumnStatistics {
  public:
   explicit DoubleStatisticsBuilder(const StatisticsBuilderOptions& options)
       : StatisticsBuilder{options} {
@@ -243,7 +243,7 @@ class DoubleStatisticsBuilder : public StatisticsBuilder,
     }
   }
 
-  void merge(const ColumnStatistics& other) override;
+  void merge(const dwio::common::ColumnStatistics& other) override;
 
   void reset() override {
     StatisticsBuilder::reset();
@@ -267,7 +267,7 @@ class DoubleStatisticsBuilder : public StatisticsBuilder,
 };
 
 class StringStatisticsBuilder : public StatisticsBuilder,
-                                public StringColumnStatistics {
+                                public dwio::common::StringColumnStatistics {
  public:
   explicit StringStatisticsBuilder(const StatisticsBuilderOptions& options)
       : StatisticsBuilder{options}, lengthLimit_{options.stringLengthLimit} {
@@ -297,7 +297,7 @@ class StringStatisticsBuilder : public StatisticsBuilder,
     addWithOverflowCheck<uint64_t>(length_, value.size(), count);
   }
 
-  void merge(const ColumnStatistics& other) override;
+  void merge(const dwio::common::ColumnStatistics& other) override;
 
   void reset() override {
     StatisticsBuilder::reset();
@@ -321,7 +321,7 @@ class StringStatisticsBuilder : public StatisticsBuilder,
 };
 
 class BinaryStatisticsBuilder : public StatisticsBuilder,
-                                public BinaryColumnStatistics {
+                                public dwio::common::BinaryColumnStatistics {
  public:
   explicit BinaryStatisticsBuilder(const StatisticsBuilderOptions& options)
       : StatisticsBuilder{options} {
@@ -335,7 +335,7 @@ class BinaryStatisticsBuilder : public StatisticsBuilder,
     addWithOverflowCheck(length_, length, count);
   }
 
-  void merge(const ColumnStatistics& other) override;
+  void merge(const dwio::common::ColumnStatistics& other) override;
 
   void reset() override {
     StatisticsBuilder::reset();

@@ -35,7 +35,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::memory;
 using folly::Random;
 
-std::unique_ptr<DwrfRowReader> writeAndGetReader(
+std::unique_ptr<RowReader> writeAndGetReader(
     MemoryPool& pool,
     const std::shared_ptr<const Type>& type,
     VectorPtr batch,
@@ -163,12 +163,14 @@ void verifyStats(
     EXPECT_EQ(rowIndex->entry_size(), repeat) << " entry size mismatch";
 
     for (auto count = 0; count < rowIndex->entry_size(); count++) {
-      auto stridStatistics =
-          ColumnStatistics{rowIndex->entry(count).statistics()};
+      auto stridStatistics = buildColumnStatisticsFromProto(
+          rowIndex->entry(count).statistics(),
+          StatsContext(WriterVersion_CURRENT));
       // TODO, take in a lambda to verify the entire statistics instead of Just
       // the rawSize.
-      EXPECT_EQ(nodeSizePerStride.at(nodeId), stridStatistics.getRawSize())
-          << " raw size mismatch count:" << count << stridStatistics.toString();
+      EXPECT_EQ(nodeSizePerStride.at(nodeId), stridStatistics->getRawSize())
+          << " raw size mismatch count:" << count
+          << stridStatistics->toString();
     }
   }
 }

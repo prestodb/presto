@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/reader/ScanSpec.h"
-#include "velox/dwio/dwrf/common/Statistics.h"
+#include "velox/dwio/common/ScanSpec.h"
+#include "velox/dwio/common/Statistics.h"
 
 namespace facebook::velox::common {
 
@@ -109,7 +109,7 @@ bool ScanSpec::hasFilter() const {
 namespace {
 bool testIntFilter(
     common::Filter* filter,
-    dwrf::IntegerColumnStatistics* intStats,
+    dwio::common::IntegerColumnStatistics* intStats,
     bool mayHaveNull) {
   if (!intStats) {
     return true;
@@ -144,7 +144,7 @@ bool testIntFilter(
 
 bool testDoubleFilter(
     common::Filter* filter,
-    dwrf::DoubleColumnStatistics* doubleStats,
+    dwio::common::DoubleColumnStatistics* doubleStats,
     bool mayHaveNull) {
   if (!doubleStats) {
     return true;
@@ -179,7 +179,7 @@ bool testDoubleFilter(
 
 bool testStringFilter(
     common::Filter* filter,
-    dwrf::StringColumnStatistics* stringStats,
+    dwio::common::StringColumnStatistics* stringStats,
     bool mayHaveNull) {
   if (!stringStats) {
     return true;
@@ -209,7 +209,7 @@ bool testStringFilter(
 
 bool testBoolFilter(
     common::Filter* filter,
-    dwrf::BooleanColumnStatistics* boolStats) {
+    dwio::common::BooleanColumnStatistics* boolStats) {
   auto trueCount = boolStats->getTrueCount();
   auto falseCount = boolStats->getFalseCount();
   if (trueCount.has_value() && falseCount.has_value()) {
@@ -230,7 +230,7 @@ bool testBoolFilter(
 
 bool testFilter(
     common::Filter* filter,
-    dwrf::ColumnStatistics* stats,
+    dwio::common::ColumnStatistics* stats,
     uint64_t totalRows,
     const TypePtr& type) {
   bool mayHaveNull =
@@ -262,20 +262,24 @@ bool testFilter(
     case TypeKind::INTEGER:
     case TypeKind::SMALLINT:
     case TypeKind::TINYINT: {
-      auto intStats = dynamic_cast<dwrf::IntegerColumnStatistics*>(stats);
+      auto intStats =
+          dynamic_cast<dwio::common::IntegerColumnStatistics*>(stats);
       return testIntFilter(filter, intStats, mayHaveNull);
     }
     case TypeKind::REAL:
     case TypeKind::DOUBLE: {
-      auto doubleStats = dynamic_cast<dwrf::DoubleColumnStatistics*>(stats);
+      auto doubleStats =
+          dynamic_cast<dwio::common::DoubleColumnStatistics*>(stats);
       return testDoubleFilter(filter, doubleStats, mayHaveNull);
     }
     case TypeKind::BOOLEAN: {
-      auto boolStats = dynamic_cast<dwrf::BooleanColumnStatistics*>(stats);
+      auto boolStats =
+          dynamic_cast<dwio::common::BooleanColumnStatistics*>(stats);
       return testBoolFilter(filter, boolStats);
     }
     case TypeKind::VARCHAR: {
-      auto stringStats = dynamic_cast<dwrf::StringColumnStatistics*>(stats);
+      auto stringStats =
+          dynamic_cast<dwio::common::StringColumnStatistics*>(stats);
       return testStringFilter(filter, stringStats, mayHaveNull);
     }
     default:

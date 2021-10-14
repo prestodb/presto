@@ -17,6 +17,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Exchange.h"
@@ -44,9 +45,11 @@ class MultiFragmentTest : public OperatorTestBase {
         connector::getConnectorFactory(kHiveConnectorName)
             ->newConnector(kHiveConnectorId, nullptr, std::move(dataCache));
     connector::registerConnector(hiveConnector);
+    dwrf::registerDwrfReaderFactory();
   }
 
   void TearDown() override {
+    dwrf::unregisterDwrfReaderFactory();
     connector::unregisterConnector(kHiveConnectorId);
     OperatorTestBase::TearDown();
   }

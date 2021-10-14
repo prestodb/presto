@@ -77,7 +77,7 @@ static void mergeWithOverflowCheck(
 
 } // namespace
 
-void StatisticsBuilder::merge(const ColumnStatistics& other) {
+void StatisticsBuilder::merge(const dwio::common::ColumnStatistics& other) {
   // Merge valueCount_ only if both sides have it. Otherwise, reset.
   mergeCount(valueCount_, other.getNumberOfValues());
 
@@ -123,11 +123,12 @@ void StatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
   }
 }
 
-std::unique_ptr<ColumnStatistics> StatisticsBuilder::build() const {
+std::unique_ptr<dwio::common::ColumnStatistics> StatisticsBuilder::build()
+    const {
   proto::ColumnStatistics stats;
   toProto(stats);
   StatsContext context{WriterVersion_CURRENT};
-  return ColumnStatistics::fromProto(stats, context);
+  return buildColumnStatisticsFromProto(stats, context);
 }
 
 std::unique_ptr<StatisticsBuilder> StatisticsBuilder::create(
@@ -202,9 +203,11 @@ void StatisticsBuilder::createTree(
   return;
 };
 
-void BooleanStatisticsBuilder::merge(const ColumnStatistics& other) {
+void BooleanStatisticsBuilder::merge(
+    const dwio::common::ColumnStatistics& other) {
   StatisticsBuilder::merge(other);
-  auto stats = dynamic_cast<const BooleanColumnStatistics*>(&other);
+  auto stats =
+      dynamic_cast<const dwio::common::BooleanColumnStatistics*>(&other);
   if (!stats) {
     // We only care about the case when type specific stats is missing yet
     // it has non-null values.
@@ -228,9 +231,11 @@ void BooleanStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
   }
 }
 
-void IntegerStatisticsBuilder::merge(const ColumnStatistics& other) {
+void IntegerStatisticsBuilder::merge(
+    const dwio::common::ColumnStatistics& other) {
   StatisticsBuilder::merge(other);
-  auto stats = dynamic_cast<const IntegerColumnStatistics*>(&other);
+  auto stats =
+      dynamic_cast<const dwio::common::IntegerColumnStatistics*>(&other);
   if (!stats) {
     // We only care about the case when type specific stats is missing yet
     // it has non-null values.
@@ -266,9 +271,11 @@ void IntegerStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
   }
 }
 
-void DoubleStatisticsBuilder::merge(const ColumnStatistics& other) {
+void DoubleStatisticsBuilder::merge(
+    const dwio::common::ColumnStatistics& other) {
   StatisticsBuilder::merge(other);
-  auto stats = dynamic_cast<const DoubleColumnStatistics*>(&other);
+  auto stats =
+      dynamic_cast<const dwio::common::DoubleColumnStatistics*>(&other);
   if (!stats) {
     // We only care about the case when type specific stats is missing yet
     // it has non-null values.
@@ -305,13 +312,15 @@ void DoubleStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
   }
 }
 
-void StringStatisticsBuilder::merge(const ColumnStatistics& other) {
+void StringStatisticsBuilder::merge(
+    const dwio::common::ColumnStatistics& other) {
   // min_/max_ is not initialized with default that can be compared against
   // easily. So we need to capture whether self is empty and handle
   // differently.
   auto isSelfEmpty = isEmpty(*this);
   StatisticsBuilder::merge(other);
-  auto stats = dynamic_cast<const StringColumnStatistics*>(&other);
+  auto stats =
+      dynamic_cast<const dwio::common::StringColumnStatistics*>(&other);
   if (!stats) {
     // We only care about the case when type specific stats is missing yet
     // it has non-null values.
@@ -360,9 +369,11 @@ void StringStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
   }
 }
 
-void BinaryStatisticsBuilder::merge(const ColumnStatistics& other) {
+void BinaryStatisticsBuilder::merge(
+    const dwio::common::ColumnStatistics& other) {
   StatisticsBuilder::merge(other);
-  auto stats = dynamic_cast<const BinaryColumnStatistics*>(&other);
+  auto stats =
+      dynamic_cast<const dwio::common::BinaryColumnStatistics*>(&other);
   if (!stats) {
     // We only care about the case when type specific stats is missing yet
     // it has non-null values.
