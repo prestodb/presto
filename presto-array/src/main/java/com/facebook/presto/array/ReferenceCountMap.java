@@ -17,7 +17,6 @@ import com.facebook.presto.common.block.AbstractMapBlock;
 import com.facebook.presto.common.block.Block;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import org.openjdk.jol.info.ClassLayout;
 
 import static java.lang.String.format;
