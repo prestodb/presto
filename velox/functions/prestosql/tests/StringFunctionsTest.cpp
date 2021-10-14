@@ -291,6 +291,7 @@ class StringFunctionsTest : public FunctionBaseTest {
   using strpos_input_test_t = std::vector<
       std::pair<std::tuple<std::string, std::string, int64_t>, int64_t>>;
 
+  template <typename TInstance>
   void testStringPositionAllFlatVector(
       const strpos_input_test_t& tests,
       const std::vector<std::optional<bool>>& stringEncodings,
@@ -858,6 +859,7 @@ TEST_F(StringFunctionsTest, length) {
 }
 
 // Test strpos function
+template <typename TInstance>
 void StringFunctionsTest::testStringPositionAllFlatVector(
     const strpos_input_test_t& tests,
     const std::vector<std::optional<bool>>& asciiEncodings,
@@ -865,7 +867,7 @@ void StringFunctionsTest::testStringPositionAllFlatVector(
   auto stringVector = makeFlatVector<StringView>(tests.size());
   auto subStringVector = makeFlatVector<StringView>(tests.size());
   auto instanceVector =
-      withInstanceArgument ? makeFlatVector<int64_t>(tests.size()) : nullptr;
+      withInstanceArgument ? makeFlatVector<TInstance>(tests.size()) : nullptr;
 
   for (int i = 0; i < tests.size(); i++) {
     stringVector->set(i, StringView(std::get<0>(tests[i].first)));
@@ -916,9 +918,13 @@ TEST_F(StringFunctionsTest, stringPosition) {
   // We dont have to try all encoding combinations here since there is a test
   // that test the encoding resolution but we want to to have a test for each
   // possible resolution
-  testStringPositionAllFlatVector(testsAscii, {true, true}, false);
+  testStringPositionAllFlatVector<int64_t>(testsAscii, {true, true}, false);
 
-  testStringPositionAllFlatVector(testsAsciiWithPosition, {false, false}, true);
+  // Try instance parameter using BIGINT and INTEGER.
+  testStringPositionAllFlatVector<int32_t>(
+      testsAsciiWithPosition, {false, false}, true);
+  testStringPositionAllFlatVector<int64_t>(
+      testsAsciiWithPosition, {false, false}, true);
 
   // Test constant vectors
   auto rows = makeRowVector(makeRowType({BIGINT()}), 10);

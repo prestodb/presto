@@ -270,27 +270,9 @@ class StringPosition : public exec::VectorFunction {
       exec::Expr* /* unused */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    // Read string input
-    exec::LocalDecodedVector decodedStringHolder(context, *args[0], rows);
-    auto decodedStringInput = decodedStringHolder.get();
-
-    // Read substring input
-    exec::LocalDecodedVector decodedSubStringHolder(context, *args[1], rows);
-    auto decodedSubStringInput = decodedSubStringHolder.get();
-
-    // Read instance input
-    exec::LocalDecodedVector decodedInstanceHolder(context);
-    auto decodedInstanceInput = decodedInstanceHolder.get();
-
-    std::optional<int64_t> instanceArgValue;
-    if (args.size() <= 2) {
-      instanceArgValue = 1;
-    } else {
-      decodedInstanceInput->decode(*args.at(2), rows);
-      if (decodedInstanceInput->isConstantMapping()) {
-        instanceArgValue = decodedInstanceInput->valueAt<int64_t>(0);
-      }
-    }
+    exec::DecodedArgs decodedArgs(rows, args, context);
+    auto decodedStringInput = decodedArgs.at(0);
+    auto decodedSubStringInput = decodedArgs.at(1);
 
     auto stringArgStringEncoding = isAscii(args.at(0).get(), rows);
     BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
@@ -305,21 +287,46 @@ class StringPosition : public exec::VectorFunction {
       return decodedSubStringInput->valueAt<StringView>(row);
     };
 
-    auto instanceReader = [&](const vector_size_t row) {
-      if (instanceArgValue.has_value()) {
-        return instanceArgValue.value();
-      } else {
-        return decodedInstanceInput->valueAt<int64_t>(row);
-      }
-    };
+    // If there's no "instance" parameter.
+    if (args.size() <= 2) {
+      StringEncodingTemplateWrapper<ApplyInternal>::apply(
+          stringArgStringEncoding,
+          stringReader,
+          substringReader,
+          [](const vector_size_t) { return 1L; },
+          rows,
+          resultFlatVector);
+    }
+    // If there's an "instance" parameter, check if it's BIGINT or INTEGER.
+    else {
+      auto decodedInstanceInput = decodedArgs.at(2);
 
-    StringEncodingTemplateWrapper<ApplyInternal>::apply(
-        stringArgStringEncoding,
-        stringReader,
-        substringReader,
-        instanceReader,
-        rows,
-        resultFlatVector);
+      if (args[2]->typeKind() == TypeKind::BIGINT) {
+        auto instanceReader = [&](const vector_size_t row) {
+          return decodedInstanceInput->valueAt<int64_t>(row);
+        };
+        StringEncodingTemplateWrapper<ApplyInternal>::apply(
+            stringArgStringEncoding,
+            stringReader,
+            substringReader,
+            instanceReader,
+            rows,
+            resultFlatVector);
+      } else if (args[2]->typeKind() == TypeKind::INTEGER) {
+        auto instanceReader = [&](const vector_size_t row) {
+          return decodedInstanceInput->valueAt<int32_t>(row);
+        };
+        StringEncodingTemplateWrapper<ApplyInternal>::apply(
+            stringArgStringEncoding,
+            stringReader,
+            substringReader,
+            instanceReader,
+            rows,
+            resultFlatVector);
+      } else {
+        VELOX_UNREACHABLE();
+      }
+    }
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

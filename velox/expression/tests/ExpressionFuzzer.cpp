@@ -54,7 +54,6 @@ using exec::SignatureBinder;
 // TODO: List of the functions that at some point crash or fail and need to
 // be fixed before we can enable.
 static std::unordered_set<std::string> kSkipFunctions = {
-    "strpos",
     "replace",
     // Fails because like requires 2nd arg to be a constant of type VARCHAR.
     "like",
