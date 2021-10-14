@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.array.SliceBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
+import com.facebook.presto.common.array.SliceBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
 import com.google.common.collect.BiMap;

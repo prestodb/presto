@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.CallSiteBinder;
@@ -32,6 +31,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.OperatorType;

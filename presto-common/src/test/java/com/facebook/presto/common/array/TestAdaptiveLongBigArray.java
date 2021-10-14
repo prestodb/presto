@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.array;
+package com.facebook.presto.common.array;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.array.AdaptiveLongBigArray.INITIAL_SEGMENTS;
-import static com.facebook.presto.array.AdaptiveLongBigArray.INITIAL_SEGMENT_LENGTH;
-import static com.facebook.presto.array.AdaptiveLongBigArray.MAX_SEGMENT_LENGTH;
-import static com.facebook.presto.array.AdaptiveLongBigArray.MAX_SEGMENT_SIZE_IN_BYTES;
+import static com.facebook.presto.common.array.AdaptiveLongBigArray.INITIAL_SEGMENTS;
+import static com.facebook.presto.common.array.AdaptiveLongBigArray.INITIAL_SEGMENT_LENGTH;
+import static com.facebook.presto.common.array.AdaptiveLongBigArray.MAX_SEGMENT_LENGTH;
+import static com.facebook.presto.common.array.AdaptiveLongBigArray.MAX_SEGMENT_SIZE_IN_BYTES;
 import static io.airlift.slice.SizeOf.sizeOfLongArray;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static org.testng.Assert.assertEquals;

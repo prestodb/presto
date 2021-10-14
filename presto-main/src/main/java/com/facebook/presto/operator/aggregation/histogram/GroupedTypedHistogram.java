@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.histogram;
 
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.LongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;

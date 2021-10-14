@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
-import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.IntBigArray;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
