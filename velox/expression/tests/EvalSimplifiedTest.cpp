@@ -163,7 +163,7 @@ TEST_F(EvalSimplifiedTest, doubles) {
 // is specified.
 TEST_F(EvalSimplifiedTest, queryParameter) {
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kExprEvalSimplified, "true"},
+      {core::QueryConfig::kExprEvalSimplified, "true"},
   });
 
   auto expr = makeTypedExpr("1 + 1", nullptr);

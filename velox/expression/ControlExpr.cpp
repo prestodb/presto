@@ -394,8 +394,10 @@ void ConjunctExpr::evalSpecialForm(
   // Clear errors for 'rows' that are not in 'activeRows'.
   finalizeErrors(rows, *activeRows, throwOnError, context);
   if (!reorderEnabledChecked_) {
-    reorderEnabled_ =
-        context->execCtx()->queryCtx()->adaptiveFilterReorderingEnabled();
+    reorderEnabled_ = context->execCtx()
+                          ->queryCtx()
+                          ->config()
+                          .adaptiveFilterReorderingEnabled();
     reorderEnabledChecked_ = true;
   }
   if (reorderEnabled_) {

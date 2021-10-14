@@ -64,7 +64,8 @@ GroupingSet::GroupingSet(
       mappedMemory_(operatorCtx->mappedMemory()),
       stringAllocator_(mappedMemory_),
       rows_(mappedMemory_),
-      isAdaptive_(operatorCtx->task()->queryCtx()->hashAdaptivityEnabled()) {
+      isAdaptive_(
+          operatorCtx->task()->queryCtx()->config().hashAdaptivityEnabled()) {
   for (auto& hasher : hashers_) {
     keyChannels_.push_back(hasher->channel());
   }

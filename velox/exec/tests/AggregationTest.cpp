@@ -416,7 +416,7 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
   params.queryCtx = core::QueryCtx::create();
 
   params.queryCtx->setConfigOverridesUnsafe({
-      {core::QueryCtx::kMaxPartialAggregationMemory, "100"},
+      {core::QueryConfig::kMaxPartialAggregationMemory, "100"},
   });
 
   // Distinct aggregation.

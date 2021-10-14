@@ -144,8 +144,8 @@ TEST_F(DateTimeFunctionsTest, hour) {
   EXPECT_EQ(19, hour(Timestamp(998423705, 321000000)));
 
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kSessionTimezone, "Pacific/Apia"},
-      {core::QueryCtx::kAdjustTimestampToTimezone, "true"},
+      {core::QueryConfig::kSessionTimezone, "Pacific/Apia"},
+      {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
   });
   EXPECT_EQ(std::nullopt, hour(std::nullopt));
   EXPECT_EQ(13, hour(Timestamp(0, 0)));

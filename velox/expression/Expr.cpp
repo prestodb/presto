@@ -1164,7 +1164,7 @@ void ExprSetSimplified::eval(
 std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
     core::ExecCtx* execCtx) {
-  if (execCtx->queryCtx()->exprEvalSimplified() ||
+  if (execCtx->queryCtx()->config().exprEvalSimplified() ||
       FLAGS_force_eval_simplified) {
     return std::make_unique<ExprSetSimplified>(std::move(source), execCtx);
   }

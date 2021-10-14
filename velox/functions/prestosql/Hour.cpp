@@ -27,10 +27,10 @@ namespace {
 class HourFunction : public exec::VectorFunction {
  public:
   const date::time_zone* FOLLY_NULLABLE
-  getTimeZoneIfNeeded(const core::QueryCtx& queryCtx) const {
+  getTimeZoneIfNeeded(const core::QueryConfig& config) const {
     const date::time_zone* timeZone = nullptr;
-    if (queryCtx.adjustTimestampToTimezone()) {
-      auto sessionTzName = queryCtx.sessionTimezone();
+    if (config.adjustTimestampToTimezone()) {
+      auto sessionTzName = config.sessionTimezone();
       if (!sessionTzName.empty()) {
         timeZone = date::locate_zone(sessionTzName);
       }
@@ -54,7 +54,8 @@ class HourFunction : public exec::VectorFunction {
 
     // Check if we need to adjust the current UTC timestamps to
     // the user provided session timezone.
-    const auto* timeZone = getTimeZoneIfNeeded(*context->execCtx()->queryCtx());
+    const auto* timeZone =
+        getTimeZoneIfNeeded(context->execCtx()->queryCtx()->config());
     if (timeZone != nullptr) {
       rows.applyToSelected([&](int row) {
         auto timestamp = timestamps[row];

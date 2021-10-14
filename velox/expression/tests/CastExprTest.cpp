@@ -177,8 +177,8 @@ TEST_F(CastExprTest, timestampInvalid) {
 
 TEST_F(CastExprTest, timestampAdjustToTimezone) {
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kSessionTimezone, "America/Los_Angeles"},
-      {core::QueryCtx::kAdjustTimestampToTimezone, "true"},
+      {core::QueryConfig::kSessionTimezone, "America/Los_Angeles"},
+      {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
   });
 
   // Expect unix epochs to be converted to LA timezone (8h offset).
@@ -205,8 +205,8 @@ TEST_F(CastExprTest, timestampAdjustToTimezone) {
 
   // Empty timezone is assumed to be GMT.
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kSessionTimezone, ""},
-      {core::QueryCtx::kAdjustTimestampToTimezone, "true"},
+      {core::QueryConfig::kSessionTimezone, ""},
+      {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
   });
   testCast<std::string, Timestamp>(
       "timestamp", {"1970-01-01"}, {Timestamp(0, 0)});
@@ -219,8 +219,8 @@ TEST_F(CastExprTest, timestampAdjustToTimezoneInvalid) {
   };
 
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kSessionTimezone, "bla"},
-      {core::QueryCtx::kAdjustTimestampToTimezone, "true"},
+      {core::QueryConfig::kSessionTimezone, "bla"},
+      {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
   });
   EXPECT_THROW(testFunc(), std::runtime_error);
 }
@@ -228,13 +228,13 @@ TEST_F(CastExprTest, timestampAdjustToTimezoneInvalid) {
 TEST_F(CastExprTest, truncateVsRound) {
   // Testing truncate vs round cast from double to int.
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastIntByTruncate, "true"},
+      {core::QueryConfig::kCastIntByTruncate, "true"},
   });
   testCast<double, int>(
       "int", {1.888, 2.5, 3.6, 100.44, -100.101}, {1, 2, 3, 100, -100});
 
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastIntByTruncate, "false"},
+      {core::QueryConfig::kCastIntByTruncate, "false"},
   });
   testCast<double, int>(
       "int", {1.888, 2.5, 3.6, 100.44, -100.101}, {2, 3, 4, 100, -100});
@@ -242,12 +242,12 @@ TEST_F(CastExprTest, truncateVsRound) {
   testCast<int8_t, int32_t>("int", {111, 2, 3, 10, -10}, {111, 2, 3, 10, -10});
 
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastIntByTruncate, "true"},
+      {core::QueryConfig::kCastIntByTruncate, "true"},
   });
   testCast<int32_t, int8_t>(
       "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5});
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastIntByTruncate, "false"},
+      {core::QueryConfig::kCastIntByTruncate, "false"},
   });
   EXPECT_THROW(
       (testCast<int32_t, int8_t>(
@@ -281,7 +281,7 @@ TEST_F(CastExprTest, errorHandling) {
       true);
 
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastIntByTruncate, "true"},
+      {core::QueryConfig::kCastIntByTruncate, "true"},
   });
   testCast<double, int>(
       "int",
@@ -291,7 +291,7 @@ TEST_F(CastExprTest, errorHandling) {
       true);
 
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastIntByTruncate, "false"},
+      {core::QueryConfig::kCastIntByTruncate, "false"},
   });
   testCast<double, int>(
       "int", {1.888, 2.5, 3.6, 100.44, -100.101}, {2, 3, 4, 100, -100});
@@ -410,7 +410,7 @@ TEST_F(CastExprTest, rowCast) {
       {intVectorNullEvery11, doubleVectorNullEvery3}, nullEvery(5));
 
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastMatchStructByName, "false"},
+      {core::QueryConfig::kCastMatchStructByName, "false"},
   });
   // Position-based cast: ROW(c0: bigint, c1: double) -> ROW(c0: double, c1:
   // bigint)
@@ -444,7 +444,7 @@ TEST_F(CastExprTest, rowCast) {
   }
   // Name-based cast: ROW(c0: bigint, c1: double) -> ROW(c0: double) dropping b
   queryCtx_->setConfigOverridesUnsafe({
-      {core::QueryCtx::kCastMatchStructByName, "true"},
+      {core::QueryConfig::kCastMatchStructByName, "true"},
   });
   {
     auto intVectorNullAll = makeFlatVector<int64_t>(

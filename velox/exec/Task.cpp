@@ -65,14 +65,15 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
   }
 
 #if CODEGEN_ENABLED == 1
-  if (self->queryCtx()->codegenEnabled() &&
-      self->queryCtx()->codegenConfigurationFilePath().length() != 0) {
+  const auto& config = self->queryCtx()->config();
+  if (config.codegenEnabled() &&
+      config.codegenConfigurationFilePath().length() != 0) {
     auto codegenLogger =
         std::make_shared<codegen::DefaultLogger>(self->taskId_);
     auto codegen = codegen::Codegen(codegenLogger);
-    auto lazyLoading = self->queryCtx()->codegenLazyLoading();
+    auto lazyLoading = config.codegenLazyLoading();
     codegen.initializeFromFile(
-        self->queryCtx()->codegenConfigurationFilePath(), lazyLoading);
+        config.codegenConfigurationFilePath(), lazyLoading);
     auto newPlanNode = codegen.compile(*(self->planNode_));
     self->planNode_ = newPlanNode != nullptr ? newPlanNode : self->planNode_;
   }
@@ -678,7 +679,7 @@ void Task::createLocalExchangeSources(
 
   LocalExchange exchange;
   exchange.memoryManager = std::make_unique<LocalExchangeMemoryManager>(
-      queryCtx_->maxLocalExchangeBufferSize());
+      queryCtx_->config().maxLocalExchangeBufferSize());
 
   exchange.sources.reserve(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {

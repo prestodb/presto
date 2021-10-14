@@ -79,8 +79,8 @@ void CastExpr::applyCastWithTry(
     exec::EvalCtx* context,
     const DecodedVector& input,
     FlatVector<To>* resultFlatVector) {
-  const auto& queryCtx = context->execCtx()->queryCtx();
-  auto isCastIntByTruncate = queryCtx->isCastIntByTruncate();
+  const auto& queryConfig = context->execCtx()->queryCtx()->config();
+  auto isCastIntByTruncate = queryConfig.isCastIntByTruncate();
 
   if (!nullOnFailure_) {
     if (!isCastIntByTruncate) {
@@ -128,8 +128,8 @@ void CastExpr::applyCastWithTry(
   // GMT timezone to the user provided session timezone.
   if constexpr (CppToType<To>::typeKind == TypeKind::TIMESTAMP) {
     // If user explicitly asked us to adjust the timezone.
-    if (queryCtx->adjustTimestampToTimezone()) {
-      auto sessionTzName = queryCtx->sessionTimezone();
+    if (queryConfig.adjustTimestampToTimezone()) {
+      auto sessionTzName = queryConfig.sessionTimezone();
       if (!sessionTzName.empty()) {
         // locate_zone throws runtime_error if the timezone couldn't be found
         // (so we're safe to dereference the pointer).
@@ -315,7 +315,8 @@ void CastExpr::applyRow(
 
   // Extract the flag indicating matching of children must be done by name or
   // position
-  auto matchByName = context->execCtx()->queryCtx()->isMatchStructByName();
+  auto matchByName =
+      context->execCtx()->queryCtx()->config().isMatchStructByName();
 
   // Cast each row child to its corresponding output child
   std::vector<VectorPtr> newChildren;
