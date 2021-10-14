@@ -18,6 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleColumnStatistics
@@ -29,11 +30,10 @@ public class DoubleColumnStatistics
 
     public DoubleColumnStatistics(
             Long numberOfValues,
-            long minAverageValueSizeInBytes,
             HiveBloomFilter bloomFilter,
             DoubleStatistics doubleStatistics)
     {
-        super(numberOfValues, minAverageValueSizeInBytes, bloomFilter);
+        super(numberOfValues, bloomFilter);
         requireNonNull(doubleStatistics, "doubleStatistics is null");
         this.doubleStatistics = doubleStatistics;
     }
@@ -45,11 +45,16 @@ public class DoubleColumnStatistics
     }
 
     @Override
+    public long getMinAverageValueSizeInBytes()
+    {
+        return DOUBLE_VALUE_BYTES;
+    }
+
+    @Override
     public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
     {
         return new DoubleColumnStatistics(
                 getNumberOfValues(),
-                getMinAverageValueSizeInBytes(),
                 bloomFilter,
                 doubleStatistics);
     }

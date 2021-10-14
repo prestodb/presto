@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.Type;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanStatisticsBuilder
@@ -67,9 +66,9 @@ public class BooleanStatisticsBuilder
     {
         Optional<BooleanStatistics> booleanStatistics = buildBooleanStatistics();
         if (booleanStatistics.isPresent()) {
-            return new BooleanColumnStatistics(nonNullValueCount, BOOLEAN_VALUE_BYTES, null, booleanStatistics.get());
+            return new BooleanColumnStatistics(nonNullValueCount, null, booleanStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, 0, null);
+        return new ColumnStatistics(nonNullValueCount, null);
     }
 
     public static Optional<BooleanStatistics> mergeBooleanStatistics(List<ColumnStatistics> stats)

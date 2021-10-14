@@ -286,19 +286,16 @@ public class TestOrcBloomFilters
 
         Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new IntegerColumnStatistics(
                 null,
-                0,
                 toHiveBloomFilter(orcBloomFilter),
                 new IntegerStatistics(10L, 2000L, null)));
 
         Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new IntegerColumnStatistics(
                 null,
-                0,
                 toHiveBloomFilter(emptyOrcBloomFilter),
                 new IntegerStatistics(10L, 2000L, null)));
 
         Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new IntegerColumnStatistics(
                 null,
-                0,
                 null,
                 new IntegerStatistics(10L, 2000L, null)));
 
