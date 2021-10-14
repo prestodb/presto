@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.array;
+package com.facebook.presto.common.array;
 
 import com.facebook.presto.common.block.ArrayAllocator;
 
-import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
-import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.NONE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;

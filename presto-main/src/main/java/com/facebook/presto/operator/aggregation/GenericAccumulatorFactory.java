@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.ArrayBlockBuilder;
 import com.facebook.presto.common.block.Block;

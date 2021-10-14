@@ -11,53 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.array;
+package com.facebook.presto.common.array;
 
 import io.airlift.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
-import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
-import static com.facebook.presto.array.BigArrays.offset;
-import static com.facebook.presto.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static com.facebook.presto.common.array.BigArrays.INITIAL_SEGMENTS;
+import static com.facebook.presto.common.array.BigArrays.SEGMENT_SIZE;
+import static com.facebook.presto.common.array.BigArrays.offset;
+import static com.facebook.presto.common.array.BigArrays.segment;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
-public final class IntBigArray
+public final class ObjectBigArray<T>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntBigArray.class).instanceSize();
-    private static final long SIZE_OF_SEGMENT = sizeOfIntArray(SEGMENT_SIZE);
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ObjectBigArray.class).instanceSize();
+    private static final long SIZE_OF_SEGMENT = sizeOfObjectArray(SEGMENT_SIZE);
 
-    private final int initialValue;
+    private final Object initialValue;
 
-    private int[][] array;
+    private Object[][] array;
     private long capacity;
     private int segments;
 
     /**
      * Creates a new big array containing one initial segment
      */
-    public IntBigArray()
+    public ObjectBigArray()
     {
-        this(0);
+        this(null);
     }
 
-    /**
-     * Creates a new big array containing one initial segment filled with the specified default value
-     */
-    public IntBigArray(int initialValue)
+    public ObjectBigArray(Object initialValue)
     {
         this.initialValue = initialValue;
-        array = new int[INITIAL_SEGMENTS][];
+        array = new Object[INITIAL_SEGMENTS][];
         allocateNewSegment();
-    }
-
-    public int[][] getSegments()
-    {
-        return array;
     }
 
     /**
@@ -69,14 +61,41 @@ public final class IntBigArray
     }
 
     /**
+     * Returns the current capacity of this big array
+     */
+    public long getCapacity()
+    {
+        return capacity;
+    }
+
+    /**
      * Returns the element of this big array at specified index.
      *
      * @param index a position in this big array.
      * @return the element of this big array at the specified position.
      */
-    public int get(long index)
+    @SuppressWarnings("unchecked")
+    public T get(long index)
     {
-        return array[segment(index)][offset(index)];
+        return (T) array[segment(index)][offset(index)];
+    }
+
+    /**
+     * Gets the element of this big array at specified index and then sets the provided
+     * replacement value to the same index
+     *
+     * @param index a position in this big array.
+     *
+     * @return the previously stored value for the specified index
+     */
+    @SuppressWarnings("unchecked")
+    public T getAndSet(long index, T replacement)
+    {
+        Object[] segment = array[segment(index)];
+        int offset = offset(index);
+        T result = (T) segment[offset];
+        segment[offset] = replacement;
+        return result;
     }
 
     /**
@@ -84,30 +103,28 @@ public final class IntBigArray
      *
      * @param index a position in this big array.
      */
-    public void set(long index, int value)
+    public void set(long index, T value)
     {
         array[segment(index)][offset(index)] = value;
     }
 
     /**
-     * Increments the element of this big array at specified index.
+     * Sets the element of this big array at specified index if and only if the existing value
+     * at that index is null
      *
      * @param index a position in this big array.
-     */
-    public void increment(long index)
-    {
-        array[segment(index)][offset(index)]++;
-    }
-
-    /**
-     * Adds the specified value to the specified element of this big array.
      *
-     * @param index a position in this big array.
-     * @param value the value
+     * @return whether the previous value was null and the new value stored
      */
-    public void add(long index, int value)
+    public boolean setIfNull(long index, T value)
     {
-        array[segment(index)][offset(index)] += value;
+        Object[] segment = array[segment(index)];
+        int offset = offset(index);
+        if (segment[offset] == null) {
+            segment[offset] = value;
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -121,16 +138,6 @@ public final class IntBigArray
         }
 
         grow(length);
-    }
-
-    public void fill(int value)
-    {
-        for (int[] ints : array) {
-            if (ints == null) {
-                return;
-            }
-            Arrays.fill(ints, value);
-        }
     }
 
     private void grow(long length)
@@ -151,17 +158,12 @@ public final class IntBigArray
 
     private void allocateNewSegment()
     {
-        int[] newSegment = new int[SEGMENT_SIZE];
-        if (initialValue != 0) {
+        Object[] newSegment = new Object[SEGMENT_SIZE];
+        if (initialValue != null) {
             Arrays.fill(newSegment, initialValue);
         }
         array[segments] = newSegment;
         capacity += SEGMENT_SIZE;
         segments++;
-    }
-
-    public void sort(int from, int to, IntComparator comparator)
-    {
-        IntBigArrays.quickSort(array, from, to, comparator);
     }
 }

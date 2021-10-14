@@ -89,7 +89,6 @@
     <modules>
         <module>presto-atop</module>
         <module>presto-spi</module>
-        <module>presto-array</module>
         <module>presto-cache</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
@@ -244,12 +243,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cluster-ttl-providers</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-array</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

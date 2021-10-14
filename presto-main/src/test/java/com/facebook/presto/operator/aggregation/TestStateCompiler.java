@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.array.BlockBigArray;
-import com.facebook.presto.array.BooleanBigArray;
-import com.facebook.presto.array.ByteBigArray;
-import com.facebook.presto.array.DoubleBigArray;
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.LongBigArray;
-import com.facebook.presto.array.ReferenceCountMap;
-import com.facebook.presto.array.SliceBigArray;
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.array.BlockBigArray;
+import com.facebook.presto.common.array.BooleanBigArray;
+import com.facebook.presto.common.array.ByteBigArray;
+import com.facebook.presto.common.array.DoubleBigArray;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.LongBigArray;
+import com.facebook.presto.common.array.ReferenceCountMap;
+import com.facebook.presto.common.array.SliceBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;

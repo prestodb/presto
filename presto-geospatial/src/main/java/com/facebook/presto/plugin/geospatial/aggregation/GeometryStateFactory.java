@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
 

@@ -67,11 +67,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.array.Arrays.ExpansionFactor.MEDIUM;
-import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
-import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.MEDIUM;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
