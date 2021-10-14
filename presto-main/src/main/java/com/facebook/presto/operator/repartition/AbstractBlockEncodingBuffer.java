@@ -47,12 +47,12 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
-import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
-import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.LARGE;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.NONE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.fill;
 import static com.facebook.presto.operator.UncheckedByteArrays.setByteUnchecked;
 import static com.google.common.base.MoreObjects.toStringHelper;

@@ -87,7 +87,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-array</artifactId>
+            <artifactId>presto-common</artifactId>
         </dependency>
 
         <dependency>

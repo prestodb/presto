@@ -17,11 +17,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-array</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.thirdparty</groupId>
             <artifactId>libsvm</artifactId>
         </dependency>
