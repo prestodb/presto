@@ -63,8 +63,13 @@ void registerFunctions() {
   registerFunction<udf_to_unixtime, double, Timestamp>(
       {"to_unixtime", "to_unix_timestamp"});
   registerFunction<udf_from_unixtime, Timestamp, double>();
-  registerFunction<udf_millisecond, int64_t, Timestamp>();
+  registerFunction<udf_year, int64_t, Timestamp>();
+  registerFunction<udf_month, int64_t, Timestamp>();
+  registerFunction<udf_day, int64_t, Timestamp>({"day", "day_of_month"});
   registerFunction<udf_hour, int64_t, Timestamp>();
+  registerFunction<udf_minute, int64_t, Timestamp>();
+  registerFunction<udf_second, int64_t, Timestamp>();
+  registerFunction<udf_millisecond, int64_t, Timestamp>();
 
   registerArithmeticFunctions();
   registerCheckedArithmeticFunctions();
