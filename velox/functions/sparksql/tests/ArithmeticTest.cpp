@@ -177,5 +177,30 @@ TEST_F(ArithmeticTest, Divide) {
   EXPECT_TRUE(std::isnan(divide(kInf, -kInf).value_or(0)));
 }
 
+class CeilFllorTest : public SparkFunctionBaseTest {
+ protected:
+  template <typename T>
+  std::optional<int64_t> ceil(std::optional<T> a) {
+    return evaluateOnce<int64_t, T>("ceil(c0)", a);
+  }
+  template <typename T>
+  std::optional<int64_t> floor(std::optional<T> a) {
+    return evaluateOnce<int64_t, T>("floor(c0)", a);
+  }
+};
+TEST_F(CeilFllorTest, Limits) {
+  EXPECT_EQ(1, ceil<int64_t>(1));
+  EXPECT_EQ(-1, ceil<int64_t>(-1));
+  EXPECT_EQ(3, ceil<double>(2.878));
+  EXPECT_EQ(2, floor<double>(2.878));
+  EXPECT_EQ(1, floor<double>(1.5678));
+  EXPECT_EQ(
+      std::numeric_limits<int64_t>::max(),
+      floor<int64_t>(std::numeric_limits<int64_t>::max()));
+  EXPECT_EQ(
+      std::numeric_limits<int64_t>::min(),
+      floor<int64_t>(std::numeric_limits<int64_t>::min()));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

@@ -16,6 +16,9 @@
 #pragma once
 
 #include <cmath>
+#include <limits>
+#include <system_error>
+#include <type_traits>
 
 #include "velox/functions/Macros.h"
 
@@ -64,6 +67,58 @@ call(double& result, const double num, const double denom) {
     return false;
   }
   result = num / denom;
+  return true;
+}
+VELOX_UDF_END();
+
+/*
+  In Spark both ceil and floor must return Long type
+  sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/mathExpressions.scala
+*/
+template <typename T>
+int64_t safeDoubleToInt64(const T& /*value*/) {
+  throw std::runtime_error("Invalid input for floor/ceil");
+}
+
+template <>
+inline int64_t safeDoubleToInt64(const double& arg) {
+  if (std::isnan(arg)) {
+    return 0;
+  }
+  if (arg > std::numeric_limits<int64_t>::max()) {
+    return std::numeric_limits<int64_t>::max();
+  }
+  if (arg < std::numeric_limits<int64_t>::min()) {
+    return std::numeric_limits<int64_t>::min();
+  }
+  return arg;
+}
+
+template <>
+inline int64_t safeDoubleToInt64(const int64_t& arg) {
+  return arg;
+}
+
+template <typename T>
+VELOX_UDF_BEGIN(ceil)
+FOLLY_ALWAYS_INLINE bool call(int64_t& result, const T value) {
+  if constexpr (std::is_integral_v<T>) {
+    result = value;
+  } else {
+    result = safeDoubleToInt64(std::ceil(value));
+  }
+  return true;
+}
+VELOX_UDF_END();
+
+template <typename T>
+VELOX_UDF_BEGIN(floor)
+FOLLY_ALWAYS_INLINE bool call(int64_t& result, const T value) {
+  if constexpr (std::is_integral_v<T>) {
+    result = value;
+  } else {
+    result = safeDoubleToInt64(std::floor(value));
+  }
   return true;
 }
 VELOX_UDF_END();

@@ -32,9 +32,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerUnaryNumeric<udf_unaryminus>({prefix + "unaryminus"});
   // Math functions.
   registerUnaryNumeric<udf_abs>({prefix + "abs"});
-  registerUnaryNumeric<udf_ceil>({prefix + "ceil"});
   registerFunction<udf_exp, double, double>({prefix + "exp"});
-  registerUnaryNumeric<udf_floor>({prefix + "floor"});
   registerBinaryIntegral<udf_pmod>({prefix + "pmod"});
   registerFunction<udf_power<double>, double, double, double>(
       {prefix + "power"});
@@ -50,6 +48,11 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<udf_round<double>, double, double, int32_t>(
       {prefix + "round"});
   registerFunction<udf_round<float>, float, float, int32_t>({prefix + "round"});
+  // In Spark only long, double, and decimal have ceil/floor
+  registerFunction<udf_ceil<int64_t>, int64_t, int64_t>({prefix + "ceil"});
+  registerFunction<udf_ceil<double>, int64_t, double>({prefix + "ceil"});
+  registerFunction<udf_floor<int64_t>, int64_t, int64_t>({prefix + "floor"});
+  registerFunction<udf_floor<double>, int64_t, double>({prefix + "floor"});
 }
 
 } // namespace facebook::velox::functions::sparksql
