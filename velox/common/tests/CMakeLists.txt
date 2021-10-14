@@ -20,7 +20,8 @@ add_executable(
   BloomFilterTest.cpp
   RawVectorTest.cpp
   StatsReporterTest.cpp
-  SimdUtilTest.cpp)
+  SimdUtilTest.cpp
+  TraceContextTest.cpp)
 
 add_test(velox_common_test velox_common_test)
 

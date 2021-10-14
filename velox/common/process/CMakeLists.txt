@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_process ProcessBase.cpp StackTrace.cpp)
+add_library(velox_process ProcessBase.cpp StackTrace.cpp TraceContext.cpp)
 
 target_link_libraries(velox_process ${FOLLY_WITH_DEPENDENCIES} ${GLOG})
