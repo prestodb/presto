@@ -64,6 +64,7 @@ void registerFunctions() {
       {"to_unixtime", "to_unix_timestamp"});
   registerFunction<udf_from_unixtime, Timestamp, double>();
   registerFunction<udf_millisecond, int64_t, Timestamp>();
+  registerFunction<udf_hour, int64_t, Timestamp>();
 
   registerArithmeticFunctions();
   registerCheckedArithmeticFunctions();

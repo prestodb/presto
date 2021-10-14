@@ -122,7 +122,8 @@ class VectorFunction {
 // Factory for functions which are template generated from scalar functions.
 class VectorAdapterFactory {
  public:
-  virtual std::unique_ptr<VectorFunction> getVectorInterpreter() const = 0;
+  virtual std::unique_ptr<VectorFunction> getVectorInterpreter(
+      const core::QueryConfig& config) const = 0;
   virtual ~VectorAdapterFactory() = default;
   virtual const TypePtr returnType() const = 0;
 };

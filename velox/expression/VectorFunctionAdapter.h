@@ -63,8 +63,12 @@ class VectorAdapter : public VectorFunction {
   };
 
  public:
-  explicit VectorAdapter(std::shared_ptr<const Type> returnType)
-      : fn_{std::make_unique<FUNC>(move(returnType))} {}
+  explicit VectorAdapter(
+      const core::QueryConfig& config,
+      std::shared_ptr<const Type> returnType)
+      : fn_{std::make_unique<FUNC>(move(returnType))} {
+    fn_->initialize(config);
+  }
 
   void apply(
       const SelectivityVector& rows,
@@ -384,8 +388,9 @@ class VectorAdapterFactoryImpl : public VectorAdapterFactory {
   explicit VectorAdapterFactoryImpl(std::shared_ptr<const Type> returnType)
       : returnType_(std::move(returnType)) {}
 
-  std::unique_ptr<VectorFunction> getVectorInterpreter() const override {
-    return std::make_unique<VectorAdapter<FUNC>>(returnType_);
+  std::unique_ptr<VectorFunction> getVectorInterpreter(
+      const core::QueryConfig& config) const override {
+    return std::make_unique<VectorAdapter<FUNC>>(config, returnType_);
   }
 
   const std::shared_ptr<const Type> returnType() const override {

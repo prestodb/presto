@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/external/date/tz.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
 
@@ -40,4 +41,45 @@ FOLLY_ALWAYS_INLINE bool call(
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(hour)
+const date::time_zone* timeZone_ = nullptr;
+
+FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
+  if (config.adjustTimestampToTimezone()) {
+    auto sessionTzName = config.sessionTimezone();
+    if (!sessionTzName.empty()) {
+      timeZone_ = date::locate_zone(sessionTzName);
+    }
+  }
+}
+
+FOLLY_ALWAYS_INLINE bool call(
+    int64_t& result,
+    const arg_type<Timestamp>& timestamp) {
+  int64_t seconds = getSeconds(timestamp);
+  std::tm dateTime;
+  gmtime_r((const time_t*)&seconds, &dateTime);
+  result = dateTime.tm_hour;
+  return true;
+}
+
+FOLLY_ALWAYS_INLINE int64_t getSeconds(Timestamp timestamp) {
+  if (timeZone_ != nullptr) {
+    timestamp.toTimezoneUTC(*timeZone_);
+    return timestamp.getSeconds();
+  } else {
+    return timestamp.getSeconds();
+  }
+}
+
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(millisecond)
+FOLLY_ALWAYS_INLINE bool call(
+    int64_t& result,
+    const arg_type<Timestamp>& timestamp) {
+  result = timestamp.getNanos() / kNanosecondsInMilliseconds;
+  return true;
+}
+VELOX_UDF_END();
 } // namespace facebook::velox::functions

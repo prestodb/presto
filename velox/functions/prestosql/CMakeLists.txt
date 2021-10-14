@@ -26,7 +26,6 @@ add_library(
   ElementAt.cpp
   FilterFunctions.cpp
   FromUnixTime.cpp
-  Hour.cpp
   InPredicate.cpp
   IsNull.cpp
   Length.cpp

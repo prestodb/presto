@@ -40,13 +40,4 @@ FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
   return Timestamp(seconds, nanos * kNanosecondsInSecond);
 }
 
-VELOX_UDF_BEGIN(millisecond)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& result,
-    const arg_type<Timestamp>& timestamp) {
-  result = timestamp.getNanos() / kNanosecondsInMilliseconds;
-  return true;
-}
-VELOX_UDF_END();
-
 } // namespace facebook::velox::functions

@@ -19,6 +19,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
@@ -88,6 +89,7 @@ struct udf_reuse_strings_from_arg<
 KOKSI_MEMBER_CHECKER(udf_has_call, &T::call)
 KOKSI_MEMBER_CHECKER(udf_has_callNullable, &T::callNullable)
 KOKSI_MEMBER_CHECKER(udf_has_callAscii, &T::callAscii)
+KOKSI_MEMBER_CHECKER(udf_has_initialize, &T::initialize)
 
 // If a UDF doesn't declare a default help(),
 template <class T, class = void>
@@ -283,6 +285,12 @@ class UDFHolder final
 
   explicit UDFHolder(std::shared_ptr<const Type> returnType)
       : Metadata(std::move(returnType)), instance_{} {}
+
+  FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
+    if constexpr (udf_has_initialize<Fun>::value) {
+      return instance_.initialize(config);
+    }
+  }
 
   FOLLY_ALWAYS_INLINE bool call(
       typename Exec::template resolver<TReturn>::out_type& out,
