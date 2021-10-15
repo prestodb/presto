@@ -621,6 +621,16 @@ TEST_F(Re2FunctionsTest, regexExtractAllNoMatch) {
   testRe2ExtractAll({""}, {"[0-9]+"}, noGroupId, {{{}}});
   testRe2ExtractAll({"(╯°□°)╯︵ ┻━┻"}, {"[0-9]+"}, noGroupId, {{{}}});
   testRe2ExtractAll({"abcde"}, {"[0-9]+"}, groupIds0, {{{}}});
+  testRe2ExtractAll(
+      {"rYBKVn6DnfSI2an4is4jbvf4btGpV"},
+      {"81jnp58n31BtMdlUsP1hiF4QWSYv411"},
+      noGroupId,
+      {{{}}});
+  testRe2ExtractAll(
+      {"rYBKVn6DnfSI2an4is4jbvf4btGpV"},
+      {"81jnp58n31BtMdlUsP1hiF4QWSYv411"},
+      groupIds0,
+      {{{}}});
 }
 
 TEST_F(Re2FunctionsTest, regexExtractAllBadArgs) {
@@ -632,7 +642,10 @@ TEST_F(Re2FunctionsTest, regexExtractAllBadArgs) {
   };
   EXPECT_EQ(eval("123", std::nullopt, 0), std::nullopt);
   EXPECT_EQ(eval(std::nullopt, "(\\d+)", 0), std::nullopt);
-  EXPECT_THROW(eval("123", "(\\d+)", 99), VeloxException);
+  EXPECT_THROW(eval("", "", 123), VeloxException);
+  EXPECT_THROW(eval("123", "", 99), VeloxException);
+  EXPECT_THROW(eval("123", "(\\d+)", 1), VeloxException);
+  EXPECT_THROW(eval("123", "[a-z]+", 1), VeloxException);
 }
 
 } // namespace

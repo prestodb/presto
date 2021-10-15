@@ -477,7 +477,7 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       // Case 1: No groupId -- use 0 as the default groupId
       //
       groups.resize(1);
-      rows.applyToSelected([&](vector_size_t row) {
+      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         re2ExtractAll(builder, re_, inputStrs, row, groups, 0);
       });
     } else if (const auto _groupId = getIfConstant<T>(*args[2])) {
@@ -485,7 +485,7 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       //
       checkForBadGroupId(*_groupId, re_);
       groups.resize(*_groupId + 1);
-      rows.applyToSelected([&](vector_size_t row) {
+      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         re2ExtractAll(builder, re_, inputStrs, row, groups, *_groupId);
       });
     } else {
@@ -494,21 +494,23 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       //
       exec::LocalDecodedVector groupIds(context, *args[2], rows);
       T maxGroupId = 0, minGroupId = 0;
-      rows.applyToSelected([&](vector_size_t row) {
+      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         maxGroupId = std::max(groupIds->valueAt<T>(row), maxGroupId);
         minGroupId = std::min(groupIds->valueAt<T>(row), minGroupId);
       });
       checkForBadGroupId(maxGroupId, re_);
       checkForBadGroupId(minGroupId, re_);
       groups.resize(maxGroupId + 1);
-      rows.applyToSelected([&](vector_size_t row) {
+      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         const T groupId = groupIds->valueAt<T>(row);
         checkForBadGroupId(groupId, re_);
         re2ExtractAll(builder, re_, inputStrs, row, groups, groupId);
       });
     }
-    builder.setStringBuffers(
-        args[0]->asFlatVector<StringView>()->stringBuffers());
+
+    if (const auto fv = inputStrs->base()->asFlatVector<StringView>()) {
+      builder.setStringBuffers(fv->stringBuffers());
+    }
     std::shared_ptr<ArrayVector> arrayVector =
         std::move(builder).finish(context->pool());
     context->moveOrCopyResult(arrayVector, rows, resultRef);
@@ -546,7 +548,7 @@ class Re2ExtractAll final : public VectorFunction {
       // Case 1: No groupId -- use 0 as the default groupId
       //
       groups.resize(1);
-      rows.applyToSelected([&](vector_size_t row) {
+      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         RE2 re(toStringPiece(pattern->valueAt<StringView>(row)), RE2::Quiet);
         checkForBadPattern(re);
         re2ExtractAll(builder, re, inputStrs, row, groups, 0);
@@ -555,7 +557,7 @@ class Re2ExtractAll final : public VectorFunction {
       // Case 2: Has groupId
       //
       exec::LocalDecodedVector groupIds(context, *args[2], rows);
-      rows.applyToSelected([&](vector_size_t row) {
+      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         const T groupId = groupIds->valueAt<T>(row);
         RE2 re(toStringPiece(pattern->valueAt<StringView>(row)), RE2::Quiet);
         checkForBadPattern(re);
@@ -565,8 +567,9 @@ class Re2ExtractAll final : public VectorFunction {
       });
     }
 
-    builder.setStringBuffers(
-        args[0]->asFlatVector<StringView>()->stringBuffers());
+    if (const auto fv = inputStrs->base()->asFlatVector<StringView>()) {
+      builder.setStringBuffers(fv->stringBuffers());
+    }
     std::shared_ptr<ArrayVector> arrayVector =
         std::move(builder).finish(context->pool());
     context->moveOrCopyResult(arrayVector, rows, resultRef);
