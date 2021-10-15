@@ -17,6 +17,7 @@ import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -24,12 +25,15 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -378,6 +382,12 @@ public class VerificationManager
         @Override
         protected Boolean visitQuerySpecification(QuerySpecification node, Integer level)
         {
+            if (node.getFrom().isPresent()) {
+                Relation relation = node.getFrom().get();
+                if (process(relation, level)) {
+                    return true;
+                }
+            }
             //Check if node is not at root level and limit clause is present without order by
             return level != 0 && node.getLimit().isPresent() && !node.getOrderBy().isPresent();
         }
@@ -401,6 +411,12 @@ public class VerificationManager
         protected Boolean visitInsert(Insert node, Integer level)
         {
             return process(node.getQuery(), level);
+        }
+
+        @Override
+        protected Boolean visitJoin(Join node, Integer level)
+        {
+            return false;
         }
 
         @Override
@@ -429,6 +445,24 @@ public class VerificationManager
         protected Boolean visitExcept(Except node, Integer level)
         {
             return process(node.getLeft(), level) || process(node.getRight(), level);
+        }
+
+        @Override
+        protected Boolean visitAliasedRelation(AliasedRelation node, Integer level)
+        {
+            return process(node.getRelation(), level);
+        }
+
+        @Override
+        protected Boolean visitUnnest(Unnest node, Integer level)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitTable(Table node, Integer level)
+        {
+            return false;
         }
 
         @Override
