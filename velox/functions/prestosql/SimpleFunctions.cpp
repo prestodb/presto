@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"

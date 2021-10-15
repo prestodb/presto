@@ -21,7 +21,7 @@
 #include "folly/String.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/functions/FunctionRegistry.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 
 /// ExpressionFuzzerMain is an executable that leverages ExpressionFuzzer and

@@ -17,7 +17,7 @@
 #include <folly/init/Init.h>
 #include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 
 using namespace facebook::velox;

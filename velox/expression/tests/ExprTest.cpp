@@ -20,7 +20,7 @@
 #include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/functions/Udf.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"

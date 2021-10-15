@@ -15,7 +15,7 @@
  */
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/exec/tests/utils/FunctionUtils.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 
 namespace facebook::velox::functions::test {

@@ -25,7 +25,7 @@
 #include "velox/experimental/codegen/CodegenCompiledExpressionTransform.h"
 #include "velox/experimental/codegen/CompiledExpressionAnalysis.h"
 #include "velox/experimental/codegen/tests/CodegenTestBase.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 

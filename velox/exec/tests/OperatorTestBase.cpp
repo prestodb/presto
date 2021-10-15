@@ -21,7 +21,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/tests/utils/FunctionUtils.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/serializers/PrestoSerializer.h"
 

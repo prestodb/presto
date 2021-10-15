@@ -18,7 +18,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;

@@ -22,7 +22,7 @@ add_library(
   ArrayMinMax.cpp
   Cardinality.cpp
   Coalesce.cpp
-  CoreFunctions.cpp
+  SimpleFunctions.cpp
   ElementAt.cpp
   FilterFunctions.cpp
   FromUnixTime.cpp

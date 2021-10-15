@@ -26,7 +26,7 @@
 #include "velox/experimental/codegen/compiler_utils/tests/definitions.h"
 #include "velox/experimental/codegen/utils/resources/ResourcePath.h"
 #include "velox/experimental/codegen/vector_function/StringTypes.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"

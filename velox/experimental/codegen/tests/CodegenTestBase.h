@@ -30,7 +30,7 @@
 #include "velox/experimental/codegen/CodegenLogger.h"
 #include "velox/experimental/codegen/code_generator/ExprCodeGenerator.h"
 #include "velox/experimental/codegen/utils/resources/ResourcePath.h"
-#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
