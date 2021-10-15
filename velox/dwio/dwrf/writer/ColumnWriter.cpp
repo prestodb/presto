@@ -1498,41 +1498,73 @@ class BinaryColumnWriter : public ColumnWriter {
 uint64_t BinaryColumnWriter::write(
     const VectorPtr& slice,
     const Ranges& ranges) {
-  auto binarySlice = slice->asFlatVector<StringView>();
-  DWIO_ENSURE(binarySlice, "unexpected vector type");
-  ColumnWriter::write(slice, ranges);
-  auto nulls = slice->rawNulls();
-  auto data = binarySlice->rawValues();
+  auto& statsBuilder =
+      dynamic_cast<BinaryStatisticsBuilder&>(*indexStatsBuilder_);
+  uint64_t rawSize = 0;
+  uint64_t nullCount = 0;
 
   // TODO Optimize to avoid copy
   DataBuffer<int64_t> lengths{getMemoryPool(MemoryUsageCategory::GENERAL)};
   lengths.reserve(ranges.size());
-  uint64_t rawSize = 0;
 
-  auto& statsBuilder =
-      dynamic_cast<BinaryStatisticsBuilder&>(*indexStatsBuilder_);
-  auto processRow = [&](size_t pos) {
-    auto size = data[pos].size();
-    lengths.unsafeAppend(size);
-    data_.write(data[pos].data(), size);
-    statsBuilder.addValues(size);
-    rawSize += size;
-  };
+  if (slice->encoding() == VectorEncoding::Simple::FLAT) {
+    auto binarySlice = slice->asFlatVector<StringView>();
+    DWIO_ENSURE(binarySlice, "unexpected vector type");
+    ColumnWriter::write(slice, ranges);
+    auto nulls = slice->rawNulls();
+    auto data = binarySlice->rawValues();
 
-  uint64_t nullCount = 0;
-  if (slice->mayHaveNulls()) {
-    for (auto& pos : ranges) {
-      if (bits::isBitNull(nulls, pos)) {
-        ++nullCount;
-      } else {
+    auto processRow = [&](size_t pos) {
+      auto size = data[pos].size();
+      lengths.unsafeAppend(size);
+      data_.write(data[pos].data(), size);
+      statsBuilder.addValues(size);
+      rawSize += size;
+    };
+
+    if (slice->mayHaveNulls()) {
+      for (auto& pos : ranges) {
+        if (bits::isBitNull(nulls, pos)) {
+          ++nullCount;
+        } else {
+          processRow(pos);
+        }
+      }
+    } else {
+      for (auto& pos : ranges) {
         processRow(pos);
       }
     }
   } else {
-    for (auto& pos : ranges) {
-      processRow(pos);
+    // Decode
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
+    ColumnWriter::write(decodedVector, ranges);
+
+    auto processRow = [&](size_t pos) {
+      auto val = decodedVector.template valueAt<StringView>(pos);
+      auto size = val.size();
+      lengths.unsafeAppend(size);
+      data_.write(val.data(), size);
+      statsBuilder.addValues(size);
+      rawSize += size;
+    };
+
+    if (decodedVector.mayHaveNulls()) {
+      for (auto& pos : ranges) {
+        if (decodedVector.isNullAt(pos)) {
+          ++nullCount;
+        } else {
+          processRow(pos);
+        }
+      }
+    } else {
+      for (auto& pos : ranges) {
+        processRow(pos);
+      }
     }
   }
+
   if (lengths.size() > 0) {
     lengths_->add(lengths.data(), Ranges::of(0, lengths.size()), nullptr);
   }
