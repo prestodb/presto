@@ -83,7 +83,7 @@ public class TestClusterStatsResource
         assertEquals(clusterStats.getAdjustedQueueSize(), 0);
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testGetClusterStats()
             throws Exception
     {
