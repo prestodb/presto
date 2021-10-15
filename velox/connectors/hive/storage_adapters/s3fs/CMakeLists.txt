@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_exec_test_util FunctionUtils.cpp TempFilePath.cpp
-                                 TempDirectoryPath.cpp)
-target_link_libraries(velox_exec_test_util)
+# for generated headers
+
+add_library(velox_s3fs S3FileSystem.cpp)
+target_include_directories(velox_s3fs PUBLIC ${AWSSDK_INCLUDE_DIRS})
+target_link_libraries(velox_s3fs ${AWSSDK_LIBRARIES})
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()

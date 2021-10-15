@@ -538,7 +538,7 @@ HiveConnector::HiveConnector(
       fileHandleFactory_(
           std::make_unique<SimpleLRUCache<std::string, FileHandle>>(
               FLAGS_file_handle_cache_mb << 20),
-          std::make_unique<FileHandleGenerator>()),
+          std::make_unique<FileHandleGenerator>(std::move(properties))),
       executor_(executor) {}
 
 VELOX_REGISTER_CONNECTOR_FACTORY(std::make_shared<HiveConnectorFactory>())

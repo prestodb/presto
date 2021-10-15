@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_exec_test_util FunctionUtils.cpp TempFilePath.cpp
-                                 TempDirectoryPath.cpp)
-target_link_libraries(velox_exec_test_util)
+if(VELOX_ENABLE_S3)
+  add_subdirectory(s3fs)
+endif()

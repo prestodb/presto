@@ -17,6 +17,7 @@ workflows:
   dist-compile:
     jobs:
       - linux-build
+      - linux-storage-adapters-build
       - macos-build
       - format-check
       - header-check
@@ -134,6 +135,55 @@ jobs:
           command: |
             make fuzzertest
           no_output_timeout: 5m
+
+  linux-storage-adapters-build:
+    executor: build
+    steps:
+      - checkout
+      - run:
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
+      - restore_cache:
+          name: "Restore CCache cache"
+          keys:
+            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+      - run:
+          name: "Install adapter dependencies"
+          command: |
+            mkdir ~/adapter-deps ~/adapter-deps/install
+            source /opt/rh/gcc-toolset-9/enable
+            set -xu
+            DEPENDENCY_DIR=~/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh
+      - run:
+          name: "Install Minio server"
+          command: |
+            set -xu
+            cd ~/adapter-deps/install/bin/
+            wget https://dl.min.io/server/minio/release/linux-amd64/minio
+            chmod +x minio
+      - run:
+          name: Build
+          command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 5Gi
+            source /opt/rh/gcc-toolset-9/enable
+            make debug VELOX_ENABLE_ADAPTERS=ON AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
+            ccache -s
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: '_build/debug/.ninja_log'
+      - save_cache:
+          name: "Save CCache cache"
+          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
+      - run:
+          name: "Run Unit Tests"
+          command: |
+            export PATH=~/adapter-deps/install/bin:${PATH}
+            make unittest VELOX_ENABLE_ADAPTERS=ON AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16
+          no_output_timeout: 1h
 
   format-check:
     executor: check

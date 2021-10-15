@@ -17,8 +17,19 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 # set the project name
 project(velox)
 
+# Add all options below
 option(VELOX_BUILD_TESTING "Enable Velox tests" ON)
 option(VELOX_ENABLE_DUCKDB "Build duckDB to enable differential testing." ON)
+option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
+
+if(VELOX_ENABLE_S3)
+  # Set AWS_ROOT_DIR if you have a custom install location of AWS SDK CPP.
+  if(AWSSDK_ROOT_DIR)
+    set(CMAKE_PREFIX_PATH ${AWSSDK_ROOT_DIR})
+  endif()
+  find_package(AWSSDK REQUIRED COMPONENTS s3)
+  add_definitions(-DVELOX_ENABLE_S3)
+endif()
 
 # If CODEGEN support isn't explicitly set, we guestimate the value based on the
 # compiler
@@ -189,7 +200,7 @@ endif()
 if(VELOX_BUILD_TESTING AND NOT VELOX_ENABLE_DUCKDB)
   message(
     FATAL_ERROR
-      "Unit tests require duckDB to be enabled (VELOX_ENABLE_DUCKDB=ON or BUILD_TESTING=OFF)"
+      "Unit tests require duckDB to be enabled (VELOX_ENABLE_DUCKDB=ON or VELOX_BUILD_TESTING=OFF)"
   )
 endif()
 
