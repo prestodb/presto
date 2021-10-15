@@ -1659,15 +1659,10 @@ uint64_t StructColumnWriter::write(
     auto nulls = slice->rawNulls();
     if (slice->mayHaveNulls()) {
       // Compute range of slice that child writer need to write.
-      // If null count not present, err on the side of caution and assume nulls
-      // exist.
-      if (!rowSlice->getNullCount().has_value() ||
-          rowSlice->getNullCount().value() > 0) {
-        childRanges = ranges.filter(
-            [&nulls](auto i) { return !bits::isBitNull(nulls, i); });
-        childRangesPtr = &childRanges;
-        nullCount = ranges.size() - childRanges.size();
-      }
+      childRanges = ranges.filter(
+          [&nulls](auto i) { return !bits::isBitNull(nulls, i); });
+      childRangesPtr = &childRanges;
+      nullCount = ranges.size() - childRanges.size();
     }
   }
   return writeChildrenAndStats(rowSlice, *childRangesPtr, nullCount);
