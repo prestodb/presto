@@ -109,7 +109,7 @@ public class TestDistributedClusterStatsResource
         return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testClusterStatsRedirectToResourceManager()
             throws Exception
     {
