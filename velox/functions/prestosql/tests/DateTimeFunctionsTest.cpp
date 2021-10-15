@@ -202,6 +202,81 @@ TEST_F(DateTimeFunctionsTest, hour) {
   EXPECT_EQ(8, hour(Timestamp(998423705, 321000000)));
 }
 
+TEST_F(DateTimeFunctionsTest, dayOfMonth) {
+  const auto day = [&](std::optional<Timestamp> date) {
+    return evaluateOnce<int64_t>("day_of_month(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(1, day(Timestamp(0, 0)));
+  EXPECT_EQ(31, day(Timestamp(-1, 9000)));
+  EXPECT_EQ(30, day(Timestamp(1632989700, 0)));
+  EXPECT_EQ(1, day(Timestamp(1633076100, 0)));
+  EXPECT_EQ(6, day(Timestamp(1633508100, 0)));
+  EXPECT_EQ(31, day(Timestamp(1635668100, 0)));
+
+  setQueryTimeZone("Pacific/Apia");
+
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(31, day(Timestamp(0, 0)));
+  EXPECT_EQ(31, day(Timestamp(-1, 9000)));
+  EXPECT_EQ(30, day(Timestamp(1632989700, 0)));
+  EXPECT_EQ(1, day(Timestamp(1633076100, 0)));
+  EXPECT_EQ(6, day(Timestamp(1633508100, 0)));
+  EXPECT_EQ(31, day(Timestamp(1635668100, 0)));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfWeek) {
+  const auto day = [&](std::optional<Timestamp> date) {
+    return evaluateOnce<int64_t>("day_of_week(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(4, day(Timestamp(0, 0)));
+  EXPECT_EQ(3, day(Timestamp(-1, 9000)));
+  EXPECT_EQ(1, day(Timestamp(1633940100, 0)));
+  EXPECT_EQ(2, day(Timestamp(1634026500, 0)));
+  EXPECT_EQ(3, day(Timestamp(1634112900, 0)));
+  EXPECT_EQ(4, day(Timestamp(1634199300, 0)));
+  EXPECT_EQ(5, day(Timestamp(1634285700, 0)));
+  EXPECT_EQ(6, day(Timestamp(1634372100, 0)));
+  EXPECT_EQ(7, day(Timestamp(1633853700, 0)));
+
+  setQueryTimeZone("Pacific/Apia");
+
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(3, day(Timestamp(0, 0)));
+  EXPECT_EQ(3, day(Timestamp(-1, 9000)));
+  EXPECT_EQ(1, day(Timestamp(1633940100, 0)));
+  EXPECT_EQ(2, day(Timestamp(1634026500, 0)));
+  EXPECT_EQ(3, day(Timestamp(1634112900, 0)));
+  EXPECT_EQ(4, day(Timestamp(1634199300, 0)));
+  EXPECT_EQ(5, day(Timestamp(1634285700, 0)));
+  EXPECT_EQ(6, day(Timestamp(1634372100, 0)));
+  EXPECT_EQ(7, day(Timestamp(1633853700, 0)));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfYear) {
+  const auto day = [&](std::optional<Timestamp> date) {
+    return evaluateOnce<int64_t>("day_of_year(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(1, day(Timestamp(0, 0)));
+  EXPECT_EQ(365, day(Timestamp(-1, 9000)));
+  EXPECT_EQ(273, day(Timestamp(1632989700, 0)));
+  EXPECT_EQ(274, day(Timestamp(1633076100, 0)));
+  EXPECT_EQ(279, day(Timestamp(1633508100, 0)));
+  EXPECT_EQ(304, day(Timestamp(1635668100, 0)));
+
+  setQueryTimeZone("Pacific/Apia");
+
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(365, day(Timestamp(0, 0)));
+  EXPECT_EQ(365, day(Timestamp(-1, 9000)));
+  EXPECT_EQ(273, day(Timestamp(1632989700, 0)));
+  EXPECT_EQ(274, day(Timestamp(1633076100, 0)));
+  EXPECT_EQ(279, day(Timestamp(1633508100, 0)));
+  EXPECT_EQ(304, day(Timestamp(1635668100, 0)));
+}
+
 TEST_F(DateTimeFunctionsTest, minute) {
   const auto minute = [&](std::optional<Timestamp> date) {
     return evaluateOnce<int64_t>("minute(c0)", date);

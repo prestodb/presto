@@ -66,6 +66,8 @@ void registerFunctions() {
   registerFunction<udf_year, int64_t, Timestamp>();
   registerFunction<udf_month, int64_t, Timestamp>();
   registerFunction<udf_day, int64_t, Timestamp>({"day", "day_of_month"});
+  registerFunction<udf_day_of_week, int64_t, Timestamp>({"dow", "day_of_week"});
+  registerFunction<udf_day_of_year, int64_t, Timestamp>({"doy", "day_of_year"});
   registerFunction<udf_hour, int64_t, Timestamp>();
   registerFunction<udf_minute, int64_t, Timestamp>();
   registerFunction<udf_second, int64_t, Timestamp>();

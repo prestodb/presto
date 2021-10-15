@@ -26,7 +26,25 @@ Convenience Extraction Functions
 
     This is an alias for :func:`day`.
 
-... function:: hour(timestamp) -> bigint
+.. function:: day_of_week(timestamp) -> bigint
+
+    Returns the ISO day of the week from ``timestamp``.
+    The value ranges from ``1`` (Monday) to ``7`` (Sunday).
+
+.. function:: day_of_year(timestamp) -> bigint
+
+    Returns the day of the year from ``timestamp``.
+    The value ranges from ``1`` to ``366``.
+
+.. function:: dow(timestamp) -> bigint
+
+    This is an alias for :func:`day_of_week`.
+
+.. function:: doy(timestamp) -> bigint
+
+    This is an alias for :func:`day_of_year`.
+
+.. function:: hour(timestamp) -> bigint
 
     Returns the hour of the day from ``timestamp``. The value ranges from 0 to 23.
 

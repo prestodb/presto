@@ -62,6 +62,14 @@ getSeconds(Timestamp timestamp, const date::time_zone* timeZone) {
     return timestamp.getSeconds();
   }
 }
+
+FOLLY_ALWAYS_INLINE
+std::tm getDateTime(Timestamp timestamp, const date::time_zone* timeZone) {
+  int64_t seconds = getSeconds(timestamp, timeZone);
+  std::tm dateTime;
+  gmtime_r((const time_t*)&seconds, &dateTime);
+  return dateTime;
+}
 } // namespace
 
 VELOX_UDF_BEGIN(year)
@@ -74,10 +82,7 @@ FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
 FOLLY_ALWAYS_INLINE bool call(
     int64_t& result,
     const arg_type<Timestamp>& timestamp) {
-  int64_t seconds = getSeconds(timestamp, timeZone_);
-  std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
-  result = 1900 + dateTime.tm_year;
+  result = 1900 + getDateTime(timestamp, timeZone_).tm_year;
   return true;
 }
 VELOX_UDF_END();
@@ -92,10 +97,7 @@ FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
 FOLLY_ALWAYS_INLINE bool call(
     int64_t& result,
     const arg_type<Timestamp>& timestamp) {
-  int64_t seconds = getSeconds(timestamp, timeZone_);
-  std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
-  result = 1 + dateTime.tm_mon;
+  result = 1 + getDateTime(timestamp, timeZone_).tm_mon;
   return true;
 }
 VELOX_UDF_END();
@@ -110,10 +112,38 @@ FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
 FOLLY_ALWAYS_INLINE bool call(
     int64_t& result,
     const arg_type<Timestamp>& timestamp) {
-  int64_t seconds = getSeconds(timestamp, timeZone_);
-  std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
-  result = dateTime.tm_mday;
+  result = getDateTime(timestamp, timeZone_).tm_mday;
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(day_of_week)
+const date::time_zone* timeZone_ = nullptr;
+
+FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
+  timeZone_ = getTimeZoneFromConfig(config);
+}
+
+FOLLY_ALWAYS_INLINE bool call(
+    int64_t& result,
+    const arg_type<Timestamp>& timestamp) {
+  std::tm dateTime = getDateTime(timestamp, timeZone_);
+  result = dateTime.tm_wday == 0 ? 7 : dateTime.tm_wday;
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(day_of_year)
+const date::time_zone* timeZone_ = nullptr;
+
+FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
+  timeZone_ = getTimeZoneFromConfig(config);
+}
+
+FOLLY_ALWAYS_INLINE bool call(
+    int64_t& result,
+    const arg_type<Timestamp>& timestamp) {
+  result = 1 + getDateTime(timestamp, timeZone_).tm_yday;
   return true;
 }
 VELOX_UDF_END();
@@ -128,10 +158,7 @@ FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
 FOLLY_ALWAYS_INLINE bool call(
     int64_t& result,
     const arg_type<Timestamp>& timestamp) {
-  int64_t seconds = getSeconds(timestamp, timeZone_);
-  std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
-  result = dateTime.tm_hour;
+  result = getDateTime(timestamp, timeZone_).tm_hour;
   return true;
 }
 VELOX_UDF_END();
@@ -146,10 +173,7 @@ FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
 FOLLY_ALWAYS_INLINE bool call(
     int64_t& result,
     const arg_type<Timestamp>& timestamp) {
-  int64_t seconds = getSeconds(timestamp, timeZone_);
-  std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
-  result = dateTime.tm_min;
+  result = getDateTime(timestamp, timeZone_).tm_min;
   return true;
 }
 VELOX_UDF_END();
@@ -158,10 +182,7 @@ VELOX_UDF_BEGIN(second)
 FOLLY_ALWAYS_INLINE bool call(
     int64_t& result,
     const arg_type<Timestamp>& timestamp) {
-  int64_t seconds = timestamp.getSeconds();
-  std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
-  result = dateTime.tm_sec;
+  result = getDateTime(timestamp, nullptr).tm_sec;
   return true;
 }
 VELOX_UDF_END();
