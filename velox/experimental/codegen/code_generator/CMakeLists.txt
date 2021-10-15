@@ -12,6 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_library(velox_all_link STATIC)
+target_link_libraries(
+  velox_all_link
+  velox_codegen_code_generator
+  velox_codegen_utils_resource_path
+  velox_core
+  velox_parse_parser
+  velox_exec_test_util
+  velox_functions_lib
+  velox_functions_prestosql
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${GTEST_BOTH_LIBRARIES}
+  ${GFLAGS_LIBRARIES}
+  ${GLOG}
+  ${FMT})
+
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()

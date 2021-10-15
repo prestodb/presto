@@ -14,22 +14,6 @@
 
 # write all cmake var in a file for post-processing
 
-add_library(velox_all_link STATIC)
-target_link_libraries(
-  velox_all_link
-  velox_codegen_code_generator
-  velox_codegen_utils_resource_path
-  velox_core
-  velox_parse_parser
-  velox_exec_test_util
-  velox_functions_lib
-  velox_functions_prestosql
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GTEST_BOTH_LIBRARIES}
-  ${GFLAGS_LIBRARIES}
-  ${GLOG}
-  ${FMT})
-
 set(CODEGEN_LINK_PATH "$<TARGET_FILE:velox_all_link>")
 get_directory_property(DEFINED_VARIABLE VARIABLES)
 foreach(VR IN LISTS DEFINED_VARIABLE)
