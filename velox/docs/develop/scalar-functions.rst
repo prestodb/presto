@@ -112,6 +112,98 @@ An example of such function is rand():
         }
         VELOX_UDF_END();
 
+All-ASCII Fast Path
+^^^^^^^^^^^^^^^^^^^
+
+Functions that process string inputs must work correctly for UTF-8 inputs.
+However, these functions often can be implemented more efficiently if input is
+known to contain only ASCII characters. Such functions can provide a “call”
+method to process UTF-8 strings and a “callAscii” method to process ASCII-only
+strings. The engine will check the input strings and invoke “callAscii” method
+if input is all ASCII or “call” if input may contain multi-byte characters.
+
+In addition, most functions that take string inputs and produce a string output
+have so-called default ASCII behavior, e.g. all-ASCII input guarantees
+all-ASCII output. If that’s the case, the function can indicate so by defining
+the is_default_ascii_behavior member variable and initializing it to true. The
+engine will automatically mark the result strings as all-ASCII. When these
+strings are passed as input to some other function, the engine won’t need to
+scan the strings to determine whether they are ASCII or not.
+
+Here is an example of a trim function:
+
+.. code-block:: c++
+
+	VELOX_UDF_BEGIN(trim)
+
+	// ASCII input always produces ASCII result.
+	static constexpr bool is_default_ascii_behavior = true;
+
+	// Properly handles multi-byte characters.
+	FOLLY_ALWAYS_INLINE bool call(
+	    out_type<Varchar>& result,
+	    const arg_type<Varchar>& input) {
+	  stringImpl::trimUnicodeWhiteSpace<leftTrim, rightTrim>(result, input);
+	  return true;
+	}
+
+	// Assumes input is all ASCII.
+	FOLLY_ALWAYS_INLINE bool callAscii(
+	    out_type<Varchar>& result,
+	    const arg_type<Varchar>& input) {
+	  stringImpl::trimAsciiWhiteSpace<leftTrim, rightTrim>(result, input);
+	  return true;
+	}
+	VELOX_UDF_END();
+
+Zero-copy String Result
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Functions like :func:`substr` and :func:`trim` can produce zero-copy results by
+referencing input strings. To do that they must define a reuse_strings_from_arg
+member variable and initialize it to the index of the argument whose strings
+are being re-used in the result. This will allow the engine to add a reference
+to input string buffers to the result vector and ensure that these buffers will
+not go away prematurely.
+
+.. code-block:: c++
+
+	// Results refer to strings in the first argument.
+	static constexpr int32_t reuse_strings_from_arg = 0;
+
+Access to Session Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some functions require access to session properties such as session’s timezone.
+Some examples are the :func:`day`, :func:`hour`, and :func:`minute` Presto
+functions. To get access to session properties the function must define an
+initialize method which receives a constant reference to QueryConfig from which
+the function can extract the necessary properties. The engine calls the
+initialize method once per query and thread of execution.
+
+Here is an example of an hour function extracting time zone from the session
+properties and using it when processing inputs.
+
+.. code-block:: c++
+
+    VELOX_UDF_BEGIN(hour)
+    const date::time_zone* timeZone_ = nullptr;
+
+    FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
+      timeZone_ = getTimeZoneFromConfig(config);
+    }
+
+    FOLLY_ALWAYS_INLINE bool call(
+        int64_t& result,
+        const arg_type<Timestamp>& timestamp) {
+      int64_t seconds = getSeconds(timestamp, timeZone_);
+      std::tm dateTime;
+      gmtime_r((const time_t*)&seconds, &dateTime);
+      result = dateTime.tm_hour;
+      return true;
+    }
+    VELOX_UDF_END();
+
 Registration
 ^^^^^^^^^^^^
 
