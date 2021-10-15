@@ -49,7 +49,6 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveUtil
@@ -125,7 +124,7 @@ public class TestHiveUtil
     public void testShouldUseRecordReaderFromInputFormat()
     {
         StorageFormat hudiStorageFormat = StorageFormat.create("parquet.hive.serde.ParquetHiveSerDe", "org.apache.hudi.hadoop.HoodieParquetInputFormat", "");
-        assertFalse(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
+        assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
 
         StorageFormat hudiRealtimeStorageFormat = StorageFormat.create("parquet.hive.serde.ParquetHiveSerDe", "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat", "");
         assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiRealtimeStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
