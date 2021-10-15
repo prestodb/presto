@@ -75,7 +75,7 @@ std::shared_ptr<exec::VectorFunction> makeRLike(
 std::shared_ptr<exec::VectorFunction> makeRegexExtract(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  auto result = makeRe2Extract(name, inputArgs);
+  auto result = makeRe2Extract(name, inputArgs, /*emptyNoMatch=*/true);
   ensureRegexIsCompatible("REGEXP_EXTRACT", inputArgs[1].constantValue);
   return result;
 }

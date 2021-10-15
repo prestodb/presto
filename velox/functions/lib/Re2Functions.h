@@ -69,7 +69,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2SearchSignatures();
 /// match.
 std::shared_ptr<exec::VectorFunction> makeRe2Extract(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const bool emptyNoMatch);
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures();
 

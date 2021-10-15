@@ -20,6 +20,12 @@
 
 namespace facebook::velox::functions {
 
+std::shared_ptr<exec::VectorFunction> makeRegexExtract(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  return makeRe2Extract(name, inputArgs, /*emptyNoMatch=*/false);
+}
+
 void registerVectorFunctions() {
   registerType("timestamp with time zone", [](auto /*childTypes*/) {
     return TIMESTAMP_WITH_TIME_ZONE();
@@ -67,7 +73,7 @@ void registerVectorFunctions() {
 
   exec::registerStatefulVectorFunction("like", likeSignatures(), makeLike);
   exec::registerStatefulVectorFunction(
-      "regexp_extract", re2ExtractSignatures(), makeRe2Extract);
+      "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
   exec::registerStatefulVectorFunction(
       "regexp_extract_all", re2ExtractSignatures(), makeRe2ExtractAll);
   exec::registerStatefulVectorFunction(

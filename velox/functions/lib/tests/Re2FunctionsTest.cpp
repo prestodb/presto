@@ -31,6 +31,12 @@
 namespace facebook::velox::functions {
 namespace {
 
+std::shared_ptr<exec::VectorFunction> makeRegexExtract(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  return makeRe2Extract(name, inputArgs, /*emptyNoMatch=*/false);
+}
+
 class Re2FunctionsTest : public test::FunctionBaseTest {
  public:
   static void SetUpTestCase() {
@@ -40,7 +46,7 @@ class Re2FunctionsTest : public test::FunctionBaseTest {
     exec::registerStatefulVectorFunction(
         "re2_search", re2SearchSignatures(), makeRe2Search);
     exec::registerStatefulVectorFunction(
-        "re2_extract", re2ExtractSignatures(), makeRe2Extract);
+        "re2_extract", re2ExtractSignatures(), makeRegexExtract);
     exec::registerStatefulVectorFunction(
         "re2_extract_all", re2ExtractSignatures(), makeRe2ExtractAll);
     exec::registerStatefulVectorFunction("like", likeSignatures(), makeLike);
