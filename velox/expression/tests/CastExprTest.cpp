@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <limits>
 #include "velox/expression/ControlExpr.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
@@ -232,6 +233,19 @@ TEST_F(CastExprTest, truncateVsRound) {
   });
   testCast<double, int>(
       "int", {1.888, 2.5, 3.6, 100.44, -100.101}, {1, 2, 3, 100, -100});
+  testCast<double, int8_t>(
+      "tinyint",
+      {1,
+       256,
+       257,
+       2147483646,
+       2147483647,
+       2147483648,
+       -2147483646,
+       -2147483647,
+       -2147483648,
+       -2147483649},
+      {1, 0, 1, -2, -1, -1, 2, 1, 0, 0});
 
   queryCtx_->setConfigOverridesUnsafe({
       {core::QueryConfig::kCastIntByTruncate, "false"},
@@ -284,9 +298,9 @@ TEST_F(CastExprTest, errorHandling) {
       {core::QueryConfig::kCastIntByTruncate, "true"},
   });
   testCast<double, int>(
-      "int",
+      "integer",
       {1e12, 2.5, 3.6, 100.44, -100.101},
-      {std::nullopt, 2, 3, 100, -100},
+      {std::numeric_limits<int32_t>::max(), 2, 3, 100, -100},
       false,
       true);
 

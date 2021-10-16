@@ -17,6 +17,8 @@
 #pragma once
 
 #include <folly/Conv.h>
+#include <string>
+#include <type_traits>
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/Type.h"
@@ -97,31 +99,78 @@ struct Converter<
     return folly::to<T>(v);
   }
 
-  // TODO: implement templated helper method for all floats.
-  static T cast(const float& v) {
-    if (std::isnan(v)) {
-      throw std::invalid_argument("Cannot cast NaN to an integral value.");
+  struct LimitType {
+    static constexpr bool kByteOrSmallInt =
+        std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t>;
+    static int64_t minLimit() {
+      if (kByteOrSmallInt) {
+        return std::numeric_limits<int32_t>::min();
+      }
+      return std::numeric_limits<T>::min();
     }
+    static int64_t maxLimit() {
+      if (kByteOrSmallInt) {
+        return std::numeric_limits<int32_t>::max();
+      }
+      return std::numeric_limits<T>::max();
+    }
+    static T min() {
+      if (kByteOrSmallInt) {
+        return 0;
+      }
+      return std::numeric_limits<T>::min();
+    }
+    static T max() {
+      if (kByteOrSmallInt) {
+        return -1;
+      }
+      return std::numeric_limits<T>::max();
+    }
+    template <typename FP>
+    static T cast(const FP& v) {
+      if (kByteOrSmallInt) {
+        return T(int32_t(v));
+      }
+      return T(v);
+    }
+  };
+
+  static T cast(const float& v) {
     if constexpr (TRUNCATE) {
-      VELOX_CHECK(
-          std::numeric_limits<T>::min() <= v &&
-          v <= std::numeric_limits<T>::max());
-      return folly::to<T>(T(v));
+      if (std::isnan(v)) {
+        return 0;
+      }
+      if (v > LimitType::maxLimit()) {
+        return LimitType::max();
+      }
+      if (v < LimitType::minLimit()) {
+        return LimitType::min();
+      }
+      return LimitType::cast(v);
     } else {
+      if (std::isnan(v)) {
+        throw std::invalid_argument("Cannot cast NaN to an integral value.");
+      }
       return folly::to<T>(std::round(v));
     }
   }
 
   static T cast(const double& v) {
-    if (std::isnan(v)) {
-      throw std::invalid_argument("Cannot cast NaN to an integral value.");
-    }
     if constexpr (TRUNCATE) {
-      VELOX_CHECK(
-          std::numeric_limits<T>::min() <= v &&
-          v <= std::numeric_limits<T>::max());
-      return folly::to<T>(T(v));
+      if (std::isnan(v)) {
+        return 0;
+      }
+      if (v > LimitType::maxLimit()) {
+        return LimitType::max();
+      }
+      if (v < LimitType::minLimit()) {
+        return LimitType::min();
+      }
+      return LimitType::cast(v);
     } else {
+      if (std::isnan(v)) {
+        throw std::invalid_argument("Cannot cast NaN to an integral value.");
+      }
       return folly::to<T>(std::round(v));
     }
   }
@@ -196,7 +245,11 @@ struct Converter<
   }
 
   static T cast(const double& v) {
-    return cast<double>(v);
+    if constexpr (TRUNCATE) {
+      return T(v);
+    } else {
+      return cast<double>(v);
+    }
   }
 
   static T cast(const int8_t& v) {
@@ -224,6 +277,15 @@ template <bool TRUNCATE>
 struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
   template <typename T>
   static std::string cast(const T& val) {
+    if constexpr (
+        TRUNCATE && (std::is_same_v<T, double> || std::is_same_v<T, double>)) {
+      auto stringValue = folly::to<std::string>(val);
+      if (stringValue.find(".") == std::string::npos &&
+          isdigit(stringValue[stringValue.length() - 1])) {
+        stringValue += ".0";
+      }
+      return stringValue;
+    }
     return folly::to<std::string>(val);
   }
 
