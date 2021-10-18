@@ -338,6 +338,13 @@ struct StlAllocator {
     return allocator_;
   }
 
+  friend bool operator==(const StlAllocator& lhs, const StlAllocator& rhs) {
+    return lhs.allocator_ == rhs.allocator_;
+  }
+  friend bool operator!=(const StlAllocator& lhs, const StlAllocator& rhs) {
+    return !(lhs == rhs);
+  }
+
  private:
   exec::HashStringAllocator* FOLLY_NONNULL allocator_;
 };
