@@ -32,7 +32,7 @@ FB_OS_VERSION=v2021.05.10.00
 NPROC=$(sysctl -n hw.physicalcpu)
 COMPILER_FLAGS="-mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt"
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
-MACOS_DEPS="ninja cmake ccache protobuf icu4c boost gflags glog libevent lz4 lzo snappy xz zstd"
+MACOS_DEPS="ninja cmake ccache protobuf icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl@1.1"
 
 function run_and_time {
   time "$@"
@@ -90,6 +90,7 @@ function cmake_install {
     "${INSTALL_PREFIX+-DCMAKE_PREFIX_PATH=}${INSTALL_PREFIX-}" \
     "${INSTALL_PREFIX+-DCMAKE_INSTALL_PREFIX=}${INSTALL_PREFIX-}" \
     -DCMAKE_CXX_FLAGS="${COMPILER_FLAGS}" \
+    -DBUILD_TESTING=OFF \
     "$@"
   ninja -C "${BINARY_DIR}" install
 }
@@ -124,24 +125,17 @@ function install_double_conversion {
 
 function install_folly {
   github_checkout facebook/folly "${FB_OS_VERSION}"
-  OPENSSL_DIR=$(brew --prefix openssl)
-
-  if [[ ! -d "$OPENSSL_DIR" ]]
-  then
-    OPENSSL_DIR="/usr/local/opt/openssl"
-  fi
-
-  cmake_install -DBUILD_TESTS=OFF -DCMAKE_PREFIX_PATH="${OPENSSL_DIR}"
+  cmake_install -DBUILD_TESTS=OFF -DCMAKE_PREFIX_PATH="$(brew --prefix openssl@1.1)"
 }
 
 function install_ranges_v3 {
   github_checkout ericniebler/range-v3 master
-  cmake_install -DRANGES_ENABLE_WERROR=OFF
+  cmake_install -DRANGES_ENABLE_WERROR=OFF -DRANGE_V3_TESTS=OFF -DRANGE_V3_EXAMPLES=OFF
 }
 
 function install_re2 {
   github_checkout google/re2 2021-04-01
-  cmake_install
+  cmake_install -DRE2_BUILD_TESTING=OFF
 }
 
 function install_velox_deps {
