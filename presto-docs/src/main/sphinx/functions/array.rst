@@ -44,7 +44,7 @@ Array Functions
 
     Remove duplicate values from the array ``x``.
 
-.. function:: array_dupes(array(T)) -> array(bigint/varchar)
+.. function:: array_duplicates(array(T)) -> array(bigint/varchar)
 
     Returns a set of elements that occur more than once in ``array``.
 
@@ -64,7 +64,7 @@ Array Functions
     Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
     Ignores null elements. Empty array returns empty map.
 
-.. function:: array_has_dupes(array(T)) -> boolean
+.. function:: array_has_duplicates(array(T)) -> boolean
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
 
