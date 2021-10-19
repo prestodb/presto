@@ -294,7 +294,7 @@ vector_size_t copyNulls(
   // properly allocate/clear nulls buffer. So we only need to check against
   // target vector here.
   if (target.mayHaveNulls()) {
-    auto tgtNulls = target.mutableRawNulls();
+    auto tgtNulls = const_cast<uint64_t*>(target.rawNulls());
     auto srcNulls = source.rawNulls();
     if (srcNulls) {
       for (vector_size_t i = 0; i < count; ++i) {
@@ -331,7 +331,7 @@ void copyImpl(
     std::copy(
         src.rawValues() + sourceIndex,
         src.rawValues() + sourceIndex + count,
-        tgt.mutableRawValues() + targetIndex);
+        const_cast<NativeType*>(tgt.rawValues()) + targetIndex);
   }
 }
 
@@ -350,7 +350,7 @@ void copyImpl<TypeKind::BOOLEAN>(
     bits::copyBits(
         src.rawValues<uint64_t>(),
         sourceIndex,
-        tgt.mutableRawValues<uint64_t>(),
+        const_cast<uint64_t*>(tgt.rawValues<uint64_t>()),
         targetIndex,
         count);
   }
@@ -366,10 +366,10 @@ void copyStrings(
   if (copyNulls(target, targetIndex, source, sourceIndex, count) != count) {
     auto& tgt = static_cast<FlatVector<StringView>&>(target);
     auto& src = static_cast<const FlatVector<StringView>&>(source);
-    std::memcpy(
-        tgt.mutableRawValues() + targetIndex,
+    std::copy(
         src.rawValues() + sourceIndex,
-        count * sizeof(StringView));
+        src.rawValues() + sourceIndex + count,
+        const_cast<StringView*>(tgt.rawValues()) + targetIndex);
   }
 }
 
@@ -558,7 +558,8 @@ bool copyNull(
   // properly allocate/clear nulls buffer. So we only need to check against
   // target vector here.
   if (target.mayHaveNulls()) {
-    bits::setNull(target.mutableRawNulls(), targetIndex, srcIsNull);
+    bits::setNull(
+        const_cast<uint64_t*>(target.rawNulls()), targetIndex, srcIsNull);
   }
   target.setSize(targetIndex + 1);
   return srcIsNull;
@@ -576,7 +577,8 @@ void copyOneImpl(
     using NativeType = typename velox::TypeTraits<K>::NativeType;
     auto& tgt = static_cast<FlatVector<NativeType>&>(target);
     auto& src = static_cast<const FlatVector<NativeType>&>(source);
-    tgt.mutableRawValues()[targetIndex] = src.rawValues()[sourceIndex];
+    const_cast<NativeType*>(tgt.rawValues())[targetIndex] =
+        src.rawValues()[sourceIndex];
   }
 }
 
@@ -592,7 +594,7 @@ void copyOneImpl<TypeKind::BOOLEAN>(
     auto& tgt = static_cast<FlatVector<bool>&>(target);
     auto& src = static_cast<const FlatVector<bool>&>(source);
     bits::setBit(
-        tgt.mutableRawValues<uint64_t>(),
+        const_cast<uint64_t*>(tgt.rawValues<uint64_t>()),
         targetIndex,
         bits::isBitSet(src.rawValues<uint64_t>(), sourceIndex));
   }
@@ -607,7 +609,8 @@ void copyString(
   if (!copyNull(target, targetIndex, source, sourceIndex)) {
     auto& tgt = static_cast<FlatVector<StringView>&>(target);
     auto& src = static_cast<const FlatVector<StringView>&>(source);
-    tgt.mutableRawValues()[targetIndex] = src.rawValues()[sourceIndex];
+    const_cast<StringView*>(tgt.rawValues())[targetIndex] =
+        src.rawValues()[sourceIndex];
   }
 }
 
