@@ -209,6 +209,12 @@ struct DriverFactory {
   // constructed.
   OperatorSupplier consumerSupplier;
   uint32_t maxDrivers;
+  // True if 'planNodes' contains a source node for the task, e.g. TableScan or
+  // Exchange.
+  bool inputDriver{false};
+  // True if 'planNodes' contains a sync node for the task, e.g.
+  // PartitionedOutput.
+  bool outputDriver{false};
 
   std::shared_ptr<Driver> createDriver(
       std::unique_ptr<DriverCtx> ctx,

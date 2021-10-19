@@ -115,13 +115,16 @@ void plan(
   }
 
   auto sources = planNode->sources();
-
-  for (int32_t i = 0; i < sources.size(); ++i) {
-    plan(
-        sources[i],
-        mustStartNewPipeline(planNode, i) ? nullptr : currentPlanNodes,
-        makeConsumerSupplier(planNode),
-        driverFactories);
+  if (sources.empty()) {
+    driverFactories->back()->inputDriver = true;
+  } else {
+    for (int32_t i = 0; i < sources.size(); ++i) {
+      plan(
+          sources[i],
+          mustStartNewPipeline(planNode, i) ? nullptr : currentPlanNodes,
+          makeConsumerSupplier(planNode),
+          driverFactories);
+    }
   }
 
   currentPlanNodes->push_back(planNode);
@@ -198,6 +201,8 @@ void LocalPlanner::plan(
       nullptr,
       detail::makeConsumerSupplier(consumerSupplier),
       driverFactories);
+
+  (*driverFactories)[0]->outputDriver = true;
 
   for (auto& factory : *driverFactories) {
     factory->maxDrivers = detail::maxDrivers(factory->planNodes);

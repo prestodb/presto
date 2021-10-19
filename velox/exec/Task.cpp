@@ -85,7 +85,14 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
   for (auto& factory : self->driverFactories_) {
     self->numDrivers_ += std::min(factory->maxDrivers, maxDrivers);
   }
-  self->taskStats_.pipelineStats.resize(self->driverFactories_.size());
+
+  const auto numDriverFactories = self->driverFactories_.size();
+  self->taskStats_.pipelineStats.reserve(numDriverFactories);
+  for (const auto& driverFactory : self->driverFactories_) {
+    self->taskStats_.pipelineStats.emplace_back(
+        driverFactory->inputDriver, driverFactory->outputDriver);
+  }
+
   // Register self for possible memory recovery callback. Do this
   // after sizing 'drivers_' but before starting the
   // Drivers. 'drivers_' can be read by memory recovery or

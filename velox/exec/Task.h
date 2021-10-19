@@ -30,10 +30,19 @@ class PartitionedOutputBufferManager;
 enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
 
 struct PipelineStats {
-  //  Cumulative OperatorStats for finished Drivers. The subscript is the
-  //  operator id, which is the initial ordinal position of the
-  //  operator in the DriverFactory.
+  // Cumulative OperatorStats for finished Drivers. The subscript is the
+  // operator id, which is the initial ordinal position of the
+  // operator in the DriverFactory.
   std::vector<OperatorStats> operatorStats;
+
+  // True if contains the source node for the task.
+  bool inputPipeline;
+
+  // True if contains the sync node for the task.
+  bool outputPipeline;
+
+  PipelineStats(bool _inputPipeline, bool _outputPipeline)
+      : inputPipeline{_inputPipeline}, outputPipeline{_outputPipeline} {}
 };
 
 struct TaskStats {
