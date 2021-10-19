@@ -24,7 +24,7 @@ These files were created using output of SHOW FUNCTIONS Presto command.
 > velox_prestosql_coverage --most_used
 
 Generates coverage map using a subset of most used Presto functions. The output
-to be copy-pasted into velox/docs/mostd_used_coverage.rst file. The functions
+to be copy-pasted into velox/docs/most_used_coverage.rst file. The functions
 appear in order from most used to least used.
 
 The list of most used Presto functions comes from data/most_used_functions.txt file

@@ -26,8 +26,10 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(4) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(5) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(5) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(6) td:nth-child(2) {background-color: #6BA81E;}
@@ -36,6 +38,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(7) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(7) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(3) {background-color: #6BA81E;}
@@ -65,6 +68,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(16) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(17) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(18) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(18) td:nth-child(4) {background-color: #6BA81E;}
     </style>
 
 .. table::
@@ -78,9 +82,9 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     :func:`lower`                :func:`json_extract_scalar`  :func:`abs`                  flatten                      from_big_endian_64               :func:`sum`
     json_format                  array_sort                   :func:`round`                :func:`trim`                 :func:`md5`                      :func:`max`
     :func:`upper`                transform_values             :func:`map_filter`           map_zip_with                 :func:`xxhash64`                 :func:`array_agg`
-    split                        :func:`map_entries`          :func:`regexp_extract`       year                         :func:`to_hex`                   :func:`arbitrary`
+    :func:`split`                :func:`map_entries`          :func:`regexp_extract`       :func:`year`                 :func:`to_hex`                   :func:`arbitrary`
     random                       :func:`concat`               :func:`map_values`           slice                        transform_keys                   :func:`min`
-    :func:`floor`                :func:`cardinality`          :func:`map_keys`             month                        bing_tile_quadkey                :func:`max_by`
+    :func:`floor`                :func:`cardinality`          :func:`map_keys`             :func:`month`                bing_tile_quadkey                :func:`max_by`
     :func:`contains`             sequence                     :func:`reduce`               any_match                    :func:`to_utf8`                  :func:`approx_distinct`
     :func:`map_concat`           :func:`substr`               greatest                     :func:`bitwise_and`          crc32                            :func:`count_if`
     :func:`length`               date                         date_trunc                   date_parse                   st_y                             :func:`approx_percentile`
@@ -91,5 +95,5 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     array_join                   least                        mod                          repeat                                                        set_agg
     :func:`replace`              json_parse                   :func:`array_distinct`       st_geometryfromtext                                           histogram
     regexp_replace               map_from_entries             :func:`pow`                  split_part                                                    set_union
-    parse_datetime               date_add                     :func:`power`                log10                                                         merge
+    parse_datetime               date_add                     :func:`power`                :func:`log10`                                                 merge
     ===========================  ===========================  ===========================  ===========================  ===========================  ==  ===========================
