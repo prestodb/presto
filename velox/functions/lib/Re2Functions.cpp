@@ -845,4 +845,29 @@ std::shared_ptr<VectorFunction> makeRe2ExtractAll(
   }
 }
 
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+re2ExtractAllSignatures() {
+  // varchar, varchar -> array<varchar>
+  // varchar, varchar, integer|bigint -> array<varchar>
+  return {
+      exec::FunctionSignatureBuilder()
+          .returnType("array(varchar)")
+          .argumentType("varchar")
+          .argumentType("varchar")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .returnType("array(varchar)")
+          .argumentType("varchar")
+          .argumentType("varchar")
+          .argumentType("bigint")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .returnType("array(varchar)")
+          .argumentType("varchar")
+          .argumentType("varchar")
+          .argumentType("integer")
+          .build(),
+  };
+}
+
 } // namespace facebook::velox::functions

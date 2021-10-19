@@ -75,7 +75,7 @@ void registerVectorFunctions() {
   exec::registerStatefulVectorFunction(
       "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
   exec::registerStatefulVectorFunction(
-      "regexp_extract_all", re2ExtractSignatures(), makeRe2ExtractAll);
+      "regexp_extract_all", re2ExtractAllSignatures(), makeRe2ExtractAll);
   exec::registerStatefulVectorFunction(
       "regexp_like", re2SearchSignatures(), makeRe2Search);
 

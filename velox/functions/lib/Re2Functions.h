@@ -101,4 +101,6 @@ std::shared_ptr<exec::VectorFunction> makeRe2ExtractAll(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs);
 
+std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractAllSignatures();
+
 } // namespace facebook::velox::functions
