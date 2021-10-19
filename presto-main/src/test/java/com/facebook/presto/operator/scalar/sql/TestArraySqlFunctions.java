@@ -128,38 +128,44 @@ public class TestArraySqlFunctions
     }
 
     @Test
-    public void testArrayHasDupes()
+    public void testArrayHasDuplicates()
     {
-        assertFunction("array_has_dupes(cast(null as array(varchar)))", BOOLEAN, null);
-        assertFunction("array_has_dupes(cast(array[] as array(varchar)))", BOOLEAN, false);
+        assertFunction("array_has_duplicates(cast(null as array(varchar)))", BOOLEAN, null);
+        assertFunction("array_has_duplicates(cast(array[] as array(varchar)))", BOOLEAN, false);
 
+        assertFunction("array_has_duplicates(array[varchar 'a', varchar 'b', varchar 'a'])", BOOLEAN, true);
+        assertFunction("array_has_duplicates(array[varchar 'a', varchar 'b'])", BOOLEAN, false);
+        assertFunction("array_has_duplicates(array[varchar 'a', varchar 'a'])", BOOLEAN, true);
+
+        assertFunction("array_has_duplicates(array[1, 2, 1])", BOOLEAN, true);
+        assertFunction("array_has_duplicates(array[1, 2])", BOOLEAN, false);
+        assertFunction("array_has_duplicates(array[1, 1, 1])", BOOLEAN, true);
+
+        assertFunction("array_has_duplicates(array[0, null])", BOOLEAN, false);
+        assertFunction("array_has_duplicates(array[0, null, null])", BOOLEAN, true);
+
+        // Test legacy name.
         assertFunction("array_has_dupes(array[varchar 'a', varchar 'b', varchar 'a'])", BOOLEAN, true);
-        assertFunction("array_has_dupes(array[varchar 'a', varchar 'b'])", BOOLEAN, false);
-        assertFunction("array_has_dupes(array[varchar 'a', varchar 'a'])", BOOLEAN, true);
-
-        assertFunction("array_has_dupes(array[1, 2, 1])", BOOLEAN, true);
-        assertFunction("array_has_dupes(array[1, 2])", BOOLEAN, false);
-        assertFunction("array_has_dupes(array[1, 1, 1])", BOOLEAN, true);
-
-        assertFunction("array_has_dupes(array[0, null])", BOOLEAN, false);
-        assertFunction("array_has_dupes(array[0, null, null])", BOOLEAN, true);
     }
 
     @Test
-    public void testArrayDupes()
+    public void testArrayDuplicates()
     {
-        assertFunction("array_dupes(cast(null as array(varchar)))", new ArrayType(VARCHAR), null);
-        assertFunction("array_dupes(cast(array[] as array(varchar)))", new ArrayType(VARCHAR), ImmutableList.of());
+        assertFunction("array_duplicates(cast(null as array(varchar)))", new ArrayType(VARCHAR), null);
+        assertFunction("array_duplicates(cast(array[] as array(varchar)))", new ArrayType(VARCHAR), ImmutableList.of());
 
-        assertFunction("array_dupes(array[varchar 'a', varchar 'b', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
-        assertFunction("array_dupes(array[varchar 'a', varchar 'b'])", new ArrayType(VARCHAR), ImmutableList.of());
-        assertFunction("array_dupes(array[varchar 'a', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
+        assertFunction("array_duplicates(array[varchar 'a', varchar 'b', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
+        assertFunction("array_duplicates(array[varchar 'a', varchar 'b'])", new ArrayType(VARCHAR), ImmutableList.of());
+        assertFunction("array_duplicates(array[varchar 'a', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
 
+        assertFunction("array_duplicates(array[1, 2, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
+        assertFunction("array_duplicates(array[1, 2])", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("array_duplicates(array[1, 1, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
+
+        assertFunction("array_duplicates(array[0, null])", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("array_duplicates(array[0, null, null])", new ArrayType(BIGINT), Collections.singletonList(null));
+
+        // Test legacy name.
         assertFunction("array_dupes(array[1, 2, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
-        assertFunction("array_dupes(array[1, 2])", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("array_dupes(array[1, 1, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
-
-        assertFunction("array_dupes(array[0, null])", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("array_dupes(array[0, null, null])", new ArrayType(BIGINT), Collections.singletonList(null));
     }
 }
