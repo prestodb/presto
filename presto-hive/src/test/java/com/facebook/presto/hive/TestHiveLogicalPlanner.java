@@ -1687,6 +1687,47 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewForUnionAllWithOneSideMaterialized()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table1 = "orders_key_partitioned_1";
+        String table2 = "orders_key_partitioned_2";
+        String view = "orders_key_view_union";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, '2020-01-01' as ds FROM orders WHERE orderkey < 1000", table1));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, '2019-01-02' as ds FROM orders WHERE orderkey > 1000 and orderkey < 2000", table2));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, ds FROM %s UNION ALL SELECT orderkey, ds FROM %s", view, table1, table2));
+
+            assertTrue(queryRunner.tableExists(getSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 510);
+
+            String viewQuery = format("SELECT orderkey, ds FROM %s ORDER BY orderkey", view);
+            String baseQuery = format("(SELECT orderkey, ds FROM %s UNION ALL SELECT orderkey, ds FROM %s) ORDER BY orderkey", table1, table2);
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+
+            assertPlan(getSession(), viewQuery, anyTree(PlanMatchPattern.values("ds", "orderkey"), anyTree(
+                    PlanMatchPattern.constrainedTableScan(table2,
+                            ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2019-01-02")))),
+                    PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of()))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table1);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+        }
+    }
+
+    @Test
     public void testMaterializedViewForExcept()
     {
         QueryRunner queryRunner = getQueryRunner();
