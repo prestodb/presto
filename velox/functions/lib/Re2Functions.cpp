@@ -125,18 +125,21 @@ bool re2Extract(
   }
 }
 
-std::string
-likePatternToRe2(StringView pattern, char escapeChar, bool& validPattern) {
+std::string likePatternToRe2(
+    StringView pattern,
+    bool hasEscape,
+    char escapeChar,
+    bool& validPattern) {
   std::string regex;
   validPattern = true;
   regex.reserve(pattern.size() * 2);
   regex.append("^");
   bool escaped = false;
   for (const char c : pattern) {
-    if (escaped && !(c == '%' || c == '_' || c == escapeChar)) {
+    if (hasEscape && escaped && !(c == '%' || c == '_' || c == escapeChar)) {
       validPattern = false;
     }
-    if (!escaped && (c == escapeChar)) {
+    if (hasEscape && !escaped && (c == escapeChar)) {
       escaped = true;
     } else {
       switch (c) {
@@ -377,8 +380,12 @@ class Re2SearchAndExtract final : public VectorFunction {
 
 class LikeConstantPattern final : public VectorFunction {
  public:
-  LikeConstantPattern(StringView pattern, char escapeChar)
-      : re_(toStringPiece(likePatternToRe2(pattern, escapeChar, validPattern_)),
+  LikeConstantPattern(StringView pattern, bool hasEscape, char escapeChar)
+      : re_(toStringPiece(likePatternToRe2(
+                pattern,
+                hasEscape,
+                escapeChar,
+                validPattern_)),
             RE2::Quiet) {}
 
   void apply(
@@ -398,7 +405,6 @@ class LikeConstantPattern final : public VectorFunction {
 
     // apply() will not be invoked if the selection is empty.
     checkForBadPattern(re_);
-
     FlatVector<bool>& result =
         ensureWritableBool(rows, context->pool(), resultRef);
 
@@ -738,8 +744,9 @@ std::shared_ptr<exec::VectorFunction> makeLike(
       name,
       inputArgs[1].type->toString());
 
+  bool hasEscape = numArgs == 3;
   char escapeChar;
-  if (numArgs == 3) {
+  if (hasEscape) {
     VELOX_USER_CHECK(
         inputArgs[2].type->isVarchar(),
         "{} requires third argument of type VARCHAR, but got {}",
@@ -767,7 +774,7 @@ std::shared_ptr<exec::VectorFunction> makeLike(
       name,
       inputArgs[1].type->toString());
   auto pattern = constantPattern->as<ConstantVector<StringView>>()->valueAt(0);
-  return std::make_shared<LikeConstantPattern>(pattern, escapeChar);
+  return std::make_shared<LikeConstantPattern>(pattern, hasEscape, escapeChar);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures() {

@@ -355,6 +355,7 @@ TEST_F(Re2FunctionsTest, likePattern) {
   EXPECT_EQ(like("abc", "%b%"), true);
   EXPECT_EQ(like("bcd", "%b%"), true);
   EXPECT_EQ(like("cde", "%b%"), false);
+  EXPECT_EQ(like("cde", "def"), false);
 
   EXPECT_EQ(like("abc", "_b%"), true);
   EXPECT_EQ(like("bcd", "_b%"), false);
@@ -387,6 +388,8 @@ TEST_F(Re2FunctionsTest, likePattern) {
           u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ",
           u8"\u7231\u4FE1%\u7231%"),
       false);
+
+  EXPECT_EQ(like("abc", "MEDIUM POLISHED%"), false);
 }
 
 TEST_F(Re2FunctionsTest, likePatternAndEscape) {
