@@ -79,43 +79,43 @@ public class ArraySqlFunctions
                 "m -> m)";
     }
 
-    @SqlInvokedScalarFunction(value = "array_dupes", deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_duplicates", alias = {"array_dupes"}, deterministic = true, calledOnNullInput = false)
     @Description("Returns set of elements that have duplicates")
     @SqlParameter(name = "input", type = "array(varchar)")
     @SqlType("array(varchar)")
-    public static String arrayDupesVarchar()
+    public static String arrayDuplicatesVarchar()
     {
         return "RETURN CONCAT(" +
                 "CAST(IF (cardinality(filter(input, x -> x is NULL)) > 1, ARRAY[NULL], ARRAY[]) AS ARRAY(VARCHAR))," +
                 "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
     }
 
-    @SqlInvokedScalarFunction(value = "array_dupes", deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_duplicates", alias = {"array_dupes"}, deterministic = true, calledOnNullInput = false)
     @Description("Returns set of elements that have duplicates")
     @SqlParameter(name = "input", type = "array(bigint)")
     @SqlType("array(bigint)")
-    public static String arrayDupesBigint()
+    public static String arrayDuplicatesBigint()
     {
         return "RETURN CONCAT(" +
                 "CAST(IF (cardinality(filter(input, x -> x is NULL)) > 1, ARRAY[NULL], ARRAY[]) AS ARRAY(BIGINT))," +
                 "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
     }
 
-    @SqlInvokedScalarFunction(value = "array_has_dupes", deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_has_duplicates", alias = {"array_has_dupes"}, deterministic = true, calledOnNullInput = false)
     @Description("Returns whether array has any duplicate element")
     @SqlParameter(name = "input", type = "array(varchar)")
     @SqlType("boolean")
-    public static String arrayHasDupesVarchar()
+    public static String arrayHasDuplicatesVarchar()
     {
-        return "RETURN cardinality(array_dupes(input)) > 0";
+        return "RETURN cardinality(array_duplicates(input)) > 0";
     }
 
-    @SqlInvokedScalarFunction(value = "array_has_dupes", deterministic = true, calledOnNullInput = false)
+    @SqlInvokedScalarFunction(value = "array_has_duplicates", alias = {"array_has_dupes"}, deterministic = true, calledOnNullInput = false)
     @Description("Returns whether array has any duplicate element")
     @SqlParameter(name = "input", type = "array(bigint)")
     @SqlType("boolean")
-    public static String arrayHasDupesBigint()
+    public static String arrayHasDuplicatesBigint()
     {
-        return "RETURN cardinality(array_dupes(input)) > 0";
+        return "RETURN cardinality(array_duplicates(input)) > 0";
     }
 }
