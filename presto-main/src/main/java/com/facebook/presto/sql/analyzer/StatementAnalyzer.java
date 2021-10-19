@@ -255,6 +255,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_FUNCTION
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
@@ -1431,10 +1432,11 @@ class StatementAnalyzer
 
                     disjunct = conjunct == null ? disjunct : disjunct == null ? conjunct : new LogicalBinaryExpression(OR, disjunct, conjunct);
                 }
-
-                if (disjunct != null) {
-                    partitionPredicates.put(baseTable, disjunct);
+                // If no (fresh) partitions are found for table, that means we should not select from it
+                if (disjunct == null) {
+                    disjunct = FALSE_LITERAL;
                 }
+                partitionPredicates.put(baseTable, disjunct);
             }
 
             return partitionPredicates;
