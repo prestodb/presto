@@ -39,7 +39,7 @@ FOLLY_ALWAYS_INLINE bool call(
     out_type<Array<int64_t>>& out,
     const arg_type<int64_t>& input) {
   const size_t size = arrayData[input].size();
-  out.reserve(out.size() + size);
+  out.reserve(size);
   for (const auto i : arrayData[input]) {
     out.append(i);
   }
@@ -60,7 +60,50 @@ TEST_F(SimpleFunctionTest, arrayWriter) {
   assertEqualVectors(expected, result);
 }
 
-// Funciton that takes an array as input.
+static std::vector<std::vector<std::string>> stringArrayData = {
+    {"a", "b", "c"},
+    {"A long-ish sentence about apples.",
+     "Another one about oranges.",
+     "Just plum."},
+    {"MA", "RI", "NY", "CA", "MI"},
+};
+
+// Function that returns an array of strings.
+VELOX_UDF_BEGIN(array_of_strings_writer_func)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Array<Varchar>>& out,
+    const arg_type<int64_t>& input) {
+  const size_t size = stringArrayData[input].size();
+  out.reserve(size);
+  for (const auto value : stringArrayData[input]) {
+    out.append(out_type<Varchar>(StringView(value)));
+  }
+  return true;
+}
+VELOX_UDF_END();
+
+TEST_F(SimpleFunctionTest, arrayOfStringsWriter) {
+  registerFunction<udf_array_of_strings_writer_func, Array<Varchar>, int64_t>(
+      {}, ARRAY(VARCHAR()));
+
+  const size_t rows = stringArrayData.size();
+  auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
+  auto result = evaluate<ArrayVector>(
+      "array_of_strings_writer_func(c0)", makeRowVector({flatVector}));
+
+  std::vector<std::vector<StringView>> stringViews;
+  for (auto i = 0; i < rows; i++) {
+    stringViews.push_back({});
+    for (auto j = 0; j < stringArrayData[i].size(); j++) {
+      stringViews[i].push_back(StringView(stringArrayData[i][j]));
+    }
+  }
+
+  auto expected = vectorMaker_.arrayVector(stringViews);
+  assertEqualVectors(expected, result);
+}
+
+// Function that takes an array as input.
 VELOX_UDF_BEGIN(array_reader_func)
 FOLLY_ALWAYS_INLINE bool call(
     int64_t& out,

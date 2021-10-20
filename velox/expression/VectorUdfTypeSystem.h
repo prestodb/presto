@@ -759,10 +759,26 @@ class StringProxy<FlatVector<StringView>, false /*reuseInput*/>
  public:
   StringProxy() : vector_(nullptr), offset_(-1) {}
 
+  // Used to initialize top-level strings and allow zero-copy writes.
   StringProxy(FlatVector<StringView>* vector, int32_t offset)
       : vector_(vector), offset_(offset) {}
 
+  // Used to initialize nested strings and requires a copy on write.
+  explicit StringProxy(StringView value)
+      : vector_(nullptr), offset_(-1), value_{value.str()} {}
+
  public:
+  // Returns true if initialized for zero-copy write. False, otherwise.
+  bool initialized() const {
+    return offset_ >= 0;
+  }
+
+  // If not initialized for zero-copy write, returns a string to copy into the
+  // target vector on commit.
+  const std::string& value() const {
+    return value_;
+  }
+
   /// Reserve a space for the output string with size of at least newCapacity
   void reserve(size_t newCapacity) override {
     if (newCapacity <= capacity()) {
@@ -822,6 +838,8 @@ class StringProxy<FlatVector<StringView>, false /*reuseInput*/>
   FlatVector<StringView>* vector_;
 
   int32_t offset_;
+
+  std::string value_;
 };
 
 // A string proxy with UDFOutputString semantics that utilizes a pre-allocated
@@ -900,8 +918,13 @@ struct VectorWriter<
   }
 
   void copyCommit(const proxy_t& data) {
-    // Not really copying.
-    proxy_.finalize();
+    // If not initialized for zero-copy writes, copy the value into the vector.
+    if (!proxy_.initialized()) {
+      vector_->set(offset_, StringView(data.value()));
+    } else {
+      // Not really copying.
+      proxy_.finalize();
+    }
   }
 
   void commitNull() {

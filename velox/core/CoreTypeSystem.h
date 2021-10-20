@@ -36,6 +36,10 @@ struct StringWriter : public UDFOutputString {
     setData(storage_.data());
   }
 
+  /* implicit */ StringWriter(StringView /*value*/) {
+    VELOX_NYI();
+  }
+
   void setEmpty() {
     VELOX_FAIL("setEmpty is not implemented");
   }
