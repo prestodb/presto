@@ -18,6 +18,7 @@ import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -203,7 +204,7 @@ public class TestOperatorStats
     @Test
     public void testAdd()
     {
-        OperatorStats actual = EXPECTED.add(EXPECTED, EXPECTED);
+        OperatorStats actual = EXPECTED.add(ImmutableList.of(EXPECTED, EXPECTED));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
@@ -252,7 +253,7 @@ public class TestOperatorStats
     @Test
     public void testAddMergeable()
     {
-        OperatorStats actual = MERGEABLE.add(MERGEABLE, MERGEABLE);
+        OperatorStats actual = MERGEABLE.add(ImmutableList.of(MERGEABLE, MERGEABLE));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
