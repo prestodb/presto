@@ -62,12 +62,47 @@ class VectorAdapter : public VectorFunction {
     bool allAscii{false};
   };
 
+  template <
+      int32_t POSITION,
+      typename... Values,
+      typename std::enable_if_t<POSITION<FUNC::num_args, int32_t> = 0> void
+          unpack(
+              const core::QueryConfig& config,
+              const std::vector<VectorPtr>& packed,
+              const Values*... values) const {
+    if (packed.at(POSITION) != nullptr) {
+      auto oneUnpacked =
+          packed.at(POSITION)
+              ->template asUnchecked<ConstantVector<exec_arg_at<POSITION>>>();
+      auto oneValue = oneUnpacked->valueAt(0);
+
+      unpack<POSITION + 1>(config, packed, values..., &oneValue);
+    } else {
+      using temp_type = exec_arg_at<POSITION>;
+      unpack<POSITION + 1>(
+          config, packed, values..., (const temp_type*)nullptr);
+    }
+  }
+
+  // unpack: base case
+  template <
+      int32_t POSITION,
+      typename... Values,
+      typename std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
+  void unpack(
+      const core::QueryConfig& config,
+      const std::vector<VectorPtr>& /*packed*/,
+      const Values*... values) const {
+    return (*fn_).initialize(config, values...);
+  }
+
  public:
   explicit VectorAdapter(
       const core::QueryConfig& config,
+      const std::vector<VectorPtr>& constantInputs,
       std::shared_ptr<const Type> returnType)
       : fn_{std::make_unique<FUNC>(move(returnType))} {
-    fn_->initialize(config);
+    unpack<0>(config, constantInputs);
   }
 
   void apply(
@@ -389,8 +424,10 @@ class VectorAdapterFactoryImpl : public VectorAdapterFactory {
       : returnType_(std::move(returnType)) {}
 
   std::unique_ptr<VectorFunction> getVectorInterpreter(
-      const core::QueryConfig& config) const override {
-    return std::make_unique<VectorAdapter<FUNC>>(config, returnType_);
+      const core::QueryConfig& config,
+      const std::vector<VectorPtr>& constantInputs) const override {
+    return std::make_unique<VectorAdapter<FUNC>>(
+        config, constantInputs, returnType_);
   }
 
   const std::shared_ptr<const Type> returnType() const override {

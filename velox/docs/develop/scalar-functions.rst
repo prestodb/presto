@@ -171,15 +171,21 @@ not go away prematurely.
 	// Results refer to strings in the first argument.
 	static constexpr int32_t reuse_strings_from_arg = 0;
 
-Access to Session Properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Access to Session Properties and Constant Inputs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some functions require access to session properties such as session’s timezone.
 Some examples are the :func:`day`, :func:`hour`, and :func:`minute` Presto
-functions. To get access to session properties the function must define an
-initialize method which receives a constant reference to QueryConfig from which
-the function can extract the necessary properties. The engine calls the
-initialize method once per query and thread of execution.
+functions. Other functions could benefit from pre-processing some of the
+constant inputs, e.g. compile regular expression patterns or parse date and
+time units. To get access to session properties and constant inputs the
+function must define an initialize method which receives a constant reference
+to QueryConfig and a list of constant pointers for each of the input arguments.
+Constant inputs will have their values specified. Inputs which are not constant
+will be passed as nullptr's. The signature of the initialize method is similar
+to that of callNullable method with an additional first parameter const
+core::QueryConfig&. The engine calls the initialize method once per query and
+thread of execution.
 
 Here is an example of an hour function extracting time zone from the session
 properties and using it when processing inputs.
@@ -189,7 +195,9 @@ properties and using it when processing inputs.
     VELOX_UDF_BEGIN(hour)
     const date::time_zone* timeZone_ = nullptr;
 
-    FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
+    FOLLY_ALWAYS_INLINE void initialize(
+        const core::QueryConfig& config,
+        const arg_type<Timestamp>* /*timestamp*/) {
       timeZone_ = getTimeZoneFromConfig(config);
     }
 
@@ -203,6 +211,35 @@ properties and using it when processing inputs.
       return true;
     }
     VELOX_UDF_END();
+
+Here is another example of the :func:`date_trunc` function parsing the constant
+unit argument during initialize and re-using parsed value when processing
+individual rows.
+
+.. code-block:: c++
+
+    VELOX_UDF_BEGIN(date_trunc)
+    const date::time_zone* timeZone_ = nullptr;
+    std::optional<DateTimeUnit> unit_;
+
+    FOLLY_ALWAYS_INLINE void initialize(
+        const core::QueryConfig& config,
+        const arg_type<Varchar>* unitString,
+        const arg_type<Timestamp>* /*timestamp*/) {
+      timeZone_ = getTimeZoneFromConfig(config);
+      if (unitString != nullptr) {
+        unit_ = fromDateTimeUnitString(*unitString);
+      }
+    }
+
+    FOLLY_ALWAYS_INLINE bool call(
+        out_type<Timestamp>& result,
+        const arg_type<Varchar>& unitString,
+        const arg_type<Timestamp>& timestamp) {
+      const auto unit =
+          unit_.has_value() ? unit_.value() : fromDateTimeUnitString(unitString);
+      ...<use unit enum>...
+    }
 
 Registration
 ^^^^^^^^^^^^

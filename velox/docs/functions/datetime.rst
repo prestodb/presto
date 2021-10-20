@@ -15,6 +15,28 @@ Date and Time Functions
 
     Returns ``timestamp`` as a UNIX timestamp.
 
+Truncation Function
+-------------------
+
+The ``date_trunc`` function supports the following units:
+
+=========== ===========================
+Unit        Example Truncated Value
+=========== ===========================
+``second``  ``2001-08-22 03:04:05.000``
+``minute``  ``2001-08-22 03:04:00.000``
+``hour``    ``2001-08-22 03:00:00.000``
+``day``     ``2001-08-22 00:00:00.000``
+``month``   ``2001-08-01 00:00:00.000``
+``year``    ``2001-01-01 00:00:00.000``
+=========== ===========================
+
+The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
+
+.. function:: date_trunc(unit, timestamp) -> timestamp
+
+    Returns ``timestamp`` truncated to ``unit``.
+
 Convenience Extraction Functions
 --------------------------------
 

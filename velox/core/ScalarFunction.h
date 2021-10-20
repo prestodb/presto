@@ -286,9 +286,11 @@ class UDFHolder final
   explicit UDFHolder(std::shared_ptr<const Type> returnType)
       : Metadata(std::move(returnType)), instance_{} {}
 
-  FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const typename Exec::template resolver<TArgs>::in_type*... constantArgs) {
     if constexpr (udf_has_initialize<Fun>::value) {
-      return instance_.initialize(config);
+      return instance_.initialize(config, constantArgs...);
     }
   }
 

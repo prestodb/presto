@@ -350,11 +350,10 @@ ExprPtr compileExpression(
           adapterFunc->returnType(),
           resultType,
           folly::join(", ", inputTypes));
+      auto func = adapterFunc->getVectorInterpreter(
+          config, getConstantInputs(compiledInputs));
       result = std::make_shared<Expr>(
-          resultType,
-          std::move(compiledInputs),
-          adapterFunc->getVectorInterpreter(config),
-          call->name());
+          resultType, std::move(compiledInputs), std::move(func), call->name());
     } else if (
         auto func = getVectorFunction(
             call->name(), inputTypes, getConstantInputs(compiledInputs))) {

@@ -123,7 +123,8 @@ class VectorFunction {
 class VectorAdapterFactory {
  public:
   virtual std::unique_ptr<VectorFunction> getVectorInterpreter(
-      const core::QueryConfig& config) const = 0;
+      const core::QueryConfig& config,
+      const std::vector<VectorPtr>& constantInputs) const = 0;
   virtual ~VectorAdapterFactory() = default;
   virtual const TypePtr returnType() const = 0;
 };

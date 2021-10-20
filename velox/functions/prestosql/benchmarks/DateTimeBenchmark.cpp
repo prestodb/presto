@@ -16,6 +16,7 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 #include "velox/expression/VectorFunction.h"
+#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/SimpleFunctions.h"
@@ -99,12 +100,25 @@ class DateTimeBenchmark : public functions::test::FunctionBenchmarkBase {
     folly::BenchmarkSuspender suspender;
     constexpr vector_size_t size = 10'000;
 
-    auto data = vectorMaker_.rowVector({vectorMaker_.flatVector<Timestamp>(
-        size,
-        [](auto row) { return Timestamp(1633046400 + row, row % 11); },
-        VectorMaker::nullEvery(5))});
+    VectorFuzzer::Options opts;
+    opts.vectorSize = 10'000;
+    auto data = vectorMaker_.rowVector(
+        {VectorFuzzer(opts, pool()).fuzzFlat(TIMESTAMP())});
     auto exprSet =
         compileExpression(fmt::format("{}(c0)", functionName), data->type());
+    suspender.dismiss();
+
+    doRun(exprSet, data);
+  }
+
+  void runDateTrunc(const std::string& unit) {
+    folly::BenchmarkSuspender suspender;
+    VectorFuzzer::Options opts;
+    opts.vectorSize = 10'000;
+    auto data = vectorMaker_.rowVector(
+        {VectorFuzzer(opts, pool()).fuzzFlat(TIMESTAMP())});
+    auto exprSet = compileExpression(
+        fmt::format("date_trunc('{}', c0)", unit), data->type());
     suspender.dismiss();
 
     doRun(exprSet, data);
@@ -118,6 +132,36 @@ class DateTimeBenchmark : public functions::test::FunctionBenchmarkBase {
     folly::doNotOptimizeAway(cnt);
   }
 };
+
+BENCHMARK(truncYear) {
+  DateTimeBenchmark benchmark;
+  benchmark.runDateTrunc("year");
+}
+
+BENCHMARK(truncMonth) {
+  DateTimeBenchmark benchmark;
+  benchmark.runDateTrunc("month");
+}
+
+BENCHMARK(truncDay) {
+  DateTimeBenchmark benchmark;
+  benchmark.runDateTrunc("day");
+}
+
+BENCHMARK(truncHour) {
+  DateTimeBenchmark benchmark;
+  benchmark.runDateTrunc("hour");
+}
+
+BENCHMARK(truncMinute) {
+  DateTimeBenchmark benchmark;
+  benchmark.runDateTrunc("minute");
+}
+
+BENCHMARK(truncSecond) {
+  DateTimeBenchmark benchmark;
+  benchmark.runDateTrunc("second");
+}
 
 BENCHMARK(year) {
   DateTimeBenchmark benchmark;

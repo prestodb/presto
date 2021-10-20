@@ -72,6 +72,7 @@ void registerFunctions() {
   registerFunction<udf_minute, int64_t, Timestamp>();
   registerFunction<udf_second, int64_t, Timestamp>();
   registerFunction<udf_millisecond, int64_t, Timestamp>();
+  registerFunction<udf_date_trunc, Timestamp, Varchar, Timestamp>();
 
   registerArithmeticFunctions();
   registerCheckedArithmeticFunctions();
