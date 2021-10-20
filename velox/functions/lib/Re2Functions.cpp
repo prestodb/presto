@@ -127,8 +127,7 @@ bool re2Extract(
 
 std::string likePatternToRe2(
     StringView pattern,
-    bool hasEscape,
-    char escapeChar,
+    std::optional<char> escapeChar,
     bool& validPattern) {
   std::string regex;
   validPattern = true;
@@ -136,10 +135,10 @@ std::string likePatternToRe2(
   regex.append("^");
   bool escaped = false;
   for (const char c : pattern) {
-    if (hasEscape && escaped && !(c == '%' || c == '_' || c == escapeChar)) {
+    if (escaped && !(c == '%' || c == '_' || c == *escapeChar)) {
       validPattern = false;
     }
-    if (hasEscape && !escaped && (c == escapeChar)) {
+    if (!escaped && (c == *escapeChar)) {
       escaped = true;
     } else {
       switch (c) {
@@ -380,12 +379,8 @@ class Re2SearchAndExtract final : public VectorFunction {
 
 class LikeConstantPattern final : public VectorFunction {
  public:
-  LikeConstantPattern(StringView pattern, bool hasEscape, char escapeChar)
-      : re_(toStringPiece(likePatternToRe2(
-                pattern,
-                hasEscape,
-                escapeChar,
-                validPattern_)),
+  LikeConstantPattern(StringView pattern, std::optional<char> escapeChar)
+      : re_(toStringPiece(likePatternToRe2(pattern, escapeChar, validPattern_)),
             RE2::Quiet) {}
 
   void apply(
@@ -744,9 +739,8 @@ std::shared_ptr<exec::VectorFunction> makeLike(
       name,
       inputArgs[1].type->toString());
 
-  bool hasEscape = numArgs == 3;
-  char escapeChar;
-  if (hasEscape) {
+  std::optional<char> escapeChar;
+  if (numArgs == 3) {
     VELOX_USER_CHECK(
         inputArgs[2].type->isVarchar(),
         "{} requires third argument of type VARCHAR, but got {}",
@@ -774,7 +768,7 @@ std::shared_ptr<exec::VectorFunction> makeLike(
       name,
       inputArgs[1].type->toString());
   auto pattern = constantPattern->as<ConstantVector<StringView>>()->valueAt(0);
-  return std::make_shared<LikeConstantPattern>(pattern, hasEscape, escapeChar);
+  return std::make_shared<LikeConstantPattern>(pattern, escapeChar);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures() {
