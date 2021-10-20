@@ -123,7 +123,11 @@ void compareVectors(const VectorPtr& vec1, const VectorPtr& vec2) {
 
   for (auto i = 0; i < vectorSize; i++) {
     VELOX_CHECK(
-        vec1->equalValueAt(vec2.get(), i, i), "Different results at idx {}", i);
+        vec1->equalValueAt(vec2.get(), i, i),
+        "Different results at idx '{}': '{}' vs. '{}'",
+        i,
+        vec1->toString(i),
+        vec2->toString(i));
   }
   LOG(INFO) << "All results match.";
 }
@@ -515,7 +519,7 @@ class ExpressionFuzzer {
   }
 
  private:
-  folly::Random::DefaultGenerator rng_;
+  FuzzerGenerator rng_;
   size_t currentSeed_{0};
 
   std::vector<CallableSignature> signatures_;

@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+#include <folly/String.h>
+#include <folly/init/Init.h>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
-#include "folly/String.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/SimpleFunctions.h"
@@ -106,8 +107,10 @@ FunctionSignatureMap filterSignatures(
 }
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-  google::InitGoogleLogging(argv[0]);
+  // Calls common init functions in the necessary order, initializing
+  // singletons, installing proper signal handlers for better debugging
+  // experience, and initialize glog and gflags.
+  folly::init(&argc, &argv);
 
   functions::registerFunctions();
   functions::registerVectorFunctions();

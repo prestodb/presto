@@ -17,6 +17,7 @@
 #pragma once
 
 #include <folly/Random.h>
+#include <random>
 
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -25,6 +26,8 @@ namespace facebook::velox {
 
 // Helper class to generate randomized vectors with random (and potentially
 // nested) encodings. Use the constructor seed to make it deterministic.
+
+using FuzzerGenerator = std::mt19937;
 
 enum UTF8CharList {
   ASCII, /* Ascii character set.*/
@@ -89,7 +92,7 @@ class VectorFuzzer {
 
   memory::MemoryPool* pool_;
 
-  folly::Random::DefaultGenerator rng_;
+  FuzzerGenerator rng_;
 };
 
 } // namespace facebook::velox

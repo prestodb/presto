@@ -27,52 +27,52 @@ namespace {
 
 // Generate random values for the different supported types.
 template <typename T>
-T rand(folly::Random::DefaultGenerator&) {
+T rand(FuzzerGenerator&) {
   VELOX_NYI();
 }
 
 template <>
-int8_t rand(folly::Random::DefaultGenerator& rng) {
+int8_t rand(FuzzerGenerator& rng) {
   return folly::Random::rand32(rng);
 }
 
 template <>
-int16_t rand(folly::Random::DefaultGenerator& rng) {
+int16_t rand(FuzzerGenerator& rng) {
   return folly::Random::rand32(rng);
 }
 
 template <>
-int32_t rand(folly::Random::DefaultGenerator& rng) {
+int32_t rand(FuzzerGenerator& rng) {
   return folly::Random::rand32(rng);
 }
 
 template <>
-int64_t rand(folly::Random::DefaultGenerator& rng) {
+int64_t rand(FuzzerGenerator& rng) {
   return folly::Random::rand32(rng);
 }
 
 template <>
-double rand(folly::Random::DefaultGenerator& rng) {
+double rand(FuzzerGenerator& rng) {
   return folly::Random::randDouble01(rng);
 }
 
 template <>
-float rand(folly::Random::DefaultGenerator& rng) {
+float rand(FuzzerGenerator& rng) {
   return folly::Random::randDouble01(rng);
 }
 
 template <>
-bool rand(folly::Random::DefaultGenerator& rng) {
+bool rand(FuzzerGenerator& rng) {
   return folly::Random::oneIn(2, rng);
 }
 
 template <>
-Timestamp rand(folly::Random::DefaultGenerator& rng) {
+Timestamp rand(FuzzerGenerator& rng) {
   return Timestamp(folly::Random::rand32(rng), folly::Random::rand32(rng));
 }
 
 template <>
-uint32_t rand(folly::Random::DefaultGenerator& rng) {
+uint32_t rand(FuzzerGenerator& rng) {
   return folly::Random::rand32(rng);
 }
 
@@ -113,7 +113,7 @@ const std::map<UTF8CharList, std::vector<std::pair<char16_t, char16_t>>>
          }}};
 
 FOLLY_ALWAYS_INLINE char16_t getRandomChar(
-    folly::Random::DefaultGenerator& rng,
+    FuzzerGenerator& rng,
     const std::vector<std::pair<char16_t, char16_t>>& charSet) {
   const auto& chars = charSet[rand<uint32_t>(rng) % charSet.size()];
   auto size = chars.second - chars.first;
@@ -125,7 +125,7 @@ FOLLY_ALWAYS_INLINE char16_t getRandomChar(
 /// Generates a random string (string size and encoding are passed through
 /// Options). Returns a StringView which uses `buf` as the underlying buffer.
 StringView randString(
-    folly::Random::DefaultGenerator& rng,
+    FuzzerGenerator& rng,
     const VectorFuzzer::Options& opts,
     std::string& buf,
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t>& converter) {
@@ -148,7 +148,7 @@ StringView randString(
 
 template <TypeKind kind>
 variant randVariantImpl(
-    folly::Random::DefaultGenerator& rng,
+    FuzzerGenerator& rng,
     const VectorFuzzer::Options& opts) {
   using TCpp = typename TypeTraits<kind>::NativeType;
   if constexpr (std::is_same_v<TCpp, StringView>) {
@@ -171,7 +171,7 @@ variant randVariantImpl(
 template <TypeKind kind>
 void fuzzFlatImpl(
     const VectorPtr& vector,
-    folly::Random::DefaultGenerator& rng,
+    FuzzerGenerator& rng,
     const VectorFuzzer::Options& opts) {
   using TFlat = typename KindToFlatVector<kind>::type;
   using TCpp = typename TypeTraits<kind>::NativeType;
