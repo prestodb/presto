@@ -55,8 +55,8 @@ class ArrayBuilder {
       vector_size_t estimatedNumElements,
       memory::MemoryPool* pool)
       : numArrays_(numArrays),
-        offsetsBuffer_(AlignedBuffer::allocate<vector_size_t>(numArrays, pool)),
-        sizesBuffer_(AlignedBuffer::allocate<vector_size_t>(numArrays, pool)),
+        offsetsBuffer_(allocateOffsets(numArrays, pool)),
+        sizesBuffer_(allocateSizes(numArrays, pool)),
         elements_(std::max(estimatedNumElements, 16), pool) {
     std::fill(offsets_, offsets_ + numArrays_, 0);
     std::fill(sizes_, sizes_ + numArrays_, 0);

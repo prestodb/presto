@@ -62,9 +62,8 @@ class FilterFunctionBase : public exec::VectorFunction {
     auto inputSizes = input->rawSizes();
 
     auto pool = context->pool();
-    resultSizes = AlignedBuffer::allocate<vector_size_t>(rows.size(), pool, 0);
-    resultOffsets =
-        AlignedBuffer::allocate<vector_size_t>(rows.size(), pool, 0);
+    resultSizes = allocateSizes(rows.size(), pool);
+    resultOffsets = allocateOffsets(rows.size(), pool);
     auto rawResultSizes = resultSizes->asMutable<vector_size_t>();
     auto rawResultOffsets = resultOffsets->asMutable<vector_size_t>();
     auto numElements = lambdaArgs[0]->size();

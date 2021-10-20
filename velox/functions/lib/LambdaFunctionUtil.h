@@ -83,8 +83,7 @@ BufferPtr toWrapCapture(
   auto rawSizes = topLevelVector->rawSizes();
   auto rawOffsets = topLevelVector->rawOffsets();
 
-  BufferPtr wrapCapture =
-      AlignedBuffer::allocate<vector_size_t>(size, topLevelVector->pool(), 0);
+  BufferPtr wrapCapture = allocateIndices(size, topLevelVector->pool());
   auto rawWrapCapture = wrapCapture->asMutable<vector_size_t>();
   topLevelRows.applyToSelected([&](vector_size_t row) {
     if (rawNulls && bits::isBitNull(rawNulls, row)) {

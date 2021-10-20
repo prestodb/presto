@@ -211,8 +211,8 @@ class MapAggAggregate : public exec::Aggregate {
           // duplicate key
           duplicateCnt++;
           if (!rawNewSizes) {
-            newSizes = AlignedBuffer::allocate<vector_size_t>(
-                mapVector->mapKeys()->size(), mapVector->pool());
+            newSizes =
+                allocateSizes(mapVector->mapKeys()->size(), mapVector->pool());
             rawNewSizes = newSizes->asMutable<vector_size_t>();
 
             elementIndices = allocateIndices(

@@ -541,4 +541,15 @@ using RowVectorPtr = std::shared_ptr<RowVector>;
 using ArrayVectorPtr = std::shared_ptr<ArrayVector>;
 using MapVectorPtr = std::shared_ptr<MapVector>;
 
+// Allocates a buffer to fit at least 'size' offsets and initializes them to
+// zero.
+inline BufferPtr allocateOffsets(vector_size_t size, memory::MemoryPool* pool) {
+  return AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
+}
+
+// Allocates a buffer to fit at least 'size' sizes and initializes them to
+// zero.
+inline BufferPtr allocateSizes(vector_size_t size, memory::MemoryPool* pool) {
+  return AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
+}
 } // namespace facebook::velox

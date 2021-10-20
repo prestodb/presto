@@ -107,7 +107,7 @@ RowVectorPtr CrossJoinProbe::getOutput() {
   }
 
   auto size = probeCnt * buildSize;
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
+  BufferPtr indices = allocateIndices(size, pool());
   auto* rawIndices = indices->asMutable<vector_size_t>();
   for (auto i = 0; i < probeCnt; ++i) {
     std::fill(
@@ -119,7 +119,7 @@ RowVectorPtr CrossJoinProbe::getOutput() {
 
   BufferPtr buildIndices = nullptr;
   if (probeCnt > 1) {
-    buildIndices = AlignedBuffer::allocate<vector_size_t>(size, pool());
+    buildIndices = allocateIndices(size, pool());
     auto* rawBuildIndices = buildIndices->asMutable<vector_size_t>();
     for (auto i = 0; i < probeCnt; ++i) {
       std::iota(

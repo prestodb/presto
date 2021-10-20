@@ -148,10 +148,8 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
     BufferPtr newIndices = allocateIndices(leftElementsCount, pool);
     BufferPtr newElementNulls =
         AlignedBuffer::allocate<bool>(leftElementsCount, pool, bits::kNotNull);
-    BufferPtr newLengths =
-        AlignedBuffer::allocate<vector_size_t>(rowCount, pool);
-    BufferPtr newOffsets =
-        AlignedBuffer::allocate<vector_size_t>(rowCount, pool);
+    BufferPtr newLengths = allocateSizes(rowCount, pool);
+    BufferPtr newOffsets = allocateOffsets(rowCount, pool);
 
     // Pointers and cursors to the raw data.
     auto rawNewIndices = newIndices->asMutable<vector_size_t>();

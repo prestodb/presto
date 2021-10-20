@@ -323,7 +323,7 @@ folly::Range<vector_size_t*> initializeRowNumberMapping(
     memory::MemoryPool* pool) {
   if (!mapping || !mapping->unique() ||
       mapping->size() < sizeof(vector_size_t) * size) {
-    mapping = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    mapping = allocateIndices(size, pool);
   }
   return folly::Range(mapping->asMutable<vector_size_t>(), size);
 }

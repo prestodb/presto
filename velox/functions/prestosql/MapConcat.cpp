@@ -57,12 +57,10 @@ class MapConcatFunction : public exec::VectorFunction {
 
     // Initialize offsets and sizes to 0 so that canonicalize() will
     // work also for sparse 'rows'.
-    BufferPtr offsets =
-        AlignedBuffer::allocate<vector_size_t>(rows.size(), context->pool(), 0);
+    BufferPtr offsets = allocateOffsets(rows.size(), context->pool());
     auto rawOffsets = offsets->asMutable<vector_size_t>();
 
-    BufferPtr sizes =
-        AlignedBuffer::allocate<vector_size_t>(rows.size(), context->pool(), 0);
+    BufferPtr sizes = allocateSizes(rows.size(), context->pool());
     auto rawSizes = sizes->asMutable<vector_size_t>();
 
     vector_size_t offset = 0;

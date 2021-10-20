@@ -63,8 +63,7 @@ RowVectorPtr Limit::getOutput() {
     // Return a subset of input_ rows.
     auto outputSize = std::min(inputSize - remainingOffset_, remainingLimit_);
 
-    BufferPtr indices =
-        AlignedBuffer::allocate<vector_size_t>(outputSize, pool());
+    BufferPtr indices = allocateIndices(outputSize, pool());
     auto rawIndices = indices->asMutable<vector_size_t>();
     std::iota(rawIndices, rawIndices + outputSize, remainingOffset_);
 

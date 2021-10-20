@@ -153,8 +153,7 @@ RowVectorPtr HashAggregation::getOutput() {
 
     auto lookup = groupingSet_->hashLookup();
     auto size = lookup.newGroups.size();
-    BufferPtr indices =
-        AlignedBuffer::allocate<vector_size_t>(size, operatorCtx_->pool());
+    BufferPtr indices = allocateIndices(size, operatorCtx_->pool());
     auto indicesPtr = indices->asMutable<vector_size_t>();
     std::copy(lookup.newGroups.begin(), lookup.newGroups.end(), indicesPtr);
     newDistincts_ = false;

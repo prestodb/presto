@@ -49,9 +49,9 @@ void flattenBuffers(
 
   elementIndices = allocateIndices(newNumElements, pool);
   auto rawElementIndices = elementIndices->asMutable<vector_size_t>();
-  newSizes = AlignedBuffer::allocate<vector_size_t>(rows.end(), pool);
+  newSizes = allocateSizes(rows.end(), pool);
   auto rawNewSizes = newSizes->asMutable<vector_size_t>();
-  newOffsets = AlignedBuffer::allocate<vector_size_t>(rows.end(), pool);
+  newOffsets = allocateOffsets(rows.end(), pool);
   auto rawNewOffsets = newOffsets->asMutable<vector_size_t>();
 
   auto indices = decodedVector.indices();
