@@ -122,8 +122,7 @@ class MapConcatFunction : public exec::VectorFunction {
       uniqueKeys.updateBounds();
       auto uniqueCount = uniqueKeys.countSelected();
 
-      BufferPtr uniqueIndices =
-          AlignedBuffer::allocate<vector_size_t>(uniqueCount, context->pool());
+      BufferPtr uniqueIndices = allocateIndices(uniqueCount, context->pool());
       auto rawUniqueIndices = uniqueIndices->asMutable<vector_size_t>();
       vector_size_t index = 0;
       uniqueKeys.applyToSelected(

@@ -246,8 +246,7 @@ std::vector<BufferPtr> allocateIndexBuffers(
   std::vector<BufferPtr> indexBuffers;
   indexBuffers.reserve(numBuffers);
   for (auto i = 0; i < numBuffers; i++) {
-    indexBuffers.emplace_back(
-        AlignedBuffer::allocate<vector_size_t>(size, pool));
+    indexBuffers.emplace_back(allocateIndices(size, pool));
   }
   return indexBuffers;
 }

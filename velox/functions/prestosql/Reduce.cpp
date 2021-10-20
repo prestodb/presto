@@ -87,8 +87,8 @@ class ReduceFunction : public exec::VectorFunction {
     SelectivityVector* callableRows;
 
     SelectivityVector arrayRows(flatArray->size(), false);
-    BufferPtr elementIndices = AlignedBuffer::allocate<vector_size_t>(
-        flatArray->size(), context->pool());
+    BufferPtr elementIndices =
+        allocateIndices(flatArray->size(), context->pool());
 
     const auto& initialState = args[1];
     auto partialResult =

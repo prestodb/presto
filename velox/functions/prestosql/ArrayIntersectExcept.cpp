@@ -145,8 +145,7 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
     vector_size_t rowCount = left->size();
 
     // Allocate new vectors for indices, nulls, length and offsets.
-    BufferPtr newIndices =
-        AlignedBuffer::allocate<vector_size_t>(leftElementsCount, pool);
+    BufferPtr newIndices = allocateIndices(leftElementsCount, pool);
     BufferPtr newElementNulls =
         AlignedBuffer::allocate<bool>(leftElementsCount, pool, bits::kNotNull);
     BufferPtr newLengths =

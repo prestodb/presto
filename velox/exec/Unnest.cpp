@@ -93,8 +93,7 @@ RowVectorPtr Unnest::getOutput() {
 
   // Create "indices" buffer to repeat rows as many times as there are elements
   // in the array.
-  BufferPtr repeatedIndices =
-      AlignedBuffer::allocate<vector_size_t>(numElements, pool());
+  BufferPtr repeatedIndices = allocateIndices(numElements, pool());
   auto* rawIndices = repeatedIndices->asMutable<vector_size_t>();
   vector_size_t index = 0;
   for (auto row = 0; row < size; ++row) {
@@ -115,8 +114,7 @@ RowVectorPtr Unnest::getOutput() {
 
   // Make "elements" column. Elements may be out of order. Use a
   // dictionary to ensure the right order.
-  BufferPtr elementIndices =
-      AlignedBuffer::allocate<vector_size_t>(numElements, pool());
+  BufferPtr elementIndices = allocateIndices(numElements, pool());
   auto* rawElementIndices = elementIndices->asMutable<vector_size_t>();
   index = 0;
   bool identityMapping = true;

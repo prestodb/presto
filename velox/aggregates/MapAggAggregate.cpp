@@ -215,7 +215,7 @@ class MapAggAggregate : public exec::Aggregate {
                 mapVector->mapKeys()->size(), mapVector->pool());
             rawNewSizes = newSizes->asMutable<vector_size_t>();
 
-            elementIndices = AlignedBuffer::allocate<vector_size_t>(
+            elementIndices = allocateIndices(
                 mapVector->mapKeys()->size(), mapVector->pool());
             rawElementIndices = elementIndices->asMutable<vector_size_t>();
 

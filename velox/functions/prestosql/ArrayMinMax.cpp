@@ -56,7 +56,7 @@ VectorPtr applyTyped(
   auto rawSizes = baseArray->rawSizes();
   auto rawOffsets = baseArray->rawOffsets();
 
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(rows.size(), pool);
+  BufferPtr indices = allocateIndices(rows.size(), pool);
   auto rawIndices = indices->asMutable<vector_size_t>();
 
   // Create nulls for lazy initialization.

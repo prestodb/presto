@@ -89,8 +89,8 @@ class MapFunction : public exec::VectorFunction {
           rows.size(), context->pool(), 0);
       auto rawSizes = sizes->asMutable<vector_size_t>();
 
-      BufferPtr valuesIndices = AlignedBuffer::allocate<vector_size_t>(
-          keysArray->elements()->size(), context->pool(), 0);
+      BufferPtr valuesIndices =
+          allocateIndices(keysArray->elements()->size(), context->pool());
       auto rawValuesIndices = valuesIndices->asMutable<vector_size_t>();
 
       rows.applyToSelected([&](vector_size_t row) {

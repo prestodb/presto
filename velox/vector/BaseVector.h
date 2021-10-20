@@ -635,6 +635,12 @@ using VectorPtr = std::shared_ptr<BaseVector>;
 // been loaded yet.
 bool isLazyNotLoaded(const BaseVector& vector);
 
+// Allocates a buffer to fit at least 'size' indices and initializes them to
+// zero.
+inline BufferPtr allocateIndices(vector_size_t size, memory::MemoryPool* pool) {
+  return AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
+}
+
 } // namespace velox
 } // namespace facebook
 
