@@ -84,6 +84,7 @@ public class OperatorStats
 
     private final Optional<BlockedReason> blockedReason;
 
+    @Nullable
     private final OperatorInfo info;
 
     private final RuntimeStats runtimeStats;
@@ -137,6 +138,7 @@ public class OperatorStats
 
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
+            @Nullable
             @JsonProperty("info") OperatorInfo info,
             @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
@@ -607,6 +609,10 @@ public class OperatorStats
 
     public OperatorStats summarize()
     {
+        if (info == null || info.isFinal()) {
+            return this;
+        }
+        OperatorInfo info = null;
         return new OperatorStats(
                 stageId,
                 stageExecutionId,
@@ -645,7 +651,7 @@ public class OperatorStats
                 peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,
-                (info != null && info.isFinal()) ? info : null,
+                info,
                 runtimeStats);
     }
 }
