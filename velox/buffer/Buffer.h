@@ -603,7 +603,7 @@ class NonPODAlignedBuffer : public Buffer {
   }
 
   void freeToPool() override {
-    pool_->free(this, sizeof(this) + capacity_);
+    pool_->free(this, AlignedBuffer::kPaddedSize + capacity_);
   }
 
   // Needs to use this class from static methods of AlignedBuffer

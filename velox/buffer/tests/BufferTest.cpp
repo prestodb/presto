@@ -326,5 +326,12 @@ TEST_F(BufferTest, testNonPOD) {
   EXPECT_EQ(NonPOD::constructed, NonPOD::destructed);
 }
 
+TEST_F(BufferTest, testNonPODMemoryUsage) {
+  using T = std::shared_ptr<void>;
+  const int64_t currentBytes = pool_->getCurrentBytes();
+  { auto buffer = AlignedBuffer::allocate<T>(0, pool_.get()); }
+  EXPECT_EQ(pool_->getCurrentBytes(), currentBytes);
+}
+
 } // namespace velox
 } // namespace facebook
