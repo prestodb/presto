@@ -18,6 +18,7 @@
 
 #include "velox/expression/VectorFunction.h"
 #include "velox/type/Type.h"
+#include "velox/vector/NullsBuilder.h"
 
 namespace facebook::velox::functions {
 
@@ -159,21 +160,7 @@ class SubscriptImpl : public exec::VectorFunction {
     auto rawIndices = indices->asMutable<vector_size_t>();
 
     // Create nulls for lazy initialization.
-    BufferPtr nulls(nullptr);
-    uint64_t* rawNulls = nullptr;
-
-    auto processNull = [&](vector_size_t row, bool isNull) {
-      if (isNull) {
-        if (!rawNulls) {
-          nulls =
-              AlignedBuffer::allocate<bool>(rows.size(), pool, bits::kNotNull);
-          rawNulls = nulls->asMutable<uint64_t>();
-        }
-        bits::setNull(rawNulls, row, true);
-      } else if (rawNulls) {
-        bits::setNull(rawNulls, row, false);
-      }
-    };
+    NullsBuilder nullsBuilder(rows.size(), pool);
 
     exec::LocalDecodedVector arrayHolder(context, *arrayArg, rows);
     auto decodedArray = arrayHolder.get();
@@ -205,7 +192,9 @@ class SubscriptImpl : public exec::VectorFunction {
           auto elementIndex =
               getIndex(adjustedIndex, row, rawSizes, rawOffsets, arrayIndices);
           rawIndices[row] = elementIndex;
-          processNull(row, elementIndex == -1);
+          if (elementIndex == -1) {
+            nullsBuilder.setNull(row);
+          }
         });
       }
     } else {
@@ -214,11 +203,13 @@ class SubscriptImpl : public exec::VectorFunction {
         auto elementIndex =
             getIndex(adjustedIndex, row, rawSizes, rawOffsets, arrayIndices);
         rawIndices[row] = elementIndex;
-        processNull(row, elementIndex == -1);
+        if (elementIndex == -1) {
+          nullsBuilder.setNull(row);
+        }
       });
     }
     return BaseVector::wrapInDictionary(
-        nulls, indices, rows.size(), baseArray->elements());
+        nullsBuilder.build(), indices, rows.size(), baseArray->elements());
   }
 
   // Normalize indices from 1 or 0-based into always 0-based (according to
@@ -297,8 +288,7 @@ class SubscriptImpl : public exec::VectorFunction {
     auto rawIndices = indices->asMutable<vector_size_t>();
 
     // Create nulls for lazy initialization.
-    BufferPtr nulls(nullptr);
-    uint64_t* rawNulls = nullptr;
+    NullsBuilder nullsBuilder(rows.size(), pool);
 
     // Get base MapVector.
     // TODO: Optimize the case when indices are identity.
@@ -344,14 +334,7 @@ class SubscriptImpl : public exec::VectorFunction {
 
       // Handle NULLs.
       if (!found) {
-        if (!rawNulls) {
-          nulls =
-              AlignedBuffer::allocate<bool>(rows.size(), pool, bits::kNotNull);
-          rawNulls = nulls->asMutable<uint64_t>();
-        }
-        bits::setNull(rawNulls, row);
-      } else if (rawNulls) {
-        bits::clearNull(rawNulls, row);
+        nullsBuilder.setNull(row);
       }
     };
 
@@ -369,7 +352,7 @@ class SubscriptImpl : public exec::VectorFunction {
       });
     }
     return BaseVector::wrapInDictionary(
-        nulls, indices, rows.size(), baseMap->mapValues());
+        nullsBuilder.build(), indices, rows.size(), baseMap->mapValues());
   }
 };
 

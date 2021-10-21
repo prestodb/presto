@@ -16,6 +16,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/vector/DecodedVector.h"
+#include "velox/vector/NullsBuilder.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -52,16 +53,7 @@ VectorPtr applyTyped(
   auto rawIndices = indices->asMutable<vector_size_t>();
 
   // Create nulls for lazy initialization.
-  BufferPtr nulls(nullptr);
-  uint64_t* rawNulls = nullptr;
-
-  auto processNull = [&](vector_size_t row) {
-    if (nulls == nullptr) {
-      nulls = AlignedBuffer::allocate<bool>(rows.size(), pool, bits::kNotNull);
-      rawNulls = nulls->asMutable<uint64_t>();
-    }
-    bits::setNull(rawNulls, row, true);
-  };
+  NullsBuilder nullsBuilder(rows.size(), pool);
 
   if (elementsDecoded.isIdentityMapping() && !elementsDecoded.mayHaveNulls()) {
     if constexpr (std::is_same_v<bool, T>) {
@@ -69,7 +61,7 @@ VectorPtr applyTyped(
       rows.applyToSelected([&](auto row) {
         auto size = rawSizes[row];
         if (size == 0) {
-          processNull(row);
+          nullsBuilder.setNull(row);
         } else {
           auto offset = rawOffsets[row];
           auto elementIndex = offset;
@@ -88,7 +80,7 @@ VectorPtr applyTyped(
       rows.applyToSelected([&](auto row) {
         auto size = rawSizes[row];
         if (size == 0) {
-          processNull(row);
+          nullsBuilder.setNull(row);
         } else {
           auto offset = rawOffsets[row];
           auto elementIndex = offset;
@@ -105,14 +97,14 @@ VectorPtr applyTyped(
     rows.applyToSelected([&](auto row) {
       auto size = rawSizes[row];
       if (size == 0) {
-        processNull(row);
+        nullsBuilder.setNull(row);
       } else {
         auto offset = rawOffsets[row];
         auto elementIndex = offset;
         for (auto i = offset; i < offset + size; i++) {
           if (elementsDecoded.isNullAt(i)) {
             // If a NULL value is encountered, min/max are always NULL
-            processNull(row);
+            nullsBuilder.setNull(row);
             break;
           } else if (F<T>()(
                          elementsDecoded.valueAt<T>(i),
@@ -126,7 +118,7 @@ VectorPtr applyTyped(
   }
 
   return BaseVector::wrapInDictionary(
-      nulls, indices, rows.size(), arrayVector.elements());
+      nullsBuilder.build(), indices, rows.size(), arrayVector.elements());
 }
 
 template <template <typename> class F>
