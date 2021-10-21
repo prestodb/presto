@@ -79,7 +79,7 @@ class VectorFuncOne : public velox::exec::VectorFunction {
   void apply(
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
-      velox::exec::Expr* /* caller */,
+      const TypePtr& /* outputType */,
       velox::exec::EvalCtx* /* context */,
       velox::VectorPtr* /* result */) const override {}
 
@@ -98,7 +98,7 @@ class VectorFuncTwo : public velox::exec::VectorFunction {
   void apply(
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
-      velox::exec::Expr* /* caller */,
+      const TypePtr& /* outputType */,
       velox::exec::EvalCtx* /* context */,
       velox::VectorPtr* /* result */) const override {}
 
@@ -117,7 +117,7 @@ class VectorFuncThree : public velox::exec::VectorFunction {
   void apply(
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
-      velox::exec::Expr* /* caller */,
+      const TypePtr& /* outputType */,
       velox::exec::EvalCtx* /* context */,
       velox::VectorPtr* /* result */) const override {}
 
@@ -136,7 +136,7 @@ class VectorFuncFour : public velox::exec::VectorFunction {
   void apply(
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
-      velox::exec::Expr* /* caller */,
+      const TypePtr& /* outputType */,
       velox::exec::EvalCtx* /* context */,
       velox::VectorPtr* /* result */) const override {}
 

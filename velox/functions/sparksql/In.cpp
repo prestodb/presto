@@ -73,7 +73,7 @@ class In final : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* resultRef) const final {
     // Prepare result.

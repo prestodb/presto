@@ -34,7 +34,7 @@ class LeastGreatestFunction final : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     auto isFlatVector = [](const VectorPtr vp) -> bool {
@@ -45,7 +45,7 @@ class LeastGreatestFunction final : public exec::VectorFunction {
     const auto nrows = rows.end();
 
     // Setup result vector.
-    BaseVector::ensureWritable(rows, caller->type(), context->pool(), result);
+    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
     FlatVector<T>& flatResult = *(*result)->as<FlatVector<T>>();
 
     // NULL all elements.

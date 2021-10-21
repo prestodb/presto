@@ -49,7 +49,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     // Acquire the array elements vector.
@@ -110,7 +110,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     // Prepare and return result set.
     auto resultArray = std::make_shared<ArrayVector>(
         pool,
-        caller->type(),
+        outputType,
         nullptr,
         rowCount,
         std::move(newOffsets),

@@ -417,7 +417,7 @@ class DuckDBFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* /* unused */,
+      const TypePtr& /* outputType */,
       EvalCtx* context,
       VectorPtr* result) const override {
     // FIXME: this binding does not need to be performed on every function call

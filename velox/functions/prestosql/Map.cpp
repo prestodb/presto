@@ -24,7 +24,7 @@ class MapFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK(args.size() == 2);
@@ -58,7 +58,7 @@ class MapFunction : public exec::VectorFunction {
 
       mapVector = std::make_shared<MapVector>(
           context->pool(),
-          caller->type(),
+          outputType,
           BufferPtr(nullptr),
           rows.size(),
           keysArray->offsets(),
@@ -111,7 +111,7 @@ class MapFunction : public exec::VectorFunction {
 
       mapVector = std::make_shared<MapVector>(
           context->pool(),
-          caller->type(),
+          outputType,
           BufferPtr(nullptr),
           rows.size(),
           offsets,

@@ -127,7 +127,7 @@ class ArrayMinMaxFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 1);

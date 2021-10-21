@@ -114,7 +114,7 @@ class HashFunction final : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
-      exec::Expr* caller,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* resultRef) const final {
     constexpr int32_t kSeed = 42;

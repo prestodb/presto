@@ -36,7 +36,7 @@ class SplitCharacter final : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* /* unused */,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     exec::LocalDecodedVector input(context, *args[0], rows);
@@ -79,7 +79,7 @@ class Split final : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* /* unused */,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     auto delimiterVector = args[1]->as<ConstantVector<StringView>>();

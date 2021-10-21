@@ -28,12 +28,12 @@ class ArrayConstructor : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     auto numArgs = args.size();
 
-    BaseVector::ensureWritable(rows, caller->type(), context->pool(), result);
+    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
     auto arrayResult = (*result)->as<ArrayVector>();
     auto sizes = arrayResult->mutableSizes(rows.size());
     auto rawSizes = sizes->asMutable<int32_t>();

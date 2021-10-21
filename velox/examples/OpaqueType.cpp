@@ -112,7 +112,7 @@ class MapResolverFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     // We cannot make any assumptions about the encoding of the input vectors.
@@ -131,7 +131,7 @@ class MapResolverFunction : public exec::VectorFunction {
 
     // Ensure we have an output vector where we can write the output opaqued
     // values.
-    BaseVector::ensureWritable(rows, caller->type(), context->pool(), result);
+    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
     auto* output = (*result)->as<KindToFlatVector<TypeKind::OPAQUE>::type>();
 
     // `applyToSelected()` will execute the lambda below on each row enabled in

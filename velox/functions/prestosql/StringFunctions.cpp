@@ -120,7 +120,7 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      [[maybe_unused]] exec::Expr* caller,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK(args.size() == 1);
@@ -194,7 +194,7 @@ class ConcatFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* /* unused */,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VectorPtr emptyVectorPtr;
@@ -267,7 +267,7 @@ class StringPosition : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* /* unused */,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -410,7 +410,7 @@ class Replace : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* /* unused */,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     // Read string input

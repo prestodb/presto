@@ -25,7 +25,7 @@ class MapEntriesFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
@@ -35,13 +35,13 @@ class MapEntriesFunction : public exec::VectorFunction {
 
     VectorPtr resultElements = std::make_shared<RowVector>(
         context->pool(),
-        caller->type()->childAt(0),
+        outputType->childAt(0),
         BufferPtr(nullptr),
         inputMap->mapKeys()->size(),
         std::vector<VectorPtr>{inputMap->mapKeys(), inputMap->mapValues()});
     auto resultArray = std::make_shared<ArrayVector>(
         context->pool(),
-        caller->type(),
+        outputType,
         inputMap->nulls(),
         rows.size(),
         inputMap->offsets(),

@@ -43,7 +43,7 @@ class Instr : public exec::VectorFunction {
   void apply(
       const SelectivityVector& selected,
       std::vector<VectorPtr>& args,
-      exec::Expr*,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
@@ -82,7 +82,7 @@ class Length : public exec::VectorFunction {
   void apply(
       const SelectivityVector& selected,
       std::vector<VectorPtr>& args,
-      exec::Expr*,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 1);

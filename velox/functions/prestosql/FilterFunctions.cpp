@@ -114,7 +114,7 @@ class ArrayFilterFunction : public FilterFunctionBase {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* /*caller*/,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
@@ -174,7 +174,7 @@ class MapFilterFunction : public FilterFunctionBase {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
@@ -210,7 +210,7 @@ class MapFilterFunction : public FilterFunctionBase {
                                      : nullptr;
     auto localResult = std::make_shared<MapVector>(
         flatMap->pool(),
-        caller->type(),
+        outputType,
         flatMap->nulls(),
         rows.size(),
         std::move(resultOffsets),

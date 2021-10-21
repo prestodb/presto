@@ -35,7 +35,7 @@ class TransformFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
@@ -69,7 +69,7 @@ class TransformFunction : public exec::VectorFunction {
 
     VectorPtr localResult = std::make_shared<ArrayVector>(
         flatArray->pool(),
-        caller->type(),
+        outputType,
         flatArray->nulls(),
         flatArray->size(),
         flatArray->offsets(),

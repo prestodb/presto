@@ -1345,7 +1345,7 @@ class MultiStringFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* /*caller*/,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* /*context*/,
       VectorPtr* result) const override {
     *result = BaseVector::wrapInConstant(rows.size(), 0, args[0]);
@@ -1502,10 +1502,10 @@ class InputModifyingFunction : public MultiStringFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* expr,
+      const TypePtr& outputType,
       exec::EvalCtx* ctx,
       VectorPtr* result) const override {
-    MultiStringFunction::apply(rows, args, expr, ctx, result);
+    MultiStringFunction::apply(rows, args, outputType, ctx, result);
 
     // Modify args and remove its asciness
     for (auto& arg : args) {

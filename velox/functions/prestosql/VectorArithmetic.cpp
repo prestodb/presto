@@ -65,7 +65,7 @@ class VectorArithmetic : public VectorFunction {
   /// the input indexes associated with null inputs on any of the values in args
   /// vectors.
   /// \param args: the input vectors to the function
-  /// \param caller: the caller expression
+  /// \param caller: the output type
   /// \param context: the eval context that can be used for memory allocation or
   /// accessing config flags
   /// \param result: the output vector that must be created or reuse one of the
@@ -73,7 +73,7 @@ class VectorArithmetic : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* caller,
+      const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* result) const override {
     // Same basic checks on the number of inputs and their kinds
@@ -82,16 +82,16 @@ class VectorArithmetic : public VectorFunction {
     // Dispatch dynamically to applyTyped
     switch (args[0]->typeKind()) {
       case TypeKind::INTEGER:
-        applyTyped<int32_t>(rows, args, caller, context, result);
+        applyTyped<int32_t>(rows, args, outputType, context, result);
         return;
       case TypeKind::BIGINT:
-        applyTyped<int64_t>(rows, args, caller, context, result);
+        applyTyped<int64_t>(rows, args, outputType, context, result);
         return;
       case TypeKind::REAL:
-        applyTyped<float>(rows, args, caller, context, result);
+        applyTyped<float>(rows, args, outputType, context, result);
         return;
       case TypeKind::DOUBLE:
-        applyTyped<double>(rows, args, caller, context, result);
+        applyTyped<double>(rows, args, outputType, context, result);
         return;
       default:
         VELOX_CHECK(false, "Bad type for arithmetic");
@@ -108,14 +108,14 @@ class VectorArithmetic : public VectorFunction {
   /// \tparam T function argument cpp type
   /// \param rows the valid row indexes
   /// \param args the input argument vectors
-  /// \param caller the caller expression
+  /// \param outputType the output type
   /// \param context the eval context
   /// \param result the generated or reused result vector
   template <typename T>
   void applyTyped(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      Expr* caller,
+      const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* result) const {
     BaseVector* left = args[0].get();
@@ -138,13 +138,12 @@ class VectorArithmetic : public VectorFunction {
           args[1].unique() && rightEncoding == VectorEncoding::Simple::FLAT) {
         *result = std::move(args[1]);
       } else {
-        *result =
-            BaseVector::create(caller->type(), rows.size(), context->pool());
+        *result = BaseVector::create(outputType, rows.size(), context->pool());
       }
     } else {
       // if the output is previously initialized, we prepare it for writing
       // here using ensureWritable
-      BaseVector::ensureWritable(rows, caller->type(), context->pool(), result);
+      BaseVector::ensureWritable(rows, outputType, context->pool(), result);
     }
     // Here we provide a pointer to the raw flat results.
     BufferPtr resultValues =

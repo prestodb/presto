@@ -29,7 +29,7 @@ class FromUnixtimeFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -71,7 +71,7 @@ class FromUnixtimeFunction : public exec::VectorFunction {
 
     auto localResult = std::make_shared<RowVector>(
         pool,
-        caller->type(),
+        outputType,
         BufferPtr(nullptr),
         rows.size(),
         std::vector<VectorPtr>{timestamps, timezones},

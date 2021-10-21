@@ -191,7 +191,7 @@ class Re2MatchConstantPattern final : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* /* caller */,
+      const TypePtr& /* outputType */,
       EvalCtx* context,
       VectorPtr* resultRef) const final {
     VELOX_CHECK_EQ(args.size(), 2);
@@ -214,13 +214,13 @@ class Re2Match final : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* caller,
+      const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* resultRef) const override {
     VELOX_CHECK_EQ(args.size(), 2);
     if (auto pattern = getIfConstant<StringView>(*args[1])) {
       Re2MatchConstantPattern<Fn>(*pattern).apply(
-          rows, args, caller, context, resultRef);
+          rows, args, outputType, context, resultRef);
       return;
     }
     // General case.
@@ -253,7 +253,7 @@ class Re2SearchAndExtractConstantPattern final : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* /* caller */,
+      const TypePtr& /* outputType */,
       EvalCtx* context,
       VectorPtr* resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
@@ -329,14 +329,14 @@ class Re2SearchAndExtract final : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* caller,
+      const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
     // Handle the common case of a constant pattern.
     if (auto pattern = getIfConstant<StringView>(*args[1])) {
       Re2SearchAndExtractConstantPattern<T>(*pattern, emptyNoMatch_)
-          .apply(rows, args, caller, context, resultRef);
+          .apply(rows, args, outputType, context, resultRef);
       return;
     }
 
@@ -386,7 +386,7 @@ class LikeConstantPattern final : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* /* caller */,
+      const TypePtr& /* outputType */,
       EvalCtx* context,
       VectorPtr* resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
@@ -463,7 +463,7 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr*,
+      const TypePtr& /* outputType */,
       EvalCtx* context,
       VectorPtr* resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
@@ -527,7 +527,7 @@ class Re2ExtractAll final : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* expr,
+      const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
@@ -535,7 +535,7 @@ class Re2ExtractAll final : public VectorFunction {
     //
     if (auto pattern = getIfConstant<StringView>(*args[1])) {
       Re2ExtractAllConstantPattern<T>(*pattern).apply(
-          rows, args, expr, context, resultRef);
+          rows, args, outputType, context, resultRef);
       return;
     }
 

@@ -126,7 +126,7 @@ class GeneratedVectorFunctionBase
   virtual size_t apply(
       const facebook::velox::SelectivityVector& rows,
       std::vector<facebook::velox::VectorPtr>& args,
-      [[maybe_unused]] facebook::velox::exec::Expr* caller,
+      const TypePtr& /* outputType */,
       facebook::velox::exec::EvalCtx* context,
       std::vector<facebook::velox::VectorPtr>& results) const = 0;
 #pragma clang diagnostic pop
@@ -174,7 +174,7 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
   virtual void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK(result != nullptr);
@@ -269,7 +269,7 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       resultSize = apply(
           rowsNotNull,
           args,
-          caller,
+          outputType,
           context,
           result->get()->as<RowVector>()->children());
 
@@ -277,7 +277,7 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       resultSize = apply(
           rows,
           args,
-          caller,
+          outputType,
           context,
           result->get()->as<RowVector>()->children());
     }
@@ -298,7 +298,7 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
   size_t apply(
       const facebook::velox::SelectivityVector& rows,
       std::vector<facebook::velox::VectorPtr>& args,
-      [[maybe_unused]] facebook::velox::exec::Expr* caller,
+      const TypePtr& /* outputType */,
       facebook::velox::exec::EvalCtx* context,
       std::vector<facebook::velox::VectorPtr>& results) const override {
     VELOX_CHECK(rowType_ != nullptr);

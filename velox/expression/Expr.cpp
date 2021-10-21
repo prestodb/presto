@@ -207,7 +207,7 @@ void Expr::evalSimplifiedImpl(
   }
 
   // Apply the actual function.
-  vectorFunction_->apply(remainingRows, inputValues_, this, context, result);
+  vectorFunction_->apply(remainingRows, inputValues_, type(), context, result);
 
   // Make sure the returned vector has its null bitmap properly set.
   addNulls(rows, remainingRows.asRange().bits(), context, result);
@@ -1045,7 +1045,7 @@ void Expr::applyVectorFunction(
       inputValues_[0]->isConstantEncoding()) {
     applySingleConstArgVectorFunction(rows, context, result);
   } else {
-    vectorFunction_->apply(rows, inputValues_, this, context, result);
+    vectorFunction_->apply(rows, inputValues_, type(), context, result);
   }
 }
 
@@ -1075,7 +1075,7 @@ void Expr::applySingleConstArgVectorFunction(
   }
 
   VectorPtr tempResult;
-  vectorFunction_->apply(*inputRows, args, this, context, &tempResult);
+  vectorFunction_->apply(*inputRows, args, type(), context, &tempResult);
 
   if (*result && !context->isFinalSelection()) {
     BaseVector::ensureWritable(rows, type(), context->pool(), result);

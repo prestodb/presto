@@ -40,12 +40,11 @@ class VectorAdapter : public VectorFunction {
   struct ApplyContext {
     ApplyContext(
         const SelectivityVector* _rows,
-        Expr* caller,
+        const TypePtr& outputType,
         EvalCtx* _context,
         VectorPtr* _result)
         : rows{_rows}, context{_context} {
-      BaseVector::ensureWritable(
-          *rows, caller->type(), context->pool(), _result);
+      BaseVector::ensureWritable(*rows, outputType, context->pool(), _result);
       result = reinterpret_cast<result_vector_t*>((*_result).get());
       resultWriter.init(*result);
     }
@@ -108,10 +107,10 @@ class VectorAdapter : public VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      Expr* caller,
+      const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* result) const override {
-    ApplyContext applyContext{&rows, caller, context, result};
+    ApplyContext applyContext{&rows, outputType, context, result};
     DecodedArgs decodedArgs{rows, args, context};
 
     // Enable fast all-ASCII path if all string inputs are ASCII and the

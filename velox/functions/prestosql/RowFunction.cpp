@@ -24,19 +24,19 @@ class RowFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     auto argsCopy = args;
     RowVectorPtr row = std::make_shared<RowVector>(
         context->pool(),
-        caller->type(),
+        outputType,
         BufferPtr(nullptr),
         rows.size(),
         std::move(argsCopy),
         0 /*nullCount*/);
     if (*result) {
-      BaseVector::ensureWritable(rows, caller->type(), context->pool(), result);
+      BaseVector::ensureWritable(rows, outputType, context->pool(), result);
       (*result)->copy(row.get(), rows, nullptr);
     } else {
       *result = std::move(row);

@@ -76,7 +76,7 @@ class VectorFunction {
   virtual void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
-      Expr* caller,
+      const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* result) const = 0;
 

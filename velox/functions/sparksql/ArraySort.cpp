@@ -114,7 +114,7 @@ class ArraySort : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::Expr* caller,
+      const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     const ArrayVector* inputArray = args[0]->as<ArrayVector>();
