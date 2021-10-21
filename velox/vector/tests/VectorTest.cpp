@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stdio.h>
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <stdio.h>
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/BiasVector.h"
 #include "velox/vector/ComplexVector.h"
@@ -34,7 +34,7 @@ class TestingLoader : public VectorLoader {
  public:
   explicit TestingLoader(VectorPtr data) : data_(data) {}
 
-  void load(RowSet rows, ValueHook* hook, VectorPtr* result) override {
+  void loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) override {
     if (hook) {
       VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
           applyHook, data_->typeKind(), rows, hook);

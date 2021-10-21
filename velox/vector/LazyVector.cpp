@@ -15,11 +15,44 @@
  */
 
 #include "velox/vector/LazyVector.h"
+#include <folly/ThreadLocal.h>
+#include "velox/common/time/Timer.h"
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox {
 
+// Thread local stat writer, if set (not null) are used here to record how much
+// time was spent on IO in lazy vectors.
+static folly::ThreadLocalPtr<BaseRuntimeStatWriter> sRunTimeStatWriters;
+
+void setRunTimeStatWriter(std::unique_ptr<BaseRuntimeStatWriter>&& ptr) {
+  sRunTimeStatWriters.reset(std::move(ptr));
+}
+
+static void writeIOWallTimeStat(size_t ioTimeStartMicros) {
+  if (BaseRuntimeStatWriter* pWriter = sRunTimeStatWriters.get()) {
+    pWriter->addRuntimeStat(
+        "dataSourceLazyWallNanos",
+        (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000);
+  }
+}
+
+void VectorLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
+  const auto ioTimeStartMicros = getCurrentTimeMicro();
+  loadInternal(rows, hook, result);
+  writeIOWallTimeStat(ioTimeStartMicros);
+}
+
 void VectorLoader::load(
+    const SelectivityVector& rows,
+    ValueHook* hook,
+    VectorPtr* result) {
+  const auto ioTimeStartMicros = getCurrentTimeMicro();
+  loadInternal(rows, hook, result);
+  writeIOWallTimeStat(ioTimeStartMicros);
+}
+
+void VectorLoader::loadInternal(
     const SelectivityVector& rows,
     ValueHook* hook,
     VectorPtr* result) {
@@ -39,4 +72,5 @@ void VectorLoader::load(
   rows.applyToSelected([&](vector_size_t row) { positions[index++] = row; });
   load(positions, hook, result);
 }
+
 } // namespace facebook::velox

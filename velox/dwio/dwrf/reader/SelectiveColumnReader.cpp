@@ -3975,7 +3975,8 @@ class ColumnLoader : public velox::VectorLoader {
         fieldReader_(fieldReader),
         version_(version) {}
 
-  void load(RowSet rows, ValueHook* hook, VectorPtr* result) override;
+ protected:
+  void loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) override;
 
  private:
   SelectiveStructColumnReader* structReader_;
@@ -4003,7 +4004,10 @@ static void scatter(RowSet rows, VectorPtr* result) {
       BaseVector::wrapInDictionary(BufferPtr(nullptr), indices, end, *result);
 }
 
-void ColumnLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
+void ColumnLoader::loadInternal(
+    RowSet rows,
+    ValueHook* hook,
+    VectorPtr* result) {
   VELOX_CHECK_EQ(
       version_,
       structReader_->numReads(),

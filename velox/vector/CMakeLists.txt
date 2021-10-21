@@ -19,13 +19,14 @@ add_library(
   DecodedVector.cpp
   FlatVector.cpp
   LazyVector.cpp
-  SequenceVector.cpp
   SelectivityVector.cpp
+  SequenceVector.cpp
   SimpleVector.cpp
-  VectorStream.cpp
-  VectorEncoding.cpp)
+  VectorEncoding.cpp
+  VectorStream.cpp)
 
-target_link_libraries(velox_vector velox_memory velox_type velox_encode)
+target_link_libraries(velox_vector velox_encode velox_memory velox_time
+                      velox_type)
 
 add_subdirectory(arrow)
 

@@ -389,7 +389,7 @@ class Operator {
 
   std::unordered_map<ChannelIndex, std::shared_ptr<common::Filter>>
       dynamicFilters_;
-}; // namespace facebook::velox::exec
+};
 
 constexpr ChannelIndex kConstantChannel =
     std::numeric_limits<ChannelIndex>::max();
@@ -432,6 +432,23 @@ class SourceOperator : public Operator {
   void addInput(RowVectorPtr /* unused */) override {
     VELOX_CHECK(false, "SourceOperator does not support addInput()");
   }
+};
+
+// Concrete class implementing the base runtime stats writer. Wraps around
+// operator pointer to be called at any time to updated runtime stats.
+// Used for reporting IO wall time from lazy vectors, for example.
+class OperatorRuntimeStatWriter : public BaseRuntimeStatWriter {
+ public:
+  explicit OperatorRuntimeStatWriter(Operator* op) : operator_{op} {}
+
+  void addRuntimeStat(const std::string& name, int64_t value) override {
+    if (operator_) {
+      operator_->stats().addRuntimeStat(name, value);
+    }
+  }
+
+ private:
+  Operator* operator_;
 };
 
 } // namespace facebook::velox::exec

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <folly/ScopeGuard.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include <folly/executors/thread_factory/InitThreadFactory.h>
@@ -332,6 +333,7 @@ core::StopReason Driver::runInternal(
     }
     return stop;
   }
+
   CancelPoolGuard guard(
       cancelPool_.get(), &state_, [this](core::StopReason reason) {
         auto task = task_.get();
@@ -348,6 +350,12 @@ core::StopReason Driver::runInternal(
         }
         close();
       });
+
+  // Ensure we remove the writer we might have set when we exit this function in
+  // any way.
+  const auto statWriterGuard =
+      folly::makeGuard([]() { setRunTimeStatWriter(nullptr); });
+
   try {
     int32_t numOperators = operators_.size();
     ContinueFuture future(false);
@@ -364,6 +372,11 @@ core::StopReason Driver::runInternal(
         // In case we are blocked, this index will point to the operator, whose
         // queuedTime we should update.
         curOpIndex_ = i;
+        // Set up the runtime stats writer with the current operator, whose
+        // runtime stats would be updated (for instance time taken to load lazy
+        // vectors).
+        setRunTimeStatWriter(std::make_unique<OperatorRuntimeStatWriter>(op));
+
         blockingReason_ = op->isBlocked(&future);
         if (blockingReason_ != BlockingReason::kNotBlocked) {
           *blockingState = std::make_shared<BlockingState>(

@@ -27,6 +27,7 @@
 #include "velox/vector/tests/VectorMaker.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 
 struct OpaqueState;
 
@@ -96,19 +97,6 @@ struct TestData {
   VectorAndReference<std::shared_ptr<void>> opaquestate1;
 };
 
-class TestingVectorLoader : public VectorLoader {
- public:
-  explicit TestingVectorLoader(std::function<VectorPtr(RowSet)> loader)
-      : loader_(std::move(loader)) {}
-
-  void load(RowSet rows, ValueHook* hook, VectorPtr* result) override {
-    VELOX_CHECK(!hook, "SimpleVectorLoader doesn't support ValueHook");
-    *result = loader_(rows);
-  }
-
- private:
-  const std::function<VectorPtr(RowSet)> loader_;
-};
 } // namespace
 
 class ExprTest : public testing::Test {
@@ -657,7 +645,7 @@ class ExprTest : public testing::Test {
         execCtx_->pool(),
         CppToType<T>::create(),
         size,
-        std::make_unique<TestingVectorLoader>([=](RowSet rows) {
+        std::make_unique<SimpleVectorLoader>([=](RowSet rows) {
           VELOX_CHECK_EQ(rows.size(), expectedSize);
           for (auto i = 0; i < rows.size(); i++) {
             VELOX_CHECK_EQ(rows[i], expectedRowAt(i));

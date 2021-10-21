@@ -81,13 +81,34 @@ class VectorLoader {
   // subset of the rows that were intended to be loadable when the
   // loader was created. This may be called once in the lifetime of
   // 'this'.
-  virtual void load(RowSet rows, ValueHook* hook, VectorPtr* result) = 0;
+  void load(RowSet rows, ValueHook* hook, VectorPtr* result);
 
   // Converts 'rows' into a RowSet and calls load(). Provided for
   // convenience in loading LazyVectors in expression evaluation.
+  void load(const SelectivityVector& rows, ValueHook* hook, VectorPtr* result);
+
+ protected:
   virtual void
-  load(const SelectivityVector& rows, ValueHook* hook, VectorPtr* result);
+  loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) = 0;
+
+  virtual void loadInternal(
+      const SelectivityVector& rows,
+      ValueHook* hook,
+      VectorPtr* result);
 };
+
+// Simple interface to implement logging runtime stats to Velox operators.
+// Inherit a concrete class from this with operator pointer.
+class BaseRuntimeStatWriter {
+ public:
+  virtual ~BaseRuntimeStatWriter() = default;
+
+  virtual void addRuntimeStat(const std::string& name, int64_t value){};
+};
+
+// Setting a concrete runtime stats writer on the thread will ensure that lazy
+// vectors will add time spent on loading data using that writer.
+void setRunTimeStatWriter(std::unique_ptr<BaseRuntimeStatWriter>&& ptr);
 
 // Vector class which produces values on first use. This is used for
 // loading columns on demand. This allows eliding load of
