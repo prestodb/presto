@@ -127,6 +127,8 @@ public final class HiveSessionProperties
     public static final String ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING = "enable_loose_memory_based_accounting";
     public static final String MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD = "materialized_view_missing_partitions_threshold";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
+    private static final String DWRF_WRITER_STRIPE_CACHE_ENABLED = "dwrf_writer_stripe_cache_enabled";
+    private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -605,6 +607,16 @@ public final class HiveSessionProperties
                         METASTORE_HEADERS,
                         "The headers that will be sent in the calls to Metastore",
                         null,
+                        false),
+                booleanProperty(
+                        DWRF_WRITER_STRIPE_CACHE_ENABLED,
+                        "Write stripe cache for the DWRF files.",
+                        orcFileWriterConfig.isDwrfStripeCacheEnabled(),
+                        false),
+                dataSizeSessionProperty(
+                        DWRF_WRITER_STRIPE_CACHE_SIZE,
+                        "Maximum size of DWRF stripe cache to be held in memory",
+                        orcFileWriterConfig.getDwrfStripeCacheMaxSize(),
                         false));
     }
 
@@ -1054,5 +1066,15 @@ public final class HiveSessionProperties
     public static boolean isVerboseRuntimeStatsEnabled(ConnectorSession session)
     {
         return session.getProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isDwrfWriterStripeCacheEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DWRF_WRITER_STRIPE_CACHE_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getDwrfWriterStripeCacheeMaxSize(ConnectorSession session)
+    {
+        return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
     }
 }
