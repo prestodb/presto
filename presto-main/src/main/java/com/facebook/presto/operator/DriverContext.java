@@ -356,11 +356,6 @@ public class DriverContext
             outputPositions = 0;
         }
 
-        long physicalWrittenDataSize = operators.stream()
-                .map(OperatorStats::getPhysicalWrittenDataSize)
-                .mapToLong(DataSize::toBytes)
-                .sum();
-
         long startNanos = this.startNanos.get();
         if (startNanos < createNanos) {
             startNanos = System.nanoTime();
@@ -376,9 +371,10 @@ public class DriverContext
             elapsedTime = new Duration(0, NANOSECONDS);
         }
 
+        long physicalWrittenDataSize = 0;
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
-
         for (OperatorStats operator : operators) {
+            physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
             }
