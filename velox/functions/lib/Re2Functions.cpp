@@ -135,10 +135,10 @@ std::string likePatternToRe2(
   regex.append("^");
   bool escaped = false;
   for (const char c : pattern) {
-    if (escaped && !(c == '%' || c == '_' || c == *escapeChar)) {
+    if (escaped && !(c == '%' || c == '_' || c == escapeChar)) {
       validPattern = false;
     }
-    if (!escaped && (c == *escapeChar)) {
+    if (!escaped && c == escapeChar) {
       escaped = true;
     } else {
       switch (c) {
