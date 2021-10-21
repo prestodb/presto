@@ -61,7 +61,6 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -483,9 +482,19 @@ public class TaskContext
         long physicalWrittenDataSize = 0;
         RuntimeStats mergedRuntimeStats = RuntimeStats.copyOf(runtimeStats);
 
+        ImmutableSet.Builder<BlockedReason> blockedReasons = ImmutableSet.builder();
+        boolean hasRunningPipelines = false;
+        boolean runningPipelinesFullyBlocked = true;
+
         for (PipelineStats pipeline : pipelineStats) {
             if (pipeline.getLastEndTime() != null) {
                 lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
+            }
+            if (pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0 || pipeline.getBlockedDrivers() > 0) {
+                // pipeline is running
+                hasRunningPipelines = true;
+                runningPipelinesFullyBlocked &= pipeline.isFullyBlocked();
+                blockedReasons.addAll(pipeline.getBlockedReasons());
             }
 
             totalDrivers += pipeline.getTotalDrivers();
@@ -557,14 +566,7 @@ public class TaskContext
             lastTotalMemoryReservation = systemMemory + userMemory;
         }
 
-        Set<PipelineStats> runningPipelineStats = pipelineStats.stream()
-                .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0 || pipeline.getBlockedDrivers() > 0)
-                .collect(toImmutableSet());
-        ImmutableSet<BlockedReason> blockedReasons = runningPipelineStats.stream()
-                .flatMap(pipeline -> pipeline.getBlockedReasons().stream())
-                .collect(toImmutableSet());
-
-        boolean fullyBlocked = !runningPipelineStats.isEmpty() && runningPipelineStats.stream().allMatch(PipelineStats::isFullyBlocked);
+        boolean fullyBlocked = hasRunningPipelines && runningPipelinesFullyBlocked;
 
         return new TaskStats(
                 taskStateMachine.getCreatedTime(),
@@ -593,7 +595,7 @@ public class TaskContext
                 totalCpuTime,
                 totalBlockedTime,
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
-                blockedReasons,
+                blockedReasons.build(),
                 totalAllocation,
                 rawInputDataSize,
                 rawInputPositions,
