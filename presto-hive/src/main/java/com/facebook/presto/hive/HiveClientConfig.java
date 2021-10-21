@@ -193,7 +193,6 @@ public class HiveClientConfig
 
     private Duration partitionLeaseDuration = new Duration(0, TimeUnit.SECONDS);
 
-    private boolean executionBasedMemoryAccounting;
     private boolean enableLooseMemoryAccounting;
     private int materializedViewMissingPartitionsThreshold = 100;
 

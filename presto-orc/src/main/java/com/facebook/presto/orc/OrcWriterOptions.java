@@ -304,7 +304,7 @@ public class OrcWriterOptions
             return this;
         }
 
-        public Builder setIgnoreDictionaryRowGroupSizes(boolean ignoreDictionaryRowGroupSizes)
+        public Builder withIgnoreDictionaryRowGroupSizes(boolean ignoreDictionaryRowGroupSizes)
         {
             this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
             return this;
