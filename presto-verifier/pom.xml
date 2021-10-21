@@ -313,23 +313,6 @@
             </plugin>
 
             <plugin>
-                <groupId>org.skife.maven</groupId>
-                <artifactId>really-executable-jar-maven-plugin</artifactId>
-                <configuration>
-                    <flags>-Xmx1G</flags>
-                    <classifier>executable</classifier>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>really-executable-jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
