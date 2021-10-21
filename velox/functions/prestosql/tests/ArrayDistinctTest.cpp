@@ -276,6 +276,35 @@ TEST_F(ArrayDistinctTest, stringArrays) {
   testExpr(expected, "array_distinct(C0)", {array});
 }
 
+TEST_F(ArrayDistinctTest, nonContiguousRows) {
+  auto c0 = makeFlatVector<int32_t>(4, [](auto row) { return row; });
+  auto c1 = makeArrayVector<int32_t>({
+      {1, 2, 3, 3},
+      {1, 2, 3, 4, 4},
+      {1, 2, 3, 4, 5, 5},
+      {1, 2, 3, 4, 5, 6, 6},
+  });
+
+  auto c2 = makeArrayVector<int32_t>({
+      {0, 0, 1, 2, 3, 3},
+      {0, 0, 1, 2, 3, 4, 4},
+      {0, 0, 1, 2, 3, 4, 5, 5},
+      {0, 0, 1, 2, 3, 4, 5, 6, 6},
+  });
+
+  auto expected = makeArrayVector<int32_t>({
+      {1, 2, 3},
+      {0, 1, 2, 3, 4},
+      {1, 2, 3, 4, 5},
+      {0, 1, 2, 3, 4, 5, 6},
+  });
+
+  auto result = evaluate<ArrayVector>(
+      "if(c0 % 2 = 0, array_distinct(c1), array_distinct(c2))",
+      makeRowVector({c0, c1, c2}));
+  assertEqualVectors(expected, result);
+}
+
 // Test for invalid signature and types.
 TEST_F(ArrayDistinctTest, invalidTypes) {
   auto array = makeNullableArrayVector<int32_t>({{1}});
