@@ -39,7 +39,6 @@ std::string groupName(const std::string& filename) {
 std::unique_ptr<FileHandle> FileHandleGenerator::operator()(
     const std::string& filename) {
   auto fileHandle = std::make_unique<FileHandle>();
-  // TODO: Cache the filesystem
   fileHandle->file = filesystems::getFileSystem(filename, properties_)
                          ->openFileForRead(filename);
   fileHandle->uuid = StringIdLease(fileIds(), filename);

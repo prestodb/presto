@@ -18,6 +18,7 @@
 #include "connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "connectors/hive/storage_adapters/s3fs/tests/MinioServer.h"
 #include "velox/common/file/File.h"
+#include "velox/connectors/hive/FileHandle.h"
 #include "velox/core/Context.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
@@ -34,6 +35,7 @@ class S3FileSystemTest : public testing::Test {
       minioServer_ = std::make_shared<MinioServer>();
       minioServer_->start();
     }
+    filesystems::registerS3FileSystem();
   }
 
   static void TearDownTestSuite() {
@@ -52,7 +54,7 @@ class S3FileSystemTest : public testing::Test {
   }
 
   std::string s3URI(const char* bucket) {
-    return std::string(kS3Scheme) + "//" + bucket;
+    return std::string(kS3Scheme) + bucket;
   }
 
   void writeData(WriteFile* writeFile) {
@@ -87,52 +89,63 @@ class S3FileSystemTest : public testing::Test {
 std::shared_ptr<MinioServer> S3FileSystemTest::minioServer_ = nullptr;
 
 TEST_F(S3FileSystemTest, writeAndRead) {
-  const char* bucket_name = "data";
+  const char* bucketName = "data";
   const char* file = "test.txt";
-  const std::string filename = localPath(bucket_name) + "/" + file;
-  const std::string s3File = s3URI(bucket_name) + "/" + file;
-  addBucket(bucket_name);
+  const std::string filename = localPath(bucketName) + "/" + file;
+  const std::string s3File = s3URI(bucketName) + "/" + file;
+  addBucket(bucketName);
   {
     LocalWriteFile writeFile(filename);
     writeData(&writeFile);
   }
-  auto hiveConnectorConfigs = minioServer_->hiveConfig();
-  std::shared_ptr<const Config> config =
-      std::make_shared<const core::MemConfig>(std::move(hiveConnectorConfigs));
-  filesystems::S3FileSystem s3fs(config);
+  auto hiveConfig = minioServer_->hiveConfig();
+  filesystems::S3FileSystem s3fs(hiveConfig);
   s3fs.initializeClient();
   auto readFile = s3fs.openFileForRead(s3File);
   readData(readFile.get());
 }
 
 TEST_F(S3FileSystemTest, missingFile) {
-  const char* bucket_name = "data1";
+  const char* bucketName = "data1";
   const char* file = "i-do-not-exist.txt";
-  const std::string s3File = s3URI(bucket_name) + "/" + file;
-  addBucket(bucket_name);
-  auto hiveConnectorConfigs = minioServer_->hiveConfig();
-  std::shared_ptr<const Config> config =
-      std::make_shared<const core::MemConfig>(std::move(hiveConnectorConfigs));
-  filesystems::S3FileSystem s3fs(config);
+  const std::string s3File = s3URI(bucketName) + "/" + file;
+  addBucket(bucketName);
+  auto hiveConfig = minioServer_->hiveConfig();
+  filesystems::S3FileSystem s3fs(hiveConfig);
   s3fs.initializeClient();
   EXPECT_THROW(s3fs.openFileForRead(s3File), VeloxException);
 }
 
 TEST_F(S3FileSystemTest, viaRegistry) {
-  const char* bucket_name = "data2";
+  const char* bucketName = "data2";
   const char* file = "test.txt";
-  const std::string filename = localPath(bucket_name) + "/" + file;
-  const std::string s3File = s3URI(bucket_name) + "/" + file;
-  filesystems::registerS3FileSystem();
-  addBucket(bucket_name);
+  const std::string filename = localPath(bucketName) + "/" + file;
+  const std::string s3File = s3URI(bucketName) + "/" + file;
+  addBucket(bucketName);
   {
     LocalWriteFile writeFile(filename);
     writeData(&writeFile);
   }
-  auto hiveConnectorConfigs = minioServer_->hiveConfig();
-  std::shared_ptr<const Config> config =
-      std::make_shared<const core::MemConfig>(std::move(hiveConnectorConfigs));
-  auto s3fs = filesystems::getFileSystem(s3File, config);
+  auto hiveConfig = minioServer_->hiveConfig();
+  auto s3fs = filesystems::getFileSystem(s3File, hiveConfig);
   auto readFile = s3fs->openFileForRead(s3File);
   readData(readFile.get());
+}
+
+TEST_F(S3FileSystemTest, fileHandle) {
+  const char* bucketName = "data3";
+  const char* file = "test.txt";
+  const std::string filename = localPath(bucketName) + "/" + file;
+  const std::string s3File = s3URI(bucketName) + "/" + file;
+  addBucket(bucketName);
+  {
+    LocalWriteFile writeFile(filename);
+    writeData(&writeFile);
+  }
+  auto hiveConfig = minioServer_->hiveConfig();
+  FileHandleFactory factory(
+      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
+      std::make_unique<FileHandleGenerator>(hiveConfig));
+  auto fileHandle = factory.generate(s3File);
+  readData(fileHandle->file.get());
 }

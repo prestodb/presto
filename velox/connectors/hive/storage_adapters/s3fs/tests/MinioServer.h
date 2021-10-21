@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/core/Context.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include "boost/process.hpp"
@@ -46,14 +47,15 @@ class MinioServer {
     return tempPath_->path;
   }
 
-  std::unordered_map<std::string, std::string> hiveConfig() const {
-    return {
+  std::shared_ptr<const Config> hiveConfig() const {
+    const std::unordered_map<std::string, std::string> config({
         {"hive.s3.aws-access-key", accessKey_},
         {"hive.s3.aws-secret-key", secretKey_},
         {"hive.s3.endpoint", connectionString_},
         {"hive.s3.ssl.enabled", "false"},
         {"hive.s3.path-style-access", "true"},
-    };
+    });
+    return std::make_shared<const core::MemConfig>(std::move(config));
   }
 
  private:

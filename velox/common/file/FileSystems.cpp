@@ -59,7 +59,7 @@ std::shared_ptr<FileSystem> getFileSystem(
 
 namespace {
 
-folly::once_flag localFSRegistrationFlag;
+folly::once_flag localFSInstantiationFlag;
 
 // Implement Local FileSystem.
 class LocalFileSystem : public FileSystem {
@@ -103,7 +103,7 @@ class LocalFileSystem : public FileSystem {
       // One instance of Local FileSystem is sufficient.
       // Initialize on first access and reuse after that.
       static std::shared_ptr<FileSystem> lfs;
-      folly::call_once(localFSRegistrationFlag, [&properties]() {
+      folly::call_once(localFSInstantiationFlag, [&properties]() {
         lfs = std::make_shared<LocalFileSystem>(properties);
       });
       return lfs;

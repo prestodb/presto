@@ -37,8 +37,8 @@ namespace facebook::velox {
 namespace {
 class S3ReadFile final : public ReadFile {
  public:
-  S3ReadFile(const std::string& path, std::shared_ptr<Aws::S3::S3Client> client)
-      : client_(std::move(client)) {
+  S3ReadFile(const std::string& path, Aws::S3::S3Client* client)
+      : client_(client) {
     bucketAndKeyFromS3Path(path, bucket_, key_);
   }
 
@@ -126,7 +126,7 @@ class S3ReadFile final : public ReadFile {
     stream.read(reinterpret_cast<char*>(position), length);
   }
 
-  std::shared_ptr<Aws::S3::S3Client> client_;
+  Aws::S3::S3Client* client_;
   std::string bucket_;
   std::string key_;
   int64_t length_ = -1;
@@ -222,8 +222,11 @@ class S3FileSystem::Impl {
         useVirtualAddressing);
   }
 
-  std::shared_ptr<Aws::S3::S3Client> s3Client() const {
-    return client_;
+  // Make it clear that the S3FileSystem instance owns the S3Client.
+  // Once the S3FileSystem is destroyed, the S3Client fails to work
+  // due to the Aws::ShutdownAPI invocation in the destructor.
+  Aws::S3::S3Client* s3Client() const {
+    return client_.get();
   }
 
  private:
@@ -233,6 +236,7 @@ class S3FileSystem::Impl {
 };
 
 std::atomic<size_t> S3FileSystem::Impl::initCounter_(0);
+folly::once_flag S3FSInstantiationFlag;
 
 S3FileSystem::S3FileSystem(std::shared_ptr<const Config> config)
     : FileSystem(config) {
@@ -261,9 +265,15 @@ std::string S3FileSystem::name() const {
 
 static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>
     filesystemGenerator = [](std::shared_ptr<const Config> properties) {
-      // TODO: Cache the FileSystem
-      auto s3fs = std::make_shared<S3FileSystem>(properties);
-      s3fs->initializeClient();
+      // Only one instance of S3FileSystem is supported for now.
+      // TODO: Support multiple S3FileSystem instances using a cache
+      // Initialize on first access and reuse after that.
+      static std::shared_ptr<FileSystem> s3fs;
+      folly::call_once(S3FSInstantiationFlag, [&properties]() {
+        auto fs = std::make_shared<S3FileSystem>(properties);
+        fs->initializeClient();
+        s3fs = fs;
+      });
       return s3fs;
     };
 
