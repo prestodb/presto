@@ -172,7 +172,7 @@ public class MergingPageOutput
      *    values when a sufficiently large page is encountered
      * 3. Will periodically flush accumulated positionCounts once a combined sum of {@link PageProcessor#MAX_BATCH_SIZE} is
      *    reached, this avoids creating pages with huge position counts that might harm downstream operators
-     * 4. As a consequence of the above, will always produce either 0 or 1 output pages, which means it does need or use {@link MergingPageOutput#outputQueue}
+     * 4. As a consequence of the above, will always produce either 0 or 1 output pages, which means it doesn't need or use {@link MergingPageOutput#outputQueue}
      */
     @Nullable
     private Page producePositionCountOnlyOutput()
