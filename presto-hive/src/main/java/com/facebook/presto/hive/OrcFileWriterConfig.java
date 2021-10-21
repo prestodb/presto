@@ -163,7 +163,7 @@ public class OrcFileWriterConfig
         return this;
     }
 
-    public boolean getDwrfStripeCacheEnabled()
+    public boolean isDwrfStripeCacheEnabled()
     {
         return isDwrfStripeCacheEnabled;
     }

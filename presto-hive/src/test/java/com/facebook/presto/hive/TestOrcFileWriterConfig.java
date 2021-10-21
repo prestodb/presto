@@ -136,7 +136,7 @@ public class TestOrcFileWriterConfig
         assertEquals(stringStatisticsLimit, config.getStringStatisticsLimit());
         assertEquals(maxCompressionBufferSize, config.getMaxCompressionBufferSize());
         assertEquals(streamLayoutType, config.getStreamLayoutType());
-        assertFalse(config.getDwrfStripeCacheEnabled());
+        assertFalse(config.isDwrfStripeCacheEnabled());
         assertEquals(dwrfStripeCacheMaxSize, config.getDwrfStripeCacheMaxSize());
         assertEquals(dwrfStripeCacheMode, config.getDwrfStripeCacheMode());
 
