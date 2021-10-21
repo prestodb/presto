@@ -227,7 +227,7 @@ public class OrcFileWriterFactory
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
-                            .setIgnoreDictionaryRowGroupSizes(isExecutionBasedMemoryAccountingEnabled(session))
+                            .withIgnoreDictionaryRowGroupSizes(isExecutionBasedMemoryAccountingEnabled(session))
                             .build(),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
