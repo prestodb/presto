@@ -25,6 +25,10 @@ namespace facebook::velox {
 
 namespace {
 
+// DWRF requires nano to be in a certain range. Hardcode the value here to avoid
+// the dependency on DWRF.
+constexpr int64_t MAX_NANOS = 1'000'000'000;
+
 // Generate random values for the different supported types.
 template <typename T>
 T rand(FuzzerGenerator&) {
@@ -68,7 +72,8 @@ bool rand(FuzzerGenerator& rng) {
 
 template <>
 Timestamp rand(FuzzerGenerator& rng) {
-  return Timestamp(folly::Random::rand32(rng), folly::Random::rand32(rng));
+  return Timestamp(
+      folly::Random::rand32(rng), folly::Random::rand32(rng) % MAX_NANOS);
 }
 
 template <>
@@ -243,6 +248,15 @@ VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {
   // TODO: We can fuzz nulls here as well.
   return BaseVector::wrapInDictionary(
       BufferPtr(nullptr), indices, vectorSize, vector);
+}
+
+VectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
+  std::vector<VectorPtr> children;
+  for (auto i = 0; i < rowType->size(); ++i) {
+    children.push_back(fuzz(rowType->childAt(i)));
+  }
+  return std::make_shared<RowVector>(
+      pool_, rowType, nullptr, opts_.vectorSize, std::move(children));
 }
 
 variant VectorFuzzer::randVariant(const TypePtr& arg) {

@@ -76,6 +76,9 @@ class VectorFuzzer {
   // DictionaryVector.
   VectorPtr fuzzDictionary(const VectorPtr& vector);
 
+  // Returns a "fuzzed" row vector with randomized data and nulls.
+  VectorPtr fuzzRow(const RowTypePtr& rowType);
+
   variant randVariant(const TypePtr& arg);
 
   void reSeed(size_t seed) {
