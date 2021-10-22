@@ -530,10 +530,6 @@ std::shared_ptr<const MapType> MAP(
       std::move(keyType), std::move(valType));
 };
 
-std::shared_ptr<const TimestampType> TIMESTAMP() {
-  return std::make_shared<const TimestampType>();
-};
-
 std::shared_ptr<const FunctionType> FUNCTION(
     std::vector<std::shared_ptr<const Type>>&& argumentTypes,
     std::shared_ptr<const Type> returnType) {
@@ -553,6 +549,7 @@ KOSKI_DEFINE_SCALAR_ACCESSOR(SMALLINT);
 KOSKI_DEFINE_SCALAR_ACCESSOR(BIGINT);
 KOSKI_DEFINE_SCALAR_ACCESSOR(REAL);
 KOSKI_DEFINE_SCALAR_ACCESSOR(DOUBLE);
+KOSKI_DEFINE_SCALAR_ACCESSOR(TIMESTAMP);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARCHAR);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARBINARY);
 KOSKI_DEFINE_SCALAR_ACCESSOR(UNKNOWN);
@@ -567,12 +564,6 @@ std::shared_ptr<const Type> createType(
     TypeKind kind,
     std::vector<std::shared_ptr<const Type>>&& children) {
   return VELOX_DYNAMIC_TYPE_DISPATCH(createType, kind, std::move(children));
-}
-
-template <>
-std::shared_ptr<const Type> createType<TypeKind::TIMESTAMP>(
-    std::vector<std::shared_ptr<const Type>>&& /*children*/) {
-  return TIMESTAMP();
 }
 
 template <>
