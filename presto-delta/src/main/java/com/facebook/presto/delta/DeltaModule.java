@@ -22,6 +22,7 @@ import com.facebook.presto.cache.NoOpCacheManager;
 import com.facebook.presto.cache.filemerge.FileMergeCacheConfig;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.delta.rule.DeltaPlanOptimizerProvider;
 import com.facebook.presto.hive.DynamicConfigurationProvider;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
@@ -93,6 +94,7 @@ public class DeltaModule
         binder.bind(DeltaSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(DeltaPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(DeltaSessionProperties.class).in(Scopes.SINGLETON);
+        binder.bind(DeltaPlanOptimizerProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(DeltaConfig.class);
 
         configBinder(binder).bindConfig(MetastoreConfig.class);

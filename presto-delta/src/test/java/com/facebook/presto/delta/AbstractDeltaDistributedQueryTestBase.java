@@ -41,7 +41,9 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaQueryRunner(ImmutableMap.of());
+        return createDeltaQueryRunner(ImmutableMap.of(
+                "experimental.pushdown-subfields-enabled", "true",
+                "experimental.pushdown-dereference-enabled", "true"));
     }
 
     /**

@@ -83,7 +83,8 @@ public class TestDeltaTableHandle
         DeltaColumnHandle c1ColumnHandle = new DeltaColumnHandle(
                 columns.get(0).getName(),
                 columns.get(0).getType(),
-                columns.get(0).isPartition() ? PARTITION : REGULAR);
+                columns.get(0).isPartition() ? PARTITION : REGULAR,
+                Optional.empty());
 
         TupleDomain<DeltaColumnHandle> predicate = TupleDomain.withColumnDomains(ImmutableMap.of(
                 c1ColumnHandle, Domain.create(SortedRangeSet.copyOf(REAL,

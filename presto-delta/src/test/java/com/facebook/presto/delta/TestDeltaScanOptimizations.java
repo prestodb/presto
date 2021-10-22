@@ -15,6 +15,8 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
@@ -38,6 +40,7 @@ import static com.facebook.presto.common.predicate.Domain.onlyNull;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.delta.DeltaSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -153,6 +156,27 @@ public class TestDeltaScanOptimizations
                 ImmutableMap.of("as_int", notNull(INTEGER)));
     }
 
+    @Test
+    public void nestedColumnFilter()
+    {
+        String tableName = "data-reader-nested-struct";
+        String testQuery = format("SELECT a.aa, a.ac.aca FROM \"%s\" WHERE a.aa in ('8', '9') AND a.ac.aca > 6", tableName);
+        String expResultsQuery = "SELECT * FROM VALUES('8', 8),('9', 9)";
+
+        assertDeltaQueryOptimized(
+                tableName,
+                testQuery,
+                expResultsQuery,
+                ImmutableMap.of(
+                        "a$_$_$aa", multipleValues(VARCHAR, ImmutableList.of(utf8Slice("8"), utf8Slice("9"))),
+                        "a$_$_$ac$_$_$aca", Domain.create(
+                                SortedRangeSet.copyOf(
+                                        INTEGER,
+                                        ImmutableList.of(Range.greaterThan(INTEGER, 6L))),
+                                false)),
+                ImmutableMap.of());
+    }
+
     private void assertDeltaQueryOptimized(
             String tableName,
             String testQuery,
@@ -164,7 +188,7 @@ public class TestDeltaScanOptimizations
             registerDeltaTableInHMS(tableName, tableName);
 
             // verify the plan contains filter pushed down into scan appropriately
-            assertPlan(sessionWithFilterPushdownsEnabled(),
+            assertPlan(withDereferencePushdownEnabled(),
                     testQuery,
                     anyTree(tableScanWithConstraints(
                             tableName,
@@ -231,9 +255,10 @@ public class TestDeltaScanOptimizations
                 .get();
     }
 
-    private Session sessionWithFilterPushdownsEnabled()
+    private Session withDereferencePushdownEnabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(DELTA_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, "true")
                 .build();
     }
 }
