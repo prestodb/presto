@@ -436,19 +436,15 @@ CachePin AsyncDataCache::findOrCreate(
   return shards_[shard]->findOrCreate(key, size, wait);
 }
 
-bool AsyncDataCache::allocate(
+bool AsyncDataCache::makeSpace(
     MachinePageCount numPages,
-    int32_t owner,
-    Allocation& out,
-    std::function<void(int64_t)> beforeAllocCB,
-    MachinePageCount minSizeClass) {
+    std::function<bool()> allocate) {
   constexpr int32_t kMaxAttempts = kNumShards * 4;
-  free(out);
+
   for (auto nthAttempt = 0; nthAttempt < kMaxAttempts; ++nthAttempt) {
     if (mappedMemory_->numAllocated() + numPages <
         maxBytes_ / MappedMemory::kPageSize) {
-      if (mappedMemory_->allocate(
-              numPages, owner, out, beforeAllocCB, minSizeClass)) {
+      if (allocate()) {
         return true;
       }
     }
@@ -460,6 +456,30 @@ bool AsyncDataCache::allocate(
         numPages * MappedMemory::kPageSize, nthAttempt >= kNumShards);
   }
   return false;
+}
+
+bool AsyncDataCache::allocate(
+    MachinePageCount numPages,
+    int32_t owner,
+    Allocation& out,
+    std::function<void(int64_t)> beforeAllocCB,
+    MachinePageCount minSizeClass) {
+  free(out);
+  return makeSpace(numPages, [&]() {
+    return mappedMemory_->allocate(
+        numPages, owner, out, beforeAllocCB, minSizeClass);
+  });
+}
+
+bool AsyncDataCache::allocateContiguous(
+    MachinePageCount numPages,
+    Allocation* collateral,
+    ContiguousAllocation& allocation,
+    std::function<void(int64_t)> beforeAllocCB) {
+  return makeSpace(numPages, [&]() {
+    return mappedMemory_->allocateContiguous(
+        numPages, collateral, allocation, beforeAllocCB);
+  });
 }
 
 CacheStats AsyncDataCache::refreshStats() const {

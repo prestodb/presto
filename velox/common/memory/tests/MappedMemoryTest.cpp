@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/common/memory/MappedMemory.h"
+#include "velox/common/base/test_utils/GTestUtils.h"
+#include "velox/common/memory/MmapAllocator.h"
 
 #include <thread>
 
@@ -29,11 +31,19 @@ static constexpr uint64_t kMaxMappedMemory = 128UL * 1024 * 1024;
 static constexpr MachinePageCount kCapacity =
     (kMaxMappedMemory / MappedMemory::kPageSize);
 
-class MappedMemoryTest : public testing::Test {
+class MappedMemoryTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
     auto tracker = MemoryUsageTracker::create(
         MemoryUsageConfigBuilder().maxTotalMemory(kMaxMappedMemory).build());
+    useMmap_ = GetParam();
+    if (useMmap_) {
+      MmapAllocatorOptions options = {kMaxMappedMemory};
+      mmapAllocator_ = std::make_unique<MmapAllocator>(options);
+      MappedMemory::setDefaultInstance(mmapAllocator_.get());
+    } else {
+      MappedMemory::setDefaultInstance(nullptr);
+    }
     instancePtr_ = MappedMemory::getInstance()->addChild(tracker);
     instance_ = instancePtr_.get();
   }
@@ -95,6 +105,36 @@ class MappedMemoryTest : public testing::Test {
     }
   }
 
+  void initializeContents(MappedMemory::ContiguousAllocation& alloc) {
+    long sequence = sequence_.fetch_add(1);
+    bool first = true;
+    void** ptr = reinterpret_cast<void**>(alloc.data());
+    int numWords = alloc.size() / sizeof(void*);
+    for (int offset = 0; offset < numWords; offset++) {
+      if (first) {
+        ptr[offset] = reinterpret_cast<void*>(sequence);
+        first = false;
+      } else {
+        ptr[offset] = ptr + offset + sequence;
+      }
+    }
+  }
+
+  void checkContents(MappedMemory::ContiguousAllocation& alloc) {
+    bool first = true;
+    long sequence;
+    void** ptr = reinterpret_cast<void**>(alloc.data());
+    int numWords = alloc.size() / sizeof(void*);
+    for (int offset = 0; offset < numWords; offset++) {
+      if (first) {
+        sequence = reinterpret_cast<long>(ptr[offset]);
+        first = false;
+      } else {
+        ASSERT_EQ(ptr[offset], ptr + offset + sequence);
+      }
+    }
+  }
+
   void free(MappedMemory::Allocation& alloc) {
     checkContents(alloc);
     instance_->free(alloc);
@@ -108,12 +148,70 @@ class MappedMemoryTest : public testing::Test {
     allocations.reserve(numAllocs);
     allocations.push_back(
         std::make_unique<MappedMemory::Allocation>(instance_));
+    bool largeTested = false;
     for (int32_t i = 0; i < numAllocs; ++i) {
       if (allocate(numPages, *allocations.back().get())) {
         allocations.push_back(
             std::make_unique<MappedMemory::Allocation>(instance_));
+        int available = kCapacity - instance_->numAllocated();
+
+        // Try large allocations after half the capacity is used.
+        if (available <= kCapacity / 2 && !largeTested) {
+          largeTested = true;
+          MappedMemory::ContiguousAllocation large;
+          if (!allocateContiguous(available / 2, nullptr, large)) {
+            FAIL() << "Could not allocate half the available";
+            return;
+          }
+          MappedMemory::Allocation small(instance_);
+          if (!instance_->allocate(available / 4, 0, small)) {
+            FAIL() << "Could not allocate 1/4 of available";
+            return;
+          }
+          // Try to allocate more than available;
+          EXPECT_THROW(
+              instance_->allocateContiguous(available + 1, &small, large),
+              VeloxRuntimeError);
+
+          // Check The failed allocation freed the collateral.
+          EXPECT_EQ(small.numPages(), 0);
+          EXPECT_EQ(large.numPages(), 0);
+          if (!allocateContiguous(available, nullptr, large)) {
+            FAIL() << "Could not allocate rest of capacity";
+          }
+          EXPECT_GE(large.numPages(), available);
+          EXPECT_EQ(small.numPages(), 0);
+          EXPECT_EQ(kCapacity, instance_->numAllocated());
+          if (useMmap_) {
+            // The allocator has everything allocated and half mapped, with the
+            // other half mapped by the contiguous allocation.
+            EXPECT_EQ(kCapacity / 2, instance_->numMapped());
+          }
+          if (!allocateContiguous(available / 2, nullptr, large)) {
+            FAIL()
+                << "Could not exchange all of available for half of available";
+          }
+          EXPECT_GE(large.numPages(), available / 2);
+        }
       }
     }
+  }
+
+  bool allocateContiguous(
+      int numPages,
+      MappedMemory::Allocation* FOLLY_NULLABLE collateral,
+      MappedMemory::ContiguousAllocation& allocation) {
+    bool success =
+        instance_->allocateContiguous(numPages, collateral, allocation);
+    if (success) {
+      initializeContents(allocation);
+    }
+    return success;
+  }
+
+  void free(MappedMemory::ContiguousAllocation& allocation) {
+    checkContents(allocation);
+    instance_->freeContiguous(allocation);
   }
 
   void allocateIncreasing(
@@ -168,12 +266,14 @@ class MappedMemoryTest : public testing::Test {
     return allocations;
   }
 
+  bool useMmap_;
+  std::unique_ptr<MmapAllocator> mmapAllocator_;
   std::shared_ptr<MappedMemory> instancePtr_;
   MappedMemory* instance_;
   std::atomic<int32_t> sequence_ = {};
 };
 
-TEST_F(MappedMemoryTest, allocationTest) {
+TEST_P(MappedMemoryTest, allocationTest) {
   const int32_t kPageSize = MappedMemory::kPageSize;
   MappedMemory::Allocation allocation(instance_);
   uint8_t* pages = reinterpret_cast<uint8_t*>(malloc(kPageSize * 20));
@@ -209,8 +309,8 @@ TEST_F(MappedMemoryTest, allocationTest) {
   ::free(pages);
 }
 
-TEST_F(MappedMemoryTest, singleAllocationTest) {
-  const std::vector<MachinePageCount>& sizes = instance_->sizes();
+TEST_P(MappedMemoryTest, singleAllocationTest) {
+  const std::vector<MachinePageCount>& sizes = instance_->sizeClasses();
   MachinePageCount capacity = kCapacity;
   std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations;
   for (auto& size : sizes) {
@@ -221,7 +321,7 @@ TEST_F(MappedMemoryTest, singleAllocationTest) {
 
     allocations.clear();
     EXPECT_EQ(instance_->numAllocated(), 0);
-    if (!FLAGS_velox_use_malloc) {
+    if (useMmap_) {
       EXPECT_EQ(instance_->numMapped(), kCapacity);
     }
     EXPECT_TRUE(instance_->checkConsistency());
@@ -236,14 +336,14 @@ TEST_F(MappedMemoryTest, singleAllocationTest) {
 
     allocations.clear();
     EXPECT_EQ(instance_->numAllocated(), 0);
-    if (!FLAGS_velox_use_malloc) {
+    if (useMmap_) {
       EXPECT_EQ(instance_->numMapped(), kCapacity);
     }
     EXPECT_TRUE(instance_->checkConsistency());
   }
 }
 
-TEST_F(MappedMemoryTest, increasingSizeTest) {
+TEST_P(MappedMemoryTest, increasingSizeTest) {
   std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations =
       makeEmptyAllocations(10'000);
   allocateIncreasing(10, 1'000, 2'000, allocations);
@@ -255,7 +355,7 @@ TEST_F(MappedMemoryTest, increasingSizeTest) {
   EXPECT_EQ(instance_->numAllocated(), 0);
 }
 
-TEST_F(MappedMemoryTest, increasingSizeWithThreadsTest) {
+TEST_P(MappedMemoryTest, increasingSizeWithThreadsTest) {
   const int32_t numThreads = 20;
   std::vector<std::vector<std::unique_ptr<MappedMemory::Allocation>>>
       allocations;
@@ -279,7 +379,7 @@ TEST_F(MappedMemoryTest, increasingSizeWithThreadsTest) {
   EXPECT_EQ(instance_->numAllocated(), 0);
 }
 
-TEST_F(MappedMemoryTest, scopedMemoryUsageTracking) {
+TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
   auto tracker = MemoryUsageTracker::create();
   auto mappedMemory = instance_->addChild(tracker);
 
@@ -320,13 +420,13 @@ TEST_F(MappedMemoryTest, scopedMemoryUsageTracking) {
   EXPECT_EQ(0, tracker->getCurrentUserBytes());
 }
 
-TEST_F(MappedMemoryTest, minSizeClass) {
+TEST_P(MappedMemoryTest, minSizeClass) {
   auto tracker = MemoryUsageTracker::create();
   auto mappedMemory = instance_->addChild(tracker);
 
   MappedMemory::Allocation result(mappedMemory.get());
 
-  int32_t sizeClass = mappedMemory->sizes().back();
+  int32_t sizeClass = mappedMemory->sizeClasses().back();
   int32_t numPages = sizeClass + 1;
   mappedMemory->allocate(numPages, 0, result, nullptr, sizeClass);
   EXPECT_GE(result.numPages(), sizeClass * 2);
@@ -340,4 +440,10 @@ TEST_F(MappedMemoryTest, minSizeClass) {
   mappedMemory->free(result);
   EXPECT_EQ(0, tracker->getCurrentUserBytes());
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    MappedMemoryTests,
+    MappedMemoryTest,
+    testing::Values(true, false));
+
 } // namespace facebook::velox::memory

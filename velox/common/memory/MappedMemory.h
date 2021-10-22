@@ -37,14 +37,24 @@ class ScopedMappedMemory;
 // Denotes a number of machine pages as in mmap and related functions.
 using MachinePageCount = uint64_t;
 
-// Allocates sets of mmapped pages, so that each allocation is
-// composed of the needed mix of standard size contiguous runs.  If
-// --velox_use_malloc is true, allocates with malloc instead of mmap. This
-// allows using asan and similar tools.
+// Base class for allocating runs of machine pages from predefined
+// size classes. An allocation that does not match a size class is
+// composed of multiple runs from different size classes. To get 11
+// pages, one could have a run of 8, one of 2 and one of 1
+// page. This is intended for all high volume allocations, like
+// caches, IO buffers and hash tables for join/group
+// by. Implementations may use malloc or mmap/madvise. Caches
+// subclass this to provide allocation that is fungible with cached
+// capacity, i.e. a cache can evict data to make space for non-cache
+// memory users. The point if to have all large allocation come from
+// a single source to have dynamic balancing between different
+// users. Proxy subclasses may provide context specific tracking
+// while delegating the allocation to a root allocator.
 class MappedMemory {
  public:
   static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
+  static constexpr int32_t kNoOwner = -1;
 
   // Represents a number of consecutive pages of kPageSize bytes.
   class PageRun {
@@ -54,7 +64,7 @@ class MappedMemory {
     static constexpr uint32_t kMaxPagesInRun =
         (1UL << (64U - kPointerSignificantBits)) - 1;
 
-    PageRun(void* address, MachinePageCount numPages) {
+    PageRun(void* FOLLY_NONNULL address, MachinePageCount numPages) {
       auto word = reinterpret_cast<uint64_t>(address); // NOLINT
       if (!FLAGS_velox_use_malloc) {
         VELOX_CHECK(
@@ -70,7 +80,7 @@ class MappedMemory {
     }
 
     template <typename T = uint8_t>
-    T* data() const {
+    T* FOLLY_NONNULL data() const {
       return reinterpret_cast<T*>(data_ & kPointerMask); // NOLINT
     }
 
@@ -89,7 +99,7 @@ class MappedMemory {
   // Represents a set of PageRuns that are allocated together.
   class Allocation {
    public:
-    explicit Allocation(MappedMemory* mappedMemory)
+    explicit Allocation(MappedMemory* FOLLY_NONNULL mappedMemory)
         : mappedMemory_(mappedMemory) {
       VELOX_CHECK(mappedMemory);
       // We keep reference to mappedMemory's shared pointer to prevent
@@ -138,7 +148,7 @@ class MappedMemory {
       return numPages_ * kPageSize;
     }
 
-    void append(uint8_t* address, int32_t numPages);
+    void append(uint8_t* FOLLY_NONNULL address, int32_t numPages);
 
     void clear() {
       runs_.clear();
@@ -147,20 +157,69 @@ class MappedMemory {
 
     // Returns the run number and the position within the run
     // corresponding to 'offset' from the start of 'this'.
-    void findRun(uint64_t offset, int32_t* index, int32_t* offsetInRun);
+    void findRun(
+        uint64_t offset,
+        int32_t* FOLLY_NONNULL index,
+        int32_t* FOLLY_NONNULL offsetInRun);
 
    private:
-    MappedMemory* mappedMemory_;
+    MappedMemory* FOLLY_NONNULL mappedMemory_;
     std::shared_ptr<MappedMemory> mappedMemoryPtr_;
     std::vector<PageRun> runs_;
     int32_t numPages_ = 0;
   };
 
+  // Represents a mmap'd run of contiguous pages that do not belong to
+  // any size class but are still accounted by the owning
+  // MappedMemory.
+  class ContiguousAllocation {
+   public:
+    ContiguousAllocation() = default;
+    ~ContiguousAllocation() {
+      if (data_ && mappedMemory_) {
+        mappedMemory_->freeContiguous(*this);
+      }
+      data_ = nullptr;
+    }
+
+    MappedMemory* FOLLY_NULLABLE mappedMemory() const {
+      return mappedMemory_;
+    }
+
+    MachinePageCount numPages() const;
+
+    template <typename T = uint8_t>
+    T* FOLLY_NULLABLE data() const {
+      return reinterpret_cast<T*>(data_);
+    }
+
+    // size in bytes.
+    uint64_t size() const {
+      return size_;
+    }
+
+    void reset(
+        MappedMemory* FOLLY_NULLABLE mappedMemory,
+        void* FOLLY_NULLABLE data,
+        uint64_t size) {
+      mappedMemory_ = mappedMemory;
+      data_ = data;
+      size_ = size;
+    }
+
+   private:
+    MappedMemory* FOLLY_NULLABLE mappedMemory_{nullptr};
+    void* FOLLY_NULLABLE data_{nullptr};
+    uint64_t size_{0};
+  };
+
+  MappedMemory() {}
+
   virtual ~MappedMemory() {}
 
   // Returns the process-wide default instance or an application-supplied custom
   // instance set via setDefaultInstance().
-  static MappedMemory* getInstance();
+  static MappedMemory* FOLLY_NONNULL getInstance();
 
   // Creates a default MappedMemory instance but does not set this to process
   // default.
@@ -170,7 +229,7 @@ class MappedMemory {
   // ownership and must not destroy the instance until it is
   // empty. Calling this with nullptr restores the initial
   // process-wide default instance.
-  static void setDefaultInstance(MappedMemory* instance);
+  static void setDefaultInstance(MappedMemory* FOLLY_NULLABLE instance);
 
   /// Allocates one or more runs that add up to at least 'numPages',
   /// with the smallest run being at least 'minSizeClass'
@@ -190,13 +249,36 @@ class MappedMemory {
   // Returns the number of freed bytes.
   virtual int64_t free(Allocation& allocation) = 0;
 
+  // Makes a contiguous mmap of 'numPages'. Advises away the required
+  // number of free pages so as not to have resident size exceed the
+  // capacity if capacity is bounded. Returns false if sufficient free
+  // pages do not exist. 'collateral' and 'allocation' are freed and
+  // unmapped or advised away to provide pages to back the new
+  // 'allocation'. This will always succeed if collateral and
+  // allocation together cover the new size of
+  // allocation. 'allocation' is newly mapped and hence zeroed. The
+  // contents of 'allocation' and 'collateral' are freed in all cases,
+  // also if the allocation fails. 'beforeAllocCB can be used to
+  // update trackers. It may throw and the end state will be
+  // consistent, with no new allocation and 'allocation' and
+  // 'collateral' cleared.
+  virtual bool allocateContiguous(
+      MachinePageCount numPages,
+      Allocation* FOLLY_NULLABLE collateral,
+      ContiguousAllocation& allocation,
+      std::function<void(int64_t)> beforeAllocCB = nullptr) = 0;
+
+  virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
+
   // Checks internal consistency of allocation data
   // structures. Returns true if OK.
-  virtual bool checkConsistency() = 0;
+  virtual bool checkConsistency() const = 0;
 
   static void destroyTestOnly();
 
-  virtual const std::vector<MachinePageCount>& sizes() const = 0;
+  virtual const std::vector<MachinePageCount>& sizeClasses() const {
+    return sizeClassSizes_;
+  }
   virtual MachinePageCount numAllocated() const = 0;
   virtual MachinePageCount numMapped() const = 0;
 
@@ -207,12 +289,41 @@ class MappedMemory {
     return nullptr;
   }
 
+  virtual std::string toString() const;
+
+ protected:
+  // Represents a mix of blocks of different sizes for covering a single
+  // allocation.
+  struct SizeMix {
+    // Index into 'sizeClassSizes_'
+    std::array<int32_t, kMaxSizeClasses> sizeIndices{};
+    // Number of items of the class of the corresponding element in
+    // '"sizeIndices'.
+    std::array<int32_t, kMaxSizeClasses> sizeCounts{};
+    // Number of valid elements in 'sizeCounts' and 'sizeIndices'.
+    int32_t numSizes{0};
+    // Total number of pages.
+    int32_t totalPages{0};
+  };
+
+  // Returns a mix of standard sizes and allocation counts for
+  // covering 'numPages' worth of memory. 'minSizeClass' is the size
+  // of the smallest usable size class.
+  SizeMix allocationSize(
+      MachinePageCount numPages,
+      MachinePageCount minSizeClass) const;
+
+  // The machine page counts corresponding to different sizes in order
+  // of increasing size.
+  const std::vector<MachinePageCount>
+      sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
+
  private:
   // Singleton instance.
   static std::unique_ptr<MappedMemory> instance_;
   // Application-supplied custom implementation of MappedMemory to be returned
   // by getInstance().
-  static MappedMemory* customInstance_;
+  static MappedMemory* FOLLY_NULLABLE customInstance_;
   static std::mutex initMutex_;
 };
 
@@ -227,7 +338,7 @@ class ScopedMappedMemory final
       public std::enable_shared_from_this<ScopedMappedMemory> {
  public:
   ScopedMappedMemory(
-      MappedMemory* parent,
+      MappedMemory* FOLLY_NONNULL parent,
       std::shared_ptr<MemoryUsageTracker> tracker)
       : parent_(parent), tracker_(std::move(tracker)) {}
 
@@ -253,12 +364,26 @@ class ScopedMappedMemory final
     return freed;
   }
 
-  bool checkConsistency() override {
+  bool allocateContiguous(
+      MachinePageCount numPages,
+      Allocation* FOLLY_NULLABLE collateral,
+      ContiguousAllocation& allocation,
+      std::function<void(int64_t)> beforeAllocCB = nullptr) override;
+
+  void freeContiguous(ContiguousAllocation& allocation) override {
+    int64_t size = allocation.size();
+    parent_->freeContiguous(allocation);
+    if (tracker_) {
+      tracker_->update(-size);
+    }
+  }
+
+  bool checkConsistency() const override {
     return parent_->checkConsistency();
   }
 
-  const std::vector<MachinePageCount>& sizes() const override {
-    return parent_->sizes();
+  const std::vector<MachinePageCount>& sizeClasses() const override {
+    return parent_->sizeClasses();
   }
 
   MachinePageCount numAllocated() const override {
@@ -280,7 +405,7 @@ class ScopedMappedMemory final
 
  private:
   std::shared_ptr<MappedMemory> parentPtr_;
-  MappedMemory* parent_;
+  MappedMemory* FOLLY_NONNULL parent_;
   std::shared_ptr<MemoryUsageTracker> tracker_;
 };
 
