@@ -156,6 +156,9 @@ class LazyVector : public BaseVector {
       }
       return;
     }
+    if (!vector_ && type_->kind() == TypeKind::ROW) {
+      vector_ = BaseVector::create(type_, rows.back() + 1, pool_);
+    }
     loader_->load(rows, hook, &vector_);
   }
 

@@ -1634,6 +1634,36 @@ TEST_P(TableScanTest, bitwiseAggregationPushdown) {
       "SELECT c5, bit_or(c0), bit_or(c1), bit_or(c2), bit_or(c6) FROM tmp group by c5");
 }
 
+TEST_P(TableScanTest, structLazy) {
+  vector_size_t size = 1'000;
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+       makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+       makeRowVector({makeMapVector<int64_t, double>(
+           size,
+           [](auto row) { return row % 3; },
+           [](auto row) { return row; },
+           [](auto row) { return row * 0.1; })})});
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, {rowVector});
+
+  // Exclude struct columns as DuckDB doesn't support complex types yet.
+  createDuckDbTable(
+      {makeRowVector({rowVector->childAt(0), rowVector->childAt(1)})});
+
+  auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
+  auto assignments = allRegularColumns(rowType);
+
+  auto tableHandle = makeTableHandle(SubfieldFilters{});
+  auto op = PlanBuilder()
+                .tableScan(rowType, tableHandle, assignments)
+                .project({"cardinality(c2.c0)"})
+                .planNode();
+
+  assertQuery(op, {filePath}, "select c0 % 3 from tmp");
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableScanTests,
     TableScanTest,

@@ -71,9 +71,7 @@ static void makeFieldSpecs(
     common::Subfield subfield(path);
     common::ScanSpec* fieldSpec = spec->getOrCreateChild(subfield);
     fieldSpec->setProjectOut(true);
-    if (level == 0) {
-      fieldSpec->setChannel(i);
-    }
+    fieldSpec->setChannel(i);
     auto fieldType = type->childAt(i);
     if (fieldType->kind() == TypeKind::ROW) {
       makeFieldSpecs(
