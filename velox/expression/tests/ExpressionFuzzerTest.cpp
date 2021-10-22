@@ -16,6 +16,7 @@
 
 #include <folly/String.h>
 #include <folly/init/Init.h>
+#include <gtest/gtest.h>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -25,8 +26,8 @@
 #include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
 
-/// ExpressionFuzzerMain is an executable that leverages ExpressionFuzzer and
-/// VectorFuzzer to automatically generate and execute expression tests. It
+/// ExpressionFuzzerTest is an test/executable that leverages ExpressionFuzzer
+/// and VectorFuzzer to automatically generate and execute expression tests. It
 /// works by:
 ///
 ///  1. Taking an initial set of available function signatures.
@@ -40,7 +41,7 @@
 ///
 /// The common usage pattern is as following:
 ///
-///  $ ./velox_expression_fuzzer_main --steps 10000
+///  $ ./velox_expression_fuzzer_test --steps 10000
 ///
 /// The important flags that control Fuzzer's behavior are:
 ///
@@ -53,7 +54,7 @@
 ///
 /// e.g:
 ///
-///  $ ./velox_expression_fuzzer_main \
+///  $ ./velox_expression_fuzzer_test \
 ///         --steps 10000 \
 ///         --seed 123 \
 ///         --v=1 \
@@ -107,6 +108,8 @@ FunctionSignatureMap filterSignatures(
 }
 
 int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
@@ -119,5 +122,5 @@ int main(int argc, char** argv) {
       filterSignatures(getFunctionSignatures(), FLAGS_only),
       FLAGS_steps,
       FLAGS_seed);
-  return 0;
+  return RUN_ALL_TESTS();
 }
