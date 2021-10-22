@@ -57,6 +57,10 @@ class VectorMaker {
   RowVectorPtr rowVector(const std::vector<VectorPtr>& children);
 
   RowVectorPtr rowVector(
+      std::vector<std::string> childNames,
+      const std::vector<VectorPtr>& children);
+
+  RowVectorPtr rowVector(
       const std::shared_ptr<const RowType>& rowType,
       vector_size_t size);
 
