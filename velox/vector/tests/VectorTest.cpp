@@ -915,6 +915,12 @@ TEST_F(VectorTest, unknown) {
   for (auto i = 0; i < vector->size(); i++) {
     ASSERT_TRUE(vector->isNullAt(i));
   }
+
+  auto copy = BaseVector::create(BIGINT(), 10, pool_.get());
+  copy->copy(vector.get(), 0, 0, 1);
+
+  SelectivityVector rows(1);
+  copy->copy(vector.get(), rows, nullptr);
 }
 
 TEST_F(VectorTest, copyBoolAllNullFlatVector) {
