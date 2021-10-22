@@ -65,13 +65,17 @@ enum class TypeKind : int8_t {
   VARCHAR = 7,
   VARBINARY = 8,
   TIMESTAMP = 9,
-  ARRAY = 10,
-  MAP = 11,
-  ROW = 12,
-  UNKNOWN = 13,
-  FUNCTION = 14,
-  OPAQUE = 15,
-  INVALID = 16
+
+  // Enum values for ComplexTypes start after 30 to leave
+  // some values space to accommodate adding new scalar/native
+  // types above.
+  ARRAY = 30,
+  MAP = 31,
+  ROW = 32,
+  UNKNOWN = 33,
+  FUNCTION = 34,
+  OPAQUE = 35,
+  INVALID = 36
 };
 
 TypeKind mapNameToTypeKind(const std::string& name);
