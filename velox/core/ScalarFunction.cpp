@@ -23,8 +23,8 @@ FunctionKey IScalarFunction::key() const {
   return FunctionKey{getName(), argTypes()};
 }
 
-std::string IScalarFunction::signature() const {
-  std::string s{getName()};
+std::string IScalarFunction::signature(const std::string& name) const {
+  std::string s{name};
   s.append("(");
   bool first = true;
   for (auto& arg : argTypes()) {

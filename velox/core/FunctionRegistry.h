@@ -49,7 +49,7 @@ void registerFunctionInternal(
   ScalarFunctions().Register(
       key,
       [metadata]() { return CreateUdf<UDF>(metadata->returnType()); },
-      metadata->signature());
+      metadata->signature(key.name()));
 }
 
 // This function should be called once and alone.
@@ -65,7 +65,7 @@ void registerFunction(
     registerFunctionInternal<UDF>(metadata, metadata->key());
   }
   for (const auto& name : names) {
-    const FunctionKey aliasKey{name, metadata->key().types()};
+    const FunctionKey aliasKey{name, metadata->argTypes()};
     registerFunctionInternal<UDF>(metadata, aliasKey);
   }
 }

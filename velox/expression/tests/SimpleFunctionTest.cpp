@@ -25,6 +25,43 @@ using namespace facebook::velox;
 
 class SimpleFunctionTest : public functions::test::FunctionBaseTest {};
 
+template <typename T>
+struct UnnamedFunction {
+  bool call(bool&, const int64_t&) {
+    return true;
+  }
+};
+
+template <typename T>
+struct NamedFunction {
+  static constexpr auto name{"named_function"};
+
+  bool call(bool&, const int64_t&) {
+    return true;
+  }
+};
+
+// Functions that provide a "name" member don't need aliases; functions that do
+// not have a "name" member do.
+TEST_F(SimpleFunctionTest, nameOrAliasRegistration) {
+  // This one needs alias; will throw.
+  auto registerThrow = [&]() {
+    registerFunction<UnnamedFunction, bool, int64_t>();
+  };
+  EXPECT_THROW(registerThrow(), std::runtime_error);
+
+  // These are good.
+  auto registerNoThrow = [&]() {
+    registerFunction<UnnamedFunction, bool, int64_t>({"my_alias"});
+  };
+  EXPECT_NO_THROW(registerNoThrow());
+
+  auto registerNoThrow2 = [&]() {
+    registerFunction<NamedFunction, bool, int64_t>();
+  };
+  EXPECT_NO_THROW(registerNoThrow2());
+}
+
 // Some input data.
 static std::vector<std::vector<int64_t>> arrayData = {
     {0, 1, 2, 4},
@@ -34,22 +71,25 @@ static std::vector<std::vector<int64_t>> arrayData = {
 };
 
 // Function that returns an array of bigints.
-VELOX_UDF_BEGIN(array_writer_func)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<Array<int64_t>>& out,
-    const arg_type<int64_t>& input) {
-  const size_t size = arrayData[input].size();
-  out.reserve(size);
-  for (const auto i : arrayData[input]) {
-    out.append(i);
+template <typename T>
+struct ArrayWriterFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<int64_t>>& out,
+      const arg_type<int64_t>& input) {
+    const size_t size = arrayData[input].size();
+    out.reserve(size);
+    for (const auto i : arrayData[input]) {
+      out.append(i);
+    }
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
 TEST_F(SimpleFunctionTest, arrayWriter) {
-  registerFunction<udf_array_writer_func, Array<int64_t>, int64_t>(
-      {}, ARRAY(BIGINT()));
+  registerFunction<ArrayWriterFunction, Array<int64_t>, int64_t>(
+      {"array_writer_func"}, ARRAY(BIGINT()));
 
   const size_t rows = arrayData.size();
   auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
@@ -69,22 +109,25 @@ static std::vector<std::vector<std::string>> stringArrayData = {
 };
 
 // Function that returns an array of strings.
-VELOX_UDF_BEGIN(array_of_strings_writer_func)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<Array<Varchar>>& out,
-    const arg_type<int64_t>& input) {
-  const size_t size = stringArrayData[input].size();
-  out.reserve(size);
-  for (const auto value : stringArrayData[input]) {
-    out.append(out_type<Varchar>(StringView(value)));
+template <typename T>
+struct ArrayOfStringsWriterFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Varchar>>& out,
+      const arg_type<int64_t>& input) {
+    const size_t size = stringArrayData[input].size();
+    out.reserve(size);
+    for (const auto value : stringArrayData[input]) {
+      out.append(out_type<Varchar>(StringView(value)));
+    }
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
 TEST_F(SimpleFunctionTest, arrayOfStringsWriter) {
-  registerFunction<udf_array_of_strings_writer_func, Array<Varchar>, int64_t>(
-      {}, ARRAY(VARCHAR()));
+  registerFunction<ArrayOfStringsWriterFunction, Array<Varchar>, int64_t>(
+      {"array_of_strings_writer_func"}, ARRAY(VARCHAR()));
 
   const size_t rows = stringArrayData.size();
   auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
@@ -104,17 +147,21 @@ TEST_F(SimpleFunctionTest, arrayOfStringsWriter) {
 }
 
 // Function that takes an array as input.
-VELOX_UDF_BEGIN(array_reader_func)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& out,
-    const arg_type<Array<int64_t>>& input) {
-  out = input.size();
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct ArrayReaderFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<Array<int64_t>>& input) {
+    out = input.size();
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, arrayReader) {
-  registerFunction<udf_array_reader_func, int64_t, Array<int64_t>>();
+  registerFunction<ArrayReaderFunction, int64_t, Array<int64_t>>(
+      {"array_reader_func"});
 
   const size_t rows = arrayData.size();
   auto arrayVector = makeArrayVector(arrayData);
@@ -132,19 +179,22 @@ static std::vector<int64_t> rowVectorCol1 = {0, 22, 44, 55, 99, 101, 9, 0};
 static std::vector<double> rowVectorCol2 =
     {9.1, 22.4, 44.55, 99.9, 1.01, 9.8, 10001.1, 0.1};
 
-// Function that returns a tuple.
-VELOX_UDF_BEGIN(row_writer_func)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<Row<int64_t, double>>& out,
-    const arg_type<int64_t>& input) {
-  out = std::make_tuple(rowVectorCol1[input], rowVectorCol2[input]);
-  return true;
-}
-VELOX_UDF_END();
+// Function that returns a tupl.
+template <typename T>
+struct RowWriterFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Row<int64_t, double>>& out,
+      const arg_type<int64_t>& input) {
+    out = std::make_tuple(rowVectorCol1[input], rowVectorCol2[input]);
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, rowWriter) {
-  registerFunction<udf_row_writer_func, Row<int64_t, double>, int64_t>(
-      {}, ROW({BIGINT(), DOUBLE()}));
+  registerFunction<RowWriterFunction, Row<int64_t, double>, int64_t>(
+      {"row_writer_func"}, ROW({BIGINT(), DOUBLE()}));
 
   const size_t rows = rowVectorCol1.size();
   auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
@@ -158,17 +208,21 @@ TEST_F(SimpleFunctionTest, rowWriter) {
 }
 
 // Function that takes a tuple as a parameter.
-VELOX_UDF_BEGIN(row_reader_func)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& out,
-    const arg_type<Row<int64_t, double>>& input) {
-  out = *input.template at<0>();
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct RowReaderFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<Row<int64_t, double>>& input) {
+    out = *input.template at<0>();
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, rowReader) {
-  registerFunction<udf_row_reader_func, int64_t, Row<int64_t, double>>();
+  registerFunction<RowReaderFunction, int64_t, Row<int64_t, double>>(
+      {"row_reader_func"});
 
   const size_t rows = rowVectorCol1.size();
   auto vector1 = vectorMaker_.flatVector(rowVectorCol1);
@@ -182,24 +236,27 @@ TEST_F(SimpleFunctionTest, rowReader) {
 }
 
 // Function that returns an array of rows.
-VELOX_UDF_BEGIN(array_row_writer_func)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<Array<Row<int64_t, double>>>& out,
-    const arg_type<int32_t>& input) {
-  // Appends each row three times.
-  auto tuple = std::make_tuple(rowVectorCol1[input], rowVectorCol2[input]);
-  out.append(std::optional(tuple));
-  out.append(std::optional(tuple));
-  out.append(std::optional(tuple));
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct ArrayRowWriterFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Row<int64_t, double>>>& out,
+      const arg_type<int32_t>& input) {
+    // Appends each row three times.
+    auto tuple = std::make_tuple(rowVectorCol1[input], rowVectorCol2[input]);
+    out.append(std::optional(tuple));
+    out.append(std::optional(tuple));
+    out.append(std::optional(tuple));
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, arrayRowWriter) {
   registerFunction<
-      udf_array_row_writer_func,
+      ArrayRowWriterFunction,
       Array<Row<int64_t, double>>,
-      int32_t>({}, ARRAY(ROW({BIGINT(), DOUBLE()})));
+      int32_t>({"array_row_writer_func"}, ARRAY(ROW({BIGINT(), DOUBLE()})));
 
   const size_t rows = rowVectorCol1.size();
   auto flatVector = makeFlatVector<int32_t>(rows, [](auto row) { return row; });
@@ -220,23 +277,26 @@ TEST_F(SimpleFunctionTest, arrayRowWriter) {
 }
 
 // Function that takes an array of rows as an argument..
-VELOX_UDF_BEGIN(array_row_reader_func)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& out,
-    const arg_type<Array<Row<int64_t, double>>>& input) {
-  out = 0;
-  for (size_t i = 0; i < input.size(); i++) {
-    out += *input.at(i)->template at<0>();
+template <typename T>
+struct ArrayRowReaderFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<Array<Row<int64_t, double>>>& input) {
+    out = 0;
+    for (size_t i = 0; i < input.size(); i++) {
+      out += *input.at(i)->template at<0>();
+    }
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
 TEST_F(SimpleFunctionTest, arrayRowReader) {
   registerFunction<
-      udf_array_row_reader_func,
+      ArrayRowReaderFunction,
       int64_t,
-      Array<Row<int64_t, double>>>();
+      Array<Row<int64_t, double>>>({"array_row_reader_func"});
 
   const size_t rows = rowVectorCol1.size();
   std::vector<std::vector<variant>> data;
@@ -262,22 +322,25 @@ TEST_F(SimpleFunctionTest, arrayRowReader) {
 using MyType = std::pair<int64_t, double>;
 
 // Function that returns a tuple containing an opaque type
-VELOX_UDF_BEGIN(row_opaque_writer_func)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<Row<std::shared_ptr<MyType>, int64_t>>& out,
-    const arg_type<int64_t>& input) {
-  out = std::make_tuple(
-      std::make_shared<MyType>(rowVectorCol1[input], rowVectorCol2[input]),
-      input + 10);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct RowOpaqueWriterFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Row<std::shared_ptr<MyType>, int64_t>>& out,
+      const arg_type<int64_t>& input) {
+    out = std::make_tuple(
+        std::make_shared<MyType>(rowVectorCol1[input], rowVectorCol2[input]),
+        input + 10);
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, rowOpaqueWriter) {
   registerFunction<
-      udf_row_opaque_writer_func,
+      RowOpaqueWriterFunction,
       Row<std::shared_ptr<MyType>, int64_t>,
-      int64_t>();
+      int64_t>({"row_opaque_writer_func"});
 
   const size_t rows = rowVectorCol1.size();
   auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
@@ -301,21 +364,24 @@ TEST_F(SimpleFunctionTest, rowOpaqueWriter) {
 }
 
 // Function that takes a tuple containing an opaque type as a parameter.
-VELOX_UDF_BEGIN(row_opaque_reader_func)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& out,
-    const arg_type<Row<std::shared_ptr<MyType>, int64_t>>& input) {
-  const auto& myType = *input.template at<0>();
-  out = myType->first;
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct RowOpaqueReaderFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<Row<std::shared_ptr<MyType>, int64_t>>& input) {
+    const auto& myType = *input.template at<0>();
+    out = myType->first;
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, rowOpaqueReader) {
   registerFunction<
-      udf_row_opaque_reader_func,
+      RowOpaqueReaderFunction,
       int64_t,
-      Row<std::shared_ptr<MyType>, int64_t>>();
+      Row<std::shared_ptr<MyType>, int64_t>>({"row_opaque_reader_func"});
 
   const size_t rows = rowVectorCol1.size();
   auto vector1 = makeFlatVector<std::shared_ptr<void>>(rows, [&](auto row) {
@@ -334,16 +400,20 @@ TEST_F(SimpleFunctionTest, rowOpaqueReader) {
 
 // Test that function with default null behavior won't get called when inputs
 // are all null.
-VELOX_UDF_BEGIN(default_null_behavior)
-FOLLY_ALWAYS_INLINE bool call(out_type<bool>&, int64_t) {
-  throw std::runtime_error(
-      "Function not supposed to be called on null inputs.");
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct DefaultNullBehaviorFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(out_type<bool>&, int64_t) {
+    throw std::runtime_error(
+        "Function not supposed to be called on null inputs.");
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, defaultNullBehavior) {
-  registerFunction<udf_default_null_behavior, bool, int64_t>();
+  registerFunction<DefaultNullBehaviorFunction, bool, int64_t>(
+      {"default_null_behavior"});
 
   // Make a vector filled with nulls.
   auto flatVector = makeFlatVector<int64_t>(
@@ -357,17 +427,21 @@ TEST_F(SimpleFunctionTest, defaultNullBehavior) {
 
 // Test that function with non-default null behavior receives parameters as
 // nulls. Returns whether the received parameter was null.
-VELOX_UDF_BEGIN(non_default_null_behavior)
-FOLLY_ALWAYS_INLINE bool callNullable(
-    out_type<bool>& out,
-    const int64_t* input) {
-  out = (input == nullptr);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct NonDefaultNullBehaviorFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool callNullable(
+      out_type<bool>& out,
+      const int64_t* input) {
+    out = (input == nullptr);
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, nonDefaultNullBehavior) {
-  registerFunction<udf_non_default_null_behavior, bool, int64_t>();
+  registerFunction<NonDefaultNullBehaviorFunction, bool, int64_t>(
+      {"non_default_null_behavior"});
 
   // Make a vector filled with nulls.
   const size_t rows = 10;
@@ -382,23 +456,24 @@ TEST_F(SimpleFunctionTest, nonDefaultNullBehavior) {
 }
 
 // Ensures that the call method can be templated.
-VELOX_UDF_BEGIN(is_input_varchar)
-
 template <typename T>
-FOLLY_ALWAYS_INLINE bool call(out_type<bool>& out, const T&) {
-  if constexpr (std::is_same_v<T, StringView>) {
-    out = true;
-  } else {
-    out = false;
-  }
-  return true;
-}
+struct IsInputVarcharFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-VELOX_UDF_END();
+  template <typename TType>
+  FOLLY_ALWAYS_INLINE bool call(out_type<bool>& out, const TType&) {
+    if constexpr (std::is_same_v<TType, StringView>) {
+      out = true;
+    } else {
+      out = false;
+    }
+    return true;
+  }
+};
 
 TEST_F(SimpleFunctionTest, templatedCall) {
-  registerFunction<udf_is_input_varchar, bool, int64_t>();
-  registerFunction<udf_is_input_varchar, bool, Varchar>();
+  registerFunction<IsInputVarcharFunction, bool, int64_t>({"is_input_varchar"});
+  registerFunction<IsInputVarcharFunction, bool, Varchar>({"is_input_varchar"});
 
   const size_t rows = 10;
   auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });

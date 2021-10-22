@@ -30,7 +30,7 @@ void registerVectorFunctionInternal(
         return std::make_unique<VectorAdapterFactoryImpl<UDF>>(
             metadata->returnType());
       },
-      metadata->signature());
+      metadata->signature(key.name()));
 }
 
 // This function should be called once and alone.
@@ -45,7 +45,7 @@ void registerVectorFunction(
     registerVectorFunctionInternal<UDF>(metadata, metadata->key());
   }
   for (const auto& name : names) {
-    const core::FunctionKey aliasKey{name, metadata->key().types()};
+    const core::FunctionKey aliasKey{name, metadata->argTypes()};
     registerVectorFunctionInternal<UDF>(metadata, aliasKey);
   }
 }

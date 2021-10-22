@@ -66,8 +66,36 @@
   }                     \
   ;
 
-// todo(youknowjack): I like this syntax better, but it's hard to get formatting
-// right, and decorating it with extra info is tricky
-// #define VELOX_UDF_CLASS() \
-// template <template<class, class> class map_type> \
-// struct Name
+#define VELOX_DEFINE_FUNCTION_TYPES(__Velox_ExecParams)                 \
+  template <typename TArgs>                                             \
+  using arg_type =                                                      \
+      typename __Velox_ExecParams::template resolver<TArgs>::in_type;   \
+                                                                        \
+  template <typename TArgs>                                             \
+  using out_type =                                                      \
+      typename __Velox_ExecParams::template resolver<TArgs>::out_type;  \
+                                                                        \
+  template <typename TArgs>                                             \
+  using opt_arg_type = std::optional<                                   \
+      typename __Velox_ExecParams::template resolver<TArgs>::in_type>;  \
+                                                                        \
+  template <typename TArgs>                                             \
+  using opt_out_type = std::optional<                                   \
+      typename __Velox_ExecParams::template resolver<TArgs>::out_type>; \
+                                                                        \
+  template <typename TKey, typename TVal>                               \
+  using MapVal = arg_type<::facebook::velox::Map<TKey, TVal>>;          \
+  template <typename TElement>                                          \
+  using ArrayVal = arg_type<::facebook::velox::Array<TElement>>;        \
+  using VarcharVal = arg_type<::facebook::velox::Varchar>;              \
+  using VarbinaryVal = arg_type<::facebook::velox::Varbinary>;          \
+  template <typename... TArgss>                                         \
+  using RowVal = arg_type<::facebook::velox::Row<TArgss...>>;           \
+  template <typename TKey, typename TVal>                               \
+  using MapWriter = out_type<::facebook::velox::Map<TKey, TVal>>;       \
+  template <typename TElement>                                          \
+  using ArrayWriter = out_type<::facebook::velox::Array<TElement>>;     \
+  using VarcharWriter = out_type<::facebook::velox::Varchar>;           \
+  using VarbinaryWriter = out_type<::facebook::velox::Varbinary>;       \
+  template <typename... TArgss>                                         \
+  using RowWriter = out_type<::facebook::velox::Row<TArgss...>>;

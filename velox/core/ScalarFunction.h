@@ -169,10 +169,16 @@ class IScalarFunction {
   virtual variant callDynamic(const std::vector<variant>& inputs) = 0;
 
   FunctionKey key() const;
-  std::string signature() const;
+  std::string signature(const std::string& name) const;
 
   virtual ~IScalarFunction() = default;
 };
+
+template <typename T, typename = int32_t>
+struct udf_has_name : std::false_type {};
+
+template <typename T>
+struct udf_has_name<T, decltype(&T::name, 0)> : std::true_type {};
 
 template <typename Fun, typename TReturn, typename... Args>
 class ScalarFunctionMetadata : public IScalarFunction {
@@ -185,7 +191,14 @@ class ScalarFunctionMetadata : public IScalarFunction {
 
  public:
   std::string getName() const final {
-    return Fun::name;
+    if constexpr (udf_has_name<Fun>::value) {
+      return Fun::name;
+    } else {
+      throw std::runtime_error(
+          "Unable to find simple function name. Either define a 'name' "
+          "member in the function class, or specify a function alias at "
+          "registration time.");
+    }
   }
 
   bool isDeterministic() const final {
