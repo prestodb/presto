@@ -19,9 +19,7 @@
 #include <memory>
 #include <utility>
 
-namespace facebook {
-namespace velox {
-namespace util {
+namespace facebook::velox::util {
 
 template <template <typename> class Transformer, typename E>
 struct tuple_xform {};
@@ -140,13 +138,39 @@ struct is_smart_pointer<std::weak_ptr<T>> {
   static const bool value = true;
 };
 
-#define KOKSI_MEMBER_CHECKER(Name, ...)     \
-  template <typename T, typename = int32_t> \
-  struct Name : std::false_type {};         \
-                                            \
-  template <typename T>                     \
-  struct Name<T, decltype(__VA_ARGS__, 0)> : std::true_type {};
+// Checks if a class C provides a method which returns TRet and takes TArgs as
+// parameters. TResolver is a struct created using DECLARE_METHOD_RESOLVER,
+// which contains the name of the method.
+template <typename C, class TResolver, typename TRet, typename... TArgs>
+struct has_method {
+ private:
+  template <typename T>
+  static constexpr auto check(T*) -> typename std::is_same<
+      decltype(std::declval<TResolver>().template resolve<T>(
+          std::declval<TArgs>()...)),
+      TRet>::type {
+    return {};
+  }
 
-} // namespace util
-} // namespace velox
-} // namespace facebook
+  template <typename>
+  static constexpr std::false_type check(...) {
+    return std::false_type();
+  }
+
+  using type = decltype(check<C>(nullptr));
+
+ public:
+  static constexpr bool value = type::value;
+};
+
+// Declares a method resolver to be used with has_method.
+#define DECLARE_METHOD_RESOLVER(Name, MethodName)              \
+  struct Name {                                                \
+    template <class __T, typename... __TArgs>                  \
+    constexpr auto resolve(__TArgs... args) const              \
+        -> decltype(std::declval<__T>().MethodName(args...)) { \
+      return {};                                               \
+    }                                                          \
+  };
+
+} // namespace facebook::velox::util

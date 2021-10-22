@@ -381,4 +381,41 @@ TEST_F(SimpleFunctionTest, nonDefaultNullBehavior) {
   assertEqualVectors(expected, result);
 }
 
+// Ensures that the call method can be templated.
+VELOX_UDF_BEGIN(is_input_varchar)
+
+template <typename T>
+FOLLY_ALWAYS_INLINE bool call(out_type<bool>& out, const T&) {
+  if constexpr (std::is_same_v<T, StringView>) {
+    out = true;
+  } else {
+    out = false;
+  }
+  return true;
+}
+
+VELOX_UDF_END();
+
+TEST_F(SimpleFunctionTest, templatedCall) {
+  registerFunction<udf_is_input_varchar, bool, int64_t>();
+  registerFunction<udf_is_input_varchar, bool, Varchar>();
+
+  const size_t rows = 10;
+  auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
+
+  // Ensure that functions passing varchars and non-varchars return the expected
+  // boolean values.
+  auto result = evaluate<FlatVector<bool>>(
+      "is_input_varchar(c0)", makeRowVector({flatVector}));
+  auto expected = makeFlatVector<bool>(rows, [](auto) { return false; });
+  assertEqualVectors(expected, result);
+
+  auto flatVectorStr =
+      makeFlatVector<StringView>(rows, [](auto) { return StringView("asdf"); });
+  result = evaluate<FlatVector<bool>>(
+      "is_input_varchar(c0)", makeRowVector({flatVectorStr}));
+  expected = makeFlatVector<bool>(rows, [](auto) { return true; });
+  assertEqualVectors(expected, result);
+}
+
 } // namespace
