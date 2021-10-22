@@ -15,9 +15,11 @@ package com.facebook.presto.delta;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.delta.rule.DeltaPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -40,6 +42,7 @@ public class DeltaConnector
     private final DeltaSplitManager splitManager;
     private final DeltaSessionProperties sessionProperties;
     private final DeltaPageSourceProvider pageSourceProvider;
+    private final DeltaPlanOptimizerProvider planOptimizerProvider;
 
     @Inject
     public DeltaConnector(
@@ -47,13 +50,15 @@ public class DeltaConnector
             DeltaMetadata metadata,
             DeltaSplitManager splitManager,
             DeltaSessionProperties sessionProperties,
-            DeltaPageSourceProvider pageSourceProvider)
+            DeltaPageSourceProvider pageSourceProvider,
+            DeltaPlanOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
     }
 
     @Override
@@ -84,6 +89,12 @@ public class DeltaConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties.getSessionProperties();
+    }
+
+    @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
+    {
+        return planOptimizerProvider;
     }
 
     @Override

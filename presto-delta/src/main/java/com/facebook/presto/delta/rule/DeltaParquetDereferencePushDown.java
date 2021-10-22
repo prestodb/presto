@@ -57,7 +57,6 @@ public class DeltaParquetDereferencePushDown
     {
         checkArgument(baseColumnHandle instanceof DeltaColumnHandle,
                 "Expected Delta column handle, instead got: " + baseColumnHandle.getClass());
-        DeltaColumnHandle deltaBaseColumnHandle = (DeltaColumnHandle) baseColumnHandle;
         return new DeltaColumnHandle(
                 subfieldColumnName,
                 subfieldDataType.getTypeSignature(),

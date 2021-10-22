@@ -218,7 +218,8 @@ public class DeltaMetadata
                     new DeltaColumnHandle(
                             column.getName(),
                             column.getType(),
-                            column.isPartition() ? PARTITION : REGULAR));
+                            column.isPartition() ? PARTITION : REGULAR,
+                            Optional.empty()));
         }
         return columnHandles.build();
     }

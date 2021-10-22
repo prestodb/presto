@@ -25,7 +25,8 @@ public class TestDeltaConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DeltaConfig.class)
-                .setMaxSplitsBatchSize(200));
+                .setMaxSplitsBatchSize(200)
+                .setParquetDereferencePushdownEnabled(true));
     }
 
     @Test
@@ -33,10 +34,12 @@ public class TestDeltaConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("delta.max-splits-batch-size", "400")
+                .put("delta.parquet-dereference-pushdown-enabled", "false")
                 .build();
 
         DeltaConfig expected = new DeltaConfig()
-                .setMaxSplitsBatchSize(400);
+                .setMaxSplitsBatchSize(400)
+                .setParquetDereferencePushdownEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

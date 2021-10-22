@@ -34,6 +34,7 @@ public final class DeltaSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
+    public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -68,6 +69,11 @@ public final class DeltaSessionProperties
                         PARQUET_BATCH_READER_VERIFICATION_ENABLED,
                         "Is Parquet batch reader verification enabled? This is for testing purposes only, not to be used in production",
                         hiveClientConfig.isParquetBatchReaderVerificationEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
+                        "Is dereference pushdown expression pushdown into Parquet reader enabled?",
+                        deltaConfigConfig.isParquetDereferencePushdownEnabled(),
                         false));
     }
 
@@ -99,5 +105,10 @@ public final class DeltaSessionProperties
     public static boolean isParquetBatchReaderVerificationEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_BATCH_READER_VERIFICATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
     }
 }

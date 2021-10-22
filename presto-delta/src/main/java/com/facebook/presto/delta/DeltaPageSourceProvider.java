@@ -15,6 +15,7 @@
 package com.facebook.presto.delta;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
@@ -54,6 +55,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -69,6 +71,9 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.SUBFIELD;
+import static com.facebook.presto.delta.DeltaColumnHandle.getPushedDownSubfield;
+import static com.facebook.presto.delta.DeltaColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_BAD_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_MISSING_DATA;
@@ -81,10 +86,13 @@ import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.checkSchemaMatch;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
+import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -94,6 +102,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
+import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
 
 public class DeltaPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -138,7 +147,7 @@ public class DeltaPageSourceProvider
                 .collect(Collectors.toList());
 
         List<DeltaColumnHandle> regularColumnHandles = deltaColumnHandles.stream()
-                .filter(columnHandle -> columnHandle.getColumnType() == REGULAR)
+                .filter(columnHandle -> columnHandle.getColumnType() != PARTITION)
                 .collect(Collectors.toList());
 
         ConnectorPageSource dataPageSource = createParquetPageSource(
@@ -215,8 +224,8 @@ public class DeltaPageSourceProvider
             MessageType fileSchema = fileMetaData.getSchema();
 
             Optional<MessageType> message = columns.stream()
-                    .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getParquetType(typeManager.getType(column.getDataType()), fileSchema, column, tableName, path))
+                    .filter(column -> column.getColumnType() == REGULAR || isPushedDownSubfield(column))
+                    .map(column -> getColumnType(typeManager.getType(column.getDataType()), fileSchema, column, tableName, path))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(type -> new MessageType(fileSchema.getName(), type))
@@ -256,7 +265,8 @@ public class DeltaPageSourceProvider
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
             for (DeltaColumnHandle column : columns) {
-                checkArgument(column.getColumnType() == REGULAR, "column type must be regular column");
+                checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SUBFIELD,
+                        "column type must be regular or subfield column");
 
                 String name = column.getName();
                 Type type = typeManager.getType(column.getDataType());
@@ -264,7 +274,18 @@ public class DeltaPageSourceProvider
                 namesBuilder.add(name);
                 typesBuilder.add(type);
 
-                if (getParquetType(type, fileSchema, column, tableName, path).isPresent()) {
+                if (isPushedDownSubfield(column)) {
+                    Subfield pushedDownSubfield = getPushedDownSubfield(column);
+                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
+                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
+                    if (columnIO.isPresent()) {
+                        fieldsBuilder.add(constructField(type, columnIO.get()));
+                    }
+                    else {
+                        fieldsBuilder.add(Optional.empty());
+                    }
+                }
+                else if (getParquetType(type, fileSchema, column, tableName, path).isPresent()) {
                     fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, name)));
                 }
                 else {
@@ -311,7 +332,17 @@ public class DeltaPageSourceProvider
         for (Map.Entry<DeltaColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
             DeltaColumnHandle columnHandle = entry.getKey();
 
-            RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            RichColumnDescriptor descriptor;
+
+            if (isPushedDownSubfield(columnHandle)) {
+                Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
+                List<String> subfieldPath = columnPathFromSubfield(pushedDownSubfield);
+                descriptor = descriptorsByPath.get(subfieldPath);
+            }
+            else {
+                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            }
+
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }
@@ -352,5 +383,15 @@ public class DeltaPageSourceProvider
                             parquetTypeName));
         }
         return Optional.of(type);
+    }
+
+    public static Optional<org.apache.parquet.schema.Type> getColumnType(
+            Type prestoType, MessageType messageType, DeltaColumnHandle column, SchemaTableName tableName, Path path)
+    {
+        if (isPushedDownSubfield(column)) {
+            Subfield pushedDownSubfield = getPushedDownSubfield(column);
+            return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
+        }
+        return getParquetType(prestoType, messageType, column, tableName, path);
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
 
 import java.util.Map;
@@ -57,7 +58,10 @@ public class DeltaConnectorFactory
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),
                     new HiveAuthenticationModule(),
-                    new HiveMetastoreModule(catalogName, Optional.empty()));
+                    new HiveMetastoreModule(catalogName, Optional.empty()),
+                    binder -> {
+                        binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                    });
 
             Injector injector = app
                     .doNotInitializeLogging()

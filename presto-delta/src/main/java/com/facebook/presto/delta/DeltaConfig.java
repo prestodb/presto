@@ -15,9 +15,25 @@ package com.facebook.presto.delta;
 
 import com.facebook.airlift.configuration.Config;
 
+import javax.validation.constraints.NotNull;
+
 public class DeltaConfig
 {
     private int maxSplitsBatchSize = 200;
+    private boolean parquetDereferencePushdownEnabled = true;
+
+    @NotNull
+    public boolean isParquetDereferencePushdownEnabled()
+    {
+        return parquetDereferencePushdownEnabled;
+    }
+
+    @Config("delta.parquet-dereference-pushdown-enabled")
+    public DeltaConfig setParquetDereferencePushdownEnabled(boolean parquetDereferencePushdownEnabled)
+    {
+        this.parquetDereferencePushdownEnabled = parquetDereferencePushdownEnabled;
+        return this;
+    }
 
     public int getMaxSplitsBatchSize()
     {

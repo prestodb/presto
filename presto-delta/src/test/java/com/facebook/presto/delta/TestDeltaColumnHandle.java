@@ -14,7 +14,10 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Subfield;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -32,14 +35,14 @@ public class TestDeltaColumnHandle
     @Test
     public void testPartitionColumn()
     {
-        DeltaColumnHandle expectedPartitionColumn = new DeltaColumnHandle("partitionColumn", parseTypeSignature(DOUBLE), PARTITION);
+        DeltaColumnHandle expectedPartitionColumn = new DeltaColumnHandle("partitionColumn", parseTypeSignature(DOUBLE), PARTITION, Optional.empty());
         testRoundTrip(expectedPartitionColumn);
     }
 
     @Test
     public void testRegularColumn()
     {
-        DeltaColumnHandle expectedRegularColumn = new DeltaColumnHandle("regularColumn", parseTypeSignature(DOUBLE), REGULAR);
+        DeltaColumnHandle expectedRegularColumn = new DeltaColumnHandle("regularColumn", parseTypeSignature(DOUBLE), REGULAR, Optional.of(new Subfield("first")));
         testRoundTrip(expectedRegularColumn);
     }
 
@@ -51,5 +54,6 @@ public class TestDeltaColumnHandle
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getColumnType(), expected.getColumnType());
         assertEquals(actual.getDataType(), expected.getDataType());
+        assertEquals(actual.getSubfield(), expected.getSubfield());
     }
 }
