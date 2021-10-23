@@ -50,7 +50,8 @@ add_executable(
   SplitTest.cpp
   StringFunctionsTest.cpp
   TransformTest.cpp
-  WidthBucketArrayTest.cpp)
+  WidthBucketArrayTest.cpp
+  GreatestLeastTest.cpp)
 
 add_test(velox_functions_test velox_functions_test)
 

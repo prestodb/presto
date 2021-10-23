@@ -7,6 +7,7 @@ Presto Functions
 
     functions/math
     functions/bitwise
+    functions/comparison
     functions/string
     functions/datetime
     functions/array

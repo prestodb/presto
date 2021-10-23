@@ -47,7 +47,8 @@ add_library(
   Transform.cpp
   VectorArithmetic.cpp
   VectorFunctions.cpp
-  WidthBucketArray.cpp)
+  WidthBucketArray.cpp
+  GreatestLeast.cpp)
 
 target_link_libraries(
   velox_functions_prestosql

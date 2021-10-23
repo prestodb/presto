@@ -87,6 +87,9 @@ void registerVectorFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "ROW");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "concatRow");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "concatrow");
+
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_least, "least");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, "greatest");
 }
 
 } // namespace facebook::velox::functions
