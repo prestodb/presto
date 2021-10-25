@@ -18,7 +18,7 @@ import com.facebook.presto.common.block.ColumnarArray;
 import com.facebook.presto.common.block.ColumnarRow;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static io.airlift.slice.SizeOf.sizeOf;

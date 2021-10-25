@@ -17,8 +17,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
-
 public class ShortDecimalStatisticsBuilder
         implements LongValueStatisticsBuilder
 {
@@ -60,8 +58,8 @@ public class ShortDecimalStatisticsBuilder
     {
         Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics();
         if (decimalStatistics.isPresent()) {
-            return new DecimalColumnStatistics(nonNullValueCount, DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES, null, decimalStatistics.get());
+            return new DecimalColumnStatistics(nonNullValueCount, null, decimalStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, 0, null);
+        return new ColumnStatistics(nonNullValueCount, null);
     }
 }

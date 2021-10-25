@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleStatisticsBuilder
@@ -85,9 +84,9 @@ public class DoubleStatisticsBuilder
     {
         Optional<DoubleStatistics> doubleStatistics = buildDoubleStatistics();
         if (doubleStatistics.isPresent()) {
-            return new DoubleColumnStatistics(nonNullValueCount, DOUBLE_VALUE_BYTES, null, doubleStatistics.get());
+            return new DoubleColumnStatistics(nonNullValueCount, null, doubleStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, 0, null);
+        return new ColumnStatistics(nonNullValueCount, null);
     }
 
     public static Optional<DoubleStatistics> mergeDoubleStatistics(List<ColumnStatistics> stats)

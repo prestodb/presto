@@ -42,6 +42,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -77,6 +78,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -137,6 +139,9 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1401,7 +1406,8 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
 
             assertPlan(getSession(), viewQuery, anyTree(
-                    filter("orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey", "orderkey")))));
+                    anyTree(values("orderkey")), // Alias for the filter column
+                    anyTree(filter("orderkey_17 < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_17", "orderkey"))))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
@@ -1683,6 +1689,47 @@ public class TestHiveLogicalPlanner
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewForUnionAllWithOneSideMaterialized()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table1 = "orders_key_partitioned_1";
+        String table2 = "orders_key_partitioned_2";
+        String view = "orders_key_view_union";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, '2020-01-01' as ds FROM orders WHERE orderkey < 1000", table1));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, '2019-01-02' as ds FROM orders WHERE orderkey > 1000 and orderkey < 2000", table2));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, ds FROM %s UNION ALL SELECT orderkey, ds FROM %s", view, table1, table2));
+
+            assertTrue(queryRunner.tableExists(getSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 510);
+
+            String viewQuery = format("SELECT orderkey, ds FROM %s ORDER BY orderkey", view);
+            String baseQuery = format("(SELECT orderkey, ds FROM %s UNION ALL SELECT orderkey, ds FROM %s) ORDER BY orderkey", table1, table2);
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+
+            assertPlan(getSession(), viewQuery, anyTree(PlanMatchPattern.values("ds", "orderkey"), anyTree(
+                    PlanMatchPattern.constrainedTableScan(table2,
+                            ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2019-01-02")))),
+                    PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of()))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table1);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
         }
     }
 
@@ -2155,9 +2202,10 @@ public class TestHiveLogicalPlanner
             assertEquals(optimizedQueryResult, baseQueryResult);
 
             PlanMatchPattern expectedPattern = anyTree(
-                    filter("orderkey < BIGINT'1000'", PlanMatchPattern.constrainedTableScan(view2,
+                    anyTree(values("orderkey", "orderdate")),
+                    anyTree(filter("orderkey_25 < BIGINT'1000'", PlanMatchPattern.constrainedTableScan(view2,
                             ImmutableMap.of(),
-                            ImmutableMap.of("orderkey", "orderkey"))));
+                            ImmutableMap.of("orderkey_25", "orderkey")))));
 
             assertPlan(queryOptimizationWithMaterializedView, baseQuery, expectedPattern);
             assertPlan(getSession(), viewQuery, expectedPattern);
@@ -2485,6 +2533,143 @@ public class TestHiveLogicalPlanner
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewQueryAccessControl()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session invokerSession = Session.builder(getSession())
+                .setIdentity(new Identity("test_view_invoker", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        Session ownerSession = getSession();
+
+        queryRunner.execute(
+                ownerSession,
+                "CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
+        queryRunner.execute(
+                ownerSession,
+                "CREATE MATERIALIZED VIEW test_orders_view " +
+                        "WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT SUM(totalprice) AS totalprice, orderstatus FROM test_orders_base GROUP BY orderstatus");
+        setReferencedMaterializedViews((DistributedQueryRunner) getQueryRunner(), "test_orders_base", ImmutableList.of("test_orders_view"));
+
+        Consumer<String> testQueryWithDeniedPrivilege = query -> {
+            // Verify checking the base table instead of the materialized view for SELECT permission
+            assertAccessDenied(
+                    invokerSession,
+                    query,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(invokerSession.getUser(), "test_orders_base", SELECT_COLUMN));
+            assertAccessAllowed(
+                    invokerSession,
+                    query,
+                    privilege(invokerSession.getUser(), "test_orders_view", SELECT_COLUMN));
+        };
+
+        try {
+            // Check for both the direct materialized view query and the base table query optimization with materialized view
+            String directMaterializedViewQuery = "SELECT totalprice, orderstatus FROM test_orders_view";
+            String queryWithMaterializedViewOptimization = "SELECT SUM(totalprice) AS totalprice, orderstatus FROM test_orders_base GROUP BY orderstatus";
+
+            // Test when the materialized view is not materialized yet
+            testQueryWithDeniedPrivilege.accept(directMaterializedViewQuery);
+            testQueryWithDeniedPrivilege.accept(queryWithMaterializedViewOptimization);
+
+            // Test when the materialized view is partially materialized
+            queryRunner.execute(ownerSession, "REFRESH MATERIALIZED VIEW test_orders_view WHERE orderstatus = 'F'");
+            testQueryWithDeniedPrivilege.accept(directMaterializedViewQuery);
+            testQueryWithDeniedPrivilege.accept(queryWithMaterializedViewOptimization);
+
+            // Test when the materialized view is fully materialized
+            queryRunner.execute(ownerSession, "REFRESH MATERIALIZED VIEW test_orders_view WHERE orderstatus <> 'F'");
+            testQueryWithDeniedPrivilege.accept(directMaterializedViewQuery);
+            testQueryWithDeniedPrivilege.accept(queryWithMaterializedViewOptimization);
+        }
+        finally {
+            queryRunner.execute(ownerSession, "DROP MATERIALIZED VIEW test_orders_view");
+            queryRunner.execute(ownerSession, "DROP TABLE test_orders_base");
+        }
+    }
+
+    @Test
+    public void testRefreshMaterializedViewAccessControl()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session invokerSession = Session.builder(getSession())
+                .setIdentity(new Identity("test_view_invoker", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+        Session ownerSession = getSession();
+
+        queryRunner.execute(
+                ownerSession,
+                "CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
+        queryRunner.execute(
+                ownerSession,
+                "CREATE MATERIALIZED VIEW test_orders_view " +
+                        "WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT orderkey, totalprice, orderstatus FROM test_orders_base");
+
+        String refreshMaterializedView = "REFRESH MATERIALIZED VIEW test_orders_view WHERE orderstatus = 'F'";
+
+        try {
+            // Verify that refresh checks the owner's permission instead of the invoker's permission on the base table
+            assertAccessDenied(
+                    invokerSession,
+                    refreshMaterializedView,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(ownerSession.getUser(), "test_orders_base", SELECT_COLUMN));
+            assertAccessAllowed(
+                    invokerSession,
+                    refreshMaterializedView,
+                    privilege(invokerSession.getUser(), "test_orders_base", SELECT_COLUMN));
+
+            // Verify that refresh checks owner's permission instead of the invokers permission on the materialized view.
+            // Verify that refresh requires INSERT_TABLE permission instead of SELECT_COLUMN permission on the materialized view.
+            assertAccessDenied(
+                    invokerSession,
+                    refreshMaterializedView,
+                    "Cannot insert into table .*test_orders_view.*",
+                    privilege(ownerSession.getUser(), "test_orders_view", INSERT_TABLE));
+            assertAccessAllowed(
+                    invokerSession,
+                    refreshMaterializedView,
+                    privilege(invokerSession.getUser(), "test_orders_view", INSERT_TABLE));
+            assertAccessAllowed(
+                    invokerSession,
+                    refreshMaterializedView,
+                    privilege(ownerSession.getUser(), "test_orders_view", SELECT_COLUMN));
+            assertAccessAllowed(
+                    invokerSession,
+                    refreshMaterializedView,
+                    privilege(invokerSession.getUser(), "test_orders_view", SELECT_COLUMN));
+
+            // Verify for the owner invoking refresh
+            assertAccessDenied(
+                    ownerSession,
+                    refreshMaterializedView,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(ownerSession.getUser(), "test_orders_base", SELECT_COLUMN));
+            assertAccessDenied(
+                    ownerSession,
+                    refreshMaterializedView,
+                    "Cannot insert into table .*test_orders_view.*",
+                    privilege(ownerSession.getUser(), "test_orders_view", INSERT_TABLE));
+            assertAccessAllowed(
+                    ownerSession,
+                    refreshMaterializedView);
+        }
+        finally {
+            queryRunner.execute(ownerSession, "DROP MATERIALIZED VIEW test_orders_view");
+            queryRunner.execute(ownerSession, "DROP TABLE test_orders_base");
         }
     }
 

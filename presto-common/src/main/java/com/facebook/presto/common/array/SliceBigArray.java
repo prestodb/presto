@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.array;
+package com.facebook.presto.common.array;
 
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;

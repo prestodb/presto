@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.array.Arrays;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -37,6 +36,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
@@ -109,8 +109,8 @@ public class LongDictionaryColumnWriter
     protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
         if (dictionaryIndexCount > 0) {
-            directValues = Arrays.ensureCapacity(directValues, dictionaryIndexCount);
-            directNulls = Arrays.ensureCapacity(directNulls, dictionaryIndexCount);
+            directValues = ensureCapacity(directValues, dictionaryIndexCount);
+            directNulls = ensureCapacity(directNulls, dictionaryIndexCount);
             for (int i = 0; i < dictionaryIndexCount; i++) {
                 if (dictionaryIndexes[i] != NULL_INDEX) {
                     directValues[i] = dictionary.getValue(dictionaryIndexes[i]);

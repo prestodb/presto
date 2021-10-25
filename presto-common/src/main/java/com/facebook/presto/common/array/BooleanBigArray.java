@@ -11,47 +11,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.array;
+package com.facebook.presto.common.array;
 
 import io.airlift.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
-import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
-import static com.facebook.presto.array.BigArrays.offset;
-import static com.facebook.presto.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfDoubleArray;
+import static com.facebook.presto.common.array.BigArrays.INITIAL_SEGMENTS;
+import static com.facebook.presto.common.array.BigArrays.SEGMENT_SIZE;
+import static com.facebook.presto.common.array.BigArrays.offset;
+import static com.facebook.presto.common.array.BigArrays.segment;
+import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
-public final class DoubleBigArray
+public final class BooleanBigArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleBigArray.class).instanceSize();
-    private static final long SIZE_OF_SEGMENT = sizeOfDoubleArray(SEGMENT_SIZE);
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanBigArray.class).instanceSize();
+    private static final long SIZE_OF_SEGMENT = sizeOfBooleanArray(SEGMENT_SIZE);
 
-    private final double initialValue;
+    private final boolean initialValue;
 
-    private double[][] array;
+    private boolean[][] array;
     private long capacity;
     private int segments;
 
     /**
      * Creates a new big array containing one initial segment
      */
-    public DoubleBigArray()
+    public BooleanBigArray()
     {
-        this(0.0);
+        this(false);
     }
 
-    /**
-     * Creates a new big array containing one initial segment filled with the specified default value
-     */
-    public DoubleBigArray(double initialValue)
+    public BooleanBigArray(boolean initialValue)
     {
         this.initialValue = initialValue;
-        array = new double[INITIAL_SEGMENTS][];
+        array = new boolean[INITIAL_SEGMENTS][];
         allocateNewSegment();
     }
 
@@ -69,7 +66,7 @@ public final class DoubleBigArray
      * @param index a position in this big array.
      * @return the element of this big array at the specified position.
      */
-    public double get(long index)
+    public boolean get(long index)
     {
         return array[segment(index)][offset(index)];
     }
@@ -79,20 +76,9 @@ public final class DoubleBigArray
      *
      * @param index a position in this big array.
      */
-    public void set(long index, double value)
+    public void set(long index, boolean value)
     {
         array[segment(index)][offset(index)] = value;
-    }
-
-    /**
-     * Adds the specified value to the specified element of this big array.
-     *
-     * @param index a position in this big array.
-     * @param value the value
-     */
-    public void add(long index, double value)
-    {
-        array[segment(index)][offset(index)] += value;
     }
 
     /**
@@ -126,8 +112,8 @@ public final class DoubleBigArray
 
     private void allocateNewSegment()
     {
-        double[] newSegment = new double[SEGMENT_SIZE];
-        if (initialValue != 0.0) {
+        boolean[] newSegment = new boolean[SEGMENT_SIZE];
+        if (initialValue) {
             Arrays.fill(newSegment, initialValue);
         }
         array[segments] = newSegment;

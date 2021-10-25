@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.relation.Predicate;
 
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Arrays.fill;

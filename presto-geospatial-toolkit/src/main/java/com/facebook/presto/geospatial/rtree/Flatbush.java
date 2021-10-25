@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.geospatial.rtree;
 
-import com.facebook.presto.array.DoubleBigArray;
+import com.facebook.presto.common.array.DoubleBigArray;
 import com.facebook.presto.geospatial.Rectangle;
 import com.google.common.annotations.VisibleForTesting;
 import it.unimi.dsi.fastutil.ints.IntArrayList;

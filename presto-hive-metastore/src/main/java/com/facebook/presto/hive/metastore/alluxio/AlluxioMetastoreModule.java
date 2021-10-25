@@ -56,11 +56,17 @@ public class AlluxioMetastoreModule
     TableMasterClient provideCatalogMasterClient(AlluxioHiveMetastoreConfig config)
     {
         InstancedConfiguration conf = new InstancedConfiguration(ConfigurationUtils.defaults());
-        String address = config.getMasterAddress();
-        String[] parts = address.split(":", 2);
-        conf.set(PropertyKey.MASTER_HOSTNAME, parts[0]);
-        if (parts.length > 1) {
-            conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
+        if (config.isZookeeperEnabled()) {
+            conf.set(PropertyKey.ZOOKEEPER_ENABLED, true);
+            conf.set(PropertyKey.ZOOKEEPER_ADDRESS, config.getZookeeperAddress());
+        }
+        else {
+            String address = config.getMasterAddress();
+            String[] parts = address.split(":", 2);
+            conf.set(PropertyKey.MASTER_HOSTNAME, parts[0]);
+            if (parts.length > 1) {
+                conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
+            }
         }
         MasterClientContext context = MasterClientContext.newBuilder(ClientContext.create(conf)).build();
         return new RetryHandlingTableMasterClient(context);
