@@ -50,6 +50,10 @@
                     <artifactId>parquet-format</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.yetus</groupId>
+                    <artifactId>audience-annotations</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
@@ -402,7 +406,6 @@
                             <ignoredClassPattern>module-info</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.parquet.*</ignoredClassPattern>
-                            <ignoredClassPattern>org.apache.yetus.*</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>
