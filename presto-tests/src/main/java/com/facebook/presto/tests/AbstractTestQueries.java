@@ -2902,6 +2902,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT TRY(2/0)", "SELECT null");
         assertQuery("SELECT COALESCE(TRY(2/0), 0)", "SELECT 0");
         assertQuery("SELECT TRY(ABS(-2))", "SELECT 2");
+
+        // test try with null
+        assertQuery("SELECT TRY(1 / x) FROM (SELECT NULL as x)", "SELECT NULL");
     }
 
     @Test
