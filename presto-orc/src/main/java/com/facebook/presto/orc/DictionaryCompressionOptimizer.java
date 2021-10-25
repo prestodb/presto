@@ -105,6 +105,7 @@ public class DictionaryCompressionOptimizer
 
     public void finalOptimize(int bufferedBytes)
     {
+        updateDirectConversionCandidates();
         convertLowCompressionStreams(bufferedBytes);
     }
 
@@ -124,6 +125,8 @@ public class DictionaryCompressionOptimizer
         if (dictionaryMemoryBytes <= dictionaryMemoryMaxBytesLow) {
             return;
         }
+
+        updateDirectConversionCandidates();
 
         // before any further checks, convert all low compression streams
         bufferedBytes = convertLowCompressionStreams(bufferedBytes);
@@ -195,6 +198,12 @@ public class DictionaryCompressionOptimizer
             }
         }
         return bufferedBytes;
+    }
+
+    private void updateDirectConversionCandidates()
+    {
+        // Writers can switch to Direct encoding internally. Remove them from direct conversion candidates.
+        directConversionCandidates.removeIf(DictionaryColumnManager::isDirectEncoded);
     }
 
     private OptionalInt tryConvertToDirect(DictionaryColumnManager dictionaryWriter, int maxDirectBytes)
