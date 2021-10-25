@@ -174,6 +174,47 @@ TEST_F(SimpleFunctionTest, arrayReader) {
   assertEqualVectors(expected, result);
 }
 
+// Function that takes an array of arrays as input.
+template <typename T>
+struct ArrayArrayReaderFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<Array<Array<int64_t>>>& input) {
+    out = 0;
+    for (const auto& inner : input) {
+      if (inner.has_value()) {
+        for (const auto& v : inner.value()) {
+          if (v.has_value()) {
+            out += v.value();
+          }
+        }
+      }
+    }
+    return true;
+  }
+};
+
+TEST_F(SimpleFunctionTest, arrayArrayReader) {
+  registerFunction<ArrayArrayReaderFunction, int64_t, Array<Array<int64_t>>>(
+      {"array_array_reader_func"});
+
+  const size_t rows = arrayData.size();
+  auto arrayVector = makeArrayVector(arrayData);
+  auto result = evaluate<FlatVector<int64_t>>(
+      "array_array_reader_func(array_constructor(c0, c0))",
+      makeRowVector({arrayVector}));
+
+  auto arrayDataLocal = arrayData;
+  auto expected = makeFlatVector<int64_t>(rows, [&arrayDataLocal](auto row) {
+    return 2 *
+        std::accumulate(
+               arrayDataLocal[row].begin(), arrayDataLocal[row].end(), 0);
+  });
+  assertEqualVectors(expected, result);
+}
+
 // Some input data for the rowVector.
 static std::vector<int64_t> rowVectorCol1 = {0, 22, 44, 55, 99, 101, 9, 0};
 static std::vector<double> rowVectorCol2 =
