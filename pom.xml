@@ -2011,12 +2011,6 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>io.airlift.maven.plugins</groupId>
-                    <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>2.1</version>
-                </plugin>
-
-                <plugin>
                     <groupId>com.facebook.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
