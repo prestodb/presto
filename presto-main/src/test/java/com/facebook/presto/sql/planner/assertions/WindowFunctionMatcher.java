@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -99,9 +100,13 @@ public class WindowFunctionMatcher
                             }
                         }
                         else {
-                            if (!expectedExpression.equals(castToExpression(actualExpression))) {
-                                return false;
+                            if (expectedExpression.equals(castToExpression(actualExpression))) {
+                                return true;
                             }
+                            if (castToExpression(actualExpression) instanceof SymbolReference) {
+                                return expectedExpression.equals(symbolAliases.get((((SymbolReference) castToExpression(actualExpression))).getName()));
+                            }
+                            return false;
                         }
                     }
                     return true;

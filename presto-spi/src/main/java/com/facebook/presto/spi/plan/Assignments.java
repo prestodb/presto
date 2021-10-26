@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 
@@ -195,6 +196,20 @@ public class Assignments
                 }
             }
             assignments.put(variable, expression);
+            return this;
+        }
+
+        public Builder putIdentities(Iterable<VariableReferenceExpression> variables, Function<VariableReferenceExpression, RowExpression> toRowExpression)
+        {
+            for (VariableReferenceExpression variable : variables) {
+                putIdentity(variable, toRowExpression);
+            }
+            return this;
+        }
+
+        public Builder putIdentity(VariableReferenceExpression variable, Function<VariableReferenceExpression, RowExpression> toRowExpression)
+        {
+            put(variable, toRowExpression.apply(variable));
             return this;
         }
 

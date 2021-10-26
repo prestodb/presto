@@ -35,6 +35,7 @@ public class BuiltInFunctionHandle
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
     }
 
+    @Override
     @JsonProperty
     public Signature getSignature()
     {

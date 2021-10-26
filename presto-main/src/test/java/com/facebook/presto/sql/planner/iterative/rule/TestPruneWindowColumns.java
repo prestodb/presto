@@ -70,14 +70,16 @@ public class TestPruneWindowColumns
             UNBOUNDED_PRECEDING,
             Optional.of("startValue1"),
             CURRENT_ROW,
-            Optional.of("endValue1"));
+            Optional.of("endValue1"),
+            Optional.of("orderKey"));
 
     private static final ExpectedValueProvider<WindowNode.Frame> frameProvider2 = windowFrame(
             RANGE,
             UNBOUNDED_PRECEDING,
             Optional.of("startValue2"),
             CURRENT_ROW,
-            Optional.of("endValue2"));
+            Optional.of("endValue2"),
+            Optional.of("orderKey"));
 
     @Test
     public void testWindowNotNeeded()
@@ -223,8 +225,10 @@ public class TestPruneWindowColumns
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue1),
+                                                Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
+                                                Optional.of(orderKey),
                                                 Optional.of(new SymbolReference(startValue1.getName())).map(Expression::toString),
                                                 Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)),
                                         false),
@@ -235,8 +239,10 @@ public class TestPruneWindowColumns
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue2),
+                                                Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
+                                                Optional.of(orderKey),
                                                 Optional.of(new SymbolReference(startValue2.getName())).map(Expression::toString),
                                                 Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)),
                                         false)),

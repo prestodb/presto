@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.NotSupportedException;
 
 /**
  * FunctionHandle is a unique handle to identify the function implementation from namespaces.
@@ -22,4 +23,8 @@ import com.facebook.presto.common.CatalogSchemaName;
 public interface FunctionHandle
 {
     CatalogSchemaName getCatalogSchemaName();
+    default Signature getSignature()
+    {
+        throw new NotSupportedException("Method getSignature is not implemented.");
+    }
 }
