@@ -24,6 +24,42 @@ using namespace facebook::velox::exec;
 
 namespace {
 
+template <typename T, typename Func>
+VectorPtr fastMinMax(const VectorPtr& in, const Func& func) {
+  const auto numRows = in->size();
+  auto result = std::static_pointer_cast<FlatVector<T>>(
+      BaseVector::create(in->type()->childAt(0), numRows, in->pool()));
+  auto rawResults = result->mutableRawValues();
+
+  auto arrayVector = in->as<ArrayVector>();
+  auto rawOffsets = arrayVector->rawOffsets();
+  auto rawSizes = arrayVector->rawSizes();
+  auto rawElements = arrayVector->elements()->as<FlatVector<T>>()->rawValues();
+  for (auto row = 0; row < numRows; ++row) {
+    const auto start = rawOffsets[row];
+    const auto end = start + rawSizes[row];
+    if (start == end) {
+      result->setNull(row, true); // NULL
+    } else {
+      rawResults[row] = *func(rawElements + start, rawElements + end);
+    }
+  }
+
+  return result;
+}
+
+template <typename T>
+VectorPtr fastMin(const VectorPtr& in) {
+  return fastMinMax<T, decltype(std::min_element<const T*>)>(
+      in, std::min_element<const T*>);
+}
+
+template <typename T>
+VectorPtr fastMax(const VectorPtr& in) {
+  return fastMinMax<T, decltype(std::max_element<const T*>)>(
+      in, std::max_element<const T*>);
+}
+
 template <typename T>
 VELOX_UDF_BEGIN(array_min_simple)
 FOLLY_ALWAYS_INLINE bool call(T& out, const arg_type<Array<T>>& x) {
@@ -77,11 +113,30 @@ class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
     }
     folly::doNotOptimizeAway(cnt);
   }
+
+  template <typename F>
+  void runFastInteger(F function) {
+    folly::BenchmarkSuspender suspender;
+    vector_size_t size = 1'000;
+    auto arrayVector = vectorMaker_.arrayVector<int32_t>(
+        size,
+        [](auto row) { return row % 5; },
+        [](auto row) { return row % 23; });
+
+    auto rowVector = vectorMaker_.rowVector({arrayVector});
+    suspender.dismiss();
+
+    int cnt = 0;
+    for (auto i = 0; i < 100; i++) {
+      cnt += function(arrayVector)->size();
+    }
+    folly::doNotOptimizeAway(cnt);
+  }
 };
 
-BENCHMARK(simpleMinInteger) {
+BENCHMARK(fastMinInteger) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runInteger("array_min_simple");
+  benchmark.runFastInteger(fastMin<int32_t>);
 }
 
 BENCHMARK_RELATIVE(vectorMinInteger) {
@@ -89,14 +144,24 @@ BENCHMARK_RELATIVE(vectorMinInteger) {
   benchmark.runInteger("array_min");
 }
 
-BENCHMARK(simpleMaxInteger) {
+BENCHMARK_RELATIVE(simpleMinInteger) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runInteger("array_max_simple");
+  benchmark.runInteger("array_min_simple");
+}
+
+BENCHMARK(fastMaxInteger) {
+  ArrayMinMaxBenchmark benchmark;
+  benchmark.runFastInteger(fastMax<int32_t>);
 }
 
 BENCHMARK_RELATIVE(vectorMaxInteger) {
   ArrayMinMaxBenchmark benchmark;
   benchmark.runInteger("array_max");
+}
+
+BENCHMARK_RELATIVE(simpleMaxInteger) {
+  ArrayMinMaxBenchmark benchmark;
+  benchmark.runInteger("array_max_simple");
 }
 } // namespace
 
