@@ -96,7 +96,7 @@ public class MaterializedViewColumnMappingExtractor
     {
         super.visitComparisonExpression(node, context);
 
-        if (!context.isProcessingJoinNode()) {
+        if (!context.isWithinJoinOn()) {
             return null;
         }
 
