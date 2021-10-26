@@ -121,7 +121,8 @@ TEST_F(MapTest, differentArraySizes) {
     evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values}));
     ASSERT_TRUE(false) << "Expected an error";
   } catch (const VeloxUserError& e) {
-    ASSERT_EQ(e.message(), "Key and value arrays must be the same length");
+    ASSERT_EQ(
+        e.message(), "(0 vs. 5) Key and value arrays must be the same length");
   }
 }
 

@@ -27,16 +27,14 @@ class MapFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    VELOX_CHECK(args.size() == 2);
+    VELOX_CHECK_EQ(args.size(), 2);
 
     auto keys = args[0];
     auto values = args[1];
 
-    exec::LocalDecodedVector keysHolder(context, *keys, rows);
-    auto decodedKeys = keysHolder.get();
-
-    exec::LocalDecodedVector valuesHolder(context, *values, rows);
-    auto decodedValues = valuesHolder.get();
+    exec::DecodedArgs decodedArgs(rows, args, context);
+    auto decodedKeys = decodedArgs.at(0);
+    auto decodedValues = decodedArgs.at(1);
 
     static const char* kArrayLengthsMismatch =
         "Key and value arrays must be the same length";
@@ -50,8 +48,9 @@ class MapFunction : public exec::VectorFunction {
 
       // Check array lengths
       rows.applyToSelected([&](vector_size_t row) {
-        VELOX_USER_CHECK(
-            keysArray->sizeAt(row) == valuesArray->sizeAt(row),
+        VELOX_USER_CHECK_EQ(
+            keysArray->sizeAt(row),
+            valuesArray->sizeAt(row),
             "{}",
             kArrayLengthsMismatch);
       });
@@ -74,9 +73,9 @@ class MapFunction : public exec::VectorFunction {
 
       // Check array lengths
       rows.applyToSelected([&](vector_size_t row) {
-        VELOX_USER_CHECK(
-            keysArray->sizeAt(keyIndices[row]) ==
-                valuesArray->sizeAt(valueIndices[row]),
+        VELOX_USER_CHECK_EQ(
+            keysArray->sizeAt(keyIndices[row]),
+            valuesArray->sizeAt(valueIndices[row]),
             "{}",
             kArrayLengthsMismatch);
       });
@@ -132,7 +131,7 @@ class MapFunction : public exec::VectorFunction {
       auto size = sizes[row];
       for (vector_size_t i = 1; i < size; i++) {
         if (mapKeys->equalValueAt(mapKeys.get(), offset + i, offset + i - 1)) {
-          VELOX_USER_CHECK(false, "{}", kDuplicateKey);
+          VELOX_USER_FAIL("{}", kDuplicateKey);
         }
       }
     });
