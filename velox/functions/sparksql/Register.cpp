@@ -106,6 +106,13 @@ void registerFunctions(const std::string& prefix) {
   // broken out into a separate compilation unit to improve build latency.
   registerArithmeticFunctions(prefix);
   registerCompareFunctions(prefix);
+
+  // String sreach function
+  registerFunction<udf_starts_with, bool, Varchar, Varchar>(
+      {prefix + "startswith"});
+  registerFunction<udf_ends_with, bool, Varchar, Varchar>(
+      {prefix + "endswith"});
+  registerFunction<udf_contains, bool, Varchar, Varchar>({prefix + "contains"});
 }
 
 } // namespace sparksql

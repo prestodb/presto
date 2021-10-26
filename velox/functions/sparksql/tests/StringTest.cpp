@@ -54,6 +54,29 @@ class StringTest : public SparkFunctionBaseTest {
     return evaluateOnce<std::string, std::string>(
         "md5(c0)", {arg}, {VARBINARY()});
   }
+
+  bool compareFunction(
+      const std::string& function,
+      const std::optional<std::string>& str,
+      const std::optional<std::string>& pattern) {
+    return evaluateOnce<bool>(function + "(c0, c1)", str, pattern).value();
+  }
+
+  std::optional<bool> startsWith(
+      const std::optional<std::string>& str,
+      const std::optional<std::string>& pattern) {
+    return evaluateOnce<bool>("startsWith(c0, c1)", str, pattern);
+  }
+  std::optional<bool> endsWith(
+      const std::optional<std::string>& str,
+      const std::optional<std::string>& pattern) {
+    return evaluateOnce<bool>("endsWith(c0, c1)", str, pattern);
+  }
+  std::optional<bool> contains(
+      const std::optional<std::string>& str,
+      const std::optional<std::string>& pattern) {
+    return evaluateOnce<bool>("contains(c0, c1)", str, pattern);
+  }
 };
 
 TEST_F(StringTest, Ascii) {
@@ -116,6 +139,42 @@ TEST_F(StringTest, MD5) {
   EXPECT_EQ(md5(std::nullopt), std::nullopt);
   EXPECT_EQ(md5(""), "d41d8cd98f00b204e9800998ecf8427e");
   EXPECT_EQ(md5("Infinity"), "eb2ac5b04180d8d6011a016aeb8f75b3");
+}
+
+TEST_F(StringTest, startsWith) {
+  EXPECT_FALSE(startsWith("hello", "ello").value());
+  EXPECT_TRUE(startsWith("hello", "hell").value());
+  EXPECT_FALSE(startsWith("hello", "hello there!").value());
+  EXPECT_TRUE(startsWith("hello there!", "hello").value());
+  EXPECT_TRUE(startsWith("-- hello there!", "-").value());
+  EXPECT_TRUE(startsWith("-- hello there!", "").value());
+  EXPECT_FALSE(startsWith("-- hello there!", std::nullopt).has_value());
+  EXPECT_FALSE(startsWith(std::nullopt, "abc").has_value());
+}
+
+TEST_F(StringTest, contains) {
+  EXPECT_TRUE(contains("hello", "ello").value());
+  EXPECT_TRUE(contains("hello", "hell").value());
+  EXPECT_FALSE(contains("hello", "hello there!").value());
+  EXPECT_TRUE(contains("hello there!", "hello").value());
+  EXPECT_TRUE(contains("hello there!", "").value());
+  EXPECT_FALSE(contains("-- hello there!", std::nullopt).has_value());
+  EXPECT_FALSE(contains(std::nullopt, "abc").has_value());
+}
+
+TEST_F(StringTest, endsWith) {
+  EXPECT_TRUE(endsWith("hello", "ello").value());
+  EXPECT_FALSE(endsWith("hello", "hell").value());
+  EXPECT_FALSE(endsWith("hello", "hello there!").value());
+  EXPECT_FALSE(endsWith("hello there!", "hello").value());
+  EXPECT_TRUE(endsWith("hello there!", "!").value());
+  EXPECT_TRUE(endsWith("hello there!", "there!").value());
+  EXPECT_TRUE(endsWith("hello there!", "hello there!").value());
+  EXPECT_TRUE(endsWith("hello there!", "").value());
+  EXPECT_FALSE(endsWith("hello there!", "hello there").value());
+  EXPECT_FALSE(endsWith("-- hello there!", "hello there").value());
+  EXPECT_FALSE(endsWith("-- hello there!", std::nullopt).has_value());
+  EXPECT_FALSE(endsWith(std::nullopt, "abc").has_value());
 }
 
 } // namespace
