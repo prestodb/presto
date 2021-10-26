@@ -106,6 +106,7 @@ class PlanBuilder
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();
+
         for (Expression expression : expressions) {
             VariableReferenceExpression variable = variableAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
             projections.put(variable, castToRowExpression(translations.rewrite(expression)));
