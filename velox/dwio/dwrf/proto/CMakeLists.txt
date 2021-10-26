@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_custom_command(
-  OUTPUT dwrf_proto.pb.cc dwrf_proto.pb.h
-  COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${PROTOBUF_PROTOC_EXECUTABLE}
-          dwrf_proto.proto --cpp_out=${CMAKE_CURRENT_BINARY_DIR})
+protobuf_generate_cpp(VELOX_DWIO_DWRF_PROTO_SRCS VELOX_DWIO_DWRF_PROTO_HDRS
+                      dwrf_proto.proto)
 
-add_library(velox_dwio_dwrf_proto dwrf_proto.pb.cc)
+add_library(velox_dwio_dwrf_proto ${VELOX_DWIO_DWRF_PROTO_SRCS}
+                                  ${VELOX_DWIO_DWRF_PROTO_HDRS})
 
 # Access generated proto file with.
 #
 # #include "velox/dwio/dwrf/proto/dwrf_proto.pb.h"
-target_link_libraries(velox_dwio_dwrf_proto ${Protobuf_LIBRARIES})
+target_link_libraries(velox_dwio_dwrf_proto protobuf::libprotobuf)
 target_include_directories(velox_dwio_dwrf_proto
                            PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/../../../../)

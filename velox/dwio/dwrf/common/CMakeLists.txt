@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# for generated headers
-include_directories(${CMAKE_BINARY_DIR})
-
 add_library(
   velox_dwio_dwrf_common
   BufferedInput.cpp
