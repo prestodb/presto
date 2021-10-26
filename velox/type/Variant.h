@@ -22,6 +22,7 @@
 
 #include "folly/dynamic.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/VeloxException.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
 
@@ -540,7 +541,13 @@ struct VariantConverter {
     if (value.isNull()) {
       return variant{value.kind()};
     } else {
-      return variant{util::Converter<ToKind>::cast(value.value<FromKind>())};
+      bool nullOutput = false;
+      auto v = variant{
+          util::Converter<ToKind>::cast(value.value<FromKind>(), nullOutput)};
+      if (nullOutput) {
+        throw std::invalid_argument("Velox cast error");
+      }
+      return v;
     }
   }
 

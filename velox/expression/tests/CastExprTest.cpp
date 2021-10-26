@@ -297,6 +297,36 @@ TEST_F(CastExprTest, errorHandling) {
   queryCtx_->setConfigOverridesUnsafe({
       {core::QueryConfig::kCastIntByTruncate, "true"},
   });
+
+  testCast<std::string, int8_t>(
+      "tinyint",
+      {"-",
+       "-0",
+       " @w 123",
+       "123 ",
+       "  122",
+       "",
+       "-12-3",
+       "125.5",
+       "1234",
+       "-129",
+       "127",
+       "-128"},
+      {std::nullopt,
+       0,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       127,
+       -128},
+      false,
+      true);
+
   testCast<double, int>(
       "integer",
       {1e12, 2.5, 3.6, 100.44, -100.101},
