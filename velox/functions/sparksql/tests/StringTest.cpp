@@ -142,39 +142,39 @@ TEST_F(StringTest, MD5) {
 }
 
 TEST_F(StringTest, startsWith) {
-  EXPECT_FALSE(startsWith("hello", "ello").value());
-  EXPECT_TRUE(startsWith("hello", "hell").value());
-  EXPECT_FALSE(startsWith("hello", "hello there!").value());
-  EXPECT_TRUE(startsWith("hello there!", "hello").value());
-  EXPECT_TRUE(startsWith("-- hello there!", "-").value());
-  EXPECT_TRUE(startsWith("-- hello there!", "").value());
-  EXPECT_FALSE(startsWith("-- hello there!", std::nullopt).has_value());
-  EXPECT_FALSE(startsWith(std::nullopt, "abc").has_value());
+  EXPECT_EQ(startsWith("hello", "ello"), false);
+  EXPECT_EQ(startsWith("hello", "hell"), true);
+  EXPECT_EQ(startsWith("hello", "hello there!"), false);
+  EXPECT_EQ(startsWith("hello there!", "hello"), true);
+  EXPECT_EQ(startsWith("-- hello there!", "-"), true);
+  EXPECT_EQ(startsWith("-- hello there!", ""), true);
+  EXPECT_EQ(startsWith("-- hello there!", std::nullopt), std::nullopt);
+  EXPECT_EQ(startsWith(std::nullopt, "abc"), std::nullopt);
 }
 
 TEST_F(StringTest, contains) {
-  EXPECT_TRUE(contains("hello", "ello").value());
-  EXPECT_TRUE(contains("hello", "hell").value());
-  EXPECT_FALSE(contains("hello", "hello there!").value());
-  EXPECT_TRUE(contains("hello there!", "hello").value());
-  EXPECT_TRUE(contains("hello there!", "").value());
-  EXPECT_FALSE(contains("-- hello there!", std::nullopt).has_value());
-  EXPECT_FALSE(contains(std::nullopt, "abc").has_value());
+  EXPECT_EQ(contains("hello", "ello"), true);
+  EXPECT_EQ(contains("hello", "hell"), true);
+  EXPECT_EQ(contains("hello", "hello there!"), false);
+  EXPECT_EQ(contains("hello there!", "hello"), true);
+  EXPECT_EQ(contains("hello there!", ""), true);
+  EXPECT_EQ(contains("-- hello there!", std::nullopt), std::nullopt);
+  EXPECT_EQ(contains(std::nullopt, "abc"), std::nullopt);
 }
 
 TEST_F(StringTest, endsWith) {
-  EXPECT_TRUE(endsWith("hello", "ello").value());
-  EXPECT_FALSE(endsWith("hello", "hell").value());
-  EXPECT_FALSE(endsWith("hello", "hello there!").value());
-  EXPECT_FALSE(endsWith("hello there!", "hello").value());
-  EXPECT_TRUE(endsWith("hello there!", "!").value());
-  EXPECT_TRUE(endsWith("hello there!", "there!").value());
-  EXPECT_TRUE(endsWith("hello there!", "hello there!").value());
-  EXPECT_TRUE(endsWith("hello there!", "").value());
-  EXPECT_FALSE(endsWith("hello there!", "hello there").value());
-  EXPECT_FALSE(endsWith("-- hello there!", "hello there").value());
-  EXPECT_FALSE(endsWith("-- hello there!", std::nullopt).has_value());
-  EXPECT_FALSE(endsWith(std::nullopt, "abc").has_value());
+  EXPECT_EQ(endsWith("hello", "ello"), true);
+  EXPECT_EQ(endsWith("hello", "hell"), false);
+  EXPECT_EQ(endsWith("hello", "hello there!"), false);
+  EXPECT_EQ(endsWith("hello there!", "hello"), false);
+  EXPECT_EQ(endsWith("hello there!", "!"), true);
+  EXPECT_EQ(endsWith("hello there!", "there!"), true);
+  EXPECT_EQ(endsWith("hello there!", "hello there!"), true);
+  EXPECT_EQ(endsWith("hello there!", ""), true);
+  EXPECT_EQ(endsWith("hello there!", "hello there"), false);
+  EXPECT_EQ(endsWith("-- hello there!", "hello there"), false);
+  EXPECT_EQ(endsWith("-- hello there!", std::nullopt), std::nullopt);
+  EXPECT_EQ(endsWith(std::nullopt, "abc"), std::nullopt);
 }
 
 } // namespace
