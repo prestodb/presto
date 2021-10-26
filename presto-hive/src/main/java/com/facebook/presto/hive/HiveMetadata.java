@@ -194,6 +194,7 @@ import static com.facebook.presto.hive.HiveMaterializedViewUtils.differenceDataP
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.getMaterializedDataPredicates;
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.getViewToBasePartitionMap;
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.validateMaterializedViewPartitionColumns;
+import static com.facebook.presto.hive.HiveMaterializedViewUtils.viewToBaseTableOnOuterJoinSideIndirectMappedPartitions;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
@@ -2324,7 +2325,8 @@ public class HiveMetadata
                 format("materialized view table %s is not a materialized view", materializedViewTable.getTableName()));
 
         validateMaterializedViewPartitionColumns(metastore, metastoreContext, materializedViewTable, viewDefinition);
-        Map<SchemaTableName, Map<String, String>> viewToBasePartitionMap = getViewToBasePartitionMap(materializedViewTable, baseTables, viewDefinition.getColumnMappingsAsMap());
+        Map<String, Map<SchemaTableName, String>> directColumnMappings = viewDefinition.getDirectColumnMappingsAsMap();
+        Map<SchemaTableName, Map<String, String>> viewToBasePartitionMap = getViewToBasePartitionMap(materializedViewTable, baseTables, directColumnMappings);
 
         MaterializedDataPredicates materializedDataPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, materializedViewTable, timeZone);
         if (materializedDataPredicates.getPredicateDisjuncts().isEmpty()) {
@@ -2336,10 +2338,17 @@ public class HiveMetadata
         Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables = baseTables.stream()
                 .collect(toImmutableMap(
                         baseTable -> new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName()),
-                        baseTable -> differenceDataPredicates(
-                                getMaterializedDataPredicates(metastore, metastoreContext, typeManager, baseTable, timeZone),
-                                materializedDataPredicates,
-                                viewToBasePartitionMap.getOrDefault(new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName()), ImmutableMap.of()))));
+                        baseTable -> {
+                            MaterializedDataPredicates baseTableMaterializedPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, baseTable, timeZone);
+                            SchemaTableName schemaTableName = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
+                            Map<String, String> viewToBaseIndirectMappedColumns = viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).orElse(ImmutableMap.of());
+
+                            return differenceDataPredicates(
+                                    baseTableMaterializedPredicates,
+                                    materializedDataPredicates,
+                                    viewToBasePartitionMap.getOrDefault(schemaTableName, ImmutableMap.of()),
+                                    viewToBaseIndirectMappedColumns);
+                        }));
 
         for (MaterializedDataPredicates dataPredicates : partitionsFromBaseTables.values()) {
             if (!dataPredicates.getPredicateDisjuncts().isEmpty()) {
@@ -2371,6 +2380,7 @@ public class HiveMetadata
                 viewDefinition.getBaseTables(),
                 viewDefinition.getOwner(),
                 viewDefinition.getColumnMappings(),
+                viewDefinition.getBaseTablesOnOuterJoinSide(),
                 Optional.of(getPartitionedBy(viewMetadata.getProperties())));
         Map<String, String> parameters = ImmutableMap.<String, String>builder()
                 .putAll(basicTable.getParameters())

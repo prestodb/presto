@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 
@@ -149,7 +150,17 @@ public class RefreshMaterializedViewPredicateAnalyzer
             }
 
             Map<SchemaTableName, String> baseTableColumns = viewDefinition.getColumnMappingsAsMap().get(column);
-            if (baseTableColumns != null) {
+
+            // Check if refresh condition can be mapped to a particular base table partition column. This can always be done unless base table
+            // is part of an outer join. If that is so, we leave it to filter pushdowns to find correct base table partitions.
+            boolean mappedToSingleBaseTablePartition = true;
+            if (baseTableColumns != null && node.getRight() instanceof NullLiteral) {
+                if (viewDefinition.getBaseTablesOnOuterJoinSide().stream().anyMatch(t -> baseTableColumns.containsKey(t))) {
+                    mappedToSingleBaseTablePartition = false;
+                }
+            }
+
+            if (mappedToSingleBaseTablePartition && baseTableColumns != null) {
                 for (SchemaTableName baseTable : baseTableColumns.keySet()) {
                     tablePredicatesBuilder.put(
                             baseTable,
