@@ -2494,6 +2494,44 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewSubqueryShapes()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String view1 = "orders_key_view1";
+        String view2 = "orders_key_view2";
+        String view3 = "orders_key_view3";
+        String view4 = "orders_key_view4";
+        String table1 = "orders_key_partitioned_1";
+        String table2 = "orders_key_partitioned_2";
+        String table3 = "orders_key_partitioned_3";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS SELECT 1 as a, '2020-01-01' as ds", table1));
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS SELECT 1 as a, '2020-01-01' as ds", table2));
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS SELECT 1 as a, '2020-01-01' as ds", table3));
+
+            assertQueryFails(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                            "AS SELECT t1.a, t1.ds FROM %s t1 WHERE (t1.a IN (SELECT t2.a FROM %s t2 WHERE t1.ds = t2.ds))", view1, table1, table2),
+                    ".*Subqueries are not supported for materialized view.*");
+
+            assertQueryFails(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                            "AS SELECT t1.a, t1.ds FROM %s t1 join (select t2.ds AS t2_ds, t2.a from %s t2 where (t2.a IN (SELECT t3.a FROM %s t3 WHERE t2.ds = t3.ds))) ON t1.ds = t2_ds", view2, table1, table2, table3),
+                    ".*Subqueries are not supported for materialized view.*");
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                            "AS SELECT t1.a, t1.ds FROM %s t1 join (select t2.ds AS t2_ds, t2.a from %s t2 where t2.a <= 420) ON t1.ds = t2_ds", view3, table1, table2));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view1);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view2);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view3);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view4);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table1);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table3);
+        }
+    }
+
+    @Test
     public void testMaterializedViewLateralJoin()
     {
         QueryRunner queryRunner = getQueryRunner();
