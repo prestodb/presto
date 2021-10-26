@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Unnest;
 import com.google.common.collect.ImmutableList;
 
@@ -64,11 +65,9 @@ public class MaterializedViewPlanValidator
                 process(node.getLeft(), context);
                 process(node.getRight(), context);
 
-                context.setProcessingJoinNode(true);
-                if (joinCriteria instanceof JoinOn) {
-                    process(((JoinOn) joinCriteria).getExpression(), context);
-                }
-                context.setProcessingJoinNode(false);
+                context.setWithinJoinOn(true);
+                process(((JoinOn) joinCriteria).getExpression(), context);
+                context.setWithinJoinOn(false);
 
                 break;
             case CROSS:
@@ -95,7 +94,7 @@ public class MaterializedViewPlanValidator
     @Override
     protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, MaterializedViewPlanValidatorContext context)
     {
-        if (context.isProcessingJoinNode()) {
+        if (context.isWithinJoinOn()) {
             if (!node.getOperator().equals(LogicalBinaryExpression.Operator.AND)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Only AND operator is supported for join criteria for materialized view.");
             }
@@ -107,7 +106,7 @@ public class MaterializedViewPlanValidator
     @Override
     protected Void visitComparisonExpression(ComparisonExpression node, MaterializedViewPlanValidatorContext context)
     {
-        if (context.isProcessingJoinNode()) {
+        if (context.isWithinJoinOn()) {
             if (!node.getOperator().equals(ComparisonExpression.Operator.EQUAL)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Only EQUAL join is supported for materialized view.");
             }
@@ -116,25 +115,31 @@ public class MaterializedViewPlanValidator
         return super.visitComparisonExpression(node, context);
     }
 
+    @Override
+    protected Void visitSubqueryExpression(SubqueryExpression node, MaterializedViewPlanValidatorContext context)
+    {
+        throw new SemanticException(NOT_SUPPORTED, node, "Subqueries are not supported for materialized view.");
+    }
+
     public static final class MaterializedViewPlanValidatorContext
     {
-        private boolean isProcessingJoinNode;
+        private boolean isWithinJoinOn;
         private final LinkedList<Join> joinNodeStack;
 
         public MaterializedViewPlanValidatorContext()
         {
-            isProcessingJoinNode = false;
+            isWithinJoinOn = false;
             joinNodeStack = new LinkedList<>();
         }
 
-        public boolean isProcessingJoinNode()
+        public boolean isWithinJoinOn()
         {
-            return isProcessingJoinNode;
+            return isWithinJoinOn;
         }
 
-        public void setProcessingJoinNode(boolean processingJoinNode)
+        public void setWithinJoinOn(boolean withinJoinOn)
         {
-            isProcessingJoinNode = processingJoinNode;
+            isWithinJoinOn = withinJoinOn;
         }
 
         public void pushJoinNode(Join join)
