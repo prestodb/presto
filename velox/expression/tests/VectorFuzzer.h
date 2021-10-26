@@ -57,6 +57,14 @@ class VectorFuzzer {
     // If true, the length of strings are randomly generated and `stringLength`
     // is treated as maximum length.
     bool stringVariableLength{false};
+
+    // Size of the generated array/map. If `containerVariableLength` is true,
+    // the semantic of this option becomes "container maximum length".
+    size_t containerLength{10};
+
+    // If true, the length of array/map are randomly generated and
+    // `containerLength` is treated as maximum length.
+    bool containerVariableLength{false};
   };
 
   VectorFuzzer(
@@ -76,6 +84,9 @@ class VectorFuzzer {
   // DictionaryVector.
   VectorPtr fuzzDictionary(const VectorPtr& vector);
 
+  // Returns a complex vector with randomized data and nulls.
+  VectorPtr fuzzComplex(const TypePtr& type);
+
   // Returns a "fuzzed" row vector with randomized data and nulls.
   VectorPtr fuzzRow(const RowTypePtr& rowType);
 
@@ -90,6 +101,14 @@ class VectorFuzzer {
   bool oneIn(size_t n) {
     return folly::Random::oneIn(n, rng_);
   }
+
+  VectorPtr fuzz(const TypePtr& type, vector_size_t size);
+
+  VectorPtr fuzzFlat(const TypePtr& type, vector_size_t size);
+
+  VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
+
+  VectorPtr fuzzRow(const RowTypePtr& rowType, vector_size_t size);
 
   const VectorFuzzer::Options opts_;
 

@@ -19,6 +19,7 @@
 #include <locale>
 #include "velox/type/Timestamp.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/NullsBuilder.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 namespace facebook::velox {
@@ -197,19 +198,22 @@ void fuzzFlatImpl(
 } // namespace
 
 VectorPtr VectorFuzzer::fuzz(const TypePtr& type) {
+  return fuzz(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   VectorPtr vector;
 
   // One in 5 chance of adding a constant vector.
   if (oneIn(5)) {
-    // One in 5 chance of adding a NULL constant vector.
-    if (oneIn(5)) {
-      vector = BaseVector::createNullConstant(type, opts_.vectorSize, pool_);
+    // One in <nullChance> chance of adding a NULL constant vector.
+    if (oneIn(opts_.nullChance)) {
+      vector = BaseVector::createNullConstant(type, size, pool_);
     } else {
-      vector = BaseVector::createConstant(
-          randVariant(type), opts_.vectorSize, pool_);
+      vector = BaseVector::wrapInConstant(size, 0, fuzz(type, 1));
     }
   } else {
-    vector = fuzzFlat(type);
+    vector = type->size() > 0 ? fuzzComplex(type, size) : fuzzFlat(type, size);
   }
 
   // Toss a coin and add dictionary indirections.
@@ -220,7 +224,11 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type) {
 }
 
 VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type) {
-  auto vector = BaseVector::create(type, opts_.vectorSize, pool_);
+  return fuzzFlat(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
+  auto vector = BaseVector::create(type, size, pool_);
 
   // First, fill it with random values.
   // TODO: We should bias towards edge cases (min, max, Nan, etc).
@@ -231,6 +239,66 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type) {
   for (size_t i = 0; i < vector->size(); ++i) {
     if (oneIn(opts_.nullChance)) {
       vector->setNull(i, true);
+    }
+  }
+  return vector;
+}
+
+VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type) {
+  return fuzzComplex(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
+  VectorPtr vector;
+  if (type->kind() == TypeKind::ROW) {
+    vector = fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size);
+  } else {
+    auto offsets = allocateOffsets(size, pool_);
+    auto rawOffsets = offsets->asMutable<vector_size_t>();
+    auto sizes = allocateSizes(size, pool_);
+    auto rawSizes = sizes->asMutable<vector_size_t>();
+    vector_size_t childSize = 0;
+    // Randomly creates container size.
+    for (auto i = 0; i < size; ++i) {
+      rawOffsets[i] = childSize;
+      auto length = opts_.containerVariableLength
+          ? folly::Random::rand32(rng_) % opts_.containerLength
+          : opts_.containerLength;
+      rawSizes[i] = length;
+      childSize += length;
+    }
+
+    // Generate a random null vector.
+    NullsBuilder builder{vector->size(), pool_};
+    for (size_t i = 0; i < vector->size(); ++i) {
+      if (oneIn(opts_.nullChance)) {
+        builder.setNull(i);
+      }
+    }
+    auto nulls = builder.build();
+
+    if (type->kind() == TypeKind::ARRAY) {
+      vector = std::make_shared<ArrayVector>(
+          pool_,
+          type,
+          nulls,
+          size,
+          offsets,
+          sizes,
+          fuzz(type->asArray().elementType(), childSize));
+    } else if (type->kind() == TypeKind::MAP) {
+      auto& mapType = type->asMap();
+      vector = std::make_shared<MapVector>(
+          pool_,
+          type,
+          nulls,
+          size,
+          offsets,
+          sizes,
+          fuzz(mapType.keyType(), childSize),
+          fuzz(mapType.valueType(), childSize));
+    } else {
+      VELOX_UNREACHABLE();
     }
   }
   return vector;
@@ -251,12 +319,16 @@ VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {
 }
 
 VectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
+  return fuzzRow(rowType, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType, vector_size_t size) {
   std::vector<VectorPtr> children;
   for (auto i = 0; i < rowType->size(); ++i) {
-    children.push_back(fuzz(rowType->childAt(i)));
+    children.push_back(fuzz(rowType->childAt(i), size));
   }
   return std::make_shared<RowVector>(
-      pool_, rowType, nullptr, opts_.vectorSize, std::move(children));
+      pool_, rowType, nullptr, size, std::move(children));
 }
 
 variant VectorFuzzer::randVariant(const TypePtr& arg) {
