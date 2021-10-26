@@ -234,6 +234,54 @@ public class TestHiveMaterializedViewUtils
     }
 
     @Test
+    public void testDifferenceDataOuterJoin()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
+
+        List<String> keys = ImmutableList.of("ds");
+        Column dsColumn = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
+        List<Column> partitionColumns = ImmutableList.of(dsColumn);
+        List<String> partitions = ImmutableList.of(
+                "ds=2020-01-01",
+                "ds=2020-01-02",
+                "ds=2020-01-03",
+                "ds=2020-01-04",
+                "ds=2020-01-05",
+                "ds=2020-01-06");
+
+        testMetastore.setPartitionNames(partitions);
+
+        MaterializedDataPredicates baseDataPredicates =
+                getMaterializedDataPredicates(testMetastore, metastoreContext, typeManager, getTable(partitionColumns), DateTimeZone.UTC);
+
+        // CREATE MV AS SELECT ds1 as t1.ds, ds2 as t2.ds FROM t1 LEFT JOIN t2 ON t1.ds = t2.ds
+        List<String> viewPartitions = ImmutableList.of(
+                "ds1=2020-01-02/ds2=2020-01-02",
+                "ds1=2020-01-03/ds2=null",
+                "ds1=2020-01-05/ds2=null",
+                "ds1=2020-01-05/ds2=2020-01-05");
+        List<Column> viewPartitionColumns = ImmutableList.of(new Column("ds1", HIVE_STRING, Optional.empty(), Optional.empty()), new Column("ds2", HIVE_STRING, Optional.empty(), Optional.empty()));
+        testMetastore.setPartitionNames(viewPartitions);
+
+        MaterializedDataPredicates materializedDataPredicates =
+                getMaterializedDataPredicates(testMetastore, metastoreContext, typeManager, getTable(viewPartitionColumns), DateTimeZone.UTC);
+
+        Map<String, String> materializedViewToBaseColumnMap = ImmutableMap.of("ds2", "ds");
+
+        ImmutableList.Builder<List<TestingPartitionResult>> partitionResults = ImmutableList.builder();
+        partitionResults.add(ImmutableList.of(
+                new TestingPartitionResult("ds", VARCHAR, "CAST('2020-01-01' AS varchar)")));
+        partitionResults.add(ImmutableList.of(
+                new TestingPartitionResult("ds", VARCHAR, "CAST('2020-01-04' AS varchar)")));
+        partitionResults.add(ImmutableList.of(
+                new TestingPartitionResult("ds", VARCHAR, "CAST('2020-01-06' AS varchar)")));
+
+        MaterializedDataPredicates diffDataPredicates = differenceDataPredicates(baseDataPredicates, materializedDataPredicates, materializedViewToBaseColumnMap, ImmutableMap.of("ds1", "ds"));
+        comparePredicates(diffDataPredicates, keys, partitionResults.build());
+    }
+
+    @Test
     public void testDifferenceDataPredicatesWithAlias()
     {
         TestingTypeManager typeManager = new TestingTypeManager();
@@ -518,7 +566,7 @@ public class TestHiveMaterializedViewUtils
         validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Materialized view schema.table must have at least partition to base table partition mapping for all base tables.")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Materialized view schema.table must have at least one partition column that exists in table as well")
     public void testValidateMaterializedViewPartitionColumnsNoneCommonPartition()
     {
         TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
@@ -607,6 +655,6 @@ public class TestHiveMaterializedViewUtils
             List<SchemaTableName> tables,
             Map<String, Map<SchemaTableName, String>> originalColumnMapping)
     {
-        return new ConnectorMaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, Optional.empty());
+        return new ConnectorMaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, originalColumnMapping, ImmutableList.of(), Optional.empty());
     }
 }

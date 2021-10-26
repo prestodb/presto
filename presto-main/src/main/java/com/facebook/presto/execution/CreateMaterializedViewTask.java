@@ -26,6 +26,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -43,7 +44,6 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.sql.MaterializedViewUtils.computeMaterializedViewToBaseTableColumnMappings;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
@@ -128,13 +128,16 @@ public class CreateMaterializedViewTask
                 .distinct()
                 .collect(toImmutableList());
 
+        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session);
         ConnectorMaterializedViewDefinition viewDefinition = new ConnectorMaterializedViewDefinition(
                 sql,
                 viewName.getSchemaName(),
                 viewName.getObjectName(),
                 baseTables,
                 Optional.of(session.getUser()),
-                computeMaterializedViewToBaseTableColumnMappings(analysis),
+                extractor.getMaterializedViewColumnMappings(),
+                extractor.getMaterializedViewDirectColumnMappings(),
+                extractor.getBaseTablesOnOuterJoinSide(),
                 Optional.empty());
         try {
             metadata.createMaterializedView(session, viewName.getCatalogName(), viewMetadata, viewDefinition, statement.isNotExists());
