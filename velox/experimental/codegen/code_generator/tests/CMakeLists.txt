@@ -35,7 +35,7 @@ target_link_libraries(
   velox_codegen_code_generator
   ${GTEST_BOTH_LIBRARIES}
   ${GFLAGS_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT}
   velox_core
   velox_parse_parser
@@ -53,7 +53,7 @@ target_link_libraries(
   velox_codegen_code_generator
   ${GTEST_BOTH_LIBRARIES}
   ${GFLAGS_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT}
   velox_core
   velox_parse_parser

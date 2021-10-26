@@ -38,4 +38,4 @@ target_link_libraries(
   velox_dwio_common_compression
   Boost::regex
   ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG})
+  glog::glog)

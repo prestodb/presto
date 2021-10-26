@@ -25,4 +25,4 @@ target_link_libraries(
   velox_dwio_type_fbhive
   ${gflags_LIBRARIES}
   ${GTEST_BOTH_LIBRARIES}
-  ${GLOG})
+  glog::glog)

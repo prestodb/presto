@@ -41,7 +41,7 @@ target_link_libraries(
   ${FOLLY_WITH_DEPENDENCIES}
   ${DOUBLE_CONVERSION}
   ${gflags_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT}
   dl)
 
@@ -58,7 +58,7 @@ target_link_libraries(
   ${GTEST_BOTH_LIBRARIES}
   ${FOLLY_WITH_DEPENDENCIES}
   ${gflags_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT})
 
 add_executable(bias_vector_test BiasVectorTest.cpp)
@@ -72,5 +72,5 @@ target_link_libraries(
   ${GTEST_BOTH_LIBRARIES}
   ${FOLLY_WITH_DEPENDENCIES}
   ${gflags_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT})

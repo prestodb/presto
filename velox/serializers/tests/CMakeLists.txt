@@ -17,4 +17,4 @@ add_test(velox_presto_serializer_test velox_presto_serializer_test)
 
 target_link_libraries(
   velox_presto_serializer_test velox_presto_serializer velox_vector_test_lib
-  ${GTEST_BOTH_LIBRARIES} ${gflags_LIBRARIES} ${GLOG})
+  ${GTEST_BOTH_LIBRARIES} ${gflags_LIBRARIES} glog::glog)

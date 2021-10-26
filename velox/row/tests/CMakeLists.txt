@@ -26,4 +26,4 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   ${GTEST_BOTH_LIBRARIES}
   ${GFLAGS_LIBRARIES}
-  ${GLOG})
+  glog::glog)

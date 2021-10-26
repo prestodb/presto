@@ -22,5 +22,5 @@ target_link_libraries(
   velox_arrow_bridge
   velox_vector_test_lib
   ${GTEST_BOTH_LIBRARIES}
-  ${GLOG}
+  glog::glog
   dl)

@@ -20,6 +20,6 @@ target_link_libraries(
   velox_memory
   velox_buffer
   ${GTEST_BOTH_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${gflags_LIBRARIES}
   pthread)

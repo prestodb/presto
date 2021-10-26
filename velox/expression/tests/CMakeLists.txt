@@ -40,7 +40,7 @@ target_link_libraries(
   ${GTEST_BOTH_LIBRARIES}
   ${FOLLY_WITH_DEPENDENCIES}
   ${gflags_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT})
 
 add_library(velox_vector_fuzzer VectorFuzzer.cpp)

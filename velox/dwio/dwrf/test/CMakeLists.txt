@@ -32,7 +32,7 @@ set(VELOX_LINK_LIBS
     velox_caching)
 
 set(TEST_LINK_LIBS velox_dwrf_test_utils ${gflags_LIBRARIES}
-                   ${GTEST_BOTH_LIBRARIES} ${GMock} ${GLOG} ${FILESYSTEM})
+                   ${GTEST_BOTH_LIBRARIES} ${GMock} glog::glog ${FILESYSTEM})
 
 add_executable(velox_dwio_dwrf_buffered_output_stream_test
                TestBufferedOutputStream.cpp)
@@ -57,7 +57,7 @@ target_link_libraries(
   velox_dwio_dwrf_compression_test
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
+  glog::glog
   ${LZ4}
   ${LZO}
   ${ZSTD}
@@ -255,7 +255,7 @@ target_link_libraries(
   velox_dwio_dwrf_reader_base_test
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
+  glog::glog
   ${LZ4}
   ${LZO}
   ${ZSTD}

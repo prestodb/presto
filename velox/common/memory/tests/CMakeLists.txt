@@ -29,11 +29,11 @@ target_link_libraries(
   ${GTEST_BOTH_LIBRARIES}
   ${gflags_LIBRARIES}
   ${GMock}
-  ${GLOG})
+  glog::glog)
 
 gtest_add_tests(velox_memory_test "" AUTO)
 
 add_executable(velox_fragmentation_benchmark FragmentationBenchmark.cpp)
 
-target_link_libraries(velox_fragmentation_benchmark velox_memory ${GLOG}
+target_link_libraries(velox_fragmentation_benchmark velox_memory glog::glog
                       ${GTEST_BOTH_LIBRARIES} ${gflags_LIBRARIES} pthread)

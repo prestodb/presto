@@ -87,7 +87,7 @@ target_link_libraries(
   ${Boost_FILESYSTEM_LIBRARIES}
   ${GTEST_BOTH_LIBRARIES}
   ${GFLAGS_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT}
   velox_core
   velox_codegen_utils_resource_path

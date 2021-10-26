@@ -24,5 +24,5 @@ target_link_libraries(
   ${Boost_FILESYSTEM_LIBRARIES}
   ${DOUBLE_CONVERSION}
   ${GFLAGS_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT})

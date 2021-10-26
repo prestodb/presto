@@ -25,7 +25,7 @@ target_link_libraries(
   ${FOLLY_WITH_DEPENDENCIES}
   ${GTEST_BOTH_LIBRARIES}
   ${GFLAGS_LIBRARIES}
-  ${GLOG}
+  glog::glog
   ${FMT})
 
 if(${VELOX_BUILD_TESTING})

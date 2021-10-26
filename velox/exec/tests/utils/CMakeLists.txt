@@ -14,4 +14,5 @@
 
 add_library(velox_exec_test_util FunctionUtils.cpp TempFilePath.cpp
                                  TempDirectoryPath.cpp)
-target_link_libraries(velox_exec_test_util)
+target_link_libraries(velox_exec_test_util velox_core velox_exception
+                      velox_expression)
