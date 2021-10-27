@@ -54,6 +54,7 @@ add_executable(
   TopNTest.cpp
   LimitTest.cpp
   OrderByTest.cpp
+  OperatorUtilsTest.cpp
   MergeTest.cpp
   HashJoinTest.cpp
   PlanNodeToStringTest.cpp

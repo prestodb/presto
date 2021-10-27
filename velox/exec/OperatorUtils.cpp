@@ -150,7 +150,10 @@ wrapChild(vector_size_t size, BufferPtr mapping, const VectorPtr& child) {
   }
 
   if (child->encoding() == VectorEncoding::Simple::CONSTANT) {
-    return child;
+    if (size == child->size()) {
+      return child;
+    }
+    return BaseVector::wrapInConstant(size, 0, child);
   }
 
   return BaseVector::wrapInDictionary(BufferPtr(nullptr), mapping, size, child);
