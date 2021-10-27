@@ -134,10 +134,9 @@ class ArrayMinMaxFunction : public exec::VectorFunction {
     auto arrayVector = args[0]->asUnchecked<ArrayVector>();
 
     auto elementsVector = arrayVector->elements();
-    auto elementsRows =
-        toElementRows(elementsVector->size(), rows, arrayVector);
+    exec::LocalSelectivityVector elementsRows(context, elementsVector->size());
     exec::LocalDecodedVector elementsHolder(
-        context, *elementsVector, elementsRows);
+        context, *elementsVector, *elementsRows.get());
     auto localResult = VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(
         applyTyped,
         F,
