@@ -173,6 +173,7 @@
         <module>presto-testng-services</module>
         <module>presto-node-ttl-fetchers</module>
         <module>presto-cluster-ttl-providers</module>
+        <module>presto-clickhouse</module>
     </modules>
 
     <dependencyManagement>
@@ -999,6 +1000,12 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>42.2.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>ru.yandex.clickhouse</groupId>
+                <artifactId>clickhouse-jdbc</artifactId>
+                <version>0.3.1</version>
             </dependency>
 
             <dependency>
