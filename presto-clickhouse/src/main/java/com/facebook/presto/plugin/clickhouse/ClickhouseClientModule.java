@@ -40,7 +40,7 @@ public class ClickhouseClientModule
         binder.bind(JdbcClient.class).to(ClickhouseClient.class).in(Scopes.SINGLETON);
         ConfigBinder.configBinder(binder).bindConfig(BaseJdbcConfig.class);
         ConfigBinder.configBinder(binder).bindConfig(ClickhouseConfig.class);
-        ConfigBinder.configBinder(binder).bindConfig(HttpPost.class);
+        binder.bind(HttpPost.class).toInstance(new HttpPost());  // to add httpclient
     }
 
     @Provides
