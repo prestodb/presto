@@ -23,6 +23,8 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.util.Asserts;
 import ru.yandex.clickhouse.ClickHouseDriver;
 
 import java.sql.Driver;
@@ -38,6 +40,7 @@ public class ClickhouseClientModule
         binder.bind(JdbcClient.class).to(ClickhouseClient.class).in(Scopes.SINGLETON);
         ConfigBinder.configBinder(binder).bindConfig(BaseJdbcConfig.class);
         ConfigBinder.configBinder(binder).bindConfig(ClickhouseConfig.class);
+        ConfigBinder.configBinder(binder).bindConfig(HttpPost.class);
     }
 
     @Provides
@@ -46,6 +49,7 @@ public class ClickhouseClientModule
             throws SQLException
     {
         Properties connectionProperties = new Properties();
+        Asserts.notEmpty(config.getConnectionUrl(), "connection-url");
         return (ConnectionFactory) new DriverConnectionFactory((Driver) new ClickHouseDriver(),
                 config.getConnectionUrl(),
                 Optional.ofNullable(config.getUserCredentialName()),
