@@ -36,29 +36,30 @@ void registerFunctions() {
   registerFunction<udf_json_extract_scalar, Varchar, Varchar, Varchar>();
 
   // Register string functions.
-  registerFunction<udf_chr, Varchar, int64_t>();
-  registerFunction<udf_codepoint, int32_t, Varchar>();
+  registerFunction<ChrFunction, Varchar, int64_t>({"chr"});
+  registerFunction<CodePointFunction, int32_t, Varchar>({"codepoint"});
 
-  registerFunction<udf_substr<int64_t>, Varchar, Varchar, int64_t>();
-  registerFunction<udf_substr<int64_t>, Varchar, Varchar, int64_t, int64_t>();
-  registerFunction<udf_substr<int32_t>, Varchar, Varchar, int32_t>();
-  registerFunction<udf_substr<int32_t>, Varchar, Varchar, int32_t, int32_t>();
+  registerFunction<SubstrFunction, Varchar, Varchar, int64_t>({"substr"});
+  registerFunction<SubstrFunction, Varchar, Varchar, int64_t, int64_t>(
+      {"substr"});
+  registerFunction<SubstrFunction, Varchar, Varchar, int32_t>({"substr"});
+  registerFunction<SubstrFunction, Varchar, Varchar, int32_t, int32_t>(
+      {"substr"});
 
-  registerFunction<udf_trim<true, true>, Varchar, Varchar>({"trim"});
-  registerFunction<udf_trim<true, false>, Varchar, Varchar>({"ltrim"});
-  registerFunction<udf_trim<false, true>, Varchar, Varchar>({"rtrim"});
+  registerFunction<TrimFunction, Varchar, Varchar>({"trim"});
+  registerFunction<LTrimFunction, Varchar, Varchar>({"ltrim"});
+  registerFunction<RTrimFunction, Varchar, Varchar>({"rtrim"});
 
   // Register hash functions.
-  registerFunction<udf_xxhash64, Varbinary, Varbinary>({"xxhash64"});
-  registerFunction<udf_md5<Varbinary, Varbinary>, Varbinary, Varbinary>(
-      {"md5"});
+  registerFunction<XxHash64Function, Varbinary, Varbinary>({"xxhash64"});
+  registerFunction<Md5Function, Varbinary, Varbinary>({"md5"});
 
-  registerFunction<udf_to_hex, Varchar, Varbinary>();
-  registerFunction<udf_from_hex, Varbinary, Varchar>();
-  registerFunction<udf_to_base64, Varchar, Varbinary>();
-  registerFunction<udf_from_base64, Varbinary, Varchar>();
-  registerFunction<udf_url_encode, Varchar, Varchar>();
-  registerFunction<udf_url_decode, Varchar, Varchar>();
+  registerFunction<ToHexFunction, Varchar, Varbinary>({"to_hex"});
+  registerFunction<FromHexFunction, Varbinary, Varchar>({"from_hex"});
+  registerFunction<ToBase64Function, Varchar, Varbinary>({"to_base64"});
+  registerFunction<FromBase64Function, Varbinary, Varchar>({"from_base64"});
+  registerFunction<UrlEncodeFunction, Varchar, Varchar>({"url_encode"});
+  registerFunction<UrlDecodeFunction, Varchar, Varchar>({"url_decode"});
 
   // Date time functions.
   registerFunction<ToUnixtimeFunction, double, Timestamp>(

@@ -67,9 +67,9 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<udf_chr, Varchar, int64_t>();
   registerFunction<udf_ascii, int32_t, Varchar>();
 
-  registerFunction<udf_substr<int32_t>, Varchar, Varchar, int32_t>(
+  registerFunction<SubstrFunction, Varchar, Varchar, int32_t>(
       {prefix + "substring"});
-  registerFunction<udf_substr<int32_t>, Varchar, Varchar, int32_t, int32_t>(
+  registerFunction<SubstrFunction, Varchar, Varchar, int32_t, int32_t>(
       {prefix + "substring"});
 
   exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
