@@ -269,8 +269,8 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
     }
 
     // Generate a random null vector.
-    NullsBuilder builder{vector->size(), pool_};
-    for (size_t i = 0; i < vector->size(); ++i) {
+    NullsBuilder builder{size, pool_};
+    for (size_t i = 0; i < size; ++i) {
       if (oneIn(opts_.nullChance)) {
         builder.setNull(i);
       }
