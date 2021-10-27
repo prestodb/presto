@@ -940,15 +940,12 @@ public class PrestoSparkQueryExecutionFactory
 
             List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> rddResults;
             try {
-                Optional<TransactionInfo> transaction = session.getTransactionId()
-                        .flatMap(transactionManager::getOptionalTransactionInfo);
                 rddResults = doExecute(fragmentedPlan);
                 queryStateTimer.beginFinishing();
                 commit(session, transactionManager);
                 queryStateTimer.endQuery();
             }
             catch (Throwable executionException) {
-                executionException.printStackTrace();
                 queryStateTimer.beginFinishing();
                 try {
                     rollback(session, transactionManager);
