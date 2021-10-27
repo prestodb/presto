@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
@@ -108,13 +109,17 @@ class PlanBuilder
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();
+
+        // Don't process the same identifier in the same scope
         Set<Expression> processedExpressions = new HashSet<>();
         for (Expression expression : expressions) {
             if (!processedExpressions.contains(expression)) {
                 VariableReferenceExpression variable = variableAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
                 projections.put(variable, castToRowExpression(translations.rewrite(expression)));
                 newTranslations.put(variable, expression);
-                processedExpressions.add(expression);
+                if (expression instanceof Identifier) {
+                    processedExpressions.add(expression);
+                }
             }
         }
         // Now append the new translations into the TranslationMap
