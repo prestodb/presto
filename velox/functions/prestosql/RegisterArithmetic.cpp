@@ -17,6 +17,7 @@
 
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Arithmetic.h"
+#include "velox/functions/prestosql/Bitwise.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -91,6 +92,18 @@ void registerArithmeticFunctions() {
   registerBitwiseUnaryIntegral<udf_bitwise_not>({});
   registerBitwiseBinaryIntegral<udf_bitwise_or>({});
   registerBitwiseBinaryIntegral<udf_bitwise_xor>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_arithmetic_shift_right>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_left_shift>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_right_shift>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_right_shift_arithmetic>({});
+  registerFunction<
+      udf_bitwise_logical_shift_right,
+      int64_t,
+      int64_t,
+      int64_t,
+      int64_t>({});
+  registerFunction<udf_bitwise_shift_left, int64_t, int64_t, int64_t, int64_t>(
+      {});
 }
 
 } // namespace facebook::velox::functions

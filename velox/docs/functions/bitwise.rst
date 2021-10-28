@@ -6,6 +6,18 @@ Bitwise Functions
 
     Returns the bitwise AND of ``x`` and ``y`` in 2's complement representation.
 
+.. function:: bitwise_arithmetic_shift_right(x, shift) -> [bigint]``
+
+    Returns the arithmetic right shift operation on ``x`` shifted by ``shift`` in 2’s complement representation.
+
+.. function:: bitwise_left_shift(x, shift) -> [bigint]``
+
+    Returns the left shifted value of ``x``. Here x can be of type ``TINYINT`` , ``SMALLINT``, ``INTEGER`` and ``BIGINT``.
+
+.. function:: bitwise_logical_shift_right(x, shift, bits) -> [bigint]``
+
+    Returns the logical right shift operation on ``x`` (treated as ``bits``-bit integer) shifted by ``shift``.
+
 .. function:: bitwise_not(x) -> [bigint]
 
     Returns the bitwise NOT of ``x`` in 2's complement representation.
@@ -14,6 +26,19 @@ Bitwise Functions
 
     Returns the bitwise OR of ``x`` and ``y`` in 2's complement representation.
 
+.. function:: bitwise_right_shift(x, shift) -> [bigint]``
+
+    Returns the logical right shifted value of ``x``. Here x can be of type ``TINYINT``, ``SMALLINT``, ``INTEGER`` and ``BIGINT``.
+
+.. function:: bitwise_right_shift_arithmetic(x, shift) -> [bigint]``
+
+    Returns the arithmetic right shift value of ``x``.
+
+.. function:: bitwise_shift_left(x, shift, bits) -> [bigint]``
+
+    Returns the left shift operation on ``x`` (treated as ``bits``-bit integer) shifted by ``shift``.
+
 .. function:: bitwise_xor(x, y) -> [bigint]``
 
     Returns the bitwise XOR of ``x`` and ``y`` in 2's complement representation.
+

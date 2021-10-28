@@ -284,38 +284,6 @@ FOLLY_ALWAYS_INLINE bool call(
 }
 VELOX_UDF_END();
 
-template <typename T>
-VELOX_UDF_BEGIN(bitwise_and)
-FOLLY_ALWAYS_INLINE bool call(int64_t& result, T a, T b) {
-  result = a & b;
-  return true;
-}
-VELOX_UDF_END();
-
-template <typename T>
-VELOX_UDF_BEGIN(bitwise_not)
-FOLLY_ALWAYS_INLINE bool call(int64_t& result, T a) {
-  result = ~a;
-  return true;
-}
-VELOX_UDF_END();
-
-template <typename T>
-VELOX_UDF_BEGIN(bitwise_or)
-FOLLY_ALWAYS_INLINE bool call(int64_t& result, T a, T b) {
-  result = a | b;
-  return true;
-}
-VELOX_UDF_END();
-
-template <typename T>
-VELOX_UDF_BEGIN(bitwise_xor)
-FOLLY_ALWAYS_INLINE bool call(int64_t& result, T a, T b) {
-  result = a ^ b;
-  return true;
-}
-VELOX_UDF_END();
-
 VELOX_UDF_BEGIN(radians)
 FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
   result = a * (M_PI / 180);

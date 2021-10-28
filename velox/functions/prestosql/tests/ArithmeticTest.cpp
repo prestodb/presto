@@ -384,52 +384,6 @@ TEST_F(ArithmeticTest, widthBucket) {
       "Bucket for value inf is out of range");
 }
 
-TEST_F(ArithmeticTest, bitwiseAnd) {
-  const auto bitwiseAnd = [&](std::optional<int32_t> a,
-                              std::optional<int32_t> b) {
-    return evaluateOnce<int64_t>("bitwise_and(c0, c1)", a, b);
-  };
-
-  EXPECT_EQ(bitwiseAnd(0, -1), 0);
-  EXPECT_EQ(bitwiseAnd(3, 8), 0);
-  EXPECT_EQ(bitwiseAnd(-4, 12), 12);
-  EXPECT_EQ(bitwiseAnd(60, 21), 20);
-}
-
-TEST_F(ArithmeticTest, bitwiseNot) {
-  const auto bitwiseNot = [&](std::optional<int32_t> a) {
-    return evaluateOnce<int64_t>("bitwise_not(c0)", a);
-  };
-
-  EXPECT_EQ(bitwiseNot(-1), 0);
-  EXPECT_EQ(bitwiseNot(0), -1);
-  EXPECT_EQ(bitwiseNot(2), -3);
-}
-
-TEST_F(ArithmeticTest, bitwiseOr) {
-  const auto bitwiseOr = [&](std::optional<int32_t> a,
-                             std::optional<int32_t> b) {
-    return evaluateOnce<int64_t>("bitwise_or(c0, c1)", a, b);
-  };
-
-  EXPECT_EQ(bitwiseOr(0, -1), -1);
-  EXPECT_EQ(bitwiseOr(3, 8), 11);
-  EXPECT_EQ(bitwiseOr(-4, 12), -4);
-  EXPECT_EQ(bitwiseOr(60, 21), 61);
-}
-
-TEST_F(ArithmeticTest, bitwiseXor) {
-  const auto bitwiseXor = [&](std::optional<int32_t> a,
-                              std::optional<int32_t> b) {
-    return evaluateOnce<int64_t>("bitwise_xor(c0, c1)", a, b);
-  };
-
-  EXPECT_EQ(bitwiseXor(0, -1), -1);
-  EXPECT_EQ(bitwiseXor(3, 8), 11);
-  EXPECT_EQ(bitwiseXor(-4, 12), -16);
-  EXPECT_EQ(bitwiseXor(60, 21), 41);
-}
-
 TEST_F(ArithmeticTest, radians) {
   const auto radians = [&](std::optional<double> a) {
     return evaluateOnce<double>("radians(c0)", a);
