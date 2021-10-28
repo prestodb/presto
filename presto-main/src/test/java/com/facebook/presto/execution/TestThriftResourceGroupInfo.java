@@ -26,13 +26,16 @@ import com.facebook.drift.protocol.TFacebookCompactProtocol;
 import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.protocol.TProtocol;
 import com.facebook.drift.protocol.TTransport;
+import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.server.QueryProgressStats;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
@@ -45,8 +48,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -96,6 +102,10 @@ public class TestThriftResourceGroupInfo
     private static final String FAKE_QUERY_CLIENT_INFO = "DummyClientInfo";
     private static final String FAKE_QUERY_CATALOG = "DummyCatalog";
     private static final String FAKE_QUERY_SCHEMA = "DummySchema";
+    private static final boolean FAKE_QUERY_TRUNCATED = true;
+    private static final boolean FAKE_AUTHENTICATED = true;
+    private static final List<String> FAKE_WARNING_CODES = ImmutableList.of("WARNING1");
+    private static final ErrorCode FAKE_ERROR_CODE = new ErrorCode(1234, "DUMMY_ERROR", EXTERNAL, false);
 
     // Dummy values for fake QueryProgressStats
     private static final long FAKE_ELAPSED_TIME_MILLIS = 10000L;
@@ -111,6 +121,13 @@ public class TestThriftResourceGroupInfo
     private static final boolean FAKE_BLOCKED = true;
     private static final OptionalDouble FAKE_PROGRESS_PERCENTAGE_1 = OptionalDouble.of(65.23124);
     private static final OptionalDouble FAKE_PROGRESS_PERCENTAGE_2 = OptionalDouble.of(98.235);
+    private static final long FAKE_EXECUTION_TIME_MILLIS = 124354L;
+    private static final double FAKE_CUMULATIVE_USER_MEMORY = 1234.567;
+    private static final double FAKE_CUMULATIVE_TOTAL_MEMORY = 2345.6789;
+    private static final Set<BlockedReason> FAKE_BLOCKED_REASONS = ImmutableSet.of(WAITING_FOR_MEMORY);
+    private static final int FAKE_QUEUED_DRIVERS = 123;
+    private static final int FAKE_RUNNING_DRIVERS = 234;
+    private static final int FAKE_COMPLETED_DRIVERS = 133435;
 
     private ResourceGroupInfo resourceGroupInfo;
     private List<QueryStateInfo> queryStateInfoList;
@@ -273,27 +290,35 @@ public class TestThriftResourceGroupInfo
                 FAKE_QUERY_STATE,
                 Optional.of(FAKE_QUERY_RESOURCE_GROUP_ID),
                 FAKE_QUERY,
+                FAKE_QUERY_TRUNCATED,
                 FAKE_CREATE_TIME,
                 FAKE_QUERY_REQUESTER,
+                FAKE_AUTHENTICATED,
                 Optional.of(FAKE_QUERY_SOURCE),
                 Optional.of(FAKE_QUERY_CLIENT_INFO),
                 Optional.of(FAKE_QUERY_CATALOG),
                 Optional.of(FAKE_QUERY_SCHEMA),
                 Optional.of(new ArrayList<>()),
-                Optional.of(queryProgressStats.get(0))));
+                Optional.of(queryProgressStats.get(0)),
+                FAKE_WARNING_CODES,
+                Optional.of(FAKE_ERROR_CODE)));
         queryStateInfoList.add(new QueryStateInfo(
                 FAKE_QUERY_ID_2,
                 FAKE_QUERY_STATE,
                 Optional.of(FAKE_QUERY_RESOURCE_GROUP_ID),
                 FAKE_QUERY,
+                FAKE_QUERY_TRUNCATED,
                 FAKE_CREATE_TIME,
                 FAKE_QUERY_REQUESTER,
+                FAKE_AUTHENTICATED,
                 Optional.of(FAKE_QUERY_SOURCE),
                 Optional.of(FAKE_QUERY_CLIENT_INFO),
                 Optional.of(FAKE_QUERY_CATALOG),
                 Optional.of(FAKE_QUERY_SCHEMA),
                 Optional.of(new ArrayList<>()),
-                Optional.of(queryProgressStats.get(1))));
+                Optional.of(queryProgressStats.get(1)),
+                ImmutableList.of(),
+                Optional.empty()));
     }
 
     private void setUpQueryProgressStats()
@@ -302,29 +327,43 @@ public class TestThriftResourceGroupInfo
         queryProgressStats.add(new QueryProgressStats(
                 FAKE_ELAPSED_TIME_MILLIS,
                 FAKE_QUEUED_TIME_MILLIS,
+                FAKE_EXECUTION_TIME_MILLIS,
                 FAKE_CPU_TIME_MILLS,
                 FAKE_SCHEDULED_TIME_MILLIS,
                 FAKE_CURRENT_MEMORY_BYTES,
                 FAKE_PEAK_MEMORY_BYTES,
                 FAKE_PEAK_TOTAL_MEMORY_BYTES,
                 FAKE_PEAK_TASK_TOTAL_MEMORY_BYTES,
+                FAKE_CUMULATIVE_USER_MEMORY,
+                FAKE_CUMULATIVE_TOTAL_MEMORY,
                 FAKE_INPUT_ROWS,
                 FAKE_INPUT_BYTES,
                 FAKE_BLOCKED,
-                FAKE_PROGRESS_PERCENTAGE_1));
+                Optional.of(FAKE_BLOCKED_REASONS),
+                FAKE_PROGRESS_PERCENTAGE_1,
+                FAKE_QUEUED_DRIVERS,
+                FAKE_RUNNING_DRIVERS,
+                FAKE_COMPLETED_DRIVERS));
         queryProgressStats.add(new QueryProgressStats(
                 FAKE_ELAPSED_TIME_MILLIS,
                 FAKE_QUEUED_TIME_MILLIS,
+                FAKE_EXECUTION_TIME_MILLIS,
                 FAKE_CPU_TIME_MILLS,
                 FAKE_SCHEDULED_TIME_MILLIS,
                 FAKE_CURRENT_MEMORY_BYTES,
                 FAKE_PEAK_MEMORY_BYTES,
                 FAKE_PEAK_TOTAL_MEMORY_BYTES,
                 FAKE_PEAK_TASK_TOTAL_MEMORY_BYTES,
+                FAKE_CUMULATIVE_USER_MEMORY,
+                FAKE_CUMULATIVE_TOTAL_MEMORY,
                 FAKE_INPUT_ROWS,
                 FAKE_INPUT_BYTES,
                 FAKE_BLOCKED,
-                FAKE_PROGRESS_PERCENTAGE_2));
+                Optional.empty(),
+                FAKE_PROGRESS_PERCENTAGE_2,
+                FAKE_QUEUED_DRIVERS,
+                FAKE_RUNNING_DRIVERS,
+                FAKE_COMPLETED_DRIVERS));
     }
 
     private ResourceGroupInfo getResourceGroupInfo(
