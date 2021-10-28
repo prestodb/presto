@@ -149,7 +149,7 @@ public class ParquetSchemaConverter
 
     private org.apache.parquet.schema.Type getMapType(MapType type, String name, List<String> parent)
     {
-        parent = ImmutableList.<String>builder().addAll(parent).add(name).add("map").build();
+        parent = ImmutableList.<String>builder().addAll(parent).add(name).add("key_value").build();
         Type keyType = type.getKeyType();
         Type valueType = type.getValueType();
         return Types.map(OPTIONAL)
