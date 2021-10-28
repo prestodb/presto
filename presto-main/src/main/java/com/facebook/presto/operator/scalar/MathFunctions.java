@@ -818,7 +818,7 @@ public final class MathFunctions
         UniformRealDistribution distribution = new UniformRealDistribution(a, b);
         return distribution.cumulativeProbability(value);
     }
-  
+
     @Description("Inverse of Poisson cdf given lambda (mean) parameter and probability")
     @ScalarFunction
     @SqlType(StandardTypes.INTEGER)
