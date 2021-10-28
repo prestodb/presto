@@ -23,15 +23,11 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>4.5.13</version>
-
             <exclusions>
-                <!-- elasticsearch-rest-high-level-client 6.0.0 brings in httpcore 4.4.5 vs (4.4.4) -->
                 <exclusion>
                     <groupId>org.apache.httpcomponents</groupId>
                     <artifactId>httpcore</artifactId>
                 </exclusion>
-
-                <!-- elasticsearch-rest-high-level-client 6.0.0 brings in commons-codec 1.10 vs (1.9) -->
                 <exclusion>
                     <groupId>commons-codec</groupId>
                     <artifactId>commons-codec</artifactId>
