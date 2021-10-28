@@ -38,6 +38,7 @@ public class QueryCompletedEvent
     private final Instant createTime;
     private final Instant executionStartTime;
     private final Instant endTime;
+    private final Optional<String> expandedQuery;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -52,7 +53,8 @@ public class QueryCompletedEvent
             Instant executionStartTime,
             Instant endTime,
             List<StageStatistics> stageStatistics,
-            List<OperatorStatistics> operatorStatistics)
+            List<OperatorStatistics> operatorStatistics,
+            Optional<String> expandedQuery)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -67,6 +69,7 @@ public class QueryCompletedEvent
         this.endTime = requireNonNull(endTime, "endTime is null");
         this.stageStatistics = requireNonNull(stageStatistics, "stageStatistics is null");
         this.operatorStatistics = requireNonNull(operatorStatistics, "operatorStatistics is null");
+        this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
     }
 
     public QueryMetadata getMetadata()
@@ -132,5 +135,10 @@ public class QueryCompletedEvent
     public List<OperatorStatistics> getOperatorStatistics()
     {
         return operatorStatistics;
+    }
+
+    public Optional<String> getExpandedQuery()
+    {
+        return expandedQuery;
     }
 }

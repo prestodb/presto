@@ -160,6 +160,8 @@ public class Analysis
 
     private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
 
+    private Optional<String> expandedQuery = Optional.empty();
+
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
         requireNonNull(parameters);
@@ -839,6 +841,16 @@ public class Analysis
     public boolean isOrderByRedundant(OrderBy orderBy)
     {
         return redundantOrderBy.contains(NodeRef.of(orderBy));
+    }
+
+    public void setExpandedQuery(String expandedQuery)
+    {
+        this.expandedQuery = Optional.of(expandedQuery);
+    }
+
+    public Optional<String> getExpandedQuery()
+    {
+        return expandedQuery;
     }
 
     @Immutable
