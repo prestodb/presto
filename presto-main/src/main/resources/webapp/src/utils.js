@@ -35,9 +35,9 @@ const STATE_COLOR_MAP = {
     UNKNOWN_ERROR: '#943524'
 };
 
-export function getQueryStateColor(query: any): string
+export function getQueryStateColor(queryState: string, fullyBlocked: boolean, errorType: string, errorCodeName: string): string
 {
-    switch (query.state) {
+    switch (queryState) {
         case "QUEUED":
             return STATE_COLOR_MAP.QUEUED;
         case "PLANNING":
@@ -45,14 +45,14 @@ export function getQueryStateColor(query: any): string
         case "STARTING":
         case "FINISHING":
         case "RUNNING":
-            if (query.queryStats && query.queryStats.fullyBlocked) {
+            if (fullyBlocked) {
                 return STATE_COLOR_MAP.BLOCKED;
             }
             return STATE_COLOR_MAP.RUNNING;
         case "FAILED":
-            switch (query.errorType) {
+            switch (errorType) {
                 case "USER_ERROR":
-                    if (query.errorCode.name === 'USER_CANCELED') {
+                    if (errorCodeName === 'USER_CANCELED') {
                         return STATE_COLOR_MAP.CANCELED;
                     }
                     return STATE_COLOR_MAP.USER_ERROR;
@@ -96,23 +96,28 @@ export function getStageStateColor(stage: any): string
     }
 }
 
-// This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
-// necessary to compute this string, and that these fields are consistently named.
-export function getHumanReadableState(query: any): string
+export function getHumanReadableState(
+    queryState: string,
+    scheduled: boolean,
+    fullyBlocked: boolean,
+    blockedReasons: Array<mixed>,
+    memoryPool: string,
+    errorType: string,
+    errorCodeName: string): string
 {
-    if (query.state === "RUNNING") {
+    if (queryState === "RUNNING") {
         let title = "RUNNING";
 
-        if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
-            if (query.queryStats.fullyBlocked) {
+        if (scheduled) {
+            if (fullyBlocked) {
                 title = "BLOCKED";
 
-                if (query.queryStats.blockedReasons && query.queryStats.blockedReasons.length > 0) {
-                    title += " (" + query.queryStats.blockedReasons.join(", ") + ")";
+                if (blockedReasons && blockedReasons.length > 0) {
+                    title += " (" + blockedReasons.join(", ") + ")";
                 }
             }
 
-            if (query.memoryPool === "reserved") {
+            if (memoryPool === "reserved") {
                 title += " (RESERVED)"
             }
 
@@ -120,10 +125,10 @@ export function getHumanReadableState(query: any): string
         }
     }
 
-    if (query.state === "FAILED") {
-        switch (query.errorType) {
+    if (queryState === "FAILED") {
+        switch (errorType) {
             case "USER_ERROR":
-                if (query.errorCode.name === "USER_CANCELED") {
+                if (errorCodeName === "USER_CANCELED") {
                     return "USER CANCELED";
                 }
                 return "USER ERROR";
@@ -136,33 +141,31 @@ export function getHumanReadableState(query: any): string
         }
     }
 
-    return query.state;
+    return queryState;
 }
 
-export function getProgressBarPercentage(query: any): number
+export function getProgressBarPercentage(progress: number, queryState: string): number
 {
-    const progress = query.queryStats.progressPercentage;
-
     // progress bars should appear 'full' when query progress is not meaningful
-    if (!progress || query.state !== "RUNNING") {
+    if (!progress || queryState !== "RUNNING") {
         return 100;
     }
 
     return Math.round(progress);
 }
 
-export function getProgressBarTitle(query: any): string
+export function getProgressBarTitle(progress: any, queryState: string, humanReadableState: string): string
 {
-    if (query.queryStats.progressPercentage && query.state === "RUNNING") {
-        return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
+    if (progress && queryState === "RUNNING") {
+        return humanReadableState + " (" + getProgressBarPercentage(progress, queryState) + "%)";
     }
 
-    return getHumanReadableState(query)
+    return humanReadableState;
 }
 
-export function isQueryEnded(query: any): boolean
+export function isQueryEnded(queryState: any): boolean
 {
-    return ["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1;
+    return ["FINISHED", "FAILED", "CANCELED"].indexOf(queryState) > -1;
 }
 
 // Sparkline-related functions
