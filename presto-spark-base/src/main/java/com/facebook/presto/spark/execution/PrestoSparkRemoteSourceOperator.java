@@ -113,6 +113,12 @@ public class PrestoSparkRemoteSourceOperator
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+    }
+
     private void updateMemoryContext()
     {
         // Since the cache is shared, only the first PrestoSparkRemoteSourceOperator should report the cache memory

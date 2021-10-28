@@ -15,6 +15,7 @@ package com.facebook.presto.common.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.common.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.common.block.EncoderUtil.encodeNullsAsBits;
@@ -38,8 +39,9 @@ public class LongArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
+        boolean mayHaveNull = block.mayHaveNull();
         for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
+            if (!mayHaveNull || !block.isNull(position)) {
                 sliceOutput.writeLong(block.getLong(position));
             }
         }
@@ -53,9 +55,15 @@ public class LongArrayBlockEncoding
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         long[] values = new long[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position] = sliceInput.readLong();
+        if (valueIsNull == null) {
+            // No nulls present, read values array directly from input
+            sliceInput.readBytes(Slices.wrappedLongArray(values));
+        }
+        else {
+            for (int position = 0; position < values.length; position++) {
+                if (!valueIsNull[position]) {
+                    values[position] = sliceInput.readLong();
+                }
             }
         }
 

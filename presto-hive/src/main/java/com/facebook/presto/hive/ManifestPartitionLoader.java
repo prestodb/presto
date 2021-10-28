@@ -103,7 +103,7 @@ public class ManifestPartitionLoader
 
         // TODO: Add support for more manifest versions
         // Verify the manifest version
-        verify(VERSION_1.equals(parameters.get(MANIFEST_VERSION)), format("Manifest version is not equal to %s", VERSION_1));
+        verify(VERSION_1.equals(parameters.get(MANIFEST_VERSION)), "Manifest version is not equal to %s", VERSION_1);
 
         List<String> fileNames = decompressFileNames(parameters.get(FILE_NAMES));
         List<Long> fileSizes = decompressFileSizes(parameters.get(FILE_SIZES));
@@ -156,7 +156,7 @@ public class ManifestPartitionLoader
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
                 .orElse(table.getDataColumns().size());
-        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
+        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), partitionName);
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
@@ -175,7 +175,7 @@ public class ManifestPartitionLoader
                         partitionKeys,
                         partitionName,
                         partitionDataColumnCount,
-                        partition.getPartitionSchemaDifference(),
+                        partition.getTableToPartitionMapping(),
                         Optional.empty(),
                         partition.getRedundantColumnDomains()),
                 schedulerUsesHostAddresses,

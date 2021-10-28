@@ -14,6 +14,7 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.util.EmbeddedKafka;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -28,18 +29,14 @@ import static com.facebook.presto.kafka.util.EmbeddedKafka.createEmbeddedKafka;
 public class TestKafkaDistributed
         extends AbstractTestQueries
 {
-    private final EmbeddedKafka embeddedKafka;
+    private EmbeddedKafka embeddedKafka;
 
-    public TestKafkaDistributed()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedKafka());
-    }
-
-    public TestKafkaDistributed(EmbeddedKafka embeddedKafka)
-    {
-        super(() -> createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
-        this.embeddedKafka = embeddedKafka;
+        this.embeddedKafka = createEmbeddedKafka();
+        return createKafkaQueryRunner(embeddedKafka, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)

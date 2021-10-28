@@ -24,6 +24,7 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.testng.Assert.assertTrue;
@@ -86,11 +88,14 @@ public class MemoryLocalQueryRunner
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 new DataSize(4, GIGABYTE),
-                spillSpaceTracker);
+                spillSpaceTracker,
+                listJsonCodec(TaskMemoryReservationSummary.class));
 
         TaskContext taskContext = queryContext
-                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),
+                .addTaskContext(
+                        new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),
                         localQueryRunner.getDefaultSession(),
+                        Optional.empty(),
                         false,
                         false,
                         false,

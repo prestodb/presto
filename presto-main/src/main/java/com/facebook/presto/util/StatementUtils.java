@@ -20,10 +20,12 @@ import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -31,6 +33,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -41,6 +44,7 @@ import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -85,6 +89,7 @@ public final class StatementUtils
 
         builder.put(CreateTableAsSelect.class, QueryType.INSERT);
         builder.put(Insert.class, QueryType.INSERT);
+        builder.put(RefreshMaterializedView.class, QueryType.INSERT);
 
         builder.put(Delete.class, QueryType.DELETE);
 
@@ -106,6 +111,7 @@ public final class StatementUtils
         builder.put(CreateSchema.class, QueryType.DATA_DEFINITION);
         builder.put(DropSchema.class, QueryType.DATA_DEFINITION);
         builder.put(RenameSchema.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateType.class, QueryType.DATA_DEFINITION);
         builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
         builder.put(RenameTable.class, QueryType.DATA_DEFINITION);
@@ -114,6 +120,8 @@ public final class StatementUtils
         builder.put(DropTable.class, QueryType.DATA_DEFINITION);
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
+        builder.put(DropMaterializedView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateFunction.class, QueryType.DATA_DEFINITION);
         builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
         builder.put(DropFunction.class, QueryType.DATA_DEFINITION);

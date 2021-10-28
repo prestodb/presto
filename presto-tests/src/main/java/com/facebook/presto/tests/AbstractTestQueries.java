@@ -49,6 +49,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
+import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -141,11 +147,6 @@ public abstract class AbstractTestQueries
 
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    protected AbstractTestQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testParsingError()
     {
@@ -153,7 +154,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void selectLargeInterval()
+    public void testSelectLargeInterval()
     {
         MaterializedResult result = computeActual("SELECT INTERVAL '30' DAY");
         assertEquals(result.getRowCount(), 1);
@@ -164,8 +165,78 @@ public abstract class AbstractTestQueries
         assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Short.MAX_VALUE, 0));
     }
 
+    @Test(enabled = false)
+    public void testEmptyJoins()
+    {
+        Session sessionWithEmptyJoin = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "true")
+                .build();
+        Session sessionWithoutEmptyJoin = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "false")
+                .build();
+        emptyJoinQueries(sessionWithEmptyJoin);
+        emptyJoinQueries(sessionWithoutEmptyJoin);
+    }
+
+    private void emptyJoinQueries(Session session)
+    {
+        // Empty predicate and inner join
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Empty non-null producing side for outer join.
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT left outer join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // 3 way join with empty non-null producing side for outer join
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT"
+                        + " left outer join customer C1 on DT.custkey=C1.custkey"
+                        + " left outer join customer C2 on C1.custkey=C2.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Zero limit
+        assertQuery(session, "select 1 from (select * from orders LIMIT 0) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Negative test.
+        assertQuery(session, "select 1 from (select * from orders) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders");
+
+        // Empty null producing side for outer join.
+        assertQuery(session, "select 1 from (select * from orders) ORD left outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select 1 from orders");
+
+        // Empty null producing side for left outer join with constant field.
+        assertQuery(session, "select One from (select * from orders) ORD left outer join (select 1 as One, custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select null as One from orders");
+
+        // Empty null producing side for right outer join with constant field.
+        assertQuery(session, "select One from (select 1 as One, custkey from customer where 1=0) CUST right outer join (select * from orders) ORD " +
+                        " ON ORD.custkey=CUST.custkey",
+                "select null as One from orders");
+
+        // 3 way join with mix of left and right outer joins. DT left outer join C1 right outer join O2.
+        // DT is empty which produces DT right outer join O2 which produce O2 as final result.
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT"
+                        + " left outer join customer C1 on DT.custkey=C1.custkey"
+                        + " right outer join orders O2 on C1.custkey=O2.custkey",
+                "select 1 from orders");
+
+        // Empty side for full outer join.
+        assertQuery(session, "select 1 from (select * from orders) ORD full outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select 1 from orders");
+
+        // Empty side for full outer join as input to aggregation.
+        assertQuery(session, "select count(*), orderkey from (select * from orders) ORD full outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey group by orderkey order by orderkey",
+                "select count(*), orderkey from orders group by orderkey order by orderkey");
+    }
+
     @Test
-    public void selectNull()
+    public void testSelectNull()
     {
         assertQuery("SELECT NULL");
     }
@@ -940,6 +1011,34 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOffset()
+    {
+        Session localSession = Session.builder(getSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+        String values = "(VALUES ('A', 3), ('D', 2), ('C', 1), ('B', 4)) AS t(x, y)";
+
+        MaterializedResult actual = computeActual(localSession, "SELECT x FROM " + values + " OFFSET 2 ROWS");
+        MaterializedResult all = computeExpected("SELECT x FROM " + values, actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 2);
+        assertNotEquals(actual.getMaterializedRows().get(0), actual.getMaterializedRows().get(1));
+        assertContains(all, actual);
+    }
+
+    @Test
+    public void testOffsetEmptyResult()
+    {
+        Session localSession = Session.builder(getSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation OFFSET 100 ROWS LIMIT 20");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS LIMIT 20");
+    }
+
+    @Test
     public void testRepeatedAggregations()
     {
         assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM orders");
@@ -1154,6 +1253,11 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT a, sum(b), grouping(a) FROM (VALUES ('h', 11, 0), ('k', 7, 0)) AS t (a, b, c) GROUP BY GROUPING SETS (a)",
                 "VALUES ('h', 11, 0), ('k', 7, 0)");
+
+        // Grouping sets with limit
+        assertQuery(
+                "SELECT a, sum(b) as sum FROM (VALUES ('h', 11), ('h', 12), ('k', 7)) AS t (a, b) GROUP BY GROUPING SETS ((), a) order by sum limit 1",
+                "VALUES ('k',7)");
 
         assertQuery(
                 "SELECT a, b, sum(c), grouping(a, b) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7) ) AS t (a, b, c) GROUP BY GROUPING SETS ( (a), (b)) HAVING grouping(a, b) > 1 ",
@@ -2798,6 +2902,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT TRY(2/0)", "SELECT null");
         assertQuery("SELECT COALESCE(TRY(2/0), 0)", "SELECT 0");
         assertQuery("SELECT TRY(ABS(-2))", "SELECT 2");
+
+        // test try with null
+        assertQuery("SELECT TRY(1 / x) FROM (SELECT NULL as x)", "SELECT NULL");
     }
 
     @Test
@@ -3421,12 +3528,9 @@ public abstract class AbstractTestQueries
         // two level of nesting
         assertQuery("SELECT * FROM nation n WHERE 2 = (SELECT (SELECT 2 * n.nationkey))");
 
-        // redundant LIMIT in subquery
-        assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)");
-
         // explicit LIMIT in subquery
         assertQueryFails(
-                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 2) FROM (values 7) t(corr_key)",
+                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)",
                 "line 1:9: Given correlated subquery is not supported");
     }
 
@@ -4803,6 +4907,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteWithParametersInLambda()
+    {
+        String query = "SELECT filter(array[1, 2, 3], x -> x > ?)";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQuery(session, "EXECUTE my_query USING 2", "SELECT array[3]");
+    }
+
+    @Test
     public void testExecuteWithParametersInGroupBy()
     {
         try {
@@ -5657,9 +5772,119 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+    }
+
+    @Test
+    public void testMultipleOrderingOnSameCanonicalVariables()
+    {
+        assertQuerySucceeds("SELECT ARRAY_AGG( x ORDER BY x ASC, x DESC ) FROM ( SELECT 0 as x, 0 AS y)");
+    }
+
+    @Test
+    public void tesMultipleConcat()
+    {
+        assertQuery("select concat('a', '','','', 'b', '', '', 'c', 'd', '', '', '', '')", "select 'abcd'");
+        assertQuery("select concat('', '','','', '', '', '', '', '', '', '')", "select ''");
+        assertQuery("select concat('', '','','', 'x', '', '', '', '', '', '')", "select 'x'");
+    }
+
+    @Test
+    public void testReduceAggWithNulls()
+    {
+        assertQueryFails("select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+        assertQueryFails("select reduce_agg(x, cast(null as bigint), (x,y)->coalesce(x, 0)+coalesce(y, 0), (x,y)->coalesce(x, 0)+coalesce(y, 0)) from (values cast(10 as bigint),10)T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+
+        // here some reduce_aggs coalesce overflow/zero-divide errors to null in the input/combine functions
+        assertQuery("select reduce_agg(x, 0, (x,y)->try(1/x+1/y), (x,y)->try(1/x+1/y)) from ((select 0) union all select 10.) T(x)", "select null");
+        assertQuery("select reduce_agg(x, 0, (x, y)->try(x+y), (x, y)->try(x+y)) from (values 2817, 9223372036854775807) AS T(x)", "select null");
+        assertQuery("select reduce_agg(x, array[], (x, y)->array[element_at(x, 2)],  (x, y)->array[element_at(x, 2)]) from (select array[array[1]]) T(x)", "select array[null]");
+    }
+
+    @Test
+    public void testReduceAggWithMapZip()
+    {
+        Session sessionWithIntermediateAggEnabled = Session.builder(getSession())
+                .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
+                .build();
+        assertQuerySucceeds(sessionWithIntermediateAggEnabled, "select reduce_agg(x, map(), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2)), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2))) from (select map(array['k1', 'k2'], array[1e-2, 0.06]) x union all select map(array['k1', 'k2'], array[2e-05, 1e-2]) x)");
+    }
+
+    @Test
+    public void testReduceAggWithArrayConcat()
+    {
+        assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(array[] as array<bigint>), (x,y)->x||sequence(1, y), (x,y)->x||y) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
+        assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(map() as map<bigint, bigint>), (x,y) -> map_concat(x, map(sequence(1, y), repeat(1, cast(y as int)))), (x,y)->map_concat(x,y)) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
+    }
+
+    @Test
+    public void testDefaultSamplingPercent()
+    {
+        assertQuery("select key_sampling_percent('abc')", "select 0.56");
+    }
+
+    @Test
+    public void testKeyBasedSampling()
+    {
+        String[] queries = new String[] {
+                "select count(1) from orders join lineitem using(orderkey)",
+                "select count(1) from (select custkey, max(orderkey) from orders group by custkey)",
+                "select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)",
+                "select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)",
+                "select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)",
+                "select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)",
+                "select count(1) from (select distinct orderkey, custkey from orders)",
+        };
+
+        int[] unsampledResuts = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(queries[i], "select " + unsampledResuts[i]);
+        }
+
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.2")
+                .build();
+
+        int[] sampled20PercentResuts = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResuts[i]);
+        }
+
+        sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.1")
+                .build();
+
+        int[] sampled10PercentResuts = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResuts[i]);
+        }
+    }
+
+    @Test
+    public void testKeyBasedSamplingFunctionError()
+    {
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_FUNCTION, "blah")
+                .build();
+
+        assertQueryFails(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "Sampling function: blah not cannot be resolved");
+    }
+
+    @Test
+    public void testSamplingJoinChain()
+    {
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+        String query = "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey";
+
+        assertQuery(query, "select 60175");
+        assertQuery(sessionWithKeyBasedSampling, query, "select 16185");
     }
 }

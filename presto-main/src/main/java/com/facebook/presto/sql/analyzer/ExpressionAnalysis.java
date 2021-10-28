@@ -114,6 +114,11 @@ public class ExpressionAnalysis
         return quantifiedComparisons;
     }
 
+    public Map<NodeRef<Identifier>, LambdaArgumentDeclaration> getLambdaArgumentReferences()
+    {
+        return lambdaArgumentReferences;
+    }
+
     public Set<NodeRef<FunctionCall>> getWindowFunctions()
     {
         return windowFunctions;

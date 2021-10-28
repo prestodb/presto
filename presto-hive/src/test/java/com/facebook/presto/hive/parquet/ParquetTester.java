@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
@@ -152,9 +153,21 @@ public class ParquetTester
     private static final boolean OPTIMIZED = true;
     private static final HiveClientConfig HIVE_CLIENT_CONFIG = createHiveClientConfig(false, false);
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG, METASTORE_CLIENT_CONFIG);
-    private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(HIVE_CLIENT_CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveClientConfig(true, false), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-    private static final TestingConnectorSession SESSION_USE_NAME_BATCH_READS = new TestingConnectorSession(new HiveSessionProperties(createHiveClientConfig(true, true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(
+            HIVE_CLIENT_CONFIG,
+            new OrcFileWriterConfig(),
+            new ParquetFileWriterConfig(),
+            new CacheConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(
+            createHiveClientConfig(true, false),
+            new OrcFileWriterConfig(),
+            new ParquetFileWriterConfig(),
+            new CacheConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION_USE_NAME_BATCH_READS = new TestingConnectorSession(new HiveSessionProperties(
+            createHiveClientConfig(true, true),
+            new OrcFileWriterConfig(),
+            new ParquetFileWriterConfig(),
+            new CacheConfig()).getSessionProperties());
     private static final List<String> TEST_COLUMN = singletonList("test");
 
     private Set<CompressionCodecName> compressions = ImmutableSet.of();
@@ -379,7 +392,7 @@ public class ParquetTester
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
-                    writeParquetColumnPresto(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
+                    writeParquetFileFromPresto(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -457,7 +470,11 @@ public class ParquetTester
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setUseParquetColumnNames(false)
                 .setParquetMaxReadBlockSize(maxReadBlockSize);
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                config,
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
             JobConf jobConf = new JobConf();
@@ -806,7 +823,7 @@ public class ParquetTester
         return type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position);
     }
 
-    public static void writeParquetColumnPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
+    public static void writeParquetFileFromPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
@@ -847,7 +864,11 @@ public class ParquetTester
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setUseParquetColumnNames(false)
                 .setParquetMaxReadBlockSize(new DataSize(1_000, DataSize.Unit.BYTE));
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                config,
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
 
         HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), parquetMetadataSource);
         ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);

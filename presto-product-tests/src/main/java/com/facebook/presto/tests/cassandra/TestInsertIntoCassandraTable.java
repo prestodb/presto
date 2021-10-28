@@ -73,7 +73,7 @@ public class TestInsertIntoCassandraTable
         // TODO Following types are not supported now. We need to change null into the value after fixing it
         // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
         query("INSERT INTO " + tableNameInDatabase +
-                "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ti, tu, u, v, vari) VALUES (" +
+                "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ts, tu, u, v, vari) VALUES (" +
                 "'ascii value', " +
                 "BIGINT '99999', " +
                 "null, " +
@@ -124,7 +124,7 @@ public class TestInsertIntoCassandraTable
 
         // insert null for all datatypes
         query("INSERT INTO " + tableNameInDatabase +
-                "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ts, ti, tu, u, v, vari) VALUES (" +
+                "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ts, tu, u, v, vari) VALUES (" +
                 "'key 1', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null) ");
         assertThat(query(format("SELECT * FROM %s WHERE a = 'key 1'", tableNameInDatabase))).containsOnly(
                 row("key 1", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));

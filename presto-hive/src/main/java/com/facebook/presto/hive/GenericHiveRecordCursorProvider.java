@@ -72,16 +72,16 @@ public class GenericHiveRecordCursorProvider
 
         RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
                 () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns, customSplitInfo));
-
-        return Optional.of(new GenericHiveRecordCursor<>(
-                configuration,
-                path,
-                genericRecordReader(recordReader),
-                length,
-                schema,
-                columns,
-                hiveStorageTimeZone,
-                typeManager));
+        return hdfsEnvironment.doAs(session.getUser(),
+                () -> Optional.of(new GenericHiveRecordCursor<>(
+                        configuration,
+                        path,
+                        genericRecordReader(recordReader),
+                        length,
+                        schema,
+                        columns,
+                        hiveStorageTimeZone,
+                        typeManager)));
     }
 
     @SuppressWarnings("unchecked")

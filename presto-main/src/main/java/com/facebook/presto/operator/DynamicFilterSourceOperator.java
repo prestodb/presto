@@ -20,7 +20,6 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +32,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.common.predicate.Range.range;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TypeUtils.isFloatingPointNaN;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +45,8 @@ import static java.util.stream.Collectors.toSet;
 /**
  * This operator acts as a simple "pass-through" pipe, while saving its input pages.
  * The collected pages' value are used for creating a run-time filtering constraint (for probe-side table scan in an inner join).
- * We support only small build-side pages (which should be the case when using "broadcast" join).
+ * We record all values for the run-time filter only for small build-side pages (which should be the case when using "broadcast" join).
+ * For large inputs on build side, we can optionally record the min and max values per channel for orderable types (except Double and Real).
  */
 public class DynamicFilterSourceOperator
         implements Operator
@@ -86,6 +91,7 @@ public class DynamicFilterSourceOperator
         private final List<Channel> channels;
         private final int maxFilterPositionsCount;
         private final DataSize maxFilterSize;
+        private final int minMaxCollectionLimit;
 
         private boolean closed;
 
@@ -95,7 +101,8 @@ public class DynamicFilterSourceOperator
                 Consumer<TupleDomain<String>> dynamicPredicateConsumer,
                 List<Channel> channels,
                 int maxFilterPositionsCount,
-                DataSize maxFilterSize)
+                DataSize maxFilterSize,
+                int minMaxCollectionLimit)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -109,6 +116,7 @@ public class DynamicFilterSourceOperator
                     "duplicate channel indices are not allowed");
             this.maxFilterPositionsCount = maxFilterPositionsCount;
             this.maxFilterSize = maxFilterSize;
+            this.minMaxCollectionLimit = minMaxCollectionLimit;
         }
 
         @Override
@@ -121,7 +129,8 @@ public class DynamicFilterSourceOperator
                     channels,
                     planNodeId,
                     maxFilterPositionsCount,
-                    maxFilterSize);
+                    maxFilterSize,
+                    minMaxCollectionLimit);
         }
 
         @Override
@@ -143,6 +152,7 @@ public class DynamicFilterSourceOperator
     private final int maxFilterPositionsCount;
     private final long maxFilterSizeInBytes;
     private final List<Channel> channels;
+    private final List<Integer> minMaxChannels;
 
     private boolean finished;
     private Page current;
@@ -153,13 +163,20 @@ public class DynamicFilterSourceOperator
     @Nullable
     private TypedSet[] valueSets;
 
+    private int minMaxCollectionLimit;
+    @Nullable
+    private Block[] minValues;
+    @Nullable
+    private Block[] maxValues;
+
     private DynamicFilterSourceOperator(
             OperatorContext context,
             Consumer<TupleDomain<String>> dynamicPredicateConsumer,
             List<Channel> channels,
             PlanNodeId planNodeId,
             int maxFilterPositionsCount,
-            DataSize maxFilterSize)
+            DataSize maxFilterSize,
+            int minMaxCollectionLimit)
     {
         this.context = requireNonNull(context, "context is null");
         this.maxFilterPositionsCount = maxFilterPositionsCount;
@@ -170,8 +187,13 @@ public class DynamicFilterSourceOperator
 
         this.blockBuilders = new BlockBuilder[channels.size()];
         this.valueSets = new TypedSet[channels.size()];
+        ImmutableList.Builder<Integer> minMaxChannelsBuilder = ImmutableList.builder();
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Type type = channels.get(channelIndex).getType();
+            // Skipping DOUBLE and REAL in collectMinMaxValues to avoid dealing with NaN values
+            if (minMaxCollectionLimit > 0 && type.isOrderable() && type != DOUBLE && type != REAL) {
+                minMaxChannelsBuilder.add(channelIndex);
+            }
             this.blockBuilders[channelIndex] = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);
             this.valueSets[channelIndex] = new TypedSet(
                     type,
@@ -179,6 +201,12 @@ public class DynamicFilterSourceOperator
                     EXPECTED_BLOCK_BUILDER_SIZE,
                     String.format("DynamicFilterSourceOperator_%s_%d", planNodeId, channelIndex),
                     Optional.empty() /* maxBlockMemory */);
+        }
+        this.minMaxCollectionLimit = minMaxCollectionLimit;
+        minMaxChannels = minMaxChannelsBuilder.build();
+        if (!minMaxChannels.isEmpty()) {
+            minValues = new Block[channels.size()];
+            maxValues = new Block[channels.size()];
         }
     }
 
@@ -200,9 +228,24 @@ public class DynamicFilterSourceOperator
         verify(!finished, "DynamicFilterSourceOperator: addInput() shouldn't not be called after finish()");
         current = page;
         if (valueSets == null) {
-            return;  // the predicate became too large.
+            // the exact predicate became too large.
+            if (minValues == null) {
+                // there are too many rows to collect min/max range
+                return;
+            }
+            minMaxCollectionLimit -= page.getPositionCount();
+            if (minMaxCollectionLimit < 0) {
+                handleMinMaxCollectionLimitExceeded();
+                return;
+            }
+            // the predicate became too large, record only min and max values for each orderable channel
+            for (Integer channelIndex : minMaxChannels) {
+                Block block = page.getBlock(channels.get(channelIndex).index);
+                updateMinMaxValues(block, channelIndex);
+            }
+            return;
         }
-
+        minMaxCollectionLimit -= page.getPositionCount();
         // TODO: we should account for the memory used for collecting build-side values using MemoryContext
         long filterSizeInBytes = 0;
         int filterPositionsCount = 0;
@@ -224,11 +267,80 @@ public class DynamicFilterSourceOperator
 
     private void handleTooLargePredicate()
     {
-        // The resulting predicate is too large, allow all probe-side values to be read.
-        dynamicPredicateConsumer.accept(TupleDomain.all());
+        // The resulting predicate is too large
+        if (minMaxChannels.isEmpty()) {
+            // allow all probe-side values to be read.
+            dynamicPredicateConsumer.accept(TupleDomain.all());
+        }
+        else {
+            if (minMaxCollectionLimit < 0) {
+                handleMinMaxCollectionLimitExceeded();
+            }
+            else {
+                // convert to min/max per column for orderable types
+                for (Integer channelIndex : minMaxChannels) {
+                    Block block = blockBuilders[channelIndex].build();
+                    updateMinMaxValues(block, channelIndex);
+                }
+            }
+        }
+
         // Drop references to collected values.
         valueSets = null;
         blockBuilders = null;
+    }
+
+    private void handleMinMaxCollectionLimitExceeded()
+    {
+        // allow all probe-side values to be read.
+        dynamicPredicateConsumer.accept(TupleDomain.all());
+        // Drop references to collected values.
+        minValues = null;
+        maxValues = null;
+    }
+
+    private void updateMinMaxValues(Block block, int channelIndex)
+    {
+        checkState(minValues != null && maxValues != null);
+        Type type = channels.get(channelIndex).type;
+        int minValuePosition = -1;
+        int maxValuePosition = -1;
+        for (int position = 0; position < block.getPositionCount(); ++position) {
+            if (block.isNull(position)) {
+                continue;
+            }
+            if (minValuePosition == -1) {
+                // First non-null value
+                minValuePosition = position;
+                maxValuePosition = position;
+                continue;
+            }
+            if (type.compareTo(block, position, block, minValuePosition) < 0) {
+                minValuePosition = position;
+            }
+            else if (type.compareTo(block, position, block, maxValuePosition) > 0) {
+                maxValuePosition = position;
+            }
+        }
+        if (minValuePosition == -1) {
+            // all block values are nulls
+            return;
+        }
+        if (minValues[channelIndex] == null) {
+            // First Page with non-null value for this block
+            minValues[channelIndex] = block.getSingleValueBlock(minValuePosition);
+            maxValues[channelIndex] = block.getSingleValueBlock(maxValuePosition);
+            return;
+        }
+        // Compare with min/max values from previous Pages
+        Block currentMin = minValues[channelIndex];
+        Block currentMax = maxValues[channelIndex];
+        if (type.compareTo(block, minValuePosition, currentMin, 0) < 0) {
+            minValues[channelIndex] = block.getSingleValueBlock(minValuePosition);
+        }
+        if (type.compareTo(block, maxValuePosition, currentMax, 0) > 0) {
+            maxValues[channelIndex] = block.getSingleValueBlock(maxValuePosition);
+        }
     }
 
     @Override
@@ -247,12 +359,36 @@ public class DynamicFilterSourceOperator
             return;
         }
         finished = true;
+        ImmutableMap.Builder<String, Domain> domainsBuilder = ImmutableMap.builder();
         if (valueSets == null) {
-            return; // the predicate became too large.
+            if (minValues == null) {
+                // there were too many rows to collect collect min/max range
+                // dynamicPredicateConsumer was notified with 'all' in handleTooLargePredicate if there are no orderable types,
+                // else it was notified with 'all' in handleMinMaxCollectionLimitExceeded
+                return;
+            }
+            // valueSets became too large, create TupleDomain from min/max values
+            for (Integer channelIndex : minMaxChannels) {
+                Type type = channels.get(channelIndex).type;
+                if (minValues[channelIndex] == null) {
+                    // all values were null
+                    domainsBuilder.put(channels.get(channelIndex).filterId, Domain.none(type));
+                    continue;
+                }
+                Object min = readNativeValue(type, minValues[channelIndex], 0);
+                Object max = readNativeValue(type, maxValues[channelIndex], 0);
+                Domain domain = Domain.create(
+                        ValueSet.ofRanges(range(type, min, true, max, true)),
+                        false);
+                domainsBuilder.put(channels.get(channelIndex).filterId, domain);
+            }
+            minValues = null;
+            maxValues = null;
+            dynamicPredicateConsumer.accept(TupleDomain.withColumnDomains(domainsBuilder.build()));
+            return;
         }
 
         verify(blockBuilders != null, "blockBuilders is null when finish is called in DynamicFilterSourceOperator");
-        ImmutableMap.Builder<String, Domain> domainsBuilder = ImmutableMap.builder();
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Block block = blockBuilders[channelIndex].build();
             Type type = channels.get(channelIndex).getType();
@@ -267,9 +403,12 @@ public class DynamicFilterSourceOperator
     {
         ImmutableList.Builder<Object> values = ImmutableList.builder();
         for (int position = 0; position < block.getPositionCount(); ++position) {
-            Object value = TypeUtils.readNativeValue(type, block, position);
+            Object value = readNativeValue(type, block, position);
             if (value != null) {
-                values.add(value);
+                // join doesn't match rows with NaN values.
+                if (!isFloatingPointNaN(type, value)) {
+                    values.add(value);
+                }
             }
         }
         // Inner and right join doesn't match rows with null key column values.

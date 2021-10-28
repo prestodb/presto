@@ -18,12 +18,19 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.connector.thrift.ThriftSessionProperties.isUseIdentityThriftHeader;
+
 public class DefaultThriftHeaderProvider
         implements ThriftHeaderProvider
 {
+    private static final String PRESTO_CONNECTOR_IDENTITY_USER = "presto_connector_user";
+
     @Override
     public Map<String, String> getHeaders(ConnectorSession session)
     {
+        if (isUseIdentityThriftHeader(session)) {
+            return ImmutableMap.of(PRESTO_CONNECTOR_IDENTITY_USER, session.getUser());
+        }
         return ImmutableMap.of();
     }
 }

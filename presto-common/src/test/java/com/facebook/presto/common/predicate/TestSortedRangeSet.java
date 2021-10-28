@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.predicate;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
@@ -407,7 +407,7 @@ public class TestSortedRangeSet
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
-        ObjectMapper mapper = new ObjectMapperProvider().get()
+        ObjectMapper mapper = new JsonObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
                         .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
                         .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))

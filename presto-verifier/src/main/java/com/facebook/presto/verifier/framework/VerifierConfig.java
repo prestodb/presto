@@ -46,7 +46,7 @@ public class VerifierConfig
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
     private boolean smartTeardown;
-    private int verificationResubmissionLimit = 2;
+    private int verificationResubmissionLimit = 6;
 
     private boolean setupOnMainClusters = true;
     private boolean teardownOnMainClusters = true;

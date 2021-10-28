@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -27,7 +28,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriter;
-import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -79,7 +80,7 @@ public final class OrcFileRewriter
     private final CompressionKind compression;
     private final OrcDataEnvironment orcDataEnvironment;
     private final OrcFileTailSource orcFileTailSource;
-    private final StripeMetadataSource stripeMetadataSource;
+    private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
 
     OrcFileRewriter(
             ReaderAttributes readerAttributes,
@@ -89,7 +90,7 @@ public final class OrcFileRewriter
             OrcDataEnvironment orcDataEnvironment,
             CompressionKind compression,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource)
+            StripeMetadataSourceFactory stripeMetadataSourceFactory)
     {
         this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
         this.validate = validate;
@@ -98,7 +99,7 @@ public final class OrcFileRewriter
         this.orcDataEnvironment = requireNonNull(orcDataEnvironment, "orcDataEnvironment is null");
         this.compression = requireNonNull(compression, "compression is null");
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
-        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.stripeMetadataSourceFactory = requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
     }
 
     public OrcFileInfo rewrite(FileSystem fileSystem, Map<String, Type> allColumnTypes, Path input, Path output, BitSet rowsToDelete)
@@ -110,12 +111,13 @@ public final class OrcFileRewriter
                     dataSource,
                     ORC,
                     orcFileTailSource,
-                    stripeMetadataSource,
+                    stripeMetadataSourceFactory,
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");

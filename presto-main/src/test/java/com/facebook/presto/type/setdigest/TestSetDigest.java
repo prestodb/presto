@@ -14,7 +14,7 @@
 
 package com.facebook.presto.type.setdigest;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
@@ -105,7 +105,7 @@ public class TestSetDigest
         digest2.add(2);
         digest2.add(2);
 
-        ObjectMapper mapper = new ObjectMapperProvider().get();
+        ObjectMapper mapper = new JsonObjectMapperProvider().get();
 
         Slice slice = hashCounts(digest1.serialize());
         Map<Long, Short> counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<Map<Long, Short>>() {});

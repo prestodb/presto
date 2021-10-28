@@ -176,6 +176,10 @@ public class SpillableHashAggregationBuilder
     @Override
     public void finishMemoryRevoke()
     {
+        if (spiller.isPresent()) {
+            checkState(spillInProgress.isDone());
+            spiller.get().commit();
+        }
         updateMemory();
     }
 

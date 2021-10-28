@@ -481,10 +481,10 @@ public class OrcWriteValidation
             return new WriteChecksumBuilder(types.build());
         }
 
-        public void addStripe(int rowCount)
+        public void addStripe(long rowCount)
         {
-            longSlice.setInt(0, rowCount);
-            stripeHash.update(longBuffer, 0, Integer.BYTES);
+            longSlice.setLong(0, rowCount);
+            stripeHash.update(longBuffer, 0, Long.BYTES);
         }
 
         public void addPage(Page page)
@@ -604,7 +604,7 @@ public class OrcWriteValidation
             ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
             // if there are no rows, there will be no stats
             if (rowCount > 0) {
-                statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
+                statisticsBuilders.add(new ColumnStatistics(rowCount, null));
                 columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
             }
             return statisticsBuilders.build();
@@ -762,7 +762,7 @@ public class OrcWriteValidation
         @Override
         public ColumnStatistics buildColumnStatistics()
         {
-            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null);
+            return new ColumnStatistics(rowCount, null);
         }
     }
 
@@ -888,7 +888,7 @@ public class OrcWriteValidation
             return this;
         }
 
-        public OrcWriteValidationBuilder addStripe(int rowCount)
+        public OrcWriteValidationBuilder addStripe(long rowCount)
         {
             checksum.addStripe(rowCount);
             return this;

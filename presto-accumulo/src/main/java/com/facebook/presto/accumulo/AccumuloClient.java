@@ -28,7 +28,6 @@ import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.TabletSplitMetadata;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.Marker.Bound;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -921,25 +920,23 @@ public class AccumuloClient
             accumuloRange = new Range(split);
         }
         else {
-            if (prestoRange.getLow().isLowerUnbounded()) {
+            if (prestoRange.isLowUnbounded()) {
                 // If low is unbounded, then create a range from (-inf, value), checking inclusivity
-                boolean inclusive = prestoRange.getHigh().getBound() == Bound.EXACTLY;
-                Text split = new Text(serializer.encode(prestoRange.getType(), prestoRange.getHigh().getValue()));
-                accumuloRange = new Range(null, false, split, inclusive);
+                Text split = new Text(serializer.encode(prestoRange.getType(), prestoRange.getHighBoundedValue()));
+                accumuloRange = new Range(null, false, split, prestoRange.isLowInclusive());
             }
-            else if (prestoRange.getHigh().isUpperUnbounded()) {
+            else if (prestoRange.isHighUnbounded()) {
                 // If high is unbounded, then create a range from (value, +inf), checking inclusivity
-                boolean inclusive = prestoRange.getLow().getBound() == Bound.EXACTLY;
-                Text split = new Text(serializer.encode(prestoRange.getType(), prestoRange.getLow().getValue()));
-                accumuloRange = new Range(split, inclusive, null, false);
+                Text split = new Text(serializer.encode(prestoRange.getType(), prestoRange.getLowBoundedValue()));
+                accumuloRange = new Range(split, prestoRange.isHighInclusive(), null, false);
             }
             else {
                 // If high is unbounded, then create a range from low to high, checking inclusivity
-                boolean startKeyInclusive = prestoRange.getLow().getBound() == Bound.EXACTLY;
-                Text startSplit = new Text(serializer.encode(prestoRange.getType(), prestoRange.getLow().getValue()));
+                boolean startKeyInclusive = prestoRange.isLowInclusive();
+                Text startSplit = new Text(serializer.encode(prestoRange.getType(), prestoRange.getLowBoundedValue()));
 
-                boolean endKeyInclusive = prestoRange.getHigh().getBound() == Bound.EXACTLY;
-                Text endSplit = new Text(serializer.encode(prestoRange.getType(), prestoRange.getHigh().getValue()));
+                boolean endKeyInclusive = prestoRange.isHighInclusive();
+                Text endSplit = new Text(serializer.encode(prestoRange.getType(), prestoRange.getHighBoundedValue()));
                 accumuloRange = new Range(startSplit, startKeyInclusive, endSplit, endKeyInclusive);
             }
         }

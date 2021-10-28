@@ -15,7 +15,7 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -65,7 +65,7 @@ public final class TestingMetadataUtil
     }
 
     static {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer()));
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         COLUMN_CODEC = codecFactory.jsonCodec(DruidColumnHandle.class);

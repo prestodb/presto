@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
@@ -56,7 +56,7 @@ public class TestCanonicalPlanGenerator
     {
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-        this.objectMapper = new ObjectMapperProvider().get()
+        this.objectMapper = new JsonObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
                         .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
                         .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
@@ -118,6 +118,20 @@ public class TestCanonicalPlanGenerator
         assertDifferentCanonicalLeafSubPlan(
                 "SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY ROLLUP (shippriority, custkey)",
                 "SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY ROLLUP (custkey, shippriority)");
+    }
+
+    @Test
+    public void testUnnest()
+            throws Exception
+    {
+        assertSameCanonicalLeafSubPlan("" +
+                "SELECT a.custkey, t.e " +
+                "FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a " +
+                "CROSS JOIN UNNEST(my_array) AS t(e)");
+        assertSameCanonicalLeafSubPlan("" +
+                "SELECT * " +
+                "FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a " +
+                "CROSS JOIN UNNEST(my_array) WITH ORDINALITY AS t(e, ord)");
     }
 
     @Test

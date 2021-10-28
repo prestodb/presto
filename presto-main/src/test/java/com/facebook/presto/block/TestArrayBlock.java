@@ -34,6 +34,8 @@ import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestArrayBlock
@@ -108,6 +110,56 @@ public class TestArrayBlock
         assertBlock(blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
+    }
+
+    @Test
+    public void testSingleValueBlock()
+    {
+        // 1 entry array.
+        long[][] values = createTestArray(50);
+        BlockBuilder arrayBlockBuilder = createBlockBuilderWithValues(values);
+        Block arrayBlock = arrayBlockBuilder.build();
+
+        assertSame(arrayBlock, arrayBlock.getSingleValueBlock(0));
+        assertNotSame(arrayBlockBuilder, arrayBlockBuilder.getSingleValueBlock(0));
+
+        // 2 entries array.
+        values = createTestArray(50, 50);
+        arrayBlockBuilder = createBlockBuilderWithValues(values);
+        arrayBlock = arrayBlockBuilder.build();
+        Block firstElement = arrayBlock.getRegion(0, 1);
+        assertNotSame(firstElement, firstElement.getSingleValueBlock(0));
+
+        Block secondElementCopy = arrayBlock.copyRegion(1, 1);
+        assertSame(secondElementCopy, secondElementCopy.getSingleValueBlock(0));
+
+        // Test with null elements.
+        values = new long[][] {null};
+        arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, 1, 100);
+        writeValues(values, arrayBlockBuilder);
+        arrayBlock = arrayBlockBuilder.build();
+        assertSame(arrayBlock, arrayBlock.getSingleValueBlock(0));
+        assertNotSame(arrayBlock, arrayBlockBuilder.getSingleValueBlock(0));
+
+        // Test with 2 null elements.
+        values = new long[][] {null, null};
+        arrayBlockBuilder = createBlockBuilderWithValues(values);
+        arrayBlock = arrayBlockBuilder.build();
+        assertNotSame(arrayBlock, arrayBlock.getSingleValueBlock(0));
+    }
+
+    private static long[][] createTestArray(int... entryCounts)
+    {
+        long[][] result = new long[entryCounts.length][];
+        for (int rowNumber = 0; rowNumber < entryCounts.length; rowNumber++) {
+            int entryCount = entryCounts[rowNumber];
+            long[] array = new long[entryCount];
+            for (int entryNumber = 0; entryNumber < entryCount; entryNumber++) {
+                array[entryNumber] = entryNumber;
+            }
+            result[rowNumber] = array;
+        }
+        return result;
     }
 
     private static long[][][] createExpectedValues()
@@ -254,7 +306,7 @@ public class TestArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(long[][] expectedValues)
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, expectedValues.length, 100);
         return writeValues(expectedValues, blockBuilder);
     }
 

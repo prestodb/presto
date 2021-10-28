@@ -32,6 +32,8 @@ public class TestBaseJdbcConfig
                 .setConnectionUrl(null)
                 .setConnectionUser(null)
                 .setConnectionPassword(null)
+                .setUserCredentialName(null)
+                .setPasswordCredentialName(null)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
@@ -43,6 +45,8 @@ public class TestBaseJdbcConfig
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("connection-user", "user")
                 .put("connection-password", "password")
+                .put("user-credential-name", "foo")
+                .put("password-credential-name", "bar")
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .build();
@@ -51,6 +55,8 @@ public class TestBaseJdbcConfig
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setConnectionUser("user")
                 .setConnectionPassword("password")
+                .setUserCredentialName("foo")
+                .setPasswordCredentialName("bar")
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 

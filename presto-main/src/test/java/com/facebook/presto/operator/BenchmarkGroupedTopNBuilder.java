@@ -28,21 +28,28 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.CommandLineOptionException;
+import org.openjdk.jmh.runner.options.CommandLineOptions;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_LAST;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static org.testng.Assert.assertFalse;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -51,34 +58,50 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkGroupedTopNBuilder
 {
-    private static final int EXTENDED_PRICE = 0;
-    private static final int DISCOUNT = 1;
-    private static final int SHIP_DATE = 2;
-    private static final int QUANTITY = 3;
+    private static final int HASH_GROUP = 0;
+    private static final int EXTENDED_PRICE = 1;
+    private static final int DISCOUNT = 2;
+    private static final int SHIP_DATE = 3;
+    private static final int QUANTITY = 4;
 
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private final List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
+        private final List<Type> types = ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE);
         private final PageWithPositionComparator comparator = new SimplePageWithPositionComparator(
                 types,
-                ImmutableList.of(0, 2),
+                ImmutableList.of(EXTENDED_PRICE, SHIP_DATE),
                 ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST));
 
-        @Param({"1", "100", "10000", "1000000"})
-        private String topN = "1";
+        private int seed = 42;
 
         @Param({"1", "100", "10000", "1000000"})
-        private String positions = "1";
+        private int topN = 1;
 
-        private Page page;
+        @Param({"1", "100", "10000", "1000000"})
+        private int positions = 1;
+
+        @Param("1000")
+        private int positionsPerPage = 1000;
+
+        @Param({"1", "10", "1000"})
+        private int groupCount = 10;
+
+        private List<Page> page;
         private GroupedTopNBuilder topNBuilder;
 
         @Setup
         public void setup()
         {
-            page = createInputPage(Integer.valueOf(positions), types);
-            topNBuilder = new GroupedTopNBuilder(types, comparator, Integer.valueOf(topN), false, new NoChannelGroupByHash());
+            page = createInputPages(positions, types, positionsPerPage, groupCount, seed);
+            GroupByHash groupByHash;
+            if (groupCount > 1) {
+                groupByHash = new BigintGroupByHash(HASH_GROUP, true, groupCount, UpdateMemory.NOOP);
+            }
+            else {
+                groupByHash = new NoChannelGroupByHash();
+            }
+            topNBuilder = new GroupedTopNBuilder(types, comparator, topN, false, groupByHash);
         }
 
         public GroupedTopNBuilder getTopNBuilder()
@@ -86,36 +109,66 @@ public class BenchmarkGroupedTopNBuilder
             return topNBuilder;
         }
 
-        public Page getPage()
+        public List<Page> getPages()
         {
             return page;
         }
     }
 
     @Benchmark
-    public List<Page> topN(BenchmarkData data)
+    public void topN(BenchmarkData data, Blackhole blackhole)
     {
-        data.getTopNBuilder().processPage(data.getPage()).process();
-        return ImmutableList.copyOf(data.getTopNBuilder().buildResult());
+        GroupedTopNBuilder topNBuilder = data.getTopNBuilder();
+        for (Page page : data.getPages()) {
+            Work<?> work = topNBuilder.processPage(page);
+            boolean finished;
+            do {
+                finished = work.process();
+            } while (!finished);
+        }
+
+        Iterator<Page> results = topNBuilder.buildResult();
+        while (results.hasNext()) {
+            blackhole.consume(results.next());
+        }
     }
 
-    public static void main(String[] args)
-            throws RunnerException
+    public List<Page> topNToList(BenchmarkData data)
+    {
+        GroupedTopNBuilder topNBuilder = data.getTopNBuilder();
+        for (Page page : data.getPages()) {
+            Work<?> work = topNBuilder.processPage(page);
+            boolean finished;
+            do {
+                finished = work.process();
+            } while (!finished);
+        }
+        return ImmutableList.copyOf(topNBuilder.buildResult());
+    }
+
+    @Test
+    public void testTopNBenchmark()
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkGroupedTopNBuilder().topN(data);
+        assertFalse(topNToList(data).isEmpty());
+    }
 
+    public static void main(String[] args)
+            throws RunnerException, CommandLineOptionException
+    {
         Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
+                .parent(new CommandLineOptions(args))
                 .include(".*" + BenchmarkGroupedTopNBuilder.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();
     }
 
-    private static Page createInputPage(int positions, List<Type> types)
+    private static List<Page> createInputPages(int positions, List<Type> types, int positionsPerPage, int groupCount, int seed)
     {
+        Random random = new Random(seed);
+        List<Page> pages = new ArrayList<>();
         PageBuilder pageBuilder = new PageBuilder(types);
         LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
         Iterator<LineItem> iterator = lineItemGenerator.iterator();
@@ -123,11 +176,22 @@ public class BenchmarkGroupedTopNBuilder
             pageBuilder.declarePosition();
 
             LineItem lineItem = iterator.next();
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(HASH_GROUP), groupCount > 1 ? random.nextInt(groupCount) : 1);
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
             DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), lineItem.getShipDate());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
+
+            if (pageBuilder.getPositionCount() >= positionsPerPage) {
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
+            }
         }
-        return pageBuilder.build();
+
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
+
+        return pages;
     }
 }

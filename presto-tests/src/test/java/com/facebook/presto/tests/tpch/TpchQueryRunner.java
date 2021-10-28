@@ -42,6 +42,18 @@ public final class TpchQueryRunner
                 .build();
     }
 
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> resourceManagerProperties, Map<String, String> coordinatorProperties, Map<String, String> extraProperties, int coordinatorCount)
+            throws Exception
+    {
+        return TpchQueryRunnerBuilder.builder()
+                .setResourceManagerProperties(resourceManagerProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setExtraProperties(extraProperties)
+                .setResourceManagerEnabled(true)
+                .setCoordinatorCount(coordinatorCount)
+                .build();
+    }
+
     public static void main(String[] args)
             throws Exception
     {

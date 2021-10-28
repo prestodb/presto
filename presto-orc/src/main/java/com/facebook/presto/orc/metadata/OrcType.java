@@ -20,9 +20,11 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -79,6 +81,7 @@ public class OrcType
     private final Optional<Integer> length;
     private final Optional<Integer> precision;
     private final Optional<Integer> scale;
+    private final Map<String, String> attributes;
 
     private OrcType(OrcTypeKind orcTypeKind)
     {
@@ -102,6 +105,11 @@ public class OrcType
 
     public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale)
     {
+        this(orcTypeKind, fieldTypeIndexes, fieldNames, length, precision, scale, ImmutableMap.of());
+    }
+
+    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale, Map<String, String> attributes)
+    {
         this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
         this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
         if (fieldNames == null || (fieldNames.isEmpty() && !fieldTypeIndexes.isEmpty())) {
@@ -114,6 +122,7 @@ public class OrcType
         this.length = requireNonNull(length, "length is null");
         this.precision = requireNonNull(precision, "precision is null");
         this.scale = requireNonNull(scale, "scale can not be null");
+        this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
     }
 
     public OrcTypeKind getOrcTypeKind()
@@ -159,6 +168,11 @@ public class OrcType
     public Optional<Integer> getScale()
     {
         return scale;
+    }
+
+    public Map<String, String> getAttributes()
+    {
+        return attributes;
     }
 
     @Override

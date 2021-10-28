@@ -15,7 +15,7 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
@@ -79,7 +79,7 @@ public class ClusterSizeFetcher
 
         List<Map<String, Object>> values;
         try {
-            values = new ObjectMapperProvider().get().readValue(response.getBody(), new TypeReference<List<Map<String, Object>>>() {});
+            values = new JsonObjectMapperProvider().get().readValue(response.getBody(), new TypeReference<List<Map<String, Object>>>() {});
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

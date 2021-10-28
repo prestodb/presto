@@ -21,7 +21,6 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
 import java.util.LinkedList;
-import java.util.List;
 
 import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
 import static java.lang.Math.toIntExact;
@@ -30,21 +29,23 @@ public class PageReader
 {
     private final CompressionCodecName codec;
     private final long valueCount;
-    private final List<DataPage> compressedPages;
+    private final LinkedList<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
 
+    /**
+     * @param compressedPages This parameter will be mutated destructively as {@link DataPage} entries are removed as part of {@link #readPage()}. The caller
+     * should not retain a reference to this list after passing it in as a constructor argument.
+     */
     public PageReader(CompressionCodecName codec,
-            List<DataPage> compressedPages,
-            DictionaryPage compressedDictionaryPage)
+            LinkedList<DataPage> compressedPages,
+            DictionaryPage compressedDictionaryPage,
+            long valueCount)
+            throws IOException
     {
         this.codec = codec;
-        this.compressedPages = new LinkedList<>(compressedPages);
+        this.compressedPages = compressedPages;
         this.compressedDictionaryPage = compressedDictionaryPage;
-        int count = 0;
-        for (DataPage page : compressedPages) {
-            count += page.getValueCount();
-        }
-        this.valueCount = count;
+        this.valueCount = valueCount;
     }
 
     public long getTotalValueCount()
@@ -57,7 +58,7 @@ public class PageReader
         if (compressedPages.isEmpty()) {
             return null;
         }
-        DataPage compressedPage = compressedPages.remove(0);
+        DataPage compressedPage = compressedPages.removeFirst();
         try {
             if (compressedPage instanceof DataPageV1) {
                 DataPageV1 dataPageV1 = (DataPageV1) compressedPage;

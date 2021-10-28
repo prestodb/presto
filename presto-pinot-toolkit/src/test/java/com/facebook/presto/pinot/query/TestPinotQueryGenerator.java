@@ -14,6 +14,7 @@
 package com.facebook.presto.pinot.query;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.pinot.PinotColumnHandle;
 import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.TestPinotQueryBase;
@@ -212,6 +213,16 @@ public class TestPinotQueryGenerator
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(distinctAggregation).globalGrouping().addAggregation(variable("count_regionid"), getRowExpression("count(regionid)", defaultSessionHolder))),
                 "SELECT DISTINCTCOUNT(regionId) FROM realtimeOnly");
+    }
+
+    @Test
+    public void testDistinctCountPushdownWithVariableSuffix()
+    {
+        Map<VariableReferenceExpression, PinotColumnHandle> columnHandleMap = ImmutableMap.of(new VariableReferenceExpression("regionid_33", regionId.getDataType()), regionId);
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, columnHandleMap));
+        PlanNode markDistinct = buildPlan(planBuilder -> markDistinct(planBuilder, variable("regionid$distinct_62"), ImmutableList.of(variable("regionid")), justScan));
+        PlanNode aggregate = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(markDistinct).addAggregation(planBuilder.variable("count(regionid_33)"), getRowExpression("count(regionid_33)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct_62"))).globalGrouping()));
+        testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), planBuilder -> planBuilder.limit(10, aggregate), "SELECT DISTINCTCOUNT(regionId) FROM realtimeOnly");
     }
 
     @Test

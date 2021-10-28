@@ -127,6 +127,7 @@ public final class QueryResourceUtil
 
         return StatementStats.builder()
                 .setState(queryInfo.getState().toString())
+                .setWaitingForPrerequisites(queryInfo.getState() == QueryState.WAITING_FOR_PREREQUISITES)
                 .setQueued(queryInfo.getState() == QueryState.QUEUED)
                 .setScheduled(queryInfo.isScheduled())
                 .setNodes(globalUniqueNodes(outputStage).size())
@@ -136,6 +137,7 @@ public final class QueryResourceUtil
                 .setCompletedSplits(queryStats.getCompletedDrivers())
                 .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
+                .setWaitingForPrerequisitesTimeMillis(queryStats.getWaitingForPrerequisitesTime().toMillis())
                 .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
@@ -145,6 +147,7 @@ public final class QueryResourceUtil
                 .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
                 .setRootStage(toStageStats(outputStage))
+                .setRuntimeStats(queryStats.getRuntimeStats())
                 .build();
     }
 

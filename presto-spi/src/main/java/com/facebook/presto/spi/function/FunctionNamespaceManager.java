@@ -15,8 +15,8 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -72,9 +72,12 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
 
     /**
      * List all functions managed by the {@link FunctionNamespaceManager}.
+     * likePattern and escape are from `SHOW FUNCTIONS LIKE [likePattern] escape [escape]`.
+     * Backends supporting like pattern / escape matching can use this to prefilter functions, but Presto will filter again, so it is fine if the backend doesn't
+     * use these parameters.
      * TODO: Support transaction
      */
-    Collection<F> listFunctions();
+    Collection<F> listFunctions(Optional<String> likePattern, Optional<String> escape);
 
     Collection<F> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName);
 
@@ -84,7 +87,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
 
     ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle);
 
-    CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
+    CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
 
     void addUserDefinedType(UserDefinedType userDefinedType);
 

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
@@ -44,14 +44,14 @@ public class ByteArrayOutputStream
 
     private boolean closed;
 
-    public ByteArrayOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public ByteArrayOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        this(compressionParameters, dwrfEncryptor, DATA);
+        this(columnWriterOptions, dwrfEncryptor, DATA);
     }
 
-    public ByteArrayOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, StreamKind streamKind)
+    public ByteArrayOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, StreamKind streamKind)
     {
-        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, dwrfEncryptor);
         this.streamKind = streamKind;
     }
 
@@ -59,6 +59,12 @@ public class ByteArrayOutputStream
     {
         checkState(!closed);
         buffer.writeBytes(value);
+    }
+
+    public void writeSlice(Slice slice, int sourceIndex, int length)
+    {
+        checkState(!closed);
+        buffer.writeBytes(slice, sourceIndex, length);
     }
 
     @Override

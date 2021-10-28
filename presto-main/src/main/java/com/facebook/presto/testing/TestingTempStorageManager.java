@@ -40,6 +40,7 @@ public class TestingTempStorageManager
     public TestingTempStorageManager(String tempStoragePath)
     {
         super(new TestingNodeManager());
+        addTempStorageFactory(new LocalTempStorage.Factory());
         loadTempStorage(
                 LocalTempStorage.NAME,
                 ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath, TempStorageManager.TEMP_STORAGE_FACTORY_NAME, "local"));

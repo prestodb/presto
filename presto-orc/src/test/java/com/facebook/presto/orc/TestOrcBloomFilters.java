@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -21,6 +22,7 @@ import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.statistics.BloomFilter;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.statistics.IntegerColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
@@ -121,7 +123,7 @@ public class TestOrcBloomFilters
 
         // Read through method
         InputStream inputStream = new ByteArrayInputStream(bytes);
-        OrcMetadataReader metadataReader = new OrcMetadataReader();
+        OrcMetadataReader metadataReader = new OrcMetadataReader(new RuntimeStats());
         List<HiveBloomFilter> bloomFilters = metadataReader.readBloomFilterIndexes(inputStream);
 
         assertEquals(bloomFilters.size(), 1);
@@ -282,41 +284,20 @@ public class TestOrcBloomFilters
         hiveBloomFilter.addLong(1234);
         OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(hiveBloomFilter);
 
-        Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new IntegerColumnStatistics(
                 null,
-                0,
-                null,
-                new IntegerStatistics(10L, 2000L, null),
-                null,
-                null,
-                null,
-                null,
-                null,
-                toHiveBloomFilter(orcBloomFilter)));
+                toHiveBloomFilter(orcBloomFilter),
+                new IntegerStatistics(10L, 2000L, null)));
 
-        Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new IntegerColumnStatistics(
                 null,
-                0,
-                null,
-                new IntegerStatistics(10L, 2000L, null),
-                null,
-                null,
-                null,
-                null,
-                null,
-                toHiveBloomFilter(emptyOrcBloomFilter)));
+                toHiveBloomFilter(emptyOrcBloomFilter),
+                new IntegerStatistics(10L, 2000L, null)));
 
-        Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
-                null,
-                0,
-                null,
-                new IntegerStatistics(10L, 2000L, null),
+        Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new IntegerColumnStatistics(
                 null,
                 null,
-                null,
-                null,
-                null,
-                null));
+                new IntegerStatistics(10L, 2000L, null)));
 
         assertTrue(predicate.matches(1L, matchingStatisticsByColumnIndex));
         assertTrue(predicate.matches(1L, withoutBloomFilterStatisticsByColumnIndex));

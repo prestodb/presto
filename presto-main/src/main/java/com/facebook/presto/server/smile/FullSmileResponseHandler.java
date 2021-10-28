@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.HeaderName;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.net.MediaType;

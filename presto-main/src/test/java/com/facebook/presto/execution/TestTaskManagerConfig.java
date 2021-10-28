@@ -28,6 +28,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.record
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.QUERY_FAIR;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static io.airlift.units.DataSize.Unit;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestTaskManagerConfig
 {
@@ -37,9 +38,9 @@ public class TestTaskManagerConfig
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
-                .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
-                .setInfoUpdateInterval(new Duration(3, TimeUnit.SECONDS))
-                .setInfoRefreshMaxWait(new Duration(0, TimeUnit.SECONDS))
+                .setStatusRefreshMaxWait(new Duration(1, SECONDS))
+                .setInfoUpdateInterval(new Duration(3, SECONDS))
+                .setInfoRefreshMaxWait(new Duration(0, SECONDS))
                 .setPerOperatorCpuTimerEnabled(true)
                 .setTaskCpuTimerEnabled(true)
                 .setPerOperatorAllocationTrackingEnabled(false)
@@ -68,7 +69,8 @@ public class TestTaskManagerConfig
                 .setLevelTimeMultiplier(new BigDecimal("2"))
                 .setStatisticsCpuTimerEnabled(true)
                 .setLegacyLifespanCompletionCondition(false)
-                .setTaskPriorityTracking(TASK_FAIR));
+                .setTaskPriorityTracking(TASK_FAIR)
+                .setInterruptRunawaySplitsTimeout(new Duration(600, SECONDS)));
     }
 
     @Test
@@ -109,14 +111,15 @@ public class TestTaskManagerConfig
                 .put("task.statistics-cpu-timer-enabled", "false")
                 .put("task.legacy-lifespan-completion-condition", "true")
                 .put("task.task-priority-tracking", "QUERY_FAIR")
+                .put("task.interrupt-runaway-splits-timeout", "599s")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
                 .setInitialSplitsPerNode(1)
-                .setSplitConcurrencyAdjustmentInterval(new Duration(1, TimeUnit.SECONDS))
-                .setStatusRefreshMaxWait(new Duration(2, TimeUnit.SECONDS))
-                .setInfoUpdateInterval(new Duration(2, TimeUnit.SECONDS))
-                .setInfoRefreshMaxWait(new Duration(3, TimeUnit.SECONDS))
+                .setSplitConcurrencyAdjustmentInterval(new Duration(1, SECONDS))
+                .setStatusRefreshMaxWait(new Duration(2, SECONDS))
+                .setInfoUpdateInterval(new Duration(2, SECONDS))
+                .setInfoRefreshMaxWait(new Duration(3, SECONDS))
                 .setPerOperatorCpuTimerEnabled(false)
                 .setTaskCpuTimerEnabled(false)
                 .setPerOperatorAllocationTrackingEnabled(true)
@@ -131,7 +134,7 @@ public class TestTaskManagerConfig
                 .setMaxDriversPerTask(13)
                 .setMaxTasksPerStage(999)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
-                .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setClientTimeout(new Duration(10, SECONDS))
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(new DataSize(40, Unit.MEGABYTE))
                 .setWriterCount(4)
@@ -145,7 +148,8 @@ public class TestTaskManagerConfig
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
                 .setStatisticsCpuTimerEnabled(false)
                 .setLegacyLifespanCompletionCondition(true)
-                .setTaskPriorityTracking(QUERY_FAIR);
+                .setTaskPriorityTracking(QUERY_FAIR)
+                .setInterruptRunawaySplitsTimeout(new Duration(599, SECONDS));
 
         assertFullMapping(properties, expected);
     }

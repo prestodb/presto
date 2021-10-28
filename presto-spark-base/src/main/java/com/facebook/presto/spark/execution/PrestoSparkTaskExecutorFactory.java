@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
@@ -37,11 +38,13 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.FragmentResultCacheManager;
+import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.PrestoSparkConfig;
@@ -81,7 +84,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.storage.TempStorageManager;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -99,6 +101,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -110,22 +113,30 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.CRC32;
 
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirectory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isHeapDumpOnExceededMemoryLimitEnabled;
+import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingThreshold;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleOutputTargetAverageRowSize;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingIterator;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
@@ -134,7 +145,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Iterables.getFirst;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -148,8 +161,9 @@ public class PrestoSparkTaskExecutorFactory
     private final FunctionAndTypeManager functionAndTypeManager;
 
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
-    private final JsonCodec<TaskSource> taskSourceJsonCodec;
-    private final JsonCodec<TaskInfo> taskInfoJsonCodec;
+    private final Codec<TaskSource> taskSourceCodec;
+    private final Codec<TaskInfo> taskInfoCodec;
+    private final JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec;
 
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -164,7 +178,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final NodeMemoryConfig nodeMemoryConfig;
     private final DataSize maxRevocableMemory;
-    private final DataSize maxSpillMemory;
+    private final DataSize maxQuerySpillPerNode;
     private final DataSize sinkMaxBufferSize;
 
     private final boolean perOperatorCpuTimerEnabled;
@@ -176,14 +190,17 @@ public class PrestoSparkTaskExecutorFactory
     private final PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager;
     private final String storageBasedBroadcastJoinStorage;
 
+    private AtomicBoolean memoryRevokePending = new AtomicBoolean();
+
     @Inject
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
             BlockEncodingManager blockEncodingManager,
             FunctionAndTypeManager functionAndTypeManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
-            JsonCodec<TaskSource> taskSourceJsonCodec,
-            JsonCodec<TaskInfo> taskInfoJsonCodec,
+            Codec<TaskSource> taskSourceCodec,
+            Codec<TaskInfo> taskInfoCodec,
+            JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
@@ -192,8 +209,6 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
-            FragmentResultCacheManager fragmentResultCacheManager,
-            ObjectMapper objectMapper,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             NodeSpillConfig nodeSpillConfig,
@@ -206,8 +221,9 @@ public class PrestoSparkTaskExecutorFactory
                 blockEncodingManager,
                 functionAndTypeManager,
                 taskDescriptorJsonCodec,
-                taskSourceJsonCodec,
-                taskInfoJsonCodec,
+                taskSourceCodec,
+                taskInfoCodec,
+                memoryReservationSummaryJsonCodec,
                 notificationExecutor,
                 yieldExecutor,
                 memoryUpdateExecutor,
@@ -218,7 +234,7 @@ public class PrestoSparkTaskExecutorFactory
                 authenticatorProviders,
                 nodeMemoryConfig,
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getQueryMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskCpuTimerEnabled(),
@@ -234,8 +250,9 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             FunctionAndTypeManager functionAndTypeManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
-            JsonCodec<TaskSource> taskSourceJsonCodec,
-            JsonCodec<TaskInfo> taskInfoJsonCodec,
+            Codec<TaskSource> taskSourceCodec,
+            Codec<TaskInfo> taskInfoCodec,
+            JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
@@ -246,7 +263,7 @@ public class PrestoSparkTaskExecutorFactory
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             NodeMemoryConfig nodeMemoryConfig,
             DataSize maxRevocableMemory,
-            DataSize maxSpillMemory,
+            DataSize maxQuerySpillPerNode,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
@@ -260,8 +277,9 @@ public class PrestoSparkTaskExecutorFactory
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
-        this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
-        this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
+        this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
+        this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
+        this.memoryReservationSummaryJsonCodec = requireNonNull(memoryReservationSummaryJsonCodec, "memoryReservationSummaryJsonCodec is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.memoryUpdateExecutor = requireNonNull(memoryUpdateExecutor, "memoryUpdateExecutor is null");
@@ -273,7 +291,7 @@ public class PrestoSparkTaskExecutorFactory
         // Ordering is needed to make sure serialized plans are consistent for the same map
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
-        this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
+        this.maxQuerySpillPerNode = requireNonNull(maxQuerySpillPerNode, "maxQuerySpillPerNode is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
@@ -364,7 +382,8 @@ public class PrestoSparkTaskExecutorFactory
         }
 
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), maxTotalMemory);
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillMemory);
+
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxQuerySpillPerNode);
 
         QueryContext queryContext = new QueryContext(
                 session.getQueryId(),
@@ -376,33 +395,77 @@ public class PrestoSparkTaskExecutorFactory
                 new TestingGcMonitor(),
                 notificationExecutor,
                 yieldExecutor,
-                maxSpillMemory,
-                spillSpaceTracker);
+                maxQuerySpillPerNode,
+                spillSpaceTracker,
+                memoryReservationSummaryJsonCodec);
+        queryContext.setVerboseExceededMemoryLimitErrorsEnabled(isVerboseExceededMemoryLimitErrorsEnabled(session));
+        queryContext.setHeapDumpOnExceededMemoryLimitEnabled(isHeapDumpOnExceededMemoryLimitEnabled(session));
+        String heapDumpFilePath = Paths.get(
+                getHeapDumpFileDirectory(session),
+                format("%s_%s.hprof", session.getQueryId().getId(), stageId.getId())).toString();
+        queryContext.setHeapDumpFilePath(heapDumpFilePath);
 
         TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
+                // Plan has to be retained only if verbose memory exceeded errors are requested
+                isVerboseExceededMemoryLimitErrorsEnabled(session) ? Optional.of(fragment.getRoot()) : Optional.empty(),
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
                 false);
 
+        final double memoryRevokingThreshold = getMemoryRevokingThreshold(session);
+        if (isSpillEnabled(session)) {
+            memoryPool.addListener((pool, queryId, totalMemoryReservationBytes) -> {
+                if (totalMemoryReservationBytes > queryContext.getPeakNodeTotalMemory()) {
+                    queryContext.setPeakNodeTotalMemory(totalMemoryReservationBytes);
+                }
+                if (totalMemoryReservationBytes > maxTotalMemory.toBytes()) {
+                    throw exceededLocalTotalMemoryLimit(
+                            maxTotalMemory,
+                            queryContext.getAdditionalFailureInfo(totalMemoryReservationBytes, 0) +
+                                    format("Total reserved memory: %s, Total revocable memory: %s",
+                                            succinctBytes(pool.getQueryMemoryReservation(queryId)),
+                                            succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
+                            isHeapDumpOnExceededMemoryLimitEnabled(session),
+                            Optional.ofNullable(heapDumpFilePath));
+                }
+                if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokePending.compareAndSet(false, true)) {
+                    memoryUpdateExecutor.execute(() -> {
+                        try {
+                            taskContext.accept(new VoidTraversingQueryContextVisitor<Void>()
+                            {
+                                @Override
+                                public Void visitOperatorContext(OperatorContext operatorContext, Void nothing)
+                                {
+                                    operatorContext.requestMemoryRevoking();
+                                    return null;
+                                }
+                            }, null);
+                            memoryRevokePending.set(false);
+                        }
+                        catch (Exception e) {
+                            log.error(e, "Error requesting memory revoking");
+                        }
+                    });
+                }
+            });
+        }
+
         ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();
-        ImmutableMap.Builder<PlanNodeId, List<List<?>>> broadcastInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, List<?>> broadcastInputs = ImmutableMap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
             List<PrestoSparkShuffleInput> remoteSourceRowInputs = new ArrayList<>();
             List<java.util.Iterator<PrestoSparkSerializedPage>> remoteSourcePageInputs = new ArrayList<>();
             List<List<?>> broadcastInputsList = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
-                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput =
-                        (Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>) inputs.getShuffleInputs().get(sourceFragmentId.toString());
-                Broadcast<List<T>> broadcastInput =
-                        (Broadcast<List<T>>) inputs.getBroadcastInputs().get(sourceFragmentId.toString());
-                List<PrestoSparkSerializedPage> inMemoryInput =
-                        (List<PrestoSparkSerializedPage>) inputs.getInMemoryInputs().get(sourceFragmentId.toString());
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                Broadcast<?> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
+                List<PrestoSparkSerializedPage> inMemoryInput = inputs.getInMemoryInputs().get(sourceFragmentId.toString());
 
                 if (shuffleInput != null) {
                     checkArgument(broadcastInput == null, "single remote source is not expected to accept different kind of inputs");
@@ -417,12 +480,13 @@ public class PrestoSparkTaskExecutorFactory
                     // NullifyingIterator removes element from the list upon return
                     // This allows GC to gradually reclaim memory
                     // remoteSourcePageInputs.add(getNullifyingIterator(broadcastInput.value()));
-                    broadcastInputsList.add(broadcastInput.value());
+                    broadcastInputsList.add((List<?>) broadcastInput.value());
                     continue;
                 }
 
                 if (inMemoryInput != null) {
-                    remoteSourcePageInputs.add(inMemoryInput.iterator());
+                    // for inmemory inputs pages can be released incrementally to save memory
+                    remoteSourcePageInputs.add(getNullifyingIterator(inMemoryInput));
                     continue;
                 }
 
@@ -459,6 +523,7 @@ public class PrestoSparkTaskExecutorFactory
                 session.getSource(),
                 session.getQueryId().getId(),
                 session.getClientInfo(),
+                Optional.of(session.getClientTags()),
                 session.getIdentity());
         TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
 
@@ -515,7 +580,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskContext,
                 taskStateMachine,
                 output.getOutputSupplier(),
-                taskInfoJsonCodec,
+                taskInfoCodec,
                 taskInfoCollector,
                 shuffleStatsCollector,
                 executionExceptionFactory,
@@ -544,11 +609,14 @@ public class PrestoSparkTaskExecutorFactory
 
     private List<TaskSource> getTaskSources(Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources)
     {
+        long totalSerializedSizeInBytes = 0;
         ImmutableList.Builder<TaskSource> result = ImmutableList.builder();
         while (serializedTaskSources.hasNext()) {
             SerializedPrestoSparkTaskSource serializedTaskSource = serializedTaskSources.next();
-            result.add(taskSourceJsonCodec.fromJson(decompress(serializedTaskSource.getBytes())));
+            totalSerializedSizeInBytes += serializedTaskSource.getBytes().length;
+            result.add(deserializeZstdCompressed(taskSourceCodec, serializedTaskSource.getBytes()));
         }
+        log.info("Total serialized size of all task sources: %s", succinctBytes(totalSerializedSizeInBytes));
         return result.build();
     }
 
@@ -593,7 +661,7 @@ public class PrestoSparkTaskExecutorFactory
         private final TaskContext taskContext;
         private final TaskStateMachine taskStateMachine;
         private final OutputSupplier<T> outputSupplier;
-        private final JsonCodec<TaskInfo> taskInfoJsonCodec;
+        private final Codec<TaskInfo> taskInfoCodec;
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
         private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
@@ -615,7 +683,7 @@ public class PrestoSparkTaskExecutorFactory
                 TaskContext taskContext,
                 TaskStateMachine taskStateMachine,
                 OutputSupplier<T> outputSupplier,
-                JsonCodec<TaskInfo> taskInfoJsonCodec,
+                Codec<TaskInfo> taskInfoCodec,
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
@@ -627,7 +695,7 @@ public class PrestoSparkTaskExecutorFactory
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
             this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
             this.outputSupplier = requireNonNull(outputSupplier, "outputSupplier is null");
-            this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
+            this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
             this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
             this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
@@ -706,8 +774,7 @@ public class PrestoSparkTaskExecutorFactory
             shuffleStatsCollector.add(shuffleStats);
 
             TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer);
-            SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(
-                    compress(taskInfoJsonCodec.toJsonBytes(taskInfo)));
+            SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo));
             taskInfoCollector.add(serializedTaskInfo);
 
             LinkedBlockingQueue<Throwable> failures = taskStateMachine.getFailureCauses();
@@ -717,7 +784,7 @@ public class PrestoSparkTaskExecutorFactory
 
             Throwable failure = getFirst(failures, null);
             // Delete the storage file, if task is not successful
-            if (outputSupplier instanceof DiskPageOutputSupplier) {
+            if (outputSupplier instanceof DiskPageOutputSupplier && output != null) {
                 PrestoSparkStorageHandle sparkStorageHandle = (PrestoSparkStorageHandle) output._2;
                 TempStorageHandle tempStorageHandle = tempStorage.deserialize(sparkStorageHandle.getSerializedStorageHandle());
                 try {
@@ -747,7 +814,7 @@ public class PrestoSparkTaskExecutorFactory
         {
             TaskId taskId = taskContext.getTaskId();
             TaskState taskState = taskContext.getState();
-            TaskStats taskStats = taskContext.getTaskStats();
+            TaskStats taskStats = taskContext.getTaskStats().summarizeFinal();
 
             List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (taskState == FAILED) {

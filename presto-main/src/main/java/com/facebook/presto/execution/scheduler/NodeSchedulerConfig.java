@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 
@@ -34,7 +35,9 @@ public class NodeSchedulerConfig
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
+    private int maxUnacknowledgedSplitsPerTask = 500;
     private String networkTopology = NetworkTopologyType.LEGACY;
+    private ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = ResourceAwareSchedulingStrategy.RANDOM;
 
     @NotNull
     public String getNetworkTopology()
@@ -97,5 +100,37 @@ public class NodeSchedulerConfig
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
         return this;
+    }
+
+    @Min(1)
+    public int getMaxUnacknowledgedSplitsPerTask()
+    {
+        return maxUnacknowledgedSplitsPerTask;
+    }
+
+    @Config("node-scheduler.max-unacknowledged-splits-per-task")
+    @ConfigDescription("Maximum number of leaf splits not yet delivered to a given task")
+    public NodeSchedulerConfig setMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)
+    {
+        this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
+        return this;
+    }
+
+    public ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy()
+    {
+        return resourceAwareSchedulingStrategy;
+    }
+
+    @Config("experimental.resource-aware-scheduling-strategy")
+    public NodeSchedulerConfig setResourceAwareSchedulingStrategy(ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy)
+    {
+        this.resourceAwareSchedulingStrategy = resourceAwareSchedulingStrategy;
+        return this;
+    }
+
+    public enum ResourceAwareSchedulingStrategy
+    {
+        RANDOM,
+        TTL
     }
 }

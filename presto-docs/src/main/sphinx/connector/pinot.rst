@@ -1,9 +1,9 @@
-===============
-Pinot Connector
-===============
+======================
+Apache Pinot Connector
+======================
 
-The Pinot connector allows querying and creating tables in an external Pinot
-database. This can be used to query pinot data or join pinot data with
+The Apache Pinot connector allows querying and creating tables in an external Apache
+Pinot database. This can be used to query pinot data or join pinot data with
 something else.
 
 Configuration
@@ -182,13 +182,13 @@ Finally, you can access the ``clicks`` table::
     SELECT count(*) FROM mypinotcluster.default.clicks;
 
 
-How the Pinot connector works
------------------------------
+How the Apache Pinot connector works
+------------------------------------
 
-The connector tries to push the maximal subquery inferred from the
+The connector tries to push the maximal sub-query inferred from the
 presto query into pinot. It can push down everything Pinot supports
 including aggregations, group by, all UDFs etc. It generates the
-correct Pinot PQL keeping Pinot's quirks in mind.
+correct Pinot query keeping Pinot's quirks in mind.
 
 By default, it sends aggregation and limit queries to the Pinot broker
 and does a parallel scan for non-aggregation/non-limit queries. The

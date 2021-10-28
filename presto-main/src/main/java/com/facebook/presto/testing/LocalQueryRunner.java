@@ -41,15 +41,20 @@ import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.dispatcher.NoOpQueryManager;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.AlterFunctionTask;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateFunctionTask;
+import com.facebook.presto.execution.CreateMaterializedViewTask;
 import com.facebook.presto.execution.CreateTableTask;
+import com.facebook.presto.execution.CreateTypeTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
 import com.facebook.presto.execution.DropFunctionTask;
+import com.facebook.presto.execution.DropMaterializedViewTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.Lifespan;
@@ -74,6 +79,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.StreamingPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
@@ -165,10 +171,13 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
@@ -181,9 +190,12 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
+import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ThrowingClusterTtlProviderManager;
+import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -197,6 +209,7 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -215,6 +228,10 @@ import java.util.function.Function;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirectory;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isHeapDumpOnExceededMemoryLimitEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
@@ -231,6 +248,7 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -326,7 +344,10 @@ public class LocalQueryRunner
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
-                new NodeTaskMap(finalizerService));
+                new NodeTaskMap(finalizerService),
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig());
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = InMemoryTransactionManager.create(
@@ -335,7 +356,7 @@ public class LocalQueryRunner
                 catalogManager,
                 notificationExecutor);
         this.partitioningProviderManager = new PartitioningProviderManager();
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
         this.distributedMetadataManager = new ConnectorMetadataUpdaterManager();
 
@@ -352,7 +373,10 @@ public class LocalQueryRunner
                                 new MemoryManagerConfig(),
                                 featuresConfig,
                                 new NodeMemoryConfig(),
-                                new WarningCollectorConfig())),
+                                new WarningCollectorConfig(),
+                                new NodeSchedulerConfig(),
+                                new NodeSpillConfig(),
+                                new TracingConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -424,7 +448,10 @@ public class LocalQueryRunner
                 new EventListenerManager(),
                 blockEncodingManager,
                 new TestingTempStorageManager(),
-                new SessionPropertyDefaults(nodeInfo));
+                new QueryPrerequisitesManager(),
+                new SessionPropertyDefaults(nodeInfo),
+                new ThrowingNodeTtlFetcherManager(),
+                new ThrowingClusterTtlProviderManager());
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -460,11 +487,14 @@ public class LocalQueryRunner
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
                 .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, new FeaturesConfig()))
+                .put(CreateMaterializedView.class, new CreateMaterializedViewTask(sqlParser))
+                .put(CreateType.class, new CreateTypeTask(sqlParser))
                 .put(CreateFunction.class, new CreateFunctionTask(sqlParser))
                 .put(AlterFunction.class, new AlterFunctionTask(sqlParser))
                 .put(DropFunction.class, new DropFunctionTask(sqlParser))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
+                .put(DropMaterializedView.class, new DropMaterializedViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
                 .put(RenameTable.class, new RenameTableTask())
                 .put(ResetSession.class, new ResetSessionTask())
@@ -707,12 +737,20 @@ public class LocalQueryRunner
                 return builder.get()::page;
             });
 
+            Plan plan = createPlan(session, sql, warningCollector);
+
             TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
                     .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
                     .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
+                    .setQueryMaxTotalMemory(getQueryMaxTotalMemoryPerNode(session))
+                    .setTaskPlan(plan.getRoot())
                     .build();
-
-            Plan plan = createPlan(session, sql, warningCollector);
+            taskContext.getQueryContext().setVerboseExceededMemoryLimitErrorsEnabled(isVerboseExceededMemoryLimitErrorsEnabled(session));
+            taskContext.getQueryContext().setHeapDumpOnExceededMemoryLimitEnabled(isHeapDumpOnExceededMemoryLimitEnabled(session));
+            String heapDumpFilePath = Paths.get(
+                    getHeapDumpFileDirectory(session),
+                    format("%s_%s.hprof", session.getQueryId().getId(), taskContext.getTaskId().getStageExecutionId().getStageId().getId())).toString();
+            taskContext.getQueryContext().setHeapDumpFilePath(heapDumpFilePath);
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
@@ -787,6 +825,7 @@ public class LocalQueryRunner
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig().setTaskConcurrency(4),
+                new MemoryManagerConfig(),
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
@@ -939,7 +978,8 @@ public class LocalQueryRunner
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig),
-                taskCountEstimator).getPlanningTimeOptimizers();
+                taskCountEstimator,
+                partitioningProviderManager).getPlanningTimeOptimizers();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

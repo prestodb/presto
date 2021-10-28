@@ -23,6 +23,7 @@ import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.MetadataUpdates;
@@ -98,7 +99,8 @@ public class SqlTask
             ExecutorService taskNotificationExecutor,
             Function<SqlTask, ?> onDone,
             DataSize maxBufferSize,
-            CounterStat failedTasks)
+            CounterStat failedTasks,
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
         SqlTask sqlTask = new SqlTask(
                 taskId,
@@ -108,7 +110,8 @@ public class SqlTask
                 sqlTaskExecutionFactory,
                 exchangeClientSupplier,
                 taskNotificationExecutor,
-                maxBufferSize);
+                maxBufferSize,
+                spoolingOutputBufferFactory);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -121,7 +124,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExchangeClientSupplier exchangeClientSupplier,
             ExecutorService taskNotificationExecutor,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = new TaskInstanceId(UUID.randomUUID());
@@ -132,6 +136,7 @@ public class SqlTask
         requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
+        requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
 
         this.taskExchangeClientManager = new TaskExchangeClientManager(exchangeClientSupplier);
         outputBuffer = new LazyOutputBuffer(
@@ -141,7 +146,8 @@ public class SqlTask
                 maxBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the the memory context yet.
-                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext());
+                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
+                spoolingOutputBufferFactory);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
 

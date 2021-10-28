@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import okhttp3.Protocol;
 
 import java.io.File;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.ClassListConverter.CLASS_LIST_CONVERTER;
+import static com.facebook.presto.jdbc.AbstractConnectionProperty.HttpProtocolConverter.HTTP_PROTOCOL_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.StringMapConverter.STRING_MAP_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
@@ -53,7 +55,9 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
+    public static final ConnectionProperty<Map<String, String>> CUSTOM_HEADERS = new CustomHeaders();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
+    public static final ConnectionProperty<List<Protocol>> HTTP_PROTOCOLS = new HttpProtocols();
     public static final ConnectionProperty<List<QueryInterceptor>> QUERY_INTERCEPTORS = new QueryInterceptors();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
@@ -76,7 +80,9 @@ final class ConnectionProperties
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
+            .add(CUSTOM_HEADERS)
             .add(SESSION_PROPERTIES)
+            .add(HTTP_PROTOCOLS)
             .add(QUERY_INTERCEPTORS)
             .build();
 
@@ -304,12 +310,29 @@ final class ConnectionProperties
         }
     }
 
+    private static class CustomHeaders
+            extends AbstractConnectionProperty<Map<String, String>>
+    {
+        public CustomHeaders()
+        {
+            super("customHeaders", NOT_REQUIRED, ALLOWED, STRING_MAP_CONVERTER);
+        }
+    }
     private static class SessionProperties
             extends AbstractConnectionProperty<Map<String, String>>
     {
         public SessionProperties()
         {
             super("sessionProperties", NOT_REQUIRED, ALLOWED, STRING_MAP_CONVERTER);
+        }
+    }
+
+    private static class HttpProtocols
+            extends AbstractConnectionProperty<List<Protocol>>
+    {
+        public HttpProtocols()
+        {
+            super("protocols", NOT_REQUIRED, ALLOWED, HTTP_PROTOCOL_CONVERTER);
         }
     }
 

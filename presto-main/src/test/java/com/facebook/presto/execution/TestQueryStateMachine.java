@@ -61,6 +61,7 @@ import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
@@ -106,6 +107,9 @@ public class TestQueryStateMachine
     public void testBasicStateChanges()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
+        assertState(stateMachine, WAITING_FOR_PREREQUISITES);
+
+        assertTrue(stateMachine.transitionToQueued());
         assertState(stateMachine, QUEUED);
 
         assertTrue(stateMachine.transitionToDispatching());
@@ -129,6 +133,9 @@ public class TestQueryStateMachine
     public void testStateChangesWithResourceWaiting()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
+        assertState(stateMachine, WAITING_FOR_PREREQUISITES);
+
+        assertTrue(stateMachine.transitionToQueued());
         assertState(stateMachine, QUEUED);
 
         assertTrue(stateMachine.transitionToWaitingForResources());
@@ -152,25 +159,45 @@ public class TestQueryStateMachine
     }
 
     @Test
-    public void testQueued()
+    public void testWaitingForPrerequisites()
     {
         // all time before the first state transition is accounted to queueing
-        assertAllTimeSpentInQueueing(QUEUED, queryStateMachine -> {});
-        assertAllTimeSpentInQueueing(WAITING_FOR_RESOURCES, QueryStateMachine::transitionToWaitingForResources);
-        assertAllTimeSpentInQueueing(DISPATCHING, QueryStateMachine::transitionToDispatching);
-        assertAllTimeSpentInQueueing(PLANNING, QueryStateMachine::transitionToPlanning);
-        assertAllTimeSpentInQueueing(STARTING, QueryStateMachine::transitionToStarting);
-        assertAllTimeSpentInQueueing(RUNNING, QueryStateMachine::transitionToRunning);
+        assertAllTimeSpentInWaitingForPrerequisites(WAITING_FOR_PREREQUISITES, queryStateMachine -> {});
+        assertAllTimeSpentInWaitingForPrerequisites(QUEUED, QueryStateMachine::transitionToQueued);
+        assertAllTimeSpentInWaitingForPrerequisites(WAITING_FOR_RESOURCES, QueryStateMachine::transitionToWaitingForResources);
+        assertAllTimeSpentInWaitingForPrerequisites(DISPATCHING, QueryStateMachine::transitionToDispatching);
+        assertAllTimeSpentInWaitingForPrerequisites(PLANNING, QueryStateMachine::transitionToPlanning);
+        assertAllTimeSpentInWaitingForPrerequisites(STARTING, QueryStateMachine::transitionToStarting);
+        assertAllTimeSpentInWaitingForPrerequisites(RUNNING, QueryStateMachine::transitionToRunning);
 
-        assertAllTimeSpentInQueueing(FINISHED, stateMachine -> {
+        assertAllTimeSpentInWaitingForPrerequisites(FINISHED, stateMachine -> {
             stateMachine.transitionToFinishing();
             tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         });
 
-        assertAllTimeSpentInQueueing(FAILED, stateMachine -> stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertAllTimeSpentInWaitingForPrerequisites(FAILED, stateMachine -> stateMachine.transitionToFailed(FAILED_CAUSE));
     }
 
-    private void assertAllTimeSpentInQueueing(QueryState expectedState, Consumer<QueryStateMachine> stateTransition)
+    @Test
+    public void testQueued()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertTrue(stateMachine.transitionToQueued());
+        assertState(stateMachine, QUEUED);
+
+        assertTrue(stateMachine.transitionToWaitingForResources());
+        assertState(stateMachine, WAITING_FOR_RESOURCES);
+
+        // Ensure that we can directly move to failed from queued
+        stateMachine = createQueryStateMachine();
+        assertTrue(stateMachine.transitionToQueued());
+        assertState(stateMachine, QUEUED);
+
+        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertState(stateMachine, FAILED, FAILED_CAUSE);
+    }
+
+    private void assertAllTimeSpentInWaitingForPrerequisites(QueryState expectedState, Consumer<QueryStateMachine> stateTransition)
     {
         TestingTicker ticker = new TestingTicker();
         QueryStateMachine stateMachine = createQueryStateMachineWithTicker(ticker);
@@ -180,8 +207,11 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.getQueryState(), expectedState);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
-        assertEquals(queryStats.getQueuedTime(), new Duration(7, MILLISECONDS));
+        assertEquals(queryStats.getWaitingForPrerequisitesTime(), new Duration(7, MILLISECONDS));
+        assertEquals(queryStats.getQueuedTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getResourceWaitingTime(), new Duration(0, MILLISECONDS));
+        assertEquals(queryStats.getSemanticAnalyzingTime(), new Duration(0, MILLISECONDS));
+        assertEquals(queryStats.getColumnAccessPermissionCheckingTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getDispatchingTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getTotalPlanningTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getExecutionTime(), new Duration(0, MILLISECONDS));
@@ -311,6 +341,22 @@ public class TestQueryStateMachine
     {
         TestingTicker mockTicker = new TestingTicker();
         QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
+        assertState(stateMachine, WAITING_FOR_PREREQUISITES);
+
+        mockTicker.increment(30, MILLISECONDS);
+        stateMachine.beginSemanticAnalyzing();
+        assertState(stateMachine, WAITING_FOR_PREREQUISITES);
+
+        mockTicker.increment(30, MILLISECONDS);
+        stateMachine.beginColumnAccessPermissionChecking();
+        assertState(stateMachine, WAITING_FOR_PREREQUISITES);
+
+        mockTicker.increment(15, MILLISECONDS);
+        assertTrue(stateMachine.transitionToQueued());
+        assertState(stateMachine, QUEUED);
+
+        mockTicker.increment(30, MILLISECONDS);
+        stateMachine.endColumnAccessPermissionChecking();
         assertState(stateMachine, QUEUED);
 
         mockTicker.increment(25, MILLISECONDS);
@@ -339,8 +385,11 @@ public class TestQueryStateMachine
         assertState(stateMachine, FINISHED);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
-        assertEquals(queryStats.getElapsedTime().toMillis(), 1075);
-        assertEquals(queryStats.getQueuedTime().toMillis(), 25);
+        assertEquals(queryStats.getElapsedTime().toMillis(), 1180);
+        assertEquals(queryStats.getWaitingForPrerequisitesTime().toMillis(), 75);
+        assertEquals(queryStats.getSemanticAnalyzingTime().toMillis(), 30);
+        assertEquals(queryStats.getColumnAccessPermissionCheckingTime().toMillis(), 45);
+        assertEquals(queryStats.getQueuedTime().toMillis(), 55);
         assertEquals(queryStats.getResourceWaitingTime().toMillis(), 50);
         assertEquals(queryStats.getDispatchingTime().toMillis(), 100);
         assertEquals(queryStats.getTotalPlanningTime().toMillis(), 200);
@@ -517,13 +566,15 @@ public class TestQueryStateMachine
         assertNotNull(queryStats.getElapsedTime());
         assertNotNull(queryStats.getQueuedTime());
         assertNotNull(queryStats.getResourceWaitingTime());
+        assertNotNull(queryStats.getSemanticAnalyzingTime());
+        assertNotNull(queryStats.getColumnAccessPermissionCheckingTime());
         assertNotNull(queryStats.getDispatchingTime());
         assertNotNull(queryStats.getExecutionTime());
         assertNotNull(queryStats.getTotalPlanningTime());
         assertNotNull(queryStats.getFinishingTime());
 
         assertNotNull(queryStats.getCreateTime());
-        if (queryInfo.getState() == QUEUED || queryInfo.getState() == WAITING_FOR_RESOURCES || queryInfo.getState() == DISPATCHING) {
+        if (queryInfo.getState() == WAITING_FOR_PREREQUISITES || queryInfo.getState() == QUEUED || queryInfo.getState() == WAITING_FOR_RESOURCES || queryInfo.getState() == DISPATCHING) {
             assertNull(queryStats.getExecutionStartTime());
         }
         else {

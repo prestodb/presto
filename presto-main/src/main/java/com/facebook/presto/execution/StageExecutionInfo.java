@@ -14,6 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
+import com.facebook.presto.common.RuntimeMetricName;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
@@ -71,7 +73,8 @@ public class StageExecutionInfo
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
+        double cumulativeTotalMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
@@ -104,6 +107,7 @@ public class StageExecutionInfo
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
+        RuntimeStats mergedRuntimeStats = new RuntimeStats();
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -122,6 +126,7 @@ public class StageExecutionInfo
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeTotalMemory += taskStats.getCumulativeTotalMemory();
 
             long taskUserMemory = taskStats.getUserMemoryReservationInBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservationInBytes();
@@ -167,6 +172,9 @@ public class StageExecutionInfo
                     operatorToStats.compute(id, (k, v) -> v == null ? operatorStats : v.add(operatorStats));
                 }
             }
+            mergedRuntimeStats.mergeWith(taskStats.getRuntimeStats());
+            mergedRuntimeStats.addMetricValue(RuntimeMetricName.DRIVER_COUNT_PER_TASK, taskStats.getTotalDrivers());
+            mergedRuntimeStats.addMetricValue(RuntimeMetricName.TASK_ELAPSED_TIME_NANOS, taskStats.getElapsedTimeInNanos());
         }
 
         StageExecutionStats stageExecutionStats = new StageExecutionStats(
@@ -187,6 +195,7 @@ public class StageExecutionInfo
                 completedDrivers,
 
                 cumulativeUserMemory,
+                cumulativeTotalMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 peakUserMemoryReservation,
@@ -219,7 +228,8 @@ public class StageExecutionInfo
                         totalFullGcSec,
                         (int) (1.0 * totalFullGcSec / fullGcCount)),
 
-                ImmutableList.copyOf(operatorToStats.values()));
+                ImmutableList.copyOf(operatorToStats.values()),
+                mergedRuntimeStats);
 
         return new StageExecutionInfo(
                 state,

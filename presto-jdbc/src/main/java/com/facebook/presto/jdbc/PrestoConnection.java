@@ -88,7 +88,9 @@ public class PrestoConnection
     private final String user;
     private final boolean compressionDisabled;
     private final Map<String, String> extraCredentials;
+    private final Map<String, String> customHeaders;
     private final Map<String, String> sessionProperties;
+    private final Properties connectionProperties;
     private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
@@ -111,7 +113,9 @@ public class PrestoConnection
         this.compressionDisabled = uri.isCompressionDisabled();
 
         this.extraCredentials = uri.getExtraCredentials();
+        this.customHeaders = uri.getCustomHeaders();
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
+        this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
         timeZoneId.set(TimeZone.getDefault().getID());
@@ -547,6 +551,16 @@ public class PrestoConnection
         return schema.get();
     }
 
+    public Properties getConnectionProperties()
+    {
+        Properties properties = new Properties();
+        for (Map.Entry<Object, Object> entry : connectionProperties.entrySet()) {
+            properties.setProperty((String) entry.getKey(), (String) entry.getValue());
+        }
+
+        return properties;
+    }
+
     public String getTimeZoneId()
     {
         return timeZoneId.get();
@@ -664,6 +678,12 @@ public class PrestoConnection
         return ImmutableMap.copyOf(sessionProperties);
     }
 
+    @VisibleForTesting
+    public Map<String, String> getCustomHeaders()
+    {
+        return ImmutableMap.copyOf(customHeaders);
+    }
+
     ServerInfo getServerInfo()
             throws SQLException
     {
@@ -742,7 +762,8 @@ public class PrestoConnection
                 transactionId.get(),
                 timeout,
                 compressionDisabled,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                customHeaders);
 
         return queryExecutor.startQuery(session, sql);
     }

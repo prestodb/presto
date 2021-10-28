@@ -5,12 +5,12 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>101</version>
+        <version>102</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.249-SNAPSHOT</version>
+    <version>0.265-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -45,7 +45,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.198</dep.airlift.version>
+        <dep.airlift.version>0.201</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -53,7 +53,7 @@
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.32</dep.drift.version>
+        <dep.drift.version>1.33</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.10.8</dep.joda.version>
@@ -61,15 +61,16 @@
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.3</dep.logback.version>
-        <dep.parquet.version>1.10.0</dep.parquet.version>
+        <dep.parquet.version>1.11.0</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.4.1-1</dep.alluxio.version>
+        <dep.alluxio.version>2.6.1</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-        <dep.hudi.version>0.5.3</dep.hudi.version>
+        <dep.hudi.version>0.9.0</dep.hudi.version>
+        <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -88,7 +89,6 @@
     <modules>
         <module>presto-atop</module>
         <module>presto-spi</module>
-        <module>presto-array</module>
         <module>presto-cache</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
@@ -96,6 +96,7 @@
         <module>presto-redis</module>
         <module>presto-accumulo</module>
         <module>presto-cassandra</module>
+        <module>presto-bigquery</module>
         <module>presto-blackhole</module>
         <module>presto-memory</module>
         <module>presto-orc</module>
@@ -105,6 +106,7 @@
         <module>presto-hive-common</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-metastore</module>
+        <module>presto-iceberg</module>
         <module>presto-i18n-functions</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
@@ -117,6 +119,7 @@
         <module>presto-mysql</module>
         <module>presto-oracle</module>
         <module>presto-postgresql</module>
+        <module>presto-prometheus</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
@@ -167,6 +170,9 @@
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
         <module>presto-thrift-spec</module>
+        <module>presto-testng-services</module>
+        <module>presto-node-ttl-fetchers</module>
+        <module>presto-cluster-ttl-providers</module>
     </modules>
 
     <dependencyManagement>
@@ -230,7 +236,13 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-array</artifactId>
+                <artifactId>presto-node-ttl-fetchers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-cluster-ttl-providers</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -280,6 +292,18 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-hadoop2</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-iceberg</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
             </dependency>
 
             <dependency>
@@ -358,7 +382,19 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-bigquery</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-oracle</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-prometheus</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -368,6 +404,12 @@
                 <version>1.14.3</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${dep.testcontainers.version}</version>
             </dependency>
 
             <dependency>
@@ -575,7 +617,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-8</version>
+                <version>2.7.4-9</version>
             </dependency>
 
             <dependency>
@@ -587,7 +629,7 @@
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>11</version>
+                <version>13</version>
             </dependency>
 
             <dependency>
@@ -631,6 +673,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-function-namespace-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-testng-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -919,7 +967,7 @@
             <dependency>
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
-                <version>13.0</version>
+                <version>19.0.0</version>
             </dependency>
 
             <dependency>
@@ -938,6 +986,13 @@
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>5.1.48</version>
+            </dependency>
+
+            <dependency>
+                <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>5.5.0</version>
             </dependency>
 
             <dependency>
@@ -1036,9 +1091,69 @@
 
             <dependency>
                 <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-common</artifactId>
+                <version>${dep.hudi.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.hbase</groupId>
+                        <artifactId>hbase-server</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.orc</groupId>
+                        <artifactId>orc-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.objenesis</groupId>
+                        <artifactId>objenesis</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>jcl-over-slf4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>fluent-hc</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.rocksdb</groupId>
+                        <artifactId>rocksdbjni</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.esotericsoftware</groupId>
+                        <artifactId>kryo-shaded</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-hadoop-mr</artifactId>
                 <version>${dep.hudi.version}</version>
                 <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.hbase</groupId>
+                        <artifactId>hbase-server</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.orc</groupId>
+                        <artifactId>orc-core</artifactId>
+                    </exclusion>
                     <exclusion>
                         <groupId>org.objenesis</groupId>
                         <artifactId>objenesis</artifactId>
@@ -1561,7 +1676,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.3.5-4</version>
+                <version>1.4.9-2</version>
             </dependency>
 
             <dependency>
@@ -1896,12 +2011,6 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>io.airlift.maven.plugins</groupId>
-                    <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>2.1</version>
-                </plugin>
-
-                <plugin>
                     <groupId>com.facebook.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
@@ -1931,6 +2040,7 @@
                                     <exclude>org.alluxio:alluxio-shaded-client</exclude>
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
@@ -1955,6 +2065,14 @@
                         <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-maven-plugin</artifactId>
+                    <version>0.4</version>
+                    <extensions>true</extensions>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
@@ -1962,8 +2080,6 @@
             <plugin>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.3</version>
-                <extensions>true</extensions>
             </plugin>
 
             <plugin>

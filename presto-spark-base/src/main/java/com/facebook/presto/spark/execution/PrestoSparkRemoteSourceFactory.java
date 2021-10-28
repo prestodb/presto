@@ -46,7 +46,7 @@ public class PrestoSparkRemoteSourceFactory
     private final BlockEncodingManager blockEncodingManager;
     private final Map<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputsMap;
     private final Map<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputsMap;
-    private final Map<PlanNodeId, List<List<?>>> broadcastInputsMap;
+    private final Map<PlanNodeId, List<?>> broadcastInputsMap;
     private final int taskId;
     private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
     private final TempStorage tempStorage;
@@ -58,7 +58,7 @@ public class PrestoSparkRemoteSourceFactory
             BlockEncodingManager blockEncodingManager,
             Map<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputsMap,
             Map<PlanNodeId, List<Iterator<PrestoSparkSerializedPage>>> pageInputsMap,
-            Map<PlanNodeId, List<List<?>>> broadcastInputsMap,
+            Map<PlanNodeId, List<?>> broadcastInputsMap,
             int taskId,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             TempStorage tempStorage,
@@ -83,13 +83,15 @@ public class PrestoSparkRemoteSourceFactory
     {
         List<PrestoSparkShuffleInput> shuffleInputs = shuffleInputsMap.get(planNodeId);
         List<java.util.Iterator<PrestoSparkSerializedPage>> pageInputs = pageInputsMap.get(planNodeId);
-        List<List<?>> broadcastInputs = broadcastInputsMap.get(planNodeId);
+        List<?> broadcastInputs = broadcastInputsMap.get(planNodeId);
         checkArgument(shuffleInputs != null || pageInputs != null || broadcastInputs != null, "input not found for plan node with id %s", planNodeId);
         checkArgument(shuffleInputs == null || pageInputs == null, "single remote source cannot accept both, shuffle and page inputs");
         if (broadcastInputs != null) {
             if (isStorageBasedBroadcastJoinEnabled(session)) {
                 List<List<PrestoSparkStorageHandle>> diskPageInputs =
-                        broadcastInputs.stream().map(input -> ((List<PrestoSparkStorageHandle>) input)).collect(toImmutableList());
+                        broadcastInputs.stream()
+                                .map(input -> ((List<?>) input).stream().map(PrestoSparkStorageHandle.class::cast).collect(toImmutableList()))
+                                .collect(toImmutableList());
                 return new SparkRemoteSourceOperatorFactory(
                         operatorId,
                         planNodeId,
@@ -104,7 +106,9 @@ public class PrestoSparkRemoteSourceFactory
             }
             else {
                 List<Iterator<PrestoSparkSerializedPage>> serializedPageInputs =
-                        broadcastInputs.stream().map(input -> ((List<PrestoSparkSerializedPage>) input).iterator()).collect(toImmutableList());
+                        broadcastInputs.stream()
+                                .map(input -> ((List<?>) input).stream().map(PrestoSparkSerializedPage.class::cast).iterator())
+                                .collect(toImmutableList());
                 return new SparkRemoteSourceOperatorFactory(
                         operatorId,
                         planNodeId,

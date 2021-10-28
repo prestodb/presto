@@ -88,10 +88,11 @@ public class TempFileWriter
                     LZ4,
                     Optional.empty(),
                     NO_ENCRYPTION,
-                    new OrcWriterOptions()
+                    OrcWriterOptions.builder()
                             .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
                             .withStripeMinSize(new DataSize(64, MEGABYTE))
-                            .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
+                            .withDictionaryMaxMemory(new DataSize(1, MEGABYTE))
+                            .build(),
                     ImmutableMap.of(),
                     UTC,
                     false,

@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestThriftTaskStatus
 {
     private static final ThriftCodecManager COMPILER_READ_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false));

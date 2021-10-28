@@ -30,6 +30,7 @@ import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.type.SqlIntervalDayTime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Hours;
@@ -171,6 +172,7 @@ public abstract class TestDateTimeFunctionsBase
                         ImmutableMap.of(),
                         isLegacyTimestamp(session),
                         Optional.empty(),
+                        ImmutableSet.of(),
                         Optional.empty(),
                         session.getSessionFunctions()).getSqlFunctionProperties());
         assertEquals(dateTimeCalculation, expectedDays);

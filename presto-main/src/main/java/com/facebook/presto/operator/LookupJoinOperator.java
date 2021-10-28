@@ -381,6 +381,7 @@ public class LookupJoinOperator
         }
 
         currentPartition.ifPresent(Partition::release);
+        currentPartition = Optional.empty();
         if (lookupSourceProvider != null) {
             // There are no more partitions to process, so clean up everything
             lookupSourceProvider.close();
@@ -509,6 +510,19 @@ public class LookupJoinOperator
         }
         closed = true;
         probe = null;
+
+        // In case of early termination (before operator is finished) release partition consumption to avoid a deadlock
+        if (partitionedConsumption == null) {
+            partitionedConsumption = lookupSourceFactory.finishProbeOperator(lookupJoinsCount);
+            addSuccessCallback(partitionedConsumption, consumption -> consumption.beginConsumption().forEachRemaining(Partition::release));
+        }
+        currentPartition.ifPresent(Partition::release);
+        currentPartition = Optional.empty();
+        if (lookupPartitions != null) {
+            while (lookupPartitions.hasNext()) {
+                lookupPartitions.next().release();
+            }
+        }
 
         try (Closer closer = Closer.create()) {
             // `afterClose` must be run last.

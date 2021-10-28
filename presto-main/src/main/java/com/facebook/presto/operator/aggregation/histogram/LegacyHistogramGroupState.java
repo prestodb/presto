@@ -14,7 +14,7 @@
 
 package com.facebook.presto.operator.aggregation.histogram;
 
-import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;

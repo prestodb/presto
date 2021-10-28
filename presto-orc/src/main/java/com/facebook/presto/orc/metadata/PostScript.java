@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -49,8 +51,18 @@ public class PostScript
     private final CompressionKind compression;
     private final long compressionBlockSize;
     private final HiveWriterVersion hiveWriterVersion;
+    private final OptionalInt dwrfStripeCacheLength;
+    private final Optional<DwrfStripeCacheMode> dwrfStripeCacheMode;
 
-    public PostScript(List<Integer> version, long footerLength, long metadataLength, CompressionKind compression, long compressionBlockSize, HiveWriterVersion hiveWriterVersion)
+    public PostScript(
+            List<Integer> version,
+            long footerLength,
+            long metadataLength,
+            CompressionKind compression,
+            long compressionBlockSize,
+            HiveWriterVersion hiveWriterVersion,
+            OptionalInt dwrfStripeCacheLength,
+            Optional<DwrfStripeCacheMode> dwrfStripeCacheMode)
     {
         this.version = ImmutableList.copyOf(requireNonNull(version, "version is null"));
         this.footerLength = footerLength;
@@ -58,6 +70,8 @@ public class PostScript
         this.compression = requireNonNull(compression, "compressionKind is null");
         this.compressionBlockSize = compressionBlockSize;
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
+        this.dwrfStripeCacheLength = requireNonNull(dwrfStripeCacheLength, "dwrfStripeCacheLength is null");
+        this.dwrfStripeCacheMode = requireNonNull(dwrfStripeCacheMode, "dwrfStripeCacheMode is null");
     }
 
     public List<Integer> getVersion()
@@ -90,6 +104,16 @@ public class PostScript
         return hiveWriterVersion;
     }
 
+    public OptionalInt getDwrfStripeCacheLength()
+    {
+        return dwrfStripeCacheLength;
+    }
+
+    public Optional<DwrfStripeCacheMode> getDwrfStripeCacheMode()
+    {
+        return dwrfStripeCacheMode;
+    }
+
     @Override
     public String toString()
     {
@@ -100,6 +124,8 @@ public class PostScript
                 .add("compressionKind", compression)
                 .add("compressionBlockSize", compressionBlockSize)
                 .add("hiveWriterVersion", hiveWriterVersion)
+                .add("dwrfStripeCacheLength", dwrfStripeCacheLength)
+                .add("dwrfStripeCacheMode", dwrfStripeCacheMode)
                 .toString();
     }
 }

@@ -37,6 +37,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
@@ -118,15 +119,18 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
+import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
@@ -299,16 +303,15 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
-            Type returnType = type(node);
-            Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, returnType);
-            if (maybeEnumValue.isPresent()) {
-                return maybeEnumValue.get();
-            }
-
             Type type = type(node.getBase());
             // if there is no type for the base of Dereference, it must be QualifiedName
             if (type == null) {
                 return node;
+            }
+
+            Type returnType = type(node);
+            if (isEnumType(type) && isEnumType(returnType)) {
+                return resolveEnumLiteral(node, returnType);
             }
 
             Object base = process(node.getBase(), context);
@@ -938,25 +941,28 @@ public class ExpressionInterpreter
 
             Object result;
 
-            switch (functionMetadata.getImplementationType()) {
-                case BUILTIN:
-                    result = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
-                    break;
-                case SQL:
-                    Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle), metadata, session.getSqlFunctionProperties(), node.getArguments());
-                    ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
-                            function,
-                            metadata,
-                            session,
-                            getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
-                            optimize);
-                    result = functionInterpreter.visitor.process(function, context);
-                    break;
-                case THRIFT:
-                    // do not interpret remote functions on coordinator
+            FunctionImplementationType implementationType = functionMetadata.getImplementationType();
+            if (implementationType.isExternal()) {
+                // do not interpret remote functions on coordinator
+                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
+            }
+            else if (implementationType.equals(BUILTIN)) {
+                result = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
+            }
+            else {
+                checkState(implementationType.equals(SQL));
+                Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle), metadata, new PlanVariableAllocator(), session.getSqlFunctionProperties(), node.getArguments());
+                ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
+                        function,
+                        metadata,
+                        session,
+                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
+                        optimize);
+                result = functionInterpreter.visitor.process(function, context);
+                if (result instanceof FunctionCall) {
+                    // Cannot interpret function to constant
                     return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
-                default:
-                    throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
+                }
             }
 
             if (optimize && !isSerializable(result, type(node))) {

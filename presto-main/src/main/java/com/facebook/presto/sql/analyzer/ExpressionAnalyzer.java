@@ -38,6 +38,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -144,6 +145,7 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectN
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isNonNullConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteralType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
@@ -456,6 +458,9 @@ public class ExpressionAnalyzer
             }
 
             Type baseType = process(node.getBase(), context);
+            if (((baseType instanceof TypeWithName) && ((TypeWithName) baseType).getType() instanceof RowType)) {
+                baseType = ((TypeWithName) baseType).getType();
+            }
             if (!(baseType instanceof RowType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
@@ -966,6 +971,14 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
+            if (functionMetadata.getImplementationType() == FunctionImplementationType.BUILTIN && functionMetadata.getName().getObjectName().equalsIgnoreCase("REDUCE_AGG")) {
+                Expression initialValueArg = (Expression) node.getArguments().get(1);
+                // For builtin reduce_agg, we make sure the initial value is not null as we cannot handle null properly now.
+
+                if (!isNonNullConstant(initialValueArg)) {
+                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, initialValueArg, "REDUCE_AGG only supports non-NULL literal as the initial value", initialValueArg);
+                }
+            }
             Type type = functionAndTypeManager.getType(functionMetadata.getReturnType());
             return setExpressionType(node, type);
         }

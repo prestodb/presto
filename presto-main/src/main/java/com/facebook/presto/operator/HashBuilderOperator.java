@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -44,6 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +53,8 @@ import static java.util.Objects.requireNonNull;
 public class HashBuilderOperator
         implements Operator
 {
+    private static final Logger log = Logger.get(HashBuilderOperator.class);
+
     public static class HashBuilderOperatorFactory
             implements OperatorFactory
     {
@@ -550,23 +554,33 @@ public class HashBuilderOperator
     {
         checkState(state == State.INPUT_UNSPILLING);
         if (!unspillInProgress.get().isDone()) {
-            // Pages have not be unspilled yet.
+            // Pages have not been unspilled yet.
             return;
         }
 
         // Use Queue so that Pages already consumed by Index are not retained by us.
         Queue<Page> pages = new ArrayDeque<>(getDone(unspillInProgress.get()));
-        long memoryRetainedByRemainingPages = pages.stream()
+        unspillInProgress = Optional.empty();
+        long sizeOfUnSpilledPages = pages.stream()
+                .mapToLong(Page::getSizeInBytes)
+                .sum();
+        long retainedSizeOfUnSpilledPages = pages.stream()
                 .mapToLong(Page::getRetainedSizeInBytes)
                 .sum();
-        localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
+        log.debug(
+                "Unspilling for operator %s, unspilled partition %d, sizeOfUnSpilledPages %s, retainedSizeOfUnSpilledPages %s",
+                operatorContext,
+                partitionIndex,
+                succinctBytes(sizeOfUnSpilledPages),
+                succinctBytes(retainedSizeOfUnSpilledPages));
+        localUserMemoryContext.setBytes(retainedSizeOfUnSpilledPages + index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
 
         while (!pages.isEmpty()) {
             Page next = pages.remove();
             index.addPage(next);
             // There is no attempt to compact index, since unspilled pages are unlikely to have blocks with retained size > logical size.
-            memoryRetainedByRemainingPages -= next.getRetainedSizeInBytes();
-            localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
+            retainedSizeOfUnSpilledPages -= next.getRetainedSizeInBytes();
+            localUserMemoryContext.setBytes(retainedSizeOfUnSpilledPages + index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
         }
 
         LookupSourceSupplier partition = buildLookupSource();
@@ -590,6 +604,7 @@ public class HashBuilderOperator
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
 
         close();
+        spilledLookupSourceHandle.setDisposeCompleted();
     }
 
     private LookupSourceSupplier buildLookupSource()
@@ -625,8 +640,8 @@ public class HashBuilderOperator
             return;
         }
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
-
         lookupSourceSupplier = null;
+        unspillInProgress = Optional.empty();
         state = State.CLOSED;
         finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 

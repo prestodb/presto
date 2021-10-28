@@ -7,10 +7,11 @@ local exchange (GATHER, SINGLE, [])
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    join (LEFT, REPLICATED):
-                                        scan catalog_sales
+                                    join (LEFT, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
+                                            scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPARTITION, HASH, [cr_item_sk, cr_order_number])
                                                 scan catalog_returns
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

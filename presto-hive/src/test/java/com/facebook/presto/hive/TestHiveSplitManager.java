@@ -27,6 +27,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -470,7 +471,8 @@ public class TestHiveSplitManager
                         ImmutableMap.of(),
                         Optional.empty(),
                         false,
-                        true),
+                        true,
+                        0),
                 PARTITION_NAME,
                 partitionStatistics);
 
@@ -489,8 +491,10 @@ public class TestHiveSplitManager
                 false,
                 false,
                 true,
+                true,
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionsPerScan(),
+                false,
                 FUNCTION_AND_TYPE_MANAGER,
                 new HiveLocationService(hdfsEnvironment),
                 FUNCTION_RESOLUTION,
@@ -498,6 +502,7 @@ public class TestHiveSplitManager
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 executor,
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, executor),
@@ -545,7 +550,7 @@ public class TestHiveSplitManager
 
         ConnectorSplitSource splitSource = splitManager.getSplits(
                 new HiveTransactionHandle(),
-                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties()),
+                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties()),
                 new HiveTableLayoutHandle(
                         new SchemaTableName("test_schema", "test_table"),
                         "test_path",
@@ -603,19 +608,19 @@ public class TestHiveSplitManager
         }
 
         @Override
-        public Optional<Table> getTable(String databaseName, String tableName)
+        public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
         {
             return Optional.of(table);
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
         {
             return ImmutableMap.of(partitionWithStatistics.getPartitionName(), Optional.of(partitionWithStatistics.getPartition()));
         }
 
         @Override
-        public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+        public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
         {
             return ImmutableMap.of(partitionWithStatistics.getPartitionName(), partitionWithStatistics.getStatistics());
         }

@@ -27,6 +27,7 @@ import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -65,36 +66,31 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    private QueryRunnerSupplier actualQueryRunnerSupplier;
-    private ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier;
     private QueryRunner queryRunner;
     private ExpectedQueryRunner expectedQueryRunner;
     private SqlParser sqlParser;
-
-    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
-    {
-        this(supplier, H2QueryRunner::new);
-    }
-
-    protected AbstractTestQueryFramework(QueryRunnerSupplier actualQueryRunnerSupplier, ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier)
-    {
-        this.actualQueryRunnerSupplier = requireNonNull(actualQueryRunnerSupplier, "queryRunnerSupplier is null");
-        this.expectedQueryRunnerSupplier = requireNonNull(expectedQueryRunnerSupplier, "queryRunnerSupplier is null");
-    }
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = actualQueryRunnerSupplier.get();
-        expectedQueryRunner = expectedQueryRunnerSupplier.get();
+        queryRunner = createQueryRunner();
+        expectedQueryRunner = createExpectedQueryRunner();
         sqlParser = new SqlParser();
+    }
+
+    protected abstract QueryRunner createQueryRunner()
+            throws Exception;
+
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return new H2QueryRunner();
     }
 
     @AfterClass(alwaysRun = true)
@@ -105,8 +101,6 @@ public abstract class AbstractTestQueryFramework
         queryRunner = null;
         expectedQueryRunner = null;
         sqlParser = null;
-        actualQueryRunnerSupplier = null;
-        expectedQueryRunnerSupplier = null;
     }
 
     protected Session getSession()
@@ -249,6 +243,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+    }
+
+    protected void assertQueryReturnsEmptyResult(Session session, @Language("SQL") String sql)
+    {
+        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
@@ -426,7 +425,8 @@ public abstract class AbstractTestQueryFramework
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
-                taskCountEstimator).getPlanningTimeOptimizers();
+                taskCountEstimator,
+                new PartitioningProviderManager()).getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser, new FeaturesConfig()),

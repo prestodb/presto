@@ -248,7 +248,7 @@ public final class HiveTableLayoutHandle
         TupleDomain<Subfield> domainPredicate = this.domainPredicate;
 
         // If split is provided, we would update the identifier based on split runtime information.
-        if (split.isPresent() && domainPredicate.getColumnDomains().isPresent()) {
+        if (split.isPresent() && (split.get() instanceof HiveSplit) && domainPredicate.getColumnDomains().isPresent()) {
             HiveSplit hiveSplit = (HiveSplit) split.get();
             Set<Subfield> subfields = hiveSplit.getRedundantColumnDomains().stream()
                     .map(column -> new Subfield(((HiveColumnHandle) column).getName()))

@@ -20,6 +20,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -33,7 +34,9 @@ import java.util.stream.Collectors;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -118,6 +121,15 @@ public final class BufferTestUtils
         ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
+    }
+
+    public static void addPages(OutputBuffer buffer, List<Page> pages)
+    {
+        requireNonNull(pages, "pages is null");
+        List<SerializedPage> serializedPages = pages.stream()
+                .map(PAGES_SERDE::serialize)
+                .collect(toImmutableList());
+        buffer.enqueue(Lifespan.taskWide(), serializedPages);
     }
 
     public static void addPage(OutputBuffer buffer, Page page)

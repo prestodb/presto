@@ -13,97 +13,66 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.type.AbstractType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
-import it.unimi.dsi.fastutil.ints.IntArrays;
-import it.unimi.dsi.fastutil.ints.IntComparator;
-
-import java.lang.invoke.MethodHandle;
-import java.util.Arrays;
-
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 @ScalarFunction("arrays_overlap")
 @Description("Returns true if arrays have common elements")
 public final class ArraysOverlapFunction
 {
-    private int[] leftPositions;
-    private int[] rightPositions;
+    private static final int NESTED_LOOP_THRESHOLD = 200;
 
-    private long[] leftLongArray;
-    private long[] rightLongArray;
+    private ArraysOverlapFunction() {}
 
-    @TypeParameter("E")
-    public ArraysOverlapFunction(@TypeParameter("E") Type elementType) {}
-
-    private static IntComparator intBlockCompare(Type type, Block block)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BOOLEAN)
+    @SqlNullable
+    public static Boolean arraysOverlap(
+            @TypeParameter("T") Type elementType,
+            @SqlType("array(T)") Block leftArray,
+            @SqlType("array(T)") Block rightArray)
     {
-        return new AbstractIntComparator()
-        {
-            @Override
-            public int compare(int left, int right)
-            {
-                if (block.isNull(left) && block.isNull(right)) {
-                    return 0;
+        if (leftArray.getPositionCount() == 0 || rightArray.getPositionCount() == 0) {
+            return false;
+        }
+
+        if (Math.max(rightArray.getPositionCount(), leftArray.getPositionCount()) >= NESTED_LOOP_THRESHOLD) {
+            return arraysOverlapSetBased(elementType, leftArray, rightArray);
+        }
+
+        boolean hasNull = false;
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            if (leftArray.isNull(i)) {
+                hasNull = true;
+                continue;
+            }
+
+            for (int j = 0; j < rightArray.getPositionCount(); j++) {
+                if (rightArray.isNull(j)) {
+                    hasNull = true;
+                    continue;
                 }
-                if (block.isNull(left)) {
-                    return 1;
-                }
-                if (block.isNull(right)) {
-                    return -1;
-                }
-                try {
-                    return type.compareTo(block, left, block, right);
-                }
-                catch (NotSupportedException e) {
-                    throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+                if (elementType.equalTo(leftArray, i, rightArray, j)) {
+                    return true;
                 }
             }
-        };
+        }
+        if (hasNull) {
+            return null;
+        }
+        return false;
     }
 
-    @SqlNullable
-    @SqlType(StandardTypes.BOOLEAN)
-    public Boolean arraysOverlapInt(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"integer", "integer"}) MethodHandle lessThanFunction,
-            @SqlType("array(integer)") Block leftArray,
-            @SqlType("array(integer)") Block rightArray)
-    {
-        return genericArraysOverlap(leftArray, rightArray, INTEGER);
-    }
-
-    @SqlNullable
-    @SqlType(StandardTypes.BOOLEAN)
-    public Boolean arraysOverlapBigInt(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"bigint", "bigint"}) MethodHandle lessThanFunction,
-            @SqlType("array(bigint)") Block leftArray,
-            @SqlType("array(bigint)") Block rightArray)
-    {
-        return genericArraysOverlap(leftArray, rightArray, BIGINT);
-    }
-
-    @SqlNullable
-    @TypeParameter("E")
-    @SqlType(StandardTypes.BOOLEAN)
-    public Boolean arraysOverlap(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block leftArray,
-            @SqlType("array(E)") Block rightArray)
+    private static Boolean arraysOverlapSetBased(Type type,
+            Block leftArray,
+            Block rightArray)
     {
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
@@ -112,103 +81,31 @@ public final class ArraysOverlapFunction
             return false;
         }
 
-        if (leftPositions == null || leftPositions.length < leftPositionCount) {
-            leftPositions = new int[leftPositionCount * 2];
+        Block lookArray = leftArray;
+        Block itrArray = rightArray;
+        if (leftPositionCount > rightPositionCount) {
+            lookArray = rightArray;
+            itrArray = leftArray;
         }
 
-        if (rightPositions == null || rightPositions.length < rightPositionCount) {
-            rightPositions = new int[rightPositionCount * 2];
+        boolean itrArrHasNull = false;
+        TypedSet typedSet = new TypedSet(type, lookArray.getPositionCount(), "arraysOverlap");
+        for (int i = 0; i < lookArray.getPositionCount(); i++) {
+            typedSet.add(lookArray, i);
         }
 
-        for (int i = 0; i < leftPositionCount; i++) {
-            leftPositions[i] = i;
-        }
-        for (int i = 0; i < rightPositionCount; i++) {
-            rightPositions[i] = i;
-        }
-        IntArrays.quickSort(leftPositions, 0, leftPositionCount, intBlockCompare(type, leftArray));
-        IntArrays.quickSort(rightPositions, 0, rightPositionCount, intBlockCompare(type, rightArray));
-
-        int leftCurrentPosition = 0;
-        int rightCurrentPosition = 0;
-        while (leftCurrentPosition < leftPositionCount && rightCurrentPosition < rightPositionCount) {
-            if (leftArray.isNull(leftPositions[leftCurrentPosition]) || rightArray.isNull(rightPositions[rightCurrentPosition])) {
-                // Nulls are in the end of the array. Non-null elements do not overlap.
-                return null;
+        for (int i = 0; i < itrArray.getPositionCount(); i++) {
+            if (itrArray.isNull(i)) {
+                itrArrHasNull = true;
+                continue;
             }
-
-            int compareValue;
-            try {
-                compareValue = type.compareTo(leftArray, leftPositions[leftCurrentPosition], rightArray, rightPositions[rightCurrentPosition]);
-            }
-            catch (NotSupportedException e) {
-                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-            }
-
-            if (compareValue > 0) {
-                rightCurrentPosition++;
-            }
-            else if (compareValue < 0) {
-                leftCurrentPosition++;
-            }
-            else {
+            if (typedSet.contains(itrArray, i)) {
                 return true;
             }
         }
-        return leftArray.isNull(leftPositions[leftPositionCount - 1]) || rightArray.isNull(rightPositions[rightPositionCount - 1]) ? null : false;
-    }
-
-    public Boolean genericArraysOverlap(Block leftArray, Block rightArray, AbstractType type)
-    {
-        int leftSize = leftArray.getPositionCount();
-        int rightSize = rightArray.getPositionCount();
-
-        if (leftSize == 0 || rightSize == 0) {
-            return false;
+        if (itrArrHasNull || typedSet.isContainNullElements()) {
+            return null;
         }
-
-        if (leftLongArray == null || leftLongArray.length < leftSize) {
-            leftLongArray = new long[leftSize * 2];
-        }
-        if (rightLongArray == null || rightLongArray.length < rightSize) {
-            rightLongArray = new long[rightSize * 2];
-        }
-
-        int leftNonNullSize = sortAbstractLongArray(leftArray, leftLongArray, type);
-        int rightNonNullSize = sortAbstractLongArray(rightArray, rightLongArray, type);
-
-        int leftPosition = 0;
-        int rightPosition = 0;
-        while (leftPosition < leftNonNullSize && rightPosition < rightNonNullSize) {
-            if (leftLongArray[leftPosition] < rightLongArray[rightPosition]) {
-                leftPosition++;
-            }
-            else if (rightLongArray[rightPosition] < leftLongArray[leftPosition]) {
-                rightPosition++;
-            }
-            else {
-                return true;
-            }
-        }
-        return (leftNonNullSize < leftSize) || (rightNonNullSize < rightSize) ? null : false;
-    }
-
-    // Assumes buffer is long enough, returns count of non-null elements.
-    private static int sortAbstractLongArray(Block array, long[] buffer, AbstractType type)
-    {
-        int arraySize = array.getPositionCount();
-        int nonNullSize = 0;
-        for (int i = 0; i < arraySize; i++) {
-            if (!array.isNull(i)) {
-                buffer[nonNullSize++] = type.getLong(array, i);
-            }
-        }
-        for (int i = 1; i < nonNullSize; i++) {
-            if (buffer[i - 1] > buffer[i]) {
-                Arrays.sort(buffer, 0, nonNullSize);
-                break;
-            }
-        }
-        return nonNullSize;
+        return false;
     }
 }

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -119,6 +120,12 @@ public class FullConnectorSession
     public Optional<String> getClientInfo()
     {
         return session.getClientInfo();
+    }
+
+    @Override
+    public Set<String> getClientTags()
+    {
+        return session.getClientTags();
     }
 
     @Override

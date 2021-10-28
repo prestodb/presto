@@ -14,7 +14,6 @@
 
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
@@ -25,7 +24,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 
@@ -40,12 +38,7 @@ import static com.facebook.presto.util.Failures.checkCondition;
 @ScalarFunction("split_to_multimap")
 public class SplitToMultimapFunction
 {
-    private final PageBuilder pageBuilder;
-
-    public SplitToMultimapFunction(@TypeParameter("map(varchar,array(varchar))") Type mapType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
-    }
+    public SplitToMultimapFunction(@TypeParameter("map(varchar,array(varchar))") Type mapType) {}
 
     @SqlType("map(varchar,array(varchar))")
     public Block splitToMultimap(
@@ -95,12 +88,7 @@ public class SplitToMultimapFunction
             entryStart = entryEnd + entryDelimiter.length();
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        pageBuilder.declarePosition();
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
         BlockBuilder singleMapBlockBuilder = blockBuilder.beginBlockEntry();
         for (Map.Entry<Slice, Collection<Slice>> entry : multimap.asMap().entrySet()) {
             VARCHAR.writeSlice(singleMapBlockBuilder, entry.getKey());

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
@@ -38,11 +39,6 @@ public class TestQueryPlanDeterminism
 {
     private PlanDeterminismChecker determinismChecker;
 
-    protected TestQueryPlanDeterminism()
-    {
-        super(TestQueryPlanDeterminism::createLocalQueryRunner);
-    }
-
     @BeforeClass
     public void setUp()
     {
@@ -55,7 +51,8 @@ public class TestQueryPlanDeterminism
         determinismChecker = null;
     }
 
-    private static LocalQueryRunner createLocalQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")

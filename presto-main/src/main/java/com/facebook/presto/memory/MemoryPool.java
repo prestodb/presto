@@ -145,18 +145,19 @@ public class MemoryPool
             }
         }
 
-        onMemoryReserved();
+        onMemoryReserved(queryId);
         return result;
     }
 
-    private void onMemoryReserved()
+    private void onMemoryReserved(QueryId queryId)
     {
-        listeners.forEach(listener -> listener.onMemoryReserved(this));
+        long totalMemoryReservation = queryMemoryReservations.getOrDefault(queryId, 0L) + queryMemoryRevocableReservations.getOrDefault(queryId, 0L);
+        listeners.forEach(listener -> listener.onMemoryReserved(this, queryId, totalMemoryReservation));
     }
 
-    public void onTaskMemoryReserved(TaskId taskId)
+    public void onTaskRevocableMemoryReserved(TaskId taskId)
     {
-        taskRevocableMemoryListeners.forEach(listener -> listener.onMemoryReserved(taskId, this));
+        taskRevocableMemoryListeners.forEach(listener -> listener.onMemoryReserved(taskId));
     }
 
     public ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
@@ -181,7 +182,7 @@ public class MemoryPool
             }
         }
 
-        onMemoryReserved();
+        onMemoryReserved(queryId);
         return result;
     }
 
@@ -202,7 +203,7 @@ public class MemoryPool
             }
         }
 
-        onMemoryReserved();
+        onMemoryReserved(queryId);
         return true;
     }
 
@@ -305,12 +306,12 @@ public class MemoryPool
         return reservedRevocableBytes;
     }
 
-    synchronized long getQueryMemoryReservation(QueryId queryId)
+    public synchronized long getQueryMemoryReservation(QueryId queryId)
     {
         return queryMemoryReservations.getOrDefault(queryId, 0L);
     }
 
-    synchronized long getQueryRevocableMemoryReservation(QueryId queryId)
+    public synchronized long getQueryRevocableMemoryReservation(QueryId queryId)
     {
         return queryMemoryRevocableReservations.getOrDefault(queryId, 0L);
     }

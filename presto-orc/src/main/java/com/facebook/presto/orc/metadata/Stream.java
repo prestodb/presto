@@ -20,21 +20,38 @@ import static java.util.Objects.requireNonNull;
 
 public class Stream
 {
+    public enum StreamArea {
+        INDEX,
+        DATA,
+    }
+
     public enum StreamKind
     {
-        PRESENT,
-        DATA,
-        LENGTH,
-        DICTIONARY_DATA,
-        DICTIONARY_COUNT,
-        SECONDARY,
-        ROW_INDEX,
-        BLOOM_FILTER,
-        BLOOM_FILTER_UTF8,
-        IN_DICTIONARY,
-        ROW_GROUP_DICTIONARY,
-        ROW_GROUP_DICTIONARY_LENGTH,
-        IN_MAP,
+        PRESENT(StreamArea.DATA),
+        DATA(StreamArea.DATA),
+        LENGTH(StreamArea.DATA),
+        DICTIONARY_DATA(StreamArea.DATA),
+        DICTIONARY_COUNT(StreamArea.INDEX),
+        SECONDARY(StreamArea.DATA),
+        ROW_INDEX(StreamArea.INDEX),
+        BLOOM_FILTER(StreamArea.INDEX),
+        BLOOM_FILTER_UTF8(StreamArea.INDEX),
+        IN_DICTIONARY(StreamArea.DATA),
+        ROW_GROUP_DICTIONARY(StreamArea.DATA),
+        ROW_GROUP_DICTIONARY_LENGTH(StreamArea.DATA),
+        IN_MAP(StreamArea.DATA);
+
+        private final StreamArea streamArea;
+
+        StreamKind(StreamArea streamArea)
+        {
+            this.streamArea = requireNonNull(streamArea, "streamArea is null");
+        }
+
+        public StreamArea getStreamArea()
+        {
+            return streamArea;
+        }
     }
 
     private final int column;

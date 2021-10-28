@@ -382,6 +382,7 @@ public class DriverContext
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
             }
+            totalCpuTime += operator.getAdditionalCpu().roundTo(NANOSECONDS);
         }
 
         return new DriverStats(
@@ -408,7 +409,7 @@ public class DriverContext
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),
-                ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
+                operators);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)

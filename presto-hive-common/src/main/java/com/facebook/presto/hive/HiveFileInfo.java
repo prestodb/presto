@@ -28,6 +28,7 @@ public class HiveFileInfo
     private final boolean isDirectory;
     private final BlockLocation[] blockLocations;
     private final long length;
+    private final long fileModifiedTime;
     private final Optional<byte[]> extraFileInfo;
 
     public static HiveFileInfo createHiveFileInfo(LocatedFileStatus locatedFileStatus, Optional<byte[]> extraFileContext)
@@ -37,15 +38,17 @@ public class HiveFileInfo
                 locatedFileStatus.isDirectory(),
                 locatedFileStatus.getBlockLocations(),
                 locatedFileStatus.getLen(),
+                locatedFileStatus.getModificationTime(),
                 extraFileContext);
     }
 
-    private HiveFileInfo(Path path, boolean isDirectory, BlockLocation[] blockLocations, long length, Optional<byte[]> extraFileInfo)
+    private HiveFileInfo(Path path, boolean isDirectory, BlockLocation[] blockLocations, long length, long fileModifiedTime, Optional<byte[]> extraFileInfo)
     {
         this.path = requireNonNull(path, "path is null");
         this.isDirectory = isDirectory;
         this.blockLocations = blockLocations;
         this.length = length;
+        this.fileModifiedTime = fileModifiedTime;
         this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
     }
 
@@ -67,6 +70,11 @@ public class HiveFileInfo
     public long getLength()
     {
         return length;
+    }
+
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
     }
 
     public Optional<byte[]> getExtraFileInfo()

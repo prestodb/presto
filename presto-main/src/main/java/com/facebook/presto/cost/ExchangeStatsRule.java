@@ -51,10 +51,14 @@ public class ExchangeStatsRule
     {
         Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
         double totalSize = 0;
+        boolean confident = true;
         for (int i = 0; i < node.getSources().size(); i++) {
             PlanNode source = node.getSources().get(i);
             PlanNodeStatsEstimate sourceStats = statsProvider.getStats(source);
             totalSize += sourceStats.getOutputSizeInBytes();
+            if (!sourceStats.isConfident()) {
+                confident = false;
+            }
 
             PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputVariables(sourceStats, node.getInputs().get(i), node.getOutputVariables());
 
@@ -69,6 +73,7 @@ public class ExchangeStatsRule
         verify(estimate.isPresent());
         return Optional.of(buildFrom(estimate.get())
                 .setTotalSize(totalSize)
+                .setConfident(confident)
                 .build());
     }
 

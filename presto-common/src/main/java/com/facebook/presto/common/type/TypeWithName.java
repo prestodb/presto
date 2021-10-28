@@ -52,6 +52,11 @@ public class TypeWithName
         return name.toString();
     }
 
+    public QualifiedObjectName getName()
+    {
+        return name;
+    }
+
     public Type getType()
     {
         return type;

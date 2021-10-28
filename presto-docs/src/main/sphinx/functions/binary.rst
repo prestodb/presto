@@ -118,6 +118,10 @@ Binary Functions
 
     Computes the md5 hash of ``binary``.
 
+.. function:: murmur3_x64_128(binary) -> varbinary
+
+    Computes a hash of ``binary`` that is equivalent to C++ MurmurHash3_x64_128 (Murmur3F) of the same ``binary``.
+
 .. function:: sha1(binary) -> varbinary
 
     Computes the sha1 hash of ``binary``.

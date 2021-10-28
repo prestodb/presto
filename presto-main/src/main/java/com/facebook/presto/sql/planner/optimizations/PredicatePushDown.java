@@ -60,6 +60,8 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -78,7 +80,13 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
+import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.negate;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
@@ -138,11 +146,23 @@ public class PredicatePushDown
 
     public static RowExpression createDynamicFilterExpression(String id, VariableReferenceExpression input, FunctionAndTypeManager functionAndTypeManager)
     {
+        return createDynamicFilterExpression(id, input, functionAndTypeManager, EQUAL.name());
+    }
+
+    private static RowExpression createDynamicFilterExpression(
+            String id,
+            VariableReferenceExpression input,
+            FunctionAndTypeManager functionAndTypeManager,
+            String operator)
+    {
         return call(
                 functionAndTypeManager,
                 DynamicFilters.DynamicFilterPlaceholderFunction.NAME,
                 BooleanType.BOOLEAN,
-                ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR), input));
+                ImmutableList.of(
+                        input,
+                        new ConstantExpression(Slices.utf8Slice(operator), VarcharType.VARCHAR),
+                        new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR)));
     }
 
     private static class Rewriter
@@ -510,10 +530,11 @@ public class PredicatePushDown
             PlanNode leftSource;
             PlanNode rightSource;
 
+            List<RowExpression> joinFilter = joinFilterBuilder.build();
             boolean dynamicFilterEnabled = isEnableDynamicFiltering(session);
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
             if (dynamicFilterEnabled) {
-                DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, idAllocator, metadata.getFunctionAndTypeManager());
+                DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, joinFilter, idAllocator, metadata.getFunctionAndTypeManager());
                 dynamicFilters = dynamicFiltersResult.getDynamicFilters();
                 leftPredicate = logicalRowExpressions.combineConjuncts(leftPredicate, logicalRowExpressions.combineConjuncts(dynamicFiltersResult.getPredicates()));
             }
@@ -529,7 +550,7 @@ public class PredicatePushDown
                 rightSource = context.rewrite(node.getRight(), rightPredicate);
             }
 
-            Optional<RowExpression> newJoinFilter = Optional.of(logicalRowExpressions.combineConjuncts(joinFilterBuilder.build()));
+            Optional<RowExpression> newJoinFilter = Optional.of(logicalRowExpressions.combineConjuncts(joinFilter));
             if (newJoinFilter.get() == TRUE_CONSTANT) {
                 newJoinFilter = Optional.empty();
             }
@@ -599,38 +620,149 @@ public class PredicatePushDown
         private static DynamicFiltersResult createDynamicFilters(
                 JoinNode node,
                 List<JoinNode.EquiJoinClause> equiJoinClauses,
+                List<RowExpression> joinFilter,
                 PlanNodeIdAllocator idAllocator,
                 FunctionAndTypeManager functionAndTypeManager)
         {
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
             List<RowExpression> predicates = ImmutableList.of();
             if (node.getType() == INNER) {
-                // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
-                // Since we use PredicatePushdown to push dynamic filters themselves,
-                // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
-                // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
-                ImmutableMap.Builder<String, VariableReferenceExpression> dynamicFiltersBuilder = ImmutableMap.builder();
-                ImmutableList.Builder<RowExpression> predicatesBuilder = ImmutableList.builder();
-                for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
-                    VariableReferenceExpression probeSymbol = clause.getLeft();
-                    VariableReferenceExpression buildSymbol = clause.getRight();
-                    String id = idAllocator.getNextId().toString();
-                    predicatesBuilder.add(createDynamicFilterExpression(id, probeSymbol, functionAndTypeManager));
-                    dynamicFiltersBuilder.put(id, buildSymbol);
+                List<CallExpression> clauses = getDynamicFilterClauses(node, equiJoinClauses, joinFilter, functionAndTypeManager);
+                List<VariableReferenceExpression> buildSymbols = clauses.stream()
+                        .map(expression -> (VariableReferenceExpression) expression.getArguments().get(1))
+                        .collect(Collectors.toList());
+
+                BiMap<VariableReferenceExpression, String> buildSymbolToIdMap = HashBiMap.create(node.getDynamicFilters()).inverse();
+                for (VariableReferenceExpression buildSymbol : buildSymbols) {
+                    buildSymbolToIdMap.put(buildSymbol, idAllocator.getNextId().toString());
                 }
-                dynamicFilters = dynamicFiltersBuilder.build();
+
+                ImmutableList.Builder<RowExpression> predicatesBuilder = ImmutableList.builder();
+                for (CallExpression expression : clauses) {
+                    VariableReferenceExpression probeSymbol = (VariableReferenceExpression) expression.getArguments().get(0);
+                    VariableReferenceExpression buildSymbol = (VariableReferenceExpression) expression.getArguments().get(1);
+                    String id = buildSymbolToIdMap.get(buildSymbol);
+                    RowExpression predicate = createDynamicFilterExpression(id, probeSymbol, functionAndTypeManager, expression.getDisplayName());
+                    predicatesBuilder.add(predicate);
+                }
+                dynamicFilters = buildSymbolToIdMap.inverse();
                 predicates = predicatesBuilder.build();
             }
             return new DynamicFiltersResult(dynamicFilters, predicates);
         }
 
-        private static RowExpression createDynamicFilterExpression(String id, VariableReferenceExpression input, FunctionAndTypeManager functionAndTypeManager)
+        private static List<CallExpression> getDynamicFilterClauses(
+                JoinNode node,
+                List<JoinNode.EquiJoinClause> equiJoinClauses,
+                List<RowExpression> joinFilter,
+                FunctionAndTypeManager functionAndTypeManager)
         {
-            return call(
-                    functionAndTypeManager,
-                    DynamicFilters.DynamicFilterPlaceholderFunction.NAME,
-                    BooleanType.BOOLEAN,
-                    ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR), input));
+            // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
+            // Since we use PredicatePushdown to push dynamic filters themselves,
+            // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
+            // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
+            ImmutableList.Builder<CallExpression> clausesBuilder = ImmutableList.builder();
+            for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
+                VariableReferenceExpression probeSymbol = clause.getLeft();
+                VariableReferenceExpression buildSymbol = clause.getRight();
+                clausesBuilder.add(call(
+                                    EQUAL.name(),
+                                    functionAndTypeManager.resolveOperator(EQUAL, fromTypes(probeSymbol.getType(), buildSymbol.getType())),
+                                    BOOLEAN,
+                                    probeSymbol,
+                                    buildSymbol));
+            }
+
+            for (RowExpression filter : joinFilter) {
+                if ((filter instanceof CallExpression)) {
+                    CallExpression call = (CallExpression) filter;
+                    List<RowExpression> arguments = call.getArguments();
+
+                    // TODO: support for complex inequalities, e.g. left < right + 10, NOT, LIKE
+                    if (arguments.size() == 1) {
+                        continue;
+                    }
+
+                    if (arguments.size() == 3) {
+                        // try convert BETWEEN into GREATER_THAN_OR_EQUAL and LESS_THAN_OR_EQUAL
+                        String function = call.getDisplayName();
+                        if (function.equals(BETWEEN.name()) && arguments.get(0) instanceof VariableReferenceExpression) {
+                            if (arguments.get(1) instanceof VariableReferenceExpression) {
+                                CallExpression callExpression = call(
+                                                                    GREATER_THAN_OR_EQUAL.name(),
+                                                                    functionAndTypeManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(arguments.get(0).getType(), arguments.get(1).getType())),
+                                                                    BOOLEAN,
+                                                                    arguments.get(0),
+                                                                    arguments.get(1));
+                                Optional<CallExpression> comparisonExpression = getDynamicFilterComparison(node, callExpression, functionAndTypeManager);
+                                if (comparisonExpression.isPresent()) {
+                                    clausesBuilder.add(comparisonExpression.get());
+                                }
+                            }
+                            if (arguments.get(2) instanceof VariableReferenceExpression) {
+                                CallExpression callExpression = call(
+                                                                    LESS_THAN_OR_EQUAL.name(),
+                                                                    functionAndTypeManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(arguments.get(0).getType(), arguments.get(2).getType())),
+                                                                    BOOLEAN,
+                                                                    arguments.get(0),
+                                                                    arguments.get(2));
+                                Optional<CallExpression> comparisonExpression = getDynamicFilterComparison(node, callExpression, functionAndTypeManager);
+                                if (comparisonExpression.isPresent()) {
+                                    clausesBuilder.add(comparisonExpression.get());
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    checkArgument(arguments.size() == 2, "invalid arguments count: %s", arguments.size());
+                    Optional<CallExpression> comparisonExpression = getDynamicFilterComparison(node, call, functionAndTypeManager);
+                    if (comparisonExpression.isPresent()) {
+                        clausesBuilder.add(comparisonExpression.get());
+                    }
+                }
+            }
+            return clausesBuilder.build();
+        }
+
+        private static Optional<CallExpression> getDynamicFilterComparison(
+                JoinNode node,
+                CallExpression call,
+                FunctionAndTypeManager functionAndTypeManager)
+        {
+            String function = call.getDisplayName();
+            List<RowExpression> arguments = call.getArguments();
+            RowExpression left = arguments.get(0);
+            RowExpression right = arguments.get(1);
+            boolean shouldFlip = false;
+            if (!(left instanceof VariableReferenceExpression && right instanceof VariableReferenceExpression)) {
+                return Optional.empty();
+            }
+
+            OperatorType operator = OperatorType.valueOf(function);
+            if (!operator.isComparisonOperator() || operator == NOT_EQUAL || operator == IS_DISTINCT_FROM) {
+                return Optional.empty();
+            }
+
+            if (node.getRight().getOutputVariables().contains(left)) {
+                shouldFlip = true;
+            }
+            if (node.getLeft().getOutputVariables().contains(right)) {
+                shouldFlip = true;
+            }
+
+            if (shouldFlip) {
+                operator = negate(operator);
+                left = arguments.get(1);
+                right = arguments.get(0);
+            }
+
+            return Optional.of(call(
+                                operator.name(),
+                                functionAndTypeManager.resolveOperator(operator, fromTypes(left.getType(), right.getType())),
+                                BOOLEAN,
+                                left,
+                                right));
         }
 
         private static DynamicFiltersResult createDynamicFilters(

@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -58,6 +59,15 @@ public class RenameColumnTask
             }
             return immediateFuture(null);
         }
+
+        Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
+        if (optionalMaterializedView.isPresent()) {
+            if (!statement.isTableExists()) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and rename column is not supported", tableName);
+            }
+            return immediateFuture(null);
+        }
+
         TableHandle tableHandle = tableHandleOptional.get();
 
         String source = statement.getSource().getValue().toLowerCase(ENGLISH);

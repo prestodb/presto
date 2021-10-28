@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -57,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -98,7 +100,7 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime());
+        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         TpchMetadata tpchMetadata = new TpchMetadata("");
 
         handle.execute("CREATE TABLE orders (\n" +
@@ -209,6 +211,113 @@ public class H2QueryRunner
     {
         return new RowMapper<MaterializedRow>()
         {
+            private Object getValue(Type type, ResultSet resultSet, int position)
+                    throws SQLException
+            {
+                if (BOOLEAN.equals(type)) {
+                    boolean booleanValue = resultSet.getBoolean(position);
+                    return resultSet.wasNull() ? null : booleanValue;
+                }
+                else if (TINYINT.equals(type)) {
+                    byte byteValue = resultSet.getByte(position);
+                    return resultSet.wasNull() ? null : byteValue;
+                }
+                else if (SMALLINT.equals(type)) {
+                    short shortValue = resultSet.getShort(position);
+                    return resultSet.wasNull() ? null : shortValue;
+                }
+                else if (INTEGER.equals(type)) {
+                    int intValue = resultSet.getInt(position);
+                    return resultSet.wasNull() ? null : intValue;
+                }
+                else if (BIGINT.equals(type)) {
+                    long longValue = resultSet.getLong(position);
+                    return resultSet.wasNull() ? null : longValue;
+                }
+                else if (REAL.equals(type)) {
+                    float floatValue = resultSet.getFloat(position);
+                    return resultSet.wasNull() ? null : floatValue;
+                }
+                else if (DOUBLE.equals(type)) {
+                    double doubleValue = resultSet.getDouble(position);
+                    return resultSet.wasNull() ? null : doubleValue;
+                }
+                else if (isVarcharType(type)) {
+                    String stringValue = resultSet.getString(position);
+                    return resultSet.wasNull() ? null : stringValue;
+                }
+                else if (isCharType(type)) {
+                    String stringValue = resultSet.getString(position);
+                    return resultSet.wasNull() ? null : padEnd(stringValue, ((CharType) type).getLength(), ' ');
+                }
+                else if (VARBINARY.equals(type)) {
+                    byte[] binary = resultSet.getBytes(position);
+                    return resultSet.wasNull() ? null : binary;
+                }
+                else if (DATE.equals(type)) {
+                    // resultSet.getDate(i) doesn't work if JVM's zone skipped day being retrieved (e.g. 2011-12-30 and Pacific/Apia zone)
+                    LocalDate dateValue = resultSet.getObject(position, LocalDate.class);
+                    return resultSet.wasNull() ? null : dateValue;
+                }
+                else if (TIME.equals(type)) {
+                    // resultSet.getTime(i) doesn't work if JVM's zone had forward offset change during 1970-01-01 (e.g. America/Hermosillo zone)
+                    LocalTime timeValue = resultSet.getObject(position, LocalTime.class);
+                    return resultSet.wasNull() ? null : timeValue;
+                }
+                else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                    throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
+                }
+                else if (TIMESTAMP.equals(type)) {
+                    // resultSet.getTimestamp(i) doesn't work if JVM's zone had forward offset at the date/time being retrieved
+                    LocalDateTime timestampValue;
+                    try {
+                        timestampValue = resultSet.getObject(position, LocalDateTime.class);
+                    }
+                    catch (SQLException first) {
+                        // H2 cannot convert DATE to LocalDateTime in their JDBC driver (even though it can convert to java.sql.Timestamp), we need to do this manually
+                        try {
+                            timestampValue = Optional.ofNullable(resultSet.getObject(position, LocalDate.class)).map(LocalDate::atStartOfDay).orElse(null);
+                        }
+                        catch (RuntimeException e) {
+                            first.addSuppressed(e);
+                            throw first;
+                        }
+                    }
+                    return resultSet.wasNull() ? null : timestampValue;
+                }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
+                    // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
+                    throw new UnsupportedOperationException();
+                }
+                else if (UNKNOWN.equals(type)) {
+                    Object objectValue = resultSet.getObject(position);
+                    checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
+                    return null;
+                }
+                else if (type instanceof DecimalType) {
+                    DecimalType decimalType = (DecimalType) type;
+                    BigDecimal decimalValue = resultSet.getBigDecimal(position);
+                    return resultSet.wasNull() ? null : decimalValue
+                            .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
+                            .round(new MathContext(decimalType.getPrecision()));
+                }
+                else if (type instanceof ArrayType) {
+                    Array array = resultSet.getArray(position);
+                    return resultSet.wasNull() ? null : newArrayList(mapArrayValues(((ArrayType) type), (Object[]) array.getArray()));
+                }
+                else if (type instanceof RowType) {
+                    Array array = resultSet.getArray(position);
+                    return resultSet.wasNull() ? null : newArrayList(mapRowValues((RowType) type, (Object[]) array.getArray()));
+                }
+                else if (type instanceof TypeWithName) {
+                    return getValue(((TypeWithName) type).getType(), resultSet, position);
+                }
+                else {
+                    throw new AssertionError("unhandled type: " + type);
+                }
+            }
+
             @Override
             public MaterializedRow map(ResultSet resultSet, StatementContext context)
                     throws SQLException
@@ -217,186 +326,7 @@ public class H2QueryRunner
                 checkArgument(types.size() == count, "expected types count (%s) does not match actual column count (%s)", types.size(), count);
                 List<Object> row = new ArrayList<>(count);
                 for (int i = 1; i <= count; i++) {
-                    Type type = types.get(i - 1);
-                    if (BOOLEAN.equals(type)) {
-                        boolean booleanValue = resultSet.getBoolean(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(booleanValue);
-                        }
-                    }
-                    else if (TINYINT.equals(type)) {
-                        byte byteValue = resultSet.getByte(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(byteValue);
-                        }
-                    }
-                    else if (SMALLINT.equals(type)) {
-                        short shortValue = resultSet.getShort(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(shortValue);
-                        }
-                    }
-                    else if (INTEGER.equals(type)) {
-                        int intValue = resultSet.getInt(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(intValue);
-                        }
-                    }
-                    else if (BIGINT.equals(type)) {
-                        long longValue = resultSet.getLong(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(longValue);
-                        }
-                    }
-                    else if (REAL.equals(type)) {
-                        float floatValue = resultSet.getFloat(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(floatValue);
-                        }
-                    }
-                    else if (DOUBLE.equals(type)) {
-                        double doubleValue = resultSet.getDouble(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(doubleValue);
-                        }
-                    }
-                    else if (isVarcharType(type)) {
-                        String stringValue = resultSet.getString(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(stringValue);
-                        }
-                    }
-                    else if (isCharType(type)) {
-                        String stringValue = resultSet.getString(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(padEnd(stringValue, ((CharType) type).getLength(), ' '));
-                        }
-                    }
-                    else if (VARBINARY.equals(type)) {
-                        byte[] binary = resultSet.getBytes(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(binary);
-                        }
-                    }
-                    else if (DATE.equals(type)) {
-                        // resultSet.getDate(i) doesn't work if JVM's zone skipped day being retrieved (e.g. 2011-12-30 and Pacific/Apia zone)
-                        LocalDate dateValue = resultSet.getObject(i, LocalDate.class);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(dateValue);
-                        }
-                    }
-                    else if (TIME.equals(type)) {
-                        // resultSet.getTime(i) doesn't work if JVM's zone had forward offset change during 1970-01-01 (e.g. America/Hermosillo zone)
-                        LocalTime timeValue = resultSet.getObject(i, LocalTime.class);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(timeValue);
-                        }
-                    }
-                    else if (TIME_WITH_TIME_ZONE.equals(type)) {
-                        throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
-                    }
-                    else if (TIMESTAMP.equals(type)) {
-                        // resultSet.getTimestamp(i) doesn't work if JVM's zone had forward offset at the date/time being retrieved
-                        LocalDateTime timestampValue;
-                        try {
-                            timestampValue = resultSet.getObject(i, LocalDateTime.class);
-                        }
-                        catch (SQLException first) {
-                            // H2 cannot convert DATE to LocalDateTime in their JDBC driver (even though it can convert to java.sql.Timestamp), we need to do this manually
-                            try {
-                                timestampValue = Optional.ofNullable(resultSet.getObject(i, LocalDate.class)).map(LocalDate::atStartOfDay).orElse(null);
-                            }
-                            catch (RuntimeException e) {
-                                first.addSuppressed(e);
-                                throw first;
-                            }
-                        }
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(timestampValue);
-                        }
-                    }
-                    else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                        // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
-                        // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
-                        throw new UnsupportedOperationException();
-                    }
-                    else if (UNKNOWN.equals(type)) {
-                        Object objectValue = resultSet.getObject(i);
-                        checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
-                        row.add(null);
-                    }
-                    else if (type instanceof DecimalType) {
-                        DecimalType decimalType = (DecimalType) type;
-                        BigDecimal decimalValue = resultSet.getBigDecimal(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(decimalValue
-                                    .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
-                                    .round(new MathContext(decimalType.getPrecision())));
-                        }
-                    }
-                    else if (type instanceof ArrayType) {
-                        Array array = resultSet.getArray(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(newArrayList(mapArrayValues(((ArrayType) type), (Object[]) array.getArray())));
-                        }
-                    }
-                    else if (type instanceof RowType) {
-                        Array array = resultSet.getArray(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(newArrayList(mapRowValues((RowType) type, (Object[]) array.getArray())));
-                        }
-                    }
-                    else {
-                        throw new AssertionError("unhandled type: " + type);
-                    }
+                    row.add(getValue(types.get(i - 1), resultSet, i));
                 }
                 return new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, row);
             }

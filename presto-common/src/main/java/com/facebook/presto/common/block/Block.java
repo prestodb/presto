@@ -163,8 +163,8 @@ public interface Block
     }
 
     /**
-     * Gets the value at the specified position as a single element block.  The method
-     * must copy the data into a new block.
+     * Gets the value at the specified position as a single element block. The
+     * returned block should retain only the memory required for a single block.
      * <p>
      * This method is useful for operators that hold on to a single value without
      * holding on to the entire block.

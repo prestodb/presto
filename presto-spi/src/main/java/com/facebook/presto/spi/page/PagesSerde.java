@@ -29,6 +29,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.computeSerializedPageChecksum;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readRawPage;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeRawPage;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -145,11 +146,14 @@ public class PagesSerde
         else if (!slice.isCompact()) {
             slice = Slices.copyOf(slice);
         }
+
+        long checksum = 0;
         if (checksumEnabled) {
             markers = CHECKSUMMED.set(markers);
+            checksum = computeSerializedPageChecksum(slice, markers, positionCount, uncompressedSize);
         }
 
-        return new SerializedPage(slice, markers, positionCount, uncompressedSize);
+        return new SerializedPage(slice, markers, positionCount, uncompressedSize, checksum);
     }
 
     private static void checkArgument(boolean condition, String message)

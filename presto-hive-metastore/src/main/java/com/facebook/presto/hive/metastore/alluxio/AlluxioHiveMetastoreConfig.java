@@ -22,10 +22,22 @@ import com.facebook.airlift.configuration.ConfigDescription;
 public class AlluxioHiveMetastoreConfig
 {
     private String masterAddress;
+    private boolean zookeeperEnabled;
+    private String zookeeperAddress;
 
     public String getMasterAddress()
     {
         return masterAddress;
+    }
+
+    public boolean isZookeeperEnabled()
+    {
+        return zookeeperEnabled;
+    }
+
+    public String getZookeeperAddress()
+    {
+        return zookeeperAddress;
     }
 
     @Config("hive.metastore.alluxio.master.address")
@@ -33,6 +45,22 @@ public class AlluxioHiveMetastoreConfig
     public AlluxioHiveMetastoreConfig setMasterAddress(String masterAddress)
     {
         this.masterAddress = masterAddress;
+        return this;
+    }
+
+    @Config("hive.metastore.alluxio.zookeeper.enabled")
+    @ConfigDescription("If true, setup master fault tolerant mode using ZooKeeper.")
+    public AlluxioHiveMetastoreConfig setZookeeperEnabled(boolean zookeeperEnabled)
+    {
+        this.zookeeperEnabled = zookeeperEnabled;
+        return this;
+    }
+
+    @Config("hive.metastore.alluxio.zookeeper.address")
+    @ConfigDescription("Address of ZooKeeper.")
+    public AlluxioHiveMetastoreConfig setZookeeperAddress(String zookeeperAddress)
+    {
+        this.zookeeperAddress = zookeeperAddress;
         return this;
     }
 }

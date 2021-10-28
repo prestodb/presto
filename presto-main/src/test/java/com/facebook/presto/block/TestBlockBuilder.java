@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -117,6 +118,9 @@ public class TestBlockBuilder
     @Test
     public void testNewBlockBuilderLikeForLargeBlockBuilder()
     {
+        if (true) {
+            throw new SkipException("https://github.com/prestodb/presto/issues/15653 - Skipped because it OOMs");
+        }
         List<Type> channels = ImmutableList.of(VARCHAR);
         PageBuilder pageBuilder = new PageBuilder(channels);
         BlockBuilder largeVarcharBlockBuilder = pageBuilder.getBlockBuilder(0);

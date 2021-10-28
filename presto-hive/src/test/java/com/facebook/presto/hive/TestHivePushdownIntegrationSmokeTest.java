@@ -14,6 +14,7 @@ package com.facebook.presto.hive;
  */
 
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -22,10 +23,10 @@ import java.util.Optional;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
+import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 
@@ -34,20 +35,26 @@ public class TestHivePushdownIntegrationSmokeTest
 {
     public TestHivePushdownIntegrationSmokeTest()
     {
-        super(() -> createQueryRunner(
-                    ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
-                    ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
-                            "experimental.pushdown-dereference-enabled", "true"),
-                    "sql-standard",
-                    ImmutableMap.of("hive.pushdown-filter-enabled", "true",
-                            "hive.enable-parquet-dereference-pushdown", "true",
-                            "hive.partial_aggregation_pushdown_enabled", "true",
-                            "hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true",
-                            "hive.orc.writer.string-statistics-limit", "128B"),
-                    Optional.empty()),
-                createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
+        super(createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
                 new HiveTypeTranslator());
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return HiveQueryRunner.createQueryRunner(
+                ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION),
+                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
+                        "experimental.pushdown-dereference-enabled", "true"),
+                "sql-standard",
+                ImmutableMap.of("hive.pushdown-filter-enabled", "true",
+                        "hive.enable-parquet-dereference-pushdown", "true",
+                        "hive.partial_aggregation_pushdown_enabled", "true",
+                        "hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true",
+                        "hive.orc.writer.string-statistics-limit", "128B"),
+                Optional.empty());
     }
 }

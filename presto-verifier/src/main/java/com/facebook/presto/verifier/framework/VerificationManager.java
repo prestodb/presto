@@ -17,6 +17,26 @@ import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
@@ -55,6 +75,7 @@ import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryType.UNSUPPORTED;
 import static com.facebook.presto.verifier.framework.SkippedReason.CUSTOM_FILTER;
 import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QUERY_TYPE;
+import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
@@ -219,7 +240,8 @@ public class VerificationManager
         ImmutableList.Builder<SourceQuery> selected = ImmutableList.builder();
         for (SourceQuery sourceQuery : sourceQueries) {
             try {
-                QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
+                Statement controlStatement = sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS);
+                QueryType controlQueryType = QueryType.of(controlStatement);
                 QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(TEST), PARSING_OPTIONS));
 
                 if (controlQueryType == UNSUPPORTED || testQueryType == UNSUPPORTED) {
@@ -227,6 +249,10 @@ public class VerificationManager
                 }
                 else if (controlQueryType != testQueryType) {
                     postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE, skipControl));
+                }
+                else if (isLimitWithoutOrderBy(controlStatement, sourceQuery.getName())) {
+                    log.debug("LimitWithoutOrderByChecker Skipped %s", sourceQuery.getName());
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, NON_DETERMINISTIC, skipControl));
                 }
                 else {
                     selected.add(sourceQuery);
@@ -240,6 +266,25 @@ public class VerificationManager
         List<SourceQuery> selectQueries = selected.build();
         log.info("Filtering query type... Remaining queries: %s", selectQueries.size());
         return selectQueries;
+    }
+
+    private Boolean isLimitWithoutOrderBy(Statement controlStatement, String queryId)
+    {
+        try {
+            Boolean process = new LimitWithoutOrderByChecker().process(controlStatement, 0);
+            //We want to continue processing without an NPE
+            if (process == null) {
+                log.warn("LimitWithoutOrderByChecker Check failed for %s ", queryId);
+                return false;
+            }
+            return process;
+        }
+        catch (Exception e) {
+            //We want to continue processing for the rest of the queries
+            log.warn("LimitWithoutOrderByChecker Check failed for %s ", queryId);
+            log.error(e);
+            return false;
+        }
     }
 
     private List<SourceQuery> applyCustomFilters(List<SourceQuery> sourceQueries)
@@ -328,6 +373,127 @@ public class VerificationManager
     {
         for (EventClient eventClient : eventClients) {
             eventClient.post(event);
+        }
+    }
+
+    private class LimitWithoutOrderByChecker
+            extends AstVisitor<Boolean, Integer>
+    {
+        @Override
+        protected Boolean visitQuerySpecification(QuerySpecification node, Integer level)
+        {
+            if (node.getFrom().isPresent()) {
+                Relation relation = node.getFrom().get();
+                if (process(relation, level)) {
+                    return true;
+                }
+            }
+            //Check if node is not at root level and limit clause is present without order by
+            return level != 0 && node.getLimit().isPresent() && !node.getOrderBy().isPresent();
+        }
+
+        @Override
+        protected Boolean visitQuery(Query node, Integer level)
+        {
+            if (node.getWith().isPresent()) {
+                With with = node.getWith().get();
+                for (WithQuery query : with.getQueries()) {
+                    if (process(query.getQuery(), level + 1)) {
+                        return true;
+                    }
+                }
+            }
+
+            return process(node.getQueryBody(), level);
+        }
+
+        @Override
+        protected Boolean visitInsert(Insert node, Integer level)
+        {
+            return process(node.getQuery(), level);
+        }
+
+        @Override
+        protected Boolean visitJoin(Join node, Integer level)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitUnion(Union node, Integer level)
+        {
+            for (Relation relation : node.getRelations()) {
+                if (process(relation, level)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        protected Boolean visitIntersect(Intersect node, Integer level)
+        {
+            for (Relation relation : node.getRelations()) {
+                if (process(relation, level)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        protected Boolean visitExcept(Except node, Integer level)
+        {
+            return process(node.getLeft(), level) || process(node.getRight(), level);
+        }
+
+        @Override
+        protected Boolean visitAliasedRelation(AliasedRelation node, Integer level)
+        {
+            return process(node.getRelation(), level);
+        }
+
+        @Override
+        protected Boolean visitUnnest(Unnest node, Integer level)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitTable(Table node, Integer level)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitTableSubquery(TableSubquery node, Integer level)
+        {
+            //Incrementing level when we reach a sub-query
+            return process(node.getQuery(), level + 1);
+        }
+
+        @Override
+        protected Boolean visitCreateTable(CreateTable node, Integer level)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitCreateTableAsSelect(CreateTableAsSelect node, Integer level)
+        {
+            return process(node.getQuery(), level);
+        }
+
+        @Override
+        protected Boolean visitCreateView(CreateView node, Integer level)
+        {
+            return process(node.getQuery(), level);
+        }
+
+        @Override
+        protected Boolean visitValues(Values node, Integer level)
+        {
+            return false;
         }
     }
 }

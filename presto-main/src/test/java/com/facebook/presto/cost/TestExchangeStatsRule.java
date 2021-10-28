@@ -118,4 +118,46 @@ public class TestExchangeStatsRule
                                 .distinctValuesCount(4)
                                 .nullsFraction(0.1)));
     }
+
+    @Test
+    public void testExchangeConfidence()
+    {
+        // Confidence of exchange stats should be logical AND of its source nodes' confidence
+
+        tester().assertStatsFor(pb -> pb
+                .exchange(exchangeBuilder -> exchangeBuilder
+                        .addInputsSet()
+                        .addInputsSet()
+                        .singleDistributionPartitioningScheme()
+                        .addSource(pb.values())
+                        .addSource(pb.values())))
+                .withSourceStats(0, PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .setConfident(true)
+                        .build())
+                .withSourceStats(1, PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .setConfident(true)
+                        .build())
+                .check(check -> check
+                        .confident(true));
+
+        tester().assertStatsFor(pb -> pb
+                .exchange(exchangeBuilder -> exchangeBuilder
+                        .addInputsSet()
+                        .addInputsSet()
+                        .singleDistributionPartitioningScheme()
+                        .addSource(pb.values())
+                        .addSource(pb.values())))
+                .withSourceStats(0, PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .setConfident(true)
+                        .build())
+                .withSourceStats(1, PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .setConfident(false)
+                        .build())
+                .check(check -> check
+                        .confident(false));
+    }
 }

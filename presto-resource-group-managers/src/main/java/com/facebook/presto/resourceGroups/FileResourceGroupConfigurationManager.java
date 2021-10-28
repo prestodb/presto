@@ -15,7 +15,7 @@ package com.facebook.presto.resourceGroups;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
@@ -43,7 +43,7 @@ public class FileResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
     private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+            () -> new JsonObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .jsonCodec(ManagerSpec.class);
 
     private final List<ResourceGroupSpec> rootGroups;

@@ -30,7 +30,7 @@ import static java.util.Locale.ENGLISH;
 public class DeterminismAnalyzerConfig
 {
     private boolean runTeardown;
-    private int maxAnalysisRuns = 2;
+    private int maxAnalysisRuns = 6;
     private boolean handleLimitQuery = true;
     private Set<String> nonDeterministicCatalogs = ImmutableSet.of();
 

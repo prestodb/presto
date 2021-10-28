@@ -33,6 +33,7 @@ import java.net.UnknownHostException;
 import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.Long.reverseBytes;
 
 public class IpAddressType
         extends AbstractType
@@ -100,13 +101,11 @@ public class IpAddressType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        // compare high order bits
-        int compare = Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+        int compare = Long.compareUnsigned(reverseBytes(leftBlock.getLong(leftPosition, 0)), reverseBytes(rightBlock.getLong(rightPosition, 0)));
         if (compare != 0) {
             return compare;
         }
-        // compare low order bits
-        return Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
+        return Long.compareUnsigned(reverseBytes(leftBlock.getLong(leftPosition, SIZE_OF_LONG)), reverseBytes(rightBlock.getLong(rightPosition, SIZE_OF_LONG)));
     }
 
     @Override

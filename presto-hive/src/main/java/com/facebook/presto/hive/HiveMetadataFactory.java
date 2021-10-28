@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
@@ -40,10 +41,12 @@ public class HiveMetadataFactory
     private final boolean allowCorruptWritesForTesting;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
+    private final boolean undoMetastoreOperationsEnabled;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final int maxPartitionBatchSize;
     private final long perTransactionCacheMaximumSize;
+    private final boolean metastoreImpersonationEnabled;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -55,6 +58,7 @@ public class HiveMetadataFactory
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
+    private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
     private final ListeningExecutorService fileRenameExecutor;
     private final TypeTranslator typeTranslator;
     private final StagingFileCommitter stagingFileCommitter;
@@ -81,6 +85,7 @@ public class HiveMetadataFactory
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
@@ -100,8 +105,10 @@ public class HiveMetadataFactory
                 hiveClientConfig.isSkipTargetCleanupOnRollback(),
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveClientConfig.isUndoMetastoreOperationsEnabled(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
+                metastoreClientConfig.isMetastoreImpersonationEnabled(),
                 typeManager,
                 locationService,
                 functionResolution,
@@ -109,6 +116,7 @@ public class HiveMetadataFactory
                 filterStatsCalculatorService,
                 tableParameterCodec,
                 partitionUpdateCodec,
+                partitionUpdateSmileCodec,
                 fileRenameExecutor,
                 typeTranslator,
                 stagingFileCommitter,
@@ -130,8 +138,10 @@ public class HiveMetadataFactory
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean undoMetastoreOperationsEnabled,
             int maxPartitionBatchSize,
             long perTransactionCacheMaximumSize,
+            boolean metastoreImpersonationEnabled,
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
@@ -139,6 +149,7 @@ public class HiveMetadataFactory
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             ListeningExecutorService fileRenameExecutor,
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
@@ -154,9 +165,10 @@ public class HiveMetadataFactory
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.undoMetastoreOperationsEnabled = undoMetastoreOperationsEnabled;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
-
+        this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -168,6 +180,7 @@ public class HiveMetadataFactory
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
         this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
@@ -191,10 +204,11 @@ public class HiveMetadataFactory
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                CachingHiveMetastore.memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
+                CachingHiveMetastore.memoizeMetastore(this.metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize), // per-transaction cache
                 fileRenameExecutor,
                 skipDeletionForAlter,
-                skipTargetCleanupOnRollback);
+                skipTargetCleanupOnRollback,
+                undoMetastoreOperationsEnabled);
 
         return new HiveMetadata(
                 metastore,
@@ -212,6 +226,7 @@ public class HiveMetadataFactory
                 filterStatsCalculatorService,
                 tableParameterCodec,
                 partitionUpdateCodec,
+                partitionUpdateSmileCodec,
                 typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),

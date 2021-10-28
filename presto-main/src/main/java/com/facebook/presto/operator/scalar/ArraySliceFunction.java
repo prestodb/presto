@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
@@ -56,6 +57,11 @@ public final class ArraySliceFunction
             return type.createBlockBuilder(null, 0).build();
         }
 
-        return array.getRegion((int) (fromIndex - 1), (int) (toIndex - fromIndex));
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, (int) (toIndex - fromIndex));
+        for (int i = (int) fromIndex - 1; i < toIndex - 1; i++) {
+            type.appendTo(array, i, blockBuilder);
+        }
+
+        return blockBuilder.build();
     }
 }

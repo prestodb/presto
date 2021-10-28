@@ -20,6 +20,7 @@ public enum PrestoTableType
     MANAGED_TABLE,
     EXTERNAL_TABLE,
     VIRTUAL_VIEW,
+    MATERIALIZED_VIEW,
     TEMPORARY_TABLE,
     OTHER, // Some Hive implementations define additional table types
     /**/;

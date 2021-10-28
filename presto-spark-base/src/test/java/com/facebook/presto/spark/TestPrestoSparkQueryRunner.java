@@ -15,20 +15,38 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Set;
+
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.airlift.tpch.TpchTable.NATION;
+import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
 {
-    public TestPrestoSparkQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(PrestoSparkQueryRunner::createHivePrestoSparkQueryRunner);
+        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner();
     }
 
     @Test
@@ -37,8 +55,8 @@ public class TestPrestoSparkQueryRunner
         // some basic tests
         assertUpdate(
                 "CREATE TABLE hive.hive_test.hive_orders AS " +
-                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                "FROM orders",
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders",
                 15000);
 
         assertUpdate(
@@ -85,31 +103,169 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
-    public void testBucketedTableWrite()
+    public void testZeroFileCreatorForBucketedTable()
     {
-        // create from bucketed table
         assertUpdate(
-                "CREATE TABLE hive.hive_test.hive_orders_bucketed_1 WITH (bucketed_by=array['orderkey'], bucket_count=11) AS " +
+                getSession(),
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_zero_file WITH (bucketed_by=array['orderkey'], bucket_count=8) AS " +
                         "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM orders_bucketed",
-                15000);
-        assertQuery(
-                "SELECT count(*) " +
-                        "FROM hive.hive_test.hive_orders_bucketed_1 " +
-                        "WHERE \"$bucket\" = 1",
-                "SELECT 1365");
+                        "FROM orders_bucketed " +
+                        "WHERE orderkey = 1"),
+                1);
+    }
 
-        // create from non bucketed table
+    @Test
+    public void testBucketedTableWriteSimple()
+    {
+        // simple write from a bucketed table to a bucketed table
+        // same bucket count
+        testBucketedTableWriteSimple(getSession(), 8, 8);
+        for (Session testSession : getTestCompatibleBucketCountSessions()) {
+            // incompatible bucket count
+            testBucketedTableWriteSimple(testSession, 3, 13);
+            testBucketedTableWriteSimple(testSession, 13, 7);
+            // compatible bucket count
+            testBucketedTableWriteSimple(testSession, 4, 8);
+            testBucketedTableWriteSimple(testSession, 8, 4);
+        }
+    }
+
+    private void testBucketedTableWriteSimple(Session session, int inputBucketCount, int outputBucketCount)
+    {
         assertUpdate(
-                "CREATE TABLE hive.hive_test.hive_orders_bucketed_2 WITH (bucketed_by=array['orderkey'], bucket_count=11) AS " +
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_simple_input WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
                         "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM orders",
+                        "FROM orders_bucketed", inputBucketCount),
                 15000);
         assertQuery(
+                session,
                 "SELECT count(*) " +
-                        "FROM hive.hive_test.hive_orders_bucketed_2 " +
-                        "WHERE \"$bucket\" = 1",
-                "SELECT 1365");
+                        "FROM hive.hive_test.test_hive_orders_bucketed_simple_input " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", inputBucketCount));
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_simple_output WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_simple_input", outputBucketCount),
+                15000);
+        assertQuery(
+                session,
+                "SELECT count(*) " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_simple_output " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", outputBucketCount));
+
+        dropTable("hive_test", "test_hive_orders_bucketed_simple_input");
+        dropTable("hive_test", "test_hive_orders_bucketed_simple_output");
+    }
+
+    @Test
+    public void testBucketedTableWriteAggregation()
+    {
+        // aggregate on a bucket key and write to a bucketed table
+        // same bucket count
+        testBucketedTableWriteAggregation(getSession(), 8, 8);
+        for (Session testSession : getTestCompatibleBucketCountSessions()) {
+            // incompatible bucket count
+            testBucketedTableWriteAggregation(testSession, 7, 13);
+            testBucketedTableWriteAggregation(testSession, 13, 7);
+            // compatible bucket count
+            testBucketedTableWriteAggregation(testSession, 4, 8);
+            testBucketedTableWriteAggregation(testSession, 8, 4);
+        }
+    }
+
+    private void testBucketedTableWriteAggregation(Session session, int inputBucketCount, int outputBucketCount)
+    {
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_aggregation_input WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed", inputBucketCount),
+                15000);
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_aggregation_output WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, sum(totalprice) totalprice " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_aggregation_input " +
+                        "GROUP BY orderkey", outputBucketCount),
+                15000);
+        assertQuery(
+                session,
+                "SELECT count(*) " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_aggregation_output " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", outputBucketCount));
+
+        dropTable("hive_test", "test_hive_orders_bucketed_aggregation_input");
+        dropTable("hive_test", "test_hive_orders_bucketed_aggregation_output");
+    }
+
+    @Test
+    public void testBucketedTableWriteJoin()
+    {
+        // join on a bucket key and write to a bucketed table
+        // same bucket count
+        testBucketedTableWriteJoin(getSession(), 8, 8, 8);
+        for (Session testSession : getTestCompatibleBucketCountSessions()) {
+            // incompatible bucket count
+            testBucketedTableWriteJoin(testSession, 7, 13, 17);
+            testBucketedTableWriteJoin(testSession, 13, 7, 17);
+            testBucketedTableWriteJoin(testSession, 7, 7, 17);
+            // compatible bucket count
+            testBucketedTableWriteJoin(testSession, 4, 4, 8);
+            testBucketedTableWriteJoin(testSession, 8, 8, 4);
+            testBucketedTableWriteJoin(testSession, 4, 8, 8);
+            testBucketedTableWriteJoin(testSession, 8, 4, 8);
+            testBucketedTableWriteJoin(testSession, 4, 8, 4);
+            testBucketedTableWriteJoin(testSession, 8, 4, 4);
+        }
+    }
+
+    private void testBucketedTableWriteJoin(Session session, int firstInputBucketCount, int secondInputBucketCount, int outputBucketCount)
+    {
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_input_1 WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed", firstInputBucketCount),
+                15000);
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_input_2 WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed", secondInputBucketCount),
+                15000);
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_output WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                                "SELECT  first.orderkey, second.totalprice " +
+                                "FROM hive.hive_test.test_hive_orders_bucketed_join_input_1 first " +
+                                "INNER JOIN hive.hive_test.test_hive_orders_bucketed_join_input_2 second " +
+                                "ON first.orderkey = second.orderkey ",
+                        outputBucketCount),
+                15000);
+        assertQuery(
+                session,
+                "SELECT count(*) " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_join_output " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", outputBucketCount));
+
+        dropTable("hive_test", "test_hive_orders_bucketed_join_input_1");
+        dropTable("hive_test", "test_hive_orders_bucketed_join_input_2");
+        dropTable("hive_test", "test_hive_orders_bucketed_join_output");
+    }
+
+    private void dropTable(String schema, String table)
+    {
+        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(METASTORE_CONTEXT, schema, table, true);
     }
 
     @Test
@@ -155,6 +311,66 @@ public class TestPrestoSparkQueryRunner
                 "JOIN orders_bucketed o " +
                 "ON l.orderkey = o.orderkey " +
                 "WHERE l.orderkey % 223 = 42 AND l.linenumber = 4 and o.orderstatus = 'O'");
+
+        // different number of buckets
+        assertUpdate("create table if not exists hive.hive_test.bucketed_nation_for_join_4 " +
+                        "WITH (bucket_count = 4, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+        assertUpdate("create table if not exists hive.hive_test.bucketed_nation_for_join_8 " +
+                        "WITH (bucket_count = 8, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+
+        for (Session session : getTestCompatibleBucketCountSessions()) {
+            String expected = "SELECT * FROM nation first " +
+                    "INNER JOIN nation second " +
+                    "ON first.nationkey = second.nationkey";
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_4 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_8 second " +
+                            "ON first.nationkey = second.nationkey",
+                    expected);
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_8 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_4 second " +
+                            "ON first.nationkey = second.nationkey",
+                    expected);
+
+            expected = "SELECT * FROM nation first " +
+                    "INNER JOIN nation second " +
+                    "ON first.nationkey = second.nationkey " +
+                    "INNER JOIN nation third " +
+                    "ON second.nationkey = third.nationkey";
+
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_4 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_8 second " +
+                            "ON first.nationkey = second.nationkey " +
+                            "INNER JOIN nation third " +
+                            "ON second.nationkey = third.nationkey",
+                    expected);
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_8 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_4 second " +
+                            "ON first.nationkey = second.nationkey " +
+                            "INNER JOIN nation third " +
+                            "ON second.nationkey = third.nationkey",
+                    expected);
+        }
+    }
+
+    private List<Session> getTestCompatibleBucketCountSessions()
+    {
+        return ImmutableList.of(
+                Session.builder(getSession())
+                        .setSystemProperty(PARTIAL_MERGE_PUSHDOWN_STRATEGY, PUSH_THROUGH_LOW_MEMORY_OPERATORS.name())
+                        .build(),
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("hive", "optimize_mismatched_bucket_count", "true")
+                        .build());
     }
 
     @Test
@@ -305,19 +521,19 @@ public class TestPrestoSparkQueryRunner
 
         // 22 buckets UNION ALL 11 buckets
         assertQuery("SELECT o.regionkey, l.orderkey " +
-                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
-                "CROSS JOIN (" +
-                "   SELECT * FROM hive.hive_test.partitioned_nation_22 " +
-                "   UNION ALL " +
-                "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
-                ") o",
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_22 " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
+                        ") o",
                 "SELECT o.regionkey, l.orderkey " +
-                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
-                "CROSS JOIN (" +
-                "   SELECT * FROM nation " +
-                "   UNION ALL " +
-                "   SELECT * FROM nation" +
-                ") o");
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation" +
+                        ") o");
 
         // 11 buckets UNION ALL 22 buckets
         assertQuery("SELECT o.regionkey, l.orderkey " +
@@ -586,6 +802,22 @@ public class TestPrestoSparkQueryRunner
                 .setSystemProperty("query_max_execution_time", "2s")
                 .build();
         assertQueryFails(queryMaxExecutionTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
+
+        // Test whether waitTime is being considered while computing timeouts.
+        // Expected run time for this query is ~30s. We will set `dummyServiceWaitTime` as 600s.
+        // The timeout logic will set the timeout for the query as 605s (Actual timeout + waitTime)
+        // and the query should succeed. This is a bit hacky way to check whether service waitTime
+        // is added to the deadline time while submitting jobs
+        Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics = ((PrestoSparkQueryRunner) getQueryRunner()).getWaitTimeMetrics();
+        PrestoSparkTestingServiceWaitTimeMetrics testingServiceWaitTimeMetrics = (PrestoSparkTestingServiceWaitTimeMetrics) waitTimeMetrics.stream()
+                .filter(metric -> metric instanceof PrestoSparkTestingServiceWaitTimeMetrics)
+                .findFirst().get();
+        testingServiceWaitTimeMetrics.setWaitTime(new Duration(600, SECONDS));
+        queryMaxRunTimeLimitSession = Session.builder(getSession())
+                .setSystemProperty("query_max_execution_time", "5s")
+                .build();
+        assertQuerySucceeds(queryMaxRunTimeLimitSession, longRunningCrossJoin);
+        testingServiceWaitTimeMetrics.setWaitTime(new Duration(0, SECONDS));
     }
 
     @Test
@@ -608,6 +840,75 @@ public class TestPrestoSparkQueryRunner
                 "SELECT o.custkey, l.orderkey " +
                         "FROM (SELECT * FROM lineitem WHERE linenumber = 4) l " +
                         "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
+
+        assertQuery(session,
+                "WITH broadcast_table1 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 1 " +
+                        ")," +
+                        "broadcast_table2 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 2 " +
+                        ")," +
+                        "broadcast_table3 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 3 " +
+                        ")," +
+                        "broadcast_table4 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 4 " +
+                        ")" +
+                        "SELECT " +
+                        "    * " +
+                        "FROM broadcast_table1 a " +
+                        "JOIN broadcast_table2 b " +
+                        "    ON a.orderkey = b.orderkey " +
+                        "JOIN broadcast_table3 c " +
+                        "    ON a.orderkey = c.orderkey " +
+                        "JOIN broadcast_table4 d " +
+                        "    ON a.orderkey = d.orderkey");
+    }
+
+    @Test
+    public void testSmileSerialization()
+    {
+        String query = "SELECT * FROM nation";
+        try (QueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION), ImmutableMap.of("spark.smile-serialization-enabled", "true"))) {
+            MaterializedResult actual = queryRunner.execute(query);
+            assertEqualsIgnoreOrder(actual, computeExpected(query, actual.getTypes()));
+        }
+        try (QueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION), ImmutableMap.of("spark.smile-serialization-enabled", "false"))) {
+            MaterializedResult actual = queryRunner.execute(query);
+            assertEqualsIgnoreOrder(actual, computeExpected(query, actual.getTypes()));
+        }
+    }
+
+    @Test
+    public void testIterativeSplitEnumeration()
+    {
+        for (int batchSize = 1; batchSize <= 8; batchSize *= 2) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE, batchSize + "")
+                    .build();
+
+            assertQuery(session, "select partkey, count(*) c from lineitem where partkey % 10 = 1 group by partkey having count(*) = 42");
+
+            assertQuery(session, "SELECT l.orderkey, l.linenumber, p.brand " +
+                    "FROM lineitem l, part p " +
+                    "WHERE l.partkey = p.partkey");
+        }
     }
 
     private void assertBucketedQuery(String sql)

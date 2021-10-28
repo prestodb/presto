@@ -31,7 +31,12 @@ import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.BinomialDistribution;
+import org.apache.commons.math3.distribution.CauchyDistribution;
+import org.apache.commons.math3.distribution.ChiSquaredDistribution;
+import org.apache.commons.math3.distribution.PoissonDistribution;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
+import org.apache.commons.math3.distribution.WeibullDistribution;
 import org.apache.commons.math3.special.Erf;
 
 import java.math.BigDecimal;
@@ -214,6 +219,20 @@ public final class MathFunctions
     public static double atan2(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
     {
         return Math.atan2(num1, num2);
+    }
+
+    @Description("Binomial cdf given numberOfTrials, successProbability, and a value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double binomialCdf(
+            @SqlType(StandardTypes.INTEGER) long numberOfTrials,
+            @SqlType(StandardTypes.DOUBLE) double successProbability,
+            @SqlType(StandardTypes.INTEGER) long value)
+    {
+        checkCondition(successProbability >= 0 && successProbability <= 1, INVALID_FUNCTION_ARGUMENT, "successProbability must be in the interval [0, 1]");
+        checkCondition(numberOfTrials > 0, INVALID_FUNCTION_ARGUMENT, "numberOfTrials must be greater than 0");
+        BinomialDistribution distribution = new BinomialDistribution(null, (int) numberOfTrials, successProbability);
+        return distribution.cumulativeProbability((int) value);
     }
 
     @Description("cube root")
@@ -503,6 +522,21 @@ public final class MathFunctions
         return floatToRawIntBits((float) floor(intBitsToFloat((int) num)));
     }
 
+    @Description("inverse of Binomial cdf given numberOfTrials, successProbability parameters and p")
+    @ScalarFunction
+    @SqlType(StandardTypes.INTEGER)
+    public static long inverseBinomialCdf(
+            @SqlType(StandardTypes.INTEGER) long numberOfTrials,
+            @SqlType(StandardTypes.DOUBLE) double successProbability,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(successProbability >= 0 && successProbability <= 1, INVALID_FUNCTION_ARGUMENT, "successProbability must be in the interval [0, 1]");
+        checkCondition(numberOfTrials > 0, INVALID_FUNCTION_ARGUMENT, "numberOfTrials must be greater than 0");
+        BinomialDistribution distribution = new BinomialDistribution(null, (int) numberOfTrials, successProbability);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
     @Description("natural logarithm")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
@@ -705,6 +739,59 @@ public final class MathFunctions
         return distribution.cumulativeProbability(value);
     }
 
+    @Description("Inverse of Cauchy cdf for a given probability, median, and scale (gamma)")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseCauchyCdf(
+            @SqlType(StandardTypes.DOUBLE) double median,
+            @SqlType(StandardTypes.DOUBLE) double scale,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        CauchyDistribution distribution = new CauchyDistribution(null, median, scale, CauchyDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("Cauchy cdf for a given value, median, and scale (gamma)")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cauchyCdf(
+            @SqlType(StandardTypes.DOUBLE) double median,
+            @SqlType(StandardTypes.DOUBLE) double scale,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        CauchyDistribution distribution = new CauchyDistribution(null, median, scale, CauchyDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
+    @Description("inverse of ChiSquared cdf given df parameter and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseChiSquaredCdf(
+            @SqlType(StandardTypes.DOUBLE) double df,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("ChiSquared cdf given the df parameter and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double chiSquaredCdf(
+            @SqlType(StandardTypes.DOUBLE) double df,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
+        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
     @Description("inverse of continuous uniform cdf given a, b parameters and probability")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
@@ -729,6 +816,61 @@ public final class MathFunctions
     {
         checkCondition(b > a, INVALID_FUNCTION_ARGUMENT, "b must be > a");
         UniformRealDistribution distribution = new UniformRealDistribution(a, b);
+        return distribution.cumulativeProbability(value);
+    }
+  
+    @Description("Inverse of Poisson cdf given lambda (mean) parameter and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.INTEGER)
+    public static long inversePoissonCdf(
+            @SqlType(StandardTypes.DOUBLE) double lambda,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1)");
+        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "lambda must be greater than 0");
+        PoissonDistribution distribution = new PoissonDistribution(lambda);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("Poisson cdf given the lambda (mean) parameter and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double poissonCdf(
+            @SqlType(StandardTypes.DOUBLE) double lambda,
+            @SqlType(StandardTypes.INTEGER) long value)
+    {
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must be a non-negative integer");
+        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "lambda must be greater than 0");
+        PoissonDistribution distribution = new PoissonDistribution(lambda);
+        return distribution.cumulativeProbability((int) value);
+    }
+
+    @Description("Inverse of Weibull cdf given a, b parameters and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseWeibullCdf(
+            @SqlType(StandardTypes.DOUBLE) double a,
+            @SqlType(StandardTypes.DOUBLE) double b,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be greater than 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be greater than 0");
+        WeibullDistribution distribution = new WeibullDistribution(null, a, b, WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("Weibull cdf given the a, b parameters and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double weibullCdf(
+            @SqlType(StandardTypes.DOUBLE) double a,
+            @SqlType(StandardTypes.DOUBLE) double b,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be greater than 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be greater than 0");
+        WeibullDistribution distribution = new WeibullDistribution(null, a, b, WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
 

@@ -805,6 +805,11 @@ public class TestHashAggregationOperator
                 }
 
                 @Override
+                public void commit()
+                {
+                }
+
+                @Override
                 public void close()
                 {
                 }

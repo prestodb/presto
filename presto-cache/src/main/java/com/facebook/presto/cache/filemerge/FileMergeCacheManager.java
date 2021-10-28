@@ -44,6 +44,7 @@ import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -210,8 +211,13 @@ public class FileMergeCacheManager
 
     private long getCacheScopeSizeInBytes(long cacheScopeIdentifier)
     {
+        Set<Path> paths = cacheScopeFiles.get(cacheScopeIdentifier);
+        if (paths == null) {
+            return 0;
+        }
+
         long bytes = 0;
-        for (Path path : cacheScopeFiles.get(cacheScopeIdentifier)) {
+        for (Path path : paths) {
             CacheRange cacheRange = persistedRanges.get(path);
             Lock readLock = cacheRange.getLock().readLock();
             readLock.lock();
@@ -235,8 +241,8 @@ public class FileMergeCacheManager
             return;
         }
 
-        cacheScopeFiles.putIfAbsent(cacheQuota.getIdentifier(), new ConcurrentHashSet<>());
-        cacheScopeFiles.get(cacheQuota.getIdentifier()).add(key.getPath());
+        Set<Path> paths = cacheScopeFiles.computeIfAbsent(cacheQuota.getIdentifier(), k -> new ConcurrentHashSet<>());
+        paths.add(key.getPath());
 
         // make a copy given the input data could be a reusable buffer
         stats.addInMemoryRetainedBytes(data.length());
@@ -537,9 +543,15 @@ public class FileMergeCacheManager
         {
             Path path = notification.getKey();
             CacheRange cacheRange = persistedRanges.remove(path);
-            cacheScopeFiles.get(notification.getValue()).remove(path);
-            if (cacheScopeFiles.get(notification.getValue()).isEmpty()) {
-                cacheScopeFiles.remove(notification.getValue());
+            Set<Path> paths = cacheScopeFiles.get(notification.getValue());
+            if (paths != null) {
+                paths.remove(path);
+                if (paths.isEmpty()) {
+                    // ConcurrentHashSet is a custom implementation from Alluxio library.
+                    // The equals implementation is not atomic. So  this can remove
+                    // non empty set due to race conditions, due to non atomic equals.
+                    cacheScopeFiles.remove(notification.getValue(), Collections.emptySet());
+                }
             }
 
             if (cacheRange == null) {

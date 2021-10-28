@@ -175,7 +175,7 @@ public final class HttpRequestSessionContext
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
     }
 
-    private static List<String> splitSessionHeader(Enumeration<String> headers)
+    public static List<String> splitSessionHeader(Enumeration<String> headers)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return Collections.list(headers).stream()
@@ -438,7 +438,7 @@ public final class HttpRequestSessionContext
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
     }
 
-    private ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
+    public static ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
     {
         ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
         for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_RESOURCE_ESTIMATE))) {

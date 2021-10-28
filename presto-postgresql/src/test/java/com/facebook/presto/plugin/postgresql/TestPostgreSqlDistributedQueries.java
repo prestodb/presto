@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
@@ -33,13 +34,14 @@ public class TestPostgreSqlDistributedQueries
     public TestPostgreSqlDistributedQueries()
             throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
+        this.postgreSqlServer = new TestingPostgreSqlServer("testuser", "tpch");
     }
 
-    public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), TpchTable.getTables()));
-        this.postgreSqlServer = postgreSqlServer;
+        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @Override

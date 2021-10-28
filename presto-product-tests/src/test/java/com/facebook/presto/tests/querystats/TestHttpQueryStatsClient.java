@@ -17,7 +17,7 @@ import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.http.client.testing.TestingResponse;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableListMultimap;
@@ -56,7 +56,7 @@ public class TestHttpQueryStatsClient
     @BeforeMethod
     public void setUp()
     {
-        ObjectMapper objectMapper = new ObjectMapperProvider().get();
+        ObjectMapper objectMapper = new JsonObjectMapperProvider().get();
         TestingHttpClient httpClient = new TestingHttpClient(httpRequest -> httpResponse);
         this.queryStatsClient = new HttpQueryStatsClient(httpClient, objectMapper, BASE_URL);
     }

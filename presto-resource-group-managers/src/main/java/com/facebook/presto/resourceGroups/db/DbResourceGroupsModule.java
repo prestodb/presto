@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
+import com.facebook.presto.resourceGroups.reloading.ManagerSpecProvider;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class DbResourceGroupsModule
         implements Module
@@ -29,8 +28,6 @@ public class DbResourceGroupsModule
     {
         configBinder(binder).bindConfig(DbResourceGroupConfig.class);
         binder.bind(ResourceGroupsDao.class).toProvider(MysqlDaoProvider.class).in(Scopes.SINGLETON);
-        binder.bind(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-        binder.bind(ResourceGroupConfigurationManager.class).to(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(DbResourceGroupConfigurationManager.class).withGeneratedName();
+        binder.bind(ManagerSpecProvider.class).to(DbManagerSpecProvider.class).in(Scopes.SINGLETON);
     }
 }

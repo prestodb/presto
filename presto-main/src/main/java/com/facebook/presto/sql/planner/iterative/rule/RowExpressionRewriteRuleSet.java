@@ -498,6 +498,7 @@ public class RowExpressionRewriteRuleSet
                         node.getTableCommitContextVariable(),
                         node.getColumns(),
                         node.getColumnNames(),
+                        node.getNotNullColumnVariables(),
                         node.getTablePartitioningScheme(),
                         node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation));

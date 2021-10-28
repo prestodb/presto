@@ -30,7 +30,6 @@ import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.InputStreamSliceInput;
-import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -49,7 +48,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.newInputStream;
@@ -119,7 +117,6 @@ public class TestTempStorageSingleStreamSpiller
                 new SpillerStats(),
                 compression,
                 encryption,
-                toIntExact(new DataSize(4, KILOBYTE).toBytes()),
                 LocalTempStorage.NAME);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, new TestingSpillContext(), memoryContext);

@@ -42,6 +42,8 @@ public class NodeMemoryConfig
     private DataSize softMaxQueryTotalMemoryPerNode;
     private DataSize heapHeadroom = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
 
+    private boolean verboseExceededMemoryLimitErrorsEnabled = true;
+
     @NotNull
     public DataSize getMaxQueryBroadcastMemory()
     {
@@ -141,6 +143,19 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setHeapHeadroom(DataSize heapHeadroom)
     {
         this.heapHeadroom = heapHeadroom;
+        return this;
+    }
+
+    public boolean isVerboseExceededMemoryLimitErrorsEnabled()
+    {
+        return verboseExceededMemoryLimitErrorsEnabled;
+    }
+
+    @Config("memory.verbose-exceeded-memory-limit-errors-enabled")
+    @ConfigDescription("When enabled the error message for exceeded memory limit errors will contain additional operator memory allocation details")
+    public NodeMemoryConfig setVerboseExceededMemoryLimitErrorsEnabled(boolean verboseExceededMemoryLimitErrorsEnabled)
+    {
+        this.verboseExceededMemoryLimitErrorsEnabled = verboseExceededMemoryLimitErrorsEnabled;
         return this;
     }
 }

@@ -15,7 +15,7 @@ package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
@@ -34,7 +34,7 @@ public class TestClientTypeSignature
     public static final JsonCodec<ClientTypeSignature> CLIENT_TYPE_SIGNATURE_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
+        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
         CLIENT_TYPE_SIGNATURE_CODEC = codecFactory.jsonCodec(ClientTypeSignature.class);
     }

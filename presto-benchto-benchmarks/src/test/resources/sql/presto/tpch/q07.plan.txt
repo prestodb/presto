@@ -7,10 +7,11 @@ remote exchange (GATHER, SINGLE, [])
                         partial aggregation over (expr_24, name_15, name_19)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [orderkey])
-                                    join (INNER, REPLICATED):
-                                        scan lineitem
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, [suppkey_0])
+                                            scan lineitem
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
+                                            remote exchange (REPARTITION, HASH, [suppkey])
                                                 join (INNER, REPLICATED):
                                                     scan supplier
                                                     local exchange (GATHER, SINGLE, [])
@@ -18,10 +19,11 @@ remote exchange (GATHER, SINGLE, [])
                                                             scan nation
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [orderkey_3])
-                                        join (INNER, REPLICATED):
-                                            scan orders
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, [custkey])
+                                                scan orders
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                remote exchange (REPARTITION, HASH, [custkey_6])
                                                     join (INNER, REPLICATED):
                                                         scan customer
                                                         local exchange (GATHER, SINGLE, [])

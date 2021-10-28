@@ -28,12 +28,8 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 public class TestAsyncPageTransportQueries
         extends AbstractTestQueryFramework
 {
-    public TestAsyncPageTransportQueries()
-    {
-        super(TestAsyncPageTransportQueries::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()

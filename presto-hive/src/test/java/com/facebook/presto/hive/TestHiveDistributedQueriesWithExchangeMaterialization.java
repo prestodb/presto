@@ -15,10 +15,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
+import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryRunner;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
@@ -32,9 +35,11 @@ import static org.testng.Assert.assertThrows;
 public class TestHiveDistributedQueriesWithExchangeMaterialization
         extends AbstractTestDistributedQueries
 {
-    public TestHiveDistributedQueriesWithExchangeMaterialization()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMaterializingQueryRunner(getTables()));
+        return createMaterializingQueryRunner(getTables());
     }
 
     @Test
@@ -114,19 +119,24 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     @Test
     public void testBucketedByHiveUnsupportedTypeForTemporaryTable()
     {
-        testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, true);
-        testBucketedByHiveUnsupportedTypeForTemporaryTable(PAGEFILE, false);
-        assertThrows(RuntimeException.class, () -> testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, false));
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, HIVE_COMPATIBLE, true);
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, PRESTO_NATIVE, true);
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(PAGEFILE, HIVE_COMPATIBLE, true);
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(PAGEFILE, PRESTO_NATIVE, false);
+        assertThrows(RuntimeException.class, () -> testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, HIVE_COMPATIBLE, false));
+        assertThrows(RuntimeException.class, () -> testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, PRESTO_NATIVE, false));
+        assertThrows(RuntimeException.class, () -> testBucketedByHiveUnsupportedTypeForTemporaryTable(PAGEFILE, HIVE_COMPATIBLE, false));
     }
 
     private void testBucketedByHiveUnsupportedTypeForTemporaryTable(
             HiveStorageFormat storageFormat,
+            BucketFunctionType bucketFunctionType,
             boolean usePageFileForHiveUnsupportedType)
     {
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "temporary_table_storage_format", storageFormat.name())
+                .setCatalogSessionProperty("hive", "bucket_function_type_for_exchange", bucketFunctionType.name())
                 .setCatalogSessionProperty("hive", "use_pagefile_for_hive_unsupported_type", String.valueOf(usePageFileForHiveUnsupportedType))
-                .setCatalogSessionProperty("hive", "bucket_function_type_for_exchange", "PRESTO_NATIVE")
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_materialize_bucket_by_non_hive_types AS\n" +

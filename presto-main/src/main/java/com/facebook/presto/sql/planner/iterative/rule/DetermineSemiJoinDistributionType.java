@@ -43,7 +43,6 @@ import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
@@ -115,15 +114,12 @@ public class DetermineSemiJoinDistributionType
 
     private boolean canReplicate(SemiJoinNode node, Context context)
     {
-        Optional<DataSize> joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
-        if (!joinMaxBroadcastTableSize.isPresent()) {
-            return true;
-        }
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
         PlanNode buildSide = node.getFilteringSource();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputVariables());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.get().toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
     }
 
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)

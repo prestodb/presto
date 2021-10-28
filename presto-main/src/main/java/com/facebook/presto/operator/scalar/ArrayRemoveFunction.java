@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -23,11 +22,8 @@ import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
-import java.util.List;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
@@ -38,13 +34,8 @@ import static com.facebook.presto.util.Failures.internalError;
 @Description("Remove specified values from the given array")
 public final class ArrayRemoveFunction
 {
-    private final PageBuilder pageBuilder;
-
     @TypeParameter("E")
-    public ArrayRemoveFunction(@TypeParameter("E") Type elementType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
-    }
+    public ArrayRemoveFunction(@TypeParameter("E") Type elementType) {}
 
     @TypeParameter("E")
     @SqlType("array(E)")
@@ -87,22 +78,22 @@ public final class ArrayRemoveFunction
             @SqlType("array(E)") Block array,
             @SqlType("E") Object value)
     {
-        List<Integer> positions = new ArrayList<>();
-
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             Object element = readNativeValue(type, array, i);
-
+            if (element == null) {
+                blockBuilder.appendNull();
+                continue;
+            }
             try {
-                if (element == null) {
-                    positions.add(i);
-                    continue;
-                }
                 Boolean result = (Boolean) equalsFunction.invoke(element, value);
+
                 if (result == null) {
                     throw new PrestoException(NOT_SUPPORTED, "array_remove does not support arrays with elements that are null or contain null");
                 }
+
                 if (!result) {
-                    positions.add(i);
+                    type.appendTo(array, i, blockBuilder);
                 }
             }
             catch (Throwable t) {
@@ -110,20 +101,6 @@ public final class ArrayRemoveFunction
             }
         }
 
-        if (array.getPositionCount() == positions.size()) {
-            return array;
-        }
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        for (int position : positions) {
-            type.appendTo(array, position, blockBuilder);
-        }
-
-        pageBuilder.declarePositions(positions.size());
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - positions.size(), positions.size());
+        return blockBuilder.build();
     }
 }

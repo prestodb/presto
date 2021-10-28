@@ -30,6 +30,8 @@ import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 @DefunctConfig({
         "experimental.big-query-max-task-memory",
         "task.max-memory",
@@ -83,6 +85,8 @@ public class TaskManagerConfig
 
     private boolean legacyLifespanCompletionCondition;
     private TaskPriorityTracking taskPriorityTracking = TaskPriorityTracking.TASK_FAIR;
+
+    private Duration interruptRunawaySplitsTimeout = new Duration(600, SECONDS);
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -243,6 +247,7 @@ public class TaskManagerConfig
         return this;
     }
 
+    @Min(0)
     public BigDecimal getLevelTimeMultiplier()
     {
         return levelTimeMultiplier;
@@ -250,7 +255,6 @@ public class TaskManagerConfig
 
     @Config("task.level-time-multiplier")
     @ConfigDescription("Factor that determines the target scheduled time for a level relative to the next")
-    @Min(0)
     public TaskManagerConfig setLevelTimeMultiplier(BigDecimal levelTimeMultiplier)
     {
         this.levelTimeMultiplier = levelTimeMultiplier;
@@ -556,5 +560,19 @@ public class TaskManagerConfig
     {
         TASK_FAIR,
         QUERY_FAIR,
+    }
+
+    @MinDuration("1s")
+    public Duration getInterruptRunawaySplitsTimeout()
+    {
+        return interruptRunawaySplitsTimeout;
+    }
+
+    @Config("task.interrupt-runaway-splits-timeout")
+    @ConfigDescription("Interrupt runaway split threads after this timeout if the task is stuck in certain allow listed places")
+    public TaskManagerConfig setInterruptRunawaySplitsTimeout(Duration interruptRunawaySplitsTimeout)
+    {
+        this.interruptRunawaySplitsTimeout = interruptRunawaySplitsTimeout;
+        return this;
     }
 }

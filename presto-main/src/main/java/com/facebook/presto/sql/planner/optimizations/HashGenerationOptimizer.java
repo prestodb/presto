@@ -639,7 +639,7 @@ public class HashGenerationOptimizer
                 allHashVariables.put(hashComputation, hashVariable);
             }
 
-            if (node.getLocality().equals(REMOTE)) {
+            if (node.getLocality().equals(REMOTE) && !hashAssignments.isEmpty()) {
                 // if the ProjectNode is remote, created a local projection with identity projection and hash
                 Assignments.Builder localProjectionAssignments = Assignments.builder();
                 child.getNode().getOutputVariables().forEach(variable -> localProjectionAssignments.put(variable, variable));

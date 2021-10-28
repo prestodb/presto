@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.postgresql;
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -69,8 +70,14 @@ public class TestPostgreSqlTypeMapping
 
     private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of()));
         this.postgreSqlServer = postgreSqlServer;
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)

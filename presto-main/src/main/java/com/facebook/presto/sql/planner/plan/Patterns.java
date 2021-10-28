@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.Property;
 import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -96,6 +95,11 @@ public class Patterns
         return typeOf(LateralJoinNode.class);
     }
 
+    public static Pattern<OffsetNode> offset()
+    {
+        return typeOf(OffsetNode.class);
+    }
+
     public static Pattern<LimitNode> limit()
     {
         return typeOf(LimitNode.class);
@@ -161,11 +165,6 @@ public class Patterns
         return typeOf(UnionNode.class);
     }
 
-    public static Pattern<DistinctLimitNode> distinctLimit()
-    {
-        return typeOf(DistinctLimitNode.class);
-    }
-
     public static Pattern<IntersectNode> intersect()
     {
         return typeOf(IntersectNode.class);
@@ -201,14 +200,6 @@ public class Patterns
     public static Property<PlanNode, List<PlanNode>> sources()
     {
         return property("sources", PlanNode::getSources);
-    }
-
-    public static class DistinctLimit
-    {
-        public static Property<DistinctLimitNode, Long> count()
-        {
-            return property("limit", DistinctLimitNode::getLimit);
-        }
     }
 
     public static class Aggregation
@@ -279,11 +270,6 @@ public class Patterns
         public static Property<TopNNode, TopNNode.Step> step()
         {
             return property("step", TopNNode::getStep);
-        }
-
-        public static Property<TopNNode, Long> count()
-        {
-            return property("count", TopNNode::getCount);
         }
     }
 

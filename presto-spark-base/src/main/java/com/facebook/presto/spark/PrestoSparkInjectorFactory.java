@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -49,6 +50,7 @@ import java.util.Optional;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkInjectorFactory
@@ -131,6 +133,7 @@ public class PrestoSparkInjectorFactory
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
                 new JsonModule(),
+                new SmileModule(),
                 new EventListenerModule(),
                 new PrestoSparkModule(sparkProcessType, sqlParserOptions),
                 new WarningCollectorModule());
@@ -143,6 +146,9 @@ public class PrestoSparkInjectorFactory
 
                 binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
                 binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
+
+                newSetBinder(binder, PrestoSparkServiceWaitTimeMetrics.class).addBinding()
+                        .to(PrestoSparkTestingServiceWaitTimeMetrics.class).in(Scopes.SINGLETON);
             });
         }
         else {
@@ -182,6 +188,9 @@ public class PrestoSparkInjectorFactory
 
                 if (tempStorageProperties.isPresent()) {
                     injector.getInstance(TempStorageManager.class).loadTempStorages(tempStorageProperties.get());
+                }
+                else {
+                    injector.getInstance(TempStorageManager.class).loadTempStorages();
                 }
             }
 

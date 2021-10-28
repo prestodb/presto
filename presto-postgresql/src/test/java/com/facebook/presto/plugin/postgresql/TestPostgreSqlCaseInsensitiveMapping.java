@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,11 +47,17 @@ public class TestPostgreSqlCaseInsensitiveMapping
 
     public TestPostgreSqlCaseInsensitiveMapping(TestingPostgreSqlServer postgreSqlServer)
     {
-        super(() -> PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
+        this.postgreSqlServer = postgreSqlServer;
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of("case-insensitive-name-matching", "true"),
-                ImmutableSet.of()));
-        this.postgreSqlServer = postgreSqlServer;
+                ImmutableSet.of());
     }
 
     @AfterClass(alwaysRun = true)
