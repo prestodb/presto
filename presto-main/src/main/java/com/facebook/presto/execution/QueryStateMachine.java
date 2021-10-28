@@ -146,6 +146,7 @@ public class QueryStateMachine
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
+    private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
 
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
@@ -437,6 +438,7 @@ public class QueryStateMachine
                 self,
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
+                expandedQuery.get(),
                 queryStats,
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
@@ -626,6 +628,11 @@ public class QueryStateMachine
     public void setUpdateType(String updateType)
     {
         this.updateType.set(updateType);
+    }
+
+    public void setExpandedQuery(Optional<String> expandedQuery)
+    {
+        this.expandedQuery.set(expandedQuery);
     }
 
     public QueryState getQueryState()
@@ -924,6 +931,7 @@ public class QueryStateMachine
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
+                queryInfo.getExpandedQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getSetCatalog(),
                 queryInfo.getSetSchema(),

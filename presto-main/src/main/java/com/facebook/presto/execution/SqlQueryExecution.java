@@ -188,6 +188,7 @@ public class SqlQueryExecution
 
             this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
             stateMachine.setUpdateType(analysis.getUpdateType());
+            stateMachine.setExpandedQuery(analysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
             analyzer.checkColumnAccessPermissions(this.analysis);
