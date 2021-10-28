@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
@@ -113,7 +114,8 @@ public class TestDomainTranslator
                         new HiveSessionProperties(
                                 new HiveClientConfig().setRangeFiltersOnSubscriptsEnabled(true),
                                 new OrcFileWriterConfig(),
-                                new ParquetFileWriterConfig()).getSessionProperties())).toColumnExtractor();
+                                new ParquetFileWriterConfig(),
+                                new CacheConfig()).getSessionProperties())).toColumnExtractor();
     }
 
     @Test

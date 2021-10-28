@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -49,6 +50,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -73,6 +75,7 @@ import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
@@ -148,6 +151,27 @@ final class RowExpressionVerifier
         }
 
         return process(expected.getExpression(), ((CallExpression) actual).getArguments().get(0));
+    }
+
+    @Override
+    protected Boolean visitIfExpression(IfExpression expected, RowExpression actual)
+    {
+        if (!(actual instanceof SpecialFormExpression) || !((SpecialFormExpression) actual).getForm().equals(IF)) {
+            return false;
+        }
+        return process(expected.getCondition(), ((SpecialFormExpression) actual).getArguments().get(0)) &&
+                process(expected.getTrueValue(), ((SpecialFormExpression) actual).getArguments().get(1)) &&
+                process(expected.getFalseValue().orElse(new NullLiteral()), ((SpecialFormExpression) actual).getArguments().get(2));
+    }
+
+    @Override
+    protected Boolean visitSubscriptExpression(SubscriptExpression expected, RowExpression actual)
+    {
+        if (!(actual instanceof CallExpression) || !functionResolution.isSubscriptFunction(((CallExpression) actual).getFunctionHandle())) {
+            return false;
+        }
+        return process(expected.getBase(), ((CallExpression) actual).getArguments().get(0)) &&
+                process(expected.getIndex(), ((CallExpression) actual).getArguments().get(1));
     }
 
     @Override

@@ -143,6 +143,8 @@ Property Name                                      Description                  
 
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
+``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``true``
+
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
@@ -184,6 +186,7 @@ Property Name                                      Description                  
 
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    S3SelectPushdown.
+``hive.metastore.load-balancing-enabled``       Enable load balancing between multiple Metastore instances
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
@@ -208,6 +211,51 @@ Property Name                                      Description                  
 ``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
 
 ======================================= ============================================================ ============
+
+AWS Glue Catalog Configuration Properties
+-----------------------------------------
+
+==================================================== ============================================================
+Property Name                                        Description
+==================================================== ============================================================
+``hive.metastore.glue.region``                       AWS region of the Glue Catalog. This is required when not
+                                                     running in EC2, or when the catalog is in a different region.
+                                                     Example: ``us-east-1``
+
+``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
+                                                     where Presto is running (defaults to ``false``).
+
+``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue
+                                                     (defaults to ``5``).
+
+``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
+                                                     defaults to ``10``.
+
+``hive.metastore.glue.default-warehouse-dir``        Hive Glue metastore default warehouse directory
+
+``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
+                                                     specified along with ``hive.metastore.glue.aws-secret-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
+``hive.metastore.glue.aws-secret-key``               AWS secret key to use to connect to the Glue Catalog. If
+                                                     specified along with ``hive.metastore.glue.aws-access-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
+``hive.metastore.glue.catalogid``                    The ID of the Glue Catalog in which the metadata database
+                                                     resides.
+
+``hive.metastore.glue.endpoint-url``                 Glue API endpoint URL (optional).
+                                                     Example: ``https://glue.us-east-1.amazonaws.com``
+
+``hive.metastore.glue.partitions-segments``          Number of segments for partitioned Glue tables.
+
+``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue.
+
+``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
+                                                     Catalog.
+==================================================== ============================================================
 
 .. _s3selectpushdown:
 
@@ -241,6 +289,10 @@ Property Name                                Description
                                              of AWS. When using v4 signatures, it is recommended to
                                              set this to the AWS region-specific endpoint
                                              (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
+
+``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
+                                             ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
+                                             Default storage class is ``STANDARD``
 
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
@@ -678,6 +730,16 @@ Procedures
     with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
     file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
     not conforming to this convention are ignored, unless the argument is set to ``false``.
+
+Extra Hidden Columns
+----------
+
+The Hive connector exposes extra hidden metadata columns in Hive tables. You can query these
+columns as a part of SQL query like any other columns of the table.
+
+* ``$path`` : Filepath for the given row data
+* ``$file_size`` : Filesize for the given row
+* ``$file_modified_time`` : Last file modified time for the given row
 
 Examples
 --------

@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -41,7 +42,7 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
-import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
@@ -168,7 +169,7 @@ public class OrcStorageManager
     private final OrcFileRewriter fileRewriter;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcFileTailSource orcFileTailSource;
-    private final StripeMetadataSource stripeMetadataSource;
+    private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
 
     @Inject
     public OrcStorageManager(
@@ -184,7 +185,7 @@ public class OrcStorageManager
             TypeManager typeManager,
             OrcDataEnvironment orcDataEnvironment,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource)
+            StripeMetadataSourceFactory stripeMetadataSourceFactory)
     {
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 storageService,
@@ -204,7 +205,7 @@ public class OrcStorageManager
                 config.getOrcCompressionKind(),
                 config.getOrcOptimizedWriterStage(),
                 orcFileTailSource,
-                stripeMetadataSource);
+                stripeMetadataSourceFactory);
     }
 
     public OrcStorageManager(
@@ -226,7 +227,7 @@ public class OrcStorageManager
             CompressionKind compression,
             OrcOptimizedWriterStage orcOptimizedWriterStage,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource)
+            StripeMetadataSourceFactory stripeMetadataSourceFactory)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -256,9 +257,9 @@ public class OrcStorageManager
                 orcDataEnvironment,
                 compression,
                 orcFileTailSource,
-                stripeMetadataSource);
+                stripeMetadataSourceFactory);
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
-        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.stripeMetadataSourceFactory = requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
     }
 
     @PreDestroy
@@ -293,12 +294,13 @@ public class OrcStorageManager
                     dataSource,
                     ORC,
                     orcFileTailSource,
-                    stripeMetadataSource,
+                    stripeMetadataSourceFactory,
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
                     hiveFileContext.isCacheable(),
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -393,7 +395,8 @@ public class OrcStorageManager
                             defaultReaderAttributes.isZstdJniDecompressionEnabled()),
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             if (reader.getFooter().getNumberOfRows() >= Integer.MAX_VALUE) {
                 throw new IOException("File has too many rows");
@@ -553,12 +556,13 @@ public class OrcStorageManager
                     dataSource,
                     ORC,
                     orcFileTailSource,
-                    stripeMetadataSource,
+                    stripeMetadataSourceFactory,
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()),
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

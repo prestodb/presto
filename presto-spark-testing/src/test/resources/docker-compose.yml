@@ -5,6 +5,8 @@ services:
     environment:
       - "TZ=America/Bahia_Banderas"
       - "SPARK_LOCAL_IP=spark-master"
+    volumes:
+      - ./work:/spark/work
   spark-worker:
     image: spydernaz/spark-worker:2.4.3
     depends_on:
@@ -15,6 +17,8 @@ services:
       - SPARK_DRIVER_MEMORY=512m
       - SPARK_WORKER_CORES=4
       - SPARK_WORKER_MEMORY=1G
+    volumes:
+      - ./work:/spark/work
   spark-submit:
     image: spydernaz/spark-submit:2.4.3
     environment:

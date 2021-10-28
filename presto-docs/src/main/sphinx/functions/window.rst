@@ -5,28 +5,66 @@ Window Functions
 Window functions perform calculations across rows of the query result.
 They run after the ``HAVING`` clause but before the ``ORDER BY`` clause.
 Invoking a window function requires special syntax using the ``OVER``
-clause to specify the window. A window has three components:
+clause to specify the window as follows::
 
-* The partition specification, which separates the input rows into different
+    function(args) OVER (
+        [PARTITION BY expression]
+        [ORDER BY expression [ASC|DESC]]
+        [frame]
+    )
+
+A ``frame`` is one of::
+
+    {RANGE|ROWS} frame_start
+    {RANGE|ROWS} BETWEEN frame_start AND frame_end
+
+``frame_start`` and ``frame_end`` can be any of::
+
+    UNBOUNDED PRECEDING
+    expression PRECEDING  -- only allowed in ROWS mode
+    CURRENT ROW
+    expression FOLLOWING  -- only allowed in ROWS mode
+    UNBOUNDED FOLLOWING
+
+
+The window definition has 3 components:
+
+* The ``PARTITION BY`` clause separates the input rows into different
   partitions. This is analogous to how the ``GROUP BY`` clause separates rows
-  into different groups for aggregate functions.
-* The ordering specification, which determines the order in which input rows
-  will be processed by the window function.
-* The window frame, which specifies a sliding window of rows to be processed
-  by the function for a given row. If the frame is not specified, it defaults
-  to ``RANGE UNBOUNDED PRECEDING``, which is the same as
-  ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame contains all
-  rows from the start of the partition up to the last peer of the current row.
+  into different groups for aggregate functions.  If ``PARTITION BY`` is not
+  specified, the entire input is treated as a single partition.
+* The ``ORDER BY`` clause determines the order in which input rows
+  will be processed by the window function.  If ``ORDER BY`` is not specified,
+  the ordering is undefined.
+  **Note that the ORDER BY clause within window functions does not support ordinals. You need to use actual expressions**
+* The ``frame`` clause specifies the sliding window of rows to be processed by the
+  function for a given input row.  A frame can be ``ROWS`` type or ``RANGE`` type,
+  and it runs from ``frame_start`` to ``frame_end``. If ``frame_end`` is not specified,
+  a default value of ``CURRENT ROW`` is used.
 
-For example, the following query ranks orders for each clerk by price::
+  In ``ROWS`` mode, ``CURRENT ROW`` refers specifically to the current row. In ``RANGE``
+  mode, ``CURRENT ROW`` refers to any peer row of the current row for the purpose
+  of the ``ORDER BY``. If no ``ORDER BY`` is specified, all rows are considered peers
+  of the current row. In ``RANGE`` mode a frame start of ``CURRENT ROW`` refers to
+  the first peer row of the current row, while a frame end of ``CURRENT ROW`` refers to
+  the last peer row of the current row.
+
+  Frame starts and ends of ``expression PRECEDING`` or ``expression FOLLOWING`` are currently
+  only allowed in ``ROWS`` mode. They define the start or end of the frame as the specified number
+  of rows before or after the current row. The ``expression`` must be of type ``INTEGER``.
+
+  If no frame is specified, a default frame of ``RANGE UNBOUNDED PRECEDING`` is used.
+
+Examples
+--------
+
+The following query ranks orders for each clerk by price::
 
     SELECT orderkey, clerk, totalprice,
            rank() OVER (PARTITION BY clerk
                         ORDER BY totalprice DESC) AS rnk
     FROM orders
     ORDER BY clerk, rnk
-
-**Note that ORDER BY clause within window functions does not support ordinals. You need to use the actual expressions**
 
 Aggregate Functions
 -------------------

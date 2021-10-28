@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -42,6 +44,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractPredicates;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -60,6 +63,9 @@ public class TestLogicalRowExpressions
     private static final RowExpression f = name("f");
     private static final RowExpression g = name("g");
     private static final RowExpression h = name("h");
+    private static final VariableReferenceExpression V_0 = variable("v0");
+    private static final VariableReferenceExpression V_1 = variable("v1");
+    private static final VariableReferenceExpression V_2 = variable("v2");
 
     @BeforeClass
     public void setup()
@@ -93,6 +99,18 @@ public class TestLogicalRowExpressions
     }
 
     @Test
+    public void testAndWithSubclassOfRowExpression()
+    {
+        assertEquals(
+                LogicalRowExpressions.and(V_0, V_1, V_2),
+                and(and(V_0, V_1), V_2));
+
+        assertEquals(
+                LogicalRowExpressions.and(ImmutableList.of(V_0, V_1, V_2)),
+                and(and(V_0, V_1), V_2));
+    }
+
+    @Test
     public void testOr()
     {
         assertEquals(
@@ -110,6 +128,18 @@ public class TestLogicalRowExpressions
         assertEquals(
                 extractPredicates(or(or(or(a, b), or(c, d)), e)),
                 ImmutableList.of(a, b, c, d, e));
+    }
+
+    @Test
+    public void testOrWithSubclassOfRowExpression()
+    {
+        assertEquals(
+                LogicalRowExpressions.or(V_0, V_1, V_2),
+                or(or(V_0, V_1), V_2));
+
+        assertEquals(
+                LogicalRowExpressions.or(ImmutableList.of(V_0, V_1, V_2)),
+                or(or(V_0, V_1), V_2));
     }
 
     @Test
@@ -166,6 +196,15 @@ public class TestLogicalRowExpressions
         assertEquals(
                 logicalRowExpressions.convertToConjunctiveNormalForm(and(a, and(b, or(c, and(e, or(f, and(FALSE_CONSTANT, d))))))),
                 and(and(a, b), or(c, and(e, f))));
+    }
+
+    @Test
+    public void testDuplicateIsNullExpressions()
+    {
+        SpecialFormExpression isNullExpression = new SpecialFormExpression(IS_NULL, BOOLEAN, a);
+        List<RowExpression> arguments = Arrays.asList(new SpecialFormExpression[]{isNullExpression, isNullExpression});
+        SpecialFormExpression duplicateIsNullExpression = new SpecialFormExpression(OR, BOOLEAN, arguments);
+        logicalRowExpressions.minimalNormalForm(duplicateIsNullExpression);
     }
 
     @Test
@@ -486,6 +525,11 @@ public class TestLogicalRowExpressions
     }
 
     private static RowExpression name(String name)
+    {
+        return new VariableReferenceExpression(name, BOOLEAN);
+    }
+
+    private static VariableReferenceExpression variable(String name)
     {
         return new VariableReferenceExpression(name, BOOLEAN);
     }

@@ -33,6 +33,17 @@ public class SchemaTableName
         this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
     }
 
+    public static SchemaTableName valueOf(String schemaTableName)
+    {
+        checkNotEmpty(schemaTableName, "schemaTableName").toLowerCase(ENGLISH);
+
+        String[] parts = schemaTableName.split("\\.");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("SchemaTableName should have exactly 2 parts");
+        }
+        return new SchemaTableName(parts[0], parts[1]);
+    }
+
     @JsonProperty("schema")
     public String getSchemaName()
     {

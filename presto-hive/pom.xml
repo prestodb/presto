@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.249-SNAPSHOT</version>
+        <version>0.265-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -49,8 +49,12 @@
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-mr</artifactId>
-            <version>${dep.hudi.version}</version>
         </dependency>
 
         <dependency>
@@ -282,6 +286,12 @@
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-testng-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -398,6 +408,10 @@
                         <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
+                        <ignoredClassPattern>module-info</ignoredClassPattern>
+                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
 

@@ -48,7 +48,7 @@ public final class ZipFunction
         extends SqlScalarFunction
 {
     public static final int MIN_ARITY = 2;
-    public static final int MAX_ARITY = 5;
+    public static final int MAX_ARITY = 7;
     public static final ZipFunction[] ZIP_FUNCTIONS;
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ZipFunction.class, "zip", List.class, Block[].class);

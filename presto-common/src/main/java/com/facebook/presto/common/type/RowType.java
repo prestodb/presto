@@ -122,7 +122,7 @@ public class RowType
         for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
-                result.append(field.getName().get()).append(' ').append(typeDisplayName);
+                result.append("\"").append(field.getName().get()).append("\"").append(' ').append(typeDisplayName);
             }
             else {
                 result.append(typeDisplayName);

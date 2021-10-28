@@ -38,8 +38,9 @@ public class ByteArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
+        boolean mayHaveNull = block.mayHaveNull();
         for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
+            if (!mayHaveNull || !block.isNull(position)) {
                 sliceOutput.writeByte(block.getByte(position));
             }
         }
@@ -53,9 +54,15 @@ public class ByteArrayBlockEncoding
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         byte[] values = new byte[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position] = sliceInput.readByte();
+        if (valueIsNull == null) {
+            // No nulls present, read values array directly from input
+            sliceInput.readBytes(values, 0, values.length);
+        }
+        else {
+            for (int position = 0; position < values.length; position++) {
+                if (!valueIsNull[position]) {
+                    values[position] = sliceInput.readByte();
+                }
             }
         }
 

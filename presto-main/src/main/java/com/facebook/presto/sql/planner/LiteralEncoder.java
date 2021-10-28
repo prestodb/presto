@@ -125,6 +125,12 @@ public final class LiteralEncoder
     @Deprecated
     public Expression toExpression(Object object, Type type)
     {
+        return toExpression(object, type, true);
+    }
+
+    @Deprecated
+    public Expression toExpression(Object object, Type type, boolean typeOnly)
+    {
         requireNonNull(type, "type is null");
 
         if (object instanceof Expression) {
@@ -135,7 +141,7 @@ public final class LiteralEncoder
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
+            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, typeOnly);
         }
 
         if (type.equals(TINYINT)) {
@@ -211,12 +217,12 @@ public final class LiteralEncoder
             if (!varcharType.isUnbounded() && varcharType.getLengthSafe() == SliceUtf8.countCodePoints(value)) {
                 return stringLiteral;
             }
-            return new Cast(stringLiteral, type.getDisplayName(), false, true);
+            return new Cast(stringLiteral, type.getDisplayName(), false, typeOnly);
         }
 
         if (type instanceof CharType) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
-            return new Cast(stringLiteral, type.getDisplayName(), false, true);
+            return new Cast(stringLiteral, type.getDisplayName(), false, typeOnly);
         }
 
         if (type.equals(BOOLEAN)) {
@@ -246,7 +252,7 @@ public final class LiteralEncoder
             FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
             return new FunctionCall(QualifiedName.of(signature.getNameSuffix()), ImmutableList.of(fromBase64));
         }
-        Expression rawLiteral = toExpression(object, typeForMagicLiteral(type));
+        Expression rawLiteral = toExpression(object, typeForMagicLiteral(type), typeOnly);
 
         return new FunctionCall(QualifiedName.of(signature.getNameSuffix()), ImmutableList.of(rawLiteral));
     }

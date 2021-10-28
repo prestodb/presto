@@ -45,6 +45,7 @@ import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.writer.ParquetWriter;
@@ -162,7 +163,7 @@ public enum FileFormat
                     new FileFormatDataSourceStats(),
                     100,
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource());
+                    StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
         }
 
@@ -195,7 +196,7 @@ public enum FileFormat
                     hdfsEnvironment,
                     new FileFormatDataSourceStats(),
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource(),
+                    StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()),
                     HiveDwrfEncryptionProvider.NO_ENCRYPTION);
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
         }
@@ -594,7 +595,7 @@ public enum FileFormat
                     compressionCodec.getOrcCompressionKind(),
                     Optional.empty(),
                     NO_ENCRYPTION,
-                    new OrcWriterOptions(),
+                    OrcWriterOptions.builder().build(),
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,
@@ -633,7 +634,7 @@ public enum FileFormat
                     compressionCodec.getOrcCompressionKind(),
                     Optional.empty(),
                     NO_ENCRYPTION,
-                    new OrcWriterOptions(),
+                    OrcWriterOptions.builder().build(),
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,

@@ -76,6 +76,7 @@ public class TestHiveClientConfig
                 .setOrcCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
+                .setCreateEmptyBucketFiles(true)
                 .setInsertOverwriteImmutablePartitionEnabled(false)
                 .setFailFastOnInsertIntoImmutablePartitionsEnabled(true)
                 .setSortedWritingEnabled(true)
@@ -129,7 +130,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
-                .setCreateEmptyBucketFilesForTemporaryTable(true)
+                .setCreateEmptyBucketFilesForTemporaryTable(false)
                 .setUsePageFileForHiveUnsupportedType(true)
                 .setPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
@@ -149,7 +150,13 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
                 .setFileRenamingEnabled(false)
                 .setPreferManifestsToListFiles(false)
-                .setManifestVerificationEnabled(false));
+                .setManifestVerificationEnabled(false)
+                .setUndoMetastoreOperationsEnabled(true)
+                .setOptimizedPartitionUpdateSerializationEnabled(false)
+                .setVerboseRuntimeStatsEnabled(false)
+                .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS))
+                .setMaterializedViewMissingPartitionsThreshold(100)
+                .setLooseMemoryAccountingEnabled(false));
     }
 
     @Test
@@ -183,6 +190,7 @@ public class TestHiveClientConfig
                 .put("hive.orc-compression-codec", "ZSTD")
                 .put("hive.respect-table-format", "false")
                 .put("hive.immutable-partitions", "true")
+                .put("hive.create-empty-bucket-files", "false")
                 .put("hive.insert-overwrite-immutable-partitions-enabled", "true")
                 .put("hive.fail-fast-on-insert-into-immutable-partitions-enabled", "false")
                 .put("hive.max-partitions-per-writers", "222")
@@ -239,7 +247,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
-                .put("hive.create-empty-bucket-files-for-temporary-table", "false")
+                .put("hive.create-empty-bucket-files-for-temporary-table", "true")
                 .put("hive.use-pagefile-for-hive-unsupported-type", "false")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.range-filters-on-subscripts-enabled", "true")
@@ -260,6 +268,12 @@ public class TestHiveClientConfig
                 .put("hive.file_renaming_enabled", "true")
                 .put("hive.prefer-manifests-to-list-files", "true")
                 .put("hive.manifest-verification-enabled", "true")
+                .put("hive.undo-metastore-operations-enabled", "false")
+                .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
+                .put("hive.partition-lease-duration", "4h")
+                .put("hive.loose-memory-accounting-enabled", "true")
+                .put("hive.verbose-runtime-stats-enabled", "true")
+                .put("hive.materialized-view-missing-partitions-threshold", "50")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -291,6 +305,7 @@ public class TestHiveClientConfig
                 .setOrcCompressionCodec(HiveCompressionCodec.ZSTD)
                 .setRespectTableFormat(false)
                 .setImmutablePartitions(true)
+                .setCreateEmptyBucketFiles(false)
                 .setInsertOverwriteImmutablePartitionEnabled(true)
                 .setFailFastOnInsertIntoImmutablePartitionsEnabled(false)
                 .setMaxPartitionsPerWriter(222)
@@ -346,7 +361,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
-                .setCreateEmptyBucketFilesForTemporaryTable(false)
+                .setCreateEmptyBucketFilesForTemporaryTable(true)
                 .setUsePageFileForHiveUnsupportedType(false)
                 .setPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
@@ -366,7 +381,13 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
                 .setFileRenamingEnabled(true)
                 .setPreferManifestsToListFiles(true)
-                .setManifestVerificationEnabled(true);
+                .setManifestVerificationEnabled(true)
+                .setUndoMetastoreOperationsEnabled(false)
+                .setOptimizedPartitionUpdateSerializationEnabled(true)
+                .setVerboseRuntimeStatsEnabled(true)
+                .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS))
+                .setMaterializedViewMissingPartitionsThreshold(50)
+                .setLooseMemoryAccountingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

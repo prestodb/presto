@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -277,7 +276,6 @@ public class PlanNodeDecorrelator
 
         private Multimap<VariableReferenceExpression, VariableReferenceExpression> extractCorrelatedSymbolsMapping(List<Expression> correlatedConjuncts)
         {
-            // TODO: handle coercions and non-direct column references
             ImmutableMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> mapping = ImmutableMultimap.builder();
             for (Expression conjunct : correlatedConjuncts) {
                 if (!(conjunct instanceof ComparisonExpression)) {
@@ -285,25 +283,30 @@ public class PlanNodeDecorrelator
                 }
 
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
-                if (!(comparison.getLeft() instanceof SymbolReference
-                        && comparison.getRight() instanceof SymbolReference
-                        && comparison.getOperator().equals(EQUAL))) {
-                    continue;
-                }
+                // handle coercions and non-direct column references
+                if (comparison.getOperator().equals(EQUAL)) {
+                    List<VariableReferenceExpression> left = extractUniqueExpression(comparison.getLeft());
+                    List<VariableReferenceExpression> right = extractUniqueExpression(comparison.getRight());
 
-                VariableReferenceExpression left = variableAllocator.toVariableReference(comparison.getLeft());
-                VariableReferenceExpression right = variableAllocator.toVariableReference(comparison.getRight());
-
-                if (correlation.contains(left) && !correlation.contains(right)) {
-                    mapping.put(left, right);
-                }
-
-                if (correlation.contains(right) && !correlation.contains(left)) {
-                    mapping.put(right, left);
+                    for (VariableReferenceExpression leftVariableExpression : left) {
+                        for (VariableReferenceExpression rightVariableExpression : right) {
+                            if ((correlation.contains(leftVariableExpression) && !correlation.contains(rightVariableExpression))) {
+                                mapping.put(leftVariableExpression, rightVariableExpression);
+                            }
+                            if (correlation.contains(rightVariableExpression) && !correlation.contains(leftVariableExpression)) {
+                                mapping.put(rightVariableExpression, leftVariableExpression);
+                            }
+                        }
+                    }
                 }
             }
 
             return mapping.build();
+        }
+
+        private List<VariableReferenceExpression> extractUniqueExpression(Expression expression)
+        {
+            return VariablesExtractor.extractUnique(expression, variableAllocator.getTypes()).stream().collect(toImmutableList());
         }
 
         private boolean isCorrelated(Expression expression)

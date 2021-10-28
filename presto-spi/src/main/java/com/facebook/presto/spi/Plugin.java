@@ -19,11 +19,14 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.storage.TempStorageFactory;
+import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
+import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 
 import java.util.Set;
 
@@ -88,6 +91,21 @@ public interface Plugin
     }
 
     default Iterable<TempStorageFactory> getTempStorageFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<QueryPrerequisitesFactory> getQueryPrerequisitesFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<NodeTtlFetcherFactory> getNodeTtlFetcherFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<ClusterTtlProviderFactory> getClusterTtlProviderFactories()
     {
         return emptyList();
     }

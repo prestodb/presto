@@ -195,7 +195,7 @@ public class TestListFilter
 
     private static StreamDescriptor makeStreamDescriptor(int levels)
     {
-        DummyOrcDataSource orcDataSource = new DummyOrcDataSource();
+        NoopOrcDataSource orcDataSource = NoopOrcDataSource.INSTANCE;
 
         OrcType intType = new OrcType(INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
         OrcType listType = new OrcType(LIST, ImmutableList.of(1), ImmutableList.of("item"), Optional.empty(), Optional.empty(), Optional.empty());
@@ -221,50 +221,6 @@ public class TestListFilter
     private interface TestFilter2
     {
         boolean test(int i, int j, Integer value);
-    }
-
-    private static class DummyOrcDataSource
-            implements OrcDataSource
-    {
-        @Override
-        public OrcDataSourceId getId()
-        {
-            return null;
-        }
-
-        @Override
-        public long getReadBytes()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getReadTimeNanos()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getSize()
-        {
-            return 0;
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer)
-        {
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-        {
-        }
-
-        @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
-        {
-            return null;
-        }
     }
 
     private static final class RowAndColumn

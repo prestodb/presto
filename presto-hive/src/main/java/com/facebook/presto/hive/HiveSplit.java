@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -47,6 +46,7 @@ public class HiveSplit
     private final long start;
     private final long length;
     private final long fileSize;
+    private final long fileModifiedTime;
     private final Storage storage;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
@@ -57,7 +57,7 @@ public class HiveSplit
     private final OptionalInt tableBucketNumber;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final int partitionDataColumnCount;
-    private final Map<Integer, Column> partitionSchemaDifference; // key: hiveColumnIndex
+    private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
     private final Optional<byte[]> extraFileInfo;
@@ -75,6 +75,7 @@ public class HiveSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("storage") Storage storage,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
@@ -82,7 +83,7 @@ public class HiveSplit
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("partitionDataColumnCount") int partitionDataColumnCount,
-            @JsonProperty("partitionSchemaDifference") Map<Integer, Column> partitionSchemaDifference,
+            @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
@@ -94,6 +95,7 @@ public class HiveSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(fileModifiedTime >= 0, "modificationTime must be positive");
         requireNonNull(database, "database is null");
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
@@ -104,7 +106,7 @@ public class HiveSplit
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
-        requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
+        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(extraFileInfo, "extraFileInfo is null");
         requireNonNull(cacheQuotaRequirement, "cacheQuotaRequirement is null");
@@ -118,6 +120,7 @@ public class HiveSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.fileModifiedTime = fileModifiedTime;
         this.storage = storage;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
@@ -125,7 +128,7 @@ public class HiveSplit
         this.tableBucketNumber = tableBucketNumber;
         this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.partitionDataColumnCount = partitionDataColumnCount;
-        this.partitionSchemaDifference = partitionSchemaDifference;
+        this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.extraFileInfo = extraFileInfo;
@@ -175,6 +178,12 @@ public class HiveSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    @JsonProperty
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
     }
 
     @JsonProperty
@@ -233,9 +242,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Map<Integer, Column> getPartitionSchemaDifference()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return partitionSchemaDifference;
+        return tableToPartitionMapping;
     }
 
     @JsonProperty
@@ -295,6 +304,7 @@ public class HiveSplit
                 .put("start", start)
                 .put("length", length)
                 .put("fileSize", fileSize)
+                .put("fileModifiedTime", fileModifiedTime)
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)

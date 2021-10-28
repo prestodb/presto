@@ -53,7 +53,8 @@ public class ProjectStatsRule
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
         PlanNodeStatsEstimate.Builder calculatedStats = PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(sourceStats.getOutputRowCount());
+                .setOutputRowCount(sourceStats.getOutputRowCount())
+                .setConfident(sourceStats.isConfident() && noChangeToSourceColumns(node));
 
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
             RowExpression expression = entry.getValue();
@@ -65,5 +66,10 @@ public class ProjectStatsRule
             }
         }
         return Optional.of(calculatedStats.build());
+    }
+
+    private boolean noChangeToSourceColumns(ProjectNode node)
+    {
+        return node.getOutputVariables().containsAll(node.getSource().getOutputVariables());
     }
 }

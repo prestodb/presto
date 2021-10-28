@@ -103,13 +103,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
     {
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
             denySetUser(principal, userName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetUser(context, principal, userName);
+            super.checkCanSetUser(identity, context, principal, userName);
         }
     }
 

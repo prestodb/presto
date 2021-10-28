@@ -63,7 +63,6 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -106,7 +105,11 @@ public class HiveWriterFactory
 {
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
-    private static final Pattern BUCKET_FILE_NAME_PATTERN = Pattern.compile(".*_bucket-(\\d+)(\\..*)?");
+    private static final Iterable<Pattern> BUCKET_PATTERNS = ImmutableList.of(
+            // Hive naming pattern per `org.apache.hadoop.hive.ql.exec.Utilities#getBucketIdFromFile()`
+            Pattern.compile("(0\\d+)_\\d+.*"),
+            // legacy Presto naming pattern (current version matches Hive)
+            Pattern.compile("\\d{8}_\\d{6}_\\d{5}_[a-z0-9]{5}_bucket-(\\d+)(?:[-_.].*)?"));
 
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final String schemaName;
@@ -124,7 +127,7 @@ public class HiveWriterFactory
     private final Map<String, String> additionalTableParameters;
     private final LocationHandle locationHandle;
     private final LocationService locationService;
-    private final String filePrefix;
+    private final String queryId;
 
     private final HivePageSinkMetadataProvider pageSinkMetadataProvider;
     private final TypeManager typeManager;
@@ -163,7 +166,7 @@ public class HiveWriterFactory
             List<SortingColumn> sortedBy,
             LocationHandle locationHandle,
             LocationService locationService,
-            String filePrefix,
+            String queryId,
             HivePageSinkMetadataProvider pageSinkMetadataProvider,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
@@ -191,7 +194,7 @@ public class HiveWriterFactory
         this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
-        this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
 
         this.pageSinkMetadataProvider = requireNonNull(pageSinkMetadataProvider, "pageSinkMetadataProvider is null");
 
@@ -347,15 +350,15 @@ public class HiveWriterFactory
         String targetFileName;
         if (bucketNumber.isPresent()) {
             // Use the bucket number for file name when fileRenaming is enabled
-            targetFileName = isFileRenamingEnabled(session) ? String.valueOf(bucketNumber.getAsInt()) : computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
+            targetFileName = isFileRenamingEnabled(session) ? String.valueOf(bucketNumber.getAsInt()) : computeBucketedFileName(queryId, bucketNumber.getAsInt()) + extension;
         }
         else {
-            targetFileName = filePrefix + "_" + randomUUID() + extension;
+            targetFileName = queryId + "_" + randomUUID() + extension;
         }
 
         String writeFileName;
         if (writeToTempFile) {
-            writeFileName = ".tmp.presto." + filePrefix + "_" + randomUUID() + extension;
+            writeFileName = ".tmp.presto." + queryId + "_" + randomUUID() + extension;
         }
         else {
             writeFileName = targetFileName;
@@ -492,6 +495,10 @@ public class HiveWriterFactory
 
     private WriterParameters getWriterParametersForExistingPartitionedTable(String partitionName, OptionalInt bucketNumber)
     {
+        if (MetastoreUtil.isPrestoMaterializedView(table)) {
+            return getWriterParametersForOverwritePartition(partitionName);
+        }
+
         switch (insertExistingPartitionsBehavior) {
             case APPEND:
                 return getWriterParametersForAppendPartition(partitionName, bucketNumber);
@@ -657,24 +664,26 @@ public class HiveWriterFactory
         return locationHandle;
     }
 
-    public static String computeBucketedFileName(String filePrefix, int bucket)
+    public static String computeBucketedFileName(String queryId, int bucket)
     {
-        return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+        String paddedBucket = Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+        return format("0%s_0_%s", paddedBucket, queryId);
     }
 
-    public static int getBucketNumber(String fileName)
+    public static OptionalInt getBucketNumber(String fileName)
     {
-        Matcher matcher = BUCKET_FILE_NAME_PATTERN.matcher(fileName);
-        if (matcher.matches()) {
-            return parseInt(matcher.group(1));
+        for (Pattern pattern : BUCKET_PATTERNS) {
+            Matcher matcher = pattern.matcher(fileName);
+            if (matcher.matches()) {
+                return OptionalInt.of(parseInt(matcher.group(1)));
+            }
         }
         // Numerical file name when "file_renaming_enabled" is true
-        else if (fileName.matches("\\d+")) {
-            return parseInt(fileName);
+        if (fileName.matches("\\d+")) {
+            return OptionalInt.of(parseInt(fileName));
         }
-        else {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("invalid hive bucket file name: %s", fileName));
-        }
+
+        return OptionalInt.empty();
     }
 
     public static String getFileExtension(StorageFormat storageFormat, HiveCompressionCodec compressionCodec)

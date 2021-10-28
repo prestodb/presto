@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -31,6 +32,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
@@ -58,6 +60,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -451,7 +454,7 @@ public class TestOrcFileRewriter
             throws Exception
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         Handle dummyHandle = dbi.open();
         File dataDir = Files.createTempDir();
@@ -504,7 +507,8 @@ public class TestOrcFileRewriter
                 OrcTestingUtil.createDefaultTestConfig(),
                 false,
                 NO_ENCRYPTION,
-                DwrfKeyProvider.EMPTY);
+                DwrfKeyProvider.EMPTY,
+                new RuntimeStats());
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type
@@ -595,7 +599,7 @@ public class TestOrcFileRewriter
             throws Exception
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         Handle dummyHandle = dbi.open();
         File dataDir = Files.createTempDir();
@@ -725,7 +729,7 @@ public class TestOrcFileRewriter
                 new LocalOrcDataEnvironment(),
                 ZSTD,
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
     }
 
     private static Map<String, Type> getColumnTypes(List<Long> columnIds, List<Type> columnTypes)

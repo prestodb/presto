@@ -49,6 +49,7 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUA
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static java.lang.Math.min;
 import static java.util.Arrays.asList;
@@ -101,14 +102,16 @@ public final class LogicalRowExpressions
     {
         if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == form) {
             SpecialFormExpression specialFormExpression = (SpecialFormExpression) expression;
-            if (specialFormExpression.getArguments().size() != 2) {
-                throw new IllegalStateException("logical binary expression requires exactly 2 operands");
+            if (specialFormExpression.getArguments().size() == 2) {
+                List<RowExpression> predicates = new ArrayList<>();
+                predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)));
+                predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)));
+                return unmodifiableList(predicates);
             }
-
-            List<RowExpression> predicates = new ArrayList<>();
-            predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)));
-            predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)));
-            return unmodifiableList(predicates);
+            if (specialFormExpression.getArguments().size() == 1 && form == IS_NULL) {
+                return singletonList(expression);
+            }
+            throw new IllegalStateException("Unexpected operands:" + expression + " " + form);
         }
 
         return singletonList(expression);
@@ -119,7 +122,7 @@ public final class LogicalRowExpressions
         return and(asList(expressions));
     }
 
-    public static RowExpression and(Collection<RowExpression> expressions)
+    public static RowExpression and(Collection<? extends RowExpression> expressions)
     {
         return binaryExpression(AND, expressions);
     }
@@ -129,12 +132,12 @@ public final class LogicalRowExpressions
         return or(asList(expressions));
     }
 
-    public static RowExpression or(Collection<RowExpression> expressions)
+    public static RowExpression or(Collection<? extends RowExpression> expressions)
     {
         return binaryExpression(OR, expressions);
     }
 
-    public static RowExpression binaryExpression(Form form, Collection<RowExpression> expressions)
+    public static RowExpression binaryExpression(Form form, Collection<? extends RowExpression> expressions)
     {
         requireNonNull(form, "operator is null");
         requireNonNull(expressions, "expressions is null");

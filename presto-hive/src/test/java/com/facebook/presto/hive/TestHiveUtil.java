@@ -34,6 +34,7 @@ import java.io.File;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -41,12 +42,13 @@ import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionNamesAndValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
+import static com.google.common.base.Preconditions.checkState;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveUtil
@@ -95,10 +97,34 @@ public class TestHiveUtil
     }
 
     @Test
+    public void testToPartitionNamesAndValues()
+            throws MetaException
+    {
+        List<String> expectedKeyList1 = new ArrayList<>();
+        expectedKeyList1.add("ds");
+        expectedKeyList1.add("event_type");
+        assertToPartitionNamesAndValues("ds=2015-12-30/event_type=QueryCompletion", expectedKeyList1);
+
+        List<String> expectedKeyList2 = new ArrayList<>();
+        expectedKeyList2.add("a");
+        expectedKeyList2.add("b");
+        expectedKeyList2.add("c");
+        assertToPartitionNamesAndValues("a=1/b=2/c=3", expectedKeyList2);
+
+        List<String> expectedKeyList3 = new ArrayList<>();
+        expectedKeyList3.add("pk");
+        assertToPartitionNamesAndValues("pk=!@%23$%25%5E&%2A()%2F%3D", expectedKeyList3);
+
+        List<String> expectedKeyList4 = new ArrayList<>();
+        expectedKeyList4.add("pk");
+        assertToPartitionNamesAndValues("pk=__HIVE_DEFAULT_PARTITION__", expectedKeyList4);
+    }
+
+    @Test
     public void testShouldUseRecordReaderFromInputFormat()
     {
         StorageFormat hudiStorageFormat = StorageFormat.create("parquet.hive.serde.ParquetHiveSerDe", "org.apache.hudi.hadoop.HoodieParquetInputFormat", "");
-        assertFalse(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
+        assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
 
         StorageFormat hudiRealtimeStorageFormat = StorageFormat.create("parquet.hive.serde.ParquetHiveSerDe", "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat", "");
         assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiRealtimeStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
@@ -114,6 +140,29 @@ public class TestHiveUtil
         }
         Warehouse.makeValsFromName(partitionName, expected);
         assertEquals(actual, expected);
+    }
+
+    private static void assertToPartitionNamesAndValues(String partitionName, List<String> expectedKeyList)
+            throws MetaException
+    {
+        Map<String, String> actual = toPartitionNamesAndValues(partitionName);
+        AbstractList<String> expectedValueList = new ArrayList<>();
+        for (String s : expectedKeyList) {
+            expectedValueList.add(null);
+        }
+        Warehouse.makeValsFromName(partitionName, expectedValueList);
+        checkState(actual.keySet().size() == expectedKeyList.size(), "Keyset size is not same");
+
+        for (int index = 0; index < expectedKeyList.size(); index++) {
+            String key = expectedKeyList.get(index);
+            if (!actual.containsKey(key)) {
+                break;
+            }
+            checkState(actual.containsKey(key), "Actual result does not contains the key");
+            String actualValue = actual.get(key);
+            String expectedValue = expectedValueList.get(index);
+            checkState(actualValue.equals(expectedValue), "The actual value does not match the expected value");
+        }
     }
 
     private static long parse(DateTime time, String pattern)

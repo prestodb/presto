@@ -44,7 +44,10 @@ public interface LookupSourceFactory
                 i -> {
                     throw new UnsupportedOperationException();
                 },
-                i -> {}));
+                i -> {},
+                i -> {
+                    throw new UnsupportedOperationException();
+                }));
     }
 
     /**

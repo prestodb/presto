@@ -16,11 +16,11 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockLease;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.TupleDomainFilter;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.reader.LongDictionaryProvider.DictionaryResult;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
@@ -31,12 +31,10 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
@@ -62,14 +60,16 @@ public class LongDictionarySelectiveStreamReader
     private final TupleDomainFilter filter;
     private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<LongInputStream> dictionaryDataStreamSource = missingStreamSource(LongInputStream.class);
+    private LongDictionaryProvider dictionaryProvider;
     private int dictionarySize;
-    private long[] dictionary = new long[0];
+    private boolean isDictionaryOwner;
+    private long[] dictionary;
     private byte[] dictionaryFilterStatus;
 
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -84,8 +84,6 @@ public class LongDictionarySelectiveStreamReader
     private boolean rowGroupOpen;
     private int readOffset;
 
-    private OrcLocalMemoryContext systemMemoryContext;
-
     public LongDictionarySelectiveStreamReader(
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
@@ -98,6 +96,7 @@ public class LongDictionarySelectiveStreamReader
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.filter = filter.orElse(null);
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.isDictionaryOwner = true;
 
         nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
         nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
@@ -276,15 +275,9 @@ public class LongDictionarySelectiveStreamReader
     {
         // read the dictionary
         if (!dictionaryOpen && dictionarySize > 0) {
-            if (dictionary.length < dictionarySize) {
-                dictionary = new long[dictionarySize];
-            }
-
-            LongInputStream dictionaryStream = dictionaryDataStreamSource.openStream();
-            if (dictionaryStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but data stream is not present");
-            }
-            dictionaryStream.nextLongVector(dictionarySize, dictionary);
+            DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(streamDescriptor, dictionary, dictionarySize);
+            dictionary = dictionaryResult.dictionaryBuffer();
+            isDictionaryOwner = dictionaryResult.isBufferOwner();
             if (filter != null && !nonDeterministicFilter) {
                 dictionaryFilterStatus = ensureCapacity(dictionaryFilterStatus, dictionarySize);
                 Arrays.fill(dictionaryFilterStatus, 0, dictionarySize, FILTER_NOT_EVALUATED);
@@ -320,10 +313,10 @@ public class LongDictionarySelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
+    public void startStripe(Stripe stripe)
     {
-        dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, LongInputStream.class);
-        dictionarySize = encoding.get(streamDescriptor.getStreamId())
+        dictionaryProvider = stripe.getLongDictionaryProvider();
+        dictionarySize = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
                 .getColumnEncoding(streamDescriptor.getSequence())
                 .getDictionarySize();
         dictionaryOpen = false;
@@ -375,16 +368,19 @@ public class LongDictionarySelectiveStreamReader
 
         dataStreamSource = null;
         dataStream = null;
-        dictionaryDataStreamSource = null;
 
         systemMemoryContext.close();
     }
 
+    // The current memory accounting for shared dictionaries is correct because dictionaries
+    // are shared only for flatmap stream readers. Flatmap stream readers are destroyed and recreated
+    // every stripe, and so are the dictionary providers. Hence, it's impossible to have a reference
+    // to shared dictionaries across different stripes at the same time.
     @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                sizeOf(dictionary) +
+                (isDictionaryOwner ? sizeOf(dictionary) : 0) +
                 sizeOf(dictionaryFilterStatus) +
                 super.getRetainedSizeInBytes();
     }

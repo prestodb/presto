@@ -15,7 +15,7 @@ package com.facebook.presto.pinot;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -67,7 +67,7 @@ public final class MetadataUtil
     }
 
     static {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer(createTestFunctionAndTypeManager())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         CATALOG_CODEC = codecFactory.mapJsonCodec(String.class, listJsonCodec(PinotTable.class));

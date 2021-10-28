@@ -76,6 +76,14 @@ public class NoChannelGroupByHash
     }
 
     @Override
+    public List<Page> getBufferedPages()
+    {
+        // This method is left unimplemented since it is not invoked from anywhere within code.
+        // Add an implementation, if needed in future
+        throw new UnsupportedOperationException("NoChannelGroupByHash does not support getBufferedPages");
+    }
+
+    @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         updateGroupCount(page);

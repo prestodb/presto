@@ -19,6 +19,9 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.thrift.ThriftRequestUtils;
 import com.facebook.airlift.http.client.thrift.ThriftResponseHandler;
+import com.facebook.airlift.json.Codec;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.execution.StateMachine;
@@ -27,9 +30,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.SimpleHttpResponseCallback;
 import com.facebook.presto.server.SimpleHttpResponseHandler;
-import com.facebook.presto.server.codec.Codec;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.server.thrift.ThriftHttpResponseHandler;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -55,7 +56,6 @@ import static com.facebook.presto.server.RequestHelpers.getBinaryTransportBuilde
 import static com.facebook.presto.server.RequestHelpers.getJsonTransportBuilder;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
-import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
@@ -179,7 +179,7 @@ class ContinuousTaskStatusFetcher
         }
         else {
             requestBuilder = getJsonTransportBuilder(prepareGet());
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskStatusCodec));
+            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskStatus>) taskStatusCodec);
         }
 
         Request request = requestBuilder.setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())

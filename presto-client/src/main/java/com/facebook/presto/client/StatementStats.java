@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -29,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class StatementStats
 {
     private final String state;
+    private final boolean waitingForPrerequisites;
     private final boolean queued;
     private final boolean scheduled;
     private final int nodes;
@@ -38,6 +40,7 @@ public class StatementStats
     private final int completedSplits;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
+    private final long waitingForPrerequisitesTimeMillis;
     private final long queuedTimeMillis;
     private final long elapsedTimeMillis;
     private final long processedRows;
@@ -47,10 +50,12 @@ public class StatementStats
     private final long peakTaskTotalMemoryBytes;
     private final long spilledBytes;
     private final StageStats rootStage;
+    private final RuntimeStats runtimeStats;
 
     @JsonCreator
     public StatementStats(
             @JsonProperty("state") String state,
+            @JsonProperty("waitingForPrerequisites") boolean waitingForPrerequisites,
             @JsonProperty("queued") boolean queued,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("nodes") int nodes,
@@ -60,6 +65,7 @@ public class StatementStats
             @JsonProperty("completedSplits") int completedSplits,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
+            @JsonProperty("waitingForPrerequisitesTimeMillis") long waitingForPrerequisitesTimeMillis,
             @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("processedRows") long processedRows,
@@ -68,9 +74,11 @@ public class StatementStats
             @JsonProperty("peakTotalMemoryBytes") long peakTotalMemoryBytes,
             @JsonProperty("peakTaskTotalMemoryBytes") long peakTaskTotalMemoryBytes,
             @JsonProperty("spilledBytes") long spilledBytes,
-            @JsonProperty("rootStage") StageStats rootStage)
+            @JsonProperty("rootStage") StageStats rootStage,
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
         this.state = requireNonNull(state, "state is null");
+        this.waitingForPrerequisites = waitingForPrerequisites;
         this.queued = queued;
         this.scheduled = scheduled;
         this.nodes = nodes;
@@ -80,6 +88,7 @@ public class StatementStats
         this.completedSplits = completedSplits;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
+        this.waitingForPrerequisitesTimeMillis = waitingForPrerequisitesTimeMillis;
         this.queuedTimeMillis = queuedTimeMillis;
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.processedRows = processedRows;
@@ -89,12 +98,19 @@ public class StatementStats
         this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes;
         this.spilledBytes = spilledBytes;
         this.rootStage = rootStage;
+        this.runtimeStats = runtimeStats;
     }
 
     @JsonProperty
     public String getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public boolean isWaitingForPrerequisites()
+    {
+        return waitingForPrerequisites;
     }
 
     @JsonProperty
@@ -152,6 +168,12 @@ public class StatementStats
     }
 
     @JsonProperty
+    public long getWaitingForPrerequisitesTimeMillis()
+    {
+        return waitingForPrerequisitesTimeMillis;
+    }
+
+    @JsonProperty
     public long getQueuedTimeMillis()
     {
         return queuedTimeMillis;
@@ -200,6 +222,13 @@ public class StatementStats
         return rootStage;
     }
 
+    @Nullable
+    @JsonProperty
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
+    }
+
     @JsonProperty
     public OptionalDouble getProgressPercentage()
     {
@@ -220,6 +249,7 @@ public class StatementStats
     {
         return toStringHelper(this)
                 .add("state", state)
+                .add("waitingForPrerequisites", waitingForPrerequisites)
                 .add("queued", queued)
                 .add("scheduled", scheduled)
                 .add("nodes", nodes)
@@ -229,6 +259,7 @@ public class StatementStats
                 .add("completedSplits", completedSplits)
                 .add("cpuTimeMillis", cpuTimeMillis)
                 .add("wallTimeMillis", wallTimeMillis)
+                .add("waitingForPrerequisitesTimeMillis", waitingForPrerequisitesTimeMillis)
                 .add("queuedTimeMillis", queuedTimeMillis)
                 .add("elapsedTimeMillis", elapsedTimeMillis)
                 .add("processedRows", processedRows)
@@ -249,6 +280,7 @@ public class StatementStats
     public static class Builder
     {
         private String state;
+        private boolean waitingForPrerequisites;
         private boolean queued;
         private boolean scheduled;
         private int nodes;
@@ -258,6 +290,7 @@ public class StatementStats
         private int completedSplits;
         private long cpuTimeMillis;
         private long wallTimeMillis;
+        private long waitingForPrerequisitesTimeMillis;
         private long queuedTimeMillis;
         private long elapsedTimeMillis;
         private long processedRows;
@@ -267,6 +300,7 @@ public class StatementStats
         private long peakTaskTotalMemoryBytes;
         private long spilledBytes;
         private StageStats rootStage;
+        private RuntimeStats runtimeStats;
 
         private Builder() {}
 
@@ -279,6 +313,12 @@ public class StatementStats
         public Builder setNodes(int nodes)
         {
             this.nodes = nodes;
+            return this;
+        }
+
+        public Builder setWaitingForPrerequisites(boolean waitingForPrerequisites)
+        {
+            this.waitingForPrerequisites = waitingForPrerequisites;
             return this;
         }
 
@@ -327,6 +367,12 @@ public class StatementStats
         public Builder setWallTimeMillis(long wallTimeMillis)
         {
             this.wallTimeMillis = wallTimeMillis;
+            return this;
+        }
+
+        public Builder setWaitingForPrerequisitesTimeMillis(long waitingForPrerequisitesTimeMillis)
+        {
+            this.waitingForPrerequisitesTimeMillis = waitingForPrerequisitesTimeMillis;
             return this;
         }
 
@@ -384,10 +430,17 @@ public class StatementStats
             return this;
         }
 
+        public Builder setRuntimeStats(RuntimeStats runtimeStats)
+        {
+            this.runtimeStats = runtimeStats;
+            return this;
+        }
+
         public StatementStats build()
         {
             return new StatementStats(
                     state,
+                    waitingForPrerequisites,
                     queued,
                     scheduled,
                     nodes,
@@ -397,6 +450,7 @@ public class StatementStats
                     completedSplits,
                     cpuTimeMillis,
                     wallTimeMillis,
+                    waitingForPrerequisitesTimeMillis,
                     queuedTimeMillis,
                     elapsedTimeMillis,
                     processedRows,
@@ -405,7 +459,8 @@ public class StatementStats
                     peakTotalMemoryBytes,
                     peakTaskTotalMemoryBytes,
                     spilledBytes,
-                    rootStage);
+                    rootStage,
+                    runtimeStats);
         }
     }
 }

@@ -39,10 +39,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 
+import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
+import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.common.type.Decimals.writeBigDecimal;
 import static com.facebook.presto.common.type.Decimals.writeShortDecimal;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -58,18 +61,22 @@ import static java.math.BigDecimal.ROUND_HALF_UP;
 public class DecimalAverageAggregation
         extends SqlAggregationFunction
 {
+    // Constant references for short/long decimal types for use in operations that only manipulate unscaled values
+    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_PRECISION, 0);
+    private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION, 0);
+
     public static final DecimalAverageAggregation DECIMAL_AVERAGE_AGGREGATION = new DecimalAverageAggregation();
 
     private static final String NAME = "avg";
-    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputShortDecimal", Type.class, LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
-    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputLongDecimal", Type.class, LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
+    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputShortDecimal", LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
+    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputLongDecimal", LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
 
     private static final MethodHandle SHORT_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputShortDecimal", DecimalType.class, LongDecimalWithOverflowAndLongState.class, BlockBuilder.class);
     private static final MethodHandle LONG_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputLongDecimal", DecimalType.class, LongDecimalWithOverflowAndLongState.class, BlockBuilder.class);
 
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(DecimalAverageAggregation.class, "combine", LongDecimalWithOverflowAndLongState.class, LongDecimalWithOverflowAndLongState.class);
 
-    private static final BigInteger TWO = new BigInteger("2");
+    private static final BigInteger OVERFLOW_MULTIPLIER = new BigInteger("2").shiftLeft(UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 2);
 
     public DecimalAverageAggregation()
     {
@@ -111,7 +118,6 @@ public class DecimalAverageAggregation
             inputFunction = LONG_DECIMAL_INPUT_FUNCTION;
             outputFunction = LONG_DECIMAL_OUTPUT_FUNCTION;
         }
-        inputFunction = inputFunction.bindTo(type);
         outputFunction = outputFunction.bindTo(type);
 
         AggregationMetadata metadata = new AggregationMetadata(
@@ -136,81 +142,77 @@ public class DecimalAverageAggregation
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void inputShortDecimal(Type type, LongDecimalWithOverflowAndLongState state, Block block, int position)
+    public static void inputShortDecimal(LongDecimalWithOverflowAndLongState state, Block block, int position)
     {
-        accumulateValueInState(UnscaledDecimal128Arithmetic.unscaledDecimal(type.getLong(block, position)), state);
-    }
-
-    public static void inputLongDecimal(Type type, LongDecimalWithOverflowAndLongState state, Block block, int position)
-    {
-        accumulateValueInState(type.getSlice(block, position), state);
-    }
-
-    private static void accumulateValueInState(Slice unscaledValue, LongDecimalWithOverflowAndLongState state)
-    {
-        accumulateAndUpdateOverflow(unscaledValue, state);
-        state.setLong(state.getLong() + 1);
-    }
-
-    private static void initializeIfNeeded(LongDecimalWithOverflowAndLongState state)
-    {
-        if (state.getLongDecimal() == null) {
-            state.setLongDecimal(UnscaledDecimal128Arithmetic.unscaledDecimal());
+        state.incrementLong();
+        Slice currentSum = state.getLongDecimal();
+        if (currentSum == null) {
+            currentSum = unscaledDecimal();
+            state.setLongDecimal(currentSum);
         }
+        state.addOverflow(UnscaledDecimal128Arithmetic.addWithOverflow(currentSum, unscaledDecimal(SHORT_DECIMAL_TYPE.getLong(block, position)), currentSum));
+    }
+
+    public static void inputLongDecimal(LongDecimalWithOverflowAndLongState state, Block block, int position)
+    {
+        state.incrementLong();
+        Slice currentSum = state.getLongDecimal();
+        if (currentSum == null) {
+            currentSum = unscaledDecimal();
+            state.setLongDecimal(currentSum);
+        }
+        state.addOverflow(UnscaledDecimal128Arithmetic.addWithOverflow(currentSum, LONG_DECIMAL_TYPE.getSlice(block, position), currentSum));
     }
 
     public static void combine(LongDecimalWithOverflowAndLongState state, LongDecimalWithOverflowAndLongState otherState)
     {
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setOverflow(state.getOverflow() + otherState.getOverflow());
-
-        if (state.getLongDecimal() == null) {
-            state.setLongDecimal(otherState.getLongDecimal());
+        state.addLong(otherState.getLong());
+        long overflowToAdd = otherState.getOverflow();
+        Slice currentState = state.getLongDecimal();
+        Slice otherDecimal = otherState.getLongDecimal();
+        if (currentState == null) {
+            state.setLongDecimal(otherDecimal);
         }
         else {
-            accumulateAndUpdateOverflow(otherState.getLongDecimal(), state);
+            overflowToAdd += UnscaledDecimal128Arithmetic.addWithOverflow(currentState, otherDecimal, currentState);
         }
+        state.addOverflow(overflowToAdd);
     }
 
     public static void outputShortDecimal(DecimalType type, LongDecimalWithOverflowAndLongState state, BlockBuilder out)
     {
-        if (state.getLong() == 0) {
+        long count = state.getLong();
+        if (count == 0) {
             out.appendNull();
         }
         else {
-            writeShortDecimal(out, average(state, type).unscaledValue().longValueExact());
+            writeShortDecimal(out, average(count, state.getOverflow(), state.getLongDecimal(), type.getScale()).unscaledValue().longValueExact());
         }
     }
 
     public static void outputLongDecimal(DecimalType type, LongDecimalWithOverflowAndLongState state, BlockBuilder out)
     {
-        if (state.getLong() == 0) {
+        long count = state.getLong();
+        if (count == 0) {
             out.appendNull();
         }
         else {
-            writeBigDecimal(type, out, average(state, type));
+            writeBigDecimal(type, out, average(count, state.getOverflow(), state.getLongDecimal(), type.getScale()));
         }
     }
 
     @VisibleForTesting
     public static BigDecimal average(LongDecimalWithOverflowAndLongState state, DecimalType type)
     {
-        BigDecimal sum = new BigDecimal(Decimals.decodeUnscaledValue(state.getLongDecimal()), type.getScale());
-        BigDecimal count = BigDecimal.valueOf(state.getLong());
-
-        if (state.getOverflow() != 0) {
-            BigInteger overflowMultiplier = TWO.shiftLeft(UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 2);
-            BigInteger overflow = overflowMultiplier.multiply(BigInteger.valueOf(state.getOverflow()));
-            sum = sum.add(new BigDecimal(overflow));
-        }
-        return sum.divide(count, type.getScale(), ROUND_HALF_UP);
+        return average(state.getLong(), state.getOverflow(), state.getLongDecimal(), type.getScale());
     }
 
-    private static void accumulateAndUpdateOverflow(Slice unscaledValue, LongDecimalWithOverflowAndLongState state)
+    private static BigDecimal average(long count, long overflow, Slice unscaledDecimal, int scale)
     {
-        initializeIfNeeded(state);
-        Slice sum = state.getLongDecimal();
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, unscaledValue, sum);
-        state.setOverflow(state.getOverflow() + overflow);
+        BigDecimal sum = new BigDecimal(Decimals.decodeUnscaledValue(unscaledDecimal), scale);
+        if (overflow != 0) {
+            sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
+        }
+        return sum.divide(BigDecimal.valueOf(count), scale, ROUND_HALF_UP);
     }
 }

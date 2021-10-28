@@ -14,29 +14,15 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.presto.spi.HostAddress;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
-import java.util.List;
-import java.util.Set;
-
-import static com.google.common.collect.Iterables.transform;
-
 public class KafkaConnectorConfig
 {
-    private static final int KAFKA_DEFAULT_PORT = 9092;
-
-    /**
-     * Seed nodes for Kafka cluster. At least one must exist.
-     */
-    private List<HostAddress> nodes;
-
     /**
      * Timeout to connect to Kafka.
      */
@@ -46,16 +32,6 @@ public class KafkaConnectorConfig
      * The schema name to use in the connector.
      */
     private String defaultSchema = "default";
-
-    /**
-     * Set of tables known to this connector. For each table, a description file may be present in the catalog folder which describes columns for the given topic.
-     */
-    private Set<String> tableNames = ImmutableSet.of();
-
-    /**
-     * Folder holding the JSON description files for Kafka topics.
-     */
-    private File tableDescriptionDir = new File("etc/kafka/");
 
     /**
      * Whether internal columns are shown in table metadata or not. Default is no.
@@ -72,31 +48,15 @@ public class KafkaConnectorConfig
      */
     private int maxPartitionFetchBytes = 1024 * 1024;
 
-    @NotNull
-    public File getTableDescriptionDir()
-    {
-        return tableDescriptionDir;
-    }
+    /**
+     * The table description supplier to use, default is FILE
+     */
+    private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
 
-    @Config("kafka.table-description-dir")
-    public KafkaConnectorConfig setTableDescriptionDir(File tableDescriptionDir)
-    {
-        this.tableDescriptionDir = tableDescriptionDir;
-        return this;
-    }
-
-    @NotNull
-    public Set<String> getTableNames()
-    {
-        return tableNames;
-    }
-
-    @Config("kafka.table-names")
-    public KafkaConnectorConfig setTableNames(String tableNames)
-    {
-        this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
-        return this;
-    }
+    /**
+     * The kafka cluster metadata supplier to use, default is FILE
+     */
+    private String clusterMetadataSupplier = FileKafkaClusterMetadataSupplier.NAME;
 
     @NotNull
     public String getDefaultSchema()
@@ -108,18 +68,6 @@ public class KafkaConnectorConfig
     public KafkaConnectorConfig setDefaultSchema(String defaultSchema)
     {
         this.defaultSchema = defaultSchema;
-        return this;
-    }
-
-    public List<HostAddress> getNodes()
-    {
-        return nodes;
-    }
-
-    @Config("kafka.nodes")
-    public KafkaConnectorConfig setNodes(String nodes)
-    {
-        this.nodes = (nodes == null) ? null : parseNodes(nodes).asList();
         return this;
     }
 
@@ -160,6 +108,32 @@ public class KafkaConnectorConfig
         return this;
     }
 
+    @NotNull
+    public String getTableDescriptionSupplier()
+    {
+        return tableDescriptionSupplier;
+    }
+
+    @Config("kafka.table-description-supplier")
+    public KafkaConnectorConfig setTableDescriptionSupplier(String tableDescriptionSupplier)
+    {
+        this.tableDescriptionSupplier = tableDescriptionSupplier;
+        return this;
+    }
+
+    @NotNull
+    public String getClusterMetadataSupplier()
+    {
+        return clusterMetadataSupplier;
+    }
+
+    @Config("kafka.cluster-metadata-supplier")
+    public KafkaConnectorConfig setClusterMetadataSupplier(String clusterMetadataSupplier)
+    {
+        this.clusterMetadataSupplier = clusterMetadataSupplier;
+        return this;
+    }
+
     public boolean isHideInternalColumns()
     {
         return hideInternalColumns;
@@ -170,16 +144,5 @@ public class KafkaConnectorConfig
     {
         this.hideInternalColumns = hideInternalColumns;
         return this;
-    }
-
-    public static ImmutableSet<HostAddress> parseNodes(String nodes)
-    {
-        Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-        return ImmutableSet.copyOf(transform(splitter.split(nodes), KafkaConnectorConfig::toHostAddress));
-    }
-
-    private static HostAddress toHostAddress(String value)
-    {
-        return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
     }
 }

@@ -106,7 +106,9 @@ public class TestPinotQueryBase
     protected static final Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> testInput =
             ImmutableMap.<VariableReferenceExpression, PinotQueryGeneratorContext.Selection>builder()
                     .put(new VariableReferenceExpression("regionid", BIGINT), new PinotQueryGeneratorContext.Selection("regionId", TABLE_COLUMN)) // direct column reference
+                    .put(new VariableReferenceExpression("regionid_33", BIGINT), new PinotQueryGeneratorContext.Selection("regionId", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("regionid$distinct", BIGINT), new PinotQueryGeneratorContext.Selection("regionId", TABLE_COLUMN)) // distinct column reference
+                    .put(new VariableReferenceExpression("regionid$distinct_62", BIGINT), new PinotQueryGeneratorContext.Selection("regionId", TABLE_COLUMN)) // distinct column reference
                     .put(new VariableReferenceExpression("city", VARCHAR), new PinotQueryGeneratorContext.Selection("city", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("scores", new ArrayType(DOUBLE)), new PinotQueryGeneratorContext.Selection("scores", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
@@ -158,10 +160,17 @@ public class TestPinotQueryBase
 
     protected TableScanNode tableScan(PlanBuilder planBuilder, PinotTableHandle connectorTableHandle, PinotColumnHandle... columnHandles)
     {
-        List<VariableReferenceExpression> variables = Arrays.stream(columnHandles).map(ch -> new VariableReferenceExpression(ch.getColumnName().toLowerCase(ENGLISH), ch.getDataType())).collect(toImmutableList());
+        Map<VariableReferenceExpression, PinotColumnHandle> columnHandleMap = new LinkedHashMap<>();
+        Arrays.stream(columnHandles).forEachOrdered(ch -> columnHandleMap.put(new VariableReferenceExpression(ch.getColumnName().toLowerCase(ENGLISH), ch.getDataType()), ch));
+        return tableScan(planBuilder, connectorTableHandle, columnHandleMap);
+    }
+
+    protected TableScanNode tableScan(PlanBuilder planBuilder, PinotTableHandle connectorTableHandle, Map<VariableReferenceExpression, PinotColumnHandle> columnHandles)
+    {
+        List<VariableReferenceExpression> variables = ImmutableList.copyOf(columnHandles.keySet());
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
-        for (int i = 0; i < variables.size(); ++i) {
-            assignments.put(variables.get(i), columnHandles[i]);
+        for (VariableReferenceExpression variable : columnHandles.keySet()) {
+            assignments.put(variable, columnHandles.get(variable));
         }
         TableHandle tableHandle = new TableHandle(
                 pinotConnectorId,

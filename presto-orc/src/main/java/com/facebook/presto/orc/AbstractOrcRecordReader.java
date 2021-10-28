@@ -14,11 +14,11 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -121,6 +121,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final Optional<OrcWriteValidation.StatisticsValidation> stripeStatisticsValidation;
     private final Optional<OrcWriteValidation.StatisticsValidation> fileStatisticsValidation;
 
+    private final RuntimeStats runtimeStats;
+
     public AbstractOrcRecordReader(
             Map<Integer, Type> includedColumns,
             Map<Integer, List<Subfield>> requiredSubfields,
@@ -150,7 +152,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
-            boolean cacheable)
+            boolean cacheable,
+            RuntimeStats runtimeStats)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -172,6 +175,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.systemMemoryUsage = systemMemoryUsage;
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -253,7 +257,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 writeValidation,
                 stripeMetadataSource,
                 cacheable,
-                this.dwrfEncryptionGroupMap);
+                this.dwrfEncryptionGroupMap,
+                runtimeStats);
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {
@@ -657,12 +662,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         SharedBuffer sharedDecompressionBuffer = new SharedBuffer(currentStripeSystemMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer"));
         Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, dwrfEncryptionInfo, sharedDecompressionBuffer);
         if (stripe != null) {
-            // Give readers access to dictionary streams
-            InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
-            Map<Integer, ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
-                    column.startStripe(dictionaryStreamSources, columnEncodings);
+                    column.startStripe(stripe);
                 }
             }
 
@@ -693,7 +695,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
     }
 
-    private void validateWriteStripe(int rowCount)
+    private void validateWriteStripe(long rowCount)
     {
         if (writeChecksumBuilder.isPresent()) {
             writeChecksumBuilder.get().addStripe(rowCount);

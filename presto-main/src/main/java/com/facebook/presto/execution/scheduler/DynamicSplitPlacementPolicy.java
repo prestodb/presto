@@ -49,8 +49,8 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
-    public List<InternalNode> allNodes()
+    public List<InternalNode> getActiveNodes()
     {
-        return nodeSelector.allNodes();
+        return nodeSelector.getActiveNodes();
     }
 }

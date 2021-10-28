@@ -44,9 +44,31 @@ Array Functions
 
     Remove duplicate values from the array ``x``.
 
+.. function:: array_duplicates(array(T)) -> array(bigint/varchar)
+
+    Returns a set of elements that occur more than once in ``array``.
+
+    ``T`` must be coercible to ``bigint`` or ``varchar``.
+
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
+
+.. function:: array_frequency(array(bigint)) -> map(bigint, int)
+
+    Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
+    Ignores null elements. Empty array returns empty map.
+
+.. function:: array_frequency(array(varchar)) -> map(varchar, int)
+
+    Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
+    Ignores null elements. Empty array returns empty map.
+
+.. function:: array_has_duplicates(array(T)) -> boolean
+
+    Returns a boolean: whether ``array`` has any elements that occur more than once.
+
+    ``T`` must be coercible to ``bigint`` or ``varchar``.
 
 .. function:: array_intersect(x, y) -> array
 
@@ -69,9 +91,22 @@ Array Functions
 
     Returns the minimum value of input array.
 
+.. function:: array_normalize(x, p) -> array
+
+   Normalizes array ``x`` by dividing each element by the p-norm of the array.
+   It is equivalent to ``TRANSFORM(array, v -> v / REDUCE(array, 0, (a, v) -> a + POW(ABS(v), p), a -> POW(a, 1 / p))``,
+   but the reduce part is only executed once.
+   Returns null if the array is null or there are null array elements.
+
 .. function:: array_position(x, element) -> bigint
 
     Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).
+
+.. function:: array_position(x, element, instance) -> bigint
+
+    If ``instance > 0``, returns the position of the `instance`-th occurrence of the ``element`` in array ``x``. If
+    ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``.
+    If no matching element instance is found, ``0`` is returned.
 
 .. function:: array_remove(x, element) -> array
 

@@ -13,22 +13,17 @@
  */
 package com.facebook.presto.memory;
 
-import java.util.function.Consumer;
+import com.facebook.presto.spi.QueryId;
 
+@FunctionalInterface
 public interface MemoryPoolListener
 {
     /**
      * Invoked when memory reservation completes successfully.
      *
-     * @param memoryPool the {@link MemoryPool} where the reservation took place
+     * @param memoryPool             the {@link MemoryPool} where the reservation took place
+     * @param queryId                the {@link QueryId} of the query that reserved the memory
+     * @param queryMemoryReservation the total amount of memory reserved by the query (revocable and regular)
      */
-    void onMemoryReserved(MemoryPool memoryPool);
-
-    /**
-     * Creates {@link MemoryPoolListener} implementing {@link #onMemoryReserved(MemoryPool)} only.
-     */
-    static MemoryPoolListener onMemoryReserved(Consumer<? super MemoryPool> action)
-    {
-        return action::accept;
-    }
+    void onMemoryReserved(MemoryPool memoryPool, QueryId queryId, long queryMemoryReservation);
 }

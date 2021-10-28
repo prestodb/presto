@@ -13,19 +13,22 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
 
 public class TestRepartitionQueriesWithSmallPages
         extends AbstractTestRepartitionQueries
 {
-    protected TestRepartitionQueriesWithSmallPages()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunnerBuilder.builder()
                 .setExtraProperties(
                         ImmutableMap.of("experimental.optimized-repartitioning", "true",
-                        // Use small SerializedPages to force flushing
-                        "driver.max-page-partitioning-buffer-size", "200B"))
-                .build());
+                                // Use small SerializedPages to force flushing
+                                "driver.max-page-partitioning-buffer-size", "200B"))
+                .build();
     }
 }

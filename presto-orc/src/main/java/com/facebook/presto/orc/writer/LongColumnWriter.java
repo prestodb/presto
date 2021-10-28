@@ -14,14 +14,15 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -60,6 +61,7 @@ public class LongColumnWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongColumnWriter.class).instanceSize();
     private final int column;
     private final Type type;
+    private final long typeSize;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream dataStream;
@@ -77,29 +79,32 @@ public class LongColumnWriter
     public LongColumnWriter(
             int column,
             Type type,
-            CompressionParameters compressionParameters,
+            ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
             Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier,
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        requireNonNull(compressionParameters, "compressionParameters is null");
+        requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
+        checkArgument(type instanceof FixedWidthType, "Type is not instance of FixedWidthType");
+
         this.column = column;
         this.type = requireNonNull(type, "type is null");
-        this.compressed = compressionParameters.getKind() != NONE;
+        this.typeSize = ((FixedWidthType) type).getFixedSize();
+        this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         if (orcEncoding == DWRF) {
             this.columnEncoding = new ColumnEncoding(DIRECT, 0);
-            this.dataStream = new LongOutputStreamDwrf(compressionParameters, dwrfEncryptor, true, DATA);
+            this.dataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DATA);
         }
         else {
             this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-            this.dataStream = new LongOutputStreamV2(compressionParameters, true, DATA);
+            this.dataStream = new LongOutputStreamV2(columnWriterOptions, true, DATA);
         }
-        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
         this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
         this.statisticsBuilder = statisticsBuilderSupplier.get();
     }
@@ -118,7 +123,7 @@ public class LongColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -129,13 +134,16 @@ public class LongColumnWriter
         }
 
         // record values
+        int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 long value = type.getLong(block, position);
                 dataStream.writeLong(value);
                 statisticsBuilder.addValue(value);
+                nonNullValueCount++;
             }
         }
+        return nonNullValueCount * typeSize + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
     @Override

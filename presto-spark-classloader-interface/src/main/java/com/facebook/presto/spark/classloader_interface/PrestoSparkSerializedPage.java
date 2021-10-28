@@ -24,13 +24,15 @@ public class PrestoSparkSerializedPage
     private final int positionCount;
     private final int uncompressedSizeInBytes;
     private final byte pageCodecMarkers;
+    private final long checksum;
 
-    public PrestoSparkSerializedPage(byte[] bytes, int positionCount, int uncompressedSizeInBytes, byte pageCodecMarkers)
+    public PrestoSparkSerializedPage(byte[] bytes, int positionCount, int uncompressedSizeInBytes, byte pageCodecMarkers, long checksum)
     {
         this.bytes = requireNonNull(bytes, "bytes is null");
         this.positionCount = positionCount;
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
         this.pageCodecMarkers = pageCodecMarkers;
+        this.checksum = checksum;
     }
 
     public byte[] getBytes()
@@ -52,6 +54,11 @@ public class PrestoSparkSerializedPage
     public byte getPageCodecMarkers()
     {
         return pageCodecMarkers;
+    }
+
+    public long getChecksum()
+    {
+        return checksum;
     }
 
     @Override

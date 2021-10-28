@@ -194,7 +194,7 @@ public final class HiveType
                 .collect(toList()));
     }
 
-    private static HiveType toHiveType(TypeInfo typeInfo)
+    public static HiveType toHiveType(TypeInfo typeInfo)
     {
         requireNonNull(typeInfo, "typeInfo is null");
         return new HiveType(typeInfo);

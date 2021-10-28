@@ -122,6 +122,22 @@ public class TestOrderedAggregation
         assertions.assertQuery(
                 "SELECT multimap_agg(x, y ORDER BY z) FROM (VALUES (1, 2, 2), (1, 5, 5), (2, 1, 5), (3, 4, 4), (2, 5, 1), (1, 1, 1)) t(x, y, z)",
                 "VALUES map_from_entries(ARRAY[row(1, ARRAY[1, 2, 5]), row(2, ARRAY[5, 1]), row(3, ARRAY[4])])");
+
+        assertions.assertQuery(
+                "SELECT map_union(x ORDER BY y) FROM (VALUES (map(array[1], array['b']), 1), (map(array[1], array['a']), 10)) t(x,y)",
+                "VALUES map_from_entries(ARRAY[(1,'b')])");
+
+        assertions.assertQuery(
+                "SELECT map_union(x ORDER BY y desc) FROM (VALUES (map(array[1], array['b']), 1), (map(array[1], array['a']), 10)) t(x,y)",
+                "VALUES map_from_entries(ARRAY[(1,'a')])");
+
+        assertions.assertQuery(
+                "SELECT map_union(x ORDER BY z) FROM (VALUES (map(array[1], array['c']), 1, 2), (map(array[1], array['b']), 1, 3), (map(array[1], array['a']), 10, 4)) t(x,y,z) GROUP BY y",
+                "VALUES map_from_entries(ARRAY[(1,'c')]), map_from_entries(ARRAY[(1,'a')])");
+
+        assertions.assertQuery(
+                "SELECT map_union(x ORDER BY z desc) FROM (VALUES (map(array[1], array['c']), 1, 2), (map(array[1], array['b']), 1, 3), (map(array[1], array['d']), 1, 4), (map(array[1], array['a']), 10, 4)) t(x,y,z) GROUP BY y",
+                "VALUES map_from_entries(ARRAY[(1,'d')]), map_from_entries(ARRAY[(1,'a')])");
     }
 
     @Test

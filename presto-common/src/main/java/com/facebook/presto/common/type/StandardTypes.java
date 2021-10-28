@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.common.type;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableSet;
+
 public final class StandardTypes
 {
     public static final String BIGINT = "bigint";
@@ -47,6 +53,19 @@ public final class StandardTypes
     public static final String BING_TILE = "BingTile";
     public static final String BIGINT_ENUM = "BigintEnum";
     public static final String VARCHAR_ENUM = "VarcharEnum";
+    public static final String UUID = "uuid";
 
     private StandardTypes() {}
+
+    public static final Set<String> PARAMETRIC_TYPES = unmodifiableSet(new HashSet<>(asList(
+            VARCHAR,
+            CHAR,
+            DECIMAL,
+            ROW,
+            ARRAY,
+            MAP,
+            QDIGEST,
+            TDIGEST,
+            BIGINT_ENUM,
+            VARCHAR_ENUM)));
 }

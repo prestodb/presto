@@ -71,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -90,6 +91,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
@@ -738,6 +740,9 @@ public class PlanFragmenter
                     .map(variableToColumnMap::get)
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
+            Set<VariableReferenceExpression> outputNotNullColumnVariables = outputs.stream()
+                    .filter(variable -> variableToColumnMap.get(variable) != null && !(variableToColumnMap.get(variable).isNullable()))
+                    .collect(Collectors.toSet());
 
             SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
             InsertReference insertReference = new InsertReference(tableHandle, schemaTableName);
@@ -800,6 +805,7 @@ public class PlanFragmenter
                                         variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
                                         outputs,
                                         outputColumnNames,
+                                        outputNotNullColumnVariables,
                                         Optional.of(partitioningScheme),
                                         Optional.empty(),
                                         enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty())),
@@ -818,6 +824,7 @@ public class PlanFragmenter
                         variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
                         outputs,
                         outputColumnNames,
+                        outputNotNullColumnVariables,
                         Optional.of(partitioningScheme),
                         Optional.empty(),
                         enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty());
@@ -1125,7 +1132,7 @@ public class PlanFragmenter
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
             boolean recoveryEligible = properties.isRecoveryEligible();
             WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
-            if (target instanceof CreateName || target instanceof InsertReference) {
+            if (target instanceof CreateName || target instanceof InsertReference || target instanceof RefreshMaterializedViewReference) {
                 recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PAGE_SINK_COMMIT);
             }
             else {

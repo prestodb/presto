@@ -17,10 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -245,18 +245,27 @@ public class FunctionAndTypeManager
         builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
-    public List<SqlFunction> listFunctions(Session session)
+    /**
+     * likePattern / escape is an opportunistic optimization push down to function namespace managers.
+     * Not all function namespace managers can handle it, thus the returned function list could
+     * include functions that doesn't comply with the pattern specified. Specifically, all session
+     * functions and builtin functions will always be included in the returned set. So proper handling
+     * is still needed in `ShowQueriesRewrite`.
+     */
+    public List<SqlFunction> listFunctions(Session session, Optional<String> likePattern, Optional<String> escape)
     {
-        ImmutableList.Builder<SqlFunction> lb = new ImmutableList.Builder<>();
-        lb.addAll(listBuiltInFunctions());
+        ImmutableList.Builder<SqlFunction> functions = new ImmutableList.Builder<>();
         if (!isListBuiltInFunctionsOnly(session)) {
-            lb.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
-            lb.addAll(functionNamespaceManagers.values().stream()
-                    .flatMap(manager -> manager.listFunctions().stream())
+            functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
+            functions.addAll(functionNamespaceManagers.values().stream()
+                    .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
                     .collect(toImmutableList()));
         }
+        else {
+            functions.addAll(listBuiltInFunctions());
+        }
 
-        return lb.build().stream()
+        return functions.build().stream()
                 .filter(function -> function.getVisibility() == PUBLIC ||
                         (function.getVisibility() == EXPERIMENTAL && isExperimentalFunctionsEnabled(session)))
                 .collect(toImmutableList());
@@ -264,7 +273,7 @@ public class FunctionAndTypeManager
 
     public Collection<SqlFunction> listBuiltInFunctions()
     {
-        return builtInTypeAndFunctionNamespaceManager.listFunctions();
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty());
     }
 
     public Collection<? extends SqlFunction> getFunctions(Session session, QualifiedObjectName functionName)
@@ -412,11 +421,11 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
-    public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
+    public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
-        return functionNamespaceManager.get().executeFunction(functionHandle, inputPage, channels, this);
+        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, this);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -441,7 +450,7 @@ public class FunctionAndTypeManager
                 .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
-        return builtInTypeAndFunctionNamespaceManager.listFunctions().stream()
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty()).stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }

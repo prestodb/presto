@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.common.block.BlockUtil.ensureBlocksAreLoaded;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -220,17 +221,9 @@ public class RowBlock
     @Override
     public Block getLoadedBlock()
     {
-        boolean allLoaded = true;
-        Block[] loadedFieldBlocks = new Block[fieldBlocks.length];
-
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            loadedFieldBlocks[i] = fieldBlocks[i].getLoadedBlock();
-            if (loadedFieldBlocks[i] != fieldBlocks[i]) {
-                allLoaded = false;
-            }
-        }
-
-        if (allLoaded) {
+        Block[] loadedFieldBlocks = ensureBlocksAreLoaded(fieldBlocks);
+        if (loadedFieldBlocks == fieldBlocks) {
+            // All blocks are already loaded
             return this;
         }
         return createRowBlockInternal(

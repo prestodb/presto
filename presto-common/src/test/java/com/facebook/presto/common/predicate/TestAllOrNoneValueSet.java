@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.predicate;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
@@ -130,7 +130,7 @@ public class TestAllOrNoneValueSet
     {
         TestingTypeManager typeManager = new TestingTypeManager();
 
-        ObjectMapper mapper = new ObjectMapperProvider().get()
+        ObjectMapper mapper = new JsonObjectMapperProvider().get()
                 .registerModule(new SimpleModule().addDeserializer(Type.class, new TestingTypeDeserializer(typeManager)));
 
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);

@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -40,6 +41,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
+import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
+import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
+import static com.facebook.presto.execution.QueryLimit.createDurationLimit;
+import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -208,11 +213,20 @@ public class QueryTracker<T extends TrackedQuery>
                 continue;
             }
             Duration queryMaxRunTime = getQueryMaxRunTime(query.getSession());
-            Duration queryMaxExecutionTime = getQueryMaxExecutionTime(query.getSession());
+            QueryLimit<Duration> queryMaxExecutionTime = getMinimum(
+                    createDurationLimit(getQueryMaxExecutionTime(query.getSession()), QUERY),
+                    query.getResourceGroupQueryLimits()
+                            .flatMap(ResourceGroupQueryLimits::getExecutionTimeLimit)
+                            .map(rgLimit -> createDurationLimit(rgLimit, RESOURCE_GROUP)).orElse(null));
             Optional<DateTime> executionStartTime = query.getExecutionStartTime();
             DateTime createTime = query.getCreateTime();
-            if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
-                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
+            if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.getLimit().toMillis()).isBeforeNow()) {
+                query.fail(
+                        new PrestoException(EXCEEDED_TIME_LIMIT,
+                                format(
+                                        "Query exceeded the maximum execution time limit of %s defined at the %s level",
+                                        queryMaxExecutionTime.getLimit(),
+                                        queryMaxExecutionTime.getLimitSource().name())));
             }
             if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
@@ -355,6 +369,8 @@ public class QueryTracker<T extends TrackedQuery>
         DateTime getLastHeartbeat();
 
         Optional<DateTime> getEndTime();
+
+        Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits();
 
         void fail(Throwable cause);
 

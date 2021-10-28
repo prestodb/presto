@@ -48,9 +48,12 @@ public class ClusterSizeMonitor
     private final InternalNodeManager nodeManager;
     private final boolean includeCoordinator;
     private final int workerMinCount;
+    private final int workerMinCountActive;
     private final Duration executionMaxWait;
     private final int coordinatorMinCount;
+    private final int coordinatorMinCountActive;
     private final Duration coordinatorMaxWait;
+    private final int resourceManagerMinCountActive;
     private final ScheduledExecutorService executor;
 
     private final Consumer<AllNodes> listener = this::updateAllNodes;
@@ -62,39 +65,54 @@ public class ClusterSizeMonitor
     private int currentCoordinatorCount;
 
     @GuardedBy("this")
+    private int currentResourceManagerCount;
+
+    @GuardedBy("this")
     private final List<SettableFuture<?>> workerSizeFutures = new ArrayList<>();
 
     @GuardedBy("this")
     private final List<SettableFuture<?>> coordinatorSizeFutures = new ArrayList<>();
 
     @Inject
-    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig)
+    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig, NodeResourceStatusConfig nodeResourceStatusConfig)
     {
         this(
                 nodeManager,
                 requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator(),
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getRequiredWorkers(),
+                requireNonNull(nodeResourceStatusConfig, "nodeResourceStatusConfig is null").getRequiredWorkersActive(),
                 queryManagerConfig.getRequiredWorkersMaxWait(),
                 queryManagerConfig.getRequiredCoordinators(),
-                queryManagerConfig.getRequiredCoordinatorsMaxWait());
+                nodeResourceStatusConfig.getRequiredCoordinatorsActive(),
+                queryManagerConfig.getRequiredCoordinatorsMaxWait(),
+                nodeResourceStatusConfig.getRequiredResourceManagersActive());
     }
 
     public ClusterSizeMonitor(
             InternalNodeManager nodeManager,
             boolean includeCoordinator,
             int workerMinCount,
+            int workerMinCountActive,
             Duration executionMaxWait,
             int coordinatorMinCount,
-            Duration coordinatorMaxWait)
+            int coordinatorMinCountActive,
+            Duration coordinatorMaxWait,
+            int resourceManagerMinCountActive)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
         checkArgument(workerMinCount >= 0, "executionMinCount is negative");
         this.workerMinCount = workerMinCount;
+        checkArgument(workerMinCountActive >= 0, "executionMinCountActive is negative");
+        this.workerMinCountActive = workerMinCountActive;
         this.executionMaxWait = requireNonNull(executionMaxWait, "executionMaxWait is null");
         checkArgument(coordinatorMinCount >= 0, "coordinatorMinCount is negative");
         this.coordinatorMinCount = coordinatorMinCount;
+        checkArgument(coordinatorMinCountActive >= 0, "coordinatorMinCountActive is negative");
+        this.coordinatorMinCountActive = coordinatorMinCountActive;
         this.coordinatorMaxWait = requireNonNull(coordinatorMaxWait, "coordinatorMaxWait is null");
+        checkArgument(resourceManagerMinCountActive >= 0, "resourceManagerMinCountActive is negative");
+        this.resourceManagerMinCountActive = resourceManagerMinCountActive;
         this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
     }
 
@@ -109,6 +127,35 @@ public class ClusterSizeMonitor
     public void stop()
     {
         nodeManager.removeNodeChangeListener(listener);
+    }
+
+    /**
+     * @return true when the current worker count is greater or equals to
+     * minimum worker count for Coordinator.
+     */
+    public boolean hasRequiredWorkers()
+    {
+        return currentWorkerCount >= workerMinCountActive;
+    }
+
+    /**
+     *
+     * @return true when the current resource manager count is greater or equals to
+     * minimum resource manager count for Coordinator.
+     */
+    public boolean hasRequiredResourceManagers()
+    {
+        return currentResourceManagerCount >= resourceManagerMinCountActive;
+    }
+
+    /**
+     *
+     * @return true when the current coordinator count in a cluster is greater or equals to
+     * minimum coordinator count for a given Coordinator.
+     */
+    public boolean hasRequiredCoordinators()
+    {
+        return currentCoordinatorCount >= coordinatorMinCountActive;
     }
 
     /**
@@ -192,9 +239,14 @@ public class ClusterSizeMonitor
             currentWorkerCount = allNodes.getActiveNodes().size();
         }
         else {
-            currentWorkerCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
+            currentWorkerCount = Sets.difference(
+                    Sets.difference(
+                            allNodes.getActiveNodes(),
+                            allNodes.getActiveCoordinators()),
+                    allNodes.getActiveResourceManagers()).size();
         }
         currentCoordinatorCount = allNodes.getActiveCoordinators().size();
+        currentResourceManagerCount = allNodes.getActiveResourceManagers().size();
         if (currentWorkerCount >= workerMinCount) {
             List<SettableFuture<?>> listeners = ImmutableList.copyOf(workerSizeFutures);
             workerSizeFutures.clear();

@@ -26,6 +26,7 @@ import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
@@ -53,6 +54,8 @@ public class OracleClientModule
         return new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
+                Optional.empty(),
+                Optional.empty(),
                 connectionProperties);
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.spi.PrestoException;
@@ -34,12 +35,12 @@ public class MockHiveMetastore
 
     public MockHiveMetastore(MockHiveCluster mockHiveCluster)
     {
-        super(mockHiveCluster);
+        super(mockHiveCluster, new MetastoreClientConfig());
         this.clientProvider = requireNonNull(mockHiveCluster, "mockHiveCluster is null");
     }
 
     @Override
-    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(MetastoreContext context, String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
     {
         try {
             return clientProvider.createPartitionVersionSupportedMetastoreClient().getPartitionNamesWithVersionByFilter(databaseName, tableName, partitionPredicates);

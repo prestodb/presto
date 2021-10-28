@@ -14,10 +14,8 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -27,10 +25,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
-
-import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestByteArrayStream
         extends AbstractTestValueStream<Slice, ByteArrayStreamCheckpoint, ByteArrayOutputStream, ByteArrayInputStream>
@@ -57,11 +51,7 @@ public class TestByteArrayStream
     @Override
     protected ByteArrayOutputStream createValueOutputStream()
     {
-        CompressionParameters compressionParameters = new CompressionParameters(
-                SNAPPY,
-                OptionalInt.empty(),
-                COMPRESSION_BLOCK_SIZE);
-        return new ByteArrayOutputStream(compressionParameters, Optional.empty());
+        return new ByteArrayOutputStream(getColumnWriterOptions(), Optional.empty());
     }
 
     @Override
@@ -74,13 +64,12 @@ public class TestByteArrayStream
     protected ByteArrayInputStream createValueStream(Slice slice)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
         TestingHiveOrcAggregatedMemoryContext aggregatedMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
         return new ByteArrayInputStream(new OrcInputStream(
                 ORC_DATA_SOURCE_ID,
                 new SharedBuffer(aggregatedMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer")),
                 slice.getInput(),
-                orcDecompressor,
+                getOrcDecompressor(),
                 Optional.empty(),
                 aggregatedMemoryContext,
                 slice.getRetainedSize()));

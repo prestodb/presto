@@ -25,6 +25,7 @@ public final class QueryStats
 {
     private final String queryId;
     private final String state;
+    private final boolean waitingForPrerequisites;
     private final boolean queued;
     private final boolean scheduled;
     private final int nodes;
@@ -34,6 +35,7 @@ public final class QueryStats
     private final int completedSplits;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
+    private final long waitingForPrerequisitesTimeMillis;
     private final long queuedTimeMillis;
     private final long elapsedTimeMillis;
     private final long processedRows;
@@ -46,6 +48,7 @@ public final class QueryStats
     public QueryStats(
             String queryId,
             String state,
+            boolean waitingForPrerequisites,
             boolean queued,
             boolean scheduled,
             int nodes,
@@ -55,6 +58,7 @@ public final class QueryStats
             int completedSplits,
             long cpuTimeMillis,
             long wallTimeMillis,
+            long waitingForPrerequisitesTimeMillis,
             long queuedTimeMillis,
             long elapsedTimeMillis,
             long processedRows,
@@ -66,6 +70,7 @@ public final class QueryStats
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.state = requireNonNull(state, "state is null");
+        this.waitingForPrerequisites = waitingForPrerequisites;
         this.queued = queued;
         this.scheduled = scheduled;
         this.nodes = nodes;
@@ -75,6 +80,7 @@ public final class QueryStats
         this.completedSplits = completedSplits;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
+        this.waitingForPrerequisitesTimeMillis = waitingForPrerequisitesTimeMillis;
         this.queuedTimeMillis = queuedTimeMillis;
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.processedRows = processedRows;
@@ -90,6 +96,7 @@ public final class QueryStats
         return new QueryStats(
                 queryId,
                 stats.getState(),
+                stats.isWaitingForPrerequisites(),
                 stats.isQueued(),
                 stats.isScheduled(),
                 stats.getNodes(),
@@ -99,6 +106,7 @@ public final class QueryStats
                 stats.getCompletedSplits(),
                 stats.getCpuTimeMillis(),
                 stats.getWallTimeMillis(),
+                stats.getWaitingForPrerequisitesTimeMillis(),
                 stats.getQueuedTimeMillis(),
                 stats.getElapsedTimeMillis(),
                 stats.getProcessedRows(),
@@ -117,6 +125,11 @@ public final class QueryStats
     public String getState()
     {
         return state;
+    }
+
+    public boolean isWaitingForPrerequisites()
+    {
+        return waitingForPrerequisites;
     }
 
     public boolean isQueued()
@@ -162,6 +175,11 @@ public final class QueryStats
     public long getWallTimeMillis()
     {
         return wallTimeMillis;
+    }
+
+    public long getWaitingForPrerequisitesTimeMillis()
+    {
+        return waitingForPrerequisitesTimeMillis;
     }
 
     public long getQueuedTimeMillis()

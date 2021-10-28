@@ -15,8 +15,10 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -78,10 +80,33 @@ public final class RowExpressionFormatter
                 return formatRowExpression(session, node.getArguments().get(0)) + "[" + formatRowExpression(session, node.getArguments().get(1)) + "]";
             }
             else if (standardFunctionResolution.isBetweenFunction(node.getFunctionHandle())) {
-                List<String> formattedExpresions = formatRowExpressions(session, node.getArguments());
-                return String.format("%s BETWEEN (%s) AND (%s)", formattedExpresions.get(0), formattedExpresions.get(1), formattedExpresions.get(2));
+                List<String> formattedExpressions = formatRowExpressions(session, node.getArguments());
+                return String.format("%s BETWEEN (%s) AND (%s)", formattedExpressions.get(0), formattedExpressions.get(1), formattedExpressions.get(2));
             }
-            return node.getDisplayName() + "(" + String.join(", ", formatRowExpressions(session, node.getArguments())) + ")";
+            else if (standardFunctionResolution.isLikeFunction(node.getFunctionHandle())) {
+                RowExpression value = node.getArguments().get(0);
+                RowExpression patternRowExpression = node.getArguments().get(1);
+
+                if (patternRowExpression instanceof CallExpression) {
+                    CallExpression patternCallExpression = (CallExpression) patternRowExpression;
+                    // second LIKE argument is:
+                    //  CAST(pattern as LikePattern), if escape is not present
+                    //  LIKE_PATTERN(pattern, escape), if escape is present
+                    if (standardFunctionResolution.isCastFunction(patternCallExpression.getFunctionHandle())) {
+                        RowExpression pattern = patternCallExpression.getArguments().get(0);
+                        return String.format("%s LIKE %s", formatRowExpression(session, value), formatRowExpression(session, pattern));
+                    }
+                    else if (standardFunctionResolution.isLikePatternFunction(patternCallExpression.getFunctionHandle())) {
+                        RowExpression pattern = patternCallExpression.getArguments().get(0);
+                        RowExpression escape = patternCallExpression.getArguments().get(1);
+                        return String.format("%s LIKE %s ESCAPE %s", formatRowExpression(session, value), formatRowExpression(session, pattern), formatRowExpression(session, escape));
+                    }
+                }
+
+                return String.format("%s LIKE %s", formatRowExpression(session, value), formatRowExpression(session, patternRowExpression));
+            }
+            FunctionMetadata metadata = functionMetadataManager.getFunctionMetadata(node.getFunctionHandle());
+            return node.getDisplayName() + (metadata.getVersion().hasVersion() ? ":" + metadata.getVersion() : "") + "(" + String.join(", ", formatRowExpressions(session, node.getArguments())) + ")";
         }
 
         @Override
@@ -121,12 +146,19 @@ public final class RowExpressionFormatter
             }
 
             Type type = node.getType();
-            if (node.getType().getJavaType() == Block.class) {
+            if (type.getJavaType() == Block.class) {
                 Block block = (Block) value;
                 // TODO: format block
                 return format("[Block: position count: %s; size: %s bytes]", block.getPositionCount(), block.getRetainedSizeInBytes());
             }
-            return type.getDisplayName().toUpperCase() + " " + value.toString();
+
+            String valueString = "'" + value.toString().replace("'", "''") + "'";
+
+            if (VarbinaryType.isVarbinaryType(type)) {
+                return "X" + valueString;
+            }
+
+            return type.getTypeSignature().getBase().toUpperCase() + valueString;
         }
     }
 }

@@ -46,7 +46,8 @@ public class TestInternalCommunicationConfig
                 .setTaskCommunicationProtocol(CommunicationProtocol.HTTP)
                 .setServerInfoCommunicationProtocol(CommunicationProtocol.HTTP)
                 .setThriftTransportEnabled(false)
-                .setThriftProtocol(Protocol.BINARY));
+                .setThriftProtocol(Protocol.BINARY)
+                .setMemoizeDeadNodesEnabled(false));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.server-info-communication-protocol", "THRIFT")
                 .put("experimental.internal-communication.thrift-transport-enabled", "true")
                 .put("experimental.internal-communication.thrift-transport-protocol", "COMPACT")
+                .put("internal-communication.memoize-dead-nodes-enabled", "true")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -85,7 +87,8 @@ public class TestInternalCommunicationConfig
                 .setTaskCommunicationProtocol(CommunicationProtocol.THRIFT)
                 .setServerInfoCommunicationProtocol(CommunicationProtocol.THRIFT)
                 .setThriftTransportEnabled(true)
-                .setThriftProtocol(Protocol.COMPACT);
+                .setThriftProtocol(Protocol.COMPACT)
+                .setMemoizeDeadNodesEnabled(true);
 
         assertFullMapping(properties, expected);
     }

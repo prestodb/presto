@@ -24,6 +24,12 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 public final class BitwiseFunctions
 {
     private static final int MAX_BITS = 64;
+    private static final long TINYINT_MASK = 0b1111_1111L;
+    private static final long TINYINT_SIGNED_BIT = 0b1000_0000L;
+    private static final long SMALLINT_MASK = 0b1111_1111_1111_1111L;
+    private static final long SMALLINT_SIGNED_BIT = 0b1000_0000_0000_0000L;
+    private static final long INTEGER_MASK = 0x00_00_00_00_ff_ff_ff_ffL;
+    private static final long INTEGER_SIGNED_BIT = 0x00_00_00_00_00_80_00_00_00L;
 
     private BitwiseFunctions() {}
 
@@ -132,5 +138,179 @@ public final class BitwiseFunctions
         }
 
         return number >> shift;
+    }
+
+    @Description("bitwise left shift")
+    @ScalarFunction("bitwise_left_shift")
+    @SqlType(StandardTypes.TINYINT)
+    public static long bitwiseLeftShiftTinyint(@SqlType(StandardTypes.TINYINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        long shifted = (value << shift);
+        return preserveSign(shifted, TINYINT_MASK, TINYINT_SIGNED_BIT);
+    }
+
+    @Description("bitwise left shift")
+    @ScalarFunction("bitwise_left_shift")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long bitwiseLeftShiftSmallint(@SqlType(StandardTypes.SMALLINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        long shifted = (value << shift);
+        return preserveSign(shifted, SMALLINT_MASK, SMALLINT_SIGNED_BIT);
+    }
+
+    @Description("bitwise left shift")
+    @ScalarFunction("bitwise_left_shift")
+    @SqlType(StandardTypes.INTEGER)
+    public static long bitwiseLeftShiftInteger(@SqlType(StandardTypes.INTEGER) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        long shifted = (value << shift);
+        return preserveSign(shifted, INTEGER_MASK, INTEGER_SIGNED_BIT);
+    }
+
+    @Description("bitwise left shift")
+    @ScalarFunction("bitwise_left_shift")
+    @SqlType(StandardTypes.BIGINT)
+    public static long bitwiseLeftShiftBigint(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        return value << shift;
+    }
+
+    private static long preserveSign(long shiftedValue, long mask, long signedBit)
+    {
+        if ((shiftedValue & signedBit) != 0) {
+            // Preserve the sign in 2's complement format
+            return shiftedValue | ~mask;
+        }
+
+        return shiftedValue & mask;
+    }
+
+    @Description("bitwise logical right shift")
+    @ScalarFunction("bitwise_right_shift")
+    @SqlType(StandardTypes.TINYINT)
+    public static long bitwiseRightShiftTinyint(@SqlType(StandardTypes.TINYINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        if (shift == 0) {
+            return value;
+        }
+        return (value & TINYINT_MASK) >>> shift;
+    }
+
+    @Description("bitwise logical right shift")
+    @ScalarFunction("bitwise_right_shift")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long bitwiseRightShiftSmallint(@SqlType(StandardTypes.SMALLINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        if (shift == 0) {
+            return value;
+        }
+        return (value & SMALLINT_MASK) >>> shift;
+    }
+
+    @Description("bitwise logical right shift")
+    @ScalarFunction("bitwise_right_shift")
+    @SqlType(StandardTypes.INTEGER)
+    public static long bitwiseRightShiftInteger(@SqlType(StandardTypes.INTEGER) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        if (shift == 0) {
+            return value;
+        }
+        return (value & INTEGER_MASK) >>> shift;
+    }
+
+    @Description("bitwise logical right shift")
+    @ScalarFunction("bitwise_right_shift")
+    @SqlType(StandardTypes.BIGINT)
+    public static long bitwiseRightShiftBigint(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            return 0L;
+        }
+        return value >>> shift;
+    }
+
+    @Description("bitwise arithmetic right shift")
+    @ScalarFunction("bitwise_right_shift_arithmetic")
+    @SqlType(StandardTypes.TINYINT)
+    public static long bitwiseRightShiftArithmeticTinyint(@SqlType(StandardTypes.TINYINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            if (value >= 0) {
+                return 0L;
+            }
+            else {
+                return -1L;
+            }
+        }
+        return preserveSign(value, TINYINT_MASK, TINYINT_SIGNED_BIT) >> shift;
+    }
+
+    @Description("bitwise arithmetic right shift")
+    @ScalarFunction("bitwise_right_shift_arithmetic")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long bitwiseRightShiftArithmeticSmallint(@SqlType(StandardTypes.SMALLINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            if (value >= 0) {
+                return 0L;
+            }
+            else {
+                return -1L;
+            }
+        }
+        return preserveSign(value, SMALLINT_MASK, SMALLINT_SIGNED_BIT) >> shift;
+    }
+
+    @Description("bitwise arithmetic right shift")
+    @ScalarFunction("bitwise_right_shift_arithmetic")
+    @SqlType(StandardTypes.INTEGER)
+    public static long bitwiseRightShiftArithmeticInteger(@SqlType(StandardTypes.INTEGER) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            if (value >= 0) {
+                return 0L;
+            }
+            else {
+                return -1L;
+            }
+        }
+        return preserveSign(value, INTEGER_MASK, INTEGER_SIGNED_BIT) >> shift;
+    }
+
+    @Description("bitwise arithmetic right shift")
+    @ScalarFunction("bitwise_right_shift_arithmetic")
+    @SqlType(StandardTypes.BIGINT)
+    public static long bitwiseRightShiftArithmeticBigint(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.INTEGER) long shift)
+    {
+        if (shift >= MAX_BITS) {
+            if (value >= 0) {
+                return 0L;
+            }
+            else {
+                return -1L;
+            }
+        }
+        return value >> shift;
     }
 }

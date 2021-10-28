@@ -115,4 +115,10 @@ public class PrestoArray
     {
         // no-op
     }
+
+    @Override
+    public String toString()
+    {
+        return Arrays.toString(array);
+    }
 }

@@ -15,12 +15,17 @@ package com.facebook.presto.kafka.util;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.kafka.KafkaConnectorConfig;
 import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
+import com.facebook.presto.kafka.schema.MapBasedTableDescriptionSupplier;
+import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
+import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplierConfig;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -32,10 +37,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.presto.kafka.ConfigurationAwareModules.combine;
 import static java.lang.String.format;
 
 public final class TestUtils
 {
+    private static final String TEST = "test";
+
     private TestUtils() {}
 
     public static int findUnusedPort()
@@ -57,16 +66,27 @@ public final class TestUtils
 
     public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
     {
-        KafkaPlugin kafkaPlugin = new KafkaPlugin();
-        kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
+        FileKafkaClusterMetadataSupplierConfig clusterMetadataSupplierConfig = new FileKafkaClusterMetadataSupplierConfig();
+        clusterMetadataSupplierConfig.setNodes(embeddedKafka.getConnectString());
+        KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(
+                installModuleIf(
+                        KafkaConnectorConfig.class,
+                        kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
+                        binder -> binder.bind(TableDescriptionSupplier.class)
+                                .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
+                installModuleIf(
+                        KafkaConnectorConfig.class,
+                        kafkaConfig -> kafkaConfig.getClusterMetadataSupplier().equalsIgnoreCase(TEST),
+                        binder -> binder.bind(KafkaClusterMetadataSupplier.class)
+                                .toInstance(new FileKafkaClusterMetadataSupplier(clusterMetadataSupplierConfig)))));
+
         queryRunner.installPlugin(kafkaPlugin);
 
         Map<String, String> kafkaConfig = ImmutableMap.of(
-                "kafka.nodes", embeddedKafka.getConnectString(),
-                "kafka.table-names", Joiner.on(",").join(topicDescriptions.keySet()),
+                "kafka.cluster-metadata-supplier", TEST,
+                "kafka.table-description-supplier", TEST,
                 "kafka.connect-timeout", "120s",
-                "kafka.default-schema", "default",
-                "kafka.table-description-dir", "write-test");
+                "kafka.default-schema", "default");
         queryRunner.createCatalog("kafka", "kafka", kafkaConfig);
     }
 

@@ -15,13 +15,13 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -70,17 +70,17 @@ public class ListColumnWriter
 
     private boolean closed;
 
-    public ListColumnWriter(int column, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, ColumnWriter elementWriter, MetadataWriter metadataWriter)
+    public ListColumnWriter(int column, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, ColumnWriter elementWriter, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        requireNonNull(compressionParameters, "compressionParameters is null");
+        requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.column = column;
-        this.compressed = compressionParameters.getKind() != NONE;
+        this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
         this.elementWriter = requireNonNull(elementWriter, "elementWriter is null");
-        this.lengthStream = createLengthOutputStream(compressionParameters, dwrfEncryptor, orcEncoding);
-        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
+        this.lengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
     }
 
     @Override
@@ -111,23 +111,25 @@ public class ListColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
         ColumnarArray columnarArray = toColumnarArray(block);
-        writeColumnarArray(columnarArray);
+        return writeColumnarArray(columnarArray);
     }
 
-    private void writeColumnarArray(ColumnarArray columnarArray)
+    private long writeColumnarArray(ColumnarArray columnarArray)
     {
         // write nulls and lengths
+        int blockNonNullValueCount = 0;
+        long childRawSize = 0;
         for (int position = 0; position < columnarArray.getPositionCount(); position++) {
             boolean present = !columnarArray.isNull(position);
             presentStream.writeBoolean(present);
             if (present) {
-                nonNullValueCount++;
+                blockNonNullValueCount++;
                 lengthStream.writeLong(columnarArray.getLength(position));
             }
         }
@@ -135,8 +137,10 @@ public class ListColumnWriter
         // write element values
         Block elementsBlock = columnarArray.getElementsBlock();
         if (elementsBlock.getPositionCount() > 0) {
-            elementWriter.writeBlock(elementsBlock);
+            childRawSize += elementWriter.writeBlock(elementsBlock);
         }
+        nonNullValueCount += blockNonNullValueCount;
+        return (columnarArray.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
     }
 
     @Override
@@ -144,7 +148,7 @@ public class ListColumnWriter
     {
         checkState(!closed);
 
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;

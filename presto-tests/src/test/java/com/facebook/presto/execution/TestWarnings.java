@@ -28,6 +28,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
+import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
@@ -139,6 +140,14 @@ public class TestWarnings
 
         query = "select (true and true) or (true and false or false and true)";
         assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testMultipleOrderByWarnings()
+    {
+        String query = "SELECT ARRAY_AGG( x ORDER BY x ASC, y DESC ) FROM ( SELECT 0 as x, 0 AS y)";
+        assertWarnings(
+                queryRunner, TEST_SESSION, query, ImmutableSet.of(MULTIPLE_ORDER_BY.toWarningCode()));
     }
 
     private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, Set<WarningCode> expectedWarnings)

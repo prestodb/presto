@@ -25,6 +25,8 @@ import com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.Session;
+import com.facebook.presto.dispatcher.NoOpQueryManager;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -132,7 +134,8 @@ public class TestThriftServerInfoIntegration
         public void configure(Binder binder)
         {
             configBinder(binder).bindConfig(ServerConfig.class);
-
+            //Bind noop QueryManager similar to the binding done for TaskManager here
+            binder.bind(QueryManager.class).to(NoOpQueryManager.class).in(Scopes.SINGLETON);
             binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
             binder.bind(ShutdownAction.class).to(TestingPrestoServer.TestShutdownAction.class).in(Scopes.SINGLETON);
 

@@ -68,7 +68,7 @@ public class RowBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] fieldBlockOffsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(fieldBlockOffsets));
-        boolean[] rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
+        boolean[] rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount).orElse(null);
         return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 }

@@ -173,6 +173,9 @@ public class IterativeOptimizer
             throw e;
         }
         stats.record(rule, duration, !result.isEmpty());
+        if (SystemSessionProperties.isVerboseRuntimeStatsEnabled(context.session)) {
+            context.session.getRuntimeStats().addMetricValue(String.format("rule%sTimeNanos", rule.getClass().getSimpleName()), duration);
+        }
 
         return result;
     }

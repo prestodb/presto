@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -23,7 +22,6 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.google.common.collect.ImmutableList;
 
 import static com.google.common.base.Verify.verify;
 
@@ -31,14 +29,9 @@ import static com.google.common.base.Verify.verify;
 @Description("construct an array of entries from a given map")
 public class MapEntriesFunction
 {
-    private final PageBuilder pageBuilder;
-
     @TypeParameter("K")
     @TypeParameter("V")
-    public MapEntriesFunction(@TypeParameter("array(row(K,V))") Type arrayType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(arrayType));
-    }
+    public MapEntriesFunction(@TypeParameter("array(row(K,V))") Type arrayType) {}
 
     @TypeParameter("K")
     @TypeParameter("V")
@@ -53,13 +46,8 @@ public class MapEntriesFunction
         Type keyType = rowType.getTypeParameters().get(0);
         Type valueType = rowType.getTypeParameters().get(1);
         ArrayType arrayType = new ArrayType(rowType);
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
         int entryCount = block.getPositionCount() / 2;
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, entryCount);
         BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
         for (int i = 0; i < entryCount; i++) {
             BlockBuilder rowBuilder = entryBuilder.beginBlockEntry();
@@ -69,7 +57,6 @@ public class MapEntriesFunction
         }
 
         blockBuilder.closeEntry();
-        pageBuilder.declarePosition();
         return arrayType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
 }

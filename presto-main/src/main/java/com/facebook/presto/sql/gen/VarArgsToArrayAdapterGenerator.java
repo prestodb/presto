@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 
@@ -33,8 +34,6 @@ import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
@@ -50,116 +49,68 @@ public class VarArgsToArrayAdapterGenerator
     {
     }
 
-    public static class MethodHandleAndConstructor
+    public static class VarArgMethodHandle
     {
         private final MethodHandle methodHandle;
-        private final MethodHandle constructor;
 
-        private MethodHandleAndConstructor(MethodHandle methodHandle, MethodHandle constructor)
+        private VarArgMethodHandle(MethodHandle methodHandle)
         {
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
-            this.constructor = requireNonNull(constructor, "constructor is null");
         }
 
         public MethodHandle getMethodHandle()
         {
             return methodHandle;
         }
-
-        public MethodHandle getConstructor()
-        {
-            return constructor;
-        }
     }
 
-    @UsedByGeneratedCode
-    public static final class VarArgsToArrayAdapterState
-    {
-        /**
-         * User state created by provided user state factory
-         */
-        public final Object userState;
-
-        /**
-         * Array of argument, such as long[], Block[]
-         */
-        public final Object args;
-
-        public VarArgsToArrayAdapterState(Object userState, Object args)
-        {
-            this.userState = userState;
-            this.args = requireNonNull(args, "args is null");
-        }
-    }
-
-    public static MethodHandleAndConstructor generateVarArgsToArrayAdapter(
+    public static VarArgMethodHandle generateVarArgsToArrayAdapter(
             Class<?> returnType,
             Class<?> javaType,
             int argsLength,
-            MethodHandle function,
-            MethodHandle userStateFactory)
+            MethodHandle function)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(javaType, "javaType is null");
         requireNonNull(function, "function is null");
-        requireNonNull(userStateFactory, "userStateFactory is null");
 
-        checkCondition(argsLength <= 253, NOT_SUPPORTED, "Too many arguments for vararg function");
+        checkCondition(argsLength <= 254, NOT_SUPPORTED, "Too many arguments for vararg function");
 
         MethodType methodType = function.type();
         Class<?> javaArrayType = toArrayClass(javaType);
         checkArgument(methodType.returnType() == returnType, "returnType does not match");
-        checkArgument(methodType.parameterList().equals(ImmutableList.of(Object.class, javaArrayType)), "parameter types do not match");
+        checkArgument(methodType.parameterList().equals(ImmutableList.of(javaArrayType)), "parameter types do not match");
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName("VarArgsToListAdapter"), type(Object.class));
         classDefinition.declareDefaultConstructor(a(PRIVATE));
 
-        // generate userState constructor
-        MethodDefinition stateFactoryDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "createState", type(VarArgsToArrayAdapterState.class));
-
-        stateFactoryDefinition.getBody()
-                .comment("create userState for current instance")
-                .append(
-                        newInstance(
-                                VarArgsToArrayAdapterState.class,
-                                loadConstant(callSiteBinder, userStateFactory, MethodHandle.class).invoke("invokeExact", Object.class),
-                                newArray(type(javaArrayType), argsLength).cast(Object.class)).ret());
-
         // generate adapter method
         ImmutableList.Builder<Parameter> parameterListBuilder = ImmutableList.builder();
-        parameterListBuilder.add(arg("userState", VarArgsToArrayAdapterState.class));
         for (int i = 0; i < argsLength; i++) {
             parameterListBuilder.add(arg("input_" + i, javaType));
         }
         ImmutableList<Parameter> parameterList = parameterListBuilder.build();
-
         MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToArray", type(returnType), parameterList);
         BytecodeBlock body = methodDefinition.getBody();
-
-        BytecodeExpression userState = parameterList.get(0).getField("userState", Object.class);
-        BytecodeExpression args = parameterList.get(0).getField("args", Object.class).cast(javaArrayType);
-        for (int i = 0; i < argsLength; i++) {
-            body.append(args.setElement(i, parameterList.get(i + 1)));
-        }
-
         body.append(
                 loadConstant(callSiteBinder, function, MethodHandle.class)
-                        .invoke("invokeExact", returnType, userState, args)
+                        .invoke(
+                                "invokeExact",
+                                returnType,
+                                BytecodeExpressions.newArray(ParameterizedType.type(javaArrayType), parameterList))
                         .ret());
 
         // define class
         Class<?> generatedClass = defineClass(classDefinition, Object.class, callSiteBinder.getBindings(), VarArgsToArrayAdapterGenerator.class.getClassLoader());
-        return new MethodHandleAndConstructor(
+        return new VarArgMethodHandle(
                 Reflection.methodHandle(
                         generatedClass,
                         "varArgsToArray",
                         ImmutableList.builder()
-                                .add(VarArgsToArrayAdapterState.class)
                                 .addAll(nCopies(argsLength, javaType))
                                 .build()
-                                .toArray(new Class<?>[argsLength])),
-                Reflection.methodHandle(generatedClass, "createState"));
+                                .toArray(new Class<?>[argsLength])));
     }
 
     private static Class<?> toArrayClass(Class<?> elementType)

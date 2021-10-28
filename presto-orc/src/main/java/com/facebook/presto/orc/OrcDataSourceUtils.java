@@ -30,6 +30,8 @@ import static java.lang.Math.toIntExact;
 
 public final class OrcDataSourceUtils
 {
+    public static final int EXPECTED_FOOTER_SIZE_IN_BYTES = 16 * 1024;
+
     private OrcDataSourceUtils()
     {
     }

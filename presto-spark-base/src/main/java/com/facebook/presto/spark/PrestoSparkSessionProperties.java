@@ -24,6 +24,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 
 public class PrestoSparkSessionProperties
@@ -37,6 +38,8 @@ public class PrestoSparkSessionProperties
     public static final String STORAGE_BASED_BROADCAST_JOIN_ENABLED = "storage_based_broadcast_join_enabled";
     public static final String STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE = "storage_based_broadcast_join_write_buffer_size";
     public static final String SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE = "spark_broadcast_join_max_memory_override";
+    public static final String SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE = "spark_split_assignment_batch_size";
+    public static final String SPARK_MEMORY_REVOKING_THRESHOLD = "spark_memory_revoking_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -88,6 +91,16 @@ public class PrestoSparkSessionProperties
                         SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE,
                         "Maximum size of broadcast table in Presto on Spark",
                         prestoSparkConfig.getSparkBroadcastJoinMaxMemoryOverride(),
+                        false),
+                integerProperty(
+                        SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE,
+                        "Number of splits are processed in a single iteration",
+                        prestoSparkConfig.getSplitAssignmentBatchSize(),
+                        false),
+                doubleProperty(
+                        SPARK_MEMORY_REVOKING_THRESHOLD,
+                        "Revoke memory when memory pool is filled over threshold",
+                        prestoSparkConfig.getMemoryRevokingThreshold(),
                         false));
     }
 
@@ -139,5 +152,15 @@ public class PrestoSparkSessionProperties
     public static DataSize getSparkBroadcastJoinMaxMemoryOverride(Session session)
     {
         return session.getSystemProperty(SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE, DataSize.class);
+    }
+
+    public static int getSplitAssignmentBatchSize(Session session)
+    {
+        return session.getSystemProperty(SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE, Integer.class);
+    }
+
+    public static double getMemoryRevokingThreshold(Session session)
+    {
+        return session.getSystemProperty(SPARK_MEMORY_REVOKING_THRESHOLD, Double.class);
     }
 }

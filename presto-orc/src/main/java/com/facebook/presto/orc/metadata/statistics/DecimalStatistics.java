@@ -39,6 +39,7 @@ public class DecimalStatistics
     private final BigDecimal minimum;
     private final BigDecimal maximum;
     private final long retainedSizeInBytes;
+    private final long decimalSizeInBytes;
 
     @SuppressWarnings("NumberEquality")
     public DecimalStatistics(BigDecimal minimum, BigDecimal maximum, long decimalSizeInBytes)
@@ -55,6 +56,7 @@ public class DecimalStatistics
             retainedSizeInBytes += BIG_DECIMAL_INSTANCE_SIZE + decimalSizeInBytes;
         }
         this.retainedSizeInBytes = retainedSizeInBytes + INSTANCE_SIZE;
+        this.decimalSizeInBytes = decimalSizeInBytes;
     }
 
     @Override
@@ -73,6 +75,16 @@ public class DecimalStatistics
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    public long getDecimalSizeInBytes()
+    {
+        return decimalSizeInBytes;
+    }
+
+    public long getMinAverageValueSizeInBytes()
+    {
+        return DECIMAL_VALUE_BYTES_OVERHEAD + decimalSizeInBytes;
     }
 
     @Override

@@ -107,7 +107,7 @@ General Aggregate Functions
 
 .. function:: reduce_agg(inputValue T, initialState S, inputFunction(S,T,S), combineFunction(S,S,S)) -> S
 
-    Reduces all input values into a single value. ```inputFunction`` will be invoked
+    Reduces all input values into a single value. ``inputFunction`` will be invoked
     for each input value. In addition to taking the input value, ``inputFunction``
     takes the current state, initially ``initialState``, and returns the new state.
     ``combineFunction`` will be invoked to combine two states into a new state.

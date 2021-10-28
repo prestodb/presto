@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -105,6 +106,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -123,7 +125,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -594,12 +596,16 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             Type returnType = getType(node);
-            Optional<Object> maybeEnumLiteral = tryResolveEnumLiteral(node, returnType);
-            if (maybeEnumLiteral.isPresent()) {
-                return constant(maybeEnumLiteral.get(), returnType);
+            Type baseType = getType(node.getBase());
+
+            if (isEnumType(baseType) && isEnumType(returnType)) {
+                return constant(resolveEnumLiteral(node, baseType), returnType);
             }
 
-            RowType rowType = (RowType) getType(node.getBase());
+            if (baseType instanceof TypeWithName) {
+                baseType = ((TypeWithName) baseType).getType();
+            }
+            RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;

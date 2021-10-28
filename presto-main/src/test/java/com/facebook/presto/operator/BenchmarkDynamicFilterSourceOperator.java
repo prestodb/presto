@@ -48,6 +48,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
+import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringRangeRowLimitPerDriver;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -88,7 +89,8 @@ public class BenchmarkDynamicFilterSourceOperator
                     (tupleDomain -> {}),
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel("0", BIGINT, 0)),
                     getDynamicFilteringMaxPerDriverRowCount(TEST_SESSION),
-                    getDynamicFilteringMaxPerDriverSize(TEST_SESSION));
+                    getDynamicFilteringMaxPerDriverSize(TEST_SESSION),
+                    getDynamicFilteringRangeRowLimitPerDriver(TEST_SESSION));
         }
 
         @TearDown

@@ -52,16 +52,16 @@ public class TestSqlInvokedFunctionNamespaceManager
     {
         InMemoryFunctionNamespaceManager functionNamespaceManager = createFunctionNamespaceManager();
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
-        assertEquals(functionNamespaceManager.listFunctions(), ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1")));
+        assertEquals(functionNamespaceManager.listFunctions(Optional.empty(), Optional.empty()), ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1")));
 
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_INT, false);
         assertEquals(
-                ImmutableSet.copyOf(functionNamespaceManager.listFunctions()),
+                ImmutableSet.copyOf(functionNamespaceManager.listFunctions(Optional.empty(), Optional.empty())),
                 ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"), FUNCTION_POWER_TOWER_INT.withVersion("1")));
 
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
         assertEquals(
-                ImmutableSet.copyOf(functionNamespaceManager.listFunctions()),
+                ImmutableSet.copyOf(functionNamespaceManager.listFunctions(Optional.empty(), Optional.empty())),
                 ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1")));
     }
 

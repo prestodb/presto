@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -49,6 +50,7 @@ public class TestHivePageSourceProvider
                 0,
                 10,
                 10,
+                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
@@ -62,7 +64,7 @@ public class TestHivePageSourceProvider
                 OptionalInt.empty(),
                 NO_PREFERENCE,
                 getColumnHandles().size(),
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
@@ -83,6 +85,7 @@ public class TestHivePageSourceProvider
                 0,
                 10,
                 10,
+                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
@@ -96,7 +99,7 @@ public class TestHivePageSourceProvider
                 OptionalInt.empty(),
                 NO_PREFERENCE,
                 getColumnHandles().size(),
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),

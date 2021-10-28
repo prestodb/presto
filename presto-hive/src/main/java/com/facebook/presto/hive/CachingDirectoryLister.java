@@ -68,13 +68,6 @@ public class CachingDirectoryLister
         this.cachedTableChecker = new CachedTableChecker(requireNonNull(tables, "tables is null"));
     }
 
-    private static SchemaTableName parseTableName(String tableName)
-    {
-        String[] parts = tableName.split("\\.");
-        checkArgument(parts.length == 2, "Invalid schemaTableName: %s", tableName);
-        return new SchemaTableName(parts[0], parts[1]);
-    }
-
     @Override
     public Iterator<HiveFileInfo> list(
             ExtendedFileSystem fileSystem,
@@ -84,15 +77,13 @@ public class CachingDirectoryLister
             PathFilter pathFilter,
             HiveDirectoryContext hiveDirectoryContext)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
-
         List<HiveFileInfo> files = cache.getIfPresent(path);
         if (files != null) {
             return files.iterator();
         }
 
         Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext);
-        if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(schemaTableName)) {
+        if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(table.getSchemaTableName())) {
             return cachingIterator(iterator, path);
         }
         return iterator;
@@ -174,7 +165,7 @@ public class CachingDirectoryLister
             }
             else {
                 this.cachedTableNames = cachedTables.stream()
-                        .map(CachingDirectoryLister::parseTableName)
+                        .map(SchemaTableName::valueOf)
                         .collect(toImmutableSet());
             }
         }

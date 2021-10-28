@@ -31,6 +31,7 @@ import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
@@ -60,9 +61,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
@@ -627,7 +628,7 @@ public class MapFlatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encodings)
+    public void startStripe(Stripe stripe)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -636,7 +637,7 @@ public class MapFlatSelectiveStreamReader
         valueStreamDescriptors.clear();
         valueStreamReaders.clear();
 
-        ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
+        ColumnEncoding encoding = stripe.getColumnEncodings().get(baseValueStreamDescriptor.getStreamId());
         SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
         // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
         if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
@@ -673,7 +674,7 @@ public class MapFlatSelectiveStreamReader
                     options,
                     legacyMapSubscript,
                     systemMemoryContext.newOrcAggregatedMemoryContext());
-            valueStreamReader.startStripe(dictionaryStreamSources, encodings);
+            valueStreamReader.startStripe(stripe);
             valueStreamReaders.add(valueStreamReader);
         }
 

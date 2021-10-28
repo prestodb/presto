@@ -14,11 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.List;
 
@@ -30,44 +31,46 @@ import static java.util.Objects.requireNonNull;
 public class SimplePagesIndexComparator
         implements PagesIndexComparator
 {
-    private final List<Integer> sortChannels;
-    private final List<SortOrder> sortOrders;
-    private final List<Type> sortTypes;
+    private final int[] sortChannels;
+    private final SortOrder[] sortOrders;
+    private final Type[] sortTypes;
 
     public SimplePagesIndexComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        this.sortTypes = ImmutableList.copyOf(requireNonNull(sortTypes, "sortTypes is null"));
-        this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
-        this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
+        this.sortChannels = Ints.toArray(requireNonNull(sortChannels, "sortChannels is null"));
+        this.sortOrders = requireNonNull(sortOrders, "sortOrders is null").toArray(new SortOrder[0]);
+        this.sortTypes = requireNonNull(sortTypes, "sortTypes is null").toArray(new Type[0]);
     }
 
     @Override
     public int compareTo(PagesIndex pagesIndex, int leftPosition, int rightPosition)
     {
-        long leftPageAddress = pagesIndex.getValueAddresses().get(leftPosition);
+        AdaptiveLongBigArray valueAddresses = pagesIndex.getValueAddresses();
+        long leftPageAddress = valueAddresses.get(leftPosition);
+        long rightPageAddress = valueAddresses.get(rightPosition);
+
         int leftBlockIndex = decodeSliceIndex(leftPageAddress);
         int leftBlockPosition = decodePosition(leftPageAddress);
 
-        long rightPageAddress = pagesIndex.getValueAddresses().get(rightPosition);
         int rightBlockIndex = decodeSliceIndex(rightPageAddress);
         int rightBlockPosition = decodePosition(rightPageAddress);
 
-        for (int i = 0; i < sortChannels.size(); i++) {
-            int sortChannel = sortChannels.get(i);
-            Block leftBlock = pagesIndex.getChannel(sortChannel).get(leftBlockIndex);
-            Block rightBlock = pagesIndex.getChannel(sortChannel).get(rightBlockIndex);
+        for (int i = 0; i < sortChannels.length; i++) {
+            int sortChannel = sortChannels[i];
+            SortOrder sortOrder = sortOrders[i];
+            Type sortType = sortTypes[i];
+            List<Block> indexChannel = pagesIndex.getChannel(sortChannel);
+            Block leftBlock = indexChannel.get(leftBlockIndex);
+            Block rightBlock = indexChannel.get(rightBlockIndex);
 
-            SortOrder sortOrder = sortOrders.get(i);
-            int compare;
             try {
-                compare = sortOrder.compareBlockValue(sortTypes.get(i), leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                int compare = sortOrder.compareBlockValue(sortType, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                if (compare != 0) {
+                    return compare;
+                }
             }
             catch (NotSupportedException e) {
                 throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-            }
-
-            if (compare != 0) {
-                return compare;
             }
         }
         return 0;

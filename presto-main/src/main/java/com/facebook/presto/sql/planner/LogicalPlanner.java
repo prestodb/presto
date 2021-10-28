@@ -76,6 +76,7 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -89,6 +90,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -101,6 +103,7 @@ import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -108,6 +111,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -249,6 +253,10 @@ public class LogicalPlanner
         else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             return createExplainAnalyzePlan(analysis, (Explain) statement);
         }
+        else if (statement instanceof RefreshMaterializedView) {
+            checkState(analysis.getRefreshMaterializedViewAnalysis().isPresent(), "RefreshMaterializedView analysis is missing");
+            return createRefreshMaterializedViewPlan(analysis, (RefreshMaterializedView) statement);
+        }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
         }
@@ -335,16 +343,42 @@ public class LogicalPlanner
                 plan,
                 new CreateName(new ConnectorId(destination.getCatalogName()), tableMetadata, newTableLayout),
                 columnNames,
+                tableMetadata.getColumns(),
                 newTableLayout,
                 preferredShuffleLayout,
                 statisticsMetadata);
     }
 
+    private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis, RefreshMaterializedView refreshMaterializedViewStatement)
+    {
+        Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedViewAnalysis().get();
+
+        TableHandle tableHandle = viewAnalysis.getTarget();
+        List<ColumnHandle> columnHandles = viewAnalysis.getColumns();
+        WriterTarget target = new RefreshMaterializedViewReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
+
+        return buildInternalInsertPlan(tableHandle, columnHandles, viewAnalysis.getQuery(), analysis, target);
+    }
+
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
     {
-        Analysis.Insert insert = analysis.getInsert().get();
+        Analysis.Insert insertAnalysis = analysis.getInsert().get();
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
+        TableHandle tableHandle = insertAnalysis.getTarget();
+        List<ColumnHandle> columnHandles = insertAnalysis.getColumns();
+        WriterTarget target = new InsertReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
+
+        return buildInternalInsertPlan(tableHandle, columnHandles, insertStatement.getQuery(), analysis, target);
+    }
+
+    private RelationPlan buildInternalInsertPlan(
+            TableHandle tableHandle,
+            List<ColumnHandle> columnHandles,
+            Query query,
+            Analysis analysis,
+            WriterTarget target)
+    {
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
         List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
@@ -353,16 +387,16 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
+        RelationPlan plan = createRelationPlan(analysis, query);
 
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;
             }
             VariableReferenceExpression output = variableAllocator.newVariable(column.getName(), column.getType());
-            int index = insert.getColumns().indexOf(columns.get(column.getName()));
+            int index = columnHandles.indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
                 assignments.put(output, castToRowExpression(cast));
@@ -390,17 +424,18 @@ public class LogicalPlanner
 
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputVariables());
 
-        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
-        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForInsert(session, insert.getTarget());
+        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, tableHandle);
+        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForInsert(session, tableHandle);
 
-        String catalogName = insert.getTarget().getConnectorId().getCatalogName();
+        String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget(), metadata.getTableMetadata(session, insert.getTarget()).getTable()),
+                target,
                 visibleTableColumnNames,
+                visibleTableColumns,
                 newTableLayout,
                 preferredShuffleLayout,
                 statisticsMetadata);
@@ -411,6 +446,7 @@ public class LogicalPlanner
             RelationPlan plan,
             WriterTarget target,
             List<String> columnNames,
+            List<ColumnMetadata> columnMetadataList,
             Optional<NewTableLayout> writeTableLayout,
             Optional<NewTableLayout> preferredShuffleLayout,
             TableStatisticsMetadata statisticsMetadata)
@@ -427,11 +463,17 @@ public class LogicalPlanner
         Optional<PartitioningScheme> tablePartitioningScheme = getPartitioningSchemeForTableWrite(writeTableLayout, columnNames, variables);
         Optional<PartitioningScheme> preferredShufflePartitioningScheme = getPartitioningSchemeForTableWrite(preferredShuffleLayout, columnNames, variables);
 
-        if (!statisticsMetadata.isEmpty()) {
-            verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
-            Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
+        Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
+        Set<VariableReferenceExpression> notNullColumnVariables = columnMetadataList.stream()
+                .filter(column -> !column.isNullable())
+                .map(ColumnMetadata::getName)
+                .map(columnToVariableMap::get)
+                .collect(toImmutableSet());
+
+        if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap, true);
 
             StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
@@ -447,6 +489,7 @@ public class LogicalPlanner
                             variableAllocator.newVariable("commitcontext", VARBINARY),
                             plan.getFieldMappings(),
                             columnNames,
+                            notNullColumnVariables,
                             tablePartitioningScheme,
                             preferredShufflePartitioningScheme,
                             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
@@ -473,6 +516,7 @@ public class LogicalPlanner
                         variableAllocator.newVariable("commitcontext", VARBINARY),
                         plan.getFieldMappings(),
                         columnNames,
+                        notNullColumnVariables,
                         tablePartitioningScheme,
                         preferredShufflePartitioningScheme,
                         Optional.empty()),

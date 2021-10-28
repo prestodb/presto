@@ -63,7 +63,8 @@ public class ValuesStatsRule
     public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
-        statsBuilder.setOutputRowCount(node.getRows().size());
+        statsBuilder.setOutputRowCount(node.getRows().size())
+                .setConfident(true);
 
         for (int variableId = 0; variableId < node.getOutputVariables().size(); ++variableId) {
             VariableReferenceExpression variable = node.getOutputVariables().get(variableId);

@@ -76,6 +76,8 @@ Name                              Description
 ``password``                      Password to use for LDAP authentication.
 ``socksProxy``                    SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                     HTTP proxy host and port. Example: ``localhost:8888``
+``protocols``                     Comma delineated list of HTTP protocols to use. Example: ``protocols=http11``.
+                                  Acceptable values: ``http11,http10,http2``
 ``applicationNamePrefix``         Prefix to append to any specified ``ApplicationName`` client info
                                   property, which is used to set the source name for the Presto query.
                                   If neither this property nor ``ApplicationName`` are set, the source
@@ -101,4 +103,8 @@ Name                              Description
 ``extraCredentials``              Extra credentials for connecting to external services. The
                                   extraCredentials is a list of key-value pairs. Example:
                                   ``foo:bar;abc:xyz`` will create credentials ``abc=xyz`` and ``foo=bar``
+``customHeaders``                 Custom headers to inject through JDBC driver. The
+                                  customHeaders is a list of key-value pairs. Example:
+                                  ``testHeaderKey:testHeaderValue`` will inject the header ``testHeaderKey``
+                                  with value ``testHeaderValue``. Values should be percent encoded.
 ================================= =======================================================================

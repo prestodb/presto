@@ -266,9 +266,9 @@ public abstract class MapUnionSumResult
         }
 
         @Override
-        void addKeyToSet(TypedSet keySet, int i)
+        void addKeyToSet(TypedSet otherKeyset, int i)
         {
-            keySet.add(keySet.getBlockBuilder(), i);
+            otherKeyset.add(keySet.getBlockBuilder(), i);
         }
 
         @Override

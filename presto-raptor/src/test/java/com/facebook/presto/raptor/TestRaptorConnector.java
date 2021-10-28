@@ -57,6 +57,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -92,7 +93,7 @@ public class TestRaptorConnector
             throws Exception
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
@@ -229,6 +230,7 @@ public class TestRaptorConnector
                 ImmutableMap.of(),
                 true,
                 Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableMap.of());
 

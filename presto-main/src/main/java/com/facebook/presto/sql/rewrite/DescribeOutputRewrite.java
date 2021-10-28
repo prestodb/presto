@@ -127,6 +127,7 @@ final class DescribeOutputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     limit);
         }
 

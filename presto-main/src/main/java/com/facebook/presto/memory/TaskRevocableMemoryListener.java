@@ -15,8 +15,7 @@ package com.facebook.presto.memory;
 
 import com.facebook.presto.execution.TaskId;
 
-import java.util.function.BiConsumer;
-
+@FunctionalInterface
 public interface TaskRevocableMemoryListener
 {
     /**
@@ -24,12 +23,6 @@ public interface TaskRevocableMemoryListener
      * memory in a given MemoryPool successfully
      *
      * @param taskId the {@link TaskId} of the task that reserved the memory
-     * @param memoryPool the {@link MemoryPool} where the reservation took place
      */
-    void onMemoryReserved(TaskId taskId, MemoryPool memoryPool);
-
-    static TaskRevocableMemoryListener onMemoryReserved(BiConsumer<TaskId, ? super MemoryPool> action)
-    {
-        return action::accept;
-    }
+    void onMemoryReserved(TaskId taskId);
 }

@@ -44,6 +44,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -144,8 +146,8 @@ class QueryPlanner
         List<Expression> outputs = analysis.getOutputExpressions(query);
         builder = handleSubqueries(builder, query, outputs);
         builder = project(builder, Iterables.concat(orderBy, outputs));
-
         builder = sort(builder, query);
+        builder = offset(builder, query.getOffset());
         builder = limit(builder, query);
         builder = project(builder, analysis.getOutputExpressions(query));
 
@@ -193,6 +195,7 @@ class QueryPlanner
 
         builder = distinct(builder, node);
         builder = sort(builder, node);
+        builder = offset(builder, node.getOffset());
         builder = limit(builder, node);
         builder = project(builder, outputs);
 
@@ -907,6 +910,19 @@ class QueryPlanner
         planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
 
         return subPlan.withNewRoot(planNode);
+    }
+
+    private PlanBuilder offset(PlanBuilder subPlan, Optional<Offset> offset)
+    {
+        if (!offset.isPresent()) {
+            return subPlan;
+        }
+
+        return subPlan.withNewRoot(
+                new OffsetNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        analysis.getOffset(offset.get())));
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Query node)

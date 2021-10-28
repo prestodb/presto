@@ -15,7 +15,7 @@ package com.facebook.presto.kafka.util;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -37,7 +37,7 @@ public final class CodecSupplier<T>
     {
         this.clazz = clazz;
         this.metadata = metadata;
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer()));
         this.codecFactory = new JsonCodecFactory(objectMapperProvider);
     }

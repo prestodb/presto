@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.project.MergingPageOutput;
@@ -38,6 +39,7 @@ public class FilterAndProjectOperator
 
     private final PageProcessor processor;
     private final MergingPageOutput mergingOutput;
+    private final SqlFunctionProperties sqlFunctionProperties;
     private boolean finishing;
 
     public FilterAndProjectOperator(
@@ -50,6 +52,7 @@ public class FilterAndProjectOperator
         this.pageProcessorMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(FilterAndProjectOperator.class.getSimpleName());
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
+        this.sqlFunctionProperties = operatorContext.getSession().getSqlFunctionProperties();
     }
 
     @Override
@@ -89,7 +92,7 @@ public class FilterAndProjectOperator
         checkState(mergingOutput.needsInput(), "Page buffer is full");
 
         mergingOutput.addInput(processor.process(
-                operatorContext.getSession().getSqlFunctionProperties(),
+                sqlFunctionProperties,
                 operatorContext.getDriverContext().getYieldSignal(),
                 pageProcessorMemoryContext,
                 page));

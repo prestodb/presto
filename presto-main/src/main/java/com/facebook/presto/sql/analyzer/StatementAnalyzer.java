@@ -34,8 +34,11 @@ import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -43,6 +46,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.SqlFormatterUtil;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -56,6 +60,7 @@ import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -67,6 +72,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -100,6 +106,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Property;
@@ -107,6 +114,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -161,23 +169,36 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_METADATA_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_VIEW_TIME_NANOS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
+import static com.facebook.presto.sql.MaterializedViewUtils.generateBaseTablePredicates;
+import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredicates;
+import static com.facebook.presto.sql.MaterializedViewUtils.getOwnerIdentity;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
+import static com.facebook.presto.sql.QueryUtil.selectList;
+import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
+import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -185,6 +206,8 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static com.facebook.presto.sql.analyzer.PredicateStitcher.PredicateStitcherContext;
+import static com.facebook.presto.sql.analyzer.RefreshMaterializedViewPredicateAnalyzer.extractTablePredicates;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -194,14 +217,18 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
@@ -238,6 +265,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -322,8 +350,13 @@ class StatementAnalyzer
         protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
+
             if (metadata.getView(session, targetTable).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
+            }
+
+            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
             // analyze the query that creates the data
@@ -419,6 +452,18 @@ class StatementAnalyzer
                 if (!metadata.getFunctionAndTypeManager().canCoerce(
                         queryColumnTypes.get(i),
                         expectedColumns.get(i).getType())) {
+                    if (queryColumnTypes.get(i) instanceof RowType && expectedColumns.get(i).getType() instanceof RowType) {
+                        String fieldName = expectedColumns.get(i).getName();
+                        List<Type> columnRowTypes = queryColumnTypes.get(i).getTypeParameters();
+                        List<RowType.Field> expectedRowFields = ((RowType) expectedColumns.get(i).getType()).getFields();
+                        checkTypesMatchForNestedStructs(
+                                node,
+                                errorMessage,
+                                i + 1,
+                                fieldName,
+                                expectedRowFields,
+                                columnRowTypes);
+                    }
                     throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
                             node,
                             errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
@@ -430,13 +475,62 @@ class StatementAnalyzer
             }
         }
 
+        private void checkTypesMatchForNestedStructs(
+                Node node,
+                String errorMessage,
+                int columnIndex,
+                String fieldName,
+                List<RowType.Field> expectedRowFields,
+                List<Type> columnRowTypes)
+        {
+            if (expectedRowFields.size() != columnRowTypes.size()) {
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                        node,
+                        errorMessage + "Mismatch at column %d: '%s' has %d field(s) but expression has %d field(s)",
+                        columnIndex,
+                        fieldName,
+                        expectedRowFields.size(),
+                        columnRowTypes.size());
+            }
+            for (int rowFieldIndex = 0; rowFieldIndex < expectedRowFields.size(); rowFieldIndex++) {
+                if (!metadata.getFunctionAndTypeManager().canCoerce(
+                        columnRowTypes.get(rowFieldIndex),
+                        expectedRowFields.get(rowFieldIndex).getType())) {
+                    fieldName += "." + expectedRowFields.get(rowFieldIndex).getName().get();
+                    if (columnRowTypes.get(rowFieldIndex) instanceof RowType && expectedRowFields.get(rowFieldIndex).getType() instanceof RowType) {
+                        checkTypesMatchForNestedStructs(
+                                node,
+                                errorMessage,
+                                columnIndex,
+                                fieldName,
+                                ((RowType) expectedRowFields.get(rowFieldIndex).getType()).getFields(),
+                                columnRowTypes.get(rowFieldIndex).getTypeParameters());
+                    }
+                    else {
+                        throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                                node,
+                                errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
+                                columnIndex,
+                                fieldName,
+                                expectedRowFields.get(rowFieldIndex).getType(),
+                                columnRowTypes.get(rowFieldIndex));
+                    }
+                }
+            }
+        }
+
         @Override
         protected Scope visitDelete(Delete node, Optional<Scope> scope)
         {
             Table table = node.getTable();
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+
             if (metadata.getView(session, tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
+            }
+
+            if (metadata.getMaterializedView(session, tableName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
             }
 
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
@@ -567,6 +661,123 @@ class StatementAnalyzer
             validateColumns(node, queryScope.getRelationType());
 
             return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
+        {
+            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
+
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            analysis.setCreateTableDestination(viewName);
+
+            Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
+            if (viewHandle.isPresent()) {
+                if (node.isNotExists()) {
+                    return createAndAssignScope(node, scope);
+                }
+                throw new SemanticException(MATERIALIZED_VIEW_ALREADY_EXISTS, node, "Destination materialized view '%s' already exists", viewName);
+            }
+            validateProperties(node.getProperties(), scope);
+
+            analysis.setCreateTableProperties(mapFromProperties(node.getProperties()));
+            analysis.setCreateTableComment(node.getComment());
+
+            accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
+            accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
+
+            // analyze the query that creates the table
+            Scope queryScope = process(node.getQuery(), scope);
+
+            validateColumns(node, queryScope.getRelationType());
+
+            validateBaseTables(analysis.getTableNodes(), node);
+
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitRefreshMaterializedView(RefreshMaterializedView node, Optional<Scope> scope)
+        {
+            analysis.setUpdateType("INSERT");
+
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName());
+
+            ConnectorMaterializedViewDefinition view = metadata.getMaterializedView(session, viewName)
+                    .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
+
+            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), getOwnerIdentity(view.getOwner(), session), session.getAccessControlContext(), viewName);
+
+            // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
+            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
+            Scope viewScope = viewAnalyzer.analyze(node.getTarget(), scope);
+            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere(), viewScope, metadata, session);
+
+            Query viewQuery = parseView(view.getOriginalSql(), viewName, node);
+            Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName)) ?
+                    buildQueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName)))
+                    : viewQuery;
+            // Check if the owner has SELECT permission on the base tables
+            StatementAnalyzer queryAnalyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    accessControl,
+                    buildOwnerSession(session, view.getOwner(), metadata.getSessionPropertyManager(), viewName.getCatalogName(), view.getSchema()),
+                    warningCollector);
+            queryAnalyzer.analyze(refreshQuery, Scope.create());
+
+            TableHandle tableHandle = metadata.getTableHandle(session, viewName)
+                    .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            List<ColumnHandle> targetColumnHandles = metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+                    .filter(column -> !column.isHidden())
+                    .map(column -> columnHandles.get(column.getName()))
+                    .collect(toImmutableList());
+            analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
+                    tableHandle,
+                    targetColumnHandles,
+                    refreshQuery));
+
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+        }
+
+        private Optional<RelationType> analyzeBaseTableForRefreshMaterializedView(Table baseTable, Optional<Scope> scope)
+        {
+            checkState(analysis.getStatement() instanceof RefreshMaterializedView, "Not analyzing RefreshMaterializedView statement");
+
+            RefreshMaterializedView refreshMaterializedView = (RefreshMaterializedView) analysis.getStatement();
+            QualifiedObjectName viewName = createQualifiedObjectName(session, refreshMaterializedView.getTarget(), refreshMaterializedView.getTarget().getName());
+
+            // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
+            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
+            Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
+            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere(), viewScope, metadata, session);
+
+            SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
+            if (tablePredicates.containsKey(baseTableName)) {
+                Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
+                analysis.registerNamedQuery(baseTable, tableSubquery);
+
+                Scope subqueryScope = process(tableSubquery, scope);
+
+                return Optional.of(subqueryScope.getRelationType().withAlias(baseTableName.getTableName(), null));
+            }
+
+            return Optional.empty();
+        }
+
+        private Query buildQueryWithPredicate(Table table, Expression predicate)
+        {
+            Query query = simpleQuery(selectList(new AllColumns()), table, predicate);
+            return (Query) sqlParser.createStatement(
+                    SqlFormatterUtil.getFormattedSql(query, sqlParser, Optional.empty()),
+                    createParsingOptions(session, warningCollector));
+        }
+
+        private Query buildQueryWithPredicate(Query originalQuery, Expression predicate)
+        {
+            return simpleQuery(selectList(new AllColumns()), new TableSubquery(originalQuery), predicate);
         }
 
         @Override
@@ -718,6 +929,12 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitDropMaterializedView(DropMaterializedView node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
         protected Scope visitStartTransaction(StartTransaction node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
@@ -822,6 +1039,22 @@ class StatementAnalyzer
             }
         }
 
+        private void validateBaseTables(List<Table> baseTables, Node node)
+        {
+            for (Table baseTable : baseTables) {
+                QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName());
+
+                Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, baseName);
+                if (optionalMaterializedView.isPresent()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            baseTable,
+                            "%s on a materialized view %s is not supported.",
+                            node.getClass().getSimpleName(), baseName);
+                }
+            }
+        }
+
         @Override
         protected Scope visitExplain(Explain node, Optional<Scope> scope)
                 throws SemanticException
@@ -851,6 +1084,9 @@ class StatementAnalyzer
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
 
+            if (node.getOffset().isPresent()) {
+                analyzeOffset(node.getOffset().get());
+            }
             // Input fields == Output fields
             analysis.setOutputExpressions(node, descriptorToFields(queryBodyScope));
 
@@ -965,53 +1201,30 @@ class StatementAnalyzer
             }
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
-            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
+            Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
+                    GET_VIEW_TIME_NANOS,
+                    () -> metadata.getView(session, name));
             if (optionalView.isPresent()) {
-                Statement statement = analysis.getStatement();
-                if (statement instanceof CreateView) {
-                    CreateView viewStatement = (CreateView) statement;
-                    QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
-                    if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
-                        throw new SemanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
-                    }
-                }
-                if (analysis.hasTableInView(table)) {
-                    throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
-                }
-                ViewDefinition view = optionalView.get();
-
-                Query query = parseView(view.getOriginalSql(), name, table);
-
-                analysis.registerNamedQuery(table, query);
-
-                analysis.registerTableForView(table);
-                RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
-                analysis.unregisterTableForView();
-
-                if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
-                    throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
-                }
-
-                // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
-                // This is needed in case the underlying table(s) changed and the query in the view now produces types that
-                // are implicitly coercible to the declared view types.
-                List<Field> outputFields = view.getColumns().stream()
-                        .map(column -> Field.newQualified(
-                                table.getName(),
-                                Optional.of(column.getName()),
-                                column.getType(),
-                                false,
-                                Optional.of(name),
-                                Optional.of(column.getName()),
-                                false))
-                        .collect(toImmutableList());
-
-                analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
-
-                return createAndAssignScope(table, scope, outputFields);
+                return processView(table, scope, name, optionalView);
             }
 
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
+            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
+                    GET_MATERIALIZED_VIEW_TIME_NANOS,
+                    () -> metadata.getMaterializedView(session, name));
+            Statement statement = analysis.getStatement();
+            if (isMaterializedViewDataConsistencyEnabled(session) && optionalMaterializedView.isPresent() && statement instanceof Query) {
+                // When the materialized view has already been expanded, do not process it. Just use it as a table.
+                MaterializedViewAnalysisState materializedViewAnalysisState = analysis.getMaterializedViewAnalysisState(table);
+
+                if (materializedViewAnalysisState.isNotVisited()) {
+                    return processMaterializedView(table, name, scope, optionalMaterializedView.get());
+                }
+                if (materializedViewAnalysisState.isVisited()) {
+                    throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
+                }
+            }
+
+            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadata.getTableHandle(session, name));
             if (!tableHandle.isPresent()) {
                 if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
@@ -1021,7 +1234,11 @@ class StatementAnalyzer
                 }
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
             }
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
+
+            TableMetadata tableMetadata = session.getRuntimeStats().profileNanos(
+                    GET_TABLE_METADATA_TIME_NANOS,
+                    () -> metadata.getTableMetadata(session, tableHandle.get()));
+
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
@@ -1043,7 +1260,133 @@ class StatementAnalyzer
 
             analysis.registerTable(table, tableHandle.get());
 
+            if (statement instanceof RefreshMaterializedView) {
+                Table view = ((RefreshMaterializedView) statement).getTarget();
+                if (!table.equals(view) && !analysis.hasTableRegisteredForMaterializedView(view, table)) {
+                    analysis.registerTableForMaterializedView(view, table);
+                    Optional<RelationType> descriptor = analyzeBaseTableForRefreshMaterializedView(table, scope);
+                    analysis.unregisterTableForMaterializedView(view, table);
+
+                    if (descriptor.isPresent()) {
+                        return createAndAssignScope(table, scope, descriptor.get());
+                    }
+                }
+            }
+
             return createAndAssignScope(table, scope, fields.build());
+        }
+
+        private Scope processView(Table table, Optional<Scope> scope, QualifiedObjectName name, Optional<ViewDefinition> optionalView)
+        {
+            Statement statement = analysis.getStatement();
+            if (statement instanceof CreateView) {
+                CreateView viewStatement = (CreateView) statement;
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
+                    throw new SemanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
+                }
+            }
+            if (analysis.hasTableInView(table)) {
+                throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
+            }
+            ViewDefinition view = optionalView.get();
+
+            Query query = parseView(view.getOriginalSql(), name, table);
+
+            analysis.registerNamedQuery(table, query);
+            analysis.registerTableForView(table);
+            RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
+            analysis.unregisterTableForView();
+
+            if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
+                throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
+            }
+
+            // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
+            // This is needed in case the underlying table(s) changed and the query in the view now produces types that
+            // are implicitly coercible to the declared view types.
+            List<Field> outputFields = view.getColumns().stream()
+                    .map(column -> Field.newQualified(
+                            table.getName(),
+                            Optional.of(column.getName()),
+                            column.getType(),
+                            false,
+                            Optional.of(name),
+                            Optional.of(column.getName()),
+                            false))
+                    .collect(toImmutableList());
+
+            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
+
+            return createAndAssignScope(table, scope, outputFields);
+        }
+
+        private Scope processMaterializedView(
+                Table materializedView,
+                QualifiedObjectName materializedViewName,
+                Optional<Scope> scope,
+                ConnectorMaterializedViewDefinition materializedViewDefinition)
+        {
+            MaterializedViewPlanValidator.validate((Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session, warningCollector)));
+
+            String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition);
+
+            Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
+            analysis.registerNamedQuery(materializedView, query);
+
+            analysis.registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
+            Scope queryScope = process(query, scope);
+            RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
+            analysis.unregisterMaterializedViewForAnalysis(materializedView);
+
+            return createAndAssignScope(materializedView, scope, relationType);
+        }
+
+        private String getMaterializedViewSQL(
+                Table materializedView,
+                QualifiedObjectName materializedViewName,
+                ConnectorMaterializedViewDefinition connectorMaterializedViewDefinition)
+        {
+            MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
+
+            String materializedViewCreateSql = connectorMaterializedViewDefinition.getOriginalSql();
+
+            if (materializedViewStatus.isNotMaterialized() || materializedViewStatus.isTooManyPartitionsMissing()) {
+                return materializedViewCreateSql;
+            }
+
+            Statement createSqlStatement = sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
+
+            Map<SchemaTableName, Expression> baseTablePredicates = emptyMap();
+            if (materializedViewStatus.isFullyMaterialized()) {
+                // We need to include base table queries by Union in order to add required access control for the base tables and utilized columns during visit.
+                // Here we stitch with the predicate WHERE FALSE, and the optimizer will then prune the FALSE branch with no extra overhead introduced.
+                baseTablePredicates = generateFalsePredicates(connectorMaterializedViewDefinition.getBaseTables());
+            }
+            else if (materializedViewStatus.isPartiallyMaterialized()) {
+                baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
+            }
+
+            Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates).process(createSqlStatement, new PredicateStitcherContext());
+
+            // TODO: consider materialized view predicates https://github.com/prestodb/presto/issues/16034
+            QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
+                    selectList(new AllColumns()),
+                    Optional.of(materializedView),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            // When union, keep predicateStitchedQuery before materializedViewQuerySpecification. Given Scope of Union contains RelationType of the first Relation,
+            // this would allow utilizedTableColumnReferences to trace back to base table columns, which is required for correct materialized view access control.
+            Union union = new Union(ImmutableList.of(predicateStitchedQuery.getQueryBody(), materializedViewQuerySpecification), Optional.of(Boolean.FALSE));
+            Query unionQuery = new Query(predicateStitchedQuery.getWith(), union, predicateStitchedQuery.getOrderBy(), predicateStitchedQuery.getOffset(), predicateStitchedQuery.getLimit());
+            // can we return the above query object, instead of building a query string?
+            // in case of returning the query object, make sure to clone the original query object.
+            return SqlFormatterUtil.getFormattedSql(unionQuery, sqlParser, Optional.empty());
         }
 
         @Override
@@ -1153,6 +1496,9 @@ class StatementAnalyzer
                     analysis.markRedundantOrderBy(orderBy);
                     warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
                 }
+            }
+            if (node.getOffset().isPresent()) {
+                analyzeOffset(node.getOffset().get());
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
 
@@ -2253,6 +2599,21 @@ class StatementAnalyzer
             Scope withScope = withScopeBuilder.build();
             analysis.setScope(with, withScope);
             return withScope;
+        }
+
+        private void analyzeOffset(Offset node)
+        {
+            long rowCount;
+            try {
+                rowCount = Long.parseLong(node.getRowCount());
+            }
+            catch (NumberFormatException e) {
+                throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "Invalid OFFSET row count: %s", node.getRowCount());
+            }
+            if (rowCount < 0) {
+                throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "OFFSET row count must be greater or equal to 0 (actual value: %s)", rowCount);
+            }
+            analysis.setOffset(node, rowCount);
         }
 
         private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)
