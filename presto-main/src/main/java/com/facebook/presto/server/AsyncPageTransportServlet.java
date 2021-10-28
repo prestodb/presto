@@ -38,7 +38,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -199,21 +198,20 @@ public class AsyncPageTransportServlet
                     @Override
                     public void onSuccess(BufferResult bufferResult)
                     {
-                        List<SerializedPage> serializedPages = new LinkedList<>(bufferResult.getSerializedPages());
-
                         response.setHeader(CONTENT_TYPE, PRESTO_PAGES);
                         response.setHeader(PRESTO_TASK_INSTANCE_ID, bufferResult.getTaskInstanceId());
                         response.setHeader(PRESTO_PAGE_TOKEN, String.valueOf(bufferResult.getToken()));
                         response.setHeader(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(bufferResult.getNextToken()));
                         response.setHeader(PRESTO_BUFFER_COMPLETE, String.valueOf(bufferResult.isBufferComplete()));
 
+                        List<SerializedPage> serializedPages = bufferResult.getSerializedPages();
                         if (serializedPages.isEmpty()) {
                             response.setStatus(SC_NO_CONTENT);
                             asyncContext.complete();
                         }
                         else {
-                            int contentLength = serializedPages.stream()
-                                    .mapToInt(page -> page.getSizeInBytes() + PAGE_METADATA_SIZE)
+                            int contentLength = (serializedPages.size() * PAGE_METADATA_SIZE) + serializedPages.stream()
+                                    .mapToInt(SerializedPage::getSizeInBytes)
                                     .sum();
                             response.setHeader(CONTENT_LENGTH, String.valueOf(contentLength));
                             out.setWriteListener(new SerializedPageWriteListener(serializedPages, asyncContext, out));
