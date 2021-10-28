@@ -1476,7 +1476,7 @@ public class TestMathFunctions
         assertInvalidFunction("continuous_uniform_cdf(7.0, 3.0, 0.5)", "b must be > a");
         assertInvalidFunction("continuous_uniform_cdf(7.0, 7.0, 0.5)", "b must be > a");
     }
-    
+
     @Test
     public void testInversePoissonCdf()
     {
