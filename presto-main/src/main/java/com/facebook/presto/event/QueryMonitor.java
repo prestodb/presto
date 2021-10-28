@@ -192,7 +192,8 @@ public class QueryMonitor
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
                 ImmutableList.of(),
-                ImmutableList.of()));
+                ImmutableList.of(),
+                Optional.empty()));
 
         logQueryTimeline(queryInfo);
     }
@@ -221,7 +222,8 @@ public class QueryMonitor
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0),
                         stageStatisticsBuilder.build(),
-                        createOperatorStatistics(queryInfo)));
+                        createOperatorStatistics(queryInfo),
+                        queryInfo.getExpandedQuery()));
 
         logQueryTimeline(queryInfo);
     }

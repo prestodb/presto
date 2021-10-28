@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
@@ -51,6 +52,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.QueryAssertions;
+import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -5698,6 +5700,17 @@ public class TestHiveIntegrationSmokeTest
                 queryRunner,
                 "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
                 false, true);
+
+        ResultWithQueryId<MaterializedResult> resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(session, refreshSql);
+        QueryInfo queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+        assertEquals(queryInfo.getExpandedQuery().get(),
+                "-- Expanded Query: REFRESH MATERIALIZED VIEW test_orders_view WHERE (ds = '2020-01-01')\n" +
+                        "INSERT INTO test_orders_view SELECT\n" +
+                        "  orderkey\n" +
+                        ", orderpriority\n" +
+                        ", ds\n" +
+                        "FROM\n" +
+                        "  orders_partitioned\n");
     }
 
     @Test
