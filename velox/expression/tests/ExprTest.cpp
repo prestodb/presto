@@ -1683,36 +1683,42 @@ struct OpaqueState {
 int OpaqueState::constructed = 0;
 int OpaqueState::destructed = 0;
 
-VELOX_UDF_BEGIN(test_opaque_create)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<std::shared_ptr<OpaqueState>>& out,
-    const arg_type<int64_t>& x) {
-  out = std::make_shared<OpaqueState>(x);
-  return true;
-}
-VELOX_UDF_END()
+template <typename T>
+struct TestOpaqueCreateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-VELOX_UDF_BEGIN(test_opaque_add)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& out,
-    const arg_type<std::shared_ptr<OpaqueState>>& state,
-    const arg_type<int64_t>& y) {
-  out = state->x + y;
-  return true;
-}
-VELOX_UDF_END()
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<std::shared_ptr<OpaqueState>>& out,
+      const arg_type<int64_t>& x) {
+    out = std::make_shared<OpaqueState>(x);
+    return true;
+  }
+};
+
+template <typename T>
+struct TestOpaqueAddFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<std::shared_ptr<OpaqueState>>& state,
+      const arg_type<int64_t>& y) {
+    out = state->x + y;
+    return true;
+  }
+};
 
 bool registerTestUDFs() {
   static bool once = [] {
     registerFunction<
-        udf_test_opaque_create,
+        TestOpaqueCreateFunction,
         std::shared_ptr<OpaqueState>,
-        int64_t>({});
+        int64_t>({"test_opaque_create"});
     registerFunction<
-        udf_test_opaque_add,
+        TestOpaqueAddFunction,
         int64_t,
         std::shared_ptr<OpaqueState>,
-        int64_t>({});
+        int64_t>({"test_opaque_add"});
     return true;
   }();
   return once;

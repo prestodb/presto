@@ -23,18 +23,17 @@
 #include "folly/hash/Hash.h"
 #include "velox/functions/Macros.h"
 
-namespace facebook {
-namespace velox {
-namespace functions {
+namespace facebook::velox::functions {
 
 template <typename T>
-VELOX_UDF_BEGIN(hash)
-public : FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<T>& a) {
-  result = computeHash(a);
-  return true;
-}
-VELOX_UDF_END();
+struct HashFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-} // namespace functions
-} // namespace velox
-} // namespace facebook
+  template <typename TFrom>
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const TFrom& a) {
+    result = computeHash(a);
+    return true;
+  }
+};
+
+} // namespace facebook::velox::functions

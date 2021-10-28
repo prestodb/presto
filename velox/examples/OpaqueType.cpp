@@ -94,18 +94,21 @@ inline std::ostream& operator<<(
 //
 // Check `velox/docs/develop/scalar-functions.rst` for more documentation on how
 // to build scalar functions.
-VELOX_UDF_BEGIN(map_resolver_simple)
-FOLLY_ALWAYS_INLINE bool call(
-    arg_type<std::shared_ptr<UserDefinedOutput>>& out,
-    const arg_type<std::shared_ptr<UserDefinedMap>>& state,
-    const int64_t& idx) {
-  out = std::make_shared<UserDefinedOutput>(idx, state->toString(idx));
-  return true;
-}
-VELOX_UDF_END()
+template <typename T>
+struct MapResolverSimpleFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      arg_type<std::shared_ptr<UserDefinedOutput>>& out,
+      const arg_type<std::shared_ptr<UserDefinedMap>>& state,
+      const int64_t& idx) {
+    out = std::make_shared<UserDefinedOutput>(idx, state->toString(idx));
+    return true;
+  }
+};
 
 // Next, we implement the same logic using the vectorized function framework.
-class MapResolverFunction : public exec::VectorFunction {
+class MapResolverVectorFunction : public exec::VectorFunction {
  public:
   // Note that when using the vectorized function framework, you will need to
   // explicitly cast your opaque type vector into the expected opaqued type.
@@ -171,16 +174,16 @@ class MapResolverFunction : public exec::VectorFunction {
 // Declaring the vectorized function.
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_map_resolver_vector,
-    MapResolverFunction::signatures(),
-    std::make_unique<MapResolverFunction>());
+    MapResolverVectorFunction::signatures(),
+    std::make_unique<MapResolverVectorFunction>());
 
 int main(int argc, char** argv) {
   // Registering both simple and vectorized functions.
   registerFunction<
-      udf_map_resolver_simple,
+      MapResolverSimpleFunction,
       std::shared_ptr<UserDefinedOutput>,
       std::shared_ptr<UserDefinedMap>,
-      int64_t>();
+      int64_t>({"map_resolver_simple"});
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_map_resolver_vector, "map_resolver_vector");
 

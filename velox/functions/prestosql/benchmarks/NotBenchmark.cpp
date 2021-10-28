@@ -25,18 +25,19 @@ using namespace facebook::velox::test;
 
 namespace {
 
-VELOX_UDF_BEGIN(not_scalar)
-bool call(bool& result, const bool& arg) {
-  result = !arg;
-  return true;
-}
-VELOX_UDF_END()
+template <typename T>
+struct NotScalarFunction {
+  bool call(bool& result, const bool& arg) {
+    result = !arg;
+    return true;
+  }
+};
 
 class NotBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   NotBenchmark() : FunctionBenchmarkBase() {
     functions::registerVectorFunctions();
-    registerFunction<udf_not_scalar, bool, bool>({"not_scalar"});
+    registerFunction<NotScalarFunction, bool, bool>({"not_scalar"});
   }
 
   void run(const std::string& functionName) {

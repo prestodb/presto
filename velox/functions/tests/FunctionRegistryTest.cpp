@@ -29,51 +29,59 @@ namespace facebook::velox {
 
 namespace {
 
-VELOX_UDF_BEGIN(func_one)
+template <typename T>
+struct FuncOne {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-// Set func_one as non-deterministic.
-static constexpr bool is_deterministic = false;
+  // Set func_one as non-deterministic.
+  static constexpr bool is_deterministic = false;
 
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<velox::Varchar>& /* result */,
-    const arg_type<velox::Varchar>& /* arg1 */) {
-  return true;
-}
-VELOX_UDF_END();
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<velox::Varchar>& /* result */,
+      const arg_type<velox::Varchar>& /* arg1 */) {
+    return true;
+  }
+};
 
-template <typename T1, typename T2>
-VELOX_UDF_BEGIN(func_two)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& /* result */,
-    const T1& /* arg1 */,
-    const T2& /* arg2 */) {
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct FuncTwo {
+  template <typename T1, typename T2>
+  FOLLY_ALWAYS_INLINE bool
+  call(int64_t& /* result */, const T1& /* arg1 */, const T2& /* arg2 */) {
+    return true;
+  }
+};
 
-VELOX_UDF_BEGIN(func_three)
-FOLLY_ALWAYS_INLINE bool call(
-    ArrayWriter<int64_t>& /* result */,
-    const ArrayVal<int64_t>& /* arg1 */) {
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct FuncThree {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-VELOX_UDF_BEGIN(func_four)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<velox::Varchar>& /* result */,
-    const arg_type<velox::Varchar>& /* arg1 */) {
-  return true;
-}
-VELOX_UDF_END();
+  FOLLY_ALWAYS_INLINE bool call(
+      ArrayWriter<int64_t>& /* result */,
+      const ArrayVal<int64_t>& /* arg1 */) {
+    return true;
+  }
+};
 
-VELOX_UDF_BEGIN(func_five)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& /* result */,
-    const int64_t& /* arg1 */) {
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct FuncFour {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<velox::Varchar>& /* result */,
+      const arg_type<velox::Varchar>& /* arg1 */) {
+    return true;
+  }
+};
+
+template <typename T>
+struct FuncFive {
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& /* result */,
+      const int64_t& /* arg1 */) {
+    return true;
+  }
+};
 
 class VectorFuncOne : public velox::exec::VectorFunction {
  public:
@@ -180,21 +188,19 @@ VELOX_DECLARE_VECTOR_FUNCTION(
 
 inline void registerTestFunctions() {
   // If no alias is specified, ensure it will fallback to the struct name.
-  registerFunction<udf_func_one, Varchar, Varchar>();
+  registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
 
   // func_two has two signatures.
-  registerFunction<udf_func_two<int64_t, int32_t>, int64_t, int64_t, int32_t>(
-      {"func_two"});
-  registerFunction<udf_func_two<int64_t, int16_t>, int64_t, int64_t, int16_t>(
-      {"func_two"});
+  registerFunction<FuncTwo, int64_t, int64_t, int32_t>({"func_two"});
+  registerFunction<FuncTwo, int64_t, int64_t, int16_t>({"func_two"});
 
   // func_three has two aliases.
-  registerFunction<udf_func_three, Array<int64_t>, Array<int64_t>>(
+  registerFunction<FuncThree, Array<int64_t>, Array<int64_t>>(
       {"func_three_alias1", "func_three_alias2"});
 
   // We swap func_four and func_five while registering.
-  registerFunction<udf_func_four, Varchar, Varchar>({"func_five"});
-  registerFunction<udf_func_five, int64_t, int64_t>({"func_four"});
+  registerFunction<FuncFour, Varchar, Varchar>({"func_five"});
+  registerFunction<FuncFive, int64_t, int64_t>({"func_four"});
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_one, "vector_func_one");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_two, "vector_func_two");

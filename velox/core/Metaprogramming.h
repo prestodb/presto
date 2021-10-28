@@ -167,7 +167,7 @@ struct has_method {
 #define DECLARE_METHOD_RESOLVER(Name, MethodName)              \
   struct Name {                                                \
     template <class __T, typename... __TArgs>                  \
-    constexpr auto resolve(__TArgs... args) const              \
+    constexpr auto resolve(__TArgs&&... args) const            \
         -> decltype(std::declval<__T>().MethodName(args...)) { \
       return {};                                               \
     }                                                          \

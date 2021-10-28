@@ -25,31 +25,34 @@ using namespace facebook::velox::exec;
 
 namespace {
 
-VELOX_UDF_BEGIN(width_bucket)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& result,
-    double operand,
-    double bound1,
-    double bound2,
-    int64_t bucketCount) {
-  double lower = std::min(bound1, bound2);
-  double upper = std::max(bound1, bound2);
+template <typename T>
+struct WidthBucketFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  if (operand < lower) {
-    result = 0;
-  } else if (operand > upper) {
-    result = bucketCount + 1;
-  } else {
-    result =
-        (int64_t)((double)bucketCount * (operand - lower) / (upper - lower) + 1);
-  }
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      double operand,
+      double bound1,
+      double bound2,
+      int64_t bucketCount) {
+    double lower = std::min(bound1, bound2);
+    double upper = std::max(bound1, bound2);
 
-  if (bound1 > bound2) {
-    result = bucketCount - result + 1;
+    if (operand < lower) {
+      result = 0;
+    } else if (operand > upper) {
+      result = bucketCount + 1;
+    } else {
+      result =
+          (int64_t)((double)bucketCount * (operand - lower) / (upper - lower) + 1);
+    }
+
+    if (bound1 > bound2) {
+      result = bucketCount - result + 1;
+    }
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
 class WidthBucketBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
@@ -57,7 +60,7 @@ class WidthBucketBenchmark : public functions::test::FunctionBenchmarkBase {
     functions::registerArithmeticFunctions();
 
     registerFunction<
-        udf_width_bucket,
+        WidthBucketFunction,
         int64_t,
         double,
         double,

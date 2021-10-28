@@ -18,19 +18,16 @@
 #include "folly/Random.h"
 #include "velox/functions/Macros.h"
 
-namespace facebook {
-namespace velox {
-namespace functions {
+namespace facebook::velox::functions {
 
-VELOX_UDF_BEGIN(rand)
-static constexpr bool is_deterministic = false;
+template <typename T>
+struct RandFunction {
+  static constexpr bool is_deterministic = false;
 
-FOLLY_ALWAYS_INLINE bool call(double& result) {
-  result = folly::Random::randDouble01();
-  return true;
-}
-VELOX_UDF_END();
+  FOLLY_ALWAYS_INLINE bool call(double& result) {
+    result = folly::Random::randDouble01();
+    return true;
+  }
+};
 
-} // namespace functions
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::functions

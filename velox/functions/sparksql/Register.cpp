@@ -58,9 +58,9 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
 namespace sparksql {
 
 void registerFunctions(const std::string& prefix) {
-  registerFunction<udf_rand, double>({"rand"});
+  registerFunction<RandFunction, double>({"rand"});
 
-  registerFunction<udf_json_extract_scalar, Varchar, Varchar, Varchar>(
+  registerFunction<JsonExtractScalarFunction, Varchar, Varchar, Varchar>(
       {prefix + "get_json_object"});
 
   // Register string functions.

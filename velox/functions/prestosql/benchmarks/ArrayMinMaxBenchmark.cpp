@@ -61,33 +61,41 @@ VectorPtr fastMax(const VectorPtr& in) {
 }
 
 template <typename T>
-VELOX_UDF_BEGIN(array_min_simple)
-FOLLY_ALWAYS_INLINE bool call(T& out, const arg_type<Array<T>>& x) {
-  if (x.begin() == x.end()) {
-    return false;
+struct ArrayMinSimpleFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(TInput& out, const arg_type<Array<TInput>>& x) {
+    if (x.begin() == x.end()) {
+      return false;
+    }
+    out = std::min_element(x.begin(), x.end())->value();
+    return true;
   }
-  out = std::min_element(x.begin(), x.end())->value();
-  return true;
-}
-VELOX_UDF_END();
+};
 
 template <typename T>
-VELOX_UDF_BEGIN(array_max_simple)
-FOLLY_ALWAYS_INLINE bool call(T& out, const arg_type<Array<T>>& x) {
-  if (x.begin() == x.end()) {
-    return false;
+struct ArrayMaxSimpleFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(TInput& out, const arg_type<Array<TInput>>& x) {
+    if (x.begin() == x.end()) {
+      return false;
+    }
+    out = std::max_element(x.begin(), x.end())->value();
+    return true;
   }
-  out = std::max_element(x.begin(), x.end())->value();
-  return true;
-}
-VELOX_UDF_END();
+};
 
 class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   ArrayMinMaxBenchmark() : FunctionBenchmarkBase() {
     functions::registerVectorFunctions();
-    registerFunction<udf_array_min_simple<int32_t>, int32_t, Array<int32_t>>();
-    registerFunction<udf_array_max_simple<int32_t>, int32_t, Array<int32_t>>();
+    registerFunction<ArrayMinSimpleFunction, int32_t, Array<int32_t>>(
+        {"array_min_simple"});
+    registerFunction<ArrayMaxSimpleFunction, int32_t, Array<int32_t>>(
+        {"array_max_simple"});
   }
 
   void runInteger(const std::string& functionName) {
