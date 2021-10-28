@@ -55,6 +55,10 @@ struct Timestamp {
     return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);
   }
 
+  static Timestamp fromMicros(int64_t micros) {
+    return Timestamp(micros / 1'000'000, (micros % 1'000'000) * 1'000);
+  }
+
   // Converts the unix epoch represented by this object (assumes it's GMT)
   // to the given timezone.
   // For example, ts.toTimezone("Pacific/Apia") converts ts to represent

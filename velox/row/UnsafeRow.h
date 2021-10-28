@@ -16,10 +16,82 @@
 
 #pragma once
 
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::row {
+
+template <TypeKind Kind>
+struct ScalarTraits {
+  using InMemoryType = typename TypeTraits<Kind>::NativeType;
+  using SerializedType = InMemoryType;
+
+  static SerializedType get(
+      const FlatVector<InMemoryType>& v,
+      vector_size_t i) {
+    return v.valueAt(i);
+  }
+
+  static SerializedType get(const DecodedVector& v, vector_size_t i) {
+    return v.valueAt<InMemoryType>(i);
+  }
+
+  static void set(VectorPtr v, vector_size_t i, SerializedType val) {
+    auto flatVector = v->template asFlatVector<InMemoryType>();
+    flatVector->set(i, val);
+  }
+};
+
+template <>
+struct ScalarTraits<TypeKind::TIMESTAMP> {
+  using InMemoryType = Timestamp;
+  using SerializedType = int64_t;
+
+  static int64_t get(const FlatVector<Timestamp>& v, vector_size_t i) {
+    return v.valueAt(i).toMicros();
+  }
+
+  static int64_t get(const DecodedVector& v, vector_size_t i) {
+    return v.valueAt<Timestamp>(i).toMicros();
+  }
+
+  static void set(VectorPtr v, vector_size_t i, SerializedType val) {
+    auto flatVector = v->template asFlatVector<InMemoryType>();
+    flatVector->set(i, Timestamp::fromMicros(val));
+  }
+};
+
+// We deliberately do not specify the SerializedType to ensure it isn't used.
+// We don't use the `valueAt` methods because they make copies of the
+// StringView. This is required in the generic interface because it's not
+// possible to return a reference to a bool.
+#define SCALAR_TRAIT(VeloxKind)                                             \
+  template <>                                                               \
+  struct ScalarTraits<TypeKind::VeloxKind> {                                \
+    using InMemoryType = StringView;                                        \
+                                                                            \
+    static const StringView& get(                                           \
+        const FlatVector<StringView>& v,                                    \
+        vector_size_t i) {                                                  \
+      return v.rawValues()[i];                                              \
+    }                                                                       \
+                                                                            \
+    static const StringView& get(const DecodedVector& v, vector_size_t i) { \
+      return v.data<StringView>()[v.index(i)];                              \
+    }                                                                       \
+                                                                            \
+    static void set(VectorPtr v, vector_size_t i, const StringView& val) {  \
+      auto flatVector = v->template asFlatVector<StringView>();             \
+      flatVector->set(i, val);                                              \
+    }                                                                       \
+  };
+
+SCALAR_TRAIT(VARBINARY)
+SCALAR_TRAIT(VARCHAR)
+
+#undef SCALAR_TRAIT
 
 /**
  * Supports Apache Spark UnsafeRow format. Memory management should be handled

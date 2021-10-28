@@ -65,6 +65,10 @@ class VectorFuzzer {
     // If true, the length of array/map are randomly generated and
     // `containerLength` is treated as maximum length.
     bool containerVariableLength{false};
+
+    // If true, the random generated timestamp value will only be in
+    // microsecond precision (default is nanosecond).
+    bool useMicrosecondPrecisionTimestamp{false};
   };
 
   VectorFuzzer(

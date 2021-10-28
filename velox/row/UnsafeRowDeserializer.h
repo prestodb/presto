@@ -934,7 +934,7 @@ struct UnsafeRowDynamicVectorDeserializer {
 
   /**
    * Converts a list of UnsafeRowPrimitiveIterators to a FlatVector
-   * @tparam T the element's NativeType
+   * @tparam Kind the element's type kind.
    * @param dataIterators iterator that points to the first dataIterator to
    * process.
    * @param type The element type
@@ -943,13 +943,15 @@ struct UnsafeRowDynamicVectorDeserializer {
    * UnsafeRowPrimitiveIterators
    * @return a FlatVector
    */
-  template <typename T>
+  template <TypeKind Kind>
   static VectorPtr createFlatVector(
       std::vector<DataIteratorPtr>::iterator dataIterators,
       TypePtr type,
       memory::MemoryPool* pool,
       size_t numIteratorsToProcess) {
     auto vector = BaseVector::create(type, numIteratorsToProcess, pool);
+    using Trait = ScalarTraits<Kind>;
+    using InMemoryType = typename Trait::InMemoryType;
 
     size_t nullCount = 0;
     for (size_t i = 0; i < numIteratorsToProcess; i++) {
@@ -958,22 +960,21 @@ struct UnsafeRowDynamicVectorDeserializer {
 
       if (iterator->isNull()) {
         vector->setNull(i, true);
+        nullCount++;
       } else {
         vector->setNull(i, false);
 
-        if constexpr (std::is_same_v<T, StringView>) {
+        if constexpr (std::is_same_v<InMemoryType, StringView>) {
           StringView val =
               UnsafeRowPrimitiveDeserializer::deserializeStringView(
-                  iterator->data()->data());
-          auto flatVector = vector->asFlatVector<StringView>();
-          flatVector->set(i, val);
+                  iterator->data().value());
+          Trait::set(vector, i, val);
         } else {
-          T val = UnsafeRowPrimitiveDeserializer::deserializeFixedWidth<T>(
-              iterator->data()->data());
-          auto flatVector = vector->asFlatVector<T>();
-          flatVector->set(i, val);
+          typename Trait::SerializedType val =
+              UnsafeRowPrimitiveDeserializer::deserializeFixedWidth<
+                  typename Trait::SerializedType>(iterator->data().value());
+          Trait::set(vector, i, val);
         }
-        nullCount++;
       }
     }
     vector->setNullCount(nullCount);
@@ -995,37 +996,13 @@ struct UnsafeRowDynamicVectorDeserializer {
     TypePtr type = (*dataIterators)->type();
     assert(type->isPrimitiveType());
 
-    if (type->isBoolean()) {
-      return createFlatVector<TypeTraits<TypeKind::BOOLEAN>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isTinyint()) {
-      return createFlatVector<TypeTraits<TypeKind::TINYINT>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isSmallint()) {
-      return createFlatVector<TypeTraits<TypeKind::SMALLINT>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isInteger()) {
-      return createFlatVector<TypeTraits<TypeKind::INTEGER>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isBigint()) {
-      return createFlatVector<TypeTraits<TypeKind::BIGINT>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isReal()) {
-      return createFlatVector<TypeTraits<TypeKind::REAL>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isDouble()) {
-      return createFlatVector<TypeTraits<TypeKind::DOUBLE>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isVarchar() || type->isVarbinary()) {
-      return createFlatVector<StringView>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else if (type->isTimestamp()) {
-      return createFlatVector<TypeTraits<TypeKind::TIMESTAMP>::NativeType>(
-          dataIterators, type, pool, numIteratorsToProcess);
-    } else {
-      VELOX_NYI(
-          "Unsupported complex type in convertPrimitiveIteratorsToVectors")
-    }
+    return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        createFlatVector,
+        type->kind(),
+        dataIterators,
+        type,
+        pool,
+        numIteratorsToProcess);
   }
 
   /**

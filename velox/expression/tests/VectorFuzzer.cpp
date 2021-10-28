@@ -72,14 +72,18 @@ bool rand(FuzzerGenerator& rng) {
 }
 
 template <>
-Timestamp rand(FuzzerGenerator& rng) {
-  return Timestamp(
-      folly::Random::rand32(rng), folly::Random::rand32(rng) % MAX_NANOS);
-}
-
-template <>
 uint32_t rand(FuzzerGenerator& rng) {
   return folly::Random::rand32(rng);
+}
+
+Timestamp randTimestamp(
+    FuzzerGenerator& rng,
+    bool useMicrosecondPrecisionTimestamp = false) {
+  return useMicrosecondPrecisionTimestamp
+      ? Timestamp::fromMicros(folly::Random::rand32(rng))
+      : Timestamp(
+            folly::Random::rand32(rng),
+            (folly::Random::rand32(rng) % MAX_NANOS));
 }
 
 /// Unicode character ranges.
@@ -169,6 +173,9 @@ variant randVariantImpl(
     } else {
       VELOX_UNREACHABLE();
     }
+  }
+  if constexpr (std::is_same_v<TCpp, Timestamp>) {
+    return variant(randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
   } else {
     return variant(rand<TCpp>(rng));
   }
@@ -189,6 +196,9 @@ void fuzzFlatImpl(
   for (size_t i = 0; i < vector->size(); ++i) {
     if constexpr (std::is_same_v<TCpp, StringView>) {
       flatVector->set(i, randString(rng, opts, strBuf, converter));
+    } else if constexpr (std::is_same_v<TCpp, Timestamp>) {
+      flatVector->set(
+          i, randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
     } else {
       flatVector->set(i, rand<TCpp>(rng));
     }
