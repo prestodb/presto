@@ -311,11 +311,10 @@ TEST_F(UnsafeRowDeserializerTest, UnsafeRowArrayIterator) {
       {0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
       {0x07, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00}};
   ASSERT_TRUE(checkVariableLengthData(third, 0x18, thirdExpected));
-  return;
 
   // no more elements
   ASSERT_FALSE(outerArray.hasNext());
-  EXPECT_THROW(outerArray.next(), UnsafeRowArrayIterator::IndexOutOfBounds);
+  EXPECT_THROW(outerArray.next(), VeloxRuntimeError);
 
   // Check that we can traverse through the third inner array
   // The third inner array contains fixed length elements
@@ -777,6 +776,83 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedMap) {
       innerMapOffsets,
       innerMapSizes,
       innerMapNulls));
+}
+
+TEST_F(UnsafeRowVectorDeserializerTest, RowVector) {
+  // row[0], 0b010010
+  // {0x0101010101010101, null, 0xABCDEF, 56llu << 32 | 4, null, 64llu << 32 |
+  // 60, "1234", "Make time for civilization, for civilization wont make time."}
+  uint8_t data0[16][8] = {
+      {0x12, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+      {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0xEF, 0xCD, 0xAB, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0x04, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00},
+      {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0x3C, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00},
+      {'1', '2', '3', '4', 0x00, 0x00, 0x00, 0x00},
+      {'M', 'a', 'k', 'e', ' ', 't', 'i', 'm'},
+      {'e', ' ', 'f', 'o', 'r', ' ', 'c', 'i'},
+      {'v', 'i', 'l', 'i', 'z', 'a', 't', 'i'},
+      {'o', 'n', ',', ' ', 'f', 'o', 'r', ' '},
+      {'c', 'i', 'v', 'i', 'l', 'i', 'z', 'a'},
+      {'t', 'i', 'o', 'n', ' ', 'w', 'o', 'n'},
+      {'t', ' ', 'm', 'a', 'k', 'e', ' ', 't'},
+      {'i', 'm', 'e', '.', 0x00, 0x00, 0x00, 0x00}};
+
+  // row[1], 0b010010
+  // {0x0101010101010101, null, 0xABCDEF, 56llu << 32 | 4, null, 64llu << 32 |
+  // 30, "1234", "Im a string with 30 characters"}
+  uint8_t data1[12][8] = {
+      {0x12, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+      {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0xEF, 0xCD, 0xAB, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0x04, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00},
+      {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+      {0x1E, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00},
+      {'1', '2', '3', '4', 0x00, 0x00, 0x00, 0x00},
+      {'I', 'm', ' ', 'a', ' ', 's', 't', 'r'},
+      {'i', 'n', 'g', ' ', 'w', 'i', 't', 'h'},
+      {' ', '3', '0', ' ', 'c', 'h', 'a', 'r'},
+      {'a', 'c', 't', 'e', 'r', 's', 0x00, 0x00},
+  };
+
+  std::vector<bool> nulls{false, true, false, false, true, false};
+  auto row0 = std::string_view(reinterpret_cast<const char*>(data0), 16 * 8);
+  auto row1 = std::string_view(reinterpret_cast<const char*>(data1), 12 * 8);
+
+  // Two rows
+  std::vector<std::optional<std::string_view>> rows{row0, row1};
+
+  auto rowType =
+      ROW({BIGINT(), VARCHAR(), BIGINT(), VARCHAR(), VARCHAR(), VARCHAR()});
+
+  VectorPtr val0 = UnsafeRowDynamicVectorDeserializer::deserializeComplex(
+      rows, rowType, pool_.get());
+
+  auto rowVectorPtr = std::dynamic_pointer_cast<RowVector>(val0);
+
+  ASSERT_NE(rowVectorPtr, nullptr);
+  ASSERT_EQ(rowVectorPtr->size(), 2);
+
+  const auto& children = rowVectorPtr->children();
+  ASSERT_EQ(children.size(), 6);
+  for (size_t i = 0; i < 6; i++) {
+    EXPECT_EQ(children[i]->type()->kind(), rowType->childAt(i)->kind());
+    ASSERT_EQ(children[i]->size(), 2);
+    EXPECT_EQ(children[i]->isNullAt(0), nulls[i]);
+    EXPECT_EQ(children[i]->isNullAt(1), nulls[i]);
+  }
+
+  EXPECT_EQ(
+      rowVectorPtr->toString(0),
+      "{ [child at 0]: 72340172838076673, null, 11259375, 1234, null, \
+Make time for civilization, for civilization wont make time.}");
+  EXPECT_EQ(
+      rowVectorPtr->toString(1),
+      "{ [child at 1]: 72340172838076673, null, 11259375, 1234, null, \
+Im a string with 30 characters}");
 }
 } // namespace
 } // namespace facebook::velox::row

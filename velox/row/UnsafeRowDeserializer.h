@@ -44,6 +44,18 @@ class UnsafeRowDataIterator {
   virtual ~UnsafeRowDataIterator() = 0;
 
   /**
+   * Reads an UnsafeRow data pointer.
+   * @param data
+   * @return the size and offset as a tuple
+   */
+  std::tuple<uint32_t, uint32_t> readDataPointer(const char* data) {
+    const uint64_t offsetAndSize = *reinterpret_cast<const uint64_t*>(data);
+    return {
+        /*size*/ static_cast<uint32_t>(offsetAndSize),
+        /*offset*/ offsetAndSize >> 32};
+  }
+
+  /**
    * @return true if element is null.
    */
   bool isNull() {
@@ -185,18 +197,10 @@ struct UnsafeRowArrayIterator : UnsafeRowDataIterator {
   }
 
   /**
-   * Exception to indicate the element is out of bounds.
-   */
-  class IndexOutOfBounds : public std::exception {};
-
-  /**
-   * @return throws IndexOutOfBounds if there is no next element,
-   * std::nullopt if the next element is null, or the next element.
+   * @return std::nullopt if the next element is null, or the next element.
    */
   std::optional<std::string_view> next() {
-    if (idx_ >= numElements_) {
-      throw IndexOutOfBounds();
-    }
+    VELOX_CHECK_GT(numElements_, idx_);
 
     auto elementsOriginal = arrayElementStart_;
     auto elementsBaseOffsetOriginal = elementsBaseOffset_;
@@ -261,18 +265,6 @@ struct UnsafeRowArrayIterator : UnsafeRowDataIterator {
    * The current element index.
    */
   size_t idx_ = 0;
-
-  /**
-   * Reads an UnsafeRow data pointer.
-   * @param data
-   * @return the size and offset as a tuple
-   */
-  std::tuple<uint32_t, uint32_t> readDataPointer(const char* data) {
-    const uint64_t* dataPointer = &reinterpret_cast<const uint64_t*>(data)[0];
-    uint32_t size = reinterpret_cast<const uint32_t*>(dataPointer)[0];
-    uint32_t offset = reinterpret_cast<const uint32_t*>(dataPointer)[1];
-    return std::tuple(size, offset);
-  }
 };
 using ArrayIteratorPtr = std::shared_ptr<UnsafeRowArrayIterator>;
 
@@ -364,6 +356,117 @@ struct UnsafeRowMapIterator : UnsafeRowDataIterator {
 };
 
 /**
+ * Iterator representation of an UnsafeRow Struct object.
+ */
+struct UnsafeRowStructIterator : UnsafeRowDataIterator {
+ public:
+  /**
+   * UnsafeRowStructIterator constructor.
+   * @param data
+   * @param type
+   */
+  explicit UnsafeRowStructIterator(
+      std::optional<std::string_view> data,
+      TypePtr type)
+      : UnsafeRowDataIterator(!data.has_value(), type),
+        rowType_(std::dynamic_pointer_cast<const RowType>(type)),
+        childrenTypes_(rowType_->children()),
+        numElements_(rowType_->size()) {
+    /*
+     * UnsafeRow Struct representation:
+     * [nullset : (num elements + 63) / 64 words]
+     * [variable length data: variable]
+     */
+
+    if (!data.has_value()) {
+      return;
+    }
+
+    nulls_ = data->data();
+    currentFieldData_ = nulls_ + UnsafeRow::getNullLength(numElements_);
+  }
+
+  /**
+   * @return return whether there's a next element.
+   */
+  bool hasNext() const {
+    return idx_ < numElements_;
+  }
+
+  /**
+   * @return throws IndexOutOfBounds if there is no next element,
+   * std::nullopt if the next element is null, or the next element with it's
+   * type.
+   */
+  std::tuple<size_t, TypePtr, std::optional<std::string_view>> next() {
+    VELOX_CHECK_GT(numElements_, idx_);
+
+    auto elementsOriginal = currentFieldData_;
+    size_t currentIdx = idx_++;
+
+    const TypePtr& type = childrenTypes_[currentIdx];
+    bool isFixedLength = type->isFixedWidth();
+
+    currentFieldData_ += UnsafeRow::kFieldWidthBytes;
+
+    // if null
+    if (bits::isBitSet(nulls_, currentIdx)) {
+      return std::tuple(currentIdx, type, std::nullopt);
+    }
+
+    if (isFixedLength) {
+      return std::tuple(
+          currentIdx,
+          type,
+          std::string_view(elementsOriginal, type->cppSizeInBytes()));
+    }
+
+    auto [size, offset] = readDataPointer(elementsOriginal);
+    return std::tuple(
+        currentIdx, type, std::string_view(nulls_ + offset, size));
+  }
+
+  /**
+   * @return the number of key-value pairs in the map.
+   */
+  size_t size() override {
+    return numElements_;
+  }
+
+ private:
+  /**
+   * The current element index.
+   */
+  size_t idx_ = 0;
+
+  /**
+   * The type of the row.
+   */
+  const RowTypePtr rowType_;
+
+  /**
+   * The types of children.
+   */
+  const std::vector<TypePtr>& childrenTypes_;
+
+  /**
+   * The number of elements in the struct.
+   */
+  size_t numElements_;
+
+  /**
+   * The UnsafeRow nulls set.
+   */
+  const char* nulls_;
+
+  /**
+   * The current processing element in the struct.
+   */
+  const char* currentFieldData_;
+};
+using StructIteratorPtr = std::shared_ptr<UnsafeRowStructIterator>;
+
+/**
  * Constructs a DataIteratorPtr based on the specified type.
  * @param data a string_view over the data to be converted to a DataIteratorPtr.
  * @param type the element type
@@ -386,6 +489,10 @@ inline DataIteratorPtr getIteratorPtr(
   }
   if (type->isMap()) {
     return std::make_shared<UnsafeRowMapIterator>(data, type);
+  }
+
+  if (type->isRow()) {
+    return std::make_shared<UnsafeRowStructIterator>(data, type);
   }
 
   return nullptr;
@@ -614,17 +721,20 @@ struct UnsafeRowDynamicVectorDeserializer {
    * DataIteratorsPtr.
    * @param data
    * @param type
+   * @param collapsePrimitivesToArray whether we can collapse primitive type
+   * data to a array.
    * @return the element's flattened DataIteratorsPtr representation
    */
   static std::vector<DataIteratorPtr> flattenComplexData(
       std::optional<std::string_view> data,
-      TypePtr type) {
+      TypePtr type,
+      bool collapsePrimitivesToArray = true) {
     std::vector<DataIteratorPtr> retVal;
 
     // If the element is primitive, wrap the primitive type with an
     // ArrayIteratorPtr so we can loop through the list of values, return the
     // list of PrimitiveIterators directly
-    if (type->isPrimitiveType()) {
+    if (type->isPrimitiveType() && collapsePrimitivesToArray) {
       auto arrayIteratorWrapper =
           std::dynamic_pointer_cast<UnsafeRowArrayIterator>(
               getIteratorPtr(data, ARRAY(type)));
@@ -776,6 +886,53 @@ struct UnsafeRowDynamicVectorDeserializer {
   }
 
   /**
+   * Converts a list of UnsafeRowStructIterators to Vectors.
+   * @param dataIterators iterator that points to the first dataIterator to
+   * process.
+   * @param pool
+   * @param numStructs The number of adjacent
+   * UnsafeRowStructIterators
+   * @return an RowVectorPtr
+   */
+  static VectorPtr convertStructIteratorsToVectors(
+      std::vector<DataIteratorPtr>::iterator dataIterators,
+      memory::MemoryPool* pool,
+      size_t numStructs) {
+    const TypePtr& type = (*dataIterators)->type();
+    assert(type->isRow());
+    auto rowType = type->asRow();
+    size_t numFields = rowType.size();
+
+    auto [offsets, lengths, nulls, nullCount] =
+        populateMetadataVectors(dataIterators, pool, numStructs);
+
+    // A vector of nullable column raw data, one top-level element per field.
+    std::vector<std::vector<std::optional<std::string_view>>> rawColumnData(
+        numFields, std::vector<std::optional<std::string_view>>(numStructs));
+
+    for (size_t i = 0; i < numStructs; i++) {
+      auto* structIteratorPtr =
+          static_cast<UnsafeRowStructIterator*>(dataIterators[i].get());
+      while (structIteratorPtr->hasNext()) {
+        auto [idx, colType, elem] = structIteratorPtr->next();
+        rawColumnData[idx][i] = elem;
+      }
+    }
+
+    std::vector<VectorPtr> columnVectors;
+    for (size_t i = 0; i < numFields; i++) {
+      columnVectors.push_back(deserializeComplex(
+          rawColumnData[i],
+          rowType.childAt(i),
+          pool,
+          /*collapsePrimitivesToArray=*/false));
+    }
+
+    return std::make_shared<RowVector>(
+        pool, type, nulls, columnVectors[0]->size(), columnVectors);
+  }
+
+  /**
    * Converts a list of UnsafeRowPrimitiveIterators to a FlatVector
    * @tparam T the element's NativeType
    * @param dataIterators iterator that points to the first dataIterator to
@@ -895,6 +1052,9 @@ struct UnsafeRowDynamicVectorDeserializer {
     } else if (type->isPrimitiveType()) {
       return convertPrimitiveIteratorsToVectors(
           dataIterators, pool, numIteratorsToProcess);
+    } else if (type->isRow()) {
+      return convertStructIteratorsToVectors(
+          dataIterators, pool, numIteratorsToProcess);
     } else {
       VELOX_NYI("Unsupported data iterators type");
     }
@@ -905,16 +1065,42 @@ struct UnsafeRowDynamicVectorDeserializer {
    * @param data A string_view over a given element in the UnsafeRow.
    * @param type the element type.
    * @param pool the memory pool to allocate Vectors from
+   *@param collapsePrimitivesToArray whether we can collapse primitive type
+   *data to a array.
    * @return a VectorPtr
    */
   static VectorPtr deserializeComplex(
       std::optional<std::string_view> data,
       TypePtr type,
-      memory::MemoryPool* pool) {
+      memory::MemoryPool* pool,
+      bool collapsePrimitivesToArray = true) {
+    std::vector<std::optional<std::string_view>> vectors{data};
+    return deserializeComplex(vectors, type, pool, collapsePrimitivesToArray);
+  }
+
+  /**
+   * Deserializes a complex element type to its Vector representation.
+   * @param data A vector of string_view over a given element in the
+   *UnsafeRow.
+   * @param type the element type.
+   * @param pool the memory pool to allocate Vectors from
+   *@param collapsePrimitivesToArray whether we can collapse primitive type
+   *data to a array.
+   * @return a VectorPtr
+   */
+  static VectorPtr deserializeComplex(
+      const std::vector<std::optional<std::string_view>>& data,
+      TypePtr type,
+      memory::MemoryPool* pool,
+      bool collapsePrimitivesToArray = true) {
     // flatten data
-    std::vector<DataIteratorPtr> iterators = flattenComplexData(data, type);
+    std::vector<DataIteratorPtr> iterators;
+    for (const auto& elem : data) {
+      auto queue = flattenComplexData(elem, type, collapsePrimitivesToArray);
+      iterators.insert(iterators.end(), queue.begin(), queue.end());
+    }
     // deserialize to vector
-    return convertToVectors(iterators.begin(), pool);
+    return convertToVectors(iterators.begin(), pool, data.size());
   }
 };
 
