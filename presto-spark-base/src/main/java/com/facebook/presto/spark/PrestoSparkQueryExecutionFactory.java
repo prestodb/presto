@@ -659,6 +659,7 @@ public class PrestoSparkQueryExecutionFactory
                 URI.create("http://fake.invalid/query/" + session.getQueryId()),
                 planAndMore.map(PlanAndMore::getFieldNames).orElse(ImmutableList.of()),
                 query,
+                Optional.empty(),
                 queryStats,
                 Optional.empty(),
                 Optional.empty(),
