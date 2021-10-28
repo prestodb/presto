@@ -196,6 +196,10 @@ class MemoryUsageTracker
         config);
   }
 
+  int64_t getUserMemoryCap() const {
+    return maxMemory_[static_cast<int>(UsageType::kUserMem)];
+  }
+
  private:
   enum class UsageType : int { kUserMem = 0, kSystemMem = 1, kTotalMem = 2 };
   std::shared_ptr<MemoryUsageTracker> parent_;

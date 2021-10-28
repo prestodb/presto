@@ -223,8 +223,15 @@ class WriterContext : public CompressionBufferPool {
     VELOX_FAIL("Unreachable");
   }
 
-  const memory::MemoryPool& getWriterMemoryUsage() const {
-    return pool_;
+  int64_t getTotalMemoryUsage() const {
+    const auto& outputStreamPool =
+        getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM);
+    const auto& dictionaryPool =
+        getMemoryUsage(MemoryUsageCategory::DICTIONARY);
+    const auto& generalPool = getMemoryUsage(MemoryUsageCategory::GENERAL);
+
+    return outputStreamPool.getCurrentBytes() +
+        dictionaryPool.getCurrentBytes() + generalPool.getCurrentBytes();
   }
 
   int64_t getMemoryBudget() const {

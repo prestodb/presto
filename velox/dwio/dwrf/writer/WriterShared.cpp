@@ -408,7 +408,7 @@ void WriterShared::flush(bool close) {
         context.stripeRowCount,
         context.stripeRawSize,
         context.getStreamCount(),
-        context.getWriterMemoryUsage().getCurrentBytes());
+        context.getTotalMemoryUsage());
   }
 }
 
