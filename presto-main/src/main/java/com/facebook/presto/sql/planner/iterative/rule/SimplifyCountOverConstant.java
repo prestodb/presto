@@ -80,6 +80,7 @@ public class SimplifyCountOverConstant
                 changed = true;
                 aggregations.put(variable, new AggregationNode.Aggregation(
                         new CallExpression(
+                                aggregation.getCall().getSourceLocation(),
                                 "count",
                                 functionResolution.countFunction(),
                                 BIGINT,

@@ -38,6 +38,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldId;
 import com.facebook.presto.sql.analyzer.RelationId;
@@ -64,6 +65,7 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -101,6 +103,7 @@ import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.isNumericType;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
@@ -237,15 +240,15 @@ class QueryPlanner
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(field.getName().get(), field.getType());
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().get(), field.getType());
             outputVariablesBuilder.add(variable);
             columns.put(variable, analysis.getColumn(field));
             fields.add(field);
         }
 
         // add rowId column
-        Field rowIdField = Field.newUnqualified(Optional.empty(), rowIdType);
-        VariableReferenceExpression rowIdVariable = variableAllocator.newVariable("$rowId", rowIdField.getType());
+        Field rowIdField = Field.newUnqualified(node.getLocation(), Optional.empty(), rowIdType);
+        VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), "$rowId", rowIdField.getType());
         outputVariablesBuilder.add(rowIdVariable);
         columns.put(rowIdVariable, rowIdHandle);
         fields.add(rowIdField);
@@ -628,6 +631,7 @@ class QueryPlanner
             aggregationsBuilder.put(newVariable,
                     new Aggregation(
                             new CallExpression(
+                                    getSourceLocation(rewrittenFunction),
                                     aggregate.getName().getSuffix(),
                                     analysis.getFunctionHandle(aggregate),
                                     analysis.getType(aggregate),
@@ -674,7 +678,7 @@ class QueryPlanner
         if (needPostProjectionCoercion) {
             ImmutableList.Builder<Expression> alreadyCoerced = ImmutableList.builder();
             alreadyCoerced.addAll(groupByExpressions);
-            groupIdVariable.map(variable -> new SymbolReference(variable.getName())).ifPresent(alreadyCoerced::add);
+            groupIdVariable.map(ExpressionTreeUtils::createSymbolReference).ifPresent(alreadyCoerced::add);
 
             subPlan = explicitCoercionFields(subPlan, alreadyCoerced.build(), analysis.getAggregates(node));
         }
@@ -1165,7 +1169,9 @@ class QueryPlanner
     private static List<Expression> toSymbolReferences(List<VariableReferenceExpression> variables)
     {
         return variables.stream()
-                .map(variable -> new SymbolReference(variable.getName()))
+                .map(variable -> new SymbolReference(
+                        variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())),
+                        variable.getName()))
                 .collect(toImmutableList());
     }
 

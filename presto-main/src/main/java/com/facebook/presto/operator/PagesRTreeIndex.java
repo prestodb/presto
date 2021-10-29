@@ -15,9 +15,9 @@ package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.GeometryUtils;

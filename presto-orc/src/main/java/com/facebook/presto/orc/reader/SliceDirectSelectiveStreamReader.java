@@ -39,9 +39,9 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.SMALL;
-import static com.facebook.presto.orc.array.Arrays.ExpansionOption.INITIALIZE;
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;

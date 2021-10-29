@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;

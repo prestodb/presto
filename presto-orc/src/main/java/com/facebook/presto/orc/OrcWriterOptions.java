@@ -39,6 +39,7 @@ public class OrcWriterOptions
     public static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
     public static final DataSize DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE = new DataSize(8, MEGABYTE);
     public static final DwrfStripeCacheMode DEFAULT_DWRF_STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
+    public static final int DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT = 0;
 
     private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
@@ -57,6 +58,7 @@ public class OrcWriterOptions
     //  additional memory accounting need to be fixed as well as the flag removed.
     private final boolean ignoreDictionaryRowGroupSizes;
     private final Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
+    private final int preserveDirectEncodingStripeCount;
 
     private OrcWriterOptions(
             DataSize stripeMinSize,
@@ -71,7 +73,8 @@ public class OrcWriterOptions
             boolean integerDictionaryEncodingEnabled,
             boolean stringDictionarySortingEnabled,
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions,
-            boolean ignoreDictionaryRowGroupSizes)
+            boolean ignoreDictionaryRowGroupSizes,
+            int preserveDirectEncodingStripeCount)
     {
         requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
@@ -97,6 +100,7 @@ public class OrcWriterOptions
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
         this.dwrfWriterOptions = dwrfWriterOptions;
         this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
+        this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
     }
 
     public DataSize getStripeMinSize()
@@ -164,6 +168,11 @@ public class OrcWriterOptions
         return ignoreDictionaryRowGroupSizes;
     }
 
+    public int getPreserveDirectEncodingStripeCount()
+    {
+        return preserveDirectEncodingStripeCount;
+    }
+
     @Override
     public String toString()
     {
@@ -181,6 +190,7 @@ public class OrcWriterOptions
                 .add("stringDictionarySortingEnabled", stringDictionarySortingEnabled)
                 .add("dwrfWriterOptions", dwrfWriterOptions)
                 .add("ignoreDictionaryRowGroupSizes", ignoreDictionaryRowGroupSizes)
+                .add("preserveDirectEncodingStripeCount", preserveDirectEncodingStripeCount)
                 .toString();
     }
 
@@ -206,6 +216,7 @@ public class OrcWriterOptions
         private DwrfStripeCacheMode dwrfStripeCacheMode = DEFAULT_DWRF_STRIPE_CACHE_MODE;
         private DataSize dwrfStripeCacheMaxSize = DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
         private boolean ignoreDictionaryRowGroupSizes;
+        private int preserveDirectEncodingStripeCount = DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 
         public Builder withStripeMinSize(DataSize stripeMinSize)
         {
@@ -299,6 +310,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withPreserveDirectEncodingStripeCount(int preserveDirectEncodingStripeCount)
+        {
+            this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
@@ -322,7 +339,8 @@ public class OrcWriterOptions
                     integerDictionaryEncodingEnabled,
                     stringDictionarySortingEnabled,
                     dwrfWriterOptions,
-                    ignoreDictionaryRowGroupSizes);
+                    ignoreDictionaryRowGroupSizes,
+                    preserveDirectEncodingStripeCount);
         }
     }
 }

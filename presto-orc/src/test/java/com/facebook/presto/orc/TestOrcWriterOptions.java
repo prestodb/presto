@@ -67,6 +67,7 @@ public class TestOrcWriterOptions
         StreamLayout streamLayout = new StreamLayout.ByColumnSize();
         boolean integerDictionaryEncodingEnabled = true;
         boolean stringDictionarySortingEnabled = false;
+        int preserveDirectEncodingStripeCount = 10;
 
         OrcWriterOptions.Builder builder = OrcWriterOptions.builder()
                 .withStripeMinSize(stripeMinSize)
@@ -79,7 +80,8 @@ public class TestOrcWriterOptions
                 .withCompressionLevel(compressionLevel)
                 .withStreamLayout(streamLayout)
                 .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled)
-                .withStringDictionarySortingEnabled(stringDictionarySortingEnabled);
+                .withStringDictionarySortingEnabled(stringDictionarySortingEnabled)
+                .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount);
 
         OrcWriterOptions options = builder.build();
 
@@ -95,6 +97,7 @@ public class TestOrcWriterOptions
         assertEquals(integerDictionaryEncodingEnabled, options.isIntegerDictionaryEncodingEnabled());
         assertEquals(stringDictionarySortingEnabled, options.isStringDictionarySortingEnabled());
         assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
+        assertEquals(preserveDirectEncodingStripeCount, options.getPreserveDirectEncodingStripeCount());
     }
 
     @Test
@@ -113,6 +116,7 @@ public class TestOrcWriterOptions
         StreamLayout streamLayout = new StreamLayout.ByColumnSize();
         boolean integerDictionaryEncodingEnabled = false;
         boolean stringDictionarySortingEnabled = true;
+        int preserveDirectEncodingStripeCount = 0;
 
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                 .withStripeMinSize(stripeMinSize)
@@ -129,6 +133,7 @@ public class TestOrcWriterOptions
                 .withDwrfStripeCacheEnabled(true)
                 .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
                 .withDwrfStripeCacheMode(dwrfStripeCacheMode)
+                .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount)
                 .build();
 
         String expectedString = "OrcWriterOptions{stripeMinSize=13MB, stripeMaxSize=27MB, stripeMaxRowCount=1100000, "
@@ -136,7 +141,7 @@ public class TestOrcWriterOptions
                 + "maxCompressionBufferSize=512kB, compressionLevel=OptionalInt[5], streamLayout=ByColumnSize{}, "
                 + "integerDictionaryEncodingEnabled=false, stringDictionarySortingEnabled=true, "
                 + "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], "
-                + "ignoreDictionaryRowGroupSizes=false}";
+                + "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }

@@ -47,11 +47,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.MEDIUM;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.MEDIUM;
-import static com.facebook.presto.orc.array.Arrays.ExpansionOption.PRESERVE;
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,7 +75,7 @@ public abstract class DictionaryColumnWriter
     private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter compressedMetadataWriter;
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
-    private long rowGroupRetainedSizeInBytes;
+    private final int preserveDirectEncodingStripeCount;
 
     private int[] rowGroupIndexes;
     private int rowGroupValueCount;
@@ -85,6 +85,8 @@ public abstract class DictionaryColumnWriter
     private boolean closed;
     private boolean inRowGroup;
     private boolean directEncoded;
+    private long rowGroupRetainedSizeInBytes;
+    private int preserveDirectEncodingStripeIndex;
 
     public DictionaryColumnWriter(
             int column,
@@ -112,6 +114,7 @@ public abstract class DictionaryColumnWriter
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
         this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
         this.rowGroupIndexes = new int[10_000];
+        this.preserveDirectEncodingStripeCount = columnWriterOptions.getPreserveDirectEncodingStripeCount();
     }
 
     protected abstract ColumnWriter createDirectColumnWriter();
@@ -447,8 +450,14 @@ public abstract class DictionaryColumnWriter
         totalNonNullValueCount = 0;
 
         if (directEncoded) {
-            directEncoded = false;
             getDirectColumnWriter().reset();
+            if (preserveDirectEncodingStripeIndex >= preserveDirectEncodingStripeCount) {
+                directEncoded = false;
+                preserveDirectEncodingStripeIndex = 0;
+            }
+            else {
+                preserveDirectEncodingStripeIndex++;
+            }
         }
     }
 

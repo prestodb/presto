@@ -42,9 +42,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.MEDIUM;
-import static com.facebook.presto.orc.array.Arrays.ExpansionOption.PRESERVE;
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.MEDIUM;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.CHAR;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;

@@ -214,6 +214,7 @@ public class OrcWriter
                 .setIntegerDictionaryEncodingEnabled(options.isIntegerDictionaryEncodingEnabled())
                 .setStringDictionarySortingEnabled(options.isStringDictionarySortingEnabled())
                 .setIgnoreDictionaryRowGroupSizes(options.isIgnoreDictionaryRowGroupSizes())
+                .setPreserveDirectEncodingStripeCount(options.getPreserveDirectEncodingStripeCount())
                 .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
 

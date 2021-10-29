@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
-import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 

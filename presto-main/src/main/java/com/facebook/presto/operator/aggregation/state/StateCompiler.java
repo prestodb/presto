@@ -13,13 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.array.BlockBigArray;
-import com.facebook.presto.array.BooleanBigArray;
-import com.facebook.presto.array.ByteBigArray;
-import com.facebook.presto.array.DoubleBigArray;
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.LongBigArray;
-import com.facebook.presto.array.SliceBigArray;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -31,6 +24,13 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.common.array.BlockBigArray;
+import com.facebook.presto.common.array.BooleanBigArray;
+import com.facebook.presto.common.array.ByteBigArray;
+import com.facebook.presto.common.array.DoubleBigArray;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.LongBigArray;
+import com.facebook.presto.common.array.SliceBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.RowType;

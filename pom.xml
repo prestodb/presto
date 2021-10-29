@@ -89,7 +89,6 @@
     <modules>
         <module>presto-atop</module>
         <module>presto-spi</module>
-        <module>presto-array</module>
         <module>presto-cache</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
@@ -244,12 +243,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cluster-ttl-providers</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-array</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2015,12 +2008,6 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
                     <version>1.6.0</version>
-                </plugin>
-
-                <plugin>
-                    <groupId>io.airlift.maven.plugins</groupId>
-                    <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>2.1</version>
                 </plugin>
 
                 <plugin>

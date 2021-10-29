@@ -14,8 +14,13 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.SourceLocation;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+import java.util.Optional;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -30,6 +35,25 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = ConstantExpression.class, name = "constant")})
 public abstract class RowExpression
 {
+    private final Optional<SourceLocation> sourceLocation;
+
+    @JsonCreator
+    public RowExpression(@JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation)
+    {
+        this.sourceLocation = sourceLocation;
+    }
+
+    public RowExpression()
+    {
+        this(Optional.empty());
+    }
+
+    @JsonProperty
+    public Optional<SourceLocation> getSourceLocation()
+    {
+        return sourceLocation;
+    }
+
     public abstract Type getType();
 
     @Override

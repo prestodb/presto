@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.array.ReferenceCountMap;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;

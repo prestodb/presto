@@ -14,9 +14,9 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.LongBigArray;
-import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.LongBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;

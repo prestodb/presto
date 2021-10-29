@@ -24,6 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -112,9 +113,9 @@ public final class SymbolAliases
                         (expression instanceof VariableReferenceExpression) &&
                         ((VariableReferenceExpression) expression).getName().equals(existingAlias.getValue().getName())) {
                     // Simple symbol rename
-                    updateMap(existingAlias.getKey(), new SymbolReference(assignment.getKey().getName()), newMap);
+                    updateMap(existingAlias.getKey(), createSymbolReference(assignment.getKey()), newMap);
                 }
-                else if (new SymbolReference(assignment.getKey().getName()).equals(existingAlias.getValue())) {
+                else if (createSymbolReference(assignment.getKey()).equals(existingAlias.getValue())) {
                     /*
                      * Special case for nodes that can alias symbols in the node's assignment map.
                      * In this case, we've already added the alias in the map, but we won't include it
