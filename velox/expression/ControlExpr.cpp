@@ -36,10 +36,15 @@ void ConstantExpr::evalSpecialForm(
     vector->computeAndSetIsAscii(rows);
   }
 
-  context->moveOrCopyResult(
-      BaseVector::wrapInConstant(rows.end(), 0, sharedSubexprValues_),
-      rows,
-      result);
+  if (sharedSubexprValues_.unique()) {
+    sharedSubexprValues_->resize(rows.end());
+    context->moveOrCopyResult(sharedSubexprValues_, rows, result);
+  } else {
+    context->moveOrCopyResult(
+        BaseVector::wrapInConstant(rows.end(), 0, sharedSubexprValues_),
+        rows,
+        result);
+  }
 }
 
 void ConstantExpr::evalSpecialFormSimplified(
