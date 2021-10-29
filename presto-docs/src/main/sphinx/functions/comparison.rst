@@ -50,8 +50,8 @@ evaluate string arguments::
 
     SELECT 'Paul' BETWEEN 'John' AND 'Ringo'; -- true
 
-Not that the value, min, and max parameters to ``BETWEEN`` and ``NOT
-BETWEEN`` must be the same type.  For example, Presto will produce an
+Note that the value, min, and max parameters to ``BETWEEN`` and ``NOT
+BETWEEN`` must be the same type. For example, Presto will produce an
 error if you ask it if John is between 2.3 and 35.2.
 
 IS NULL and IS NOT NULL
