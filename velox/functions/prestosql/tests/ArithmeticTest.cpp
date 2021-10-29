@@ -397,5 +397,28 @@ TEST_F(ArithmeticTest, radians) {
   EXPECT_DOUBLE_EQ(-1.0000736613927508, radians(-57.3).value());
 }
 
+TEST_F(ArithmeticTest, signFloatingPoint) {
+  const auto sign = [&](std::optional<double> a) {
+    return evaluateOnce<double>("sign(c0)", a);
+  };
+
+  EXPECT_FLOAT_EQ(0.0, sign(0.0).value_or(-1));
+  EXPECT_FLOAT_EQ(1.0, sign(10.1).value_or(-1));
+  EXPECT_FLOAT_EQ(-1.0, sign(-10.1).value_or(1));
+  EXPECT_FLOAT_EQ(1.0, sign(kInf).value_or(-1));
+  EXPECT_FLOAT_EQ(-1.0, sign(-kInf).value_or(1));
+  EXPECT_THAT(sign(kNan), IsNan());
+}
+
+TEST_F(ArithmeticTest, signIntegral) {
+  const auto sign = [&](std::optional<int64_t> a) {
+    return evaluateOnce<int64_t>("sign(c0)", a);
+  };
+
+  EXPECT_EQ(0, sign(0));
+  EXPECT_EQ(1, sign(10));
+  EXPECT_EQ(-1, sign(-10));
+}
+
 } // namespace
 } // namespace facebook::velox

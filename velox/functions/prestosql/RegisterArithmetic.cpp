@@ -104,6 +104,7 @@ void registerArithmeticFunctions() {
       int64_t>({});
   registerFunction<udf_bitwise_shift_left, int64_t, int64_t, int64_t, int64_t>(
       {});
+  registerUnaryNumeric<udf_sign>({});
 }
 
 } // namespace facebook::velox::functions

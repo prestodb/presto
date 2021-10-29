@@ -291,4 +291,20 @@ FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
 }
 VELOX_UDF_END();
 
+template <typename T>
+VELOX_UDF_BEGIN(sign)
+FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
+  if constexpr (std::is_floating_point<T>::value) {
+    if (std::isnan(a)) {
+      result = std::numeric_limits<T>::quiet_NaN();
+    } else {
+      result = (a == 0.0) ? 0.0 : (a > 0.0) ? 1.0 : -1.0;
+    }
+  } else {
+    result = (a == 0) ? 0 : (a > 0) ? 1 : -1;
+  }
+  return true;
+}
+VELOX_UDF_END();
+
 } // namespace facebook::velox::functions
