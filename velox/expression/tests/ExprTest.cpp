@@ -2230,3 +2230,52 @@ TEST_F(ExprTest, memoNulls) {
   expectedResult = BaseVector::createConstant(true, 5, execCtx_->pool());
   assertEqualVectors(expectedResult, result);
 }
+
+// This test is carefully constructed to exercise calling
+// applyFunctionWithPeeling in a situation where inputValues_ can be peeled
+// and applyRows and rows are distinct SelectivityVectors.  This test ensures
+// we're using applyRows and rows in the right places, if not we should see a
+// SIGSEGV.
+TEST_F(ExprTest, peelNulls) {
+  // Generate 5 distinct values for the c0 column.
+  auto c0 = makeFlatVector<StringView>(5, [](vector_size_t row) {
+    std::string val = "abcdefg";
+    val.append(2, 'a' + row);
+    return StringView(val);
+  });
+  // Generate 5 values for the c1 column.
+  auto c1 = makeFlatVector<StringView>(
+      5, [](vector_size_t /*row*/) { return StringView("xyz"); });
+
+  // One batch of 5 rows.
+  auto c0Indices = makeIndices(5, [](auto row) { return row; });
+  auto c1Indices = makeIndices(5, [](auto row) { return row; });
+
+  auto rowType = ROW({"c0", "c1"}, {c0->type(), c1->type()});
+  // This expression is very deliberately written this way.
+  // REGEXP_EXTRACT will return null for all but row 2, it is important we
+  // get nulls and non-nulls so applyRows and rows will be distinct.
+  // The result of REVERSE will be collapsed into a constant vector, which
+  // is necessary so that the inputValues_ can be peeled.
+  // REGEXP_LIKE is the function for which applyFunctionWithPeeling will be
+  // called.
+  auto exprSet = compileExpression(
+      "REGEXP_LIKE(REGEXP_EXTRACT(c0, 'cc'), REVERSE(c1))", rowType);
+
+  // It is important that both columns be wrapped in DictionaryVectors so
+  // that they are not peeled until REGEXP_LIKE's children have been
+  // evaluated.
+  auto result = evaluate(
+      exprSet.get(),
+      makeRowVector(
+          {BaseVector::wrapInDictionary(nullptr, c0Indices, 5, c0),
+           BaseVector::wrapInDictionary(nullptr, c1Indices, 5, c1)}));
+
+  // Since c0 only has 'cc' as a substring in row 2, all other rows should be
+  // null.
+  auto expectedResult = makeFlatVector<bool>(
+      5,
+      [](vector_size_t /*row*/) { return false; },
+      [](vector_size_t row) { return row != 2; });
+  assertEqualVectors(expectedResult, result);
+}

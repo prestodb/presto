@@ -1009,7 +1009,7 @@ bool Expr::applyFunctionWithPeeling(
   } else {
     auto decoded = localDecoded.get();
     decoded->makeIndices(*firstWrapper, applyRows, numLevels);
-    newRows = translateToInnerRows(rows, *decoded, newRowsHolder);
+    newRows = translateToInnerRows(applyRows, *decoded, newRowsHolder);
     context->saveAndReset(&saver, rows);
     setDictionaryWrapping(*decoded, rows, *firstWrapper, context);
   }
