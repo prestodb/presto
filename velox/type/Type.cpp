@@ -52,6 +52,7 @@ TypeKind mapNameToTypeKind(const std::string& name) {
       {"VARCHAR", TypeKind::VARCHAR},
       {"VARBINARY", TypeKind::VARBINARY},
       {"TIMESTAMP", TypeKind::TIMESTAMP},
+      {"DATE", TypeKind::DATE},
       {"ARRAY", TypeKind::ARRAY},
       {"MAP", TypeKind::MAP},
       {"ROW", TypeKind::ROW},
@@ -81,6 +82,7 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
       {TypeKind::VARCHAR, "VARCHAR"},
       {TypeKind::VARBINARY, "VARBINARY"},
       {TypeKind::TIMESTAMP, "TIMESTAMP"},
+      {TypeKind::DATE, "DATE"},
       {TypeKind::ARRAY, "ARRAY"},
       {TypeKind::MAP, "MAP"},
       {TypeKind::ROW, "ROW"},
@@ -552,6 +554,7 @@ KOSKI_DEFINE_SCALAR_ACCESSOR(DOUBLE);
 KOSKI_DEFINE_SCALAR_ACCESSOR(TIMESTAMP);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARCHAR);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARBINARY);
+KOSKI_DEFINE_SCALAR_ACCESSOR(DATE);
 KOSKI_DEFINE_SCALAR_ACCESSOR(UNKNOWN);
 
 #undef KOSKI_DEFINE_SCALAR_ACCESSOR

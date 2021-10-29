@@ -23,6 +23,7 @@ add_library(
   Variant.cpp
   Timestamp.cpp
   TimestampConversion.cpp
+  Date.cpp
   Filter.cpp
   Subfield.cpp
   Tokenizer.cpp)
