@@ -209,6 +209,10 @@ TEST_F(BitwiseTest, arithmeticShiftRight) {
   EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(3, 0), 3);
   EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(3, 3), 0);
   EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-1, 2), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-1, 2), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-100, 65), -50);
+  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-100, 66), -25);
+
   assertUserError(
       [&]() { bitwiseArithmeticShiftRight<int32_t>(3, -1); },
       "Shift must be positive");
@@ -268,7 +272,7 @@ TEST_F(BitwiseTest, leftShift) {
   EXPECT_EQ(bitwiseLeftShift<int16_t>(kMin16, kMax16), 0);
   EXPECT_EQ(bitwiseLeftShift<int16_t>(kMax16, kMax16), 0);
   EXPECT_EQ(bitwiseLeftShift<int16_t>(kMax16, 1), kMax16 << 1);
-  EXPECT_EQ(bitwiseLeftShift<int16_t>(kMin16, 1).value(), -65536);
+  EXPECT_EQ(bitwiseLeftShift<int16_t>(kMin16, 1), -65536);
 
   EXPECT_EQ(bitwiseLeftShift<int32_t>(kMin32, kMax32), 0);
   EXPECT_EQ(bitwiseLeftShift<int32_t>(kMax32, kMax32), 0);
@@ -295,12 +299,12 @@ TEST_F(BitwiseTest, rightShift) {
   EXPECT_EQ(bitwiseRightShift<int32_t>(kMin32, kMax32), 0);
   EXPECT_EQ(bitwiseRightShift<int32_t>(kMax32, kMax32), 0);
   EXPECT_EQ(bitwiseRightShift<int32_t>(kMax32, 1), kMax32 >> 1);
-  EXPECT_EQ(bitwiseRightShift<int32_t>(kMin32, 1).value(), (kMax32 >> 1) + 1);
+  EXPECT_EQ(bitwiseRightShift<int32_t>(kMin32, 1), (kMax32 >> 1) + 1);
 
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMin64, kMax64), 0);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMax64, kMax64), 0);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMax64, 1), kMax64 >> 1);
-  EXPECT_EQ(bitwiseRightShift<int64_t>(kMin64, 1).value(), (kMax64 >> 1) + 1);
+  EXPECT_EQ(bitwiseRightShift<int64_t>(kMin64, 1), (kMax64 >> 1) + 1);
 }
 
 TEST_F(BitwiseTest, logicalShiftRight) {

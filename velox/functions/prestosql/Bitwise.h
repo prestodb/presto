@@ -53,22 +53,25 @@ VELOX_UDF_END();
 
 template <typename T>
 VELOX_UDF_BEGIN(bitwise_arithmetic_shift_right)
-FOLLY_ALWAYS_INLINE bool call(int64_t& result, T number, T shift) {
+FOLLY_ALWAYS_INLINE
+#if defined(__clang__)
+    __attribute__((no_sanitize("integer")))
+#endif
+    bool call(int64_t& result, T number, T shift) {
   VELOX_USER_CHECK_GE(shift, 0, "Shift must be positive")
-  if (shift >= sizeof(T)) {
-    result = 0;
-  } else {
-    result = number >> shift;
-  }
-
+  result = number >> shift;
   return true;
 }
 VELOX_UDF_END();
 
 namespace {
 template <typename T, int MAX_SHIFT>
-FOLLY_ALWAYS_INLINE bool bitwiseLeftShift(int64_t& result, T number, T shift) {
-  if ((uint32_t)shift >= MAX_SHIFT || shift < 0 || number < 0) {
+#if defined(__clang__)
+__attribute__((no_sanitize("integer")))
+#endif
+FOLLY_ALWAYS_INLINE bool
+bitwiseLeftShift(int64_t& result, T number, T shift) {
+  if ((uint32_t)shift >= MAX_SHIFT) {
     result = 0;
   } else {
     result = (number << shift);
@@ -163,7 +166,10 @@ VELOX_UDF_END();
 
 VELOX_UDF_BEGIN(bitwise_logical_shift_right)
 FOLLY_ALWAYS_INLINE bool
-call(int64_t& result, int64_t number, int64_t shift, int64_t bits) {
+#if defined(__clang__)
+    __attribute__((no_sanitize("integer")))
+#endif
+    call(int64_t& result, int64_t number, int64_t shift, int64_t bits) {
   // Presto defines this only for bigint, thus we will define this only for
   // int64_t.
   if (bits == 64) {
@@ -181,7 +187,10 @@ VELOX_UDF_END();
 
 VELOX_UDF_BEGIN(bitwise_shift_left)
 FOLLY_ALWAYS_INLINE bool
-call(int64_t& result, int64_t number, int64_t shift, int64_t bits) {
+#if defined(__clang__)
+    __attribute__((no_sanitize("integer")))
+#endif
+    call(int64_t& result, int64_t number, int64_t shift, int64_t bits) {
   // Presto defines this only for bigint, thus we will define this only for
   // int64_t.
   if (bits == 64) {
