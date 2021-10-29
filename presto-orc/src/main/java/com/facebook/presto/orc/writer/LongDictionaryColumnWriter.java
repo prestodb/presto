@@ -84,7 +84,11 @@ public class LongDictionaryColumnWriter
     @Override
     public int getDictionaryBytes()
     {
-        return dictionary.size() * typeSize;
+        // This method measures the dictionary size required for the reader to decode.
+        // The reader uses long[] array to hold the contents of the dictionary.
+        // @See com.facebook.presto.orc.reader.LongDictionarySelectiveStreamReader.dictionary
+        // So always multiply by the Long.BYTES size instead of typeSize.
+        return dictionary.size() * Long.BYTES;
     }
 
     @Override
