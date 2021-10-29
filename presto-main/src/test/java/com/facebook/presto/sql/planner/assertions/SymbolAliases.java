@@ -99,20 +99,20 @@ public final class SymbolAliases
 
     private Map<String, SymbolReference> getUpdatedAssignments(Assignments assignments)
     {
-        Map<String, Optional<SymbolReference>> selfMap = new HashMap<>();
+        Map<String, Optional<SymbolReference>> newMap = new HashMap<>();
         ImmutableMap.Builder<String, SymbolReference> mapUpdate = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.getMap().entrySet()) {
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
                 RowExpression expression = assignment.getValue();
                 if (isExpression(expression) && castToExpression(expression).equals(existingAlias.getValue())) {
                     // Simple symbol rename
-                    updateMap(mapUpdate, existingAlias.getKey(), asSymbolReference(assignment.getKey()), selfMap);
+                    updateMap(existingAlias.getKey(), asSymbolReference(assignment.getKey()), newMap);
                 }
                 else if (!isExpression(expression) &&
                         (expression instanceof VariableReferenceExpression) &&
                         ((VariableReferenceExpression) expression).getName().equals(existingAlias.getValue().getName())) {
                     // Simple symbol rename
-                    updateMap(mapUpdate, existingAlias.getKey(), new SymbolReference(assignment.getKey().getName()), selfMap);
+                    updateMap(existingAlias.getKey(), new SymbolReference(assignment.getKey().getName()), newMap);
                 }
                 else if (new SymbolReference(assignment.getKey().getName()).equals(existingAlias.getValue())) {
                     /*
@@ -125,27 +125,35 @@ public final class SymbolAliases
                      * At the beginning for the function, map contains { NEW_ALIAS: SymbolReference("expr_2" }
                      * and the assignments map contains { expr_2 := <some expression> }.
                      */
-                    updateMap(mapUpdate, existingAlias.getKey(), existingAlias.getValue(), selfMap);
+                    updateMap(existingAlias.getKey(), existingAlias.getValue(), newMap);
                 }
             }
         }
-        for (Map.Entry<String, Optional<SymbolReference>> entry : selfMap.entrySet()) {
-            if (entry.getValue().isPresent()) {
-                mapUpdate.put(entry.getKey(), entry.getValue().get());
-            }
+        for (Map.Entry<String, Optional<SymbolReference>> entry : newMap.entrySet()) {
+            mapUpdate.put(entry.getKey(), entry.getValue().get());
         }
         return mapUpdate.build();
     }
 
-    private void updateMap(ImmutableMap.Builder<String, SymbolReference> mapUpdate, String key, SymbolReference symbolRef,
-                           Map<String, Optional<SymbolReference>> selfMap)
+    private void updateMap(String key, SymbolReference symbolRef, Map<String, Optional<SymbolReference>> newMap)
     {
-        if (!key.equals(symbolRef.getName())) {
-            mapUpdate.put(key, symbolRef);
-            selfMap.put(key, Optional.empty());
-        }
-        else if (!selfMap.containsKey(key)) {
-            selfMap.put(key, Optional.of(symbolRef));
+        /*
+         * Assignments:
+         *     field_4: field_4
+         *     field_5: field_5
+         *     key: field_4
+         *     x: field_5
+         *     key_6: field_4
+         * map:
+         *     key: field_4
+         *     x: field_5
+         * The updated map should not contain either <x: x> or <key: key>
+         * result updated map:
+         *     key: key_6
+         *     x: field_5
+         */
+        if (!key.equals(symbolRef.getName()) || !newMap.containsKey(key)) {
+            newMap.put(key, Optional.of(symbolRef));
         }
     }
 
