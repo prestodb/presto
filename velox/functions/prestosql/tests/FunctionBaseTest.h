@@ -55,16 +55,33 @@ class FunctionBaseTest : public testing::Test {
         std::forward<std::vector<std::shared_ptr<const Type>>&&>(types));
   }
 
+  void setNulls(
+      const VectorPtr& vector,
+      std::function<bool(vector_size_t /*row*/)> isNullAt) {
+    for (vector_size_t i = 0; i < vector->size(); i++) {
+      if (isNullAt(i)) {
+        vector->setNull(i, true);
+      }
+    }
+  }
+
+  RowVectorPtr makeRowVector(
+      const std::vector<std::string>& childNames,
+      const std::vector<VectorPtr>& children,
+      std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr) {
+    auto rowVector = vectorMaker_.rowVector(childNames, children);
+    if (isNullAt) {
+      setNulls(rowVector, isNullAt);
+    }
+    return rowVector;
+  }
+
   RowVectorPtr makeRowVector(
       const std::vector<VectorPtr>& children,
       std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr) {
     auto rowVector = vectorMaker_.rowVector(children);
     if (isNullAt) {
-      for (vector_size_t i = 0; i < rowVector->size(); i++) {
-        if (isNullAt(i)) {
-          rowVector->setNull(i, true);
-        }
-      }
+      setNulls(rowVector, isNullAt);
     }
     return rowVector;
   }
