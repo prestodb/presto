@@ -19,6 +19,7 @@
 namespace facebook::velox::functions {
 namespace {
 
+template <bool IsNotNULL>
 class IsNullFunction : public exec::VectorFunction {
  public:
   bool isDefaultNullBehavior() const override {
@@ -31,12 +32,12 @@ class IsNullFunction : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    auto arg = args[0];
+    BaseVector* arg = args[0].get();
     if (rows.isAllSelected()) {
       if (!arg->mayHaveNulls()) {
         // no nulls
         *result =
-            BaseVector::createConstant(false, rows.end(), context->pool());
+            BaseVector::createConstant(IsNotNULL, rows.end(), context->pool());
         return;
       }
 
@@ -49,19 +50,28 @@ class IsNullFunction : public exec::VectorFunction {
           flatResult->mutableRawValues<int64_t>(),
           rawNulls,
           bits::nbytes(rows.end()));
-      bits::negate(flatResult->mutableRawValues<char>(), rows.end());
+      if constexpr (!IsNotNULL) {
+        bits::negate(flatResult->mutableRawValues<char>(), rows.end());
+      }
       return;
     }
 
     BaseVector::ensureWritable(rows, BOOLEAN(), arg->pool(), result);
     FlatVector<bool>* flatResult = (*result)->asFlatVector<bool>();
     if (!arg->mayHaveNulls()) {
-      rows.applyToSelected([&](vector_size_t i) { flatResult->set(i, false); });
+      rows.applyToSelected(
+          [&](vector_size_t i) { flatResult->set(i, IsNotNULL); });
     } else {
       auto rawNulls = arg->flatRawNulls(rows);
-      rows.applyToSelected([&](vector_size_t i) {
-        flatResult->set(i, bits::isBitNull(rawNulls, i));
-      });
+      if constexpr (!IsNotNULL) {
+        rows.applyToSelected([&](vector_size_t i) {
+          flatResult->set(i, bits::isBitNull(rawNulls, i));
+        });
+      } else {
+        rows.applyToSelected([&](vector_size_t i) {
+          flatResult->set(i, !bits::isBitNull(rawNulls, i));
+        });
+      }
     }
   }
 
@@ -78,6 +88,11 @@ class IsNullFunction : public exec::VectorFunction {
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_is_null,
-    IsNullFunction::signatures(),
-    std::make_unique<IsNullFunction>());
+    IsNullFunction<false>::signatures(),
+    std::make_unique<IsNullFunction</*IsNotNUll=*/false>>());
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_is_not_null,
+    IsNullFunction<true>::signatures(),
+    std::make_unique<IsNullFunction</*IsNotNUll=*/true>>());
 } // namespace facebook::velox::functions
