@@ -36,7 +36,6 @@ add_executable(
   DateTimeFunctionsTest.cpp
   ElementAtTest.cpp
   InPredicateTest.cpp
-  IsNullTest.cpp
   JsonExtractScalarTest.cpp
   MapConcatTest.cpp
   MapEntriesTest.cpp

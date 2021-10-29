@@ -27,7 +27,6 @@ add_library(
   FilterFunctions.cpp
   FromUnixTime.cpp
   InPredicate.cpp
-  IsNull.cpp
   Length.cpp
   Map.cpp
   MapConcat.cpp

@@ -214,6 +214,22 @@ class FunctionRegistryTest : public ::testing::Test {
   FunctionRegistryTest() {
     registerTestFunctions();
   }
+
+  void testResolveVectorFunction(
+      const std::string& functionName,
+      const std::vector<TypePtr>& types,
+      const TypePtr& expected) {
+    checkEqual(velox::resolveFunction(functionName, types), expected);
+    checkEqual(velox::resolveVectorFunction(functionName, types), expected);
+  }
+
+  void checkEqual(const TypePtr& actual, const TypePtr& expected) {
+    if (expected) {
+      EXPECT_EQ(*actual, *expected);
+    } else {
+      EXPECT_EQ(actual, nullptr);
+    }
+  }
 };
 
 TEST_F(FunctionRegistryTest, getFunctionSignatures) {
@@ -355,33 +371,29 @@ TEST_F(FunctionRegistryTest, hasScalarFunctionSignatureWrongFunctionName) {
 }
 
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignature) {
-  auto result = resolveFunction("vector_func_one", {VARCHAR()});
-  ASSERT_EQ(*result, *BIGINT());
+  testResolveVectorFunction("vector_func_one", {VARCHAR()}, BIGINT());
 }
 
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignature2) {
-  auto result = resolveFunction("vector_func_two", {ARRAY(VARCHAR())});
-  ASSERT_EQ(*result, *ARRAY(BIGINT()));
+  testResolveVectorFunction(
+      "vector_func_two", {ARRAY(VARCHAR())}, ARRAY(BIGINT()));
 }
 
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignature3) {
-  auto result = resolveFunction("vector_func_three", {REAL()});
-  ASSERT_EQ(*result, *OPAQUE<void>());
+  testResolveVectorFunction("vector_func_three", {REAL()}, OPAQUE<void>());
 }
 
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignature4) {
-  auto result = resolveFunction("vector_func_four", {MAP(BIGINT(), VARCHAR())});
-  ASSERT_EQ(*result, *ARRAY(BIGINT()));
+  testResolveVectorFunction(
+      "vector_func_four", {MAP(BIGINT(), VARCHAR())}, ARRAY(BIGINT()));
 }
 
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignatureWrongArgType) {
-  auto result = resolveFunction("vector_func_one", {INTEGER()});
-  ASSERT_EQ(result, nullptr);
+  testResolveVectorFunction("vector_func_one", {INTEGER()}, nullptr);
 }
 
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignatureWrongFunctionName) {
-  auto result = resolveFunction("vector_method_one", {VARCHAR()});
-  ASSERT_EQ(result, nullptr);
+  testResolveVectorFunction("vector_method_one", {VARCHAR()}, nullptr);
 }
 
 } // namespace facebook::velox

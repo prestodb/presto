@@ -97,6 +97,12 @@ std::shared_ptr<const Type> resolveFunction(
   }
 
   // Check if VectorFunctions has this function name + signature.
+  return resolveVectorFunction(functionName, argTypes);
+}
+
+std::shared_ptr<const Type> resolveVectorFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes) {
   if (auto vectorFunctionSignatures =
           exec::getVectorFunctionSignatures(functionName)) {
     for (const auto& signature : vectorFunctionSignatures.value()) {

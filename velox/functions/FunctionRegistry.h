@@ -37,4 +37,10 @@ std::shared_ptr<const Type> resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
+/// Given name of vector function and argument types, returns
+/// the return type if function exists otherwise returns nullptr
+std::shared_ptr<const Type> resolveVectorFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes);
+
 } // namespace facebook::velox
