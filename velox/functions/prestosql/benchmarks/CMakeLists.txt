@@ -23,32 +23,41 @@ set(BENCHMARK_DEPENDENCIES
     ${FOLLY_WITH_DEPENDENCIES}
     ${FOLLY_BENCHMARK})
 
-add_executable(velox_functions_benchmarks_array_contains
+add_executable(velox_functions_prestosql_benchmarks_array_contains
                ArrayContainsBenchmark.cpp)
-target_link_libraries(velox_functions_benchmarks_array_contains
+target_link_libraries(velox_functions_prestosql_benchmarks_array_contains
                       ${BENCHMARK_DEPENDENCIES})
 
-add_executable(velox_functions_benchmarks_array_min_max
+add_executable(velox_functions_prestosql_benchmarks_array_min_max
                ArrayMinMaxBenchmark.cpp)
-target_link_libraries(velox_functions_benchmarks_array_min_max
+target_link_libraries(velox_functions_prestosql_benchmarks_array_min_max
                       ${BENCHMARK_DEPENDENCIES})
 
-add_executable(velox_functions_benchmarks_width_bucket WidthBucketBenchmark.cpp)
-target_link_libraries(velox_functions_benchmarks_width_bucket
+add_executable(velox_functions_prestosql_benchmarks_width_bucket
+               WidthBucketBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_width_bucket
                       ${BENCHMARK_DEPENDENCIES})
 
-add_executable(velox_functions_benchmarks_string_ascii_utf_functions
+add_executable(velox_functions_prestosql_benchmarks_string_ascii_utf_functions
                StringAsciiUTFFunctionBenchmarks.cpp)
-target_link_libraries(velox_functions_benchmarks_string_ascii_utf_functions
+target_link_libraries(
+  velox_functions_prestosql_benchmarks_string_ascii_utf_functions
+  ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_prestosql_benchmarks_not NotBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_not
                       ${BENCHMARK_DEPENDENCIES})
 
-add_executable(velox_functions_benchmarks_not NotBenchmark.cpp)
-target_link_libraries(velox_functions_benchmarks_not ${BENCHMARK_DEPENDENCIES})
-
-add_executable(velox_functions_benchmarks_date_time DateTimeBenchmark.cpp)
-target_link_libraries(velox_functions_benchmarks_date_time
+add_executable(velox_functions_prestosql_benchmarks_date_time
+               DateTimeBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_date_time
                       ${BENCHMARK_DEPENDENCIES})
 
-add_executable(velox_functions_benchmarks_bitwise BitwiseBenchmark.cpp)
-target_link_libraries(velox_functions_benchmarks_bitwise
+add_executable(velox_functions_prestosql_benchmarks_bitwise
+               BitwiseBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_bitwise
+                      ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_prestosql_benchmarks_in InBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_in
                       ${BENCHMARK_DEPENDENCIES})

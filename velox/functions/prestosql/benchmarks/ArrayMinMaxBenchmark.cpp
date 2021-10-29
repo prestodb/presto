@@ -98,15 +98,19 @@ class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
         {"array_max_simple"});
   }
 
-  void runInteger(const std::string& functionName) {
-    folly::BenchmarkSuspender suspender;
-    vector_size_t size = 1'000;
+  RowVectorPtr makeData() {
+    const vector_size_t size = 1'000;
     auto arrayVector = vectorMaker_.arrayVector<int32_t>(
         size,
         [](auto row) { return row % 5; },
         [](auto row) { return row % 23; });
 
-    auto rowVector = vectorMaker_.rowVector({arrayVector});
+    return vectorMaker_.rowVector({arrayVector});
+  }
+
+  void runInteger(const std::string& functionName) {
+    folly::BenchmarkSuspender suspender;
+    auto rowVector = makeData();
     auto exprSet = compileExpression(
         fmt::format("{}(c0)", functionName), rowVector->type());
     suspender.dismiss();
@@ -125,13 +129,7 @@ class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
   template <typename F>
   void runFastInteger(F function) {
     folly::BenchmarkSuspender suspender;
-    vector_size_t size = 1'000;
-    auto arrayVector = vectorMaker_.arrayVector<int32_t>(
-        size,
-        [](auto row) { return row % 5; },
-        [](auto row) { return row % 23; });
-
-    auto rowVector = vectorMaker_.rowVector({arrayVector});
+    auto arrayVector = makeData()->childAt(0);
     suspender.dismiss();
 
     int cnt = 0;
