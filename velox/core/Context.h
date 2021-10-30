@@ -62,6 +62,11 @@ class Config {
   }
 
   virtual bool isValueExists(const std::string& key) const = 0;
+
+  virtual const std::unordered_map<std::string, std::string>& values() const {
+    VELOX_UNSUPPORTED("method values() is not supported by this config");
+  }
+
   virtual ~Config() = default;
 };
 
@@ -89,6 +94,10 @@ class MemConfig : public Config {
 
   bool isValueExists(const std::string& key) const override;
 
+  const std::unordered_map<std::string, std::string>& values() const override {
+    return values_;
+  }
+
  private:
   std::unordered_map<std::string, std::string> values_;
 };
@@ -98,14 +107,14 @@ class ConfigStack : public Config {
   explicit ConfigStack(
       const std::vector<std::shared_ptr<const Config>>& configs)
       : configs_(configs) {
-    for (auto config : configs_) {
+    for (const auto& config : configs_) {
       VELOX_USER_CHECK_NOT_NULL(config);
     }
   }
 
   explicit ConfigStack(std::vector<std::shared_ptr<const Config>>&& configs)
       : configs_(move(configs)) {
-    for (auto config : configs_) {
+    for (const auto& config : configs_) {
       VELOX_USER_CHECK_NOT_NULL(config);
     }
   }
@@ -185,10 +194,8 @@ class BaseConfigManager {
 
   template <class T, class U>
   SubscriptionHandle subscribe(const std::shared_ptr<U>& subscriber) const {
-    if (subscriber == nullptr) {
-      throw std::invalid_argument(
-          "subscribe expects a non null object pointer");
-    }
+    VELOX_CHECK_NOT_NULL(
+        subscriber, "subscribe expects a non null object pointer");
     TSubscriptionptr subscription = std::make_shared<const TSubscription>(
         [subscriber](const BaseConfigManager* mgr) {
           subscriber->update(mgr->get<T>());
@@ -210,10 +217,8 @@ class BaseConfigManager {
   template <class T>
   SubscriptionHandle subscribe(
       const std::shared_ptr<ISubscriber<T>>& subscriber) const {
-    if (subscriber == nullptr) {
-      throw std::invalid_argument(
-          "subscribe expects a non null object pointer");
-    }
+    VELOX_CHECK_NOT_NULL(
+        subscriber, "subscribe expects a non null object pointer");
     TSubscriptionptr subscription = std::make_shared<const TSubscription>(
         [subscriber](const BaseConfigManager* mgr) {
           subscriber->update(mgr->get<T>());
