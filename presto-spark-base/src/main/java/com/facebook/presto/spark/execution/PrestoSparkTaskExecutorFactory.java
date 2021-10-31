@@ -38,6 +38,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.memory.TraversingQueryContextVisitor;
 import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -111,6 +112,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -168,6 +170,7 @@ public class PrestoSparkTaskExecutorFactory
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
     private final ScheduledExecutorService memoryUpdateExecutor;
+    private final ExecutorService memoryRevocationExecutor;
 
     private final LocalExecutionPlanner localExecutionPlanner;
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
@@ -190,7 +193,8 @@ public class PrestoSparkTaskExecutorFactory
     private final PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager;
     private final String storageBasedBroadcastJoinStorage;
 
-    private AtomicBoolean memoryRevokePending = new AtomicBoolean();
+    private final AtomicBoolean memoryRevokePending = new AtomicBoolean();
+    private final AtomicBoolean memoryRevokeRequestInProgress = new AtomicBoolean();
 
     @Inject
     public PrestoSparkTaskExecutorFactory(
@@ -204,6 +208,7 @@ public class PrestoSparkTaskExecutorFactory
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
+            ExecutorService memoryRevocationExecutor,
             LocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             TaskExecutor taskExecutor,
@@ -227,6 +232,7 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor,
                 yieldExecutor,
                 memoryUpdateExecutor,
+                memoryRevocationExecutor,
                 localExecutionPlanner,
                 executionExceptionFactory,
                 taskExecutor,
@@ -256,6 +262,7 @@ public class PrestoSparkTaskExecutorFactory
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
+            ExecutorService memoryRevocationExecutor,
             LocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             TaskExecutor taskExecutor,
@@ -283,6 +290,7 @@ public class PrestoSparkTaskExecutorFactory
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.memoryUpdateExecutor = requireNonNull(memoryUpdateExecutor, "memoryUpdateExecutor is null");
+        this.memoryRevocationExecutor = requireNonNull(memoryRevocationExecutor, "memoryRevocationExecutor is null");
         this.localExecutionPlanner = requireNonNull(localExecutionPlanner, "localExecutionPlanner is null");
         this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
@@ -423,18 +431,9 @@ public class PrestoSparkTaskExecutorFactory
                 if (totalMemoryReservationBytes > queryContext.getPeakNodeTotalMemory()) {
                     queryContext.setPeakNodeTotalMemory(totalMemoryReservationBytes);
                 }
-                if (totalMemoryReservationBytes > maxTotalMemory.toBytes()) {
-                    throw exceededLocalTotalMemoryLimit(
-                            maxTotalMemory,
-                            queryContext.getAdditionalFailureInfo(totalMemoryReservationBytes, 0) +
-                                    format("Total reserved memory: %s, Total revocable memory: %s",
-                                            succinctBytes(pool.getQueryMemoryReservation(queryId)),
-                                            succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
-                            isHeapDumpOnExceededMemoryLimitEnabled(session),
-                            Optional.ofNullable(heapDumpFilePath));
-                }
-                if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokePending.compareAndSet(false, true)) {
-                    memoryUpdateExecutor.execute(() -> {
+
+                if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokeRequestInProgress.compareAndSet(false, true)) {
+                    memoryRevocationExecutor.execute(() -> {
                         try {
                             taskContext.accept(new VoidTraversingQueryContextVisitor<Void>()
                             {
@@ -442,15 +441,34 @@ public class PrestoSparkTaskExecutorFactory
                                 public Void visitOperatorContext(OperatorContext operatorContext, Void nothing)
                                 {
                                     operatorContext.requestMemoryRevoking();
+                                    // If revoke was requested, set memoryRevokePending to true
+                                    if (operatorContext.isMemoryRevokingRequested()) {
+                                        memoryRevokePending.set(true);
+                                    }
                                     return null;
                                 }
                             }, null);
-                            memoryRevokePending.set(false);
+                            memoryRevokeRequestInProgress.set(false);
                         }
                         catch (Exception e) {
                             log.error(e, "Error requesting memory revoking");
                         }
                     });
+                }
+
+                // Get the latest memory reservation info since it might have changed due to revoke
+                long totalReservedMemory = pool.getQueryMemoryReservation(queryId) + pool.getQueryRevocableMemoryReservation(queryId);
+
+                // If total memory usage is over maxTotalMemory and memory revoke request is not pending, fail the query with EXCEEDED_MEMORY_LIMIT error
+                if (totalReservedMemory > maxTotalMemory.toBytes() && !memoryRevokeRequestInProgress.get() && !isMemoryRevokePending(taskContext)) {
+                    throw exceededLocalTotalMemoryLimit(
+                            maxTotalMemory,
+                            queryContext.getAdditionalFailureInfo(totalReservedMemory, 0) +
+                                    format("Total reserved memory: %s, Total revocable memory: %s",
+                                            succinctBytes(pool.getQueryMemoryReservation(queryId)),
+                                            succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
+                            isHeapDumpOnExceededMemoryLimitEnabled(session),
+                            Optional.ofNullable(heapDumpFilePath));
                 }
             });
         }
@@ -588,6 +606,27 @@ public class PrestoSparkTaskExecutorFactory
                 outputBuffer,
                 tempStorage,
                 tempDataOperationContext);
+    }
+
+    public boolean isMemoryRevokePending(TaskContext taskContext)
+    {
+        TraversingQueryContextVisitor<Void, Boolean> visitor = new TraversingQueryContextVisitor<Void, Boolean>()
+        {
+            @Override
+            public Boolean visitOperatorContext(OperatorContext operatorContext, Void context)
+            {
+                return operatorContext.isMemoryRevokingRequested();
+            }
+
+            @Override
+            public Boolean mergeResults(List<Boolean> childrenResults)
+            {
+                return childrenResults.contains(true);
+            }
+        };
+
+        memoryRevocationExecutor.execute(() -> memoryRevokePending.set(taskContext.accept(visitor, null)));
+        return memoryRevokePending.get();
     }
 
     private static OptionalLong computeAllSplitsSize(List<TaskSource> taskSources)
