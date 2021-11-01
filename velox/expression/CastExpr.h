@@ -83,29 +83,26 @@ class CastExpr : public SpecialForm {
       const std::shared_ptr<const Type>& toType,
       VectorPtr* result);
 
-  void applyMap(
+  VectorPtr applyMap(
       const SelectivityVector& rows,
-      VectorPtr& input,
+      const MapVector* input,
       exec::EvalCtx* context,
       const MapType& fromType,
-      const MapType& toType,
-      VectorPtr* result);
+      const MapType& toType);
 
-  void applyArray(
+  VectorPtr applyArray(
       const SelectivityVector& rows,
-      VectorPtr& input,
+      const ArrayVector* input,
       exec::EvalCtx* context,
       const ArrayType& fromType,
-      const ArrayType& toType,
-      VectorPtr* result);
+      const ArrayType& toType);
 
-  void applyRow(
+  VectorPtr applyRow(
       const SelectivityVector& rows,
-      VectorPtr& input,
+      const RowVector* input,
       exec::EvalCtx* context,
       const RowType& fromType,
-      const RowType& toType,
-      VectorPtr* result);
+      const RowType& toType);
 
   // When enabled the error in casting leads to null being returned.
   const bool nullOnFailure_;

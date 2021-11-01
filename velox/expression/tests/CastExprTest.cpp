@@ -15,13 +15,69 @@
  */
 
 #include <limits>
+#include "velox/buffer/Buffer.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/expression/ControlExpr.h"
+#include "velox/expression/VectorFunction.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/type/Type.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/TypeAliases.h"
 
 using namespace facebook::velox;
 
+namespace {
+
+/// Returns indices buffer with sequential values going from size - 1 to 0.
+BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool) {
+  auto indices = allocateIndices(size, pool);
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  for (auto i = 0; i < size; i++) {
+    rawIndices[i] = size - 1 - i;
+  }
+  return indices;
+}
+
+/// Wraps input in a dictionary that reverses the order of rows.
+class TestingDictionaryFunction : public exec::VectorFunction {
+ public:
+  bool isDefaultNullBehavior() const override {
+    return false;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    VELOX_CHECK(rows.isAllSelected());
+    const auto size = rows.size();
+    auto indices = makeIndicesInReverse(size, context->pool());
+    *result = BaseVector::wrapInDictionary(
+        BufferPtr(nullptr), indices, size, args[0]);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // T, integer -> T
+    return {exec::FunctionSignatureBuilder()
+                .typeVariable("T")
+                .returnType("T")
+                .argumentType("T")
+                .build()};
+  }
+};
+} // namespace
+
 class CastExprTest : public functions::test::FunctionBaseTest {
  protected:
+  CastExprTest() {
+    exec::registerVectorFunction(
+        "testing_dictionary",
+        TestingDictionaryFunction::signatures(),
+        std::make_unique<TestingDictionaryFunction>());
+  }
+
   void setCastIntByTruncate(bool value) {
     queryCtx_->setConfigOverridesUnsafe({
         {core::QueryConfig::kCastIntByTruncate, std::to_string(value)},
@@ -41,6 +97,14 @@ class CastExprTest : public functions::test::FunctionBaseTest {
     });
   }
 
+  std::shared_ptr<core::CastTypedExpr> makeCastExpr(
+      const std::shared_ptr<const core::ITypedExpr>& input,
+      const TypePtr& toType,
+      bool nullOnFailure) {
+    std::vector<std::shared_ptr<const core::ITypedExpr>> inputs = {input};
+    return std::make_shared<core::CastTypedExpr>(toType, inputs, nullOnFailure);
+  }
+
   void testComplexCast(
       const std::string& fromExpression,
       const VectorPtr& data,
@@ -48,19 +112,52 @@ class CastExprTest : public functions::test::FunctionBaseTest {
       bool nullOnFailure = false) {
     auto rowVector = makeRowVector({data});
     auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
-    auto fromTypedExpression = makeTypedExpr(fromExpression, rowType);
-    std::vector<std::shared_ptr<const facebook::velox::core::ITypedExpr>>
-        inputs = {fromTypedExpression};
-    auto castExpr = std::make_shared<facebook::velox::core::CastTypedExpr>(
-        expected->type(), inputs, nullOnFailure);
+    auto castExpr = makeCastExpr(
+        makeTypedExpr(fromExpression, rowType),
+        expected->type(),
+        nullOnFailure);
     exec::ExprSet exprSet({castExpr}, &execCtx_);
 
-    SelectivityVector rows(data->size());
-    exec::EvalCtx evalCtx(&execCtx_, &exprSet, rowVector.get());
+    const auto size = data->size();
+    SelectivityVector rows(size);
     std::vector<VectorPtr> result(1);
-    exprSet.eval(rows, &evalCtx, &result);
+    {
+      exec::EvalCtx evalCtx(&execCtx_, &exprSet, rowVector.get());
+      exprSet.eval(rows, &evalCtx, &result);
 
-    assertEqualVectors(expected, result[0]);
+      assertEqualVectors(expected, result[0]);
+    }
+
+    // Test constant input.
+    {
+      // Use last element for constant.
+      const auto index = size - 1;
+      auto constantData = BaseVector::wrapInConstant(size, index, data);
+      auto constantRow = makeRowVector({constantData});
+      exec::EvalCtx evalCtx(&execCtx_, &exprSet, constantRow.get());
+      exprSet.eval(rows, &evalCtx, &result);
+
+      assertEqualVectors(
+          BaseVector::wrapInConstant(size, index, expected), result[0]);
+    }
+
+    // Test dictionary input. It is not sufficient to wrap input in a dictionary
+    // as it will be peeled off before calling "cast". Apply
+    // testing_dictionary function to input to ensure that "cast" receives
+    // dictionary input.
+    {
+      auto dictionaryCastExpr = makeCastExpr(
+          makeTypedExpr(
+              fmt::format("testing_dictionary({})", fromExpression), rowType),
+          expected->type(),
+          nullOnFailure);
+      exec::ExprSet dictionaryExprSet({dictionaryCastExpr}, &execCtx_);
+      exec::EvalCtx evalCtx(&execCtx_, &dictionaryExprSet, rowVector.get());
+      dictionaryExprSet.eval(rows, &evalCtx, &result);
+
+      auto indices = ::makeIndicesInReverse(size, pool());
+      assertEqualVectors(wrapInDictionary(indices, size, expected), result[0]);
+    }
   }
 
   /**
@@ -450,7 +547,8 @@ TEST_F(CastExprTest, rowCast) {
     testComplexCast("c0", rowVector, expectedRowVector);
   }
 
-  // Name-based cast: ROW(c0: bigint, c1: double) -> ROW(c0: double) dropping b
+  // Name-based cast: ROW(c0: bigint, c1: double) -> ROW(c0: double) dropping
+  // b
   setCastMatchStructByName(true);
   {
     auto intVectorNullAll = makeFlatVector<int64_t>(

@@ -17,10 +17,13 @@
 #include "velox/expression/CastExpr.h"
 #include <fmt/format.h>
 #include <stdexcept>
+#include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/external/date/tz.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/FunctionVector.h"
+#include "velox/vector/SelectivityVector.h"
 
 namespace facebook::velox::exec {
 
@@ -232,37 +235,35 @@ void CastExpr::applyCast(
   }
 }
 
-void CastExpr::applyMap(
+VectorPtr CastExpr::applyMap(
     const SelectivityVector& rows,
-    VectorPtr& input,
+    const MapVector* input,
     exec::EvalCtx* context,
     const MapType& fromType,
-    const MapType& toType,
-    VectorPtr* result) {
+    const MapType& toType) {
   // Cast input keys/values vector to output keys/values vector using their
   // element selectivity vector
-  auto inputMap = std::dynamic_pointer_cast<MapVector>(input);
-  auto rawSizes = inputMap->rawSizes();
-  auto rawOffsets = inputMap->rawOffsets();
+  auto rawSizes = input->rawSizes();
+  auto rawOffsets = input->rawOffsets();
 
   // Initialize nested rows
-  auto mapKeys = inputMap->mapKeys();
-  auto mapValues = inputMap->mapValues();
+  auto mapKeys = input->mapKeys();
+  auto mapValues = input->mapValues();
 
   LocalSelectivityVector nestedRows(context);
   if (fromType.keyType() != toType.keyType() ||
       fromType.valueType() != toType.valueType()) {
     nestedRows.allocate(mapKeys->size());
-    populateNestedRows(rows, rawSizes, rawOffsets, *nestedRows.get());
+    populateNestedRows(rows, rawSizes, rawOffsets, *nestedRows);
   }
 
   // Cast keys
   VectorPtr newMapKeys;
   if (fromType.keyType() == toType.keyType()) {
-    newMapKeys = inputMap->mapKeys();
+    newMapKeys = input->mapKeys();
   } else {
     apply(
-        *nestedRows.get(),
+        *nestedRows,
         mapKeys,
         context,
         fromType.keyType(),
@@ -276,7 +277,7 @@ void CastExpr::applyMap(
     newMapValues = mapValues;
   } else {
     apply(
-        *nestedRows.get(),
+        *nestedRows,
         mapValues,
         context,
         fromType.valueType(),
@@ -285,40 +286,36 @@ void CastExpr::applyMap(
   }
 
   // Assemble the output map
-  auto newMap = std::make_shared<MapVector>(
+  return std::make_shared<MapVector>(
       context->pool(),
       MAP(toType.keyType(), toType.valueType()),
-      inputMap->nulls(),
+      input->nulls(),
       rows.size(),
-      inputMap->offsets(),
-      inputMap->sizes(),
+      input->offsets(),
+      input->sizes(),
       newMapKeys,
-      newMapValues,
-      inputMap->getNullCount());
-  context->moveOrCopyResult(newMap, rows, result);
+      newMapValues);
 }
 
-void CastExpr::applyArray(
+VectorPtr CastExpr::applyArray(
     const SelectivityVector& rows,
-    VectorPtr& input,
+    const ArrayVector* input,
     exec::EvalCtx* context,
     const ArrayType& fromType,
-    const ArrayType& toType,
-    VectorPtr* result) {
-  auto inputArray = std::dynamic_pointer_cast<ArrayVector>(input);
-  auto inputRawSizes = inputArray->rawSizes();
-  auto inputOffsets = inputArray->rawOffsets();
+    const ArrayType& toType) {
+  auto inputRawSizes = input->rawSizes();
+  auto inputOffsets = input->rawOffsets();
 
   // Cast input array elements to output array elements based on their types
   // using their linear selectivity vector
-  auto arrayElements = inputArray->elements();
+  auto arrayElements = input->elements();
 
   LocalSelectivityVector nestedRows(context->execCtx(), arrayElements->size());
-  populateNestedRows(rows, inputRawSizes, inputOffsets, *nestedRows.get());
+  populateNestedRows(rows, inputRawSizes, inputOffsets, *nestedRows);
 
   VectorPtr newElements;
   apply(
-      *nestedRows.get(),
+      *nestedRows,
       arrayElements,
       context,
       fromType.elementType(),
@@ -326,27 +323,23 @@ void CastExpr::applyArray(
       &newElements);
 
   // Assemble the output array
-  auto newArray = std::make_shared<ArrayVector>(
+  return std::make_shared<ArrayVector>(
       context->pool(),
       ARRAY(toType.elementType()),
-      inputArray->nulls(),
+      input->nulls(),
       rows.size(),
-      inputArray->offsets(),
-      inputArray->sizes(),
-      newElements,
-      inputArray->getNullCount());
-  context->moveOrCopyResult(newArray, rows, result);
+      input->offsets(),
+      input->sizes(),
+      newElements);
 }
 
-void CastExpr::applyRow(
+VectorPtr CastExpr::applyRow(
     const SelectivityVector& rows,
-    VectorPtr& input,
+    const RowVector* input,
     exec::EvalCtx* context,
     const RowType& fromType,
-    const RowType& toType,
-    VectorPtr* result) {
-  auto inputRow = std::dynamic_pointer_cast<RowVector>(input);
-  int numInputChildren = inputRow->children().size();
+    const RowType& toType) {
+  int numInputChildren = input->children().size();
   int numOutputChildren = toType.size();
 
   // Extract the flag indicating matching of children must be done by name or
@@ -396,7 +389,7 @@ void CastExpr::applyRow(
           rows, toChildType, context->pool(), &outputChild);
       outputChild->addNulls(nullptr, rows);
     } else {
-      auto inputChild = inputRow->children()[fromChildrenIndex];
+      auto inputChild = input->children()[fromChildrenIndex];
       if (toChildType == inputChild->type()) {
         outputChild = inputChild;
       } else {
@@ -418,14 +411,12 @@ void CastExpr::applyRow(
   auto toTypes = toType.children();
   auto finalRowType =
       std::make_shared<RowType>(std::move(toNames), std::move(toTypes));
-  auto row = std::make_shared<RowVector>(
+  return std::make_shared<RowVector>(
       context->pool(),
       finalRowType,
       input->nulls(),
       rows.size(),
-      std::move(newChildren),
-      input->getNullCount());
-  context->moveOrCopyResult(row, rows, result);
+      std::move(newChildren));
 }
 
 void CastExpr::apply(
@@ -436,71 +427,90 @@ void CastExpr::apply(
     const std::shared_ptr<const Type>& toType,
     VectorPtr* result) {
   LocalSelectivityVector nonNullRows(context->execCtx(), rows.end());
-  *nonNullRows.get() = rows;
+  *nonNullRows = rows;
   if (input->mayHaveNulls()) {
-    nonNullRows.get()->deselectNulls(
+    nonNullRows->deselectNulls(
         input->flatRawNulls(rows), rows.begin(), rows.end());
   }
 
   LocalSelectivityVector nullRows(context->execCtx(), rows.end());
-  nullRows.get()->clearAll();
+  nullRows->clearAll();
   if (input->mayHaveNulls()) {
-    *nullRows.get() = rows;
-    nullRows.get()->deselectNonNulls(
+    *nullRows = rows;
+    nullRows->deselectNonNulls(
         input->flatRawNulls(rows), rows.begin(), rows.end());
   }
 
-  switch (toType->kind()) {
-    // Handle complex type conversions
-    case TypeKind::MAP:
-      applyMap(
-          *nonNullRows.get(),
-          input,
-          context,
-          fromType->asMap(),
-          toType->asMap(),
-          result);
-      break;
-    case TypeKind::ARRAY:
-      applyArray(
-          *nonNullRows.get(),
-          input,
-          context,
-          fromType->asArray(),
-          toType->asArray(),
-          result);
-      break;
-    case TypeKind::ROW:
-      applyRow(
-          *nonNullRows.get(),
-          input,
-          context,
-          fromType->asRow(),
-          toType->asRow(),
-          result);
-      break;
-    default: {
-      // Handling primitive type conversions
-      DecodedVector decoded(*input.get(), rows);
-      BaseVector::ensureWritable(rows, toType, context->pool(), result);
+  DecodedVector decoded(*input, rows);
 
-      // Unwrapping toType pointer. VERY IMPORTANT: dynamic type pointer and
-      // static type templates in each cast must match exactly
-      VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          applyCast,
-          toType->kind(),
-          fromType->kind(),
-          *nonNullRows.get(),
-          context,
-          decoded,
-          result);
+  if (toType->isArray() || toType->isMap() || toType->isRow()) {
+    LocalSelectivityVector translatedRows(
+        context->execCtx(), decoded.base()->size());
+    translatedRows->clearAll();
+    nonNullRows->applyToSelected(
+        [&](auto row) { translatedRows->setValid(decoded.index(row), true); });
+    translatedRows->updateBounds();
+
+    VectorPtr localResult;
+
+    switch (toType->kind()) {
+      // Handle complex type conversions
+      case TypeKind::MAP:
+        localResult = applyMap(
+            *translatedRows,
+            decoded.base()->asUnchecked<MapVector>(),
+            context,
+            fromType->asMap(),
+            toType->asMap());
+        break;
+      case TypeKind::ARRAY:
+        localResult = applyArray(
+            *translatedRows,
+            decoded.base()->asUnchecked<ArrayVector>(),
+            context,
+            fromType->asArray(),
+            toType->asArray());
+        break;
+      case TypeKind::ROW:
+        localResult = applyRow(
+            *translatedRows,
+            decoded.base()->asUnchecked<RowVector>(),
+            context,
+            fromType->asRow(),
+            toType->asRow());
+        break;
+      default: {
+        VELOX_UNREACHABLE();
+      }
     }
+
+    if (decoded.isConstantMapping()) {
+      localResult = BaseVector::wrapInConstant(
+          rows.end(), translatedRows->begin(), localResult);
+    } else if (!decoded.isIdentityMapping()) {
+      localResult = decoded.wrap(localResult, *input, rows);
+    }
+
+    context->moveOrCopyResult(localResult, rows, result);
+  } else {
+    // Handling primitive type conversions
+    BaseVector::ensureWritable(rows, toType, context->pool(), result);
+    // Unwrapping toType pointer. VERY IMPORTANT: dynamic type pointer and
+    // static type templates in each cast must match exactly
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        applyCast,
+        toType->kind(),
+        fromType->kind(),
+        *nonNullRows,
+        context,
+        decoded,
+        result);
   }
 
   // Copy nulls from "input".
-  if (nullRows.get()->hasSelections()) {
+  if (nullRows->hasSelections()) {
     auto targetNulls = (*result)->mutableRawNulls();
-    nullRows.get()->applyToSelected(
+    nullRows->applyToSelected(
         [&](auto row) { bits::setNull(targetNulls, row, true); });
   }
 }

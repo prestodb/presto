@@ -449,11 +449,11 @@ class MapVector : public BaseVector {
     sizes_->asMutable<vector_size_t>()[i] = size;
   }
 
-  const BufferPtr& offsets() {
+  const BufferPtr& offsets() const {
     return offsets_;
   }
 
-  const BufferPtr& sizes() {
+  const BufferPtr& sizes() const {
     return sizes_;
   }
 
