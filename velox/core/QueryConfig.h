@@ -80,6 +80,8 @@ class QueryConfig {
   static constexpr const char* kAdaptiveFilterReorderingEnabled =
       "driver.adaptive_filter_reordering_enabled";
 
+  static constexpr const char* kCreateEmptyFiles = "driver.create_empty_files";
+
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -131,6 +133,10 @@ class QueryConfig {
 
   bool codegenLazyLoading() const {
     return get<bool>(kCodegenLazyLoading, true);
+  }
+
+  bool createEmptyFiles() const {
+    return get<bool>(kCreateEmptyFiles, false);
   }
 
   bool adjustTimestampToTimezone() const {

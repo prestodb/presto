@@ -55,6 +55,11 @@ TableWriter::TableWriter(
   }
 
   mappedType_ = ROW(std::move(names), std::move(types));
+  const auto& config = driverCtx_->task->queryCtx()->config();
+  if (config.createEmptyFiles()) {
+    LOG(INFO) << "Enforce creating empty files\n";
+    createDataSink();
+  }
 }
 
 void TableWriter::createDataSink() {
