@@ -60,10 +60,12 @@ class ConstantExpr : public SpecialForm {
  public:
   ConstantExpr(std::shared_ptr<const Type> type, variant value)
       : SpecialForm(std::move(type), std::vector<ExprPtr>(), "literal"),
-        value_(std::move(value)) {}
+        value_(std::move(value)),
+        needToSetIsAscii_{type->isVarchar()} {}
 
   explicit ConstantExpr(VectorPtr value)
-      : SpecialForm(value->type(), std::vector<ExprPtr>(), "literal") {
+      : SpecialForm(value->type(), std::vector<ExprPtr>(), "literal"),
+        needToSetIsAscii_{value->type()->isVarchar()} {
     VELOX_CHECK_EQ(value->encoding(), VectorEncoding::Simple::CONSTANT);
     sharedSubexprValues_ = std::move(value);
   }
@@ -87,6 +89,7 @@ class ConstantExpr : public SpecialForm {
 
  private:
   const variant value_;
+  bool needToSetIsAscii_;
 };
 
 class FieldReference : public SpecialForm {
