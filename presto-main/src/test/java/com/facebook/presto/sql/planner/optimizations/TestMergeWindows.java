@@ -203,8 +203,9 @@ public class TestMergeWindows
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
                                                 .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
-                                                LINEITEM_TABLESCAN_DOQSS)))));
+                                        anyTree(
+                                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                                        LINEITEM_TABLESCAN_DOQSS))))));
     }
 
     @Test
@@ -256,8 +257,9 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
                                         .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")))
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
-                                        LINEITEM_TABLESCAN_DOQS))));
+                                anyTree(
+                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                                LINEITEM_TABLESCAN_DOQS)))));
     }
 
     @Test

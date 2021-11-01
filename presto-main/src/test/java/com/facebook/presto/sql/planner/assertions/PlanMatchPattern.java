@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -255,14 +256,37 @@ public final class PlanMatchPattern
             BoundType startType,
             Optional<String> startValue,
             BoundType endType,
-            Optional<String> endValue)
+            Optional<String> endValue,
+            Optional<String> sortKey)
+    {
+        return windowFrame(type, startType, startValue, Optional.empty(), sortKey, Optional.empty(), endType, endValue, Optional.empty(), sortKey, Optional.empty());
+    }
+
+    public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
+            WindowType type,
+            BoundType startType,
+            Optional<String> startValue,
+            Optional<Type> startValueType,
+            Optional<String> sortKeyForStartComparison,
+            Optional<Type> sortKeyForStartComparisonType,
+            BoundType endType,
+            Optional<String> endValue,
+            Optional<Type> endValueType,
+            Optional<String> sortKeyForEndComparison,
+            Optional<Type> sortKeyForEndComparisonType)
     {
         return new WindowFrameProvider(
                 type,
                 startType,
                 startValue.map(SymbolAlias::new),
+                startValueType,
+                sortKeyForStartComparison.map(SymbolAlias::new),
+                sortKeyForStartComparisonType,
                 endType,
-                endValue.map(SymbolAlias::new));
+                endValue.map(SymbolAlias::new),
+                endValueType,
+                sortKeyForEndComparison.map(SymbolAlias::new),
+                sortKeyForEndComparisonType);
     }
 
     public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> windowMatcherBuilderConsumer, PlanMatchPattern source)
@@ -709,6 +733,11 @@ public final class PlanMatchPattern
     public static ExpressionMatcher expression(String expression, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
     {
         return new ExpressionMatcher(expression, decimalLiteralTreatment);
+    }
+
+    public static ExpressionMatcher expression(Expression expression)
+    {
+        return new ExpressionMatcher(expression);
     }
 
     public PlanMatchPattern withOutputs(String... aliases)

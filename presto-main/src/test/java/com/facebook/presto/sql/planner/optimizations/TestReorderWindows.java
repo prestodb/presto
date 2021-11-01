@@ -225,8 +225,9 @@ public class TestReorderWindows
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowA)
                                                 .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
-                                                LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+                                        project(ImmutableMap.of("ONE", expression("expr")),
+                                                project(ImmutableMap.of("expr", expression("CAST(1 AS bigint)")),
+                                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
     @Test

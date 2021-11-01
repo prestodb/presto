@@ -206,6 +206,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -316,6 +317,8 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CONTAINS;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CROSSES;
@@ -1109,17 +1112,40 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<VariableReferenceExpression> windowFunctionOutputVariablesBuilder = ImmutableList.builder();
             for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Optional<Integer> frameStartChannel = Optional.empty();
+                Optional<Integer> sortKeyChannelForStartComparison = Optional.empty();
                 Optional<Integer> frameEndChannel = Optional.empty();
+                Optional<Integer> sortKeyChannelForEndComparison = Optional.empty();
+                Optional<Integer> sortKeyChannel = Optional.empty();
+                Optional<SortItem.Ordering> ordering = Optional.empty();
 
                 Frame frame = entry.getValue().getFrame();
                 if (frame.getStartValue().isPresent()) {
                     frameStartChannel = Optional.of(source.getLayout().get(frame.getStartValue().get()));
                 }
+                if (frame.getSortKeyCoercedForFrameStartComparison().isPresent()) {
+                    sortKeyChannelForStartComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameStartComparison().get()));
+                }
                 if (frame.getEndValue().isPresent()) {
                     frameEndChannel = Optional.of(source.getLayout().get(frame.getEndValue().get()));
                 }
+                if (frame.getSortKeyCoercedForFrameEndComparison().isPresent()) {
+                    sortKeyChannelForEndComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameEndComparison().get()));
+                }
+                if (node.getOrderingScheme().isPresent()) {
+                    sortKeyChannel = Optional.of(sortChannels.get(0));
+                    ordering = Optional.of(sortOrder.get(0).isAscending() ? ASCENDING : DESCENDING);
+                }
 
-                FrameInfo frameInfo = new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel);
+                FrameInfo frameInfo = new FrameInfo(
+                        frame.getType(),
+                        frame.getStartType(),
+                        frameStartChannel,
+                        sortKeyChannelForStartComparison,
+                        frame.getEndType(),
+                        frameEndChannel,
+                        sortKeyChannelForEndComparison,
+                        sortKeyChannel,
+                        ordering);
 
                 WindowNode.Function function = entry.getValue();
                 CallExpression call = function.getFunctionCall();

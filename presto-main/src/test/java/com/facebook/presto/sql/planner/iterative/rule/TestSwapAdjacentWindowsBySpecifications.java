@@ -54,7 +54,9 @@ public class TestSwapAdjacentWindowsBySpecifications
                 RANGE,
                 UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 CURRENT_ROW,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

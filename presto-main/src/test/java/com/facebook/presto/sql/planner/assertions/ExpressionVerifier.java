@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -316,7 +317,8 @@ final class ExpressionVerifier
         if (!(expected instanceof SymbolReference)) {
             return false;
         }
-        return symbolAliases.get(((SymbolReference) expected).getName()).equals(actual);
+        return symbolAliases.get(((SymbolReference) expected).getName()).equals(actual) ||
+                expected.equals(actual);
     }
 
     @Override
@@ -449,6 +451,20 @@ final class ExpressionVerifier
 
         SearchedCaseExpression expected = (SearchedCaseExpression) expectedExpression;
         return process(actual.getDefaultValue(), expected.getDefaultValue()) && process(actual.getWhenClauses(), expected.getWhenClauses());
+    }
+
+    @Override
+    protected Boolean visitIfExpression(IfExpression actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof IfExpression)) {
+            return false;
+        }
+
+        IfExpression expected = (IfExpression) expectedExpression;
+
+        return process(actual.getCondition(), expected.getCondition())
+                && process(actual.getTrueValue(), expected.getTrueValue())
+                && process(actual.getFalseValue(), expected.getFalseValue());
     }
 
     private <T extends Node> boolean process(List<T> actuals, List<T> expecteds)
