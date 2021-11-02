@@ -1455,10 +1455,12 @@ public class TestSqlParser
         assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a"), false));
         assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b"), false));
         assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), false));
+        assertStatement("DROP TABLE a.\"b/y\".c", new DropTable(QualifiedName.of("a", "b/y", "c"), false));
 
         assertStatement("DROP TABLE IF EXISTS a", new DropTable(QualifiedName.of("a"), true));
         assertStatement("DROP TABLE IF EXISTS a.b", new DropTable(QualifiedName.of("a", "b"), true));
         assertStatement("DROP TABLE IF EXISTS a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), true));
+        assertStatement("DROP TABLE IF EXISTS a.\"b/y\".c", new DropTable(QualifiedName.of("a", "b/y", "c"), true));
     }
 
     @Test
@@ -1519,13 +1521,13 @@ public class TestSqlParser
     @Test
     public void testInsertInto()
     {
-        QualifiedName table = QualifiedName.of("a");
+        QualifiedName table = QualifiedName.of("a", "b/c", "d");
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
-        assertStatement("INSERT INTO a SELECT * FROM t",
+        assertStatement("INSERT INTO a.\"b/c\".d SELECT * FROM t",
                 new Insert(table, Optional.empty(), query));
 
-        assertStatement("INSERT INTO a (c1, c2) SELECT * FROM t",
+        assertStatement("INSERT INTO a.\"b/c\".d (c1, c2) SELECT * FROM t",
                 new Insert(table, Optional.of(ImmutableList.of(identifier("c1"), identifier("c2"))), query));
     }
 

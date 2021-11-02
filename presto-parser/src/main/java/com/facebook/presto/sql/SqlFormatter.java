@@ -1143,7 +1143,7 @@ public final class SqlFormatter
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(node.getTableName());
+            builder.append(formatName(node.getTableName()));
 
             return null;
         }
@@ -1228,7 +1228,7 @@ public final class SqlFormatter
         protected Void visitInsert(Insert node, Integer indent)
         {
             builder.append("INSERT INTO ")
-                    .append(node.getTarget());
+                    .append(formatName(node.getTarget()));
 
             if (node.getColumns().isPresent()) {
                 builder.append(" (")
