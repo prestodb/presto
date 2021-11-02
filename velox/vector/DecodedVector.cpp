@@ -16,6 +16,7 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/BitUtil.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/BiasVector.h"
 #include "velox/vector/LazyVector.h"
 #include "velox/vector/SequenceVector.h"
@@ -409,6 +410,10 @@ VectorPtr DecodedVector::wrap(
   auto encoding = data->encoding();
   if (encoding == VectorEncoding::Simple::CONSTANT) {
     return data;
+  }
+  if (wrapper.isConstantEncoding()) {
+    return BaseVector::wrapInConstant(
+        rows.end(), wrapper.wrappedIndex(0), data);
   }
   VELOX_CHECK(size_ >= rows.end());
   // If 'wrapper' is one level of dictionary we use the indices and nulls array

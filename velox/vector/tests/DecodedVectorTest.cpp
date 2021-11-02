@@ -525,4 +525,19 @@ TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
   }
 }
 
+TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
+  const int kSize = 12;
+  auto intVector =
+      vectorMaker_->flatVector<int32_t>(kSize, [](auto row) { return row; });
+  auto rowVector = vectorMaker_->rowVector({intVector});
+  auto constantVector = BaseVector::wrapInConstant(kSize, 1, rowVector);
+  SelectivityVector allRows(kSize);
+  DecodedVector decoded(*constantVector, allRows);
+  auto wrappedVector = decoded.wrap(intVector, *constantVector, allRows);
+  for (auto i = 0; i < kSize; i++) {
+    ASSERT_TRUE(
+        wrappedVector->equalValueAt(intVector.get(), i, decoded.index(i)));
+  }
+}
+
 } // namespace facebook::velox::test
