@@ -407,8 +407,7 @@ VectorPtr DecodedVector::wrap(
     VectorPtr data,
     const BaseVector& wrapper,
     const SelectivityVector& rows) {
-  auto encoding = data->encoding();
-  if (encoding == VectorEncoding::Simple::CONSTANT) {
+  if (data->isConstantEncoding()) {
     return data;
   }
   if (wrapper.isConstantEncoding()) {
