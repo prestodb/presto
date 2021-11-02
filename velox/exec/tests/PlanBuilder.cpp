@@ -47,11 +47,13 @@ PlanBuilder& PlanBuilder::tableScan(
     const std::shared_ptr<const RowType>& outputType) {
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
-  for (auto& name : outputType->names()) {
+  for (uint32_t i = 0; i < outputType->size(); ++i) {
+    const auto& name = outputType->nameOf(i);
+    const auto& type = outputType->childAt(i);
     assignments.insert(
         {name,
          std::make_shared<HiveColumnHandle>(
-             name, HiveColumnHandle::ColumnType::kRegular)});
+             name, HiveColumnHandle::ColumnType::kRegular, type)});
   }
 
   auto tableHandle =

@@ -174,21 +174,27 @@ exec::Split HiveConnectorTestBase::makeHiveSplit(
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>
-HiveConnectorTestBase::regularColumn(const std::string& name) {
+HiveConnectorTestBase::regularColumn(
+    const std::string& name,
+    const TypePtr& type) {
   return std::make_shared<connector::hive::HiveColumnHandle>(
-      name, connector::hive::HiveColumnHandle::ColumnType::kRegular);
+      name, connector::hive::HiveColumnHandle::ColumnType::kRegular, type);
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>
-HiveConnectorTestBase::synthesizedColumn(const std::string& name) {
+HiveConnectorTestBase::synthesizedColumn(
+    const std::string& name,
+    const TypePtr& type) {
   return std::make_shared<connector::hive::HiveColumnHandle>(
-      name, connector::hive::HiveColumnHandle::ColumnType::kSynthesized);
+      name, connector::hive::HiveColumnHandle::ColumnType::kSynthesized, type);
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>
-HiveConnectorTestBase::partitionKey(const std::string& name) {
+HiveConnectorTestBase::partitionKey(
+    const std::string& name,
+    const TypePtr& type) {
   return std::make_shared<connector::hive::HiveColumnHandle>(
-      name, connector::hive::HiveColumnHandle::ColumnType::kPartitionKey);
+      name, connector::hive::HiveColumnHandle::ColumnType::kPartitionKey, type);
 }
 
 void HiveConnectorTestBase::addConnectorSplit(

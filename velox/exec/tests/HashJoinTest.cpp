@@ -546,8 +546,8 @@ TEST_F(HashJoinTest, dynamicFilters) {
   {
     auto scanOutputType = ROW({"a", "b"}, {INTEGER(), BIGINT()});
     ColumnHandleMap assignments;
-    assignments["a"] = regularColumn("c0");
-    assignments["b"] = regularColumn("c1");
+    assignments["a"] = regularColumn("c0", INTEGER());
+    assignments["b"] = regularColumn("c1", BIGINT());
 
     auto op =
         PlanBuilder(10)

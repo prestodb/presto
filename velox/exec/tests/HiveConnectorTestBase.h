@@ -97,20 +97,24 @@ class HiveConnectorTestBase : public OperatorTestBase {
   }
 
   static std::shared_ptr<connector::hive::HiveColumnHandle> regularColumn(
-      const std::string& name);
+      const std::string& name,
+      const TypePtr& type);
 
   static std::shared_ptr<connector::hive::HiveColumnHandle> partitionKey(
-      const std::string& name);
+      const std::string& name,
+      const TypePtr& type);
 
   static std::shared_ptr<connector::hive::HiveColumnHandle> synthesizedColumn(
-      const std::string& name);
+      const std::string& name,
+      const TypePtr& type);
 
   static ColumnHandleMap allRegularColumns(
       const std::shared_ptr<const RowType>& rowType) {
     ColumnHandleMap assignments;
     assignments.reserve(rowType->size());
-    for (auto& name : rowType->names()) {
-      assignments[name] = regularColumn(name);
+    for (uint32_t i = 0; i < rowType->size(); ++i) {
+      const auto& name = rowType->nameOf(i);
+      assignments[name] = regularColumn(name, rowType->childAt(i));
     }
     return assignments;
   }

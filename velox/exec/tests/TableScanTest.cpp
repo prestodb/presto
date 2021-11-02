@@ -20,6 +20,7 @@
 #include "velox/exec/tests/Cursor.h"
 #include "velox/exec/tests/HiveConnectorTestBase.h"
 #include "velox/exec/tests/PlanBuilder.h"
+#include "velox/type/Type.h"
 #include "velox/type/tests/FilterBuilder.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
@@ -114,9 +115,10 @@ class TableScanTest : public virtual HiveConnectorTestBase,
 
   void testPartitionedTableImpl(
       const std::string& filePath,
+      const TypePtr& partitionType,
       const std::optional<std::string>& partitionValue) {
     std::unordered_map<std::string, std::optional<std::string>> partitionKeys =
-        {{"ds", partitionValue}};
+        {{"pkey", partitionValue}};
     auto split = std::make_shared<HiveConnectorSplit>(
         kHiveConnectorId,
         filePath,
@@ -124,12 +126,13 @@ class TableScanTest : public virtual HiveConnectorTestBase,
         0,
         fs::file_size(filePath),
         partitionKeys);
-    auto outputType = ROW({"ds", "c0", "c1"}, {VARCHAR(), BIGINT(), DOUBLE()});
+    auto outputType =
+        ROW({"pkey", "c0", "c1"}, {partitionType, BIGINT(), DOUBLE()});
     auto tableHandle = makeTableHandle(SubfieldFilters{});
     ColumnHandleMap assignments = {
-        {"ds", partitionKey("ds")},
-        {"c0", regularColumn("c0")},
-        {"c1", regularColumn("c1")}};
+        {"pkey", partitionKey("pkey", partitionType)},
+        {"c0", regularColumn("c0", BIGINT())},
+        {"c1", regularColumn("c1", DOUBLE())}};
 
     auto op = PlanBuilder()
                   .tableScan(outputType, tableHandle, assignments)
@@ -140,7 +143,7 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     assertQuery(
         op, split, fmt::format("SELECT {}, * FROM tmp", partitionValueStr));
 
-    outputType = ROW({"c0", "ds", "c1"}, {BIGINT(), VARCHAR(), DOUBLE()});
+    outputType = ROW({"c0", "pkey", "c1"}, {BIGINT(), partitionType, DOUBLE()});
     op = PlanBuilder()
              .tableScan(outputType, tableHandle, assignments)
              .planNode();
@@ -148,7 +151,7 @@ class TableScanTest : public virtual HiveConnectorTestBase,
         op,
         split,
         fmt::format("SELECT c0, {}, c1 FROM tmp", partitionValueStr));
-    outputType = ROW({"c0", "c1", "ds"}, {BIGINT(), DOUBLE(), VARCHAR()});
+    outputType = ROW({"c0", "c1", "pkey"}, {BIGINT(), DOUBLE(), partitionType});
     op = PlanBuilder()
              .tableScan(outputType, tableHandle, assignments)
              .planNode();
@@ -158,8 +161,8 @@ class TableScanTest : public virtual HiveConnectorTestBase,
         fmt::format("SELECT c0, c1, {} FROM tmp", partitionValueStr));
 
     // select only partition key
-    assignments = {{"ds", partitionKey("ds")}};
-    outputType = ROW({"ds"}, {VARCHAR()});
+    assignments = {{"pkey", partitionKey("pkey", partitionType)}};
+    outputType = ROW({"pkey"}, {partitionType});
     op = PlanBuilder()
              .tableScan(outputType, tableHandle, assignments)
              .planNode();
@@ -167,9 +170,12 @@ class TableScanTest : public virtual HiveConnectorTestBase,
         op, split, fmt::format("SELECT {} FROM tmp", partitionValueStr));
   }
 
-  void testPartitionedTable(const std::string& filePath) {
-    testPartitionedTableImpl(filePath, "2020-11-01");
-    testPartitionedTableImpl(filePath, std::nullopt);
+  void testPartitionedTable(
+      const std::string& filePath,
+      const TypePtr& partitionType,
+      const std::optional<std::string>& partitionValue) {
+    testPartitionedTableImpl(filePath, partitionType, partitionValue);
+    testPartitionedTableImpl(filePath, partitionType, std::nullopt);
   }
 
   std::shared_ptr<const RowType> rowType_{
@@ -192,7 +198,7 @@ TEST_P(TableScanTest, columnAliases) {
   writeToFile(filePath->path, kTableScanTest, vectors);
   createDuckDbTable(vectors);
 
-  ColumnHandleMap assignments = {{"a", regularColumn("c0")}};
+  ColumnHandleMap assignments = {{"a", regularColumn("c0", BIGINT())}};
   auto outputType = ROW({"a"}, {BIGINT()});
   auto op = PlanBuilder()
                 .tableScan(
@@ -290,8 +296,8 @@ TEST_P(TableScanTest, missingColumns) {
   outputType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
 
   assignments.clear();
-  assignments["a"] = regularColumn("c0");
-  assignments["b"] = regularColumn("c1");
+  assignments["a"] = regularColumn("c0", BIGINT());
+  assignments["b"] = regularColumn("c1", DOUBLE());
 
   op = PlanBuilder().tableScan(outputType, tableHandle, assignments).planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp");
@@ -552,14 +558,77 @@ TEST_P(TableScanTest, emptyFile) {
   }
 }
 
-TEST_P(TableScanTest, partitionedTable) {
+TEST_P(TableScanTest, partitionedTableVarcharKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, kTableScanTest, vectors);
   createDuckDbTable(vectors);
 
-  testPartitionedTable(filePath->path);
+  testPartitionedTable(filePath->path, VARCHAR(), "2020-11-01");
+}
+
+TEST_P(TableScanTest, partitionedTableBigIntKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, BIGINT(), "123456789123456789");
+}
+
+TEST_P(TableScanTest, partitionedTableIntegerKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, INTEGER(), "123456789");
+}
+
+TEST_P(TableScanTest, partitionedTableSmallIntKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, SMALLINT(), "1");
+}
+
+TEST_P(TableScanTest, partitionedTableTinyIntKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, TINYINT(), "1");
+}
+
+TEST_P(TableScanTest, partitionedTableBooleanKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, BOOLEAN(), "0");
+}
+
+TEST_P(TableScanTest, partitionedTableRealKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, REAL(), "3.5");
+}
+
+TEST_P(TableScanTest, partitionedTableDoubleKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, DOUBLE(), "3.5");
 }
 
 std::vector<StringView> toStringViews(const std::vector<std::string>& values) {
@@ -585,7 +654,7 @@ TEST_P(TableScanTest, statsBasedSkippingBool) {
 
   auto subfieldFilters = singleSubfieldFilter("c1", boolEqual(true));
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      assignments = {{"c0", regularColumn("c0")}};
+      assignments = {{"c0", regularColumn("c0", INTEGER())}};
   auto assertQuery = [&](const std::string& query) {
     auto tableHandle = makeTableHandle(std::move(subfieldFilters));
     return TableScanTest::assertQuery(
@@ -618,7 +687,7 @@ TEST_P(TableScanTest, statsBasedSkippingDouble) {
   auto subfieldFilters =
       singleSubfieldFilter("c0", lessThanOrEqualDouble(-1.05));
 
-  ColumnHandleMap assignments = {{"c0", regularColumn("c0")}};
+  ColumnHandleMap assignments = {{"c0", regularColumn("c0", DOUBLE())}};
 
   auto assertQuery = [&](const std::string& query) {
     auto tableHandle = makeTableHandle(std::move(subfieldFilters));
@@ -671,7 +740,7 @@ TEST_P(TableScanTest, statsBasedSkippingFloat) {
   auto subfieldFilters =
       singleSubfieldFilter("c0", lessThanOrEqualFloat(-1.05));
 
-  ColumnHandleMap assignments = {{"c0", regularColumn("c0")}};
+  ColumnHandleMap assignments = {{"c0", regularColumn("c0", REAL())}};
 
   auto assertQuery = [&](const std::string& query) {
     auto tableHandle = makeTableHandle(std::move(subfieldFilters));
@@ -744,7 +813,7 @@ TEST_P(TableScanTest, statsBasedSkipping) {
   // c0 <= -1 -> whole file should be skipped based on stats
   auto subfieldFilters = singleSubfieldFilter("c0", lessThanOrEqual(-1));
 
-  ColumnHandleMap assignments = {{"c1", regularColumn("c1")}};
+  ColumnHandleMap assignments = {{"c1", regularColumn("c1", INTEGER())}};
 
   auto assertQuery = [&](const std::string& query) {
     auto tableHandle = makeTableHandle(std::move(subfieldFilters));
@@ -1300,7 +1369,7 @@ TEST_P(TableScanTest, filterPushdown) {
 
   // Repeat the same but do not project out the filtered columns.
   assignments.clear();
-  assignments["c0"] = regularColumn("c0");
+  assignments["c0"] = regularColumn("c0", TINYINT());
   assertQuery(
       PlanBuilder()
           .tableScan(ROW({"c0"}, {TINYINT()}), tableHandle, assignments)
@@ -1340,7 +1409,7 @@ TEST_P(TableScanTest, path) {
   static const char* kPath = "$path";
 
   auto assignments = allRegularColumns(rowType);
-  assignments[kPath] = synthesizedColumn(kPath);
+  assignments[kPath] = synthesizedColumn(kPath, VARCHAR());
 
   auto tableHandle = makeTableHandle(SubfieldFilters{}, nullptr);
 
@@ -1408,7 +1477,7 @@ TEST_P(TableScanTest, bucket) {
       std::dynamic_pointer_cast<const RowType>(rowVectors.front()->type());
 
   auto assignments = allRegularColumns(rowType);
-  assignments[kBucket] = synthesizedColumn(kBucket);
+  assignments[kBucket] = synthesizedColumn(kBucket, INTEGER());
 
   // Query that spans on all buckets
   auto typeWithBucket =
@@ -1487,7 +1556,7 @@ TEST_P(TableScanTest, remainingFilter) {
       "SELECT * FROM tmp WHERE c1 > c0 AND c0 >= 0");
 
   // Remaining filter uses columns that are not used otherwise.
-  assignments = {{"c2", regularColumn("c2")}};
+  assignments = {{"c2", regularColumn("c2", DOUBLE())}};
   tableHandle =
       makeTableHandle(SubfieldFilters{}, parseExpr("c1 > c0", rowType));
   assertQuery(
@@ -1499,7 +1568,9 @@ TEST_P(TableScanTest, remainingFilter) {
 
   // Remaining filter uses one column that is used elsewhere (is projected out)
   // and another column that is not used anywhere else.
-  assignments = {{"c1", regularColumn("c1")}, {"c2", regularColumn("c2")}};
+  assignments = {
+      {"c1", regularColumn("c1", INTEGER())},
+      {"c2", regularColumn("c2", DOUBLE())}};
   tableHandle =
       makeTableHandle(SubfieldFilters{}, parseExpr("c1 > c0", rowType));
   assertQuery(

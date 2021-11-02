@@ -65,8 +65,9 @@ class PushdownBenchmark : public HiveConnectorTestBase {
 
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         assignments;
-    for (auto& name : rowType_->names()) {
-      assignments[name] = regularColumn(name);
+    for (uint32_t i = 0; i < rowType_->size(); ++i) {
+      const auto& name = rowType_->nameOf(i);
+      assignments[name] = regularColumn(name, rowType_->childAt(i));
     }
 
     return PlanBuilder()

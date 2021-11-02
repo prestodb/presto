@@ -33,8 +33,11 @@ class HiveColumnHandle : public ColumnHandle {
  public:
   enum class ColumnType { kPartitionKey, kRegular, kSynthesized };
 
-  HiveColumnHandle(const std::string& name, ColumnType columnType)
-      : name_(name), columnType_(columnType) {}
+  HiveColumnHandle(
+      const std::string& name,
+      ColumnType columnType,
+      TypePtr dataType)
+      : name_(name), columnType_(columnType), dataType_(std::move(dataType)) {}
 
   const std::string& name() const {
     return name_;
@@ -44,9 +47,14 @@ class HiveColumnHandle : public ColumnHandle {
     return columnType_;
   }
 
+  const TypePtr& dataType() const {
+    return dataType_;
+  }
+
  private:
   const std::string name_;
   const ColumnType columnType_;
+  const TypePtr dataType_;
 };
 
 using SubfieldFilters =
@@ -165,7 +173,14 @@ class HiveDataSource : public DataSource {
       common::ScanSpec* FOLLY_NONNULL spec,
       const TypePtr& type) const;
 
+  void setPartitionValue(
+      common::ScanSpec* FOLLY_NONNULL spec,
+      const std::string& partitionKey,
+      const std::optional<std::string>& value) const;
+
   const std::shared_ptr<const RowType> outputType_;
+  std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
+      columnHandles_;
   FileHandleFactory* FOLLY_NONNULL fileHandleFactory_;
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
   std::vector<std::string> regularColumns_;
