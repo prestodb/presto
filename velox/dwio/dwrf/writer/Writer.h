@@ -38,6 +38,19 @@ class Writer : public WriterShared {
   // Write columnar batch
   void write(const VectorPtr& slice);
 
+  void setMemoryUsageTracker(
+      const std::shared_ptr<velox::memory::MemoryUsageTracker>& tracker) {
+    getContext()
+        .getMemoryPool(velox::dwrf::MemoryUsageCategory::DICTIONARY)
+        .setMemoryUsageTracker(tracker);
+    getContext()
+        .getMemoryPool(velox::dwrf::MemoryUsageCategory::GENERAL)
+        .setMemoryUsageTracker(tracker);
+    getContext()
+        .getMemoryPool(velox::dwrf::MemoryUsageCategory::OUTPUT_STREAM)
+        .setMemoryUsageTracker(tracker);
+  }
+
  protected:
   void flushImpl(std::function<proto::ColumnEncoding&(uint32_t)>
                      encodingFactory) override {
