@@ -46,9 +46,11 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(8) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(9) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(10) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(11) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(11) td:nth-child(7) {background-color: #6BA81E;}
@@ -64,6 +66,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(14) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(15) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(17) td:nth-child(3) {background-color: #6BA81E;}
@@ -86,13 +89,13 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     random                       :func:`concat`               :func:`map_values`           slice                        transform_keys                   :func:`min`
     :func:`floor`                :func:`cardinality`          :func:`map_keys`             :func:`month`                bing_tile_quadkey                :func:`max_by`
     :func:`contains`             sequence                     :func:`reduce`               any_match                    :func:`to_utf8`                  :func:`approx_distinct`
-    :func:`map_concat`           :func:`substr`               greatest                     :func:`bitwise_and`          crc32                            :func:`count_if`
-    :func:`length`               date                         date_trunc                   date_parse                   st_y                             :func:`approx_percentile`
+    :func:`map_concat`           :func:`substr`               :func:`greatest`             :func:`bitwise_and`          crc32                            :func:`count_if`
+    :func:`length`               date                         :func:`date_trunc`           date_parse                   st_y                             :func:`approx_percentile`
     :func:`from_unixtime`        is_nan                       date_diff                    bing_tile_at                 st_x                             :func:`avg`
     :func:`transform`            :func:`rand`                 :func:`array_max`            array_union                  now                              :func:`map_agg`
     :func:`to_unixtime`          :func:`filter`               from_iso8601_date            :func:`reverse`              truncate                         :func:`min_by`
     :func:`regexp_like`          :func:`sqrt`                 json_extract                 :func:`array_intersect`                                       :func:`stddev`
-    array_join                   least                        mod                          repeat                                                        set_agg
+    array_join                   :func:`least`                mod                          repeat                                                        set_agg
     :func:`replace`              json_parse                   :func:`array_distinct`       st_geometryfromtext                                           histogram
     regexp_replace               map_from_entries             :func:`pow`                  split_part                                                    set_union
     parse_datetime               date_add                     :func:`power`                :func:`log10`                                                 merge
