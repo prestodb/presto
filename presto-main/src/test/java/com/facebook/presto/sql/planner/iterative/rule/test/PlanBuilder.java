@@ -106,7 +106,6 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -224,7 +223,7 @@ public class PlanBuilder
         return values(
                 id,
                 variables,
-                nElements(rows, row -> nElements(columns.length, cell -> constantNull(variables.get(cell).getSourceLocation(), UNKNOWN))));
+                nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
     }
 
     public ValuesNode values(List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
@@ -363,7 +362,6 @@ public class PlanBuilder
                     TypeSignatureProvider.fromTypes(inputTypes));
             return addAggregation(output, new Aggregation(
                     new CallExpression(
-                            getSourceLocation(call),
                             call.getName().getSuffix(),
                             functionHandle,
                             metadata.getType(metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType()),

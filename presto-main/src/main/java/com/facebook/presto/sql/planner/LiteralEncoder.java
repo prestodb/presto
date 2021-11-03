@@ -32,7 +32,6 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -57,7 +56,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -111,11 +109,6 @@ public final class LiteralEncoder
     // Unlike toExpression, toRowExpression should be very straightforward given object is serializable
     public static RowExpression toRowExpression(Object object, Type type)
     {
-        return toRowExpression(Optional.empty(), object, type);
-    }
-
-    public static RowExpression toRowExpression(Optional<SourceLocation> sourceLocation, Object object, Type type)
-    {
         requireNonNull(type, "type is null");
 
         if (object instanceof RowExpression) {
@@ -123,10 +116,10 @@ public final class LiteralEncoder
         }
 
         if (object == null) {
-            return constantNull(sourceLocation, type);
+            return constantNull(type);
         }
 
-        return constant(sourceLocation, object, type);
+        return constant(object, type);
     }
 
     @Deprecated

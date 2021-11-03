@@ -37,7 +37,7 @@ public class LambdaExpression
         this(Optional.of(location), arguments, body);
     }
 
-    public LambdaExpression(Optional<NodeLocation> location, List<LambdaArgumentDeclaration> arguments, Expression body)
+    private LambdaExpression(Optional<NodeLocation> location, List<LambdaArgumentDeclaration> arguments, Expression body)
     {
         super(location);
         this.arguments = requireNonNull(arguments, "arguments is null");

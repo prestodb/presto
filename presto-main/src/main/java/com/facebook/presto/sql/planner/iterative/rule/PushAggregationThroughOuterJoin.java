@@ -290,7 +290,7 @@ public class PushAggregationThroughOuterJoin
         ImmutableList.Builder<RowExpression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> sourcesVariableMappingBuilder = ImmutableMap.builder();
         for (VariableReferenceExpression sourceVariable : referenceAggregation.getSource().getOutputVariables()) {
-            RowExpression nullLiteral = constantNull(sourceVariable.getSourceLocation(), sourceVariable.getType());
+            RowExpression nullLiteral = constantNull(sourceVariable.getType());
             nullLiterals.add(nullLiteral);
             VariableReferenceExpression nullVariable = variableAllocator.newVariable(nullLiteral);
             nullVariables.add(nullVariable);
@@ -318,7 +318,6 @@ public class PushAggregationThroughOuterJoin
 
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
                     new CallExpression(
-                            aggregation.getCall().getSourceLocation(),
                             aggregation.getCall().getDisplayName(),
                             aggregation.getCall().getFunctionHandle(),
                             aggregation.getCall().getType(),
@@ -329,9 +328,9 @@ public class PushAggregationThroughOuterJoin
                     aggregation.getFilter().map(filter -> inlineVariables(sourcesVariableMapping, filter)),
                     aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
-                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getSourceLocation(), sourcesVariableMapping.get(x).getName(), x.getType())));
+                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
             QualifiedObjectName functionName = functionAndTypeManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
-            VariableReferenceExpression overNull = variableAllocator.newVariable(aggregation.getCall().getSourceLocation(), functionName.getObjectName(), aggregationVariable.getType());
+            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getObjectName(), aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);
         }

@@ -191,7 +191,6 @@ public class AddIntermediateAggregations
                     output,
                     new Aggregation(
                             new CallExpression(
-                                    aggregation.getCall().getSourceLocation(),
                                     aggregation.getCall().getDisplayName(),
                                     aggregation.getCall().getFunctionHandle(),
                                     aggregation.getCall().getType(),

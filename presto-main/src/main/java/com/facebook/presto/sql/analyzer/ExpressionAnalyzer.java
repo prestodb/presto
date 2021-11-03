@@ -1230,7 +1230,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
                 Type type = types.get(i);
-                fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getLocation(), lambdaArgument.getName().getValue(), type));
+                fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
                 setExpressionType(lambdaArgument, type);
             }
 
@@ -1652,7 +1652,7 @@ public class ExpressionAnalyzer
                         .withRelationType(
                                 RelationId.anonymous(),
                                 new RelationType(argumentTypes.entrySet().stream()
-                                        .map(entry -> Field.newUnqualified(expression.getLocation(), entry.getKey(), entry.getValue()))
+                                        .map(entry -> Field.newUnqualified(entry.getKey(), entry.getValue()))
                                         .collect(toImmutableList()))).build());
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),

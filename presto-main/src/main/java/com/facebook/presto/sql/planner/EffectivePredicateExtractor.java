@@ -399,7 +399,6 @@ public class EffectivePredicateExtractor
         private static CallExpression buildEqualsExpression(FunctionAndTypeManager functionAndTypeManager, RowExpression left, RowExpression right)
         {
             return call(
-                    left.getSourceLocation(),
                     EQUAL.getFunctionName().getObjectName(),
                     functionAndTypeManager.resolveOperator(EQUAL, fromTypes(left.getType(), right.getType())),
                     BOOLEAN,
