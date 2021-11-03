@@ -15,12 +15,9 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheFactory;
-import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.ForCachingFileSystem;
-import com.facebook.presto.cache.NoOpCacheManager;
 import com.facebook.presto.cache.filemerge.FileMergeCacheConfig;
-import com.facebook.presto.cache.filemerge.FileMergeCacheManager;
 import com.facebook.presto.hive.CacheStatsMBean;
 import com.facebook.presto.hive.DynamicConfigurationProvider;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
@@ -83,11 +80,9 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static com.facebook.presto.cache.CacheType.FILE_MERGE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -170,22 +165,6 @@ public class IcebergModule
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-iceberg-%s"));
-    }
-
-    @Singleton
-    @Provides
-    public CacheManager createCacheManager(CacheConfig cacheConfig, FileMergeCacheConfig fileMergeCacheConfig, CacheStats cacheStats)
-    {
-        if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == FILE_MERGE) {
-            return new FileMergeCacheManager(
-                    cacheConfig,
-                    fileMergeCacheConfig,
-                    cacheStats,
-                    newScheduledThreadPool(5, daemonThreadsNamed("iceberg-cache-flusher-%s")),
-                    newScheduledThreadPool(1, daemonThreadsNamed("iceberg-cache-remover-%s")),
-                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%s")));
-        }
-        return new NoOpCacheManager();
     }
 
     @Singleton
