@@ -60,7 +60,7 @@ class ReduceFunction : public exec::VectorFunction {
  public:
   bool isDefaultNullBehavior() const override {
     // reduce is null preserving for the array. But since an
-    // expr tree witht a lambda depends on all named fields, including
+    // expr tree with a lambda depends on all named fields, including
     // captures, a null in a capture does not automatically make a
     // null result.
     return false;
@@ -82,9 +82,7 @@ class ReduceFunction : public exec::VectorFunction {
 
     // Loop over lambda functions and apply these to elements of the base array.
     // In most cases there will be only one function and the loop will run once.
-    FunctionVector::Iterator inputFuncIt(*args[2], rows);
-    Callable* callable;
-    SelectivityVector* callableRows;
+    auto inputFuncIt = args[2]->asUnchecked<FunctionVector>()->iterator(&rows);
 
     SelectivityVector arrayRows(flatArray->size(), false);
     BufferPtr elementIndices =
@@ -116,13 +114,13 @@ class ReduceFunction : public exec::VectorFunction {
     // And so on until all elements of all arrays have been processed.
     // At each step the number of arrays being processed will get smaller as
     // some arrays will run out of elements.
-    while (inputFuncIt.next(callable, callableRows)) {
+    while (auto entry = inputFuncIt.next()) {
       VectorPtr state = initialState;
 
       int n = 0;
       while (true) {
         if (!toNthElementRows(
-                flatArray, *callableRows, n, arrayRows, elementIndices)) {
+                flatArray, *entry.rows, n, arrayRows, elementIndices)) {
           break; // Ran out of elements in all arrays.
         }
 
@@ -133,7 +131,7 @@ class ReduceFunction : public exec::VectorFunction {
             flatArray->elements());
 
         std::vector<VectorPtr> lambdaArgs = {state, nthElement};
-        callable->apply(
+        entry.callable->apply(
             arrayRows, nullptr, context, lambdaArgs, &partialResult);
         state = partialResult;
         n++;
@@ -141,10 +139,10 @@ class ReduceFunction : public exec::VectorFunction {
     }
 
     // Apply output function.
-    FunctionVector::Iterator outputFuncIt(*args[3], rows);
-    while (outputFuncIt.next(callable, callableRows)) {
+    auto outputFuncIt = args[3]->asUnchecked<FunctionVector>()->iterator(&rows);
+    while (auto entry = outputFuncIt.next()) {
       std::vector<VectorPtr> lambdaArgs = {partialResult};
-      callable->apply(*callableRows, nullptr, context, lambdaArgs, result);
+      entry.callable->apply(*entry.rows, nullptr, context, lambdaArgs, result);
     }
   }
 

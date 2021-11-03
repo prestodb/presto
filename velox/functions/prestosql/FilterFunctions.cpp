@@ -52,7 +52,7 @@ class FilterFunctionBase : public exec::VectorFunction {
   static vector_size_t doApply(
       const SelectivityVector& rows,
       const std::shared_ptr<T>& input,
-      VectorPtr& lambdas,
+      const VectorPtr& lambdas,
       const std::vector<VectorPtr>& lambdaArgs,
       exec::EvalCtx* context,
       BufferPtr& resultOffsets,
@@ -69,19 +69,18 @@ class FilterFunctionBase : public exec::VectorFunction {
     auto numElements = lambdaArgs[0]->size();
 
     exec::LocalDecodedVector bitsDecoder(context);
-    FunctionVector::Iterator iter(*lambdas, rows);
-    Callable* callable;
-    SelectivityVector* callableRows;
-    while (iter.next(callable, callableRows)) {
+    auto iter = lambdas->asUnchecked<FunctionVector>()->iterator(&rows);
+    while (auto entry = iter.next()) {
       auto elementRows =
-          toElementRows<T>(numElements, *callableRows, input.get());
+          toElementRows<T>(numElements, *entry.rows, input.get());
       auto wrapCapture =
-          toWrapCapture<T>(numElements, callable, *callableRows, input);
+          toWrapCapture<T>(numElements, entry.callable, *entry.rows, input);
 
       VectorPtr bits;
-      callable->apply(elementRows, wrapCapture, context, lambdaArgs, &bits);
+      entry.callable->apply(
+          elementRows, wrapCapture, context, lambdaArgs, &bits);
       bitsDecoder.get()->decode(*bits, elementRows);
-      callableRows->applyToSelected([&](vector_size_t row) {
+      entry.rows->applyToSelected([&](vector_size_t row) {
         if (input->isNullAt(row)) {
           return;
         }

@@ -52,44 +52,51 @@ class Callable {
 // functions at different positions for completeness.
 class FunctionVector : public BaseVector {
  public:
-  // Iterates over distinct functions that fall inside 'requestedRows'. The
+  // Iterates over distinct functions that fall inside 'rows'. The
   // Callable and the applicable subset of 'rows' is returned for each
   // distinct function by next(). A vectorized lambda application
   // first loops over the functions, then applies each to the
-  // aplicable rows. In most situations, there is only one function in
+  // applicable rows. In most situations, there is only one function in
   // the FunctionVector.
   class Iterator {
    public:
-    Iterator(BaseVector& vector, const SelectivityVector& requestedRows)
-        : requestedRows_(requestedRows) {
-      VELOX_CHECK(
-          vector.encoding() == VectorEncoding::Simple::FUNCTION,
-          "FunctionVector::Iterator only supported for a FunctionVector");
-      auto functionVector = vector.as<FunctionVector>();
-      functions_ = &functionVector->functions_;
-      rows_ = &functionVector->rowSets_;
-    }
-    bool next(Callable*& callable, SelectivityVector*& rows) {
-      while (index_ < functions_->size()) {
-        effectiveRows_ = (*rows_)[index_];
-        effectiveRows_.intersect(requestedRows_);
+    struct Entry {
+      /// Callable lambda.
+      Callable* callable;
+
+      /// Rows that lambda applies to.
+      SelectivityVector* rows;
+
+      operator bool() const {
+        return callable != nullptr;
+      }
+    };
+
+    Iterator(const FunctionVector* vector, const SelectivityVector* rows)
+        : rows_(*rows),
+          functions_{vector->functions_},
+          rowSets_{vector->rowSets_} {}
+
+    Entry next() {
+      while (index_ < functions_.size()) {
+        effectiveRows_ = rowSets_[index_];
+        effectiveRows_.intersect(rows_);
         if (!effectiveRows_.hasSelections()) {
           ++index_;
           continue;
         }
-        callable = (*functions_)[index_].get();
-        rows = &effectiveRows_;
+        Entry entry{functions_[index_].get(), &effectiveRows_};
         ++index_;
-        return true;
+        return entry;
       }
-      return false;
+      return {nullptr, nullptr};
     }
 
    private:
-    const SelectivityVector& requestedRows_;
+    const SelectivityVector& rows_;
+    const std::vector<std::shared_ptr<Callable>>& functions_;
+    const std::vector<SelectivityVector>& rowSets_;
     int32_t index_ = 0;
-    std::vector<std::shared_ptr<Callable>>* functions_;
-    std::vector<SelectivityVector>* rows_;
     SelectivityVector effectiveRows_;
   };
 
@@ -162,6 +169,10 @@ class FunctionVector : public BaseVector {
   // dictionary can be peeled off if the function is constant.
   bool isConstant(const SelectivityVector& /*rows*/) const override {
     return functions_.size() == 1;
+  }
+
+  Iterator iterator(const SelectivityVector* rows) const {
+    return Iterator(this, rows);
   }
 
  private:

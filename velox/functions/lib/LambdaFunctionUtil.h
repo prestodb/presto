@@ -72,7 +72,7 @@ SelectivityVector toElementRows(
 template <typename T>
 BufferPtr toWrapCapture(
     vector_size_t size,
-    Callable* callable,
+    const Callable* callable,
     const SelectivityVector& topLevelRows,
     const std::shared_ptr<T>& topLevelVector) {
   if (!callable->hasCapture()) {

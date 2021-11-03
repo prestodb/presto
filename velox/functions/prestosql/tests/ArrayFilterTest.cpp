@@ -46,7 +46,9 @@ class ArrayFilterTest : public functions::test::FunctionBaseTest {
       for (auto j = start; j < start + size; ++j) {
         if (test(elements, j, i)) {
           ASSERT_TRUE(elements->equalValueAt(
-              resultElements, j, resultStart + resultCount));
+              resultElements, j, resultStart + resultCount))
+              << "at " << i << ", " << j << ": " << elements->toString(j)
+              << " vs. " << resultElements->toString(resultStart + resultCount);
           ++resultCount;
         }
       }

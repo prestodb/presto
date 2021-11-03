@@ -54,16 +54,14 @@ class TransformFunction : public exec::VectorFunction {
 
     // loop over lambda functions and apply these to elements of the base array;
     // in most cases there will be only one function and the loop will run once
-    FunctionVector::Iterator iter(*args[1], rows);
-    Callable* callable;
-    SelectivityVector* callableRows;
-    while (iter.next(callable, callableRows)) {
+    auto it = args[1]->asUnchecked<FunctionVector>()->iterator(&rows);
+    while (auto entry = it.next()) {
       auto elementRows = toElementRows<ArrayVector>(
-          newNumElements, *callableRows, flatArray.get());
+          newNumElements, *entry.rows, flatArray.get());
       auto wrapCapture = toWrapCapture<ArrayVector>(
-          newNumElements, callable, *callableRows, flatArray);
+          newNumElements, entry.callable, *entry.rows, flatArray);
 
-      callable->apply(
+      entry.callable->apply(
           elementRows, wrapCapture, context, lambdaArgs, &newElements);
     }
 
