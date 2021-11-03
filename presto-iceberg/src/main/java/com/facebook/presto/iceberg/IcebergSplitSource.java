@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.google.common.collect.Iterators.limit;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -51,11 +53,12 @@ public class IcebergSplitSource
 {
     private final CloseableIterable<CombinedScanTask> combinedScanIterable;
     private final Iterator<FileScanTask> fileScanIterator;
+    private final ConnectorSession session;
 
-    public IcebergSplitSource(CloseableIterable<CombinedScanTask> combinedScanIterable)
+    public IcebergSplitSource(ConnectorSession session, CloseableIterable<CombinedScanTask> combinedScanIterable)
     {
+        this.session = requireNonNull(session, "session is null");
         this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
-
         this.fileScanIterator = Streams.stream(combinedScanIterable)
                 .map(CombinedScanTask::files)
                 .flatMap(Collection::stream)
@@ -105,7 +108,8 @@ public class IcebergSplitSource
                 task.length(),
                 task.file().format(),
                 ImmutableList.of(),
-                getPartitionKeys(task));
+                getPartitionKeys(task),
+                getNodeSelectionStrategy(session));
     }
 
     private static Map<Integer, String> getPartitionKeys(FileScanTask scanTask)

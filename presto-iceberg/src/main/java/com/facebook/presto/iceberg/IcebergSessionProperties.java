@@ -21,6 +21,7 @@ import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -70,6 +71,7 @@ public final class IcebergSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     private static final String CACHE_ENABLED = "cache_enabled";
+    private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -231,6 +233,15 @@ public final class IcebergSessionProperties
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
+                new PropertyMetadata<>(
+                        NODE_SELECTION_STRATEGY,
+                        "Node affinity selection strategy",
+                        VARCHAR,
+                        NodeSelectionStrategy.class,
+                        hiveClientConfig.getNodeSelectionStrategy(),
+                        false,
+                        value -> NodeSelectionStrategy.valueOf((String) value),
+                        NodeSelectionStrategy::toString),
                 booleanProperty(
                         CACHE_ENABLED,
                         "Enable cache for Iceberg",
@@ -381,5 +392,10 @@ public final class IcebergSessionProperties
     public static boolean isCacheEnabled(ConnectorSession session)
     {
         return session.getProperty(CACHE_ENABLED, Boolean.class);
+    }
+
+    public static NodeSelectionStrategy getNodeSelectionStrategy(ConnectorSession session)
+    {
+        return session.getProperty(NODE_SELECTION_STRATEGY, NodeSelectionStrategy.class);
     }
 }
