@@ -46,7 +46,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeSqlFunctionExpression;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -196,7 +195,7 @@ public final class SqlFunctionUtils
             {
                 NodeRef<Identifier> ref = NodeRef.of(node);
                 if (context.containsKey(ref)) {
-                    return createSymbolReference(variables.get(NodeRef.of(context.get(ref))));
+                    return new SymbolReference(variables.get(NodeRef.of(context.get(ref))).getName());
                 }
                 return node;
             }
@@ -209,7 +208,7 @@ public final class SqlFunctionUtils
             public Expression rewriteIdentifier(Identifier node, Map<String, VariableReferenceExpression> context, ExpressionTreeRewriter<Map<String, VariableReferenceExpression>> treeRewriter)
             {
                 if (context.containsKey(node.getValue())) {
-                    return createSymbolReference(context.get(node.getValue()));
+                    return new SymbolReference(context.get(node.getValue()).getName());
                 }
                 return node;
             }

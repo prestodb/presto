@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -54,7 +53,6 @@ public class JsonRenderer
                 .collect(toImmutableList());
 
         return new JsonRenderedNode(
-                node.getSourceLocation(),
                 node.getId().toString(),
                 node.getName(),
                 node.getIdentifier(),
@@ -67,7 +65,6 @@ public class JsonRenderer
 
     public static class JsonRenderedNode
     {
-        private final Optional<SourceLocation> sourceLocation;
         private final String id;
         private final String name;
         private final String identifier;
@@ -76,21 +73,14 @@ public class JsonRenderer
         private final List<String> remoteSources;
 
         @JsonCreator
-        public JsonRenderedNode(Optional<SourceLocation> sourceLocation, String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
+        public JsonRenderedNode(String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
         {
-            this.sourceLocation = sourceLocation;
             this.id = requireNonNull(id, "id is null");
             this.name = requireNonNull(name, "name is null");
             this.identifier = requireNonNull(identifier, "identifier is null");
             this.details = requireNonNull(details, "details is null");
             this.children = requireNonNull(children, "children is null");
             this.remoteSources = requireNonNull(remoteSources, "id is null");
-        }
-
-        @JsonProperty
-        public Optional<SourceLocation> getSourceLocation()
-        {
-            return sourceLocation;
         }
 
         @JsonProperty

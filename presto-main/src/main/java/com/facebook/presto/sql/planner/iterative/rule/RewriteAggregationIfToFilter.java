@@ -170,7 +170,6 @@ public class RewriteAggregationIfToFilter
             VariableReferenceExpression ifResultReference = aggregationReferenceToIfResultReference.get(aggregationReference);
             if (ifResultReference != null) {
                 callExpression = new CallExpression(
-                        callExpression.getSourceLocation(),
                         callExpression.getDisplayName(),
                         callExpression.getFunctionHandle(),
                         callExpression.getType(),

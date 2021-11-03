@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,7 +22,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -37,34 +35,17 @@ public class SpecialFormExpression
     private final Type returnType;
     private final List<RowExpression> arguments;
 
-    public SpecialFormExpression(Optional<SourceLocation> sourceLocation, Form form, Type returnType, RowExpression... arguments)
-    {
-        this(sourceLocation, form, returnType, unmodifiableList(Arrays.asList(arguments)));
-    }
-
     public SpecialFormExpression(Form form, Type returnType, RowExpression... arguments)
     {
         this(form, returnType, unmodifiableList(Arrays.asList(arguments)));
     }
 
-    public SpecialFormExpression(Form form, Type returnType, List<RowExpression> arguments)
-    {
-        this(arguments.stream()
-                .map(x -> x.getSourceLocation())
-                .filter(Optional::isPresent)
-                .findFirst()
-                .map(x -> x.get()),
-                form, returnType, arguments);
-    }
-
     @JsonCreator
     public SpecialFormExpression(
-            @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             @JsonProperty("form") Form form,
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("arguments") List<RowExpression> arguments)
     {
-        super(sourceLocation);
         this.form = requireNonNull(form, "form is null");
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.arguments = requireNonNull(arguments, "arguments is null");

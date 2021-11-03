@@ -20,10 +20,10 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -61,7 +61,7 @@ public class CorrelationMatcher
 
         int i = 0;
         for (String alias : this.correlation) {
-            if (!symbolAliases.get(alias).equals(createSymbolReference(actualCorrelation.get(i++)))) {
+            if (!symbolAliases.get(alias).equals(new SymbolReference(actualCorrelation.get(i++).getName()))) {
                 return NO_MATCH;
             }
         }

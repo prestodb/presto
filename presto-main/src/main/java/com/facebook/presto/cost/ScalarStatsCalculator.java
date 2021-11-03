@@ -61,7 +61,6 @@ import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
 import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.facebook.presto.util.MoreMath.max;
@@ -343,7 +342,7 @@ public class ScalarStatsCalculator
         @Override
         protected VariableStatsEstimate visitSymbolReference(SymbolReference node, Void context)
         {
-            return input.getVariableStatistics(new VariableReferenceExpression(getSourceLocation(node), node.getName(), types.get(node)));
+            return input.getVariableStatistics(new VariableReferenceExpression(node.getName(), types.get(node)));
         }
 
         @Override

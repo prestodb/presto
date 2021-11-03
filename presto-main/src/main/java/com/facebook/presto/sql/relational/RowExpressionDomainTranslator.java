@@ -227,14 +227,14 @@ public final class RowExpressionDomainTranslator
 
         for (Range range : originalUnionSingleValues) {
             if (range.isSingleValue()) {
-                singleValues.add(toRowExpression(reference.getSourceLocation(), range.getSingleValue(), type));
+                singleValues.add(toRowExpression(range.getSingleValue(), type));
                 continue;
             }
 
             // attempt to optimize ranges that can be coalesced as long as single value points are excluded
             List<RowExpression> singleValuesInRange = new ArrayList<>();
             while (singleValueExclusions.hasNext() && range.contains(singleValueExclusions.peek())) {
-                singleValuesInRange.add(toRowExpression(reference.getSourceLocation(), singleValueExclusions.next().getSingleValue(), type));
+                singleValuesInRange.add(toRowExpression(singleValueExclusions.next().getSingleValue(), type));
             }
 
             if (!singleValuesInRange.isEmpty()) {
@@ -258,7 +258,7 @@ public final class RowExpressionDomainTranslator
     private List<RowExpression> extractDisjuncts(Type type, DiscreteValues discreteValues, RowExpression reference)
     {
         List<RowExpression> values = discreteValues.getValues().stream()
-                .map(object -> toRowExpression(reference.getSourceLocation(), object, type))
+                .map(object -> toRowExpression(object, type))
                 .collect(toList());
 
         // If values is empty, then the equatableValues was either ALL or NONE, both of which should already have been checked for
@@ -494,7 +494,7 @@ public final class RowExpressionDomainTranslator
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
             boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
             boolean coercedValueIsGreaterThanOriginal = originalComparedToCoerced < 0;
-            RowExpression coercedLiteral = toRowExpression(expression.getSourceLocation(), coercedValue, expressionType);
+            RowExpression coercedLiteral = toRowExpression(coercedValue, expressionType);
 
             switch (comparisonOperator) {
                 case GREATER_THAN_OR_EQUAL:
@@ -811,7 +811,7 @@ public final class RowExpressionDomainTranslator
 
     private static RowExpression isNull(RowExpression expression)
     {
-        return new SpecialFormExpression(expression.getSourceLocation(), IS_NULL, BOOLEAN, expression);
+        return new SpecialFormExpression(IS_NULL, BOOLEAN, expression);
     }
 
     private static RowExpression not(StandardFunctionResolution resolution, RowExpression expression)
