@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
@@ -92,8 +93,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
@@ -301,8 +302,12 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             ExtendedFileSystem filesystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            long fileSize = filesystem.getFileStatus(path).getLen();
-            FSDataInputStream inputStream = filesystem.openFile(path, DEFAULT_HIVE_FILE_CONTEXT);
+            FileStatus fileStatus = filesystem.getFileStatus(path);
+            long fileSize = fileStatus.getLen();
+            long modificationTime = fileStatus.getModificationTime();
+            HiveFileContext hiveFileContext = new HiveFileContext(true, NO_CACHE_CONSTRAINTS,
+                    Optional.empty(), Optional.of(fileSize), modificationTime, false);
+            FSDataInputStream inputStream = filesystem.openFile(path, hiveFileContext);
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileSize).getParquetMetadata();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
