@@ -16,21 +16,9 @@ package com.facebook.presto.spi;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
-import java.util.Optional;
-
 public interface VariableAllocator
 {
-    default VariableReferenceExpression newVariable(String nameHint, Type type)
-    {
-        return newVariable(Optional.empty(), nameHint, type);
-    }
+    VariableReferenceExpression newVariable(String nameHint, Type type);
 
-    default VariableReferenceExpression newVariable(String nameHint, Type type, String suffix)
-    {
-        return newVariable(Optional.empty(), nameHint, type);
-    }
-
-    VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, String nameHint, Type type);
-
-    VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, String nameHint, Type type, String suffix);
+    VariableReferenceExpression newVariable(String nameHint, Type type, String suffix);
 }

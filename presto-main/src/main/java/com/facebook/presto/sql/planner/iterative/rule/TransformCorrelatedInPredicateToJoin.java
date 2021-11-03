@@ -66,8 +66,6 @@ import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
@@ -179,7 +177,7 @@ public class TransformCorrelatedInPredicateToJoin
                 apply.getInput(),
                 variableAllocator.newVariable("unique", BIGINT));
 
-        VariableReferenceExpression buildSideKnownNonNull = variableAllocator.newVariable(inPredicateOutputVariable.getSourceLocation(), "buildSideKnownNonNull", BIGINT);
+        VariableReferenceExpression buildSideKnownNonNull = variableAllocator.newVariable("buildSideKnownNonNull", BIGINT);
         ProjectNode buildSide = new ProjectNode(
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
@@ -202,15 +200,15 @@ public class TransformCorrelatedInPredicateToJoin
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
 
-        VariableReferenceExpression countMatchesVariable = variableAllocator.newVariable(getSourceLocation(buildSideSymbolReference.getLocation()), "countMatches", BIGINT);
-        VariableReferenceExpression countNullMatchesVariable = variableAllocator.newVariable(getSourceLocation(buildSideSymbolReference.getLocation()), "countNullMatches", BIGINT);
+        VariableReferenceExpression countMatchesVariable = variableAllocator.newVariable("countMatches", BIGINT);
+        VariableReferenceExpression countNullMatchesVariable = variableAllocator.newVariable("countNullMatches", BIGINT);
 
         Expression matchCondition = and(
                 new IsNotNullPredicate(probeSideSymbolReference),
                 new IsNotNullPredicate(buildSideSymbolReference));
 
         Expression nullMatchCondition = and(
-                new IsNotNullPredicate(createSymbolReference(buildSideKnownNonNull)),
+                new IsNotNullPredicate(new SymbolReference(buildSideKnownNonNull.getName())),
                 new NotExpression(matchCondition));
 
         AggregationNode aggregation = new AggregationNode(
@@ -264,7 +262,6 @@ public class TransformCorrelatedInPredicateToJoin
     {
         return new AggregationNode.Aggregation(
                 new CallExpression(
-                        getSourceLocation(condition),
                         "count",
                         functionResolution.countFunction(),
                         BIGINT,
@@ -279,7 +276,7 @@ public class TransformCorrelatedInPredicateToJoin
     {
         return new ComparisonExpression(
                 ComparisonExpression.Operator.GREATER_THAN,
-                createSymbolReference(variable),
+                new SymbolReference(variable.getName()),
                 bigint(value));
     }
 
@@ -333,7 +330,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .flatMap(AstUtils::preOrder)
                         .filter(SymbolReference.class::isInstance)
                         .map(SymbolReference.class::cast)
-                        .map(symbolReference -> new VariableReferenceExpression(getSourceLocation(symbolReference), symbolReference.getName(), types.get(symbolReference)))
+                        .map(symbolReference -> new VariableReferenceExpression(symbolReference.getName(), types.get(symbolReference)))
                         .filter(variable -> !correlation.contains(variable))
                         .map(AssignmentUtils::identityAsSymbolReference)
                         .forEach(assignments::put);

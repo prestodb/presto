@@ -445,13 +445,12 @@ public final class LogicalRowExpressions
         {
             OperatorType newOperator = negate(getOperator(expression).orElse(null));
             if (newOperator == null) {
-                return new CallExpression(expression.getSourceLocation(), "NOT", functionResolution.notFunction(), BOOLEAN, singletonList(expression));
+                return new CallExpression("NOT", functionResolution.notFunction(), BOOLEAN, singletonList(expression));
             }
             checkArgument(expression.getArguments().size() == 2, "Comparison expression must have exactly two arguments");
             RowExpression left = expression.getArguments().get(0).accept(this, null);
             RowExpression right = expression.getArguments().get(1).accept(this, null);
             return new CallExpression(
-                    left.getSourceLocation(),
                     newOperator.getOperator(),
                     functionResolution.comparisonFunction(newOperator, left.getType(), right.getType()),
                     BOOLEAN,
@@ -773,7 +772,7 @@ public final class LogicalRowExpressions
 
     private RowExpression notCallExpression(RowExpression argument)
     {
-        return new CallExpression(argument.getSourceLocation(), "not", functionResolution.notFunction(), BOOLEAN, singletonList(argument));
+        return new CallExpression("not", functionResolution.notFunction(), BOOLEAN, singletonList(argument));
     }
 
     private static OperatorType negate(OperatorType operator)

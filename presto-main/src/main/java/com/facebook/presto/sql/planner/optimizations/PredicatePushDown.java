@@ -161,8 +161,8 @@ public class PredicatePushDown
                 BooleanType.BOOLEAN,
                 ImmutableList.of(
                         input,
-                        new ConstantExpression(input.getSourceLocation(), Slices.utf8Slice(operator), VarcharType.VARCHAR),
-                        new ConstantExpression(input.getSourceLocation(), Slices.utf8Slice(id), VarcharType.VARCHAR)));
+                        new ConstantExpression(Slices.utf8Slice(operator), VarcharType.VARCHAR),
+                        new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR)));
     }
 
     private static class Rewriter
@@ -1279,7 +1279,7 @@ public class PredicatePushDown
         private RowExpression nullInputEvaluator(final Collection<VariableReferenceExpression> nullSymbols, RowExpression expression)
         {
             expression = RowExpressionNodeInliner.replaceExpression(expression, nullSymbols.stream()
-                    .collect(Collectors.toMap(identity(), variable -> constantNull(variable.getSourceLocation(), variable.getType()))));
+                    .collect(Collectors.toMap(identity(), variable -> constantNull(variable.getType()))));
             return new RowExpressionOptimizer(metadata).optimize(expression, ExpressionOptimizer.Level.OPTIMIZED, session.toConnectorSession());
         }
 

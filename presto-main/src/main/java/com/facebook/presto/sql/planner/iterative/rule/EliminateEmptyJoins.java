@@ -46,7 +46,7 @@ public class EliminateEmptyJoins
                 builder.put(variable, variable);
             }
             else {
-                builder.put(variable, constantNull(variable.getSourceLocation(), variable.getType()));
+                builder.put(variable, constantNull(variable.getType()));
             }
         }
         return builder.build();

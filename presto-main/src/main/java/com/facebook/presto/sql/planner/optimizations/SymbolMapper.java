@@ -55,7 +55,6 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -108,7 +107,7 @@ public class SymbolMapper
         if (canonical.equals(variable.getName())) {
             return variable;
         }
-        return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
+        return new VariableReferenceExpression(canonical, types.get(new SymbolReference(canonical)));
     }
 
     public Expression map(Expression value)
@@ -196,7 +195,6 @@ public class SymbolMapper
     {
         return new Aggregation(
                 new CallExpression(
-                        aggregation.getCall().getSourceLocation(),
                         aggregation.getCall().getDisplayName(),
                         aggregation.getCall().getFunctionHandle(),
                         aggregation.getCall().getType(),

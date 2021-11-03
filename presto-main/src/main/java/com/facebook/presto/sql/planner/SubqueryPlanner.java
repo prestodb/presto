@@ -59,8 +59,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.subQueryNotSupportedError;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
@@ -196,10 +194,10 @@ class SubqueryPlanner
         PlanBuilder subqueryPlan = createPlanBuilder(uncoercedValueListSubquery);
 
         subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), variableAllocator, idAllocator);
-        SymbolReference valueList = createSymbolReference(subqueryPlan.translate(valueListSubquery));
+        SymbolReference valueList = new SymbolReference(subqueryPlan.translate(valueListSubquery).getName());
 
         VariableReferenceExpression rewrittenValue = subPlan.translate(inPredicate.getValue());
-        InPredicate inPredicateSubqueryExpression = new InPredicate(new SymbolReference(inPredicate.getLocation(), rewrittenValue.getName()), valueList);
+        InPredicate inPredicateSubqueryExpression = new InPredicate(new SymbolReference(rewrittenValue.getName()), valueList);
         VariableReferenceExpression inPredicateSubqueryVariable = variableAllocator.newVariable(inPredicateSubqueryExpression, BOOLEAN);
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubqueryVariable);
@@ -295,7 +293,7 @@ class SubqueryPlanner
         // add an explicit projection that removes all columns
         PlanNode subqueryNode = new ProjectNode(idAllocator.getNextId(), subqueryPlan.getRoot(), Assignments.of());
 
-        VariableReferenceExpression exists = variableAllocator.newVariable(getSourceLocation(existsPredicate), "exists", BOOLEAN);
+        VariableReferenceExpression exists = variableAllocator.newVariable("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
         ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(BooleanLiteral.TRUE_LITERAL);
         return appendApplyNode(
@@ -390,8 +388,8 @@ class SubqueryPlanner
         QuantifiedComparisonExpression coercedQuantifiedComparison = new QuantifiedComparisonExpression(
                 quantifiedComparison.getOperator(),
                 quantifiedComparison.getQuantifier(),
-                createSymbolReference(subPlan.translate(quantifiedComparison.getValue())),
-                createSymbolReference(subqueryPlan.translate(quantifiedSubquery)));
+                new SymbolReference(subPlan.translate(quantifiedComparison.getValue()).getName()),
+                new SymbolReference(subqueryPlan.translate(quantifiedSubquery).getName()));
 
         VariableReferenceExpression coercedQuantifiedComparisonVariable = variableAllocator.newVariable(coercedQuantifiedComparison, BOOLEAN);
         subPlan.getTranslations().put(quantifiedComparison, coercedQuantifiedComparisonVariable);

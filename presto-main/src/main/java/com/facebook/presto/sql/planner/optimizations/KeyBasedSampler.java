@@ -145,7 +145,7 @@ public class KeyBasedSampler
                     functionAndTypeManager.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                     BOOLEAN,
                     sampledArg,
-                    new ConstantExpression(arg.getSourceLocation(), getKeyBasedSamplingPercentage(session), DOUBLE));
+                    new ConstantExpression(getKeyBasedSamplingPercentage(session), DOUBLE));
 
             FilterNode filterNode = new FilterNode(
                     idAllocator.getNextId(),
