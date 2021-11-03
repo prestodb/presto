@@ -133,7 +133,7 @@ TEST_F(CrossJoinTest, basic) {
   params.planNode = PlanBuilder(10)
                         .values({leftVectors})
                         .crossJoin(
-                            PlanBuilder(0)
+                            PlanBuilder(0, pool_.get())
                                 .values({rightVectors}, true)
                                 .filter("c0 in (10, 17)")
                                 .project({"c0"}, {"u_c0"})

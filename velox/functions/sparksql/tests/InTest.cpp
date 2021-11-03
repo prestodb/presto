@@ -126,7 +126,9 @@ TEST_F(InTest, Bool) {
   EXPECT_EQ(in<bool>(false, {false}), true);
 }
 
-TEST_F(InTest, Const) {
+/// TODO Re-enable this test after changing the signature of IN predicate to
+/// use an ARRAY.
+TEST_F(InTest, DISABLED_Const) {
   const auto eval = [&](const std::string& expr) {
     return evaluateOnce<bool, bool>(expr, false);
   };

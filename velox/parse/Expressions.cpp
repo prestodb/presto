@@ -18,6 +18,7 @@
 #include "velox/core/Expressions.h"
 #include "velox/core/FunctionRegistry.h"
 #include "velox/parse/VariantToVector.h"
+#include "velox/type/Type.h"
 #include "velox/vector/ConstantVector.h"
 
 namespace facebook::velox::core {
@@ -63,6 +64,43 @@ std::shared_ptr<const core::CastTypedExpr> makeTypedCast(
     const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs) {
   return std::make_shared<const core::CastTypedExpr>(type, inputs, false);
 }
+
+std::vector<TypePtr> implicitCastTargets(const TypePtr& type) {
+  std::vector<TypePtr> targetTypes;
+  switch (type->kind()) {
+    // We decide not to implicitly upcast booleans because it maybe funky.
+    case TypeKind::BOOLEAN:
+      break;
+    case TypeKind::TINYINT:
+      targetTypes.emplace_back(SMALLINT());
+      FMT_FALLTHROUGH;
+    case TypeKind::SMALLINT:
+      targetTypes.emplace_back(INTEGER());
+      targetTypes.emplace_back(REAL());
+      FMT_FALLTHROUGH;
+    case TypeKind::INTEGER:
+      targetTypes.emplace_back(BIGINT());
+      targetTypes.emplace_back(DOUBLE());
+      FMT_FALLTHROUGH;
+    case TypeKind::BIGINT:
+      break;
+    case TypeKind::REAL:
+      targetTypes.emplace_back(DOUBLE());
+      FMT_FALLTHROUGH;
+    case TypeKind::DOUBLE:
+      break;
+    case TypeKind::ARRAY: {
+      auto childTargetTypes = implicitCastTargets(type->childAt(0));
+      for (auto childTarget : childTargetTypes) {
+        targetTypes.emplace_back(ARRAY(childTarget));
+      }
+      break;
+    }
+    default: // make compilers happy
+        ;
+  }
+  return targetTypes;
+}
 } // namespace
 
 // All acceptable implicit casts on this expression.
@@ -70,31 +108,12 @@ std::shared_ptr<const core::CastTypedExpr> makeTypedCast(
 // signatures that need to be compiled and registered.
 std::vector<std::shared_ptr<const core::ITypedExpr>> genImplicitCasts(
     const std::shared_ptr<const core::ITypedExpr>& typedExpr) {
+  auto targetTypes = implicitCastTargets(typedExpr->type());
+
   std::vector<std::shared_ptr<const core::ITypedExpr>> implicitCasts;
-  switch (typedExpr->type()->kind()) {
-    // We decide not to implicitly upcast booleans because it maybe funky.
-    case TypeKind::BOOLEAN:
-      break;
-    case TypeKind::TINYINT:
-      implicitCasts.emplace_back(makeTypedCast(SMALLINT(), {typedExpr}));
-      FMT_FALLTHROUGH;
-    case TypeKind::SMALLINT:
-      implicitCasts.emplace_back(makeTypedCast(INTEGER(), {typedExpr}));
-      implicitCasts.emplace_back(makeTypedCast(REAL(), {typedExpr}));
-      FMT_FALLTHROUGH;
-    case TypeKind::INTEGER:
-      implicitCasts.emplace_back(makeTypedCast(BIGINT(), {typedExpr}));
-      implicitCasts.emplace_back(makeTypedCast(DOUBLE(), {typedExpr}));
-      FMT_FALLTHROUGH;
-    case TypeKind::BIGINT:
-      break;
-    case TypeKind::REAL:
-      implicitCasts.emplace_back(makeTypedCast(DOUBLE(), {typedExpr}));
-      FMT_FALLTHROUGH;
-    case TypeKind::DOUBLE:
-      break;
-    default: // make compilers happy
-        ;
+  implicitCasts.reserve(targetTypes.size());
+  for (auto targetType : targetTypes) {
+    implicitCasts.emplace_back(makeTypedCast(targetType, {typedExpr}));
   }
   return implicitCasts;
 }

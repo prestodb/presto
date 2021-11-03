@@ -95,15 +95,15 @@ TEST(DuckParserTest, coalesce) {
 }
 
 TEST(DuckParserTest, in) {
-  EXPECT_EQ("in(\"col1\",1,2,3)", parseExpr("col1 in (1, 2, 3)")->toString());
+  EXPECT_EQ("in(\"col1\",[1,2,3])", parseExpr("col1 in (1, 2, 3)")->toString());
   EXPECT_EQ(
-      "in(\"col1\",1,2,null,3)",
+      "in(\"col1\",[1,2,null,3])",
       parseExpr("col1 in (1, 2, null, 3)")->toString());
   EXPECT_EQ(
-      "in(\"col1\",\"a\",\"b\",\"c\")",
+      "in(\"col1\",[\"a\",\"b\",\"c\"])",
       parseExpr("col1 in ('a', 'b', 'c')")->toString());
   EXPECT_EQ(
-      "in(\"col1\",\"a\",null,\"b\",\"c\")",
+      "in(\"col1\",[\"a\",null,\"b\",\"c\"])",
       parseExpr("col1 in ('a', null, 'b', 'c')")->toString());
 }
 

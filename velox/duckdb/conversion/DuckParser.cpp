@@ -217,6 +217,27 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(ParsedExpression& expr) {
         variant::array(arrayElements));
   }
 
+  if (expr.GetExpressionType() == ExpressionType::COMPARE_IN) {
+    auto numValues = operExpr.children.size() - 1;
+
+    std::vector<variant> values;
+    values.reserve(numValues);
+    for (auto i = 0; i < numValues; i++) {
+      if (auto constantExpr = dynamic_cast<ConstantExpression*>(
+              operExpr.children[i + 1].get())) {
+        values.emplace_back(duckValueToVariant(constantExpr->value));
+      } else {
+        VELOX_UNSUPPORTED("IN list values need to be constant");
+      }
+    }
+
+    std::vector<std::shared_ptr<const core::IExpr>> params;
+    params.emplace_back(parseExpr(*operExpr.children[0]));
+    params.emplace_back(
+        std::make_shared<const core::ConstantExpr>(variant::array(values)));
+    return callExpr("in", std::move(params));
+  }
+
   std::vector<std::shared_ptr<const core::IExpr>> params;
   params.reserve(operExpr.children.size());
 
