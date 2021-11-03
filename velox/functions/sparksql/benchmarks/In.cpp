@@ -30,6 +30,9 @@ namespace facebook::velox::functions {
 void registerPrestoIn() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_in, "presto");
 }
+void registerArrayConstructor() {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, "array_constructor");
+}
 } // namespace facebook::velox::functions
 
 namespace facebook::velox::functions::sparksql {
@@ -42,17 +45,18 @@ int in_int(int iters, int inListSize, const std::string& functionName) {
   VectorFuzzer::Options opts;
   opts.vectorSize = 1024;
   auto vector = VectorFuzzer(opts, benchmarkBase.pool()).fuzzFlat(BIGINT());
+  auto simpleVector = vector->as<SimpleVector<int64_t>>();
   const auto data = benchmarkBase.maker().rowVector({vector});
 
-  std::string exprStr = functionName + "(c0";
+  std::string exprStr = functionName + "(c0, array_constructor(";
   for (int i = 0; i < inListSize; i++) {
-    fmt::format_to(
-        std::back_inserter(exprStr),
-        ", {}",
-        vector->as<SimpleVector<int64_t>>()->valueAt(
-            folly::Random::rand32() % opts.vectorSize));
+    if (i > 0) {
+      exprStr += ", ";
+    }
+    exprStr += fmt::format(
+        "{}", simpleVector->valueAt(folly::Random::rand32() % opts.vectorSize));
   }
-  exprStr += ")";
+  exprStr += "))";
   exec::ExprSet expr = benchmarkBase.compileExpression(exprStr, data->type());
   kSuspender.dismiss();
   for (int i = 0; i != iters; ++i) {
@@ -69,6 +73,8 @@ BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs10, 10, "presto");
 BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs10, 10, "spark");
 BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs100, 100, "presto");
 BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs100, 100, "spark");
+BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs1000, 1000, "presto");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs1000, 1000, "spark");
 
 int in_str(int iters, int inListSize, const std::string& functionName) {
   folly::BenchmarkSuspender kSuspender;
@@ -77,17 +83,19 @@ int in_str(int iters, int inListSize, const std::string& functionName) {
   VectorFuzzer::Options opts;
   opts.vectorSize = 1024;
   auto vector = VectorFuzzer(opts, benchmarkBase.pool()).fuzzFlat(VARCHAR());
+  auto simpleVector = vector->as<SimpleVector<StringView>>();
   const auto data = benchmarkBase.maker().rowVector({vector});
 
-  std::string exprStr = functionName + "(c0";
+  std::string exprStr = functionName + "(c0, array_constructor(";
   for (int i = 0; i < inListSize; i++) {
-    fmt::format_to(
-        std::back_inserter(exprStr),
-        ", '{}'",
-        vector->as<SimpleVector<StringView>>()->valueAt(
-            folly::Random::rand32() % opts.vectorSize));
+    if (i > 0) {
+      exprStr += ", ";
+    }
+    exprStr += fmt::format(
+        "'{}'",
+        simpleVector->valueAt(folly::Random::rand32() % opts.vectorSize));
   }
-  exprStr += ")";
+  exprStr += "))";
   exec::ExprSet expr = benchmarkBase.compileExpression(exprStr, data->type());
   kSuspender.dismiss();
   for (int i = 0; i != iters; ++i) {
@@ -104,6 +112,8 @@ BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs10, 10, "presto");
 BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs10, 10, "spark");
 BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs100, 100, "presto");
 BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs100, 100, "spark");
+BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs1000, 1000, "presto");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs1000, 1000, "spark");
 
 } // namespace
 
@@ -117,6 +127,7 @@ int main(int argc, char** argv) {
   folly::init(&argc, &argv);
   facebook::velox::functions::registerPrestoIn();
   facebook::velox::functions::sparksql::registerInFunctions();
+  facebook::velox::functions::registerArrayConstructor();
   folly::runBenchmarks();
   return 0;
 }

@@ -134,17 +134,26 @@ class In final : public exec::VectorFunction {
 template <typename T>
 std::unique_ptr<exec::VectorFunction> createIn(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  auto* constantInput = dynamic_cast<const ConstantVector<ComplexType>*>(
+      inputArgs[1].constantValue.get());
+  auto arrayVector = dynamic_cast<const ArrayVector*>(
+      constantInput->valueVector()->wrappedVector());
+  auto elementsVector = arrayVector->elements()->as<SimpleVector<T>>();
+  auto offset = arrayVector->offsetAt(constantInput->index());
+  auto size = arrayVector->sizeAt(constantInput->index());
+  VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
+
   Set<T> elements;
-  elements.reserve(inputArgs.size());
+  elements.reserve(size);
   bool hasNull = false;
-  for (int i = 1; i < inputArgs.size(); ++i) {
-    if (inputArgs[i].constantValue->isNullAt(0)) {
+  for (auto i = offset; i < offset + size; i++) {
+    if (elementsVector->isNullAt(i)) {
       hasNull = true;
     } else {
-      elements.emplace(
-          inputArgs[i].constantValue->as<ConstantVector<T>>()->valueAt(0));
+      elements.emplace(elementsVector->valueAt(i));
     }
   }
+
   if (hasNull) {
     return std::make_unique<In<T, true>>(std::move(elements));
   } else {
@@ -159,7 +168,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> inSignatures() {
               .typeVariable("T")
               .returnType("boolean")
               .argumentType("T")
-              .argumentType("T")
+              .argumentType("array(T)")
               .variableArity()
               .build()};
 }
@@ -167,22 +176,21 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> inSignatures() {
 std::shared_ptr<exec::VectorFunction> makeIn(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  VELOX_USER_CHECK_GE(inputArgs.size(), 2);
+  VELOX_USER_CHECK_EQ(inputArgs.size(), 2);
+  VELOX_USER_CHECK_EQ(inputArgs[1].type->kind(), TypeKind::ARRAY);
+
   // Type-invariant checks.
-  for (int i = 1; i < inputArgs.size(); ++i) {
-    VELOX_USER_CHECK(
-        *inputArgs[0].type == *inputArgs[i].type,
-        "All arguments to {} must be of the same type, but the first argument "
-        "has type {} and argument {} has type {}",
-        inputArgs[0].type->toString(),
-        i,
-        inputArgs[i].type->toString(),
-        name);
-    VELOX_USER_CHECK_NOT_NULL(
-        inputArgs[i].constantValue,
-        "All arguments to {} other than the first must be constant.",
-        name)
-  }
+  VELOX_USER_CHECK(
+      *inputArgs[0].type == *inputArgs[1].type->childAt(0),
+      "Second argument to {} must be an ARRAY with element type matching the type of the first argument: {} vs. {}",
+      name,
+      inputArgs[0].type->toString(),
+      inputArgs[1].type->toString());
+  VELOX_USER_CHECK_NOT_NULL(
+      inputArgs[1].constantValue,
+      "Second argument to {} must be constant.",
+      name)
+
   switch (inputArgs[0].type->kind()) {
 #define CASE(kind)     \
   case TypeKind::kind: \

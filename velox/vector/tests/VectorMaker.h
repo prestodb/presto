@@ -486,8 +486,10 @@ class VectorMaker {
       indexPtr++;
     }
 
+    using V = typename CppToType<T>::NativeType;
+
     // Create the underlying flat vector.
-    auto flatVector = std::dynamic_pointer_cast<FlatVector<T>>(
+    auto flatVector = std::dynamic_pointer_cast<FlatVector<V>>(
         BaseVector::create(CppToType<T>::create(), numElements, pool_));
     auto elementRawNulls = flatVector->mutableRawNulls();
 
@@ -504,7 +506,7 @@ class VectorMaker {
             bits::setNull(elementRawNulls, currentIdx, true);
             ++elementNullCount;
           } else {
-            flatVector->set(currentIdx, *arrayElement);
+            flatVector->set(currentIdx, V(*arrayElement));
           }
           ++currentIdx;
         }

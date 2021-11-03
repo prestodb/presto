@@ -36,11 +36,11 @@ class InTest : public SparkFunctionBaseTest {
     std::vector<std::shared_ptr<const velox::core::ITypedExpr>> args;
     const auto argType = CppToType<T>::create();
     args.push_back(std::make_shared<core::FieldAccessTypedExpr>(argType, "c0"));
-    for (const std::optional<T>& element : rhs) {
-      args.push_back(std::make_shared<core::ConstantTypedExpr>(
-          argType,
-          element ? variant(*element) : variant::null(argType->kind())));
-    }
+
+    auto rhsArrayVector =
+        vectorMaker_.arrayVectorNullable<T>({std::optional(rhs)});
+    args.push_back(std::make_shared<core::ConstantTypedExpr>(
+        BaseVector::wrapInConstant(1, 0, rhsArrayVector)));
     exec::ExprSet expr(
         {std::make_shared<core::CallTypedExpr>(BOOLEAN(), args, "in")},
         &execCtx_);
@@ -126,9 +126,7 @@ TEST_F(InTest, Bool) {
   EXPECT_EQ(in<bool>(false, {false}), true);
 }
 
-/// TODO Re-enable this test after changing the signature of IN predicate to
-/// use an ARRAY.
-TEST_F(InTest, DISABLED_Const) {
+TEST_F(InTest, Const) {
   const auto eval = [&](const std::string& expr) {
     return evaluateOnce<bool, bool>(expr, false);
   };
