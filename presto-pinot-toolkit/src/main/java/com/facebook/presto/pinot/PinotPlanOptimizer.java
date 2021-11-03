@@ -163,7 +163,7 @@ public class PinotPlanOptimizer
             PinotTableHandle pinotTableHandle = getPinotTableHandle(tableScanNode).orElseThrow(() -> new PinotException(PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Expected to find a pinot table handle"));
             PinotQueryGeneratorContext context = pinotQuery.get().getContext();
             TableHandle oldTableHandle = tableScanNode.getTable();
-            LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = context.getAssignments();
+            LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = context.getAssignments(pinotQuery.get().getGeneratedPinotQuery().getFormat() == PinotQueryGenerator.PinotQueryFormat.SQL);
             boolean isQueryShort = pinotQuery.get().getGeneratedPinotQuery().isQueryShort();
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
