@@ -10,6 +10,7 @@ This guide is intended for Velox contributors and developers of Velox-based appl
     develop/vectors
     develop/scalar-functions
     develop/aggregate-functions
+    develop/lambda-functions
     develop/expression-evaluation
     develop/dictionary-encoding
     develop/arena
