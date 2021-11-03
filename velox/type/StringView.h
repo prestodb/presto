@@ -80,6 +80,8 @@ struct StringView {
       : StringView(value.data(), value.size()) {}
   explicit StringView(const std::string& value)
       : StringView(value.data(), value.size()) {}
+  explicit StringView(const std::string_view& value)
+      : StringView(value.data(), value.size()) {}
 
   bool isInline() const {
     return isInline(size_);

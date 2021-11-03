@@ -390,6 +390,55 @@ TEST(TestReader, testReadFlatMapWithKeyFilters) {
   } while (true);
 }
 
+TEST(TestReader, testReadFlatMapWithKeyRejectList) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  // batch size is set as 1000 in reading
+  // file has schema: a int, b struct<a:int, b:float, c:string>, c float
+  ReaderOptions readerOpts;
+  RowReaderOptions rowReaderOpts;
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  auto cs = std::make_shared<ColumnSelector>(
+      requestedType, std::vector<std::string>{"map1#[\"!2\",\"!3\"]"});
+  rowReaderOpts.select(cs);
+  auto reader = DwrfReader::create(
+      std::make_unique<FileInputStream>(fmSmall), readerOpts);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  VectorPtr batch;
+
+  const std::unordered_set<int32_t> map1RejectList{2, 3};
+
+  do {
+    bool result = rowReader->next(1000, batch);
+    if (!result) {
+      break;
+    }
+
+    // verify current batch
+    auto root = batch->as<RowVector>();
+
+    // verify map1
+    {
+      auto map1 = root->childAt(1)->as<MapVector>();
+      auto map1KeyInt = map1->mapKeys()->as<SimpleVector<int32_t>>();
+
+      // every key value should be 1
+      EXPECT_GT(map1KeyInt->size(), 0);
+      for (int32_t i = 0; i < map1KeyInt->size(); ++i) {
+        // These keys should not exist
+        EXPECT_TRUE(map1RejectList.count(map1KeyInt->valueAt(i)) == 0);
+      }
+    }
+  } while (true);
+}
+
 namespace {
 std::unordered_set<uint32_t> getNodeIdsFromColumnNames(
     const std::vector<std::string>& columns,

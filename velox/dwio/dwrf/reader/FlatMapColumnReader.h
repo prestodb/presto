@@ -28,11 +28,12 @@ template <typename T>
 class KeyValue {
   // simple types to support as key
  private:
-  const T value_;
-  const size_t h_;
+  T value_;
+  size_t h_;
 
  public:
   explicit KeyValue(T value) : value_{value}, h_{std::hash<T>()(value)} {}
+  KeyValue(const KeyValue&) = default;
 
  public:
   const T& get() const {
@@ -166,6 +167,36 @@ class StringKeyBuffer {
   dwio::common::DataBuffer<char*> data_;
 };
 
+enum class KeyProjectionMode { ALLOW, REJECT };
+
+template <typename T>
+class KeyPredicate {
+ public:
+  using Lookup = std::unordered_set<KeyValue<T>, KeyValueHash<T>>;
+
+  KeyPredicate(KeyProjectionMode mode, Lookup keyLookup)
+      : keyLookup_{std::move(keyLookup)},
+        predicate_{
+            mode == KeyProjectionMode::ALLOW ? &KeyPredicate::allowFilter
+                                             : &KeyPredicate::rejectFilter} {}
+
+  bool operator()(const KeyValue<T>& key) const {
+    return predicate_(key, keyLookup_);
+  }
+
+ private:
+  static bool allowFilter(const KeyValue<T>& key, const Lookup& lookup) {
+    return lookup.size() == 0 || lookup.count(key) > 0;
+  }
+
+  static bool rejectFilter(const KeyValue<T>& key, const Lookup& lookup) {
+    return lookup.size() == 0 || lookup.count(key) == 0;
+  }
+
+  Lookup keyLookup_;
+  std::function<bool(const KeyValue<T>&, const Lookup&)> predicate_;
+};
+
 template <typename T>
 class FlatMapColumnReader : public ColumnReader {
  public:
@@ -183,14 +214,9 @@ class FlatMapColumnReader : public ColumnReader {
       VectorPtr& result,
       const uint64_t* FOLLY_NULLABLE nulls) override;
 
-  bool shouldReadKey(const KeyValue<T>& key) const {
-    return keysToRead_.size() == 0 || keysToRead_.count(key) > 0;
-  }
-
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> type_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
-  std::unordered_set<KeyValue<T>, KeyValueHash<T>> keysToRead_;
   std::unique_ptr<StringKeyBuffer> stringKeyBuffer_;
   bool returnFlatVector_;
 
