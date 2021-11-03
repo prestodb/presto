@@ -120,7 +120,8 @@ public abstract class AbstractCostBasedPlanTest
     {
         String sql = query.replaceAll("\\s+;\\s+$", "")
                 .replace("${database}.${schema}.", "")
-                .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
+                .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"")
+                .replace("${scale}", "1");
         Plan plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false);
 
         JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();

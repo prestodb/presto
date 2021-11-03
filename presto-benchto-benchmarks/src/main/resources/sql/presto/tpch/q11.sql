@@ -14,7 +14,7 @@ GROUP BY
 HAVING 
   sum(ps.supplycost*ps.availqty) > (
     SELECT 
-      sum(ps.supplycost*ps.availqty) * 0.0001000000
+      sum(ps.supplycost*ps.availqty) * 0.0001000000 / ${scale}
     FROM 
       "${database}"."${schema}"."${prefix}partsupp" ps,
       "${database}"."${schema}"."${prefix}supplier" s,
