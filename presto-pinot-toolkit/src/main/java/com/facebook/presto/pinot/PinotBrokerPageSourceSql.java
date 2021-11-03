@@ -119,12 +119,7 @@ public class PinotBrokerPageSourceSql
             setRows(sql, blockBuilders, types, rows);
             return rows.size();
         }
-        else {
-            throw new PinotException(
-                    PINOT_UNEXPECTED_RESPONSE,
-                    Optional.of(sql),
-                    "Expected resultTable to be present");
-        }
+        return 0;
     }
 
     @VisibleForTesting
