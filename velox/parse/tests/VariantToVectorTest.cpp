@@ -118,6 +118,8 @@ TEST_F(VariantToVectorTest, varchar) {
   testCreateVector<TypeKind::VARCHAR>({
       variant::create<TypeKind::VARCHAR>("hello"),
       variant::create<TypeKind::VARCHAR>("world"),
+      variant::create<TypeKind::VARCHAR>(
+          "Some longer string that doesn't get inlined..."),
   });
 }
 

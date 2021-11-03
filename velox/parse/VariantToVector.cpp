@@ -46,18 +46,15 @@ ArrayVectorPtr variantArrayToVectorImpl(
       variantArraySize,
       std::move(arrayElementsBuffer),
       std::vector<BufferPtr>());
-  auto stringBuffers = StringViewBufferHolder(pool);
 
   // Populate internal array elements (flat vector).
   for (vector_size_t i = 0; i < variantArraySize; i++) {
     if (!variantArray[i].isNull()) {
       // `getOwnedValue` copies the content to its internal buffers (in case of
       // string/StringView); no-op for other primitive types.
-      arrayElements->set(
-          i, stringBuffers.getOwnedValue(variantArray[i].value<KIND>()));
+      arrayElements->set(i, T(variantArray[i].value<KIND>()));
     }
   }
-  arrayElements->setStringBuffers(stringBuffers.moveBuffers());
 
   // Create ArrayVector around the FlatVector containing array elements.
   BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(1, pool, 0);
