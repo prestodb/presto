@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.Multimap;
 
 import java.util.Collection;
@@ -32,7 +33,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.checkAndGetColumnReferenceField;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -75,7 +75,7 @@ public final class GroupingOperationRewriter
             // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
             return new SubscriptExpression(
                     new ArrayConstructor(groupingResults),
-                    new ArithmeticBinaryExpression(ADD, createSymbolReference(groupIdVariable.get()), new GenericLiteral("BIGINT", "1")));
+                    new ArithmeticBinaryExpression(ADD, new SymbolReference(groupIdVariable.get().getName()), new GenericLiteral("BIGINT", "1")));
         }
     }
 

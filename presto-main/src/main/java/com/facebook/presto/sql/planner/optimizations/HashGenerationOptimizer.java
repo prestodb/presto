@@ -873,7 +873,7 @@ public class HashGenerationOptimizer
     private static RowExpression orNullHashCode(RowExpression expression)
     {
         checkArgument(BIGINT.equals(expression.getType()), "expression should be BIGINT type");
-        return new SpecialFormExpression(expression.getSourceLocation(), SpecialFormExpression.Form.COALESCE, BIGINT, expression, constant(NULL_HASH_CODE, BIGINT));
+        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, BIGINT, expression, constant(NULL_HASH_CODE, BIGINT));
     }
 
     private static class HashComputation

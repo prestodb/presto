@@ -280,7 +280,6 @@ public class CommonSubExpressionRewriter
         public RowExpression visitCall(CallExpression call, Void context)
         {
             RowExpression rewritten = new CallExpression(
-                    call.getSourceLocation(),
                     call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),

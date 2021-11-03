@@ -100,8 +100,6 @@ import java.util.Set;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
@@ -171,7 +169,7 @@ class RelationPlanner
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         for (Field field : scope.getRelationType().getAllFields()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(node), field.getName().get(), field.getType());
+            VariableReferenceExpression variable = variableAllocator.newVariable(field.getName().get(), field.getType());
             outputVariablesBuilder.add(variable);
             columns.put(variable, analysis.getColumn(field));
         }
@@ -197,7 +195,7 @@ class RelationPlanner
             for (int i = 0; i < subPlan.getDescriptor().getAllFieldCount(); i++) {
                 Field field = subPlan.getDescriptor().getFieldByIndex(i);
                 if (!field.isHidden()) {
-                    VariableReferenceExpression aliasedColumn = variableAllocator.newVariable(mappings.get(i).getSourceLocation(), field);
+                    VariableReferenceExpression aliasedColumn = variableAllocator.newVariable(field);
                     assignments.put(aliasedColumn, castToRowExpression(asSymbolReference(subPlan.getFieldMappings().get(i))));
                     newMappings.add(aliasedColumn);
                 }
@@ -488,8 +486,7 @@ class RelationPlanner
             VariableReferenceExpression leftOutput = variableAllocator.newVariable(identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
             leftCoercions.put(leftOutput, castToRowExpression(new Cast(
-                    identifier.getLocation(),
-                    createSymbolReference(left.getVariable(leftField)),
+                    new SymbolReference(left.getVariable(leftField).getName()),
                     type.getTypeSignature().toString(),
                     false,
                     metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type))));
@@ -499,8 +496,7 @@ class RelationPlanner
             VariableReferenceExpression rightOutput = variableAllocator.newVariable(identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
             rightCoercions.put(rightOutput, castToRowExpression(new Cast(
-                    identifier.getLocation(),
-                    createSymbolReference(right.getVariable(rightField)),
+                    new SymbolReference(right.getVariable(rightField).getName()),
                     type.getTypeSignature().toString(),
                     false,
                     metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type))));
@@ -537,21 +533,20 @@ class RelationPlanner
             VariableReferenceExpression output = variableAllocator.newVariable(column, analysis.getType(column));
             outputs.add(output);
             assignments.put(output, castToRowExpression(new CoalesceExpression(
-                    column.getLocation(),
-                    createSymbolReference(leftJoinColumns.get(column)),
-                    createSymbolReference(rightJoinColumns.get(column)))));
+                    new SymbolReference(leftJoinColumns.get(column).getName()),
+                    new SymbolReference(rightJoinColumns.get(column).getName()))));
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {
             VariableReferenceExpression variable = left.getFieldMappings().get(field);
             outputs.add(variable);
-            assignments.put(variable, castToRowExpression(createSymbolReference(variable)));
+            assignments.put(variable, castToRowExpression(new SymbolReference(variable.getName())));
         }
 
         for (int field : joinAnalysis.getOtherRightFields()) {
             VariableReferenceExpression variable = right.getFieldMappings().get(field);
             outputs.add(variable);
-            assignments.put(variable, castToRowExpression(createSymbolReference(variable)));
+            assignments.put(variable, castToRowExpression(new SymbolReference(variable.getName())));
         }
 
         return new RelationPlan(
@@ -618,7 +613,7 @@ class RelationPlanner
         UnmodifiableIterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
-            VariableReferenceExpression inputVariable = new VariableReferenceExpression(getSourceLocation(expression), translations.get(expression).getName(), type);
+            VariableReferenceExpression inputVariable = new VariableReferenceExpression(translations.get(expression).getName(), type);
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
@@ -736,7 +731,7 @@ class RelationPlanner
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), rewritten);
             values.add(castToRowExpression(rewritten));
             VariableReferenceExpression input = variableAllocator.newVariable(rewritten, type);
-            argumentVariables.add(new VariableReferenceExpression(getSourceLocation(rewritten), input.getName(), type));
+            argumentVariables.add(new VariableReferenceExpression(input.getName(), type));
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
@@ -794,22 +789,21 @@ class RelationPlanner
         Assignments.Builder assignments = Assignments.builder();
         for (int i = 0; i < targetColumnTypes.length; i++) {
             VariableReferenceExpression inputVariable = oldVisibleVariables.get(i);
-            Field oldField = oldRelationWithVisibleFields.getFieldByIndex(i);
             Type outputType = targetColumnTypes[i];
             if (!outputType.equals(inputVariable.getType())) {
-                Expression cast = new Cast(createSymbolReference(inputVariable), outputType.getTypeSignature().toString());
+                Expression cast = new Cast(new SymbolReference(inputVariable.getName()), outputType.getTypeSignature().toString());
                 VariableReferenceExpression outputVariable = variableAllocator.newVariable(cast, outputType);
                 assignments.put(outputVariable, castToRowExpression(cast));
                 newVariables.add(outputVariable);
             }
             else {
-                SymbolReference symbolReference = new SymbolReference(oldField.getNodeLocation(), inputVariable.getName());
+                SymbolReference symbolReference = new SymbolReference(inputVariable.getName());
                 VariableReferenceExpression outputVariable = variableAllocator.newVariable(symbolReference, outputType);
                 assignments.put(outputVariable, castToRowExpression(symbolReference));
                 newVariables.add(outputVariable);
             }
+            Field oldField = oldRelationWithVisibleFields.getFieldByIndex(i);
             newFields[i] = new Field(
-                    oldField.getNodeLocation(),
                     oldField.getRelationAlias(),
                     oldField.getName(),
                     targetColumnTypes[i],

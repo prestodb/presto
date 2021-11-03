@@ -27,7 +27,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -58,7 +57,7 @@ public class PlannerUtils
                         .map(SortItem::getSortKey)
                         .map(item -> {
                             checkArgument(item instanceof SymbolReference, "must be symbol reference");
-                            return variable(getSourceLocation(item), ((SymbolReference) item).getName(), types.get(item));
+                            return variable(((SymbolReference) item).getName(), types.get(item));
                         }).collect(toImmutableList()),
                 orderBy.getSortItems().stream()
                         .map(PlannerUtils::toSortOrder)
@@ -85,6 +84,6 @@ public class PlannerUtils
     public static VariableReferenceExpression toVariableReference(Expression expression, TypeProvider types)
     {
         checkArgument(expression instanceof SymbolReference);
-        return variable(getSourceLocation(expression), ((SymbolReference) expression).getName(), types.get(expression));
+        return variable(((SymbolReference) expression).getName(), types.get(expression));
     }
 }

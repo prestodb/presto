@@ -254,7 +254,6 @@ public class PlanRemotePojections
             List<ProjectionContext> processedArguments = processArguments(call.getArguments(), newArgumentsBuilder, local);
             List<RowExpression> newArguments = newArgumentsBuilder.build();
             CallExpression newCall = new CallExpression(
-                    call.getSourceLocation(),
                     call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),
@@ -274,7 +273,6 @@ public class PlanRemotePojections
                             ImmutableMap.of(
                                     variableAllocator.newVariable(call),
                                     new CallExpression(
-                                            call.getSourceLocation(),
                                             call.getDisplayName(),
                                             call.getFunctionHandle(),
                                             call.getType(),

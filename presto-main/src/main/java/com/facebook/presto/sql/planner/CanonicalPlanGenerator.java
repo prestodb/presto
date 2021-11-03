@@ -208,7 +208,7 @@ public class CanonicalPlanGenerator
             VariableReferenceExpression input = (VariableReferenceExpression) inlineVariables(context, unnestVariable.getKey());
             ImmutableList.Builder<VariableReferenceExpression> newVariables = ImmutableList.builder();
             for (VariableReferenceExpression variable : unnestVariable.getValue()) {
-                VariableReferenceExpression newVariable = variableAllocator.newVariable(variable.getSourceLocation(), "unnest_field", variable.getType());
+                VariableReferenceExpression newVariable = variableAllocator.newVariable("unnest_field", variable.getType());
                 context.put(variable, newVariable);
                 newVariables.add(newVariable);
             }
@@ -218,7 +218,7 @@ public class CanonicalPlanGenerator
         // Generate canonical ordinality variable
         Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable()
                 .map(variable -> {
-                    VariableReferenceExpression newVariable = variableAllocator.newVariable(variable.getSourceLocation(), "unnest_ordinality", variable.getType());
+                    VariableReferenceExpression newVariable = variableAllocator.newVariable("unnest_ordinality", variable.getType());
                     context.put(variable, newVariable);
                     return newVariable;
                 });
@@ -301,7 +301,7 @@ public class CanonicalPlanGenerator
         ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
         for (ColumnReference columnReference : columnReferences) {
-            VariableReferenceExpression reference = variableAllocator.newVariable(columnReference.getVariableReferenceExpression().getSourceLocation(), columnReference.getColumnHandle().toString(), columnReference.getVariableReferenceExpression().getType());
+            VariableReferenceExpression reference = variableAllocator.newVariable(columnReference.getColumnHandle().toString(), columnReference.getVariableReferenceExpression().getType());
             context.put(columnReference.getVariableReferenceExpression(), reference);
             outputVariables.add(reference);
             assignments.put(reference, columnReference.getColumnHandle());
