@@ -12,9 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(common)
-add_subdirectory(dwrf)
-if(VELOX_ENABLE_PARQUET)
-  add_subdirectory(parquet)
-endif()
-add_subdirectory(type)
+add_subdirectory(reader)
+add_subdirectory(tests)

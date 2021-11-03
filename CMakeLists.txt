@@ -21,6 +21,7 @@ project(velox)
 option(VELOX_BUILD_TESTING "Enable Velox tests" ON)
 option(VELOX_ENABLE_DUCKDB "Build duckDB to enable differential testing." ON)
 option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
+option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
 
 if(VELOX_ENABLE_S3)
   # Set AWS_ROOT_DIR if you have a custom install location of AWS SDK CPP.
@@ -29,6 +30,10 @@ if(VELOX_ENABLE_S3)
   endif()
   find_package(AWSSDK REQUIRED COMPONENTS s3)
   add_definitions(-DVELOX_ENABLE_S3)
+endif()
+
+if(VELOX_ENABLE_PARQUET)
+  add_definitions(-DVELOX_ENABLE_PARQUET)
 endif()
 
 # If CODEGEN support isn't explicitly set, we guestimate the value based on the
