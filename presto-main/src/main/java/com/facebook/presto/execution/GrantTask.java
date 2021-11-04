@@ -72,10 +72,6 @@ public class GrantTask
             accessControl.checkCanGrantTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
         }
 
-        System.out.println("GRANT priviliges");
-        System.out.println(privileges.toString());
-        System.out.println(session.getIdentity());
-        System.out.println(session.getIdentity());
         metadata.grantTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
         return immediateFuture(null);
     }

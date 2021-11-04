@@ -296,8 +296,6 @@ public class FunctionAndTypeManager
 
     public void createFunction(SqlInvokedFunction function, boolean replace)
     {
-        System.out.println(function);
-        System.out.println(function.getDescription());
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(function.getSignature().getName().getCatalogSchemaName());
         if (!functionNamespaceManager.isPresent()) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in function namespace: %s", function.getFunctionId().getFunctionName().getCatalogSchemaName()));
