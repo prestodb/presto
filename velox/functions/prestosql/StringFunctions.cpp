@@ -30,7 +30,7 @@ namespace {
 
 /// Check if the input vector's  buffers are single referenced
 bool hasSingleReferencedBuffers(const FlatVector<StringView>* vec) {
-  for (auto& buffer : vec->getStringBuffers()) {
+  for (auto& buffer : vec->stringBuffers()) {
     if (buffer->refCount() > 1) {
       return false;
     }

@@ -46,9 +46,7 @@ class GreatestLeastTest : public functions::test::FunctionBaseTest {
     if (stringBuffersExpectedCount.has_value()) {
       ASSERT_EQ(
           *stringBuffersExpectedCount,
-          result->template asFlatVector<StringView>()
-              ->getStringBuffers()
-              .size());
+          result->template asFlatVector<StringView>()->stringBuffers().size());
     }
   }
 };

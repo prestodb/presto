@@ -287,10 +287,6 @@ class FlatVector final : public SimpleVector<T> {
     return nullptr;
   }
 
-  const std::vector<BufferPtr>& getStringBuffers() const {
-    return stringBuffers_;
-  }
-
   void ensureWritable(const SelectivityVector& rows) override;
 
  private:
