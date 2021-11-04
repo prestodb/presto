@@ -210,9 +210,16 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            Session session = stateMachine.getSession();
             WarningCollector warningCollector = stateMachine.getWarningCollector();
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, session, parameters, warningCollector);
+            ListenableFuture<?> future;
+            if (task.isSessionControl() || task.isTransactionControl()) {
+                SessionTransactionControlTask sessionTransTask = (SessionTransactionControlTask) task;
+                future = sessionTransTask.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector, stateMachine);
+            }
+            else {
+                future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector);
+            }
+
             Futures.addCallback(future, new FutureCallback<Object>()
             {
                 @Override
@@ -369,7 +376,6 @@ public class DataDefinitionExecution<T extends Statement>
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            task.setQueryStateMachine(stateMachine);
             return new DataDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
         }
     }

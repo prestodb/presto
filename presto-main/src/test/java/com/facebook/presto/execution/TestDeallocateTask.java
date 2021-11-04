@@ -81,8 +81,7 @@ public class TestDeallocateTask
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         DeallocateTask deallocateTask = new DeallocateTask();
-        deallocateTask.setQueryStateMachine(stateMachine);
-        deallocateTask.execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector);
+        deallocateTask.execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine);
         return stateMachine.getDeallocatedPreparedStatements();
     }
 }

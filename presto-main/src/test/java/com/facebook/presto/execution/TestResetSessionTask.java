@@ -91,7 +91,6 @@ public class TestResetSessionTask
         QueryStateMachine stateMachine = createQueryStateMachine("reset foo", session, false, transactionManager, executor, metadata);
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         ResetSessionTask resetSessionTask = new ResetSessionTask();
-        resetSessionTask.setQueryStateMachine(stateMachine);
         getFutureValue(resetSessionTask.execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
                 transactionManager,
@@ -99,7 +98,8 @@ public class TestResetSessionTask
                 accessControl,
                 stateMachine.getSession(),
                 emptyList(),
-                warningCollector));
+                warningCollector,
+                stateMachine));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

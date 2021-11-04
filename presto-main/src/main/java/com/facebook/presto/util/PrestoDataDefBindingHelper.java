@@ -91,7 +91,7 @@ import java.util.Map;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 
-/**F
+/**
  * Helper class for binding Statement to  DataDefinitionTask
  */
 public class PrestoDataDefBindingHelper

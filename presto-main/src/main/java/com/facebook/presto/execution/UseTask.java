@@ -25,6 +25,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
@@ -32,9 +33,11 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class UseTask
-        implements DataDefinitionTask<Use>
+        implements SessionTransactionControlTask<Use>
 {
     private QueryStateMachine stateMachine;
+    private final AtomicReference<String> setCatalog = new AtomicReference<>();
+    private final AtomicReference<String> setSchema = new AtomicReference<>();
 
     @Override
     public String getName()
@@ -43,13 +46,7 @@ public class UseTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
-    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
     {
         if (!statement.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, statement, "Catalog must be specified when session catalog is not set");
@@ -60,11 +57,17 @@ public class UseTask
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }
-            this.stateMachine.setSetCatalog(catalog);
+            stateMachine.setSetCatalog(catalog);
         }
 
-        this.stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
+        stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
 
         return immediateFuture(null);
+    }
+
+    @Override
+    public boolean isSessionControl()
+    {
+        return true;
     }
 }

@@ -34,10 +34,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class SetRoleTask
-        implements DataDefinitionTask<SetRole>
+        implements SessionTransactionControlTask<SetRole>
 {
-    private QueryStateMachine stateMachine;
-
     @Override
     public String getName()
     {
@@ -45,13 +43,7 @@ public class SetRoleTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
-    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
     {
         String catalog = createCatalogName(session, statement);
         if (statement.getType() == SetRole.Type.ROLE) {
@@ -76,7 +68,13 @@ public class SetRoleTask
             default:
                 throw new IllegalArgumentException("Unsupported type: " + statement.getType());
         }
-        this.stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
+        stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
         return immediateFuture(null);
+    }
+
+    @Override
+    public boolean isSessionControl()
+    {
+        return true;
     }
 }

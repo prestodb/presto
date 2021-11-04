@@ -27,11 +27,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+
 public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector);
+    default ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    {
+        return immediateFuture(null);
+    }
 
     default String explain(T statement, List<Expression> parameters)
     {
@@ -47,8 +52,8 @@ public interface DataDefinitionTask<T extends Statement>
         return false;
     }
 
-    default void setQueryStateMachine(QueryStateMachine stateMachine)
+    default boolean isSessionControl()
     {
-        // To be overriden by DataDefinitionTasks mainly session and transaction tasks that require QueryStateMachine
+        return false;
     }
 }

@@ -39,10 +39,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 
 public class SetSessionTask
-        implements DataDefinitionTask<SetSession>
+        implements SessionTransactionControlTask<SetSession>
 {
-    private QueryStateMachine stateMachine;
-
     @Override
     public String getName()
     {
@@ -50,13 +48,7 @@ public class SetSessionTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
-    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
     {
         QualifiedName propertyName = statement.getName();
         List<String> parts = propertyName.getParts();
@@ -95,8 +87,14 @@ public class SetSessionTask
         // verify the SQL value can be decoded by the property
         propertyMetadata.decode(objectValue);
 
-        this.stateMachine.addSetSessionProperties(propertyName.toString(), value);
+        stateMachine.addSetSessionProperties(propertyName.toString(), value);
 
         return immediateFuture(null);
+    }
+
+    @Override
+    public boolean isSessionControl()
+    {
+        return true;
     }
 }

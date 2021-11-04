@@ -29,10 +29,8 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 
 public class CommitTask
-        implements DataDefinitionTask<Commit>
+        implements SessionTransactionControlTask<Commit>
 {
-    private QueryStateMachine stateMachine;
-
     @Override
     public String getName()
     {
@@ -40,20 +38,14 @@ public class CommitTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
-    public ListenableFuture<?> execute(Commit statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(Commit statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
     {
         if (!session.getTransactionId().isPresent()) {
             throw new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress");
         }
         TransactionId transactionId = session.getTransactionId().get();
 
-        this.stateMachine.clearTransactionId();
+        stateMachine.clearTransactionId();
         return transactionManager.asyncCommit(transactionId);
     }
 

@@ -36,10 +36,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TRANSAC
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class StartTransactionTask
-        implements DataDefinitionTask<StartTransaction>
+        implements SessionTransactionControlTask<StartTransaction>
 {
-    private QueryStateMachine stateMachine;
-
     @Override
     public String getName()
     {
@@ -47,13 +45,7 @@ public class StartTransactionTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
-    public ListenableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
     {
         if (!session.isClientTransactionSupport()) {
             throw new PrestoException(StandardErrorCode.INCOMPATIBLE_CLIENT, "Client does not support transactions");

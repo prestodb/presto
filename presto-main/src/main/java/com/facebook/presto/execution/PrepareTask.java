@@ -39,10 +39,9 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PrepareTask
-        implements DataDefinitionTask<Prepare>
+        implements SessionTransactionControlTask<Prepare>
 {
     private final SqlParser sqlParser;
-    private QueryStateMachine stateMachine;
 
     @Inject
     public PrepareTask(SqlParser sqlParser)
@@ -57,19 +56,13 @@ public class PrepareTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
     public String explain(Prepare statement, List<Expression> parameters)
     {
         return "PREPARE " + statement.getName();
     }
 
     @Override
-    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine queryStateMachine)
     {
         Statement statement = prepare.getStatement();
         if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {
@@ -78,7 +71,13 @@ public class PrepareTask
         }
 
         String sql = getFormattedSql(statement, sqlParser, Optional.empty());
-        this.stateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
+        queryStateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
         return immediateFuture(null);
+    }
+
+    @Override
+    public boolean isSessionControl()
+    {
+        return true;
     }
 }

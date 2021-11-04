@@ -170,8 +170,7 @@ public class TestSetSessionTask
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executor, metadata);
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         SetSessionTask sessionTask = new SetSessionTask();
-        sessionTask.setQueryStateMachine(stateMachine);
-        getFutureValue(sessionTask.execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector));
+        getFutureValue(sessionTask.execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector, stateMachine));
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));
     }

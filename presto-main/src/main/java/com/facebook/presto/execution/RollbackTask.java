@@ -30,10 +30,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RollbackTask
-        implements DataDefinitionTask<Rollback>
+        implements SessionTransactionControlTask<Rollback>
 {
-    private QueryStateMachine stateMachine;
-
     @Override
     public String getName()
     {
@@ -41,20 +39,14 @@ public class RollbackTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
-    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
     {
         if (!session.getTransactionId().isPresent()) {
             throw new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress");
         }
         TransactionId transactionId = session.getTransactionId().get();
 
-        this.stateMachine.clearTransactionId();
+        stateMachine.clearTransactionId();
         transactionManager.asyncAbort(transactionId);
         return immediateFuture(null);
     }

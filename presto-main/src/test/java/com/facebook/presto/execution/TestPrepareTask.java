@@ -104,8 +104,7 @@ public class TestPrepareTask
         Prepare prepare = new Prepare(identifier(statementName), statement);
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         PrepareTask prepareTask = new PrepareTask(new SqlParser());
-        prepareTask.setQueryStateMachine(stateMachine);
-        prepareTask.execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector);
+        prepareTask.execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine);
         return stateMachine.getAddedPreparedStatements();
     }
 }

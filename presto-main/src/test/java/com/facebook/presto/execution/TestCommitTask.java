@@ -69,8 +69,7 @@ public class TestCommitTask
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
         CommitTask commitTask = new CommitTask();
-        commitTask.setQueryStateMachine(stateMachine);
-        getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
+        getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -89,8 +88,7 @@ public class TestCommitTask
 
         try {
             CommitTask commitTask = new CommitTask();
-            commitTask.setQueryStateMachine(stateMachine);
-            getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
+            getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine));
             fail();
         }
         catch (PrestoException e) {
@@ -115,8 +113,7 @@ public class TestCommitTask
 
         try {
             CommitTask commitTask = new CommitTask();
-            commitTask.setQueryStateMachine(stateMachine);
-            getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
+            getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine));
             fail();
         }
         catch (PrestoException e) {

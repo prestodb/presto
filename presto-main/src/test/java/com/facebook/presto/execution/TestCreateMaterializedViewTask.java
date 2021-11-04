@@ -142,7 +142,6 @@ public class TestCreateMaterializedViewTask
                 WarningCollector.NOOP);
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
-        createMaterializedViewTask.setQueryStateMachine(stateMachine);
         getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector));
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);

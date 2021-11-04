@@ -31,10 +31,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class ResetSessionTask
-        implements DataDefinitionTask<ResetSession>
+        implements SessionTransactionControlTask<ResetSession>
 {
-    private QueryStateMachine stateMachine;
-
     @Override
     public String getName()
     {
@@ -42,13 +40,7 @@ public class ResetSessionTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
-    public ListenableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
     {
         List<String> parts = statement.getName().getParts();
         if (parts.size() > 2) {
@@ -67,8 +59,14 @@ public class ResetSessionTask
                     .orElseThrow(() -> new SemanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
         }
 
-        this.stateMachine.addResetSessionProperties(statement.getName().toString());
+        stateMachine.addResetSessionProperties(statement.getName().toString());
 
         return immediateFuture(null);
+    }
+
+    @Override
+    public boolean isSessionControl()
+    {
+        return true;
     }
 }

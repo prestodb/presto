@@ -1130,7 +1130,7 @@ public class TestPrestoSparkQueryRunner
     @Test
     public void testCreateType()
     {
-        assertQueryFails("CREATE TYPE unittest.memory.num AS integer", "Creating distinct types is not yet supported");
+        assertQuerySucceeds("CREATE TYPE unittest.memory.num AS integer");
         assertQuerySucceeds("CREATE TYPE unittest.memory.pair AS (fst integer, snd integer)");
         assertQuerySucceeds("CREATE TYPE unittest.memory.pair3 AS (fst unittest.memory.pair, snd integer)");
         assertQuery("SELECT p.fst.fst FROM(SELECT CAST(ROW(CAST(ROW(1,2) AS unittest.memory.pair), 3) AS unittest.memory.pair3) AS p)", "SELECT 1");

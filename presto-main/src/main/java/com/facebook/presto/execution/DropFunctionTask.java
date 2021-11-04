@@ -58,12 +58,6 @@ public class DropFunctionTask
     }
 
     @Override
-    public void setQueryStateMachine(QueryStateMachine stateMachine)
-    {
-        this.stateMachine = stateMachine;
-    }
-
-    @Override
     public String getName()
     {
         return "DROP FUNCTION";
