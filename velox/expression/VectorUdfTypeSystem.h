@@ -33,14 +33,6 @@ template <typename T>
 struct resolver {
   using in_type = typename CppToType<T>::NativeType;
   using out_type = typename CppToType<T>::NativeType;
-
-  static variant toVariant(const in_type& t) {
-    return variant{t};
-  }
-
-  static in_type fromVariant(const variant& v) {
-    return v.value<in_type>();
-  }
 };
 
 template <typename K, typename V>
@@ -50,124 +42,36 @@ struct resolver<Map<K, V>> {
   using out_type = core::SlowMapWriter<
       typename resolver<K>::out_type,
       typename resolver<V>::out_type>;
-
-  static variant toVariant(const in_type& t) {
-    VELOX_NYI();
-  }
-
-  static variant toVariant(const out_type& t) {
-    VELOX_NYI();
-  }
-
-  static in_type fromVariant(const variant& v) {
-    VELOX_NYI();
-  }
 };
 
 template <typename... T>
 struct resolver<Row<T...>> {
   using in_type = core::RowReader<typename resolver<T>::in_type...>;
   using out_type = core::RowWriter<typename resolver<T>::out_type...>;
-
-  static variant toVariant(const in_type& t) {
-    VELOX_NYI();
-  }
-
-  static variant toVariant(const out_type& t) {
-    VELOX_NYI();
-  }
-
-  static in_type fromVariant(const variant& t) {
-    VELOX_NYI();
-  }
 };
 
 template <typename V>
 struct resolver<Array<V>> {
   using in_type = core::ArrayValReader<typename resolver<V>::in_type>;
   using out_type = core::ArrayValWriter<typename resolver<V>::out_type>;
-
-  static variant toVariant(const in_type& t) {
-    using childType = typename resolver<V>::in_type;
-    std::vector<variant> v(t.size());
-    std::transform(
-        t.begin(), t.end(), v.begin(), [](const std::optional<childType>& v) {
-          return v.has_value()
-              ? resolver<childType>::toVariant(v)
-              : variant::null(in_type::veloxType()->childAt(0)->kind());
-        });
-
-    return variant::array(std::move(v));
-  }
-
-  static variant toVariant(const out_type& t) {
-    VELOX_NYI();
-  }
-
-  static in_type fromVariant(const variant& t) {
-    using childType = typename resolver<V>::in_type;
-    VELOX_CHECK_EQ(t.kind(), TypeKind::ARRAY);
-    const auto& values = t.array();
-    in_type retVal;
-    for (auto& v : values) {
-      auto convertedVal = v.isNull()
-          ? std::optional<childType>{}
-          : std::optional<childType>{resolver<V>::fromVariant(v)};
-      retVal.append(std::move(convertedVal));
-    }
-
-    return retVal;
-  }
 };
 
 template <>
 struct resolver<Varchar> {
   using in_type = StringView;
   using out_type = StringProxy<>;
-
-  static variant toVariant(const in_type& t) {
-    VELOX_NYI();
-  }
-
-  static variant toVariant(const out_type& t) {
-    VELOX_NYI();
-  }
-
-  static in_type fromVariant(const variant& v) {
-    VELOX_NYI();
-  }
 };
 
 template <>
 struct resolver<Varbinary> {
   using in_type = StringView;
   using out_type = StringProxy<>;
-
-  static variant toVariant(const in_type& t) {
-    VELOX_NYI();
-  }
-
-  static variant toVariant(const out_type& t) {
-    VELOX_NYI();
-  }
-
-  static in_type fromVariant(const variant& v) {
-    VELOX_NYI();
-  }
 };
 
 template <typename T>
 struct resolver<std::shared_ptr<T>> {
   using in_type = std::shared_ptr<T>;
   using out_type = std::shared_ptr<T>;
-
-  static variant toVariant(const in_type& t) {
-    return variant::opaque(t);
-  }
-
-  static in_type fromVariant(const variant& v) {
-    return v.opaque<T>();
-  }
 };
 } // namespace detail
 

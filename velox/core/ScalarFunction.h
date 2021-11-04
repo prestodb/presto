@@ -156,9 +156,6 @@ class FunctionKey {
 //                    binary) and difficult to change.
 // TODO: separate metadata and execution parts of this class so that metadata
 // could be accessed without instantiating UDF object.
-// Right now `callDynamic` is the only execution-related bit and we just
-// override it as NYI in ScalarFunctionMetadata which is not very clean but
-// works.
 class IScalarFunction {
  public:
   virtual std::shared_ptr<const Type> returnType() const = 0;
@@ -166,7 +163,6 @@ class IScalarFunction {
   virtual std::string getName() const = 0;
   virtual bool isDeterministic() const = 0;
   virtual int32_t reuseStringsFromArg() const = 0;
-  virtual variant callDynamic(const std::vector<variant>& inputs) = 0;
 
   FunctionKey key() const;
   std::string signature(const std::string& name) const;
@@ -229,10 +225,6 @@ class ScalarFunctionMetadata : public IScalarFunction {
     verifyReturnTypeCompatibility();
   }
   ~ScalarFunctionMetadata() override = default;
-
-  variant callDynamic(const std::vector<variant>& /* inputs */) override {
-    VELOX_NYI("ScalarFunctionMetadata shouldn't be used for evaluation");
-  }
 
  private:
   void verifyReturnTypeCompatibility() {
@@ -371,47 +363,6 @@ class UDFHolder final
       return instance_.call(out, args...);
     } else {
       return instance_.callNullable(out, (&args)...);
-    }
-  }
-
-  variant callDynamic(const std::vector<variant>& inputs) final {
-    exec_return_type result;
-    bool isSet = evalDynamic<0>(result, inputs);
-    if (isSet) {
-      return Exec::template resolver<TReturn>::toVariant(result);
-    } else {
-      return variant{CppToType<TReturn>::typeKind};
-    }
-  }
-
- private:
-  template <int32_t offset>
-  bool evalDynamic(
-      exec_return_type& result,
-      const std::vector<variant>& /* toUnpack */,
-      const typename Exec::template resolver<TArgs>::in_type*... unpacked) {
-    // TODO: This could be possibly be optimized if we knew if the function was
-    // is_default_null_behavior.  Otherwise we might be optifying only to turn
-    // around and unoptify.
-    return callNullable(result, unpacked...);
-  }
-
-  template <
-      int32_t offset,
-      typename... Unpacked,
-      typename std::enable_if_t<offset != Metadata::num_args, int32_t> = 0>
-  bool evalDynamic(
-      exec_return_type& result,
-      const std::vector<variant>& toUnpack,
-      const Unpacked*... unpacked) {
-    auto& d = toUnpack.at(offset);
-    if (d.isNull()) {
-      const exec_type_at<offset>* nullPtr = nullptr;
-      return evalDynamic<offset + 1>(result, toUnpack, unpacked..., nullPtr);
-    } else {
-      auto converted = Exec::template resolver<
-          typename Metadata::template type_at<offset>>::fromVariant(d);
-      return evalDynamic<offset + 1>(result, toUnpack, unpacked..., &converted);
     }
   }
 };
