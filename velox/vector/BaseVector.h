@@ -603,7 +603,7 @@ class BaseVector {
   std::shared_ptr<const Type> type_;
   TypeKind typeKind_;
   BufferPtr nulls_;
-  // Caches raw pointer to 'nulls->as<uint8_t>().
+  // Caches raw pointer to 'nulls->as<uint64_t>().
   const uint64_t* rawNulls_ = nullptr;
   velox::memory::MemoryPool* pool_;
   vector_size_t length_ = 0;
