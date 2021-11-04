@@ -7,4 +7,5 @@ Velox Documentation
 
     functions
     develop
+    monthly-updates
 
