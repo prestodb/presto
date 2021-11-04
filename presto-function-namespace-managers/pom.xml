@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.259-SNAPSHOT</version>
+        <version>0.266-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -117,6 +117,12 @@
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

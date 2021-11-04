@@ -20,6 +20,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +32,8 @@ public class ColumnWriterOptions
     private final DataSize stringStatisticsLimit;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
+    private final boolean ignoreDictionaryRowGroupSizes;
+    private final int preserveDirectEncodingStripeCount;
 
     public ColumnWriterOptions(
             CompressionKind compressionKind,
@@ -38,7 +41,9 @@ public class ColumnWriterOptions
             DataSize compressionMaxBufferSize,
             DataSize stringStatisticsLimit,
             boolean integerDictionaryEncodingEnabled,
-            boolean stringDictionarySortingEnabled)
+            boolean stringDictionarySortingEnabled,
+            boolean ignoreDictionaryRowGroupSizes,
+            int preserveDirectEncodingStripeCount)
     {
         this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
@@ -47,6 +52,8 @@ public class ColumnWriterOptions
         this.stringStatisticsLimit = requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null");
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
+        this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
+        this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
     }
 
     public CompressionKind getCompressionKind()
@@ -79,6 +86,16 @@ public class ColumnWriterOptions
         return stringDictionarySortingEnabled;
     }
 
+    public boolean isIgnoreDictionaryRowGroupSizes()
+    {
+        return ignoreDictionaryRowGroupSizes;
+    }
+
+    public int getPreserveDirectEncodingStripeCount()
+    {
+        return preserveDirectEncodingStripeCount;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -92,6 +109,8 @@ public class ColumnWriterOptions
         private DataSize stringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
+        private boolean ignoreDictionaryRowGroupSizes;
+        private int preserveDirectEncodingStripeCount = DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 
         private Builder() {}
 
@@ -131,6 +150,18 @@ public class ColumnWriterOptions
             return this;
         }
 
+        public Builder setIgnoreDictionaryRowGroupSizes(boolean ignoreDictionaryRowGroupSizes)
+        {
+            this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
+            return this;
+        }
+
+        public Builder setPreserveDirectEncodingStripeCount(int preserveDirectEncodingStripeCount)
+        {
+            this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
+            return this;
+        }
+
         public ColumnWriterOptions build()
         {
             return new ColumnWriterOptions(
@@ -139,7 +170,9 @@ public class ColumnWriterOptions
                     compressionMaxBufferSize,
                     stringStatisticsLimit,
                     integerDictionaryEncodingEnabled,
-                    stringDictionarySortingEnabled);
+                    stringDictionarySortingEnabled,
+                    ignoreDictionaryRowGroupSizes,
+                    preserveDirectEncodingStripeCount);
         }
     }
 }

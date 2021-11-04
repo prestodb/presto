@@ -99,6 +99,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
+import static com.facebook.presto.common.RuntimeMetricName.GET_LAYOUT_TIME_NANOS;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
@@ -119,6 +120,7 @@ import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -382,6 +384,7 @@ public class MetadataManager
     @Override
     public TableLayoutResult getLayout(Session session, TableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
+        long startTime = System.nanoTime();
         checkArgument(!constraint.getSummary().isNone(), "Cannot get Layout if constraint is none");
 
         ConnectorId connectorId = table.getConnectorId();
@@ -391,6 +394,7 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
+        session.getRuntimeStats().addMetricValue(GET_LAYOUT_TIME_NANOS, System.nanoTime() - startTime);
 
         if (layouts.size() != 1) {
             throw new PrestoException(NOT_SUPPORTED, "Connector returned multiple layouts for table " + table);
@@ -1097,6 +1101,23 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
         return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+    }
+
+    @Override
+    public List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        if (catalog.isPresent()) {
+            ConnectorMetadata metadata = catalog.get().getMetadata();
+            ConnectorSession connectorSession = session.toConnectorSession(catalog.get().getConnectorId());
+            Optional<List<SchemaTableName>> materializedViews = metadata.getReferencedMaterializedViews(connectorSession, toSchemaTableName(tableName));
+            if (materializedViews.isPresent()) {
+                return materializedViews.get().stream().map(convertFromSchemaTableName(tableName.getCatalogName())).collect(toImmutableList());
+            }
+        }
+        return ImmutableList.of();
     }
 
     @Override

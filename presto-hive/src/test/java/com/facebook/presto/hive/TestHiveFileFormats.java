@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
@@ -26,6 +27,7 @@ import com.facebook.presto.hive.parquet.ParquetFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -61,6 +63,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -124,8 +127,8 @@ public class TestHiveFileFormats
 {
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
     private static final MetadataReader METADATA_READER = new MetadataReader();
-    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(false), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-    private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(false), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
+    private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
 
     private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -253,7 +256,7 @@ public class TestHiveFileFormats
                 .collect(toImmutableList());
 
         TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
 
         assertThatFileFormat(RCTEXT)
                 .withColumns(testColumns)
@@ -307,7 +310,7 @@ public class TestHiveFileFormats
                 .collect(toList());
 
         TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
 
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
@@ -325,7 +328,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())));
     }
 
     @Test(dataProvider = "rowCount")
@@ -338,7 +341,8 @@ public class TestHiveFileFormats
                                 .setOrcOptimizedWriterEnabled(true)
                                 .setOrcWriterValidationPercentage(100.0),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
 
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -351,7 +355,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())));
     }
 
     @Test(dataProvider = "rowCount")
@@ -364,7 +368,8 @@ public class TestHiveFileFormats
                                 .setOrcOptimizedWriterEnabled(true)
                                 .setOrcWriterValidationPercentage(100.0),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig().setParquetOptimizedWriterEnabled(true)).getSessionProperties());
+                        new ParquetFileWriterConfig().setParquetOptimizedWriterEnabled(true),
+                        new CacheConfig()).getSessionProperties());
 
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -383,14 +388,18 @@ public class TestHiveFileFormats
     public void testOrcUseColumnNames(int rowCount)
             throws Exception
     {
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                new HiveClientConfig(),
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
                 .withReadColumns(Lists.reverse(TEST_COLUMNS))
                 .withSession(session)
-                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, true, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, true, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())));
     }
 
     @Test(dataProvider = "rowCount")
@@ -494,7 +503,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(DWRF)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), NO_ENCRYPTION));
+                .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), NO_ENCRYPTION));
     }
 
     @Test(dataProvider = "rowCount")
@@ -507,7 +516,8 @@ public class TestHiveFileFormats
                                 .setOrcOptimizedWriterEnabled(true)
                                 .setOrcWriterValidationPercentage(100.0),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
 
         // DWRF does not support modern Hive types
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
@@ -522,7 +532,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), NO_ENCRYPTION));
+                .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), NO_ENCRYPTION));
     }
 
     @Test
@@ -547,7 +557,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())));
 
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -595,7 +605,7 @@ public class TestHiveFileFormats
 
         assertThatFileFormat(ORC)
                 .withColumns(columns)
-                .isFailingForPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
@@ -726,7 +736,7 @@ public class TestHiveFileFormats
                 .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageMapLongLong);
 
         String expectedMessageMapLongMapDouble = "The column column_name of table schema.table is declared as type map<bigint,bigint>, but the Parquet file ((.*?)) declares the column as type optional group column_name \\(MAP\\) \\{\n"
-                + "  repeated group map \\(MAP_KEY_VALUE\\) \\{\n"
+                + "  repeated group key_value \\(MAP_KEY_VALUE\\) \\{\n"
                 + "    required double key;\n"
                 + "    optional double value;\n"
                 + "  \\}\n"
@@ -867,8 +877,8 @@ public class TestHiveFileFormats
 
         HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
         String expectedMessageRowLongNest = "The column column_name of table schema.table is declared as type map<string,struct<s_double:int,s_int:int>>, but the Parquet file ((.*?)) declares the column as type optional group column_name \\(MAP\\) \\{\n" +
-                "  repeated group map \\(MAP_KEY_VALUE\\) \\{\n" +
-                "    required binary key \\(UTF8\\);\n" +
+                "  repeated group key_value \\(MAP_KEY_VALUE\\) \\{\n" +
+                "    required binary key \\(STRING\\);\n" +
                 "    optional group value \\{\n" +
                 "      optional int32 s_int;\n" +
                 "      optional double s_double;\n" +
@@ -913,6 +923,7 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
+                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create(storageFormat.getSerDe(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()),
                         "location",
@@ -977,6 +988,7 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
+                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create(storageFormat.getSerDe(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()),
                         "location",

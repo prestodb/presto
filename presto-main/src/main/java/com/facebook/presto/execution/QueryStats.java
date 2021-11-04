@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
@@ -279,7 +278,8 @@ public class QueryStats
             DataSize peakTotalMemoryReservation,
             DataSize peakTaskUserMemory,
             DataSize peakTaskTotalMemory,
-            DataSize peakNodeTotalMemory)
+            DataSize peakNodeTotalMemory,
+            RuntimeStats runtimeStats)
     {
         int totalTasks = 0;
         int runningTasks = 0;
@@ -325,7 +325,7 @@ public class QueryStats
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
-        RuntimeStats mergedRuntimeStats = new RuntimeStats();
+        RuntimeStats mergedRuntimeStats = RuntimeStats.copyOf(runtimeStats);
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageExecutionStats stageExecutionStats = stageInfo.getLatestAttemptExecutionInfo().getStats();
             totalTasks += stageExecutionStats.getTotalTasks();
@@ -385,10 +385,9 @@ public class QueryStats
             operatorStatsSummary.addAll(stageExecutionStats.getOperatorSummaries());
             // We prepend each metric name with the stage id to avoid merging metrics across stages.
             int stageId = stageInfo.getStageId().getId();
-            stageExecutionStats.getRuntimeStats().getMetrics().values().forEach(metric -> {
-                String metricName = String.format("S%d-%s", stageId, metric.getName());
-                mergedRuntimeStats.getMetrics().computeIfAbsent(metricName, RuntimeMetric::new);
-                mergedRuntimeStats.getMetric(metricName).mergeWith(metric);
+            stageExecutionStats.getRuntimeStats().getMetrics().forEach((name, metric) -> {
+                String metricName = String.format("S%d-%s", stageId, name);
+                mergedRuntimeStats.mergeMetric(metricName, metric);
             });
         }
 

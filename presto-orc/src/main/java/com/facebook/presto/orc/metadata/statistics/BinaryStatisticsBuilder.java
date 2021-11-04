@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -56,18 +55,11 @@ public class BinaryStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<BinaryStatistics> binaryStatistics = buildBinaryStatistics();
-        binaryStatistics.ifPresent(s -> verify(nonNullValueCount > 0));
-        return new ColumnStatistics(
-                nonNullValueCount,
-                binaryStatistics.map(s -> BINARY_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                binaryStatistics.orElse(null),
-                null);
+        if (binaryStatistics.isPresent()) {
+            verify(nonNullValueCount > 0);
+            return new BinaryColumnStatistics(nonNullValueCount, null, binaryStatistics.get());
+        }
+        return new ColumnStatistics(nonNullValueCount, null);
     }
 
     public static Optional<BinaryStatistics> mergeBinaryStatistics(List<ColumnStatistics> stats)

@@ -18,6 +18,7 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -67,6 +68,7 @@ public class ScanFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
+    private final SqlFunctionProperties sqlFunctionProperties;
     private final LocalMemoryContext pageSourceMemoryContext;
     private final LocalMemoryContext pageProcessorMemoryContext;
     private final LocalMemoryContext outputMemoryContext;
@@ -100,6 +102,7 @@ public class ScanFilterAndProjectOperator
         this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
         this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.sqlFunctionProperties = operatorContext.getSession().getSqlFunctionProperties();
         this.planNodeId = requireNonNull(sourceId, "sourceId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
@@ -250,7 +253,7 @@ public class ScanFilterAndProjectOperator
     {
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {
-            CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().getSqlFunctionProperties(), yieldSignal, cursor, pageBuilder);
+            CursorProcessorOutput output = cursorProcessor.process(sqlFunctionProperties, yieldSignal, cursor, pageBuilder);
             pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
             recordCursorInputStats(output.getProcessedRows());
@@ -283,9 +286,12 @@ public class ScanFilterAndProjectOperator
                 // update operator stats
                 page = recordProcessedInput(page);
 
-                Iterator<Optional<Page>> output = pageProcessor.process(operatorContext.getSession().getSqlFunctionProperties(), yieldSignal, pageProcessorMemoryContext, page);
+                Iterator<Optional<Page>> output = pageProcessor.process(sqlFunctionProperties, yieldSignal, pageProcessorMemoryContext, page);
                 mergingOutput.addInput(output);
             }
+
+            // stats update
+            recordInputStats();
 
             if (finishing) {
                 mergingOutput.finish();
@@ -341,6 +347,7 @@ public class ScanFilterAndProjectOperator
         long positionCount = endCompletedPositions - completedPositions;
         operatorContext.recordProcessedInput(inputBytes, positionCount);
         operatorContext.recordRawInputWithTiming(inputBytes, positionCount, endReadTimeNanos - readTimeNanos);
+        operatorContext.updateStats(pageSource.getRuntimeStats());
         completedBytes = endCompletedBytes;
         completedPositions = endCompletedPositions;
         readTimeNanos = endReadTimeNanos;
@@ -363,8 +370,6 @@ public class ScanFilterAndProjectOperator
                 blockSizeSum += block.getSizeInBytes();
             }
         }
-        // stats update
-        recordInputStats();
 
         return (blocks == null) ? page : new Page(page.getPositionCount(), blocks);
     }

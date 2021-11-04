@@ -146,7 +146,7 @@ public class PrestoSparkQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty());
+    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty());
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {
@@ -167,7 +167,6 @@ public class PrestoSparkQueryRunner
     {
         Map<String, String> properties = new HashMap<>();
         properties.put("experimental.spill-enabled", "true");
-        properties.put("experimental.join-spill-enabled", "true");
         properties.put("experimental.temp-storage-buffer-size", "1MB");
         properties.put("spark.memory-revoking-threshold", "0.0");
         properties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());

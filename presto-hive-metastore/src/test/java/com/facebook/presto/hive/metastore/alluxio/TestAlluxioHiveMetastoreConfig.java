@@ -28,7 +28,9 @@ public class TestAlluxioHiveMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(AlluxioHiveMetastoreConfig.class)
-                .setMasterAddress(null));
+                .setMasterAddress(null)
+                .setZookeeperEnabled(false)
+                .setZookeeperAddress(null));
     }
 
     @Test
@@ -36,10 +38,14 @@ public class TestAlluxioHiveMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.alluxio.master.address", "localhost:19998")
+                .put("hive.metastore.alluxio.zookeeper.enabled", "true")
+                .put("hive.metastore.alluxio.zookeeper.address", "zK1:218,ZK2:2181,ZK3:2181")
                 .build();
 
         AlluxioHiveMetastoreConfig expected = new AlluxioHiveMetastoreConfig()
-                .setMasterAddress("localhost:19998");
+                .setMasterAddress("localhost:19998")
+                .setZookeeperEnabled(true)
+                .setZookeeperAddress("zK1:218,ZK2:2181,ZK3:2181");
 
         assertFullMapping(properties, expected);
     }

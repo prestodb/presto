@@ -31,7 +31,6 @@ import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -57,8 +56,6 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
@@ -89,7 +86,6 @@ public class DistributedQueryInfoResource
 
     @GET
     public void getAllQueryInfo(@QueryParam("user") String user,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context HttpServletRequest servletRequest,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
@@ -98,7 +94,7 @@ public class DistributedQueryInfoResource
             Set<InternalNode> coordinators = internalNodeManager.getCoordinators();
             ImmutableList.Builder<ListenableFuture<List<QueryStateInfo>>> queryStateInfoFutureBuilder = ImmutableList.builder();
             for (InternalNode coordinator : coordinators) {
-                queryStateInfoFutureBuilder.add(getQueryStateFromCoordinator(xForwardedProto, uriInfo, coordinator));
+                queryStateInfoFutureBuilder.add(getQueryStateFromCoordinator(uriInfo, coordinator));
             }
             List<ListenableFuture<List<QueryStateInfo>>> queryStateInfoFutureList = queryStateInfoFutureBuilder.build();
             Futures.whenAllComplete(queryStateInfoFutureList).call(() -> {
@@ -125,7 +121,6 @@ public class DistributedQueryInfoResource
     @Path("{queryId}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getQueryStateInfo(@PathParam("queryId") QueryId queryId,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
@@ -134,13 +129,12 @@ public class DistributedQueryInfoResource
         proxyQueryInfoResponse(servletRequest, asyncResponse, uriInfo, queryId);
     }
 
-    private ListenableFuture<List<QueryStateInfo>> getQueryStateFromCoordinator(String xForwardedProto, UriInfo uriInfo, InternalNode coordinatorNode)
+    private ListenableFuture<List<QueryStateInfo>> getQueryStateFromCoordinator(UriInfo uriInfo, InternalNode coordinatorNode)
             throws IOException
     {
-        String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
         URI uri = uriInfo.getRequestUriBuilder()
                 .queryParam("includeLocalQueryOnly", true)
-                .scheme(scheme)
+                .scheme(coordinatorNode.getInternalUri().getScheme())
                 .host(coordinatorNode.getHostAndPort().toInetAddress().getHostName())
                 .port(coordinatorNode.getInternalUri().getPort())
                 .build();
@@ -159,6 +153,7 @@ public class DistributedQueryInfoResource
             asyncResponse.resume(Response.status(NOT_FOUND).type(MediaType.APPLICATION_JSON).build());
             return;
         }
+
         proxyHelper.performRequest(servletRequest, asyncResponse, uriBuilderFrom(queryInfo.get().getSelf()).replacePath(uriInfo.getPath()).build());
     }
 }

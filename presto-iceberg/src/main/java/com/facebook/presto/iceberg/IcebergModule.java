@@ -46,10 +46,12 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
+import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.StripeReader;
 import com.facebook.presto.orc.UnsupportedEncryptionLibrary;
 import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
@@ -121,6 +123,8 @@ public class IcebergModule
 
         binder.bind(CacheFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergCatalogName.class).toInstance(new IcebergCatalogName(connectorId));
+        binder.bind(IcebergResourceFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(HiveClientConfig.class);
         configBinder(binder).bindConfig(IcebergConfig.class);
@@ -188,7 +192,9 @@ public class IcebergModule
     @Provides
     public OrcFileTailSource createOrcFileTailSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
     {
-        OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
+        int expectedFileTailSizeInBytes = toIntExact(orcCacheConfig.getExpectedFileTailSize().toBytes());
+        boolean dwrfStripeCacheEnabled = orcCacheConfig.isDwrfStripeCacheEnabled();
+        OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource(expectedFileTailSizeInBytes, dwrfStripeCacheEnabled);
         if (orcCacheConfig.isFileTailCacheEnabled()) {
             Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getFileTailCacheSize().toBytes())
@@ -205,7 +211,7 @@ public class IcebergModule
 
     @Singleton
     @Provides
-    public StripeMetadataSource createStripeMetadataSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    public StripeMetadataSourceFactory createStripeMetadataSourceFactory(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
     {
         StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
         if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
@@ -227,6 +233,10 @@ public class IcebergModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
         }
-        return stripeMetadataSource;
+        StripeMetadataSourceFactory factory = StripeMetadataSourceFactory.of(stripeMetadataSource);
+        if (orcCacheConfig.isDwrfStripeCacheEnabled()) {
+            factory = new DwrfAwareStripeMetadataSourceFactory(factory);
+        }
+        return factory;
     }
 }

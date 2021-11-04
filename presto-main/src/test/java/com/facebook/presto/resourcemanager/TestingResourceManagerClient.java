@@ -36,7 +36,7 @@ class TestingResourceManagerClient
     private volatile List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = ImmutableList.of();
 
     @Override
-    public void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo)
+    public void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo, long sequenceId)
     {
         queryHeartbeats.incrementAndGet();
     }

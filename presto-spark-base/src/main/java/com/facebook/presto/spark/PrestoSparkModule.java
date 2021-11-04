@@ -61,6 +61,7 @@ import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
@@ -158,9 +159,14 @@ import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ThrowingClusterTtlProviderManager;
+import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
+import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.inject.Binder;
@@ -210,6 +216,7 @@ public class PrestoSparkModule
         // configs
         // TODO: decouple configuration properties that don't make sense on Spark
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
+        configBinder(binder).bindConfig(SimpleTtlNodeSelectorConfig.class);
         configBinder(binder).bindConfig(QueryManagerConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(QueryManagerConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(FeaturesConfig.class);
@@ -224,6 +231,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
+        configBinder(binder).bindConfig(TracingConfig.class);
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
@@ -428,6 +436,8 @@ public class PrestoSparkModule
         binder.bind(ClusterMemoryPoolManager.class).toInstance(((poolId, listener) -> {}));
         binder.bind(QueryPrerequisitesManager.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
+        binder.bind(NodeTtlFetcherManager.class).to(ThrowingNodeTtlFetcherManager.class).in(Scopes.SINGLETON);
+        binder.bind(ClusterTtlProviderManager.class).to(ThrowingClusterTtlProviderManager.class).in(Scopes.SINGLETON);
 
         // TODO: Decouple and remove: required by SessionPropertyDefaults, PluginManager, InternalResourceGroupManager, ConnectorManager
         configBinder(binder).bindConfig(NodeConfig.class);

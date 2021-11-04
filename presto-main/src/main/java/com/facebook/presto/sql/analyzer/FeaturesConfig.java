@@ -71,7 +71,7 @@ public class FeaturesConfig
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
     private JoinDistributionType joinDistributionType = PARTITIONED;
-    private DataSize joinMaxBroadcastTableSize;
+    private DataSize joinMaxBroadcastTableSize = new DataSize(100, MEGABYTE);
     private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
@@ -123,9 +123,13 @@ public class FeaturesConfig
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
-    private boolean joinSpillingEnabled;
+    private boolean joinSpillingEnabled = true;
+    private boolean aggregationSpillEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
+    private boolean dedupBasedDistinctAggregationSpillEnabled;
     private boolean orderByAggregationSpillEnabled = true;
+    private boolean windowSpillEnabled = true;
+    private boolean orderBySpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -203,6 +207,8 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
 
     private boolean queryOptimizationWithMaterializedViewEnabled;
+    private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
+    private boolean verboseRuntimeStatsEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -277,6 +283,13 @@ public class FeaturesConfig
         ALWAYS, // Always do partial aggregation
         NEVER, // Never do partial aggregation
         AUTOMATIC // Let the optimizer decide for each aggregation
+    }
+
+    public enum AggregationIfToFilterRewriteStrategy
+    {
+        DISABLED,
+        FILTER_WITH_IF, // Rewrites AGG(IF(condition, expr)) to AGG(IF(condition, expr)) FILTER (WHERE condition).
+        UNWRAP_IF // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition).
     }
 
     public double getCpuCostWeight()
@@ -447,6 +460,7 @@ public class FeaturesConfig
         return this;
     }
 
+    @NotNull
     public DataSize getJoinMaxBroadcastTableSize()
     {
         return joinMaxBroadcastTableSize;
@@ -902,8 +916,21 @@ public class FeaturesConfig
         return this;
     }
 
+    @Config("experimental.aggregation-spill-enabled")
+    @ConfigDescription("Spill aggregations if spill is enabled")
+    public FeaturesConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
+    {
+        this.aggregationSpillEnabled = aggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isAggregationSpillEnabled()
+    {
+        return aggregationSpillEnabled;
+    }
+
     @Config("experimental.distinct-aggregation-spill-enabled")
-    @ConfigDescription("Spill distinct aggregations if spill is enabled")
+    @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
     public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
     {
         this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
@@ -915,8 +942,21 @@ public class FeaturesConfig
         return distinctAggregationSpillEnabled;
     }
 
+    @Config("experimental.dedup-based-distinct-aggregation-spill-enabled")
+    @ConfigDescription("Dedup input data for Distinct Aggregates before spilling")
+    public FeaturesConfig setDedupBasedDistinctAggregationSpillEnabled(boolean dedupBasedDistinctAggregationSpillEnabled)
+    {
+        this.dedupBasedDistinctAggregationSpillEnabled = dedupBasedDistinctAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isDedupBasedDistinctAggregationSpillEnabled()
+    {
+        return dedupBasedDistinctAggregationSpillEnabled;
+    }
+
     @Config("experimental.order-by-aggregation-spill-enabled")
-    @ConfigDescription("Spill order-by aggregations if spill is enabled")
+    @ConfigDescription("Spill order-by aggregations if aggregation spill is enabled")
     public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
     {
         this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
@@ -928,10 +968,30 @@ public class FeaturesConfig
         return orderByAggregationSpillEnabled;
     }
 
-    @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
-    public boolean isSpillEnabledIfJoinSpillingIsEnabled()
+    @Config("experimental.window-spill-enabled")
+    @ConfigDescription("Enable Window Operator Spilling if spill is enabled")
+    public FeaturesConfig setWindowSpillEnabled(boolean windowSpillEnabled)
     {
-        return !isJoinSpillingEnabled() || isSpillEnabled();
+        this.windowSpillEnabled = windowSpillEnabled;
+        return this;
+    }
+
+    public boolean isWindowSpillEnabled()
+    {
+        return windowSpillEnabled;
+    }
+
+    @Config("experimental.order-by-spill-enabled")
+    @ConfigDescription("Enable Order-by Operator Spilling if spill is enabled")
+    public FeaturesConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
+    {
+        this.orderBySpillEnabled = orderBySpillEnabled;
+        return this;
+    }
+
+    public boolean isOrderBySpillEnabled()
+    {
+        return orderBySpillEnabled;
     }
 
     public boolean isIterativeOptimizerEnabled()
@@ -1784,6 +1844,32 @@ public class FeaturesConfig
     public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
     {
         this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isVerboseRuntimeStatsEnabled()
+    {
+        return verboseRuntimeStatsEnabled;
+    }
+
+    @Config("verbose-runtime-stats-enabled")
+    @ConfigDescription("Enable logging all runtime stats.")
+    public FeaturesConfig setVerboseRuntimeStatsEnabled(boolean value)
+    {
+        this.verboseRuntimeStatsEnabled = value;
+        return this;
+    }
+
+    public AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy()
+    {
+        return aggregationIfToFilterRewriteStrategy;
+    }
+
+    @Config("optimizer.aggregation-if-to-filter-rewrite-strategy")
+    @ConfigDescription("Set the strategy used to rewrite AGG IF to AGG FILTER")
+    public FeaturesConfig setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy strategy)
+    {
+        this.aggregationIfToFilterRewriteStrategy = strategy;
         return this;
     }
 }

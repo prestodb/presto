@@ -117,33 +117,37 @@ public class MapColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
         ColumnarMap columnarMap = toColumnarMap(block);
-        writeColumnarMap(columnarMap);
+        return writeColumnarMap(columnarMap);
     }
 
-    private void writeColumnarMap(ColumnarMap columnarMap)
+    private long writeColumnarMap(ColumnarMap columnarMap)
     {
         // write nulls and lengths
+        int blockNonNullValueCount = 0;
         for (int position = 0; position < columnarMap.getPositionCount(); position++) {
             boolean present = !columnarMap.isNull(position);
             presentStream.writeBoolean(present);
             if (present) {
-                nonNullValueCount++;
+                blockNonNullValueCount++;
                 lengthStream.writeLong(columnarMap.getEntryCount(position));
             }
         }
 
         // write keys and value
         Block keysBlock = columnarMap.getKeysBlock();
+        long childRawSize = 0;
         if (keysBlock.getPositionCount() > 0) {
-            keyWriter.writeBlock(keysBlock);
-            valueWriter.writeBlock(columnarMap.getValuesBlock());
+            childRawSize += keyWriter.writeBlock(keysBlock);
+            childRawSize += valueWriter.writeBlock(columnarMap.getValuesBlock());
         }
+        nonNullValueCount += blockNonNullValueCount;
+        return (columnarMap.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
     }
 
     @Override
@@ -151,7 +155,7 @@ public class MapColumnWriter
     {
         checkState(!closed);
 
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;

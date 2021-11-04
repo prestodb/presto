@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -53,9 +54,12 @@ import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPO
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class SimpleNodeSelector
         implements NodeSelector
@@ -136,7 +140,8 @@ public class SimpleNodeSelector
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
-        NodeSelection randomNodeSelection = new RandomNodeSelection(nodeMap, includeCoordinator, minCandidates, maxTasksPerStage, existingTasks);
+        List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
+        NodeSelection randomNodeSelection = new RandomNodeSelection(eligibleNodes, minCandidates);
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
@@ -220,7 +225,7 @@ public class SimpleNodeSelector
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
-    private Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, ToIntFunction<InternalNode> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount, NodeAssignmentStats assignmentStats)
+    protected Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, ToIntFunction<InternalNode> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount, NodeAssignmentStats assignmentStats)
     {
         int min = Integer.MAX_VALUE;
         InternalNode chosenNode = null;
@@ -260,5 +265,24 @@ public class SimpleNodeSelector
         }
         nodeSelectionStats.incrementNonPreferredNodeSelectedCount();
         return Optional.of(new InternalNodeInfo(chosenNode, false));
+    }
+
+    private List<InternalNode> getEligibleNodes(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
+    {
+        List<InternalNode> existingNodes = existingTasks.stream()
+                .map(remoteTask -> nodeMap.getActiveNodesByNodeId().get(remoteTask.getNodeId()))
+                // nodes may sporadically disappear from the nodeMap if the announcement is delayed
+                .filter(Objects::nonNull)
+                .collect(toList());
+
+        int alreadySelectedNodeCount = existingNodes.size();
+        int nodeCount = nodeMap.getActiveNodesByNodeId().size();
+
+        if (alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
+            List<InternalNode> moreNodes = selectNodes(limit - alreadySelectedNodeCount, randomizedNodes(nodeMap, includeCoordinator, newHashSet(existingNodes)));
+            existingNodes.addAll(moreNodes);
+        }
+        verify(existingNodes.stream().allMatch(Objects::nonNull), "existingNodes list must not contain any nulls");
+        return existingNodes;
     }
 }

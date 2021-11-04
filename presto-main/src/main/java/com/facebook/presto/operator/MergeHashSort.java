@@ -49,7 +49,7 @@ public class MergeHashSort
      */
     public WorkProcessor<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal)
     {
-        InterpretedHashGenerator hashGenerator = createHashGenerator(keyTypes);
+        InterpretedHashGenerator hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(keyTypes);
         return mergeSortedPages(
                 channels,
                 createHashPageWithPositionComparator(hashGenerator),
@@ -85,14 +85,5 @@ public class MergeHashSort
 
             return Long.compare(leftHash, rightHash);
         };
-    }
-
-    private static InterpretedHashGenerator createHashGenerator(List<Type> keyTypes)
-    {
-        int[] hashChannels = new int[keyTypes.size()];
-        for (int i = 0; i < keyTypes.size(); i++) {
-            hashChannels[i] = i;
-        }
-        return new InterpretedHashGenerator(keyTypes, hashChannels);
     }
 }

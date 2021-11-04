@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
@@ -45,7 +46,7 @@ import static org.testng.Assert.fail;
 public class TestOrcRecordReaderDwrfStripeCaching
         extends AbstractTestDwrfStripeCaching
 {
-    private static final int READ_TAIL_SIZE = 64;
+    private static final int READ_TAIL_SIZE_IN_BYTES = 256;
 
     @Test(dataProvider = "Stripe cache for ALL stripes with mode BOTH")
     public void testBothAllStripes(File orcFile)
@@ -148,13 +149,14 @@ public class TestOrcRecordReaderDwrfStripeCaching
             OrcReader orcReader = new OrcReader(
                     orcDataSource,
                     DWRF,
-                    new StorageOrcFileTailSource(READ_TAIL_SIZE, true),
+                    new StorageOrcFileTailSource(READ_TAIL_SIZE_IN_BYTES, true),
                     dwrfAwareFactory,
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     orcReaderOptions,
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             assertRecordValues(orcDataSource, orcReader);
 
@@ -172,13 +174,14 @@ public class TestOrcRecordReaderDwrfStripeCaching
             OrcReader orcReader = new OrcReader(
                     orcDataSource,
                     DWRF,
-                    new StorageOrcFileTailSource(READ_TAIL_SIZE, false),
+                    new StorageOrcFileTailSource(READ_TAIL_SIZE_IN_BYTES, false),
                     dwrfAwareFactory,
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             assertRecordValues(orcDataSource, orcReader);
         }

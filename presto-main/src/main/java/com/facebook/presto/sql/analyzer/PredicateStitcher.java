@@ -18,17 +18,21 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 
@@ -44,6 +48,13 @@ import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Rewrite queries using materialized views and replacing them with given `Expression` in `predicates` map.
+ * This is used to query non-refreshed partitions of view by directly querying the base tables. Not all query
+ * shapes are supported.
+ * Supported: Basic Selects and Group By, Non-lateral joins, WITH, UNNEST, VALUES, Set operations, Sampled/aliased relations
+ * Not supported: Lateral joins, Subqueries in WHERE
+ */
 public class PredicateStitcher
         extends AstVisitor<Node, PredicateStitcher.PredicateStitcherContext>
 {
@@ -54,12 +65,6 @@ public class PredicateStitcher
     {
         this.session = requireNonNull(session, "session is null");
         this.predicates = requireNonNull(predicates, "predicates is null");
-    }
-
-    @Override
-    public Node process(Node node, PredicateStitcherContext context)
-    {
-        return super.process(node, context);
     }
 
     @Override
@@ -108,6 +113,12 @@ public class PredicateStitcher
     }
 
     @Override
+    protected Node visitValues(Values node, PredicateStitcherContext context)
+    {
+        return node;
+    }
+
+    @Override
     protected Node visitWith(With node, PredicateStitcherContext context)
     {
         List<WithQuery> rewrittenWithQueries = node.getQueries().stream()
@@ -137,6 +148,29 @@ public class PredicateStitcher
                 .map(relation -> (Relation) process(relation, context))
                 .collect(toImmutableList());
         return new Union(rewrittenRelations, node.isDistinct());
+    }
+
+    @Override
+    protected Node visitExcept(Except node, PredicateStitcherContext context)
+    {
+        Relation rewrittenLeft = (Relation) process(node.getLeft(), context);
+        Relation rewrittenRight = (Relation) process(node.getRight(), context);
+        return new Except(rewrittenLeft, rewrittenRight, node.isDistinct());
+    }
+
+    @Override
+    protected Node visitIntersect(Intersect node, PredicateStitcherContext context)
+    {
+        List<Relation> rewrittenRelations = node.getRelations().stream()
+                .map(relation -> (Relation) process(relation, context))
+                .collect(toImmutableList());
+        return new Intersect(rewrittenRelations, node.isDistinct());
+    }
+
+    @Override
+    protected Node visitSampledRelation(SampledRelation node, PredicateStitcherContext context)
+    {
+        return new SampledRelation((Relation) process(node.getRelation(), context), node.getType(), node.getSamplePercentage());
     }
 
     @Override

@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.Identity;
@@ -65,14 +65,12 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
-import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.NOT_VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Multimaps.forMap;
 import static com.google.common.collect.Multimaps.unmodifiableMultimap;
 import static java.lang.String.format;
@@ -159,6 +157,10 @@ public class Analysis
 
     // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
+
+    private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
+
+    private Optional<String> expandedQuery = Optional.empty();
 
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -659,7 +661,7 @@ public class Analysis
         tablesForView.pop();
     }
 
-    public void registerMaterializedViewForAnalysis(Table materializedView)
+    public void registerMaterializedViewForAnalysis(QualifiedObjectName materializedViewName, Table materializedView, String materializedViewSql)
     {
         requireNonNull(materializedView, "materializedView is null");
         if (materializedViewAnalysisStateMap.containsKey(materializedView)) {
@@ -668,6 +670,8 @@ public class Analysis
         else {
             materializedViewAnalysisStateMap.put(materializedView, VISITING);
         }
+
+        materializedViews.put(materializedViewName, materializedViewSql);
     }
 
     public void unregisterMaterializedViewForAnalysis(Table materializedView)
@@ -788,7 +792,45 @@ public class Analysis
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferencesForAccessControl(Session session)
     {
-        return isCheckAccessControlOnUtilizedColumnsOnly(session) ? utilizedTableColumnReferences : tableColumnReferences;
+        Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> references = isCheckAccessControlOnUtilizedColumnsOnly(session) ? utilizedTableColumnReferences : tableColumnReferences;
+        return buildMaterializedViewAccessControl(references);
+    }
+
+    /**
+     * For a query on materialized view, only check the actual required access controls for its base tables. For the materialized view,
+     * will not check access control by replacing with AllowAllAccessControl.
+     **/
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> buildMaterializedViewAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences)
+    {
+        if (!(getStatement() instanceof Query) || materializedViews.isEmpty()) {
+            return tableColumnReferences;
+        }
+
+        Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> newTableColumnReferences = new LinkedHashMap<>();
+
+        tableColumnReferences.forEach((accessControlInfo, references) -> {
+            AccessControlInfo allowAllAccessControlInfo = new AccessControlInfo(new AllowAllAccessControl(), accessControlInfo.getIdentity());
+            Map<QualifiedObjectName, Set<String>> newAllowAllReferences = newTableColumnReferences.getOrDefault(allowAllAccessControlInfo, new LinkedHashMap<>());
+
+            Map<QualifiedObjectName, Set<String>> newOtherReferences = new LinkedHashMap<>();
+
+            references.forEach((table, columns) -> {
+                if (materializedViews.containsKey(table)) {
+                    newAllowAllReferences.computeIfAbsent(table, key -> new HashSet<>()).addAll(columns);
+                }
+                else {
+                    newOtherReferences.put(table, columns);
+                }
+            });
+            if (!newAllowAllReferences.isEmpty()) {
+                newTableColumnReferences.put(allowAllAccessControlInfo, newAllowAllReferences);
+            }
+            if (!newOtherReferences.isEmpty()) {
+                newTableColumnReferences.put(accessControlInfo, newOtherReferences);
+            }
+        });
+
+        return newTableColumnReferences;
     }
 
     public void markRedundantOrderBy(OrderBy orderBy)
@@ -801,13 +843,14 @@ public class Analysis
         return redundantOrderBy.contains(NodeRef.of(orderBy));
     }
 
-    public Map<String, Map<SchemaTableName, String>> getOriginalColumnMapping(Node node)
+    public void setExpandedQuery(String expandedQuery)
     {
-        return getOutputDescriptor(node).getVisibleFields().stream()
-                .filter(field -> field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent())
-                .collect(toImmutableMap(
-                        field -> field.getName().get(),
-                        field -> ImmutableMap.of(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get())));
+        this.expandedQuery = Optional.of(expandedQuery);
+    }
+
+    public Optional<String> getExpandedQuery()
+    {
+        return expandedQuery;
     }
 
     @Immutable

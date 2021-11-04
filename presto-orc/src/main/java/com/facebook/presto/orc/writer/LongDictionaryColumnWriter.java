@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.array.Arrays;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -30,13 +29,12 @@ import com.facebook.presto.orc.stream.LongOutputStreamDwrf;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
@@ -53,7 +51,7 @@ public class LongDictionaryColumnWriter
     private final LongOutputStream dictionaryDataStream;
     private final int typeSize;
 
-    private LongDictionary dictionary;
+    private LongDictionaryBuilder dictionary;
     private IntegerStatisticsBuilder statisticsBuilder;
     private ColumnEncoding columnEncoding;
     private LongColumnWriter directColumnWriter;
@@ -72,7 +70,7 @@ public class LongDictionaryColumnWriter
         checkArgument(orcEncoding == DWRF, "Long dictionary encoding is only supported in DWRF");
         checkArgument(type instanceof FixedWidthType, "Not a fixed width type");
         this.dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
-        this.dictionary = new LongDictionary(10_000);
+        this.dictionary = new LongDictionaryBuilder(10_000);
         this.typeSize = ((FixedWidthType) type).getFixedSize();
         this.statisticsBuilder = new IntegerStatisticsBuilder();
     }
@@ -86,7 +84,11 @@ public class LongDictionaryColumnWriter
     @Override
     public int getDictionaryBytes()
     {
-        return dictionary.size() * typeSize;
+        // This method measures the dictionary size required for the reader to decode.
+        // The reader uses long[] array to hold the contents of the dictionary.
+        // @See com.facebook.presto.orc.reader.LongDictionarySelectiveStreamReader.dictionary
+        // So always multiply by the Long.BYTES size instead of typeSize.
+        return dictionary.size() * Long.BYTES;
     }
 
     @Override
@@ -109,8 +111,8 @@ public class LongDictionaryColumnWriter
     protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
         if (dictionaryIndexCount > 0) {
-            directValues = Arrays.ensureCapacity(directValues, dictionaryIndexCount);
-            directNulls = Arrays.ensureCapacity(directNulls, dictionaryIndexCount);
+            directValues = ensureCapacity(directValues, dictionaryIndexCount);
+            directNulls = ensureCapacity(directNulls, dictionaryIndexCount);
             for (int i = 0; i < dictionaryIndexCount; i++) {
                 if (dictionaryIndexes[i] != NULL_INDEX) {
                     directValues[i] = dictionary.getValue(dictionaryIndexes[i]);
@@ -146,7 +148,7 @@ public class LongDictionaryColumnWriter
             }
             else {
                 long value = type.getLong(block, position);
-                index = dictionary.addIfNotExists(value);
+                index = dictionary.putIfAbsent(value);
                 statisticsBuilder.addValue(value);
                 rawBytes += typeSize;
                 nonNullValueCount++;
@@ -154,7 +156,8 @@ public class LongDictionaryColumnWriter
             rowGroupIndexes[rowGroupValueCount] = index;
             rowGroupValueCount++;
         }
-        return new BlockStatistics(nonNullValueCount, rawBytes);
+        long rawBytesIncludingNulls = rawBytes + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        return new BlockStatistics(nonNullValueCount, rawBytes, rawBytesIncludingNulls);
     }
 
     @Override
@@ -225,74 +228,10 @@ public class LongDictionaryColumnWriter
     protected void resetDictionary()
     {
         columnEncoding = null;
-        dictionary = new LongDictionary(10_000);
+        dictionary = new LongDictionaryBuilder(10_000);
         dictionaryDataStream.reset();
         statisticsBuilder = new IntegerStatisticsBuilder();
         directValues = null;
         directNulls = null;
-    }
-
-    private static class Long2IntMapWithByteSize
-            extends Long2IntOpenHashMap
-    {
-        public Long2IntMapWithByteSize(int expectedEntries, int unusedValue)
-        {
-            super(expectedEntries);
-            this.defaultReturnValue(unusedValue);
-        }
-
-        public long getRetainedBytes()
-        {
-            return sizeOf(key) + sizeOf(value);
-        }
-    }
-
-    private static class LongDictionary
-    {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDictionary.class).instanceSize() +
-                ClassLayout.parseClass(Long2IntMapWithByteSize.class).instanceSize() +
-                ClassLayout.parseClass(LongArrayList.class).instanceSize();
-
-        private static final int UNUSED_VALUE = -1;
-        private final Long2IntMapWithByteSize dictionary;
-        private final LongArrayList elements;
-
-        public LongDictionary(int expectedEntries)
-        {
-            this.dictionary = new Long2IntMapWithByteSize(expectedEntries, UNUSED_VALUE);
-            this.elements = new LongArrayList(expectedEntries);
-        }
-
-        public long getRetainedBytes()
-        {
-            return INSTANCE_SIZE + dictionary.getRetainedBytes() + sizeOf(elements.elements());
-        }
-
-        public int addIfNotExists(long value)
-        {
-            int newPosition = dictionary.size();
-            int existingPosition = dictionary.putIfAbsent(value, newPosition);
-            if (existingPosition == UNUSED_VALUE) {
-                elements.add(value);
-                return newPosition;
-            }
-            return existingPosition;
-        }
-
-        public int size()
-        {
-            checkState(elements.size() == dictionary.size(), "size mismatch");
-            return elements.size();
-        }
-
-        public long[] elements()
-        {
-            return elements.elements();
-        }
-
-        public long getValue(int index)
-        {
-            return elements.getLong(index);
-        }
     }
 }

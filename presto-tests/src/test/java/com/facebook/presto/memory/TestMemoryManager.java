@@ -389,15 +389,22 @@ public class TestMemoryManager
     public void testReservedPoolDisabledMultiCoordinator()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
+        Map<String, String> rmProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.reserved-pool-enabled", "false")
-                .put("query.low-memory-killer.delay", "5s")
-                .put("query.low-memory-killer.policy", "total-reservation")
                 .put("resource-manager.memory-pool-fetch-interval", "10ms")
                 .put("resource-manager.query-heartbeat-interval", "10ms")
                 .build();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties, 2)) {
+        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
+                .put("query.low-memory-killer.delay", "5s")
+                .put("query.low-memory-killer.policy", "total-reservation")
+                .build();
+
+        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-enabled", "false")
+                .build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(rmProperties, coordinatorProperties, extraProperties, 2)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingPrestoServer server : queryRunner.getServers()) {
@@ -433,7 +440,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 300_000)
+    @Test(timeOut = 60_000)
     public void testClusterPoolsMultiCoordinator()
             throws Exception
     {
@@ -444,7 +451,7 @@ public class TestMemoryManager
                 .put("resource-manager.node-status-timeout", "5s")
                 .build();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties, 2)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(properties, ImmutableMap.of(), properties, 2)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingPrestoServer server : queryRunner.getServers()) {
@@ -459,7 +466,7 @@ public class TestMemoryManager
                 queryFutures.add(executor.submit(() -> queryRunner.execute(coordinator, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
 
-            ClusterMemoryManager memoryManager = queryRunner.getCoordinators().get(0).getClusterMemoryManager();
+            ClusterMemoryManager memoryManager = queryRunner.getCoordinator(0).getClusterMemoryManager();
             ClusterMemoryPoolInfo reservedPool;
             while ((reservedPool = memoryManager.getClusterInfo(RESERVED_POOL)) == null) {
                 MILLISECONDS.sleep(10);
@@ -469,22 +476,27 @@ public class TestMemoryManager
             assertNotNull(generalPool);
 
             // Wait for the queries to start running and get assigned to the expected pools
-            while (generalPool.getAssignedQueries() != 1 || reservedPool.getAssignedQueries() != 1 || generalPool.getBlockedNodes() != 4 || reservedPool.getBlockedNodes() != 4) {
+            while (generalPool.getAssignedQueries() != 1 || reservedPool.getAssignedQueries() != 1 || generalPool.getBlockedNodes() != 3 || reservedPool.getBlockedNodes() != 3) {
                 generalPool = memoryManager.getClusterInfo(GENERAL_POOL);
                 reservedPool = memoryManager.getClusterInfo(RESERVED_POOL);
                 MILLISECONDS.sleep(10);
             }
 
             // Make sure the queries are blocked
-            List<BasicQueryInfo> currentQueryInfos = queryRunner.getCoordinators().stream()
-                    .map(TestingPrestoServer::getQueryManager)
-                    .map(QueryManager::getQueries)
-                    .flatMap(Collection::stream)
-                    .collect(toImmutableList());
+            List<BasicQueryInfo> currentQueryInfos;
+            do {
+                currentQueryInfos = queryRunner.getCoordinators().stream()
+                        .map(TestingPrestoServer::getQueryManager)
+                        .map(QueryManager::getQueries)
+                        .flatMap(Collection::stream)
+                        .collect(toImmutableList());
+                MILLISECONDS.sleep(10);
+            } while (currentQueryInfos.size() != 2);
+
             for (BasicQueryInfo info : currentQueryInfos) {
                 assertFalse(info.getState().isDone());
             }
-            assertEquals(currentQueryInfos.size(), 2);
+
             // Check that the pool information propagated to the query objects
             assertNotEquals(currentQueryInfos.get(0).getMemoryPool(), currentQueryInfos.get(1).getMemoryPool());
 

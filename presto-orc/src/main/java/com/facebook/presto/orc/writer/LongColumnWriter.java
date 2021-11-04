@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
@@ -60,6 +61,7 @@ public class LongColumnWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongColumnWriter.class).instanceSize();
     private final int column;
     private final Type type;
+    private final long typeSize;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream dataStream;
@@ -87,8 +89,11 @@ public class LongColumnWriter
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
+        checkArgument(type instanceof FixedWidthType, "Type is not instance of FixedWidthType");
+
         this.column = column;
         this.type = requireNonNull(type, "type is null");
+        this.typeSize = ((FixedWidthType) type).getFixedSize();
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         if (orcEncoding == DWRF) {
             this.columnEncoding = new ColumnEncoding(DIRECT, 0);
@@ -118,7 +123,7 @@ public class LongColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -129,13 +134,16 @@ public class LongColumnWriter
         }
 
         // record values
+        int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 long value = type.getLong(block, position);
                 dataStream.writeLong(value);
                 statisticsBuilder.addValue(value);
+                nonNullValueCount++;
             }
         }
+        return nonNullValueCount * typeSize + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
     @Override

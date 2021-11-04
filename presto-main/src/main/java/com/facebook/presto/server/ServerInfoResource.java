@@ -27,7 +27,6 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import java.util.Optional;
@@ -54,6 +53,7 @@ public class ServerInfoResource
     private final GracefulShutdownHandler shutdownHandler;
     private final long startTime = System.nanoTime();
     private final NodeResourceStatusProvider nodeResourceStatusProvider;
+    private NodeState nodeState = ACTIVE;
 
     @Inject
     public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider)
@@ -90,11 +90,14 @@ public class ServerInfoResource
                 return Response.ok().build();
             case ACTIVE:
             case INACTIVE:
-                throw new WebApplicationException(Response
-                        .status(BAD_REQUEST)
-                        .type(MediaType.TEXT_PLAIN)
-                        .entity(format("Invalid state transition to %s", state))
-                        .build());
+                if (shutdownHandler.isShutdownRequested()) {
+                    return Response.status(BAD_REQUEST)
+                            .type(TEXT_PLAIN)
+                            .entity("Cluster is shutting down")
+                            .build();
+                }
+                nodeState = state;
+                return Response.ok().build();
             default:
                 return Response.status(BAD_REQUEST)
                         .type(TEXT_PLAIN)
@@ -112,13 +115,11 @@ public class ServerInfoResource
         if (shutdownHandler.isShutdownRequested()) {
             return SHUTTING_DOWN;
         }
+        else if (!nodeResourceStatusProvider.hasResources()) {
+            return INACTIVE;
+        }
         else {
-            if (nodeResourceStatusProvider.hasResources()) {
-                return ACTIVE;
-            }
-            else {
-                return INACTIVE;
-            }
+            return nodeState;
         }
     }
 

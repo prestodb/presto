@@ -43,7 +43,7 @@ import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
-import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -141,7 +141,7 @@ public class IcebergPageSourceProvider
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final TypeManager typeManager;
     private final OrcFileTailSource orcFileTailSource;
-    private final StripeMetadataSource stripeMetadataSource;
+    private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
     private final HiveClientConfig hiveClientConfig;
 
@@ -151,7 +151,7 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             TypeManager typeManager,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             HiveDwrfEncryptionProvider dwrfEncryptionProvider,
             HiveClientConfig hiveClientConfig)
     {
@@ -159,7 +159,7 @@ public class IcebergPageSourceProvider
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
-        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.stripeMetadataSourceFactory = requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
         this.hiveClientConfig = requireNonNull(hiveClientConfig, "hiveClientConfig is null");
     }
@@ -271,7 +271,7 @@ public class IcebergPageSourceProvider
                         isOrcBloomFiltersEnabled(session),
                         hiveClientConfig.getDomainCompactionThreshold(),
                         orcFileTailSource,
-                        stripeMetadataSource,
+                        stripeMetadataSourceFactory,
                         fileFormatDataSourceStats,
                         Optional.empty(),
                         dwrfEncryptionProvider);
@@ -368,7 +368,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), namesBuilder.build());
+            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), namesBuilder.build(), new RuntimeStats());
         }
         catch (Exception e) {
             try {
@@ -434,7 +434,7 @@ public class IcebergPageSourceProvider
             boolean orcBloomFiltersEnabled,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             FileFormatDataSourceStats stats,
             Optional<EncryptionInformation> encryptionInformation,
             DwrfEncryptionProvider dwrfEncryptionProvider)
@@ -455,16 +455,18 @@ public class IcebergPageSourceProvider
 
             // Todo: pass real columns to ProjectionBasedDwrfKeyProvider instead of ImmutableList.of()
             DwrfKeyProvider dwrfKeyProvider = new ProjectionBasedDwrfKeyProvider(encryptionInformation, ImmutableList.of(), true, path);
+            RuntimeStats runtimeStats = new RuntimeStats();
             OrcReader reader = new OrcReader(
                     orcDataSource,
                     orcEncoding,
                     orcFileTailSource,
-                    stripeMetadataSource,
+                    stripeMetadataSourceFactory,
                     new HiveOrcAggregatedMemoryContext(),
                     options,
                     isCacheable,
                     dwrfEncryptionProvider,
-                    dwrfKeyProvider);
+                    dwrfKeyProvider,
+                    runtimeStats);
 
             List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -572,7 +574,7 @@ public class IcebergPageSourceProvider
                     typeManager,
                     systemMemoryUsage,
                     stats,
-                    new RuntimeStats());
+                    runtimeStats);
         }
         catch (Exception e) {
             if (orcDataSource != null) {

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;

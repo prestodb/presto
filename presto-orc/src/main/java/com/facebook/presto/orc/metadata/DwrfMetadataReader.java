@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
@@ -42,17 +43,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.sun.management.ThreadMXBean;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.SortedMap;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
@@ -68,11 +72,7 @@ import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTrunca
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
-import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
-import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
@@ -81,10 +81,20 @@ import static java.util.Objects.requireNonNull;
 public class DwrfMetadataReader
         implements MetadataReader
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
+
+    private final RuntimeStats runtimeStats;
+
+    public DwrfMetadataReader(RuntimeStats runtimeStats)
+    {
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+    }
+
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
 
@@ -96,6 +106,7 @@ public class DwrfMetadataReader
             stripeCacheLength = OptionalInt.of(postScript.getCacheSize());
             stripeCacheMode = Optional.of(toStripeCacheMode(postScript.getCacheMode()));
         }
+        runtimeStats.addMetricValue("DwrfReadPostScriptTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
                 ImmutableList.of(),
@@ -123,6 +134,7 @@ public class DwrfMetadataReader
             Optional<OrcDecompressor> decompressor)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
         List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
@@ -136,10 +148,13 @@ public class DwrfMetadataReader
             EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider());
             fileStats = decryptAndCombineFileStatistics(hiveWriterVersion, encryption.get(), encryptionLibrary, fileStats, fileStripes, keys, orcDataSource, decompressor);
         }
+        runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
+        OptionalLong rawSize = footer.hasRawDataSize() ? OptionalLong.of(footer.getRawDataSize()) : OptionalLong.empty();
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
+                rawSize,
                 fileStripes,
                 types,
                 fileStats,
@@ -285,12 +300,14 @@ public class DwrfMetadataReader
         if (keyMetadata.isEmpty()) {
             keyMetadata = previousKeyMetadata;
         }
+        OptionalLong rawDataSize = stripeInformation.hasRawDataSize() ? OptionalLong.of(stripeInformation.getRawDataSize()) : OptionalLong.empty();
         return new StripeInformation(
                 stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
+                rawDataSize,
                 keyMetadata);
     }
 
@@ -298,8 +315,10 @@ public class DwrfMetadataReader
     public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
+        runtimeStats.addMetricValue("DwrfReadStripeFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new StripeFooter(
                 toStream(orcDataSourceId, stripeFooter.getStreamsList()),
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
@@ -402,8 +421,10 @@ public class DwrfMetadataReader
     public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.RowIndex rowIndex = DwrfProto.RowIndex.parseFrom(input);
+        runtimeStats.addMetricValue("DwrfReadRowIndexesTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry)));
     }
 
@@ -451,36 +472,8 @@ public class DwrfMetadataReader
 
     private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup)
     {
-        long minAverageValueBytes;
-        if (statistics.hasBucketStatistics()) {
-            minAverageValueBytes = BOOLEAN_VALUE_BYTES;
-        }
-        else if (statistics.hasIntStatistics()) {
-            minAverageValueBytes = INTEGER_VALUE_BYTES;
-        }
-        else if (statistics.hasDoubleStatistics()) {
-            minAverageValueBytes = DOUBLE_VALUE_BYTES;
-        }
-        else if (statistics.hasStringStatistics()) {
-            minAverageValueBytes = STRING_VALUE_BYTES_OVERHEAD;
-            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
-                minAverageValueBytes += statistics.getStringStatistics().getSum() / statistics.getNumberOfValues();
-            }
-        }
-        else if (statistics.hasBinaryStatistics()) {
-            // offset and value length
-            minAverageValueBytes = BINARY_VALUE_BYTES_OVERHEAD;
-            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
-                minAverageValueBytes += statistics.getBinaryStatistics().getSum() / statistics.getNumberOfValues();
-            }
-        }
-        else {
-            minAverageValueBytes = 0;
-        }
-
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 statistics.getNumberOfValues(),
-                minAverageValueBytes,
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
                 statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,

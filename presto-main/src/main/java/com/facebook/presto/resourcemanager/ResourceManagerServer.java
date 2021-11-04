@@ -52,9 +52,9 @@ public class ResourceManagerServer
      * 3) Inform resource managers about coordinator status and health.
      */
     @ThriftMethod
-    public void queryHeartbeat(String nodeId, BasicQueryInfo basicQueryInfo)
+    public void queryHeartbeat(String nodeId, BasicQueryInfo basicQueryInfo, long sequenceId)
     {
-        executor.execute(() -> clusterStateProvider.registerQueryHeartbeat(nodeId, basicQueryInfo));
+        executor.execute(() -> clusterStateProvider.registerQueryHeartbeat(nodeId, basicQueryInfo, sequenceId));
     }
 
     /**

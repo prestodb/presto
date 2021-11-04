@@ -132,7 +132,7 @@ public class SliceDictionaryBuilder
                 // Doesn't have this element
                 return hashPosition;
             }
-            else if (segmentedSliceBuilder.equals(slicePosition, block, position, length)) {
+            if (segmentedSliceBuilder.equals(slicePosition, block, position, length)) {
                 // Already has this element
                 return hashPosition;
             }

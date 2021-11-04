@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
@@ -60,7 +61,7 @@ public class TestFeaturesConfig
                 .setNetworkCostWeight(15)
                 .setDistributedIndexJoinsEnabled(false)
                 .setJoinDistributionType(PARTITIONED)
-                .setJoinMaxBroadcastTableSize(null)
+                .setJoinMaxBroadcastTableSize(new DataSize(100, MEGABYTE))
                 .setGroupedExecutionEnabled(true)
                 .setRecoverableGroupedExecutionEnabled(false)
                 .setMaxFailedTaskPercentage(0.3)
@@ -89,9 +90,13 @@ public class TestFeaturesConfig
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
-                .setJoinSpillingEnabled(false)
+                .setJoinSpillingEnabled(true)
+                .setAggregationSpillEnabled(true)
                 .setDistinctAggregationSpillEnabled(true)
+                .setDedupBasedDistinctAggregationSpillEnabled(false)
                 .setOrderByAggregationSpillEnabled(true)
+                .setWindowSpillEnabled(true)
+                .setOrderBySpillEnabled(true)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
                 .setSpillerSpillPaths("")
                 .setSpillerThreads(4)
@@ -174,7 +179,9 @@ public class TestFeaturesConfig
                 .setOffsetClauseEnabled(false)
                 .setPartialResultsMaxExecutionTimeMultiplier(2.0)
                 .setMaterializedViewDataConsistencyEnabled(true)
-                .setQueryOptimizationWithMaterializedViewEnabled(false));
+                .setQueryOptimizationWithMaterializedViewEnabled(false)
+                .setVerboseRuntimeStatsEnabled(false)
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED));
     }
 
     @Test
@@ -234,9 +241,13 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("experimental.spill-enabled", "true")
-                .put("experimental.join-spill-enabled", "true")
+                .put("experimental.join-spill-enabled", "false")
+                .put("experimental.aggregation-spill-enabled", "false")
                 .put("experimental.distinct-aggregation-spill-enabled", "false")
+                .put("experimental.dedup-based-distinct-aggregation-spill-enabled", "true")
                 .put("experimental.order-by-aggregation-spill-enabled", "false")
+                .put("experimental.window-spill-enabled", "false")
+                .put("experimental.order-by-spill-enabled", "false")
                 .put("experimental.aggregation-operator-unspill-memory-limit", "100MB")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .put("experimental.spiller-threads", "42")
@@ -301,6 +312,8 @@ public class TestFeaturesConfig
                 .put("offset-clause-enabled", "true")
                 .put("materialized-view-data-consistency-enabled", "false")
                 .put("query-optimization-with-materialized-view-enabled", "true")
+                .put("verbose-runtime-stats-enabled", "true")
+                .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -352,9 +365,13 @@ public class TestFeaturesConfig
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
-                .setJoinSpillingEnabled(true)
+                .setJoinSpillingEnabled(false)
+                .setAggregationSpillEnabled(false)
                 .setDistinctAggregationSpillEnabled(false)
+                .setDedupBasedDistinctAggregationSpillEnabled(true)
                 .setOrderByAggregationSpillEnabled(false)
+                .setWindowSpillEnabled(false)
+                .setOrderBySpillEnabled(false)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
                 .setSpillerSpillPaths("/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .setSpillerThreads(42)
@@ -424,7 +441,9 @@ public class TestFeaturesConfig
                 .setOffsetClauseEnabled(true)
                 .setPartialResultsMaxExecutionTimeMultiplier(1.5)
                 .setMaterializedViewDataConsistencyEnabled(false)
-                .setQueryOptimizationWithMaterializedViewEnabled(true);
+                .setQueryOptimizationWithMaterializedViewEnabled(true)
+                .setVerboseRuntimeStatsEnabled(true)
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF);
         assertFullMapping(properties, expected);
     }
 

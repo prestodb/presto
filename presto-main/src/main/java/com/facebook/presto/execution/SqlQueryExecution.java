@@ -80,6 +80,8 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
+import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
@@ -186,6 +188,7 @@ public class SqlQueryExecution
 
             this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
             stateMachine.setUpdateType(analysis.getUpdateType());
+            stateMachine.setExpandedQuery(analysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
             analyzer.checkColumnAccessPermissions(this.analysis);
@@ -438,7 +441,9 @@ public class SqlQueryExecution
 
         // plan query
         LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
-        Plan plan = logicalPlanner.plan(analysis);
+        Plan plan = getSession().getRuntimeStats().profileNanos(
+                LOGICAL_PLANNER_TIME_NANOS,
+                () -> logicalPlanner.plan(analysis));
         queryPlan.set(plan);
 
         // extract inputs
@@ -452,7 +457,9 @@ public class SqlQueryExecution
         // fragment the plan
         // the variableAllocator is finally passed to SqlQueryScheduler for runtime cost-based optimizations
         variableAllocator.set(new PlanVariableAllocator(plan.getTypes().allVariables()));
-        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector());
+        SubPlan fragmentedPlan = getSession().getRuntimeStats().profileNanos(
+                FRAGMENT_PLAN_TIME_NANOS,
+                () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));
 
         // record analysis time
         stateMachine.endAnalysis();

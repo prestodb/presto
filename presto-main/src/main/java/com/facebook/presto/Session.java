@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -87,6 +88,8 @@ public final class Session
     private final Map<String, String> preparedStatements;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
+
+    private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public Session(
             QueryId queryId,
@@ -292,6 +295,11 @@ public final class Session
     public AccessControlContext getAccessControlContext()
     {
         return context;
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)

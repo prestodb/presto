@@ -48,6 +48,7 @@ public class InternalHiveSplit
     private final byte[] relativeUri;
     private final long end;
     private final long fileSize;
+    private final long fileModifiedTime;
 
     // encode the hive blocks as an array of longs and list of list of addresses to save memory
     //if all blockAddress lists are empty, store only the empty list
@@ -75,6 +76,7 @@ public class InternalHiveSplit
             long start,
             long end,
             long fileSize,
+            long fileModifiedTime,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
@@ -89,6 +91,7 @@ public class InternalHiveSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "end must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(fileModifiedTime >= 0, "fileModifiedTime must be positive");
         requireNonNull(relativeUri, "relativeUri is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
@@ -101,6 +104,7 @@ public class InternalHiveSplit
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
+        this.fileModifiedTime = fileModifiedTime;
         this.readBucketNumber = readBucketNumber.orElse(-1);
         this.tableBucketNumber = tableBucketNumber.orElse(-1);
         this.splittable = splittable;
@@ -144,6 +148,11 @@ public class InternalHiveSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
     }
 
     public boolean isS3SelectPushdownEnabled()

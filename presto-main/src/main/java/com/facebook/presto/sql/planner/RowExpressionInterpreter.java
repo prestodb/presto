@@ -609,7 +609,7 @@ public class RowExpressionInterpreter
                     List<Object> values = node.getArguments()
                             .stream()
                             .map(value -> value.accept(this, context))
-                            .collect(toImmutableList());
+                            .collect(toList());
                     if (hasUnresolvedValue(values)) {
                         return new SpecialFormExpression(
                                 BIND,

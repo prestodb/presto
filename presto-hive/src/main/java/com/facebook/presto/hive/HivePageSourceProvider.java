@@ -191,6 +191,7 @@ public class HivePageSourceProvider
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
+                hiveSplit.getFileModifiedTime(),
                 hiveSplit.getStorage(),
                 splitContext.getDynamicFilterPredicate().map(filter -> filter.transform(handle -> (HiveColumnHandle) handle).intersect(effectivePredicate)).orElse(effectivePredicate),
                 selectedColumns,
@@ -206,7 +207,13 @@ public class HivePageSourceProvider
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new), Optional.of(hiveSplit.getFileSize())),
+                new HiveFileContext(
+                        splitContext.isCacheable(),
+                        cacheQuota,
+                        hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
+                        Optional.of(hiveSplit.getFileSize()),
+                        hiveSplit.getFileModifiedTime(),
+                        HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
@@ -268,7 +275,9 @@ public class HivePageSourceProvider
                 ImmutableList.of(),
                 split.getTableToPartitionMapping(),
                 path,
-                split.getTableBucketNumber());
+                split.getTableBucketNumber(),
+                split.getFileSize(),
+                split.getFileModifiedTime());
 
         Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber(), mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex()));
 
@@ -315,7 +324,13 @@ public class HivePageSourceProvider
                             handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate())).orElse(layout.getDomainPredicate()),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new), Optional.of(split.getFileSize())),
+                    new HiveFileContext(
+                            splitContext.isCacheable(),
+                            cacheQuota,
+                            split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
+                            Optional.of(split.getFileSize()),
+                            split.getFileModifiedTime(),
+                            HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
                     encryptionInformation);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
@@ -335,6 +350,7 @@ public class HivePageSourceProvider
             long start,
             long length,
             long fileSize,
+            long fileModifiedTime,
             Storage storage,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
@@ -380,7 +396,9 @@ public class HivePageSourceProvider
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
                 tableToPartitionMapping,
                 path,
-                tableBucketNumber);
+                tableBucketNumber,
+                fileSize,
+                fileModifiedTime);
 
         Set<Integer> outputIndices = hiveColumns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
@@ -665,7 +683,9 @@ public class HivePageSourceProvider
                 List<HiveColumnHandle> requiredInterimColumns,
                 TableToPartitionMapping tableToPartitionMapping,
                 Path path,
-                OptionalInt bucketNumber)
+                OptionalInt bucketNumber,
+                long fileSize,
+                long fileModifiedTime)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
             int regularIndex = 0;
@@ -703,7 +723,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime),
                             coercionFrom));
                 }
             }

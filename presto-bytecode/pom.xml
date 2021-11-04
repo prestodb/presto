@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.259-SNAPSHOT</version>
+        <version>0.266-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-bytecode</artifactId>
@@ -47,6 +47,12 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- for testing -->

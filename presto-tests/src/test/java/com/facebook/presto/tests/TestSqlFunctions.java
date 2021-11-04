@@ -15,8 +15,6 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.NamedTypeSignature;
-import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -35,13 +33,9 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
-import static com.facebook.presto.common.type.StandardTypes.ROW;
-import static com.facebook.presto.common.type.StandardTypes.TINYINT;
-import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
@@ -71,13 +65,6 @@ public class TestSqlFunctions
                     "FRANCE", "France",
                     "CHINA", "中国",
                     "भारत", "India")))));
-
-    private static final UserDefinedType PERSON = new UserDefinedType(QualifiedObjectName.valueOf("testing.type.person"), new TypeSignature(
-            ROW,
-            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("first_name", false)), new TypeSignature(VARCHAR))),
-            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("last_name", false)), new TypeSignature(VARCHAR))),
-            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("age", false)), new TypeSignature(TINYINT))),
-            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("country", false)), new TypeSignature("testing.enum.country")))));
 
     protected TestSqlFunctions()
     {
@@ -110,7 +97,8 @@ public class TestSqlFunctions
             queryRunner.createTestFunctionNamespace("example", "example");
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MOOD_ENUM);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
-            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(PERSON);
+
+            queryRunner.execute("CREATE TYPE testing.type.person AS (first_name varchar, last_name varchar, age tinyint, country testing.enum.country)");
 
             return queryRunner;
         }
@@ -519,6 +507,14 @@ public class TestSqlFunctions
         assertQuerySucceeds("CREATE FUNCTION testing.test.lambda2(x array<int>) RETURNS int RETURN reduce(x, 0, (s, a) -> if (a > 0, s + a, s), s -> s)");
         assertQuerySucceeds("CREATE FUNCTION testing.test.lambda3(x array<int>) RETURNS int RETURN reduce(x, 0, (s, a) -> if (a < 0, s + a, s), s -> s)");
         assertQuery("SELECT testing.test.lambda1(array_union(x, y)), testing.test.lambda2(array_union(x, y)), testing.test.lambda3(array_union(x, y)) FROM (VALUES (array[3, 5, 0, -4, -7], array[-1, 0, 1])) t(x, y)", "SELECT -3, 9, -12");
+
+        // Test lambda referencing input
+        assertQuerySucceeds(
+                testSessionBuilder().setSystemProperty("inline_sql_functions", "true").build(),
+                "select map_normalize(m) from (values (map(array['a','b','c'], array[1,2,3])), (map(array['x','y'], array[3, 6]))) t(m)");
+        assertQuerySucceeds(
+                testSessionBuilder().setSystemProperty("inline_sql_functions", "false").build(),
+                "select map_normalize(m) from (values (map(array['a','b','c'], array[1,2,3])), (map(array['x','y'], array[3, 6]))) t(m)");
     }
 
     @Test

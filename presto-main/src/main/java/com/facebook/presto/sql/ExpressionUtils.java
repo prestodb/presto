@@ -15,13 +15,19 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
+import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
@@ -30,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -282,5 +289,100 @@ public final class ExpressionUtils
                 return new LambdaExpression(node.getArguments(), treeRewriter.rewrite(node.getBody(), context));
             }
         }, expression);
+    }
+
+    public static GroupingElement removeGroupingElementPrefix(GroupingElement groupingElement, Optional<Identifier> removablePrefix)
+    {
+        if (!removablePrefix.isPresent()) {
+            return groupingElement;
+        }
+        if (groupingElement instanceof SimpleGroupBy) {
+            boolean prefixRemoved = false;
+            ImmutableList.Builder<Expression> rewrittenColumns = ImmutableList.builder();
+            for (Expression column : groupingElement.getExpressions()) {
+                Expression processedColumn = removeExpressionPrefix(column, removablePrefix);
+                if (processedColumn != column) {
+                    prefixRemoved = true;
+                }
+                rewrittenColumns.add(processedColumn);
+            }
+            if (prefixRemoved) {
+                return new SimpleGroupBy(rewrittenColumns.build());
+            }
+        }
+        return groupingElement;
+    }
+
+    public static SortItem removeSortItemPrefix(SortItem sortItem, Optional<Identifier> removablePrefix)
+    {
+        if (!removablePrefix.isPresent()) {
+            return sortItem;
+        }
+        Expression processedExpression = removeExpressionPrefix(sortItem.getSortKey(), removablePrefix);
+        if (processedExpression != sortItem.getSortKey()) {
+            return new SortItem(processedExpression, sortItem.getOrdering(), sortItem.getNullOrdering());
+        }
+        return sortItem;
+    }
+
+    public static SingleColumn removeSingleColumnPrefix(SingleColumn singleColumn, Optional<Identifier> removablePrefix)
+    {
+        if (!removablePrefix.isPresent()) {
+            return singleColumn;
+        }
+        Expression processedExpression = removeExpressionPrefix(singleColumn.getExpression(), removablePrefix);
+        if (processedExpression != singleColumn.getExpression()) {
+            return new SingleColumn(removeExpressionPrefix(singleColumn.getExpression(), removablePrefix), singleColumn.getAlias());
+        }
+        return singleColumn;
+    }
+
+    public static Expression removeExpressionPrefix(Expression expression, Optional<Identifier> removablePrefix)
+    {
+        if (!removablePrefix.isPresent()) {
+            return expression;
+        }
+        if (expression instanceof DereferenceExpression) {
+            return removeDereferenceExpressionElementPrefix((DereferenceExpression) expression, removablePrefix);
+        }
+        if (expression instanceof FunctionCall) {
+            return removeFunctionCallPrefix((FunctionCall) expression, removablePrefix);
+        }
+        return expression;
+    }
+
+    private static Expression removeDereferenceExpressionElementPrefix(DereferenceExpression dereferenceExpression, Optional<Identifier> removablePrefix)
+    {
+        if (removablePrefix.isPresent() && removablePrefix.get().equals(dereferenceExpression.getBase())) {
+            return dereferenceExpression.getField();
+        }
+        return dereferenceExpression;
+    }
+
+    private static FunctionCall removeFunctionCallPrefix(FunctionCall functionCall, Optional<Identifier> removablePrefix)
+    {
+        if (!removablePrefix.isPresent()) {
+            return functionCall;
+        }
+        boolean prefixRemoved = false;
+        ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
+        for (Expression argument : functionCall.getArguments()) {
+            Expression processedArgument = removeExpressionPrefix(argument, removablePrefix);
+            if (processedArgument != argument) {
+                prefixRemoved = true;
+            }
+            rewrittenArguments.add(removeExpressionPrefix(argument, removablePrefix));
+        }
+        if (prefixRemoved) {
+            return new FunctionCall(
+                    functionCall.getName(),
+                    functionCall.getWindow(),
+                    functionCall.getFilter(),
+                    functionCall.getOrderBy(),
+                    functionCall.isDistinct(),
+                    functionCall.isIgnoreNulls(),
+                    rewrittenArguments.build());
+        }
+        return functionCall;
     }
 }

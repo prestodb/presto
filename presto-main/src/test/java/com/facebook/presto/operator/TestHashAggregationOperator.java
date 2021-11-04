@@ -189,8 +189,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
-                true,
-                true,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
@@ -244,8 +242,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
-                true,
-                true,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
@@ -292,8 +288,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
-                true,
-                true,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
@@ -374,8 +368,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
-                true,
-                true,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
@@ -601,8 +593,6 @@ public class TestHashAggregationOperator
                 1,
                 Optional.of(new DataSize(16, MEGABYTE)),
                 true,
-                true,
-                true,
                 new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
@@ -657,8 +647,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(new DataSize(16, MEGABYTE)),
                 true,
-                true,
-                true,
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
@@ -698,8 +686,6 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 1,
                 Optional.of(new DataSize(16, MEGABYTE)),
-                false,
-                false,
                 false,
                 new DataSize(16, MEGABYTE),
                 new DataSize(16, MEGABYTE),
@@ -816,6 +802,11 @@ public class TestHashAggregationOperator
                 public List<Iterator<Page>> getSpills()
                 {
                     return ImmutableList.of();
+                }
+
+                @Override
+                public void commit()
+                {
                 }
 
                 @Override

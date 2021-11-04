@@ -22,12 +22,9 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import com.facebook.presto.operator.aggregation.state.BlockState;
-import com.facebook.presto.operator.aggregation.state.BlockStateSerializer;
-import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
-import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.operator.aggregation.state.SliceState;
+import com.facebook.presto.operator.aggregation.state.ReduceAggregationState;
+import com.facebook.presto.operator.aggregation.state.ReduceAggregationStateFactory;
+import com.facebook.presto.operator.aggregation.state.ReduceAggregationStateSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
@@ -40,8 +37,6 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateFactory;
-import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -52,23 +47,9 @@ public class ReduceAggregationFunction
 {
     private static final String NAME = "reduce_agg";
 
-    private static final MethodHandle LONG_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", NullableLongState.class, Object.class, long.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle DOUBLE_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", NullableDoubleState.class, Object.class, double.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle BOOLEAN_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", NullableBooleanState.class, Object.class, boolean.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle SLICE_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", SliceState.class, Object.class, Slice.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle BLOCK_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", BlockState.class, Object.class, Block.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-
-    private static final MethodHandle LONG_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle DOUBLE_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", NullableDoubleState.class, NullableDoubleState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle BOOLEAN_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", NullableBooleanState.class, NullableBooleanState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle SLICE_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", SliceState.class, SliceState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-    private static final MethodHandle BLOCK_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", BlockState.class, BlockState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
-
-    private static final MethodHandle LONG_STATE_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
-    private static final MethodHandle DOUBLE_STATE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
-    private static final MethodHandle BOOLEAN_STATE_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
-    private static final MethodHandle SLICE_STATE_OUTPUT_FUNCTION = methodHandle(SliceState.class, "write", Type.class, SliceState.class, BlockBuilder.class);
-    private static final MethodHandle BLOCK_STATE_OUTPUT_FUNCTION = methodHandle(BlockState.class, "write", Type.class, BlockState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", Type.class, ReduceAggregationState.class, Object.class, Object.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", ReduceAggregationState.class, ReduceAggregationState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "write", Type.class, ReduceAggregationState.class, BlockBuilder.class);
 
     private final boolean supportsComplexTypes;
 
@@ -85,6 +66,12 @@ public class ReduceAggregationFunction
                         parseTypeSignature("function(S,S,S)")));
 
         this.supportsComplexTypes = supportsComplexTypes;
+    }
+
+    @Override
+    public boolean isDeterministic()
+    {
+        return false;
     }
 
     @Override
@@ -110,73 +97,32 @@ public class ReduceAggregationFunction
         MethodHandle outputMethodHandle;
         AccumulatorStateDescriptor stateDescriptor;
 
-        if (stateType.getJavaType() == long.class) {
-            inputMethodHandle = LONG_STATE_INPUT_FUNCTION;
-            combineMethodHandle = LONG_STATE_COMBINE_FUNCTION;
-            outputMethodHandle = LONG_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
-                    NullableLongState.class,
-                    generateStateSerializer(NullableLongState.class, classLoader),
-                    generateStateFactory(NullableLongState.class, classLoader));
+        if (!supportsComplexTypes && !(stateType.getJavaType() == long.class || stateType.getJavaType() == double.class || stateType.getJavaType() == boolean.class)) {
+            // For large heap, State with Slice or Block may result in excessive JVM memory usage of remembered set.
+            // See JDK-8017163.
+            throw new PrestoException(NOT_SUPPORTED, format("State type not enabled for %s: %s", NAME, stateType.getDisplayName()));
         }
-        else if (stateType.getJavaType() == double.class) {
-            inputMethodHandle = DOUBLE_STATE_INPUT_FUNCTION;
-            combineMethodHandle = DOUBLE_STATE_COMBINE_FUNCTION;
-            outputMethodHandle = DOUBLE_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
-                    NullableDoubleState.class,
-                    generateStateSerializer(NullableDoubleState.class, classLoader),
-                    generateStateFactory(NullableDoubleState.class, classLoader));
-        }
-        else if (stateType.getJavaType() == boolean.class) {
-            inputMethodHandle = BOOLEAN_STATE_INPUT_FUNCTION;
-            combineMethodHandle = BOOLEAN_STATE_COMBINE_FUNCTION;
-            outputMethodHandle = BOOLEAN_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
-                    NullableBooleanState.class,
-                    generateStateSerializer(NullableBooleanState.class, classLoader),
-                    generateStateFactory(NullableBooleanState.class, classLoader));
-        }
-        else {
-            if (!supportsComplexTypes) {
-                // For large heap, State with Slice or Block may result in excessive JVM memory usage of remembered set.
-                // See JDK-8017163.
-                throw new PrestoException(NOT_SUPPORTED, format("State type not enabled for %s: %s", NAME, stateType.getDisplayName()));
-            }
 
-            if (stateType.getJavaType() == Slice.class) {
-                inputMethodHandle = SLICE_STATE_INPUT_FUNCTION;
-                combineMethodHandle = SLICE_STATE_COMBINE_FUNCTION;
-                outputMethodHandle = SLICE_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-                stateDescriptor = new AccumulatorStateDescriptor(
-                        SliceState.class,
-                        generateStateSerializer(SliceState.class, classLoader),
-                        generateStateFactory(SliceState.class, classLoader));
-            }
-            else if ((stateType.getJavaType() == Block.class)) {
-                inputMethodHandle = BLOCK_STATE_INPUT_FUNCTION;
-                combineMethodHandle = BLOCK_STATE_COMBINE_FUNCTION;
-                outputMethodHandle = BLOCK_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-                stateDescriptor = new AccumulatorStateDescriptor(
-                        BlockState.class,
-                        new BlockStateSerializer(stateType),
-                        generateStateFactory(BlockState.class, classLoader));
-            }
-            else {
-                throw new PrestoException(NOT_SUPPORTED, format("Unknown state java type: %s", stateType.getJavaType()));
-            }
-        }
+        inputMethodHandle = INPUT_FUNCTION.bindTo(inputType);
+        combineMethodHandle = COMBINE_FUNCTION;
+        outputMethodHandle = OUTPUT_FUNCTION.bindTo(stateType);
+
+        stateDescriptor = new AccumulatorStateDescriptor(
+                ReduceAggregationState.class,
+                new ReduceAggregationStateSerializer(stateType),
+                new ReduceAggregationStateFactory());
 
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(getSignature().getNameSuffix(), inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
                 createInputParameterMetadata(inputType, stateType),
                 inputMethodHandle.asType(
                         inputMethodHandle.type()
-                                .changeParameterType(1, inputType.getJavaType())),
+                                .changeParameterType(1, inputType.getJavaType())
+                                .changeParameterType(2, stateType.getJavaType())),
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
-                inputType,
+                stateType,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
@@ -199,94 +145,52 @@ public class ReduceAggregationFunction
                 new ParameterMetadata(INPUT_CHANNEL, stateType));
     }
 
-    public static void input(NullableLongState state, Object value, long initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    public static void input(Type type, ReduceAggregationState state, Object value, Object initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(initialStateValue);
+        if (state.getValue() == null) {
+            state.setValue(initialStateValue);
         }
-        state.setLong((long) inputFunction.apply(state.getLong(), value));
+        try {
+            state.setValue(inputFunction.apply(state.getValue(), value));
+        }
+        catch (NullPointerException npe) {
+            state.setValue(null);
+        }
     }
 
-    public static void input(NullableDoubleState state, Object value, double initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    public static void combine(ReduceAggregationState state, ReduceAggregationState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(initialStateValue);
-        }
-        state.setDouble((double) inputFunction.apply(state.getDouble(), value));
-    }
-
-    public static void input(NullableBooleanState state, Object value, boolean initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
-    {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(initialStateValue);
-        }
-        state.setBoolean((boolean) inputFunction.apply(state.getBoolean(), value));
-    }
-
-    public static void input(SliceState state, Object value, Slice initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
-    {
-        if (state.getSlice() == null) {
-            state.setSlice(initialStateValue);
-        }
-        state.setSlice((Slice) inputFunction.apply(state.getSlice(), value));
-    }
-
-    public static void input(BlockState state, Object value, Block initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
-    {
-        if (state.getBlock() == null) {
-            state.setBlock(initialStateValue);
-        }
-        state.setBlock((Block) inputFunction.apply(state.getBlock(), value));
-    }
-
-    public static void combine(NullableLongState state, NullableLongState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
-    {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
+        if (state.getValue() == null) {
+            state.setValue(otherState.getValue());
             return;
         }
-        state.setLong((long) combineFunction.apply(state.getLong(), otherState.getLong()));
+        try {
+            state.setValue(combineFunction.apply(state.getValue(), otherState.getValue()));
+        }
+        catch (NullPointerException npe) {
+            state.setValue(null);
+        }
     }
 
-    public static void combine(NullableDoubleState state, NullableDoubleState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    public static void write(Type type, ReduceAggregationState state, BlockBuilder blockBuilder)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(otherState.getDouble());
-            return;
+        if (state.getValue() == null) {
+            blockBuilder.appendNull();
         }
-        state.setDouble((double) combineFunction.apply(state.getDouble(), otherState.getDouble()));
-    }
-
-    public static void combine(NullableBooleanState state, NullableBooleanState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
-    {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(otherState.getBoolean());
-            return;
+        else if (type.getJavaType() == long.class) {
+            type.writeLong(blockBuilder, (long) state.getValue());
         }
-        state.setBoolean((boolean) combineFunction.apply(state.getBoolean(), otherState.getBoolean()));
-    }
-
-    public static void combine(SliceState state, SliceState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
-    {
-        if (state.getSlice() == null) {
-            state.setSlice(otherState.getSlice());
-            return;
+        else if (type.getJavaType() == double.class) {
+            type.writeDouble(blockBuilder, (double) state.getValue());
         }
-        state.setSlice((Slice) combineFunction.apply(state.getSlice(), otherState.getSlice()));
-    }
-
-    public static void combine(BlockState state, BlockState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
-    {
-        if (state.getBlock() == null) {
-            state.setBlock(otherState.getBlock());
-            return;
+        else if (type.getJavaType() == boolean.class) {
+            type.writeBoolean(blockBuilder, (boolean) state.getValue());
         }
-        state.setBlock((Block) combineFunction.apply(state.getBlock(), otherState.getBlock()));
+        else if (type.getJavaType() == Block.class) {
+            type.writeObject(blockBuilder, state.getValue());
+        }
+        else {
+            type.writeSlice(blockBuilder, (Slice) state.getValue());
+        }
     }
 }

@@ -49,6 +49,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -2898,6 +2902,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT TRY(2/0)", "SELECT null");
         assertQuery("SELECT COALESCE(TRY(2/0), 0)", "SELECT 0");
         assertQuery("SELECT TRY(ABS(-2))", "SELECT 2");
+
+        // test try with null
+        assertQuery("SELECT TRY(1 / x) FROM (SELECT NULL as x)", "SELECT NULL");
     }
 
     @Test
@@ -5783,5 +5790,101 @@ public abstract class AbstractTestQueries
         assertQuery("select concat('a', '','','', 'b', '', '', 'c', 'd', '', '', '', '')", "select 'abcd'");
         assertQuery("select concat('', '','','', '', '', '', '', '', '', '')", "select ''");
         assertQuery("select concat('', '','','', 'x', '', '', '', '', '', '')", "select 'x'");
+    }
+
+    @Test
+    public void testReduceAggWithNulls()
+    {
+        assertQueryFails("select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+        assertQueryFails("select reduce_agg(x, cast(null as bigint), (x,y)->coalesce(x, 0)+coalesce(y, 0), (x,y)->coalesce(x, 0)+coalesce(y, 0)) from (values cast(10 as bigint),10)T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+
+        // here some reduce_aggs coalesce overflow/zero-divide errors to null in the input/combine functions
+        assertQuery("select reduce_agg(x, 0, (x,y)->try(1/x+1/y), (x,y)->try(1/x+1/y)) from ((select 0) union all select 10.) T(x)", "select null");
+        assertQuery("select reduce_agg(x, 0, (x, y)->try(x+y), (x, y)->try(x+y)) from (values 2817, 9223372036854775807) AS T(x)", "select null");
+        assertQuery("select reduce_agg(x, array[], (x, y)->array[element_at(x, 2)],  (x, y)->array[element_at(x, 2)]) from (select array[array[1]]) T(x)", "select array[null]");
+    }
+
+    @Test
+    public void testReduceAggWithMapZip()
+    {
+        Session sessionWithIntermediateAggEnabled = Session.builder(getSession())
+                .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
+                .build();
+        assertQuerySucceeds(sessionWithIntermediateAggEnabled, "select reduce_agg(x, map(), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2)), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2))) from (select map(array['k1', 'k2'], array[1e-2, 0.06]) x union all select map(array['k1', 'k2'], array[2e-05, 1e-2]) x)");
+    }
+
+    @Test
+    public void testReduceAggWithArrayConcat()
+    {
+        assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(array[] as array<bigint>), (x,y)->x||sequence(1, y), (x,y)->x||y) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
+        assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(map() as map<bigint, bigint>), (x,y) -> map_concat(x, map(sequence(1, y), repeat(1, cast(y as int)))), (x,y)->map_concat(x,y)) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
+    }
+
+    @Test
+    public void testDefaultSamplingPercent()
+    {
+        assertQuery("select key_sampling_percent('abc')", "select 0.56");
+    }
+
+    @Test
+    public void testKeyBasedSampling()
+    {
+        String[] queries = new String[] {
+                "select count(1) from orders join lineitem using(orderkey)",
+                "select count(1) from (select custkey, max(orderkey) from orders group by custkey)",
+                "select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)",
+                "select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)",
+                "select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)",
+                "select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)",
+                "select count(1) from (select distinct orderkey, custkey from orders)",
+        };
+
+        int[] unsampledResuts = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(queries[i], "select " + unsampledResuts[i]);
+        }
+
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.2")
+                .build();
+
+        int[] sampled20PercentResuts = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResuts[i]);
+        }
+
+        sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.1")
+                .build();
+
+        int[] sampled10PercentResuts = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
+        for (int i = 0; i < queries.length; i++) {
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResuts[i]);
+        }
+    }
+
+    @Test
+    public void testKeyBasedSamplingFunctionError()
+    {
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_FUNCTION, "blah")
+                .build();
+
+        assertQueryFails(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "Sampling function: blah not cannot be resolved");
+    }
+
+    @Test
+    public void testSamplingJoinChain()
+    {
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+        String query = "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey";
+
+        assertQuery(query, "select 60175");
+        assertQuery(sessionWithKeyBasedSampling, query, "select 16185");
     }
 }

@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
@@ -40,6 +41,7 @@ public class InMemoryNodeManager
         implements InternalNodeManager
 {
     private final InternalNode localNode;
+    private final ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder;
     private final SetMultimap<ConnectorId, InternalNode> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @GuardedBy("this")
@@ -54,6 +56,7 @@ public class InMemoryNodeManager
     public InMemoryNodeManager(URI localUri)
     {
         localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, false);
+        shuttingDownNodesBuilder = ImmutableSet.builder();
     }
 
     public void addCurrentNodeConnector(ConnectorId connectorId)
@@ -64,6 +67,11 @@ public class InMemoryNodeManager
     public void addNode(ConnectorId connectorId, InternalNode... nodes)
     {
         addNode(connectorId, ImmutableList.copyOf(nodes));
+    }
+
+    public void addShuttingDownNode(InternalNode node)
+    {
+        shuttingDownNodesBuilder.add(node);
     }
 
     public void addNode(ConnectorId connectorId, Iterable<InternalNode> nodes)
@@ -111,9 +119,9 @@ public class InMemoryNodeManager
         return new AllNodes(
                 ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(),
                 ImmutableSet.of(),
-                ImmutableSet.of(),
-                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isCoordinator)).collect(toImmutableSet()),
-                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isResourceManager)).collect(toImmutableSet()));
+                shuttingDownNodesBuilder.build(),
+                concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isCoordinator).collect(toImmutableSet()),
+                concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isResourceManager).collect(toImmutableSet()));
     }
 
     @Override
@@ -127,6 +135,12 @@ public class InMemoryNodeManager
     {
         // always use localNode as coordinator
         return getAllNodes().getActiveCoordinators();
+    }
+
+    @Override
+    public Set<InternalNode> getShuttingDownCoordinator()
+    {
+        return getNodes(SHUTTING_DOWN).stream().filter(InternalNode::isCoordinator).collect(toImmutableSet());
     }
 
     @Override

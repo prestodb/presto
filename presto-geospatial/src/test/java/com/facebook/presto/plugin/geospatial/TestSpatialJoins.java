@@ -102,7 +102,7 @@ public class TestSpatialJoins
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty()), Database.builder()
+        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty()), Database.builder()
                 .setDatabaseName("default")
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
@@ -225,7 +225,7 @@ public class TestSpatialJoins
     }
 
     @Test
-    public void tesDistributedSpatialJoinIntersects()
+    public void testDistributedSpatialJoinIntersects()
     {
         assertUpdate(format("CREATE TABLE intersects_partitioning AS " +
                 "SELECT spatial_partitioning(ST_GeometryFromText(wkt)) as v " +

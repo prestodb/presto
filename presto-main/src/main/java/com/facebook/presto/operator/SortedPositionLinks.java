@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;

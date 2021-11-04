@@ -24,23 +24,23 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class IcebergTransactionManager
 {
-    private final Map<ConnectorTransactionHandle, IcebergMetadata> transactions = new ConcurrentHashMap<>();
+    private final Map<ConnectorTransactionHandle, ConnectorMetadata> transactions = new ConcurrentHashMap<>();
 
-    public IcebergMetadata get(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata get(ConnectorTransactionHandle transaction)
     {
-        IcebergMetadata metadata = transactions.get(transaction);
+        ConnectorMetadata metadata = transactions.get(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         return metadata;
     }
 
-    public IcebergMetadata remove(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata remove(ConnectorTransactionHandle transaction)
     {
-        IcebergMetadata metadata = transactions.remove(transaction);
+        ConnectorMetadata metadata = transactions.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         return metadata;
     }
 
-    public void put(ConnectorTransactionHandle transaction, IcebergMetadata metadata)
+    public void put(ConnectorTransactionHandle transaction, ConnectorMetadata metadata)
     {
         ConnectorMetadata existing = transactions.putIfAbsent(transaction, metadata);
         checkState(existing == null, "transaction already exists: %s", existing);

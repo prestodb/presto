@@ -29,7 +29,7 @@ import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
-import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -62,7 +62,7 @@ public class DwrfSelectivePageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
-    private final StripeMetadataSource stripeMetadataSource;
+    private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
     private final TupleDomainFilterCache tupleDomainFilterCache;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
 
@@ -75,7 +75,7 @@ public class DwrfSelectivePageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             TupleDomainFilterCache tupleDomainFilterCache,
             HiveDwrfEncryptionProvider dwrfEncryptionProvider)
     {
@@ -86,7 +86,7 @@ public class DwrfSelectivePageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
-        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.stripeMetadataSourceFactory = requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
         this.tupleDomainFilterCache = requireNonNull(tupleDomainFilterCache, "tupleDomainFilterCache is null");
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "dwrfEncryptionProvider is null").toDwrfEncryptionProvider();
     }
@@ -144,7 +144,7 @@ public class DwrfSelectivePageSourceFactory
                 stats,
                 domainCompactionThreshold,
                 orcFileTailSource,
-                stripeMetadataSource,
+                stripeMetadataSourceFactory,
                 hiveFileContext,
                 tupleDomainFilterCache,
                 encryptionInformation,

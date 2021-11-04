@@ -16,6 +16,8 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.metadata.AbstractMockMetadata;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Query;
@@ -23,9 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -36,174 +36,132 @@ public class TestMaterializedViewCandidateExtractor
 {
     private static final Session SESSION = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties())).build();
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final Metadata METADATA = new MockMetadata();
 
     @Test
     public void testWithSimpleQuery()
     {
-        String baseTable = "base_table";
-        QualifiedObjectName baseTableName = QualifiedObjectName.valueOf("catalog.schema.base_table");
-        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.view");
-
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
-        baseTableToMaterializedViews.put(baseTableName, ImmutableList.of(materializedViewName));
+        String baseTable = "base_table_v0";
+        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.view0");
 
         ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of(materializedViewName);
 
         String baseQuerySql = format("SELECT x, y From %s", baseTable);
 
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql, baseTableToMaterializedViews);
+        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql);
     }
 
     @Test
     public void testWithAliasedRelation()
     {
-        String baseTable = "base_table";
-        QualifiedObjectName baseTableName = QualifiedObjectName.valueOf("catalog.schema.base_table");
-        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.view");
-
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
-        baseTableToMaterializedViews.put(baseTableName, ImmutableList.of(materializedViewName));
-
-        ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of(materializedViewName);
-
+        String baseTable = "base_table_v0";
         String baseQuerySql = format("SELECT x, y From %s b1", baseTable);
-
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql, baseTableToMaterializedViews);
+        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view0")), baseQuerySql);
     }
 
     @Test
     public void testWithJoin()
     {
-        String baseTable1 = "base_table1";
-        String baseTable2 = "base_table2";
-        QualifiedObjectName baseTableName1 = QualifiedObjectName.valueOf("catalog.schema.base_table1");
-        QualifiedObjectName baseTableName2 = QualifiedObjectName.valueOf("catalog.schema.base_table2");
-        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.view");
-
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
-        baseTableToMaterializedViews.put(baseTableName1, ImmutableList.of(materializedViewName));
-        baseTableToMaterializedViews.put(baseTableName2, ImmutableList.of(materializedViewName));
-
-        ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of(materializedViewName);
-
+        String baseTable1 = "base_table1_v0";
+        String baseTable2 = "base_table2_v0";
         String baseQuerySql = format("SELECT x, y FROM %s b1 JOIN %s b2 ON b1.id = b2.id", baseTable1, baseTable2);
-
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql, baseTableToMaterializedViews);
+        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view0")), baseQuerySql);
     }
 
     @Test
     public void testWithOneIntersection()
     {
-        String baseTable1 = "base_table1";
-        String baseTable2 = "base_table2";
-        QualifiedObjectName baseTableName1 = QualifiedObjectName.valueOf("catalog.schema.base_table1");
-        QualifiedObjectName baseTableName2 = QualifiedObjectName.valueOf("catalog.schema.base_table2");
-        QualifiedObjectName materializedViewName1 = QualifiedObjectName.valueOf("catalog.schema.view1");
-        QualifiedObjectName materializedViewName2 = QualifiedObjectName.valueOf("catalog.schema.view2");
-        QualifiedObjectName materializedViewName3 = QualifiedObjectName.valueOf("catalog.schema.view3");
-
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
-        baseTableToMaterializedViews.put(baseTableName1, ImmutableList.of(materializedViewName1, materializedViewName2));
-        baseTableToMaterializedViews.put(baseTableName2, ImmutableList.of(materializedViewName1, materializedViewName3));
-
-        ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of(materializedViewName1);
-
+        String baseTable1 = "base_table_v1v2";
+        String baseTable2 = "base_table_v2v3";
         String baseQuerySql = format("SELECT x, y FROM %s JOIN %s ON %s.id = %s.id", baseTable1, baseTable2, baseTable1, baseTable2);
-
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql, baseTableToMaterializedViews);
+        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view2")), baseQuerySql);
     }
 
     @Test
     public void testWithNoIntersection()
     {
-        String baseTable1 = "base_table1";
-        String baseTable2 = "base_table2";
-        QualifiedObjectName baseTableName1 = QualifiedObjectName.valueOf("catalog.schema.base_table1");
-        QualifiedObjectName baseTableName2 = QualifiedObjectName.valueOf("catalog.schema.base_table2");
-        QualifiedObjectName materializedViewName1 = QualifiedObjectName.valueOf("catalog.schema.view1");
-        QualifiedObjectName materializedViewName2 = QualifiedObjectName.valueOf("catalog.schema.view2");
-        QualifiedObjectName materializedViewName3 = QualifiedObjectName.valueOf("catalog.schema.view3");
-        QualifiedObjectName materializedViewName4 = QualifiedObjectName.valueOf("catalog.schema.view4");
-
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
-        baseTableToMaterializedViews.put(baseTableName1, ImmutableList.of(materializedViewName1, materializedViewName2));
-        baseTableToMaterializedViews.put(baseTableName2, ImmutableList.of(materializedViewName3, materializedViewName4));
-
-        ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of();
-
+        String baseTable1 = "base_table_v1v2";
+        String baseTable2 = "base_table_v3v4";
         String baseQuerySql = format("SELECT x, y FROM %s JOIN %s ON %s.id = %s.id", baseTable1, baseTable2, baseTable1, baseTable2);
-
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql, baseTableToMaterializedViews);
+        assertCandidateMaterializedView(ImmutableSet.of(), baseQuerySql);
     }
 
     @Test
     public void testWithMultipleJoin()
     {
-        String baseTable1 = "base_table1";
-        String baseTable2 = "base_table2";
-        String baseTable3 = "base_table3";
-        QualifiedObjectName baseTableName1 = QualifiedObjectName.valueOf("catalog.schema.base_table1");
-        QualifiedObjectName baseTableName2 = QualifiedObjectName.valueOf("catalog.schema.base_table2");
-        QualifiedObjectName baseTableName3 = QualifiedObjectName.valueOf("catalog.schema.base_table3");
-        QualifiedObjectName materializedViewName1 = QualifiedObjectName.valueOf("catalog.schema.view1");
-        QualifiedObjectName materializedViewName2 = QualifiedObjectName.valueOf("catalog.schema.view2");
-        QualifiedObjectName materializedViewName3 = QualifiedObjectName.valueOf("catalog.schema.view3");
-        QualifiedObjectName materializedViewName4 = QualifiedObjectName.valueOf("catalog.schema.view4");
-
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
-        baseTableToMaterializedViews.put(baseTableName1, ImmutableList.of(materializedViewName1, materializedViewName2, materializedViewName3, materializedViewName4));
-        baseTableToMaterializedViews.put(baseTableName2, ImmutableList.of(materializedViewName1, materializedViewName3, materializedViewName4));
-        baseTableToMaterializedViews.put(baseTableName3, ImmutableList.of(materializedViewName2, materializedViewName3, materializedViewName4));
-
-        ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of(materializedViewName3, materializedViewName4);
-
+        String baseTable1 = "base_table_v1v2v3v4";
+        String baseTable2 = "base_table_v1v2v3";
+        String baseTable3 = "base_table_v1v2v4";
         String baseQuerySql = format("SELECT x, y FROM %s b1 JOIN %s b2 ON b1.id = b2.id JOIN %s b3 ON b2.id = b3.id",
                 baseTable1,
                 baseTable2,
                 baseTable3);
-
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql, baseTableToMaterializedViews);
+        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view1"), QualifiedObjectName.valueOf("catalog.schema.view2")), baseQuerySql);
     }
 
     @Test
     public void testWithMultipleJoinWithNoIntersection()
     {
-        String baseTable1 = "base_table1";
-        String baseTable2 = "base_table2";
-        String baseTable3 = "base_table3";
-        QualifiedObjectName baseTableName1 = QualifiedObjectName.valueOf("catalog.schema.base_table1");
-        QualifiedObjectName baseTableName2 = QualifiedObjectName.valueOf("catalog.schema.base_table2");
-        QualifiedObjectName baseTableName3 = QualifiedObjectName.valueOf("catalog.schema.base_table3");
-        QualifiedObjectName materializedViewName1 = QualifiedObjectName.valueOf("catalog.schema.view1");
-        QualifiedObjectName materializedViewName2 = QualifiedObjectName.valueOf("catalog.schema.view2");
-        QualifiedObjectName materializedViewName3 = QualifiedObjectName.valueOf("catalog.schema.view3");
-
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
-        baseTableToMaterializedViews.put(baseTableName1, ImmutableList.of(materializedViewName1, materializedViewName2));
-        baseTableToMaterializedViews.put(baseTableName2, ImmutableList.of(materializedViewName1, materializedViewName3));
-        baseTableToMaterializedViews.put(baseTableName3, ImmutableList.of(materializedViewName2, materializedViewName3));
-
-        ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of();
-
+        String baseTable1 = "base_table_v1v2";
+        String baseTable2 = "base_table_v2v3";
+        String baseTable3 = "base_table_v1v3";
         String baseQuerySql = format("SELECT x, y FROM %s b1 JOIN %s b2 ON b1.id = b2.id JOIN %s b3 ON b2.id = b3.id",
                 baseTable1,
                 baseTable2,
                 baseTable3);
-
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql, baseTableToMaterializedViews);
+        assertCandidateMaterializedView(ImmutableSet.of(), baseQuerySql);
     }
 
     private void assertCandidateMaterializedView(
             ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates,
-            String baseQuerySql,
-            Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews)
+            String baseQuerySql)
     {
         Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql);
 
-        MaterializedViewCandidateExtractor materializedViewCandidateExtractor = new MaterializedViewCandidateExtractor(SESSION, baseTableToMaterializedViews);
+        MaterializedViewCandidateExtractor materializedViewCandidateExtractor = new MaterializedViewCandidateExtractor(SESSION, METADATA);
         materializedViewCandidateExtractor.process(baseQuery);
         Set<QualifiedObjectName> materializedViewCandidates = materializedViewCandidateExtractor.getMaterializedViewCandidates();
 
         assertEquals(materializedViewCandidates, expectedMaterializedViewCandidates);
+    }
+
+    private static class MockMetadata
+            extends AbstractMockMetadata
+    {
+        @Override
+        public List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName)
+        {
+            switch (tableName.toString()) {
+                case "catalog.schema.base_table_v0":
+                case "catalog.schema.base_table1_v0":
+                case "catalog.schema.base_table2_v0":
+                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view0"));
+                case "catalog.schema.base_table_v1v2":
+                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view1"), QualifiedObjectName.valueOf("catalog.schema.view2"));
+                case "catalog.schema.base_table_v2v3":
+                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view2"), QualifiedObjectName.valueOf("catalog.schema.view3"));
+                case "catalog.schema.base_table_v3v4":
+                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view4"), QualifiedObjectName.valueOf("catalog.schema.view5"));
+                case "catalog.schema.base_table_v1v2v3v4":
+                    return ImmutableList.of(
+                            QualifiedObjectName.valueOf("catalog.schema.view1"),
+                            QualifiedObjectName.valueOf("catalog.schema.view2"),
+                            QualifiedObjectName.valueOf("catalog.schema.view3"),
+                            QualifiedObjectName.valueOf("catalog.schema.view4"));
+                case "catalog.schema.base_table_v1v2v3":
+                    return ImmutableList.of(
+                            QualifiedObjectName.valueOf("catalog.schema.view1"),
+                            QualifiedObjectName.valueOf("catalog.schema.view2"),
+                            QualifiedObjectName.valueOf("catalog.schema.view3"));
+                case "catalog.schema.base_table_v1v2v4":
+                    return ImmutableList.of(
+                            QualifiedObjectName.valueOf("catalog.schema.view1"),
+                            QualifiedObjectName.valueOf("catalog.schema.view2"),
+                            QualifiedObjectName.valueOf("catalog.schema.view4"));
+                case "catalog.schema.base_table_v1v3":
+                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view1"), QualifiedObjectName.valueOf("catalog.schema.view3"));
+            }
+            return ImmutableList.of();
+        }
     }
 }

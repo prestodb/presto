@@ -61,6 +61,8 @@ public class TimestampColumnWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
     private static final int MILLIS_PER_SECOND = 1000;
     private static final int MILLIS_TO_NANOS_TRAILING_ZEROS = 5;
+    // Timestamp is encoded as Seconds (Long) and Nanos (Integer)
+    private static final long TIMESTAMP_RAW_SIZE = Long.BYTES + Integer.BYTES;
 
     private final int column;
     private final Type type;
@@ -119,7 +121,7 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -130,6 +132,7 @@ public class TimestampColumnWriter
         }
 
         // record values
+        int blockNonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 long value = type.getLong(block, position);
@@ -161,16 +164,19 @@ public class TimestampColumnWriter
 
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);
-                nonNullValueCount++;
+                blockNonNullValueCount++;
             }
         }
+
+        nonNullValueCount += blockNonNullValueCount;
+        return (block.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + blockNonNullValueCount * TIMESTAMP_RAW_SIZE;
     }
 
     @Override
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;

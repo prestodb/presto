@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -57,6 +58,7 @@ import org.apache.hadoop.fs.Path;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -261,6 +263,12 @@ public class FileHiveMetastore
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Table type not supported: " + table.getTableType());
+        }
+
+        if (!table.getTableType().equals(VIRTUAL_VIEW)) {
+            File location = new File(new Path(table.getStorage().getLocation()).toUri());
+            checkArgument(location.isDirectory(), "Table location is not a directory: %s", location);
+            checkArgument(location.exists(), "Table directory does not exist: %s", location);
         }
 
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), false);
@@ -918,8 +926,8 @@ public class FileHiveMetastore
         List<String> parts = convertPredicateToParts(partitionPredicates);
         // todo this should be more efficient by selectively walking the directory tree
         return getPartitionNames(metastoreContext, databaseName, tableName).map(partitionNames -> partitionNames.stream()
-                .filter(partitionName -> partitionMatches(partitionName, parts))
-                .collect(toImmutableList()))
+                        .filter(partitionName -> partitionMatches(partitionName, parts))
+                        .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
     }
 
@@ -987,6 +995,12 @@ public class FileHiveMetastore
         currentPrivileges.removeAll(privileges);
 
         setTablePrivileges(metastoreContext, grantee, databaseName, tableName, currentPrivileges);
+    }
+
+    @Override
+    public synchronized void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
+    {
+        throw new UnsupportedOperationException("setPartitionLeases is not supported in FileHiveMetastore");
     }
 
     private synchronized void setTablePrivileges(

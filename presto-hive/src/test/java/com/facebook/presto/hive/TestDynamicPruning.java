@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.testing.TempFile;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
@@ -35,6 +36,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -130,6 +132,7 @@ public class TestDynamicPruning
                 0,
                 outputFile.length(),
                 outputFile.length(),
+                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
@@ -240,6 +243,6 @@ public class TestDynamicPruning
 
     private static TestingConnectorSession getSession(HiveClientConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
     }
 }

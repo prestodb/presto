@@ -69,6 +69,7 @@ public class DistributedClusterStatsResource
         activeNodes -= internalNodeManager.getResourceManagers().size();
 
         long runningDrivers = 0;
+        long runningTasks = 0;
         double memoryReservation = 0;
 
         long totalInputRows = 0;
@@ -95,19 +96,22 @@ public class DistributedClusterStatsResource
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
+                runningTasks += query.getQueryStats().getRunningTasks();
             }
         }
-
+        //TODO compute adjusted queue size on RM
         return Response.ok(new ClusterStatsResource.ClusterStats(
                 runningQueries,
                 blockedQueries,
                 queuedQueries,
                 activeNodes,
                 runningDrivers,
+                runningTasks,
                 memoryReservation,
                 totalInputRows,
                 totalInputBytes,
-                totalCpuTimeSecs))
+                totalCpuTimeSecs,
+                0))
                 .build();
     }
 

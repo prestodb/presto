@@ -34,6 +34,8 @@ public class ZOrder
 
     // Assume encodingBits is 0-based
     private final List<Integer> encodingBits;
+    private final boolean positiveIntegersOnly;
+
     private final int totalBitLength;
     private final int maxBitLength;
 
@@ -42,17 +44,25 @@ public class ZOrder
     /**
      * Class constructor specifying the number of bits each value will take up for encoding and decoding.
      */
-    public ZOrder(List<Integer> encodingBits)
+    public ZOrder(List<Integer> encodingBits, boolean positiveIntegersOnly)
     {
         requireNonNull(encodingBits, "Encoding bits list should not be null.");
         checkArgument(!encodingBits.isEmpty(), "Encoding bits list should not be empty.");
 
         this.encodingBits = encodingBits;
+        this.positiveIntegersOnly = positiveIntegersOnly;
 
-        totalBitLength = encodingBits.stream().mapToInt(Integer::intValue).sum() + encodingBits.size();
-        maxBitLength = encodingBits.stream().mapToInt(Integer::intValue).max().getAsInt() + 1;
+        int totalBitLength = encodingBits.stream().mapToInt(Integer::intValue).sum();
+        int maxBitLength = encodingBits.stream().mapToInt(Integer::intValue).max().getAsInt();
+        this.totalBitLength = positiveIntegersOnly ? totalBitLength : totalBitLength + encodingBits.size();
+        this.maxBitLength = positiveIntegersOnly ? maxBitLength : maxBitLength + 1;
 
         dimensions = initializeDimensions();
+    }
+
+    public ZOrder(List<Integer> encodingBits)
+    {
+        this(encodingBits, false);
     }
 
     /**
@@ -64,11 +74,24 @@ public class ZOrder
     {
         int[] dimensions = new int[maxBitLength];
         List<Integer> bitLengths = new ArrayList<>(encodingBits);
-        for (int dimensionIndex = maxBitLength - 1; dimensionIndex >= 0; dimensionIndex--) {
-            for (int bitLengthIndex = 0; bitLengthIndex < bitLengths.size(); bitLengthIndex++) {
-                if (bitLengths.get(bitLengthIndex) >= 0) {
-                    dimensions[dimensionIndex]++;
-                    bitLengths.set(bitLengthIndex, bitLengths.get(bitLengthIndex) - 1);
+
+        if (positiveIntegersOnly) {
+            for (int dimensionIndex = maxBitLength - 1; dimensionIndex >= 0; dimensionIndex--) {
+                for (int bitLengthIndex = 0; bitLengthIndex < bitLengths.size(); bitLengthIndex++) {
+                    if (bitLengths.get(bitLengthIndex) > 0) {
+                        dimensions[dimensionIndex]++;
+                        bitLengths.set(bitLengthIndex, bitLengths.get(bitLengthIndex) - 1);
+                    }
+                }
+            }
+        }
+        else {
+            for (int dimensionIndex = maxBitLength - 1; dimensionIndex >= 0; dimensionIndex--) {
+                for (int bitLengthIndex = 0; bitLengthIndex < bitLengths.size(); bitLengthIndex++) {
+                    if (bitLengths.get(bitLengthIndex) >= 0) {
+                        dimensions[dimensionIndex]++;
+                        bitLengths.set(bitLengthIndex, bitLengths.get(bitLengthIndex) - 1);
+                    }
                 }
             }
         }
@@ -92,15 +115,17 @@ public class ZOrder
         // Find address byte length by rounding up (totalBitLength / 8)
         byte[] address = new byte[(totalBitLength + 7) >> 3];
 
-        // Modify sign bits to preserve ordering between positive and negative integers
-        int bitIndex = totalBitLength - 1;
-        for (int value : input) {
-            byte signBit = (value < 0) ? (byte) 0 : 1;
-            address[bitIndex >> 3] |= signBit << (bitIndex & 7);
-            bitIndex--;
+        if (!positiveIntegersOnly) {
+            // Modify sign bits to preserve ordering between positive and negative integers
+            int bitIndex = totalBitLength - 1;
+            for (int value : input) {
+                byte signBit = (value < 0) ? (byte) 0 : 1;
+                address[bitIndex >> 3] |= signBit << (bitIndex & 7);
+                bitIndex--;
+            }
         }
 
-        bitIndex = totalBitLength - encodingBits.size() - 1;
+        int bitIndex = positiveIntegersOnly ? totalBitLength - 1 : totalBitLength - encodingBits.size() - 1;
         // Interweave input bits into address from the most significant bit to preserve data locality
         for (int bitsProcessed = 0; bitsProcessed < maxBitLength; bitsProcessed++) {
             for (int index = 0; index < input.size(); index++) {
@@ -155,7 +180,7 @@ public class ZOrder
     {
         int[] output = new int[encodingBits.size()];
 
-        int bitIndex = totalBitLength - encodingBits.size() - 1;
+        int bitIndex = positiveIntegersOnly ? totalBitLength - 1 : totalBitLength - encodingBits.size() - 1;
         int bitsProcessed = 0;
         // Un-weave address into original integers
         while (bitIndex >= 0) {
@@ -171,14 +196,16 @@ public class ZOrder
             bitsProcessed++;
         }
 
-        // Set correct sign bit for outputs
-        bitIndex = totalBitLength - 1;
-        for (int index = 0; index < output.length; index++) {
-            byte signBit = (byte) ((address[bitIndex >> 3] >> (bitIndex & 7)) & 1);
-            if (signBit == 0) {
-                output[index] -= (1 << encodingBits.get(index));
+        if (!positiveIntegersOnly) {
+            // Set correct sign bit for outputs
+            bitIndex = totalBitLength - 1;
+            for (int index = 0; index < output.length; index++) {
+                byte signBit = (byte) ((address[bitIndex >> 3] >> (bitIndex & 7)) & 1);
+                if (signBit == 0) {
+                    output[index] -= (1 << encodingBits.get(index));
+                }
+                bitIndex--;
             }
-            bitIndex--;
         }
 
         return Arrays.stream(output).boxed().collect(ImmutableList.toImmutableList());
@@ -282,9 +309,14 @@ public class ZOrder
                 format("Input list size (%d) does not match encoding bits list size (%d).", input.size(), encodingBits.size()));
 
         for (int i = 0; i < input.size(); i++) {
-            checkArgument(
-                    input.get(i) >= 0 ? (input.get(i) < (1 << encodingBits.get(i))) : (input.get(i) >= -(1 << encodingBits.get(i))),
-                    format("Input value %d at index %d should not have more than %d bits.", input.get(i), i, encodingBits.get(i)));
+            if (positiveIntegersOnly) {
+                checkArgument(input.get(i) >= 0 && input.get(i) < (1 << (encodingBits.get(i) + 1)));
+            }
+            else {
+                checkArgument(
+                        input.get(i) >= 0 ? (input.get(i) < (1 << encodingBits.get(i))) : (input.get(i) >= -(1 << encodingBits.get(i))),
+                        format("Input value %d at index %d should not have more than %d bits.", input.get(i), i, encodingBits.get(i)));
+            }
         }
     }
 

@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -32,6 +34,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrateg
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
+import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -120,9 +123,14 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
+    public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
+    public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
     public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
+    public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
+    public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
+    public static final String QUERY_MAX_REVOCABLE_MEMORY_PER_NODE = "query_max_revocable_memory_per_node";
     public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
@@ -199,6 +207,18 @@ public final class SystemSessionProperties
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
+    public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
+    public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
+    public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
+    public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
+    public static final String ENABLE_DISTRIBUTED_TRACING = "enable_distributed_tracing";
+    public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
+
+    //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
+    public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
+    public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
+    public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
+    public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -212,7 +232,8 @@ public final class SystemSessionProperties
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
-                new NodeSpillConfig());
+                new NodeSpillConfig(),
+                new TracingConfig());
     }
 
     @Inject
@@ -224,7 +245,8 @@ public final class SystemSessionProperties
             NodeMemoryConfig nodeMemoryConfig,
             WarningCollectorConfig warningCollectorConfig,
             NodeSchedulerConfig nodeSchedulerConfig,
-            NodeSpillConfig nodeSpillConfig)
+            NodeSpillConfig nodeSpillConfig,
+            TracingConfig tracingConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -601,14 +623,34 @@ public final class SystemSessionProperties
                         featuresConfig.isJoinSpillingEnabled(),
                         false),
                 booleanProperty(
+                        AGGREGATION_SPILL_ENABLED,
+                        "Enable aggregate spilling if spill_enabled",
+                        featuresConfig.isAggregationSpillEnabled(),
+                        false),
+                booleanProperty(
                         DISTINCT_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for distinct aggregations if spill_enabled",
+                        "Enable spill for distinct aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isDistinctAggregationSpillEnabled(),
                         false),
                 booleanProperty(
+                        DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED,
+                        "Perform deduplication of input data for distinct aggregates before spilling",
+                        featuresConfig.isDedupBasedDistinctAggregationSpillEnabled(),
+                        false),
+                booleanProperty(
                         ORDER_BY_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for order-by aggregations if spill_enabled",
+                        "Enable spill for order-by aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isOrderByAggregationSpillEnabled(),
+                        false),
+                booleanProperty(
+                        WINDOW_SPILL_ENABLED,
+                        "Enable window spilling if spill_enabled",
+                        featuresConfig.isWindowSpillEnabled(),
+                        false),
+                booleanProperty(
+                        ORDER_BY_SPILL_ENABLED,
+                        "Enable order by spilling if spill_enabled",
+                        featuresConfig.isOrderBySpillEnabled(),
                         false),
                 new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
@@ -617,6 +659,15 @@ public final class SystemSessionProperties
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        QUERY_MAX_REVOCABLE_MEMORY_PER_NODE,
+                        "Maximum amount of revocable memory a query can use",
+                        VARCHAR,
+                        DataSize.class,
+                        nodeSpillConfig.getMaxRevocableMemoryPerNode(),
+                        true,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
                 new PropertyMetadata<>(
@@ -735,8 +786,8 @@ public final class SystemSessionProperties
                         PARTIAL_AGGREGATION_STRATEGY,
                         format("Partial aggregation strategy to use. Options are %s",
                                 Stream.of(PartialAggregationStrategy.values())
-                                .map(PartialAggregationStrategy::name)
-                                .collect(joining(","))),
+                                        .map(PartialAggregationStrategy::name)
+                                        .collect(joining(","))),
                         VARCHAR,
                         PartialAggregationStrategy.class,
                         featuresConfig.getPartialAggregationStrategy(),
@@ -1066,7 +1117,71 @@ public final class SystemSessionProperties
                         QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED,
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
-                        true));
+                        true),
+                booleanProperty(
+                        ENABLE_DISTRIBUTED_TRACING,
+                        "Enable distributed tracing of the query",
+                        tracingConfig.getEnableDistributedTracing(),
+                        false),
+                booleanProperty(
+                        VERBOSE_RUNTIME_STATS_ENABLED,
+                        "Enable logging all runtime stats",
+                        featuresConfig.isVerboseRuntimeStatsEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
+                        format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",
+                                Stream.of(AggregationIfToFilterRewriteStrategy.values())
+                                        .map(AggregationIfToFilterRewriteStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        AggregationIfToFilterRewriteStrategy.class,
+                        featuresConfig.getAggregationIfToFilterRewriteStrategy(),
+                        false,
+                        value -> AggregationIfToFilterRewriteStrategy.valueOf(((String) value).toUpperCase()),
+                        AggregationIfToFilterRewriteStrategy::name),
+                booleanProperty(
+                        PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
+                        "Enable simplified path in expression evaluation",
+                        false,
+                        false),
+                new PropertyMetadata<>(
+                        RESOURCE_AWARE_SCHEDULING_STRATEGY,
+                        format("Task assignment strategy to use. Options are %s",
+                                Stream.of(ResourceAwareSchedulingStrategy.values())
+                                        .map(ResourceAwareSchedulingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ResourceAwareSchedulingStrategy.class,
+                        nodeSchedulerConfig.getResourceAwareSchedulingStrategy(),
+                        false,
+                        value -> ResourceAwareSchedulingStrategy.valueOf(((String) value).toUpperCase()),
+                        ResourceAwareSchedulingStrategy::name),
+                booleanProperty(
+                        HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED,
+                        "Trigger heap dump to `EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_PATH` on exceeded memory limit exceptions",
+                        false, // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true),
+                stringProperty(
+                        EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY,
+                        "Directory to which heap snapshot will be dumped, if heap_dump_on_exceeded_memory_limit_enabled",
+                        System.getProperty("java.io.tmpdir"),   // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true),
+                booleanProperty(
+                        KEY_BASED_SAMPLING_ENABLED,
+                        "Key based sampling of tables enabled",
+                        false,
+                        false),
+                doubleProperty(
+                        KEY_BASED_SAMPLING_PERCENTAGE,
+                        "Percentage of keys to be sampled",
+                        0.01,
+                        false),
+                stringProperty(
+                        KEY_BASED_SAMPLING_FUNCTION,
+                        "Sampling function for key based sampling",
+                        "key_sampling_percent",
+                        false));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1087,6 +1202,21 @@ public final class SystemSessionProperties
     public static boolean isAllowWindowOrderByLiterals(Session session)
     {
         return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
+    }
+
+    public static boolean isKeyBasedSamplingEnabled(Session session)
+    {
+        return session.getSystemProperty(KEY_BASED_SAMPLING_ENABLED, Boolean.class);
+    }
+
+    public static double getKeyBasedSamplingPercentage(Session session)
+    {
+        return session.getSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, Double.class);
+    }
+
+    public static String getKeyBasedSamplingFunction(Session session)
+    {
+        return session.getSystemProperty(KEY_BASED_SAMPLING_FUNCTION, String.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1118,9 +1248,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
-    public static Optional<DataSize> getJoinMaxBroadcastTableSize(Session session)
+    public static DataSize getJoinMaxBroadcastTableSize(Session session)
     {
-        return Optional.ofNullable(session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class));
+        return session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
@@ -1378,14 +1508,34 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
+    public static boolean isAggregationSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
+    }
+
     public static boolean isDistinctAggregationSpillEnabled(Session session)
     {
-        return session.getSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
+        return session.getSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class) && isAggregationSpillEnabled(session);
+    }
+
+    public static boolean isDedupBasedDistinctAggregationSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class);
     }
 
     public static boolean isOrderByAggregationSpillEnabled(Session session)
     {
-        return session.getSystemProperty(ORDER_BY_AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
+        return session.getSystemProperty(ORDER_BY_AGGREGATION_SPILL_ENABLED, Boolean.class) && isAggregationSpillEnabled(session);
+    }
+
+    public static boolean isWindowSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(WINDOW_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
+    }
+
+    public static boolean isOrderBySpillEnabled(Session session)
+    {
+        return session.getSystemProperty(ORDER_BY_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
@@ -1393,6 +1543,11 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
+    }
+
+    public static DataSize getQueryMaxRevocableMemoryPerNode(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, DataSize.class);
     }
 
     public static DataSize getTempStorageSpillerBufferSize(Session session)
@@ -1800,5 +1955,30 @@ public final class SystemSessionProperties
     public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
     {
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
+    }
+
+    public static boolean isVerboseRuntimeStatsEnabled(Session session)
+    {
+        return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
+    {
+        return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, AggregationIfToFilterRewriteStrategy.class);
+    }
+
+    public static ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy(Session session)
+    {
+        return session.getSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, ResourceAwareSchedulingStrategy.class);
+    }
+
+    public static Boolean isHeapDumpOnExceededMemoryLimitEnabled(Session session)
+    {
+        return session.getSystemProperty(HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED, Boolean.class);
+    }
+
+    public static String getHeapDumpFileDirectory(Session session)
+    {
+        return session.getSystemProperty(EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY, String.class);
     }
 }

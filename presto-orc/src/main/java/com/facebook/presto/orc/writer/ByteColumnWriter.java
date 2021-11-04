@@ -94,7 +94,7 @@ public class ByteColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -111,13 +111,15 @@ public class ByteColumnWriter
                 nonNullValueCount++;
             }
         }
+        // For byte columns, null and values has the same size (1 byte)
+        return block.getPositionCount() * NULL_SIZE;
     }
 
     @Override
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;

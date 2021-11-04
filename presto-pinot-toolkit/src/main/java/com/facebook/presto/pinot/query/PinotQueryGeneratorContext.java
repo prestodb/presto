@@ -383,7 +383,7 @@ public class PinotQueryGeneratorContext
             limitClause = " " + limitKeyWord + " " + queryLimit;
         }
         String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
-        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments();
+        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(false);
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
         return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.PQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
     }
@@ -524,13 +524,15 @@ public class PinotQueryGeneratorContext
         return outputIndices.build();
     }
 
-    public LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> getAssignments()
+    public LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> getAssignments(boolean isSqlSyntax)
     {
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> result = new LinkedHashMap<>();
-        LinkedHashSet<VariableReferenceExpression> pqlOutputFields = new LinkedHashSet<>();
-        pqlOutputFields.addAll(groupByColumns);
-        pqlOutputFields.addAll(outputs.stream().filter(variable -> !hiddenColumnSet.contains(variable)).collect(Collectors.toList()));
-        pqlOutputFields.stream().forEach(variable -> {
+        LinkedHashSet<VariableReferenceExpression> outputFields = new LinkedHashSet<>();
+        if (!isSqlSyntax) {
+            outputFields.addAll(groupByColumns);
+        }
+        outputFields.addAll(outputs.stream().filter(variable -> !hiddenColumnSet.contains(variable)).collect(Collectors.toList()));
+        outputFields.stream().forEach(variable -> {
             Selection selection = selections.get(variable);
             PinotColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new PinotColumnHandle(selection.getDefinition(), variable.getType(), PinotColumnHandle.PinotColumnType.REGULAR) : new PinotColumnHandle(variable, PinotColumnHandle.PinotColumnType.DERIVED);
             result.put(variable, handle);

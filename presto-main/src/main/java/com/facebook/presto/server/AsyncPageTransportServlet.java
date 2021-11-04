@@ -21,6 +21,7 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -37,8 +38,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -88,22 +87,69 @@ public class AsyncPageTransportServlet
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
     }
 
+    @VisibleForTesting
+    protected AsyncPageTransportServlet()
+    {
+        this.taskManager = null;
+        this.pageTransportTimeout = null;
+        this.responseExecutor = null;
+        this.timeoutExecutor = null;
+    }
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException
     {
-        String requestURI = request.getRequestURI();
+        parseURI(request.getRequestURI(), request, response);
+    }
+
+    protected void reportFailure(HttpServletResponse response, String message)
+            throws IOException
+    {
+        response.sendError(SC_BAD_REQUEST, message);
+    }
+
+    protected void parseURI(String requestURI, HttpServletRequest request, HttpServletResponse response)
+            throws IOException
+    {
+        // Split a task URI without allocating a list and unnecessary strings
         // Example:  /v1/task/async/{taskId}/results/{bufferId}/{token}
-        List<String> requestURIParts = Arrays.asList(requestURI.split("/"));
+        TaskId taskId = null;
+        OutputBufferId bufferId = null;
+        long token = 0;
 
-        if (requestURIParts.size() != 8) {
-            response.sendError(SC_BAD_REQUEST, format("Unexpected URI for task result request in async mode: %s", requestURI));
-            return;
+        int previousIndex = -1;
+        for (int part = 0; part < 8; part++) {
+            int nextIndex = requestURI.indexOf('/', previousIndex + 1);
+
+            if (nextIndex == -1 && part != 7 || nextIndex != -1 && part == 7) {
+                reportFailure(response, format("Unexpected URI for task result request in async mode: %s", requestURI));
+                return;
+            }
+
+            switch (part) {
+                case 4:
+                    taskId = TaskId.valueOf(requestURI.substring(previousIndex + 1, nextIndex));
+                    break;
+                case 6:
+                    bufferId = OutputBufferId.fromString(requestURI.substring(previousIndex + 1, nextIndex));
+                    break;
+                case 7:
+                    token = parseLong(requestURI.substring(previousIndex + 1));
+                    break;
+            }
+
+            previousIndex = nextIndex;
         }
+        // This is sent forward instead of returned to avoid allocations
+        processRequest(requestURI, taskId, bufferId, token, request, response);
+    }
 
-        TaskId taskId = TaskId.valueOf(requestURIParts.get(4));
-        OutputBufferId bufferId = OutputBufferId.fromString(requestURIParts.get(6));
-        long token = parseLong(requestURIParts.get(7));
+    protected void processRequest(
+            String requestURI, TaskId taskId, OutputBufferId bufferId, long token,
+            HttpServletRequest request, HttpServletResponse response)
+            throws IOException
+    {
         DataSize maxSize = DataSize.valueOf(request.getHeader(PRESTO_MAX_SIZE));
 
         AsyncContext asyncContext = request.startAsync(request, response);
@@ -152,21 +198,20 @@ public class AsyncPageTransportServlet
                     @Override
                     public void onSuccess(BufferResult bufferResult)
                     {
-                        List<SerializedPage> serializedPages = new LinkedList<>(bufferResult.getSerializedPages());
-
                         response.setHeader(CONTENT_TYPE, PRESTO_PAGES);
                         response.setHeader(PRESTO_TASK_INSTANCE_ID, bufferResult.getTaskInstanceId());
                         response.setHeader(PRESTO_PAGE_TOKEN, String.valueOf(bufferResult.getToken()));
                         response.setHeader(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(bufferResult.getNextToken()));
                         response.setHeader(PRESTO_BUFFER_COMPLETE, String.valueOf(bufferResult.isBufferComplete()));
 
+                        List<SerializedPage> serializedPages = bufferResult.getSerializedPages();
                         if (serializedPages.isEmpty()) {
                             response.setStatus(SC_NO_CONTENT);
                             asyncContext.complete();
                         }
                         else {
-                            int contentLength = serializedPages.stream()
-                                    .mapToInt(page -> page.getSizeInBytes() + PAGE_METADATA_SIZE)
+                            int contentLength = (serializedPages.size() * PAGE_METADATA_SIZE) + serializedPages.stream()
+                                    .mapToInt(SerializedPage::getSizeInBytes)
                                     .sum();
                             response.setHeader(CONTENT_LENGTH, String.valueOf(contentLength));
                             out.setWriteListener(new SerializedPageWriteListener(serializedPages, asyncContext, out));

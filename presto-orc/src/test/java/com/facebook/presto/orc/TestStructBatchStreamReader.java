@@ -15,6 +15,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RowBlock;
@@ -236,7 +237,6 @@ public class TestStructBatchStreamReader
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                         .build(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,
@@ -283,7 +283,8 @@ public class TestStructBatchStreamReader
                         false),
                 false,
                 NO_ENCRYPTION,
-                DwrfKeyProvider.EMPTY);
+                DwrfKeyProvider.EMPTY,
+                new RuntimeStats());
 
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);

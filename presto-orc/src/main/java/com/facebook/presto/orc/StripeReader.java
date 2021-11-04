@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.checkpoint.InvalidCheckpointException;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -78,6 +79,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -95,6 +97,7 @@ public class StripeReader
     private final StripeMetadataSource stripeMetadataSource;
     private final boolean cacheable;
     private final Multimap<Integer, Integer> dwrfEncryptionGroupColumns;
+    private final RuntimeStats runtimeStats;
 
     public StripeReader(
             OrcDataSource orcDataSource,
@@ -108,7 +111,8 @@ public class StripeReader
             Optional<OrcWriteValidation> writeValidation,
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
-            Map<Integer, Integer> dwrfEncryptionGroupMap)
+            Map<Integer, Integer> dwrfEncryptionGroupMap,
+            RuntimeStats runtimeStats)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -120,8 +124,9 @@ public class StripeReader
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
-        this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
+        this.cacheable = cacheable;
         this.dwrfEncryptionGroupColumns = invertEncryptionGroupMap(requireNonNull(dwrfEncryptionGroupMap, "dwrfEncryptionGroupMap is null"));
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     private Multimap<Integer, Integer> invertEncryptionGroupMap(Map<Integer, Integer> dwrfEncryptionGroupMap)
@@ -432,8 +437,6 @@ public class StripeReader
 
         for (int rowGroupId : selectedRowGroups) {
             Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(includedOrcColumns, types, decompressor.isPresent(), rowGroupId, encodings, streams, columnIndexes);
-            int rowOffset = rowGroupId * rowsInRowGroup;
-            int rowsInGroup = toIntExact(Math.min(rowsInStripe - rowOffset, rowsInRowGroup));
             long minAverageRowBytes = columnIndexes
                     .entrySet()
                     .stream()
@@ -442,14 +445,17 @@ public class StripeReader
                             .getColumnStatistics()
                             .getMinAverageValueSizeInBytes())
                     .sum();
-            rowGroupBuilder.add(createRowGroup(rowGroupId, rowOffset, rowsInGroup, minAverageRowBytes, valueStreams, checkpoints));
+            rowGroupBuilder.add(createRowGroup(rowGroupId, rowsInStripe, rowsInRowGroup, minAverageRowBytes, valueStreams, checkpoints));
         }
 
         return rowGroupBuilder.build();
     }
 
-    public static RowGroup createRowGroup(int groupId, int rowOffset, int rowCount, long minAverageRowBytes, Map<StreamId, ValueInputStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
+    @VisibleForTesting
+    static RowGroup createRowGroup(int groupId, long rowsInStripe, long rowsInRowGroup, long minAverageRowBytes, Map<StreamId, ValueInputStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
     {
+        long rowOffset = multiplyExact(groupId, rowsInRowGroup);
+        int rowsInGroup = toIntExact(Math.min(rowsInStripe - rowOffset, rowsInRowGroup));
         ImmutableMap.Builder<StreamId, InputStreamSource<?>> builder = ImmutableMap.builder();
         for (Entry<StreamId, StreamCheckpoint> entry : checkpoints.entrySet()) {
             StreamId streamId = entry.getKey();
@@ -464,7 +470,7 @@ public class StripeReader
             builder.put(streamId, createCheckpointStreamSource(valueStream, checkpoint));
         }
         InputStreamSources rowGroupStreams = new InputStreamSources(builder.build());
-        return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
+        return new RowGroup(groupId, rowOffset, rowsInGroup, minAverageRowBytes, rowGroupStreams);
     }
 
     public StripeFooter readStripeFooter(StripeId stripeId, StripeInformation stripe, OrcAggregatedMemoryContext systemMemoryUsage)

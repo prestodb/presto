@@ -73,7 +73,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty());
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty());
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -235,7 +235,6 @@ public final class HiveQueryRunner
                         .put("colocated-joins-enabled", "true")
                         .put("grouped-execution-enabled", "true")
                         .put("experimental.spill-enabled", "true")
-                        .put("experimental.join-spill-enabled", "true")
                         .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                         .put("experimental.spiller-max-used-space-threshold", "1.0")
                         .put("experimental.memory-revoking-threshold", "0.0") // revoke always

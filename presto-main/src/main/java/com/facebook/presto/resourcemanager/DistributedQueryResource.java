@@ -23,7 +23,6 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -41,7 +40,6 @@ import java.util.Optional;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
@@ -84,7 +82,6 @@ public class DistributedQueryResource
     @Path("{queryId}")
     public void getQueryInfo(
             @PathParam("queryId") QueryId queryId,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
@@ -96,7 +93,6 @@ public class DistributedQueryResource
     @Path("{queryId}")
     public void cancelQuery(
             @PathParam("queryId") QueryId queryId,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
@@ -109,7 +105,6 @@ public class DistributedQueryResource
     public void killQuery(
             @PathParam("queryId") QueryId queryId,
             String message,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
@@ -122,7 +117,6 @@ public class DistributedQueryResource
     public void preemptQuery(
             @PathParam("queryId") QueryId queryId,
             String message,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)

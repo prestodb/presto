@@ -59,6 +59,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static com.facebook.presto.hive.HiveSessionProperties.getDwrfWriterStripeCacheeMaxSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
@@ -68,6 +69,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWrit
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
+import static com.facebook.presto.hive.HiveSessionProperties.isDwrfWriterStripeCacheEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isExecutionBasedMemoryAccountingEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -226,6 +229,9 @@ public class OrcFileWriterFactory
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
+                            .withIgnoreDictionaryRowGroupSizes(isExecutionBasedMemoryAccountingEnabled(session))
+                            .withDwrfStripeCacheEnabled(isDwrfWriterStripeCacheEnabled(session))
+                            .withDwrfStripeCacheMaxSize(getDwrfWriterStripeCacheeMaxSize(session))
                             .build(),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()

@@ -14,10 +14,13 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.StreamLayout.ByStreamSize;
+import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import io.airlift.units.DataSize;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -34,6 +37,9 @@ public class OrcWriterOptions
     public static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(16, MEGABYTE);
     public static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = new DataSize(64, BYTE);
     public static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
+    public static final DataSize DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE = new DataSize(8, MEGABYTE);
+    public static final DwrfStripeCacheMode DEFAULT_DWRF_STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
+    public static final int DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT = 0;
 
     private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
@@ -46,6 +52,13 @@ public class OrcWriterOptions
     private final StreamLayout streamLayout;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
+    // TODO: Originally the dictionary row group sizes were not included in memory accounting due
+    //  to a bug. Fixing the bug causes certain queries to OOM. When enabled this flag maintains the
+    //  previous behavior so previously working queries will not OOM. The OOMs caused due to the
+    //  additional memory accounting need to be fixed as well as the flag removed.
+    private final boolean ignoreDictionaryRowGroupSizes;
+    private final Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
+    private final int preserveDirectEncodingStripeCount;
 
     private OrcWriterOptions(
             DataSize stripeMinSize,
@@ -58,7 +71,10 @@ public class OrcWriterOptions
             OptionalInt compressionLevel,
             StreamLayout streamLayout,
             boolean integerDictionaryEncodingEnabled,
-            boolean stringDictionarySortingEnabled)
+            boolean stringDictionarySortingEnabled,
+            Optional<DwrfStripeCacheOptions> dwrfWriterOptions,
+            boolean ignoreDictionaryRowGroupSizes,
+            int preserveDirectEncodingStripeCount)
     {
         requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
@@ -69,6 +85,7 @@ public class OrcWriterOptions
         requireNonNull(maxCompressionBufferSize, "maxCompressionBufferSize is null");
         requireNonNull(compressionLevel, "compressionLevel is null");
         requireNonNull(streamLayout, "streamLayout is null");
+        requireNonNull(dwrfWriterOptions, "dwrfWriterOptions is null");
 
         this.stripeMinSize = stripeMinSize;
         this.stripeMaxSize = stripeMaxSize;
@@ -81,6 +98,9 @@ public class OrcWriterOptions
         this.streamLayout = streamLayout;
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
+        this.dwrfWriterOptions = dwrfWriterOptions;
+        this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
+        this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
     }
 
     public DataSize getStripeMinSize()
@@ -138,6 +158,21 @@ public class OrcWriterOptions
         return stringDictionarySortingEnabled;
     }
 
+    public Optional<DwrfStripeCacheOptions> getDwrfStripeCacheOptions()
+    {
+        return dwrfWriterOptions;
+    }
+
+    public boolean isIgnoreDictionaryRowGroupSizes()
+    {
+        return ignoreDictionaryRowGroupSizes;
+    }
+
+    public int getPreserveDirectEncodingStripeCount()
+    {
+        return preserveDirectEncodingStripeCount;
+    }
+
     @Override
     public String toString()
     {
@@ -153,6 +188,9 @@ public class OrcWriterOptions
                 .add("streamLayout", streamLayout)
                 .add("integerDictionaryEncodingEnabled", integerDictionaryEncodingEnabled)
                 .add("stringDictionarySortingEnabled", stringDictionarySortingEnabled)
+                .add("dwrfWriterOptions", dwrfWriterOptions)
+                .add("ignoreDictionaryRowGroupSizes", ignoreDictionaryRowGroupSizes)
+                .add("preserveDirectEncodingStripeCount", preserveDirectEncodingStripeCount)
                 .toString();
     }
 
@@ -174,6 +212,11 @@ public class OrcWriterOptions
         private StreamLayout streamLayout = new ByStreamSize();
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
+        private boolean dwrfStripeCacheEnabled;
+        private DwrfStripeCacheMode dwrfStripeCacheMode = DEFAULT_DWRF_STRIPE_CACHE_MODE;
+        private DataSize dwrfStripeCacheMaxSize = DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
+        private boolean ignoreDictionaryRowGroupSizes;
+        private int preserveDirectEncodingStripeCount = DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 
         public Builder withStripeMinSize(DataSize stripeMinSize)
         {
@@ -243,8 +286,46 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withDwrfStripeCacheEnabled(boolean dwrfStripeCacheEnabled)
+        {
+            this.dwrfStripeCacheEnabled = dwrfStripeCacheEnabled;
+            return this;
+        }
+
+        public Builder withDwrfStripeCacheMode(DwrfStripeCacheMode dwrfStripeCacheMode)
+        {
+            this.dwrfStripeCacheMode = requireNonNull(dwrfStripeCacheMode, "dwrfStripeCacheMode is null");
+            return this;
+        }
+
+        public Builder withDwrfStripeCacheMaxSize(DataSize dwrfStripeCacheMaxSize)
+        {
+            this.dwrfStripeCacheMaxSize = requireNonNull(dwrfStripeCacheMaxSize, "dwrfStripeCacheMaxSize is null");
+            return this;
+        }
+
+        public Builder withIgnoreDictionaryRowGroupSizes(boolean ignoreDictionaryRowGroupSizes)
+        {
+            this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
+            return this;
+        }
+
+        public Builder withPreserveDirectEncodingStripeCount(int preserveDirectEncodingStripeCount)
+        {
+            this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
+            Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
+            if (dwrfStripeCacheEnabled) {
+                dwrfWriterOptions = Optional.of(new DwrfStripeCacheOptions(dwrfStripeCacheMode, dwrfStripeCacheMaxSize));
+            }
+            else {
+                dwrfWriterOptions = Optional.empty();
+            }
+
             return new OrcWriterOptions(
                     stripeMinSize,
                     stripeMaxSize,
@@ -256,7 +337,10 @@ public class OrcWriterOptions
                     compressionLevel,
                     streamLayout,
                     integerDictionaryEncodingEnabled,
-                    stringDictionarySortingEnabled);
+                    stringDictionarySortingEnabled,
+                    dwrfWriterOptions,
+                    ignoreDictionaryRowGroupSizes,
+                    preserveDirectEncodingStripeCount);
         }
     }
 }

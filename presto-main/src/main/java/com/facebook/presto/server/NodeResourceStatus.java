@@ -17,20 +17,24 @@ import com.facebook.presto.execution.ClusterSizeMonitor;
 
 import javax.inject.Inject;
 
+import static java.util.Objects.requireNonNull;
+
 public class NodeResourceStatus
         implements NodeResourceStatusProvider
 {
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final boolean isResourceManagerEnabled;
 
     @Inject
-    public NodeResourceStatus(ClusterSizeMonitor clusterSizeMonitor)
+    public NodeResourceStatus(ClusterSizeMonitor clusterSizeMonitor, ServerConfig serverConfig)
     {
         this.clusterSizeMonitor = clusterSizeMonitor;
+        this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
     }
 
     @Override
     public boolean hasResources()
     {
-        return clusterSizeMonitor.hasRequiredWorkers();
+        return (!isResourceManagerEnabled || clusterSizeMonitor.hasRequiredResourceManagers()) && clusterSizeMonitor.hasRequiredCoordinators() && clusterSizeMonitor.hasRequiredWorkers();
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.CompilationException;
 import com.facebook.presto.common.function.SqlFunctionProperties;

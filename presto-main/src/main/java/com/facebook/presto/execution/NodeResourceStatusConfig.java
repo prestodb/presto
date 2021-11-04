@@ -21,6 +21,8 @@ import javax.validation.constraints.Min;
 public class NodeResourceStatusConfig
 {
     private int requiredWorkersActive;
+    private int requiredResourceManagersActive = 1;
+    private int requiredCoordinatorsActive = 1;
 
     @Min(0)
     public int getRequiredWorkersActive()
@@ -33,6 +35,34 @@ public class NodeResourceStatusConfig
     public NodeResourceStatusConfig setRequiredWorkersActive(int requiredWorkersActive)
     {
         this.requiredWorkersActive = requiredWorkersActive;
+        return this;
+    }
+
+    @Min(1)
+    public int getRequiredResourceManagersActive()
+    {
+        return requiredResourceManagersActive;
+    }
+
+    @Config("cluster.required-resource-managers-active")
+    @ConfigDescription("Minimum number of active resource managers that must be available before activating the cluster")
+    public NodeResourceStatusConfig setRequiredResourceManagersActive(int requiredResourceManagersActive)
+    {
+        this.requiredResourceManagersActive = requiredResourceManagersActive;
+        return this;
+    }
+
+    @Min(1)
+    public int getRequiredCoordinatorsActive()
+    {
+        return requiredCoordinatorsActive;
+    }
+
+    @Config("cluster.required-coordinators-active")
+    @ConfigDescription("Minimum number of active coordinators that must be available before activating the cluster")
+    public NodeResourceStatusConfig setRequiredCoordinatorsActive(int requiredCoordinatorsActive)
+    {
+        this.requiredCoordinatorsActive = requiredCoordinatorsActive;
         return this;
     }
 }

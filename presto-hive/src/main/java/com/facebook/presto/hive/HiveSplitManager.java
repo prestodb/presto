@@ -87,6 +87,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveSessionProperties.getLeaseDuration;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -97,6 +98,7 @@ import static com.facebook.presto.hive.HiveType.getPrimitiveType;
 import static com.facebook.presto.hive.HiveWarningCode.PARTITION_NOT_READABLE;
 import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.TableToPartitionMapping.mapColumnsByIndex;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -226,7 +228,7 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
         }
         SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource()), tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (!isOfflineDataDebugModeEnabled(session)) {
@@ -641,7 +643,7 @@ public class HiveSplitManager
             Map<String, HiveColumnHandle> predicateColumns,
             Optional<Map<Subfield, Domain>> domains)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session));
         Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
                 metastoreContext,
                 tableName.getSchemaName(),
@@ -658,6 +660,7 @@ public class HiveSplitManager
                             .collect(toImmutableSet()));
         }
 
+        Map<String, String> partitionNameToLocation = new HashMap<>();
         ImmutableMap.Builder<String, PartitionSplitInfo> partitionSplitInfoBuilder = ImmutableMap.builder();
         for (Map.Entry<String, Optional<Partition>> entry : partitions.entrySet()) {
             ImmutableSet.Builder<ColumnHandle> redundantColumnDomainsBuilder = ImmutableSet.builder();
@@ -685,8 +688,14 @@ public class HiveSplitManager
                 }
             }
 
+            if (!pruned) {
+                partitionNameToLocation.put(entry.getKey(), entry.getValue().get().getStorage().getLocation());
+            }
+
             partitionSplitInfoBuilder.put(entry.getKey(), new PartitionSplitInfo(entry.getValue().get(), pruned, redundantColumnDomainsBuilder.build()));
         }
+        metastore.setPartitionLeases(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionNameToLocation, getLeaseDuration(session));
+
         return partitionSplitInfoBuilder.build();
     }
 

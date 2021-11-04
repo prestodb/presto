@@ -647,7 +647,8 @@ public class PrestoSparkQueryExecutionFactory
                 succinctBytes(peakTotalMemoryReservationInBytes),
                 succinctBytes(peakTaskUserMemoryInBytes),
                 succinctBytes(peakTaskTotalMemoryInBytes),
-                succinctBytes(peakNodeTotalMemoryInBytes));
+                succinctBytes(peakNodeTotalMemoryInBytes),
+                session.getRuntimeStats());
 
         return new QueryInfo(
                 session.getQueryId(),
@@ -658,6 +659,7 @@ public class PrestoSparkQueryExecutionFactory
                 URI.create("http://fake.invalid/query/" + session.getQueryId()),
                 planAndMore.map(PlanAndMore::getFieldNames).orElse(ImmutableList.of()),
                 query,
+                Optional.empty(),
                 queryStats,
                 Optional.empty(),
                 Optional.empty(),

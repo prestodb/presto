@@ -63,7 +63,7 @@ public class TestPinotSplitManager
         PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
         PlanNode plan = tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch);
         PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
-        List<PinotColumnHandle> expectedHandles = ImmutableList.copyOf(pinotQueryGeneratorResult.getContext().getAssignments().values());
+        List<PinotColumnHandle> expectedHandles = ImmutableList.copyOf(pinotQueryGeneratorResult.getContext().getAssignments(pinotQueryGeneratorResult.getGeneratedPinotQuery().getFormat() == PinotQueryGenerator.PinotQueryFormat.SQL).values());
         PinotQueryGenerator.GeneratedPinotQuery generatedPql = pinotQueryGeneratorResult.getGeneratedPinotQuery();
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getConnectorId(), table.getSchemaName(), table.getTableName(), Optional.of(false), Optional.of(expectedHandles), Optional.of(generatedPql));
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
@@ -78,7 +78,7 @@ public class TestPinotSplitManager
         PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
         PlanNode plan = filter(planBuilder, tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch), getRowExpression("city = 'Boston'", sessionHolder));
         PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
-        List<PinotColumnHandle> expectedHandles = ImmutableList.copyOf(pinotQueryGeneratorResult.getContext().getAssignments().values());
+        List<PinotColumnHandle> expectedHandles = ImmutableList.copyOf(pinotQueryGeneratorResult.getContext().getAssignments(pinotQueryGeneratorResult.getGeneratedPinotQuery().getFormat() == PinotQueryGenerator.PinotQueryFormat.SQL).values());
         PinotQueryGenerator.GeneratedPinotQuery generatedPql = pinotQueryGeneratorResult.getGeneratedPinotQuery();
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getConnectorId(), table.getSchemaName(), table.getTableName(), Optional.of(false), Optional.of(expectedHandles), Optional.of(generatedPql));
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);

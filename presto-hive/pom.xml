@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.259-SNAPSHOT</version>
+        <version>0.266-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -49,8 +49,12 @@
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-mr</artifactId>
-            <version>${dep.hudi.version}</version>
         </dependency>
 
         <dependency>

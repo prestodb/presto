@@ -103,7 +103,7 @@ public class ManifestPartitionLoader
 
         // TODO: Add support for more manifest versions
         // Verify the manifest version
-        verify(VERSION_1.equals(parameters.get(MANIFEST_VERSION)), format("Manifest version is not equal to %s", VERSION_1));
+        verify(VERSION_1.equals(parameters.get(MANIFEST_VERSION)), "Manifest version is not equal to %s", VERSION_1);
 
         List<String> fileNames = decompressFileNames(parameters.get(FILE_NAMES));
         List<Long> fileSizes = decompressFileSizes(parameters.get(FILE_SIZES));

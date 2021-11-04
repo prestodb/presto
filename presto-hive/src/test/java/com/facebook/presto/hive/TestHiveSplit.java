@@ -42,6 +42,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -86,6 +87,7 @@ public class TestHiveSplit
                 42,
                 87,
                 88,
+                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create("serde", "input", "output"),
                         "location",

@@ -16,7 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
@@ -25,8 +26,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.google.common.base.Preconditions.checkState;
 
 public class MarkDistinctHash
 {
@@ -50,26 +51,46 @@ public class MarkDistinctHash
 
     public Work<Block> markDistinctRows(Page page)
     {
-        return new TransformWork<>(
-                groupByHash.getGroupIds(page),
-                ids -> {
-                    BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, ids.getPositionCount());
-                    for (int i = 0; i < ids.getPositionCount(); i++) {
-                        if (ids.getGroupId(i) == nextDistinctId) {
-                            BOOLEAN.writeBoolean(blockBuilder, true);
-                            nextDistinctId++;
-                        }
-                        else {
-                            BOOLEAN.writeBoolean(blockBuilder, false);
-                        }
-                    }
-                    return blockBuilder.build();
-                });
+        return new TransformWork<>(groupByHash.getGroupIds(page), this::processNextGroupIds);
     }
 
     @VisibleForTesting
     public int getCapacity()
     {
         return groupByHash.getCapacity();
+    }
+
+    public List<Page> getDistinctPages()
+    {
+        return groupByHash.getBufferedPages();
+    }
+
+    private Block processNextGroupIds(GroupByIdBlock ids)
+    {
+        int positions = ids.getPositionCount();
+        if (positions > 1) {
+            // must have > 1 positions to benefit from using a RunLengthEncoded block
+            if (nextDistinctId == ids.getGroupCount()) {
+                // no new distinct positions
+                return new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(false), positions);
+            }
+            if (nextDistinctId + positions == ids.getGroupCount()) {
+                // all positions are distinct
+                nextDistinctId = ids.getGroupCount();
+                return new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(true), positions);
+            }
+        }
+        byte[] distinctMask = new byte[positions];
+        for (int position = 0; position < distinctMask.length; position++) {
+            if (ids.getGroupId(position) == nextDistinctId) {
+                distinctMask[position] = 1;
+                nextDistinctId++;
+            }
+            else {
+                distinctMask[position] = 0;
+            }
+        }
+        checkState(nextDistinctId == ids.getGroupCount());
+        return BooleanType.wrapByteArrayAsBooleanBlockWithoutNulls(distinctMask);
     }
 }

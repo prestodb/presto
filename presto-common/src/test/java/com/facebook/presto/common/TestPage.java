@@ -58,6 +58,15 @@ public class TestPage
     }
 
     @Test
+    public void testSizesForNoColumnPage()
+    {
+        Page page = new Page(100);
+        assertEquals(page.getSizeInBytes(), 0);
+        assertEquals(page.getLogicalSizeInBytes(), 0);
+        assertEquals(page.getRetainedSizeInBytes(), Page.INSTANCE_SIZE); // does not include the blocks[] array
+    }
+
+    @Test
     public void testCompactDictionaryBlocks()
     {
         int positionCount = 100;

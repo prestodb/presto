@@ -29,6 +29,7 @@ import javax.inject.Inject;
 
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -36,12 +37,21 @@ public class IcebergSplitManager
 {
     private final IcebergTransactionManager transactionManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final IcebergResourceFactory resourceFactory;
+    private final boolean nativeCatalogMode;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment)
+    public IcebergSplitManager(
+            IcebergConfig config,
+            IcebergResourceFactory resourceFactory,
+            IcebergTransactionManager transactionManager,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
+        requireNonNull(config, "config is null");
+        this.nativeCatalogMode = config.isNativeMode();
     }
 
     @Override
@@ -58,8 +68,14 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        ExtendedHiveMetastore metastore = transactionManager.get(transaction).getMetastore();
-        Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        Table icebergTable;
+        if (nativeCatalogMode) {
+            icebergTable = resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table.getSchemaTableName()));
+        }
+        else {
+            ExtendedHiveMetastore metastore = ((IcebergMetadata) transactionManager.get(transaction)).getMetastore();
+            icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        }
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(table.getPredicate()))

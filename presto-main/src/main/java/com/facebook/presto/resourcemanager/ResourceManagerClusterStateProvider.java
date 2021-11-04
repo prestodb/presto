@@ -48,6 +48,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -60,6 +61,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Stream.concat;
 
 public class ResourceManagerClusterStateProvider
 {
@@ -137,12 +139,14 @@ public class ResourceManagerClusterStateProvider
         }, 100, 100, MILLISECONDS);
     }
 
-    public void registerQueryHeartbeat(String nodeId, BasicQueryInfo basicQueryInfo)
+    public void registerQueryHeartbeat(String nodeId, BasicQueryInfo basicQueryInfo, long sequenceId)
     {
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(basicQueryInfo, "basicQueryInfo is null");
+        Stream<InternalNode> activeOrShuttingDownCoordinators = concat(internalNodeManager.getCoordinators().stream(),
+                internalNodeManager.getShuttingDownCoordinator().stream());
         checkArgument(
-                internalNodeManager.getCoordinators().stream().anyMatch(i -> nodeId.equals(i.getNodeIdentifier())),
+                activeOrShuttingDownCoordinators.anyMatch(i -> nodeId.equals(i.getNodeIdentifier())),
                 "%s is not a coordinator (coordinators: %s)",
                 nodeId,
                 internalNodeManager.getCoordinators().stream().collect(toImmutableSet()));
@@ -151,7 +155,7 @@ public class ResourceManagerClusterStateProvider
                 maxCompletedQueries,
                 queryExpirationTimeout.toMillis(),
                 completedQueryExpirationTimeout.toMillis()));
-        state.addOrUpdateQuery(basicQueryInfo);
+        state.addOrUpdateQuery(basicQueryInfo, sequenceId);
     }
 
     public void registerNodeHeartbeat(NodeStatus nodeStatus)
@@ -321,17 +325,20 @@ public class ResourceManagerClusterStateProvider
             this.completedQueryExpirationTimeoutMillis = completedQueryExpirationTimeoutMillis;
         }
 
-        public synchronized void addOrUpdateQuery(BasicQueryInfo basicQueryInfo)
+        public synchronized void addOrUpdateQuery(BasicQueryInfo basicQueryInfo, long sequenceId)
         {
             requireNonNull(basicQueryInfo, "basicQueryInfo is null");
             QueryId queryId = basicQueryInfo.getQueryId();
             Query query = activeQueries.get(queryId);
             if (query == null) {
-                query = new Query(basicQueryInfo);
+                query = completedQueries.get(queryId);
+            }
+            if (query == null) {
+                query = new Query(basicQueryInfo, sequenceId);
                 activeQueries.put(queryId, query);
             }
             else {
-                query = query.updateQueryInfo(basicQueryInfo);
+                query = query.updateQueryInfo(basicQueryInfo, sequenceId);
             }
             if (isQueryCompleted(query)) {
                 completedQueries.put(query.getQueryId(), query);
@@ -420,11 +427,13 @@ public class ResourceManagerClusterStateProvider
 
         private volatile BasicQueryInfo basicQueryInfo;
         private final AtomicLong lastHeartbeatInMillis = new AtomicLong();
+        private final AtomicLong sequenceId;
 
-        public Query(BasicQueryInfo basicQueryInfo)
+        public Query(BasicQueryInfo basicQueryInfo, long sequenceId)
         {
             this.queryId = basicQueryInfo.getQueryId();
             this.basicQueryInfo = basicQueryInfo;
+            this.sequenceId = new AtomicLong(sequenceId);
             recordHeartbeat();
         }
 
@@ -438,10 +447,11 @@ public class ResourceManagerClusterStateProvider
             return lastHeartbeatInMillis.get();
         }
 
-        public Query updateQueryInfo(BasicQueryInfo basicQueryInfo)
+        public Query updateQueryInfo(BasicQueryInfo basicQueryInfo, long sequenceId)
         {
             requireNonNull(basicQueryInfo, "basicQueryInfo is null");
-            if (basicQueryInfo.getState().getValue() >= this.basicQueryInfo.getState().getValue()) {
+            long newSequenceId = this.sequenceId.updateAndGet(operand -> Math.max(operand, sequenceId));
+            if (newSequenceId == sequenceId) {
                 this.basicQueryInfo = basicQueryInfo;
             }
             recordHeartbeat();

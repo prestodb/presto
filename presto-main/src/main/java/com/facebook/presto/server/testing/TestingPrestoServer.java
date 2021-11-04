@@ -51,10 +51,12 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
 import com.facebook.presto.server.PluginManager;
+import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
@@ -78,6 +80,8 @@ import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
+import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -163,6 +167,8 @@ public class TestingPrestoServer
     private final RequestBlocker requestBlocker;
     private final boolean resourceManager;
     private final boolean coordinator;
+    private final ServerInfoResource serverInfoResource;
+    private final ResourceManagerClusterStateProvider clusterStateProvider;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -272,6 +278,8 @@ public class TestingPrestoServer
                 .add(new ServerMainModule(parserOptions))
                 .add(new TestingWarningCollectorModule())
                 .add(new QueryPrerequisitesManagerModule())
+                .add(new NodeTtlFetcherManagerModule())
+                .add(new ClusterTtlProviderManagerModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
@@ -341,6 +349,7 @@ public class TestingPrestoServer
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
+            clusterStateProvider = null;
         }
         else if (resourceManager) {
             dispatchManager = null;
@@ -351,6 +360,7 @@ public class TestingPrestoServer
             clusterMemoryManager = null;
             statsCalculator = null;
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
+            clusterStateProvider = injector.getInstance(ResourceManagerClusterStateProvider.class);
         }
         else {
             dispatchManager = null;
@@ -361,6 +371,7 @@ public class TestingPrestoServer
             clusterMemoryManager = null;
             statsCalculator = null;
             eventListenerManager = null;
+            clusterStateProvider = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -370,6 +381,7 @@ public class TestingPrestoServer
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
         requestBlocker = injector.getInstance(RequestBlocker.class);
+        serverInfoResource = injector.getInstance(ServerInfoResource.class);
 
         // Announce Thrift server address
         DriftServer driftServer = injector.getInstance(DriftServer.class);
@@ -392,7 +404,7 @@ public class TestingPrestoServer
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
-        if (coordinator) {
+        if (coordinator || resourceManager) {
             // enabling failure detector in tests can make them flakey
             serverProperties.put("failure-detector.enabled", "false");
         }
@@ -550,6 +562,11 @@ public class TestingPrestoServer
         return resourceGroupManager;
     }
 
+    public InternalNodeManager getNodeManager()
+    {
+        return nodeManager;
+    }
+
     public NodePartitioningManager getNodePartitioningManager()
     {
         return nodePartitioningManager;
@@ -577,6 +594,11 @@ public class TestingPrestoServer
         return gracefulShutdownHandler;
     }
 
+    public ServerInfoResource getServerInfoResource()
+    {
+        return serverInfoResource;
+    }
+
     public TaskManager getTaskManager()
     {
         return taskManager;
@@ -592,11 +614,21 @@ public class TestingPrestoServer
         return coordinator;
     }
 
+    public boolean isResourceManager()
+    {
+        return resourceManager;
+    }
+
     public final AllNodes refreshNodes()
     {
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
         return nodeManager.getAllNodes();
+    }
+
+    public final ResourceManagerClusterStateProvider getClusterStateProvider()
+    {
+        return clusterStateProvider;
     }
 
     public Set<InternalNode> getActiveNodesWithConnector(ConnectorId connectorId)

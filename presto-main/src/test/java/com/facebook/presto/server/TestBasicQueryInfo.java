@@ -53,6 +53,7 @@ public class TestBasicQueryInfo
                         URI.create("1"),
                         ImmutableList.of("2", "3"),
                         "SELECT 4",
+                        Optional.empty(),
                         new QueryStats(
                                 DateTime.parse("1991-09-06T05:00-05:30"),
                                 DateTime.parse("1991-09-06T05:01-05:30"),

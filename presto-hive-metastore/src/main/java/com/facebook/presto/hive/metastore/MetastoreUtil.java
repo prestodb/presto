@@ -40,6 +40,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -131,6 +132,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class MetastoreUtil
 {
+    public static final String METASTORE_HEADERS = "metastore_headers";
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
@@ -145,7 +147,13 @@ public class MetastoreUtil
     private static final String NUM_ROWS = "numRows";
     private static final String RAW_DATA_SIZE = "rawDataSize";
     private static final String TOTAL_SIZE = "totalSize";
-    private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
+    // transient_lastDdlTime is the parameter recording the latest ddl time.
+    // It should be added in STATS_PROPERTIES so that it can be skipped when
+    // updating StatisticsParameters, which allows hive find this dismiss
+    // parameter and create a new transient_lastDdlTime with present time
+    // rather than copying the old transient_lastDdlTime to hive partition.
+    private static final String TRANSIENT_LAST_DDL_TIME = "transient_lastDdlTime";
+    private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE, TRANSIENT_LAST_DDL_TIME);
 
     private MetastoreUtil()
     {
@@ -895,5 +903,15 @@ public class MetastoreUtil
         statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
 
         return result.build();
+    }
+
+    public static Optional<String> getMetastoreHeaders(ConnectorSession session)
+    {
+        try {
+            return Optional.ofNullable(session.getProperty(METASTORE_HEADERS, String.class));
+        }
+        catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }
