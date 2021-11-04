@@ -13,9 +13,10 @@
 # limitations under the License.
 find_library(RE2 re2 REQUIRED)
 
-add_library(velox_functions_lib IsNull.cpp LambdaFunctionUtil.cpp
-                                Re2Functions.cpp
-                                StringEncodingUtils.cpp)
+add_library(
+  velox_functions_lib IsNull.cpp LambdaFunctionUtil.cpp Re2Functions.cpp
+                      StringEncodingUtils.cpp JodaDateTime.cpp)
+
 target_link_libraries(velox_functions_lib velox_vector ${RE2})
 
 add_subdirectory(string)

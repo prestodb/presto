@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_executable(
-  velox_functions_lib_test IsNullTest.cpp IsNotNullTest.cpp
-                           Re2FunctionsTest.cpp ArrayBuilderTest.cpp)
+  velox_functions_lib_test
+  IsNullTest.cpp IsNotNullTest.cpp JodaDateTimeTest.cpp Re2FunctionsTest.cpp
+  ArrayBuilderTest.cpp)
 
 add_test(velox_functions_lib_test velox_functions_lib_test)
 
