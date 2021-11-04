@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/duckdb/conversion/DuckWrapper.h"
+#include "velox/common/base/BitUtil.h"
 #include "velox/duckdb/conversion/DuckConversion.h"
 #include "velox/external/duckdb/duckdb.hpp"
 #include "velox/external/duckdb/tpch/include/tpch-extension.hpp"
@@ -106,7 +107,8 @@ VectorPtr convert(
     ::duckdb::Vector& duckVector,
     const TypePtr& veloxType,
     size_t size,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    uint8_t* validity = nullptr) {
   auto vectorType = duckVector.GetVectorType();
   switch (vectorType) {
     case ::duckdb::VectorType::FLAT_VECTOR: {
@@ -125,7 +127,8 @@ VectorPtr convert(
           duckVector.GetType() == LogicalTypeId::DATE ||
           duckVector.GetType() == LogicalTypeId::VARCHAR) {
         for (auto i = 0; i < size; i++) {
-          if (duckValidity.RowIsValid(i)) {
+          if (duckValidity.RowIsValid(i) &&
+              (!validity || bits::isBitSet(validity, i))) {
             flatResult->set(i, OP::toVelox(duckData[i]));
           }
         }
@@ -151,7 +154,23 @@ VectorPtr convert(
       for (auto i = 0; i < size; i++) {
         maxIndex = std::max(maxIndex, (vector_size_t)selection.get_index(i));
       }
-      auto base = convert<OP>(child, veloxType, maxIndex + 1, pool);
+      VectorPtr base;
+      // Unused dictionary elements can be uninitialized. That can cause
+      // errors if we try to decode them. Here we create a bitmap of
+      // used values to avoid that.
+      if (child.GetType() == LogicalTypeId::HUGEINT ||
+          child.GetType() == LogicalTypeId::TIMESTAMP ||
+          child.GetType() == LogicalTypeId::DATE ||
+          child.GetType() == LogicalTypeId::VARCHAR) {
+        std::vector<uint8_t> validityVector((maxIndex + 7) / 8, 0);
+        auto validity_ptr = validityVector.data();
+        for (auto i = 0; i < size; i++) {
+          bits::setBit(validity_ptr, selection.get_index(i));
+        }
+        base = convert<OP>(child, veloxType, maxIndex + 1, pool, validity_ptr);
+      } else {
+        base = convert<OP>(child, veloxType, maxIndex + 1, pool);
+      }
 
       auto indices = AlignedBuffer::allocate<vector_size_t>(size, pool);
       memcpy(

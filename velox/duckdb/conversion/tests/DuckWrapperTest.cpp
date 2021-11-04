@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #include "velox/duckdb/conversion/DuckWrapper.h"
+#include "velox/external/duckdb/duckdb.hpp"
+#include "velox/vector/tests/VectorMaker.h"
+
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
@@ -192,4 +195,33 @@ TEST_F(BaseDuckWrapperTest, tpchSF1) {
   verifyUnaryResult<StringView>(
       "SELECT l_comment FROM lineitem LIMIT 1",
       {StringView("egular courts above the")});
+}
+
+TEST_F(BaseDuckWrapperTest, dictConversion) {
+  ::duckdb::Vector data(::duckdb::LogicalTypeId::VARCHAR, 5);
+  auto dataPtr =
+      reinterpret_cast<::duckdb::string_t*>(data.GetBuffer()->GetData());
+  // Make dirty data which shouldn't be accessed.
+  memset(dataPtr, 0xAB, sizeof(::duckdb::string_t) * 5);
+  dataPtr[2] = ::duckdb::string_t("value1");
+  dataPtr[4] = ::duckdb::string_t("value2");
+
+  // Turn vector into dictionary.
+  ::duckdb::SelectionVector sel(5);
+  sel.set_index(0, 2);
+  sel.set_index(1, 4);
+  sel.set_index(2, 2);
+  sel.set_index(3, 4);
+  sel.set_index(4, 2);
+  data.Slice(sel, 5);
+
+  auto actual = toVeloxVector(5, data, VarcharType::create(), pool_.get());
+
+  test::VectorMaker maker(pool_.get());
+  std::vector<std::string> expectedData(
+      {"value1", "value2", "value1", "value2", "value1"});
+  auto expected = maker.flatVector(expectedData);
+  for (auto i = 0; i < actual->size(); i++) {
+    ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i));
+  }
 }
