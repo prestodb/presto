@@ -52,7 +52,6 @@ void registerVectorFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_filter, "map_filter");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, "contains");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_length, "length");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map, "map");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_concat, "map_concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_entries, "map_entries");

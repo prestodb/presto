@@ -270,4 +270,20 @@ struct LTrimFunction : public TrimFunctionBase<T, true, false> {};
 template <typename T>
 struct RTrimFunction : public TrimFunctionBase<T, false, true> {};
 
+/// Returns number of characters in the specified string.
+template <typename T>
+struct LengthFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const StringView& input) {
+    result = stringImpl::length<false>(input);
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool callAscii(int64_t& result, const StringView& input) {
+    result = stringImpl::length<true>(input);
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions

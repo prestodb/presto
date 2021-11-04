@@ -35,6 +35,7 @@ void registerFunctions() {
   // Register string functions.
   registerFunction<ChrFunction, Varchar, int64_t>({"chr"});
   registerFunction<CodePointFunction, int32_t, Varchar>({"codepoint"});
+  registerFunction<LengthFunction, int64_t, Varchar>({"length"});
 
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t>({"substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t, int64_t>(
