@@ -58,19 +58,16 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
   void verifyNestedType(const TypePtr& type, ArrowSchema& schema) {
     if (type->kind() == TypeKind::ARRAY) {
       EXPECT_EQ(std::string{"+L"}, std::string{schema.format});
-      EXPECT_EQ(1, schema.n_children);
     } else if (type->kind() == TypeKind::MAP) {
       EXPECT_EQ(std::string{"+m"}, std::string{schema.format});
-      EXPECT_EQ(2, schema.n_children);
     } else if (type->kind() == TypeKind::ROW) {
-      // Structs can have zero of more children.
       EXPECT_EQ(std::string{"+s"}, std::string{schema.format});
     }
     // Scalar type.
     else {
-      EXPECT_EQ(0, schema.n_children);
       EXPECT_EQ(nullptr, schema.children);
     }
+    EXPECT_EQ(type->size(), schema.n_children);
 
     // Recurse down the children.
     for (size_t i = 0; i < type->size(); ++i) {
