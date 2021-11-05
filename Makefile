@@ -19,20 +19,23 @@ BUILD_TYPE=Release
 TREAT_WARNINGS_AS_ERRORS ?= 1
 ENABLE_WALL ?= 1
 
+# Option to make a minimal build. By default set to "OFF"; set to
+# "ON" to only build a minimal set of components. This may override
+# other build options
+VELOX_BUILD_MINIMAL ?= "OFF"
+
 # Control whether to build unit tests. By default set to "ON"; set to
 # "OFF" to disable.
 VELOX_BUILD_TESTING ?= "ON"
-VELOX_ENABLE_DUCKDB ?= "ON"
-VELOX_ENABLE_ADAPTERS ?= "OFF"
-VELOX_ENABLE_PARQUET ?= "OFF"
 
 CMAKE_FLAGS := -DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
 CMAKE_FLAGS += -DENABLE_ALL_WARNINGS=${ENABLE_WALL}
-CMAKE_FLAGS += -DVELOX_BUILD_TESTING=$(VELOX_BUILD_TESTING)
-CMAKE_FLAGS += -DVELOX_ENABLE_DUCKDB=$(VELOX_ENABLE_DUCKDB)
+
+CMAKE_FLAGS += -DVELOX_BUILD_MINIMAL=${VELOX_BUILD_MINIMAL}
+CMAKE_FLAGS += -DVELOX_BUILD_TESTING=${VELOX_BUILD_TESTING}
+
 CMAKE_FLAGS += -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
-CMAKE_FLAGS += -DVELOX_ENABLE_S3=$(VELOX_ENABLE_ADAPTERS)
-CMAKE_FLAGS += -DVELOX_ENABLE_PARQUET=$(VELOX_ENABLE_PARQUET)
+
 ifdef AWSSDK_ROOT_DIR
 CMAKE_FLAGS += -DAWSSDK_ROOT_DIR=$(AWSSDK_ROOT_DIR)
 endif
@@ -65,7 +68,8 @@ cmake:					#: Use CMake to create a Makefile build system
 		${CMAKE_FLAGS} \
 		$(GENERATOR) \
 		$(USE_CCACHE) \
-		$(FORCE_COLOR)
+		$(FORCE_COLOR) \
+		${EXTRA_CMAKE_FLAGS}
 
 build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j ${NUM_THREADS}
@@ -77,6 +81,10 @@ debug:					#: Build with debugging symbols
 release:				#: Build the release version
 	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=Release && \
 	$(MAKE) build BUILD_DIR=release
+
+min_debug:				#: Minimal build with debugging symbols
+	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=debug EXTRA_CMAKE_FLAGS=-DVELOX_BUILD_MINIMAL=ON
+	$(MAKE) build BUILD_DIR=debug
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure --exclude-regex "MemoryMemoryHeaderTest\.getDefaultScopedMemoryPool|MemoryManagerTest\.GlobalMemoryManager"

@@ -29,6 +29,7 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   ${FMT}
   velox_core
+  velox_exec
   velox_exec_test_util
   velox_functions_lib
   velox_functions_prestosql
@@ -90,6 +91,7 @@ target_link_libraries(
   glog::glog
   ${FMT}
   velox_core
+  velox_exec
   velox_codegen_utils_resource_path
   velox_exec_test_util
   velox_functions_lib

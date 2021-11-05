@@ -48,14 +48,8 @@ add_library(
   WidthBucketArray.cpp
   GreatestLeast.cpp)
 
-target_link_libraries(
-  velox_functions_prestosql
-  velox_exec
-  velox_functions_json
-  velox_functions_lib
-  velox_expression
-  md5
-  velox_type_tz)
+target_link_libraries(velox_functions_prestosql velox_functions_json
+                      velox_functions_lib velox_expression md5 velox_type_tz)
 
 set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
                                                        high_memory_pool)

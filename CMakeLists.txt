@@ -18,10 +18,59 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 project(velox)
 
 # Add all options below
-option(VELOX_BUILD_TESTING "Enable Velox tests" ON)
+option(
+  VELOX_BUILD_TESTING
+  "Enable Velox tests. This will enable all other build options automatically."
+  ON)
+option(
+  VELOX_BUILD_MINIMAL
+  "Build a minimal set of components only. This will override other build options."
+  OFF)
+
 option(VELOX_ENABLE_DUCKDB "Build duckDB to enable differential testing." ON)
+option(VELOX_ENABLE_EXEC "Build exec." ON)
+option(VELOX_ENABLE_AGGREGATES "Build aggregates." ON)
+option(VELOX_ENABLE_HIVE_CONNECTOR "Build Hive connector." ON)
+option(VELOX_ENABLE_PRESTO_FUNCTIONS "Build Presto SQL functions." ON)
+option(VELOX_ENABLE_SPARK_FUNCTIONS "Build Spark SQL functions." ON)
+option(VELOX_ENABLE_EXPRESSION "Build expression." ON)
+option(VELOX_ENABLE_PARSE "Build parser used for unit tests." ON)
+option(VELOX_ENABLE_EXAMPLES
+       "Build examples. This will enable VELOX_ENABLE_EXPRESSION automatically."
+       ON)
 option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
 option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
+
+if(${VELOX_BUILD_MINIMAL})
+  # Enable and disable components for velox base build
+  set(VELOX_BUILD_TESTING OFF)
+  set(VELOX_ENABLE_PRESTO_FUNCTIONS ON)
+  set(VELOX_ENABLE_DUCKDB ON)
+  set(VELOX_ENABLE_EXPRESSION ON)
+  set(VELOX_ENABLE_PARSE ON)
+  set(VELOX_ENABLE_EXEC OFF)
+  set(VELOX_ENABLE_AGGREGATES OFF)
+  set(VELOX_ENABLE_HIVE_CONNECTOR OFF)
+  set(VELOX_ENABLE_SPARK_FUNCTIONS OFF)
+  set(VELOX_ENABLE_EXAMPLES OFF)
+  set(VELOX_ENABLE_S3 OFF)
+endif()
+
+if(${VELOX_BUILD_TESTING})
+  # Enable all components to build testing binaries
+  set(VELOX_ENABLE_PRESTO_FUNCTIONS ON)
+  set(VELOX_ENABLE_DUCKDB ON)
+  set(VELOX_ENABLE_EXPRESSION ON)
+  set(VELOX_ENABLE_PARSE ON)
+  set(VELOX_ENABLE_EXEC ON)
+  set(VELOX_ENABLE_AGGREGATES ON)
+  set(VELOX_ENABLE_HIVE_CONNECTOR ON)
+  set(VELOX_ENABLE_SPARK_FUNCTIONS ON)
+endif()
+
+if(${VELOX_ENABLE_EXAMPLES})
+  set(VELOX_ENABLE_EXPRESSION ON)
+endif()
 
 if(VELOX_ENABLE_S3)
   # Set AWS_ROOT_DIR if you have a custom install location of AWS SDK CPP.
