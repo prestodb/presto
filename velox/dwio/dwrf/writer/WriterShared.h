@@ -65,6 +65,9 @@ class WriterShared : public WriterBase {
 
   ~WriterShared() override = default;
 
+  // Forces the writer to flush, does not close the writer.
+  void flush();
+
   void close() override;
 
   void setLowMemoryMode();
@@ -82,7 +85,7 @@ class WriterShared : public WriterBase {
   void enterLowMemoryMode();
 
   // Create a new stripe. No-op if there is no data written.
-  void flush(bool close = false);
+  void flushInternal(bool close = false);
 
   void flushStripe(bool close);
 

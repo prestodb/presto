@@ -313,7 +313,7 @@ void WriterShared::flushStripe(bool close) {
   resetImpl();
 }
 
-void WriterShared::flush(bool close) {
+void WriterShared::flushInternal(bool close) {
   flushStripe(close);
 
   auto& context = getContext();
@@ -412,8 +412,12 @@ void WriterShared::flush(bool close) {
   }
 }
 
+void WriterShared::flush() {
+  flushInternal(false);
+}
+
 void WriterShared::close() {
-  flush(true);
+  flushInternal(true);
   WriterBase::close();
 }
 
