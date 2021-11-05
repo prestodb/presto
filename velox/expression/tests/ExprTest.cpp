@@ -2173,25 +2173,25 @@ TEST_F(ExprTest, memo) {
   auto oddIndices = makeIndices(100, [](auto row) { return 9 + row * 2; });
 
   auto rowType = ROW({"c0"}, {base->type()});
-  auto exprSet = compileExpression("c0[1]", rowType);
+  auto exprSet = compileExpression("c0[1] = 1", rowType);
 
   auto result = evaluate(
       exprSet.get(), makeRowVector({wrapInDictionary(evenIndices, 100, base)}));
-  auto expectedResult =
-      makeFlatVector<int64_t>(100, [](auto row) { return (8 + row * 2) % 3; });
+  auto expectedResult = makeFlatVector<bool>(
+      100, [](auto row) { return (8 + row * 2) % 3 == 1; });
   assertEqualVectors(expectedResult, result);
 
   result = evaluate(
       exprSet.get(), makeRowVector({wrapInDictionary(oddIndices, 100, base)}));
-  expectedResult =
-      makeFlatVector<int64_t>(100, [](auto row) { return (9 + row * 2) % 3; });
+  expectedResult = makeFlatVector<bool>(
+      100, [](auto row) { return (9 + row * 2) % 3 == 1; });
   assertEqualVectors(expectedResult, result);
 
   auto everyFifth = makeIndices(100, [](auto row) { return row * 5; });
   result = evaluate(
       exprSet.get(), makeRowVector({wrapInDictionary(everyFifth, 100, base)}));
   expectedResult =
-      makeFlatVector<int64_t>(100, [](auto row) { return (row * 5) % 3; });
+      makeFlatVector<bool>(100, [](auto row) { return (row * 5) % 3 == 1; });
   assertEqualVectors(expectedResult, result);
 }
 

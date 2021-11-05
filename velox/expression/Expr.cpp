@@ -733,6 +733,11 @@ void Expr::evalWithMemo(
       }
 
       cachedDictionaryIndices_->select(*uncached);
+
+      // Resize the dictionaryCache_ to accommodate all the necessary rows.
+      if (dictionaryCache_->size() < uncached->end()) {
+        dictionaryCache_->resize(uncached->end());
+      }
       dictionaryCache_->copy(result->get(), *uncached, nullptr);
     }
     return;
