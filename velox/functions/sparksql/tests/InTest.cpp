@@ -18,6 +18,7 @@
 
 #include "velox/core/Expressions.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/VectorFunction.h"
 
 #include <stdint.h>
 
@@ -27,8 +28,44 @@ namespace {
 constexpr double kInf = std::numeric_limits<double>::infinity();
 constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
 
+/// Wraps input in a dictionary that repeats first row.
+class TestingDictionaryFunction : public exec::VectorFunction {
+ public:
+  bool isDefaultNullBehavior() const override {
+    return false;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    VELOX_CHECK(rows.isAllSelected());
+    const auto size = rows.size();
+    auto indices = allocateIndices(size, context->pool());
+    *result = BaseVector::wrapInDictionary(nullptr, indices, size, args[0]);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // T, integer -> T
+    return {exec::FunctionSignatureBuilder()
+                .typeVariable("T")
+                .returnType("T")
+                .argumentType("T")
+                .build()};
+  }
+};
+
 class InTest : public SparkFunctionBaseTest {
  protected:
+  InTest() {
+    exec::registerVectorFunction(
+        "testing_dictionary",
+        TestingDictionaryFunction::signatures(),
+        std::make_unique<TestingDictionaryFunction>());
+  }
+
   template <typename T>
   auto in(std::optional<T> lhs, std::vector<std::optional<T>> rhs) {
     // We don't use evaluateOnce() because we can't get NaN through the DuckDB
@@ -134,6 +171,21 @@ TEST_F(InTest, Const) {
   EXPECT_EQ(eval("5 in (1, 2)"), false);
   EXPECT_EQ(eval("1 in (1, 2)"), true);
   EXPECT_EQ(eval("1 in (1, 2)"), true);
+}
+
+/// Test IN applied to first argument that is dictionary encoded, but has the
+/// same value in all requested rows.
+TEST_F(InTest, ConstantDictionary) {
+  auto data = makeFlatVector<int32_t>({1, 2, 3, 4});
+  EXPECT_EQ(
+      evaluateOnce<bool>(
+          "testing_dictionary(c0) IN (1, 2, 3)", makeRowVector({data})),
+      true);
+
+  EXPECT_EQ(
+      evaluateOnce<bool>(
+          "testing_dictionary(c0) IN (2, 3, 4)", makeRowVector({data})),
+      false);
 }
 
 } // namespace

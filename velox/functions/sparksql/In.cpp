@@ -94,12 +94,12 @@ class In final : public exec::VectorFunction {
       localSelected->deselectNulls(lhsNulls, rows.begin(), rows.end());
       selected = localSelected.get();
     }
-    if (args[0]->encoding() == VectorEncoding::Simple::CONSTANT) {
-      auto* lhs = args[0]->as<ConstantVector<T>>();
-      if (lhs->isNullAt(0)) {
+    if (args[0]->isConstant(rows)) {
+      auto* lhs = args[0]->as<SimpleVector<T>>();
+      if (lhs->isNullAt(rows.begin())) {
         return;
       }
-      const bool present = elements_.contains(lhs->valueAt(0));
+      const bool present = elements_.contains(lhs->valueAt(rows.begin()));
       selected->applyToSelected([&](vector_size_t i) {
         bits::setBit(resultValues, i, present);
         if (rhsHasNull && !present) {
