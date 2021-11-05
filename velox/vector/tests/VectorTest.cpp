@@ -1257,3 +1257,37 @@ TEST_F(VectorTest, byteSize) {
   constexpr uint64_t expected = count * sizeof(int64_t);
   EXPECT_EQ(BaseVector::byteSize<int64_t>(count), expected);
 }
+
+TEST_F(VectorTest, constantDictionary) {
+  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
+  auto flatVector = vectorMaker->flatVector<int32_t>({1, 2, 3, 4});
+
+  // Repeat each row twice: 1, 1, 2, 2, 3, 3, 4, 4.
+  auto dictionarySize = flatVector->size() + 2;
+  auto indices = allocateIndices(dictionarySize, pool_.get());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  for (auto i = 0; i < dictionarySize; i++) {
+    rawIndices[i] = i / 2;
+  }
+  auto dictionaryVector = BaseVector::wrapInDictionary(
+      nullptr, indices, dictionarySize, flatVector);
+
+  {
+    SelectivityVector rows(dictionarySize);
+    ASSERT_FALSE(dictionaryVector->isConstant(rows));
+  }
+
+  // First two rows are the same.
+  {
+    SelectivityVector rows(2);
+    ASSERT_TRUE(dictionaryVector->isConstant(rows));
+  }
+
+  // Single row is always constant.
+  {
+    SelectivityVector rows(dictionarySize, false);
+    rows.setValid(3, true);
+    rows.updateBounds();
+    ASSERT_TRUE(dictionaryVector->isConstant(rows));
+  }
+}
