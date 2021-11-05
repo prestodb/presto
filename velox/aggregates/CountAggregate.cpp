@@ -15,6 +15,7 @@
  */
 #include "velox/aggregates/AggregateNames.h"
 #include "velox/aggregates/SumAggregate.h"
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::aggregate {
 
@@ -75,11 +76,17 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
   }
 
   void addIntermediateResults(
-      char** /*groups*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
+      char** groups,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    VELOX_UNREACHABLE();
+    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::FLAT);
+
+    auto vector = args[0]->asUnchecked<FlatVector<int64_t>>();
+    auto rawValues = vector->rawValues();
+
+    rows.applyToSelected(
+        [&](vector_size_t i) { addToGroup(groups[i], rawValues[i]); });
   }
 
   void addSingleGroupRawInput(
@@ -111,11 +118,26 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
   }
 
   void addSingleGroupIntermediateResults(
-      char* /*group*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
+      char* group,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    VELOX_UNREACHABLE();
+    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::FLAT);
+
+    auto vector = args[0]->asUnchecked<FlatVector<int64_t>>();
+    auto rawValues = vector->rawValues();
+    int64_t count = 0;
+    if (vector->mayHaveNulls()) {
+      rows.applyToSelected([&](vector_size_t i) {
+        if (!vector->isNullAt(i)) {
+          count += rawValues[i];
+        }
+      });
+    } else {
+      rows.applyToSelected([&](vector_size_t i) { count += rawValues[i]; });
+    }
+
+    addToGroup(group, count);
   }
 
  private:
@@ -134,12 +156,7 @@ bool registerCountAggregate(const std::string& name) {
           /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_LE(
             argTypes.size(), 1, "{} takes at most one argument", name);
-        if (exec::isRawInput(step)) {
-          return std::make_unique<CountAggregate>();
-        } else {
-          return std::make_unique<SumAggregate<int64_t, int64_t, int64_t>>(
-              BIGINT());
-        }
+        return std::make_unique<CountAggregate>();
       });
   return true;
 }

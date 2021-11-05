@@ -434,7 +434,7 @@ TEST_F(MultiFragmentTest, broadcast) {
   for (int i = 0; i < 3; i++) {
     finalAggPlan = PlanBuilder()
                        .exchange(leafPlan->outputType())
-                       .finalAggregation({}, {"count(1)"})
+                       .singleAggregation({}, {"count(1)"})
                        .partitionedOutput({}, 1)
                        .planNode();
 
