@@ -217,14 +217,13 @@ class InPredicate : public exec::VectorFunction {
     // Indicates whether result can be true or null only, e.g. no false results.
     const bool passOrNull = filter_->testNull();
 
-    exec::LocalDecodedVector holder(context, *arg, rows);
-    auto decoder = holder.get();
-    if (decoder->isConstantMapping()) {
+    if (arg->isConstant(rows)) {
+      auto simpleArg = arg->asUnchecked<SimpleVector<T>>();
       VectorPtr localResult;
-      if (decoder->isNullAt(0)) {
+      if (simpleArg->isNullAt(rows.begin())) {
         localResult = createBoolConstantNull(rows.size(), context);
       } else {
-        bool pass = testFunction(decoder->valueAt<T>(0));
+        bool pass = testFunction(simpleArg->valueAt(rows.begin()));
         if (!pass && passOrNull) {
           localResult = createBoolConstantNull(rows.size(), context);
         } else {
@@ -236,28 +235,32 @@ class InPredicate : public exec::VectorFunction {
       return;
     }
 
+    VELOX_CHECK_EQ(arg->encoding(), VectorEncoding::Simple::FLAT);
+    auto flatArg = arg->asUnchecked<FlatVector<T>>();
+    auto rawValues = flatArg->rawValues();
+
     BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), result);
-    auto boolResult = std::dynamic_pointer_cast<FlatVector<bool>>(*result);
+    auto boolResult = static_cast<FlatVector<bool>*>((*result).get());
 
-    auto rawValues = boolResult->mutableRawValues<uint64_t>();
+    auto rawResults = boolResult->mutableRawValues<uint64_t>();
 
-    if (decoder->mayHaveNulls() || passOrNull) {
+    if (flatArg->mayHaveNulls() || passOrNull) {
       rows.applyToSelected([&](auto row) {
-        if (decoder->isNullAt(row)) {
+        if (flatArg->isNullAt(row)) {
           boolResult->setNull(row, true);
         } else {
-          bool pass = testFunction(decoder->valueAt<T>(row));
+          bool pass = testFunction(rawValues[row]);
           if (!pass && passOrNull) {
             boolResult->setNull(row, true);
           } else {
-            bits::setBit(rawValues, row, pass);
+            bits::setBit(rawResults, row, pass);
           }
         }
       });
     } else {
       rows.applyToSelected([&](auto row) {
-        bool pass = testFunction(decoder->valueAt<T>(row));
-        bits::setBit(rawValues, row, pass);
+        bool pass = testFunction(rawValues[row]);
+        bits::setBit(rawResults, row, pass);
       });
     }
   }
