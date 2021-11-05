@@ -101,7 +101,9 @@ class VectorAdapter : public VectorFunction {
       const std::vector<VectorPtr>& constantInputs,
       std::shared_ptr<const Type> returnType)
       : fn_{std::make_unique<FUNC>(move(returnType))} {
-    unpack<0>(config, constantInputs);
+    if constexpr (FUNC::udf_has_initialize) {
+      unpack<0>(config, constantInputs);
+    }
   }
 
   void apply(

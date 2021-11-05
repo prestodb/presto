@@ -372,7 +372,8 @@ struct ArrayRowReaderFunction {
       const arg_type<Array<Row<int64_t, double>>>& input) {
     out = 0;
     for (size_t i = 0; i < input.size(); i++) {
-      out += *input.at(i)->template at<0>();
+      auto&& row = *input.at(i);
+      out += *row.template at<0>();
     }
     return true;
   }

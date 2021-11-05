@@ -17,7 +17,6 @@
 
 #include "folly/hash/Hash.h"
 #include "velox/common/serialization/Registry.h"
-#include "velox/core/CoreTypeSystem.h"
 #include "velox/core/ScalarFunction.h"
 #include "velox/type/Type.h"
 

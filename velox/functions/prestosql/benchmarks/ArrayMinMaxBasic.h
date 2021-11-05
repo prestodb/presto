@@ -20,7 +20,6 @@
 
 namespace facebook::velox::functions {
 namespace {
-
 template <template <typename> class F, TypeKind kind>
 VectorPtr applyTyped(
     const SelectivityVector& rows,
@@ -39,74 +38,36 @@ VectorPtr applyTyped(
   // Create nulls for lazy initialization.
   NullsBuilder nullsBuilder(rows.size(), pool);
 
-  if (elementsDecoded.isIdentityMapping() && !elementsDecoded.mayHaveNulls()) {
-    if constexpr (std::is_same_v<bool, T>) {
-      auto rawElements = elementsDecoded.values<uint64_t>();
-      rows.applyToSelected([&](auto row) {
-        auto size = rawSizes[row];
-        if (size == 0) {
-          nullsBuilder.setNull(row);
-        } else {
-          auto offset = rawOffsets[row];
-          auto elementIndex = offset;
-          for (auto i = offset + 1; i < offset + size; i++) {
-            if (F<T>()(
-                    bits::isBitSet(rawElements, i),
-                    bits::isBitSet(rawElements, elementIndex))) {
-              elementIndex = i;
-            }
-          }
-          rawIndices[row] = elementIndex;
-        }
-      });
+  rows.applyToSelected([&](auto row) {
+    auto size = rawSizes[row];
+    if (size == 0) {
+      nullsBuilder.setNull(row);
     } else {
-      auto rawElements = elementsDecoded.values<T>();
-      rows.applyToSelected([&](auto row) {
-        auto size = rawSizes[row];
-        if (size == 0) {
+      auto offset = rawOffsets[row];
+      auto elementIndex = offset;
+      for (auto i = offset; i < offset + size; i++) {
+        if (elementsDecoded.isNullAt(i)) {
+          // If a NULL value is encountered, min/max are always NULL
           nullsBuilder.setNull(row);
-        } else {
-          auto offset = rawOffsets[row];
-          auto elementIndex = offset;
-          for (auto i = offset + 1; i < offset + size; i++) {
-            if (F<T>()(rawElements[i], rawElements[elementIndex])) {
-              elementIndex = i;
-            }
-          }
-          rawIndices[row] = elementIndex;
+          break;
+        } else if (F<T>()(
+                       elementsDecoded.valueAt<T>(i),
+                       elementsDecoded.valueAt<T>(elementIndex))) {
+          elementIndex = i;
         }
-      });
-    }
-  } else {
-    rows.applyToSelected([&](auto row) {
-      auto size = rawSizes[row];
-      if (size == 0) {
-        nullsBuilder.setNull(row);
-      } else {
-        auto offset = rawOffsets[row];
-        auto elementIndex = offset;
-        for (auto i = offset; i < offset + size; i++) {
-          if (elementsDecoded.isNullAt(i)) {
-            // If a NULL value is encountered, min/max are always NULL
-            nullsBuilder.setNull(row);
-            break;
-          } else if (F<T>()(
-                         elementsDecoded.valueAt<T>(i),
-                         elementsDecoded.valueAt<T>(elementIndex))) {
-            elementIndex = i;
-          }
-        }
-        rawIndices[row] = elementIndex;
       }
-    });
-  }
+      rawIndices[row] = elementIndex;
+    }
+  });
 
   return BaseVector::wrapInDictionary(
       nullsBuilder.build(), indices, rows.size(), arrayVector.elements());
 }
 
+// Decoder-based unoptimized implementation of min/max used to compare
+// performance of simple function min/max.
 template <template <typename> class F>
-class ArrayMinMaxFunction : public exec::VectorFunction {
+class ArrayMinMaxFunctionBasic : public exec::VectorFunction {
  public:
   void apply(
       const SelectivityVector& rows,
@@ -133,7 +94,7 @@ class ArrayMinMaxFunction : public exec::VectorFunction {
   }
 };
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+inline std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
   static const std::vector<std::string> kSupportedTypeNames = {
       "boolean",
       "tinyint",
@@ -143,7 +104,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
       "real",
       "double",
       "varchar",
-      "timestamp"};
+      "timestamp",
+  };
 
   std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
   signatures.reserve(kSupportedTypeNames.size());
@@ -157,15 +119,5 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
   return signatures;
 }
 } // namespace
-
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_array_min,
-    signatures(),
-    std::make_unique<ArrayMinMaxFunction<std::less>>());
-
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_array_max,
-    signatures(),
-    std::make_unique<ArrayMinMaxFunction<std::greater>>());
 
 } // namespace facebook::velox::functions
