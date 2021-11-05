@@ -69,7 +69,7 @@ void benchmarkComputeValueIds(bool withNulls) {
       [](vector_size_t row) { return row % 17; },
       withNulls ? test::VectorMaker::nullEvery(7) : nullptr);
 
-  std::vector<uint64_t> hashes(size);
+  raw_vector<uint64_t> hashes(size);
   SelectivityVector rows(size);
   hasher.computeValueIds(*values, rows, &hashes);
   hasher.enableValueRange(1, 0);
@@ -148,7 +148,7 @@ void benchmarkComputeValueIdsForStrings(bool flattenDictionaries) {
   uint64_t multiplier = 1;
   for (int i = 0; i < 4; i++) {
     auto hasher = hashers[i].get();
-    std::vector<uint64_t> result(size);
+    raw_vector<uint64_t> result(size);
     auto ok = hasher->computeValueIds(*vectors[i], allRows, &result);
     folly::doNotOptimizeAway(ok);
 
@@ -156,7 +156,7 @@ void benchmarkComputeValueIdsForStrings(bool flattenDictionaries) {
   }
   suspender.dismiss();
 
-  std::vector<uint64_t> result(size);
+  raw_vector<uint64_t> result(size);
   for (int i = 0; i < 10'000; i++) {
     for (int j = 0; j < 4; j++) {
       auto hasher = hashers[j].get();

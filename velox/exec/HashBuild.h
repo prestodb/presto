@@ -111,7 +111,7 @@ class HashBuild final : public Operator {
   bool analyzeKeys_;
 
   // Temporary space for hash numbers.
-  std::vector<uint64_t> hashes_;
+  raw_vector<uint64_t> hashes_;
 
   // Set of active rows during addInput().
   SelectivityVector activeRows_;

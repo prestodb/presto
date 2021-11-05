@@ -39,6 +39,6 @@ class HashPartitionFunction : public core::PartitionFunction {
 
   // Reusable memory.
   SelectivityVector rows_;
-  std::vector<uint64_t> hashes_;
+  raw_vector<uint64_t> hashes_;
 };
 } // namespace facebook::velox::exec

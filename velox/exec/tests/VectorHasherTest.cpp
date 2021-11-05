@@ -83,7 +83,8 @@ class VectorHasherTest : public testing::Test {
 
     SelectivityVector allRows(size);
     auto hasher = exec::VectorHasher::create(vector->type(), 0);
-    std::vector<uint64_t> result(size);
+    raw_vector<uint64_t> result(size);
+    std::fill(result.begin(), result.end(), 0);
     auto ok = hasher->computeValueIds(*vector, allRows, &result);
     ASSERT_FALSE(ok);
 
@@ -171,7 +172,8 @@ TEST_F(VectorHasherTest, flat) {
     }
   }
 
-  std::vector<uint64_t> hashes(100);
+  raw_vector<uint64_t> hashes(100);
+  std::fill(hashes.begin(), hashes.end(), 0);
   hasher->hash(*vector, oddRows_, false, &hashes);
   for (int32_t i = 0; i < 100; i++) {
     if (i % 2 == 0) {
@@ -199,7 +201,8 @@ TEST_F(VectorHasherTest, nonNullConstant) {
 
   auto hash = folly::hasher<int32_t>()(123);
 
-  std::vector<uint64_t> hashes(100);
+  raw_vector<uint64_t> hashes(100);
+  std::fill(hashes.begin(), hashes.end(), 0);
   hasher->hash(*vector, oddRows_, false, &hashes);
   for (int32_t i = 0; i < 100; i++) {
     EXPECT_EQ(hashes[i], (i % 2 == 0) ? 0 : hash) << "at " << i;
@@ -216,7 +219,8 @@ TEST_F(VectorHasherTest, nullConstant) {
   auto vector =
       BaseVector::createConstant(variant(TypeKind::INTEGER), 100, pool_.get());
 
-  std::vector<uint64_t> hashes(100);
+  raw_vector<uint64_t> hashes(100);
+  std::fill(hashes.begin(), hashes.end(), 0);
   hasher->hash(*vector, oddRows_, false, &hashes);
   for (int32_t i = 0; i < 100; i++) {
     EXPECT_EQ(hashes[i], (i % 2 == 0) ? 0 : exec::VectorHasher::kNullHash)
@@ -248,7 +252,8 @@ TEST_F(VectorHasherTest, dictionary) {
   auto dictionaryVector =
       BaseVector::wrapInDictionary(BufferPtr(nullptr), indices, 100, vector);
 
-  std::vector<uint64_t> hashes(100);
+  raw_vector<uint64_t> hashes(100);
+  std::fill(hashes.begin(), hashes.end(), 0);
   hasher->hash(*dictionaryVector, oddRows_, false, &hashes);
   for (int32_t i = 0; i < 100; i++) {
     if (i % 2 == 0) {
@@ -274,7 +279,7 @@ TEST_F(VectorHasherTest, stringIds) {
   char digits[10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
   SelectivityVector rows(sizeof(zeros) + sizeof(digits));
   flatVector->resize(sizeof(zeros) + sizeof(digits));
-  std::vector<uint64_t> hashes(flatVector->size());
+  raw_vector<uint64_t> hashes(flatVector->size());
   for (int i = 0; i < sizeof(zeros); ++i) {
     flatVector->set(i, StringView(zeros, i));
     if (i > 7) {
@@ -328,7 +333,7 @@ TEST_F(VectorHasherTest, stringIds) {
   }
   rows.updateBounds();
   DecodedVector decoded(*vector, rows);
-  std::vector<uint64_t> scratch;
+  raw_vector<uint64_t> scratch;
   hasher->lookupValueIds(decoded, rows, scratch, &hashes);
   // Since none of the values fit the range, all bits should be clear in rows.
   EXPECT_EQ(rows.countSelected(), 0);
@@ -353,7 +358,7 @@ TEST_F(VectorHasherTest, integerIds) {
     ints->set(i + 1, kMin + i * 10);
   }
   auto hasher = exec::VectorHasher::create(BIGINT(), 1);
-  std::vector<uint64_t> hashes(ints->size());
+  raw_vector<uint64_t> hashes(ints->size());
   SelectivityVector rows(ints->size());
   EXPECT_FALSE(hasher->computeValueIds(*vector, rows, &hashes));
   hasher->enableValueRange(1, 2000);
@@ -410,7 +415,8 @@ TEST_F(VectorHasherTest, boolNoNulls) {
   bools->set(0, true);
   bools->set(1, false);
   bools->set(2, true);
-  std::vector<uint64_t> hashes(bools->size());
+  raw_vector<uint64_t> hashes(bools->size());
+  std::fill(hashes.begin(), hashes.end(), 0);
   SelectivityVector rows(bools->size());
   auto hasher = exec::VectorHasher::create(BOOLEAN(), 1);
   hasher->enableValueRange(2, 2000);
@@ -434,7 +440,8 @@ TEST_F(VectorHasherTest, boolWithNulls) {
   bools->setNull(0, true);
   bools->set(1, false);
   bools->set(2, true);
-  std::vector<uint64_t> hashes(bools->size());
+  raw_vector<uint64_t> hashes(bools->size());
+  std::fill(hashes.begin(), hashes.end(), 0);
   SelectivityVector rows(bools->size());
   auto hasher = exec::VectorHasher::create(BOOLEAN(), 1);
   hasher->enableValueRange(2, 2000);
@@ -458,7 +465,7 @@ TEST_F(VectorHasherTest, merge) {
 
   VectorHasher hasher(BIGINT(), 0);
   SelectivityVector rows(kSize);
-  std::vector<uint64_t> hashes(kSize);
+  raw_vector<uint64_t> hashes(kSize);
   hasher.computeValueIds(*vector, rows, &hashes);
   auto otherVector = vectorMaker_->flatVector<int64_t>(
       kSize,
@@ -551,7 +558,7 @@ TEST_F(VectorHasherTest, computeValueIdsStrings) {
   uint64_t multiplier = 1;
   for (int i = 0; i < 4; i++) {
     auto hasher = hashers[i].get();
-    std::vector<uint64_t> result(size);
+    raw_vector<uint64_t> result(size);
     auto ok = hasher->computeValueIds(*dictionaryVectors[i], allRows, &result);
     ASSERT_FALSE(ok);
 
@@ -563,7 +570,7 @@ TEST_F(VectorHasherTest, computeValueIdsStrings) {
     multiplier = hasher->enableValueIds(multiplier, 0);
   }
 
-  std::vector<uint64_t> result(size);
+  raw_vector<uint64_t> result(size);
   for (int i = 0; i < 4; i++) {
     auto hasher = hashers[i].get();
     bool ok = hasher->computeValueIds(*dictionaryVectors[i], allRows, &result);

@@ -144,7 +144,7 @@ class HashProbe : public Operator {
   DecodedVector valueIdDecoder_;
 
   // Temporary for de-duplicating value ids for dictionary inputs.
-  std::vector<uint64_t> deduppedHashes_;
+  raw_vector<uint64_t> deduppedHashes_;
 
   // Rows to apply 'filter_' to.
   SelectivityVector filterRows_;

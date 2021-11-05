@@ -199,7 +199,7 @@ class HashTableTest : public testing::Test {
       int32_t tableOffset,
       HashTable<true>* table) {
     int32_t batchSize = batches[0]->size();
-    std::vector<uint64_t> dummy(batchSize);
+    raw_vector<uint64_t> dummy(batchSize);
     int32_t batchOffset = 0;
     rowOfKey_.resize(tableOffset + batchSize * batches.size());
     auto rowContainer = table->rows();
@@ -337,7 +337,7 @@ class HashTableTest : public testing::Test {
     int32_t numProbed = 0;
     int32_t numHit = 0;
     DecodedVector decoded;
-    std::vector<uint64_t> scratch;
+    raw_vector<uint64_t> scratch;
     auto& hashers = topTable_->hashers();
     for (auto batchIndex = 0; batchIndex < batches_.size(); ++batchIndex) {
       auto batch = batches_[batchIndex];

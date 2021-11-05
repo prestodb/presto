@@ -279,7 +279,7 @@ TEST_F(RowContainerTest, types) {
     auto extracted = copy->childAt(column);
     extracted->resize(kNumRows);
     data->extractColumn(rows.data(), rows.size(), column, extracted);
-    std::vector<uint64_t> hashes(kNumRows);
+    raw_vector<uint64_t> hashes(kNumRows);
     auto source = batch->childAt(column);
     auto columnType = batch->type()->as<TypeKind::ROW>().childAt(column);
     VectorHasher hasher(columnType, column);

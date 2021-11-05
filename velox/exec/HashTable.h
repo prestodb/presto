@@ -37,14 +37,14 @@ struct HashLookup {
 
   // One entry per aggregation or join key
   const std::vector<std::unique_ptr<VectorHasher>>& hashers;
-  std::vector<vector_size_t> rows;
+  raw_vector<vector_size_t> rows;
   // Hash number for all input rows.
-  std::vector<uint64_t> hashes;
+  raw_vector<uint64_t> hashes;
   // If using valueIds, list of concatenated valueIds. 1:1 with 'hashes'.
-  std::vector<uint64_t> normalizedKeys;
+  raw_vector<uint64_t> normalizedKeys;
   // Hit for each row of input. nullptr if no hit. Points to the
   // corresponding group row.
-  std::vector<char*> hits;
+  raw_vector<char*> hits;
   std::vector<vector_size_t> newGroups;
 };
 
@@ -75,8 +75,8 @@ class BaseHashTable {
       return lastRow == rows->size();
     }
 
-    const std::vector<vector_size_t>* rows;
-    const std::vector<char*>* hits;
+    const raw_vector<vector_size_t>* rows;
+    const raw_vector<char*>* hits;
     char* nextHit{nullptr};
     vector_size_t lastRow{0};
   };

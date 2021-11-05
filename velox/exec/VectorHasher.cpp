@@ -16,9 +16,13 @@
 
 #include "velox/exec/VectorHasher.h"
 #include "velox/common/base/Portability.h"
+#include "velox/common/base/SimdUtil.h"
 #include "velox/exec/HashStringAllocator.h"
 
 namespace facebook::velox::exec {
+
+using V32 = simd::Vectors<int32_t>;
+using V64 = simd::Vectors<int64_t>;
 
 namespace {
 template <TypeKind Kind>
@@ -148,7 +152,7 @@ bool VectorHasher::makeValueIdsFlatNoNulls(
     const SelectivityVector& rows,
     uint64_t* result) {
   const auto* values = decoded_.values<T>();
-  if (tryMapToRange(values, rows, result)) {
+  if (isRange_ && tryMapToRange(values, rows, result)) {
     return true;
   }
 
@@ -253,7 +257,7 @@ bool VectorHasher::makeValueIdsDecoded(
 bool VectorHasher::computeValueIds(
     const BaseVector& values,
     SelectivityVector& rows,
-    std::vector<uint64_t>* result) {
+    raw_vector<uint64_t>* result) {
   decoded_.decode(values, rows);
   return VALUE_ID_TYPE_DISPATCH(
       makeValueIds, values.typeKind(), rows, result->data());
@@ -289,7 +293,7 @@ template <TypeKind Kind>
 void VectorHasher::lookupValueIdsTyped(
     const DecodedVector& decoded,
     SelectivityVector& rows,
-    std::vector<uint64_t>& cachedHashes,
+    raw_vector<uint64_t>& cachedHashes,
     uint64_t* result) const {
   using T = typename TypeTraits<Kind>::NativeType;
   if (decoded.isConstantMapping()) {
@@ -350,8 +354,8 @@ void VectorHasher::lookupValueIdsTyped(
 void VectorHasher::lookupValueIds(
     const DecodedVector& decoded,
     SelectivityVector& rows,
-    std::vector<uint64_t>& cachedHashes,
-    std::vector<uint64_t>* result) const {
+    raw_vector<uint64_t>& cachedHashes,
+    raw_vector<uint64_t>* result) const {
   VALUE_ID_TYPE_DISPATCH(
       lookupValueIdsTyped,
       decoded.base()->typeKind(),
@@ -365,7 +369,7 @@ void VectorHasher::hash(
     const BaseVector& values,
     const SelectivityVector& rows,
     bool mix,
-    std::vector<uint64_t>* result) {
+    raw_vector<uint64_t>* result) {
   decoded_.decode(values, rows);
   return VELOX_DYNAMIC_TYPE_DISPATCH(
       hashValues, values.typeKind(), rows, mix, result->data());
@@ -505,6 +509,7 @@ uint64_t VectorHasher::enableValueRange(uint64_t multiplier, int64_t reserve) {
   } else {
     max_ += reserve;
   }
+  rangeMaxChars_ = max_ ? (64 - __builtin_clzll(max_)) / 8 : 0;
   isRange_ = true;
   uint64_t result;
   // No overflow because max range is under 63 bits.
