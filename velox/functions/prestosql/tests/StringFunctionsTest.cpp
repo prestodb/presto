@@ -1780,3 +1780,97 @@ TEST_F(StringFunctionsTest, rtrim) {
       "rtrim(c0)", makeRowVector({inputStringsVector}));
   assertEqualVectors(expectedStrings, result);
 }
+
+TEST_F(StringFunctionsTest, rpad) {
+  const auto rpad = [&](std::optional<std::string> string,
+                        std::optional<int64_t> size,
+                        std::optional<std::string> padString) {
+    return evaluateOnce<std::string>(
+        "rpad(c0, c1, c2)", string, size, padString);
+  };
+
+  std::string invalidString = "Ψ\xFF\xFFΣΓΔA";
+  std::string invalidPadString = "\xFFΨ\xFF";
+
+  // Null arguments
+  EXPECT_EQ(std::nullopt, rpad(std::nullopt, 16, "abc"));
+  EXPECT_EQ(std::nullopt, rpad("xyz", std::nullopt, "abc"));
+  EXPECT_EQ(std::nullopt, rpad("xyz", 16, std::nullopt));
+  // ASCII strings with various values for size and padString
+  EXPECT_EQ("textx", rpad("text", 5, "x"));
+  EXPECT_EQ("text", rpad("text", 4, "x"));
+  EXPECT_EQ("textxy", rpad("text", 6, "xy"));
+  EXPECT_EQ("textxyx", rpad("text", 7, "xy"));
+  EXPECT_EQ("textxyzxy", rpad("text", 9, "xyz"));
+  // Non-ASCII strings with various values for size and padString
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 10, "\u671B"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B\u671B",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 11, "\u671B"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 12, "\u5E0C\u671B"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C\u671B",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 13, "\u5E0C\u671B"));
+  // Empty string
+  EXPECT_EQ("aaa", rpad("", 3, "a"));
+  // Truncating string
+  EXPECT_EQ("", rpad("abc", 0, "e"));
+  EXPECT_EQ("tex", rpad("text", 3, "xy"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 ",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 5, "\u671B"));
+  // Invalid UTF-8 chars
+  EXPECT_EQ(invalidString + "x", rpad(invalidString, 8, "x"));
+  EXPECT_EQ("abc" + invalidPadString, rpad("abc", 6, invalidPadString));
+}
+
+TEST_F(StringFunctionsTest, lpad) {
+  const auto lpad = [&](std::optional<std::string> string,
+                        std::optional<int64_t> size,
+                        std::optional<std::string> padString) {
+    return evaluateOnce<std::string>(
+        "lpad(c0, c1, c2)", string, size, padString);
+  };
+
+  std::string invalidString = "Ψ\xFF\xFFΣΓΔA";
+  std::string invalidPadString = "\xFFΨ\xFF";
+
+  // Null arguments
+  EXPECT_EQ(std::nullopt, lpad(std::nullopt, 16, "abc"));
+  EXPECT_EQ(std::nullopt, lpad("xyz", std::nullopt, "abc"));
+  EXPECT_EQ(std::nullopt, lpad("xyz", 16, std::nullopt));
+  // ASCII strings with various values for size and padString
+  EXPECT_EQ("xtext", lpad("text", 5, "x"));
+  EXPECT_EQ("text", lpad("text", 4, "x"));
+  EXPECT_EQ("xytext", lpad("text", 6, "xy"));
+  EXPECT_EQ("xyxtext", lpad("text", 7, "xy"));
+  EXPECT_EQ("xyzxytext", lpad("text", 9, "xyz"));
+  // Non-ASCII strings with various values for size and padString
+  EXPECT_EQ(
+      "\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 10, "\u671B"));
+  EXPECT_EQ(
+      "\u671B\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 11, "\u671B"));
+  EXPECT_EQ(
+      "\u5E0C\u671B\u5E0C\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 12, "\u5E0C\u671B"));
+  EXPECT_EQ(
+      "\u5E0C\u671B\u5E0C\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 13, "\u5E0C\u671B"));
+  // Empty string
+  EXPECT_EQ("aaa", lpad("", 3, "a"));
+  // Truncating string
+  EXPECT_EQ("", lpad("abc", 0, "e"));
+  EXPECT_EQ("tex", lpad("text", 3, "xy"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 5, "\u671B"));
+  // Invalid UTF-8 chars
+  EXPECT_EQ("x" + invalidString, lpad(invalidString, 8, "x"));
+  EXPECT_EQ(invalidPadString + "abc", lpad("abc", 6, invalidPadString));
+}

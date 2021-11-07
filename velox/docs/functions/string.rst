@@ -41,6 +41,13 @@ String Functions
 
     Converts ``string`` to lowercase.
 
+.. function:: lpad(string, size, padstring) -> varchar
+
+     Left pads ``string`` to ``size`` characters with ``padstring``. If
+     ``size`` is less than the length of ``string``, the result is truncated
+     to ``size`` characters. ``size`` must not be negative and ``padstring``
+     must be non-empty.
+
 .. function:: ltrim(string) -> varchar
 
     Removes leading whitespace from string.
@@ -55,6 +62,17 @@ String Functions
 
     If ``search`` is an empty string, inserts ``replace`` in front of every
     character and at the end of the ``string``.
+
+.. function:: reverse(string) -> varchar
+
+    Reverses ``string``.
+
+.. function:: rpad(string, size, padstring) -> varchar
+
+     Right pads ``string`` to ``size`` characters with ``padstring``. If
+     ``size`` is less than the length of ``string``, the result is truncated
+     to ``size`` characters. ``size`` must not be negative and ``padstring``
+     must be non-empty.
 
 .. function:: rtrim(string) -> varchar
 
@@ -101,10 +119,6 @@ String Functions
 .. function:: upper(string) -> varchar
 
     Converts ``string`` to uppercase.
-
-.. function:: reverse(string) -> varchar
-
-    Reverses ``string``.
 
 Unicode Functions
 -----------------

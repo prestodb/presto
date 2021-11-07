@@ -61,6 +61,10 @@ void registerFunctions() {
 
   registerFunction<RandFunction, double>({"rand"});
 
+  registerFunction<udf_pad<true>, Varchar, Varchar, int64_t, Varchar>({"lpad"});
+  registerFunction<udf_pad<false>, Varchar, Varchar, int64_t, Varchar>(
+      {"rpad"});
+
   // Date time functions.
   registerFunction<ToUnixtimeFunction, double, Timestamp>(
       {"to_unixtime", "to_unix_timestamp"});

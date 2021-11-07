@@ -57,7 +57,11 @@ static std::unordered_set<std::string> kSkipFunctions = {
     "replace",
     // Fails because like requires 2nd arg to be a constant of type VARCHAR.
     "like",
-};
+    // The pad functions cause the test to OOM. The 2nd arg is only bound by
+    // the max value of int32_t, which leads to strings billions of characters
+    // long.
+    "lpad",
+    "rpad"};
 
 // Called if at least one of the ptrs has an exception.
 void compareExceptions(

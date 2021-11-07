@@ -421,3 +421,101 @@ TEST_F(StringImplTest, getByteRange) {
     EXPECT_EQ(expectedEndByteIndex, range.second);
   }
 }
+
+TEST_F(StringImplTest, pad) {
+  auto runTest = [](const std::string& string,
+                    const int64_t size,
+                    const std::string& padString,
+                    const std::string& expectedLpadResult,
+                    const std::string& expectedRpadResult) {
+    core::StringWriter lpadOutput;
+    core::StringWriter rpadOutput;
+
+    bool stringIsAscii = isAscii(string.c_str(), string.size());
+    bool padStringIsAscii = isAscii(padString.c_str(), padString.size());
+    if (stringIsAscii && padStringIsAscii) {
+      facebook::velox::functions::stringImpl::
+          pad<true /*lpad*/, true /*isAscii*/>(
+              lpadOutput, StringView(string), size, StringView(padString));
+      facebook::velox::functions::stringImpl::
+          pad<false /*lpad*/, true /*isAscii*/>(
+              rpadOutput, StringView(string), size, StringView(padString));
+    } else {
+      // At least one of the string args is non-ASCII
+      facebook::velox::functions::stringImpl::
+          pad<true /*lpad*/, false /*IsAscii*/>(
+              lpadOutput, StringView(string), size, StringView(padString));
+      facebook::velox::functions::stringImpl::
+          pad<false /*lpad*/, false /*IsAscii*/>(
+              rpadOutput, StringView(string), size, StringView(padString));
+    }
+
+    ASSERT_EQ(
+        StringView(lpadOutput.data(), lpadOutput.size()),
+        StringView(expectedLpadResult));
+    ASSERT_EQ(
+        StringView(rpadOutput.data(), rpadOutput.size()),
+        StringView(expectedRpadResult));
+  };
+
+  auto runTestUserError = [](const std::string& string,
+                             const int64_t size,
+                             const std::string& padString) {
+    core::StringWriter output;
+
+    EXPECT_THROW(
+        (facebook::velox::functions::stringImpl::pad<true, true>(
+            output, StringView(string), size, StringView(padString))),
+        VeloxUserError);
+  };
+
+  // ASCII string with various values for size and padString
+  runTest("text", 5, "x", "xtext", "textx");
+  runTest("text", 4, "x", "text", "text");
+  runTest("text", 6, "xy", "xytext", "textxy");
+  runTest("text", 7, "xy", "xyxtext", "textxyx");
+  runTest("text", 9, "xyz", "xyzxytext", "textxyzxy");
+  // Non-ASCII string with various values for size and padString
+  runTest(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      10,
+      "\u671B",
+      "\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B");
+  runTest(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      11,
+      "\u671B",
+      "\u671B\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B\u671B");
+  runTest(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      12,
+      "\u5E0C\u671B",
+      "\u5E0C\u671B\u5E0C\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C");
+  runTest(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      13,
+      "\u5E0C\u671B",
+      "\u5E0C\u671B\u5E0C\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C\u671B");
+  // Empty string
+  runTest("", 3, "a", "aaa", "aaa");
+  // Truncating string
+  runTest("abc", 0, "e", "", "");
+  runTest("text", 3, "xy", "tex", "tex");
+  runTest(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      5,
+      "\u671B",
+      "\u4FE1\u5FF5 \u7231 ",
+      "\u4FE1\u5FF5 \u7231 ");
+
+  // Empty padString
+  runTestUserError("text", 10, "");
+  // size outside the allowed range
+  runTestUserError("text", -1, "a");
+  runTestUserError(
+      "text", ((int64_t)std::numeric_limits<int32_t>::max()) + 1, "a");
+}
