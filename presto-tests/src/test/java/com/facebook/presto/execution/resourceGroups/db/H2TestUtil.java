@@ -24,6 +24,7 @@ import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfigurationManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +60,16 @@ class H2TestUtil
                 .setCatalog("tpch")
                 .setSchema("sf100000")
                 .setSource("adhoc")
+                .build();
+    }
+
+    public static Session testSession(Identity identity)
+    {
+        return testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource("abc")
+                .setIdentity(identity)
                 .build();
     }
 
@@ -185,6 +196,8 @@ class H2TestUtil
         dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
         dao.insertResourceGroup(7, "explain", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(8, "test", "1MB", 3, 3, 3, null, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(9, "test-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, null, 8L, TEST_ENVIRONMENT);
         dao.insertSelector(2, 10_000, "user.*", "test", null, null, null);
         dao.insertSelector(4, 1_000, "user.*", "(?i).*adhoc.*", null, null, null);
         dao.insertSelector(5, 100, "user.*", "(?i).*dashboard.*", null, null, null);
@@ -192,8 +205,9 @@ class H2TestUtil
         dao.insertSelector(2, 1, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")), null);
         dao.insertSelector(6, 6, ".*", ".*", null, null, null);
         dao.insertSelector(7, 100_000, null, null, EXPLAIN.name(), null, null);
+        dao.insertSelector(9, 10_000, "user.*", "abc", null, null, null);
 
-        int expectedSelectors = 6;
+        int expectedSelectors = 7;
         if (environment.equals(TEST_ENVIRONMENT_2)) {
             expectedSelectors = 1;
         }

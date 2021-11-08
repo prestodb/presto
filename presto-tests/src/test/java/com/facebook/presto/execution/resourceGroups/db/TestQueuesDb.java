@@ -245,10 +245,10 @@ public class TestQueuesDb
         assertEquals(resourceGroup.get().toString(), "global.user-user.dashboard-user");
 
         // create a new resource group that rejects all queries submitted to it
-        dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(10, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
-        dao.insertSelector(8, 200, "user.*", "(?i).*dashboard.*", null, null, null);
+        dao.insertSelector(10, 200, "user.*", "(?i).*dashboard.*", null, null, null);
 
         // reload the configuration
         reloadingConfigurationManager.load();
