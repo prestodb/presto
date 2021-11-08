@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCommitResult;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
@@ -532,7 +533,9 @@ public class InMemoryTransactionManager
                     return immediateFuture(null);
                 }
                 // Transaction already aborted
-                return immediateFailedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
+                return immediateFailedFuture(new PrestoException(
+                        TRANSACTION_ALREADY_ABORTED,
+                        "Current transaction has already been aborted"));
             }
 
             ListenableFuture<?> functionNamespaceFuture = Futures.allAsList(functionNamespaceTransactions.values().stream()
@@ -566,11 +569,19 @@ public class InMemoryTransactionManager
 
             ConnectorTransactionMetadata writeConnector = connectorIdToMetadata.get(writeConnectorId);
             Supplier<ListenableFuture> commitFunctionNamespaceTransactions = () -> functionNamespaceFuture;
-            ListenableFuture<?> commitFuture = Futures.transformAsync(finishingExecutor.submit(writeConnector::commit), ignored -> commitFunctionNamespaceTransactions.get(), directExecutor());
-            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
-            addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
+            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(
+                    commitFunctionNamespaceTransactions.get(), ignored -> commitReadOnlyConnectors.get(), directExecutor());
+            ListenableFuture<?> writeCommitFuture = Futures.transformAsync(
+                    readOnlyCommitFuture, ignored -> finishingExecutor.submit(writeConnector::commit), directExecutor());
+            addExceptionCallback(writeCommitFuture, this::abortInternal);
 
-            return nonCancellationPropagating(readOnlyCommitFuture);
+            return nonCancellationPropagating(writeCommitFuture);
+        }
+
+        public ConnectorCommitResult addConnectorId(ConnectorCommitResult result, ConnectorId id)
+        {
+            result.setConnectorId(id);
+            return result;
         }
 
         public synchronized ListenableFuture<?> asyncAbort()
@@ -671,11 +682,13 @@ public class InMemoryTransactionManager
                 return transactionHandle;
             }
 
-            public void commit()
+            public Optional<ConnectorCommitResult> commit()
             {
                 if (finished.compareAndSet(false, true)) {
-                    connector.commit(transactionHandle);
+                    return connector.commit(transactionHandle);
                 }
+
+                return Optional.empty();
             }
 
             public void abort()

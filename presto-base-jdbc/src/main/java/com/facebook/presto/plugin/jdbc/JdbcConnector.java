@@ -19,6 +19,7 @@ import com.facebook.presto.plugin.jdbc.optimization.JdbcPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.connector.ConnectorCommitResult;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
@@ -128,9 +129,10 @@ public class JdbcConnector
     }
 
     @Override
-    public void commit(ConnectorTransactionHandle transaction)
+    public Optional<ConnectorCommitResult> commit(ConnectorTransactionHandle transaction)
     {
         checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
+        return Optional.empty();
     }
 
     @Override

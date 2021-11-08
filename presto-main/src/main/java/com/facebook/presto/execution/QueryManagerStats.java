@@ -68,7 +68,8 @@ public class QueryManagerStats
         submittedQueries.update(1);
         queuedQueries.incrementAndGet();
         managedQueryExecution.addStateChangeListener(new StatisticsListener());
-        managedQueryExecution.addFinalQueryInfoListener(finalQueryInfo -> queryFinished(new BasicQueryInfo(finalQueryInfo)));
+        managedQueryExecution.addFinalQueryInfoListener(
+                finalQueryInfo -> queryFinished(new BasicQueryInfo(finalQueryInfo)));
     }
 
     private void queryStarted()

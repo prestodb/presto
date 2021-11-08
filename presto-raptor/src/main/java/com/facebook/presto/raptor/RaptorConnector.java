@@ -21,6 +21,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorCommitResult;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -39,6 +40,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -136,10 +138,12 @@ public class RaptorConnector
     }
 
     @Override
-    public void commit(ConnectorTransactionHandle transaction)
+    public Optional<ConnectorCommitResult> commit(ConnectorTransactionHandle transaction)
     {
         checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
         finishDelete(((RaptorTransactionHandle) transaction).getUuid());
+
+        return Optional.empty();
     }
 
     @Override

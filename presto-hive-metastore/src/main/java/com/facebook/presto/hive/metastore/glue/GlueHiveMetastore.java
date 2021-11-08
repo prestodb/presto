@@ -72,6 +72,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationStats;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
@@ -497,7 +498,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationStats createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         try {
             TableInput input = GlueInputConverter.convertTable(table);
@@ -515,6 +516,8 @@ public class GlueHiveMetastore
         catch (AmazonServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+
+        return new MetastoreOperationStats();
     }
 
     @Override
@@ -555,7 +558,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationStats replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         try {
             TableInput newTableInput = GlueInputConverter.convertTable(newTable);
@@ -563,6 +566,8 @@ public class GlueHiveMetastore
                     .withCatalogId(catalogId)
                     .withDatabaseName(databaseName)
                     .withTableInput(newTableInput)));
+
+            return new MetastoreOperationStats();
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -573,13 +578,13 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public MetastoreOperationStats renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         throw new PrestoException(NOT_SUPPORTED, "Table rename is not yet supported by Glue service");
     }
 
     @Override
-    public void addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
+    public MetastoreOperationStats addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         com.amazonaws.services.glue.model.Table table = getGlueTableOrElseThrow(databaseName, tableName);
         ImmutableList.Builder<com.amazonaws.services.glue.model.Column> newDataColumns = ImmutableList.builder();
@@ -587,10 +592,11 @@ public class GlueHiveMetastore
         newDataColumns.add(convertColumn(new Column(columnName, columnType, Optional.ofNullable(columnComment), Optional.empty())));
         table.getStorageDescriptor().setColumns(newDataColumns.build());
         replaceGlueTable(databaseName, tableName, table);
+        return new MetastoreOperationStats();
     }
 
     @Override
-    public void renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName)
+    public MetastoreOperationStats renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
         com.amazonaws.services.glue.model.Table table = getGlueTableOrElseThrow(databaseName, tableName);
         if (table.getPartitionKeys() != null && table.getPartitionKeys().stream().anyMatch(c -> c.getName().equals(oldColumnName))) {
@@ -610,10 +616,11 @@ public class GlueHiveMetastore
         }
         table.getStorageDescriptor().setColumns(newDataColumns.build());
         replaceGlueTable(databaseName, tableName, table);
+        return new MetastoreOperationStats();
     }
 
     @Override
-    public void dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
+    public MetastoreOperationStats dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
     {
         verifyCanDropColumn(this, metastoreContext, databaseName, tableName, columnName);
         com.amazonaws.services.glue.model.Table table = getGlueTableOrElseThrow(databaseName, tableName);
@@ -636,6 +643,8 @@ public class GlueHiveMetastore
 
         table.getStorageDescriptor().setColumns(newDataColumns.build());
         replaceGlueTable(databaseName, tableName, table);
+
+        return new MetastoreOperationStats();
     }
 
     private void replaceGlueTable(String databaseName, String tableName, com.amazonaws.services.glue.model.Table newTable)
@@ -849,7 +858,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
+    public MetastoreOperationStats addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         try {
             List<Future<BatchCreatePartitionResult>> futures = new ArrayList<>();
@@ -867,6 +876,8 @@ public class GlueHiveMetastore
                 BatchCreatePartitionResult result = future.get();
                 propagatePartitionErrorToPrestoException(databaseName, tableName, result.getErrors());
             }
+
+            return new MetastoreOperationStats();
         }
         catch (AmazonServiceException | InterruptedException | ExecutionException e) {
             if (e instanceof InterruptedException) {
@@ -918,7 +929,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition)
+    public MetastoreOperationStats alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition)
     {
         try {
             PartitionInput newPartition = GlueInputConverter.convertPartition(partition);
@@ -928,6 +939,8 @@ public class GlueHiveMetastore
                     .withTableName(tableName)
                     .withPartitionInput(newPartition)
                     .withPartitionValueList(partition.getPartition().getValues())));
+
+            return new MetastoreOperationStats();
         }
         catch (EntityNotFoundException e) {
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getPartition().getValues());

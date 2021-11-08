@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.spi.connector.ConnectorCommitResult;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-
-public interface TransactionalMetadata
-        extends ConnectorMetadata
+public enum MetastoreOperationType
 {
-    ConnectorCommitResult commit();
-
-    void rollback();
-
-    SemiTransactionalHiveMetastore getMetastore();
+    ADD_PARTITION,
+    ALTER_TABLES,
+    ALTER_PARTITIONS,
+    APPEND_PARTITION,
+    APPEND_PARTITION_BY_NAME,
+    CREATE_TABLE,
+    GET_PARTITION,
+    GET_PARTITION_BY_NAME,
+    GET_TABLE,
+    OTHERS
 }

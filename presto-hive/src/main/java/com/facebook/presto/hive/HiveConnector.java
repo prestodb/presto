@@ -20,6 +20,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.connector.ConnectorCommitResult;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -36,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -213,12 +215,13 @@ public class HiveConnector
     }
 
     @Override
-    public void commit(ConnectorTransactionHandle transaction)
+    public Optional<ConnectorCommitResult> commit(ConnectorTransactionHandle transaction)
     {
+        log.error("Hive connector is used");
         TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.commit();
+            return Optional.ofNullable(metadata.commit());
         }
     }
 

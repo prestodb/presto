@@ -19,6 +19,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -160,8 +161,9 @@ public interface Connector
      * Commit the transaction. Will be called at most once and will not be called if
      * {@link #rollback(ConnectorTransactionHandle)} is called.
      */
-    default void commit(ConnectorTransactionHandle transactionHandle)
+    default Optional<ConnectorCommitResult> commit(ConnectorTransactionHandle transactionHandle)
     {
+        return Optional.empty();
     }
 
     /**

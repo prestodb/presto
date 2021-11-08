@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.joda.time.DateTime;
 
 import java.util.Arrays;
 import java.util.List;
@@ -198,6 +199,7 @@ public class PartitionMetadata
                 Optional.empty(),
                 eligibleToIgnore,
                 sealedPartition,
-                0);
+                0,
+                new DateTime(-1000));
     }
 }

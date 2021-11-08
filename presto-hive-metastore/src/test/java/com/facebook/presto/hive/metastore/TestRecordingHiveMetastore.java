@@ -89,7 +89,8 @@ public class TestRecordingHiveMetastore
             ImmutableList.of(TABLE_COLUMN),
             ImmutableMap.of("param", "value3"),
             Optional.of("original_text"),
-            Optional.of("expanded_text"));
+            Optional.of("expanded_text"),
+            Optional.empty());
     private static final Partition PARTITION = new Partition(
             "database",
             "table",
@@ -100,7 +101,8 @@ public class TestRecordingHiveMetastore
             Optional.empty(),
             false,
             true,
-            0);
+            0,
+            null);
     private static final PartitionStatistics PARTITION_STATISTICS = new PartitionStatistics(
             new HiveBasicStatistics(10, 11, 10000, 10001),
             ImmutableMap.of("column", new HiveColumnStatistics(

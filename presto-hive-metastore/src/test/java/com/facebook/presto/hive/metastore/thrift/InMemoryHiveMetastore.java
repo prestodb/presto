@@ -20,6 +20,7 @@ import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationStats;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -170,7 +171,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void createTable(MetastoreContext metastoreContext, Table table)
+    public synchronized MetastoreOperationStats createTable(MetastoreContext metastoreContext, Table table)
     {
         TableType tableType = TableType.valueOf(table.getTableType());
         checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
@@ -201,6 +202,8 @@ public class InMemoryHiveMetastore
         if (privileges != null) {
             throw new UnsupportedOperationException();
         }
+
+        return new MetastoreOperationStats();
     }
 
     @Override
@@ -251,7 +254,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable)
+    public synchronized MetastoreOperationStats alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable)
     {
         SchemaTableName oldName = new SchemaTableName(databaseName, tableName);
         SchemaTableName newName = new SchemaTableName(newTable.getDbName(), newTable.getTableName());
@@ -261,7 +264,7 @@ public class InMemoryHiveMetastore
             if (relations.replace(oldName, newTable) == null) {
                 throw new TableNotFoundException(oldName);
             }
-            return;
+            return new MetastoreOperationStats();
         }
 
         // remove old table definition and add the new one
@@ -274,6 +277,8 @@ public class InMemoryHiveMetastore
             throw new TableAlreadyExistsException(newName);
         }
         relations.remove(oldName);
+
+        return new MetastoreOperationStats();
     }
 
     @Override
@@ -307,13 +312,15 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
+    public synchronized MetastoreOperationStats addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
             PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
             partitions.put(partitionKey, partitionWithStatistics.getPartition());
             partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
         }
+
+        return new MetastoreOperationStats();
     }
 
     @Override
@@ -324,11 +331,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
+    public synchronized MetastoreOperationStats alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
         partitions.put(partitionKey, partitionWithStatistics.getPartition());
         partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
+
+        return new MetastoreOperationStats();
     }
 
     @Override

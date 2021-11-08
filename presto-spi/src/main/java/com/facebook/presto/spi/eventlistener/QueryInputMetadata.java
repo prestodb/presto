@@ -30,7 +30,13 @@ public class QueryInputMetadata
     private final Optional<Object> connectorInfo;
     private final Optional<TableStatistics> statistics;
 
-    public QueryInputMetadata(String catalogName, String schema, String table, List<String> columns, Optional<Object> connectorInfo, Optional<TableStatistics> statistics)
+    public QueryInputMetadata(
+            String catalogName,
+            String schema,
+            String table,
+            List<String> columns,
+            Optional<Object> connectorInfo,
+            Optional<TableStatistics> statistics)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");

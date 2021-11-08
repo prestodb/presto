@@ -30,6 +30,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationStats;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
@@ -830,7 +831,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void createTable(MetastoreContext metastoreContext, Table table)
+    public MetastoreOperationStats createTable(MetastoreContext metastoreContext, Table table)
     {
         try {
             retry()
@@ -841,6 +842,8 @@ public class ThriftHiveMetastore
                                 client.createTable(table);
                                 return null;
                             })));
+
+            return new MetastoreOperationStats();
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(new SchemaTableName(table.getDbName(), table.getTableName()));
@@ -881,7 +884,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table)
+    public MetastoreOperationStats alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table)
     {
         try {
             retry()
@@ -896,6 +899,7 @@ public class ThriftHiveMetastore
                                 client.alterTable(databaseName, tableName, table);
                                 return null;
                             })));
+            return new MetastoreOperationStats();
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -958,7 +962,8 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
+    public MetastoreOperationStats addPartitions(
+            MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         List<Partition> partitions = partitionsWithStatistics.stream()
                 .map(part -> ThriftMetastoreUtil.toMetastoreApiPartition(part, metastoreContext.getColumnConverter()))
@@ -967,6 +972,7 @@ public class ThriftHiveMetastore
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
             storePartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionWithStatistics.getPartitionName(), partitionWithStatistics);
         }
+        return new MetastoreOperationStats();
     }
 
     private void addPartitionsWithoutStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, List<Partition> partitions)
@@ -1051,11 +1057,13 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
+    public MetastoreOperationStats alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
         alterPartitionWithoutStatistics(metastoreContext, databaseName, tableName, toMetastoreApiPartition(partitionWithStatistics, metastoreContext.getColumnConverter()));
         storePartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionWithStatistics.getPartitionName(), partitionWithStatistics);
         dropExtraColumnStatisticsAfterAlterPartition(metastoreContext, databaseName, tableName, partitionWithStatistics);
+
+        return new MetastoreOperationStats();
     }
 
     private void alterPartitionWithoutStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Partition partition)

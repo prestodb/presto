@@ -26,6 +26,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationStats;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
@@ -513,12 +514,13 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges)
+        public MetastoreOperationStats createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges)
         {
             // hack to work around the metastore not being configured for S3 or other FS
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
             super.createTable(metastoreContext, tableBuilder.build(), privileges);
+            return new MetastoreOperationStats();
         }
 
         @Override
