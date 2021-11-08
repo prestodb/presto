@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -31,7 +32,7 @@ import java.util.concurrent.Executors;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class ResourceManagerResourceGroupService
         implements ResourceGroupService
@@ -44,13 +45,16 @@ public class ResourceManagerResourceGroupService
     @Inject
     public ResourceManagerResourceGroupService(
             @ForResourceManager DriftClient<ResourceManagerClient> resourceManagerClient,
+            ResourceManagerConfig resourceManagerConfig,
             InternalNodeManager internalNodeManager)
     {
         this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerService is null");
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+        Duration cacheExpireDuration = requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getResourceGroupServiceCacheExpireInterval();
+        Duration cacheRefreshDuration = resourceManagerConfig.getResourceGroupServiceCacheRefreshInterval();
         this.cache = CacheBuilder.newBuilder()
-                .expireAfterWrite(10, SECONDS)
-                .refreshAfterWrite(1, SECONDS)
+                .expireAfterWrite(cacheExpireDuration.roundTo(MILLISECONDS), MILLISECONDS)
+                .refreshAfterWrite(cacheRefreshDuration.roundTo(MILLISECONDS), MILLISECONDS)
                 .build(asyncReloading(new CacheLoader<InternalNode, List<ResourceGroupRuntimeInfo>>() {
                     @Override
                     public List<ResourceGroupRuntimeInfo> load(InternalNode internalNode)
