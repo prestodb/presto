@@ -29,18 +29,14 @@ class ApproxDistinctTest : public AggregationTestBase {
   void testGlobalAgg(
       const VectorPtr& values,
       double maxStandardError,
-      int32_t expectedResult) {
+      int64_t expectedResult) {
     auto op =
         PlanBuilder()
             .values({makeRowVector({values})})
             .singleAggregation(
                 {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
             .planNode();
-
-    assertQuery(
-        op,
-        fmt::format(
-            "/* global_single_agg_with_error */ SELECT {}", expectedResult));
+    ASSERT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
@@ -48,26 +44,22 @@ class ApproxDistinctTest : public AggregationTestBase {
                  {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
              .finalAggregation({}, {"approx_distinct(a0)"})
              .planNode();
-    assertQuery(
-        op,
-        fmt::format("/* global_agg_with_error */SELECT {}", expectedResult));
+    ASSERT_EQ(readSingleValue(op), expectedResult);
   }
 
-  void testGlobalAgg(const VectorPtr& values, int32_t expectedResult) {
+  void testGlobalAgg(const VectorPtr& values, int64_t expectedResult) {
     auto op = PlanBuilder()
                   .values({makeRowVector({values})})
                   .singleAggregation({}, {"approx_distinct(c0)"})
                   .planNode();
-
-    assertQuery(
-        op, fmt::format("/* global_single_agg */ SELECT {}", expectedResult));
+    ASSERT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
              .partialAggregation({}, {"approx_distinct(c0)"})
              .finalAggregation({}, {"approx_distinct(a0)"})
              .planNode();
-    assertQuery(op, fmt::format("/* global_agg */SELECT {}", expectedResult));
+    ASSERT_EQ(readSingleValue(op), expectedResult);
   }
 
   template <typename T, typename U>
