@@ -42,6 +42,7 @@ import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
+import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
@@ -158,6 +159,8 @@ public class IcebergModule
 
         configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
         configBinder(binder).bindConfig(OrcFileWriterConfig.class);
+
+        binder.bind(IcebergPlanOptimizer.class).in(Scopes.SINGLETON);
     }
 
     @ForCachingHiveMetastore
