@@ -37,6 +37,8 @@ public class ResourceManagerConfig
     private int resourceManagerExecutorThreads = 1000;
     private Duration proxyAsyncTimeout = new Duration(60, SECONDS);
     private Duration memoryPoolFetchInterval = new Duration(1, SECONDS);
+    private Duration resourceGroupServiceCacheExpireInterval = new Duration(10, SECONDS);
+    private Duration resourceGroupServiceCacheRefreshInterval = new Duration(1, SECONDS);
 
     @MinDuration("1ms")
     public Duration getQueryExpirationTimeout()
@@ -193,6 +195,30 @@ public class ResourceManagerConfig
     public ResourceManagerConfig setMemoryPoolFetchInterval(Duration memoryPoolFetchInterval)
     {
         this.memoryPoolFetchInterval = memoryPoolFetchInterval;
+        return this;
+    }
+
+    public Duration getResourceGroupServiceCacheExpireInterval()
+    {
+        return resourceGroupServiceCacheExpireInterval;
+    }
+
+    @Config("resource-manager.resource-group-service-cache-expire-interval")
+    public ResourceManagerConfig setResourceGroupServiceCacheExpireInterval(Duration resourceGroupServiceCacheExpireInterval)
+    {
+        this.resourceGroupServiceCacheExpireInterval = resourceGroupServiceCacheExpireInterval;
+        return this;
+    }
+
+    public Duration getResourceGroupServiceCacheRefreshInterval()
+    {
+        return resourceGroupServiceCacheRefreshInterval;
+    }
+
+    @Config("resource-manager.resource-group-service-cache-refresh-interval")
+    public ResourceManagerConfig setResourceGroupServiceCacheRefreshInterval(Duration resourceGroupServiceCacheRefreshInterval)
+    {
+        this.resourceGroupServiceCacheRefreshInterval = resourceGroupServiceCacheRefreshInterval;
         return this;
     }
 }
