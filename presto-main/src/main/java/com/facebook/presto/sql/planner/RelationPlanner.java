@@ -200,7 +200,26 @@ class RelationPlanner
         context.incrementLeafNodes(session);
         PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(), tableConstraints, TupleDomain.all(), TupleDomain.all());
 
-        return new RelationPlan(root, scope, outputVariables);
+        RelationPlan tableScan = new RelationPlan(root, scope, outputVariables);
+        tableScan = addRowFilters(node, tableScan, context);
+        return tableScan;
+    }
+
+    private RelationPlan addRowFilters(Table node, RelationPlan plan, SqlPlannerContext context)
+    {
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
+
+        for (Expression filter : analysis.getRowFilters(node)) {
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, filter, context);
+
+            planBuilder = planBuilder.withNewRoot(new FilterNode(
+                    getSourceLocation(node.getLocation()),
+                    idAllocator.getNextId(),
+                    planBuilder.getRoot(),
+                    castToRowExpression(planBuilder.rewrite(filter))));
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
     }
 
     @Override

@@ -73,7 +73,6 @@ public class QueryAssertions
     {
         return runner;
     }
-
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
@@ -141,5 +140,16 @@ public class QueryAssertions
     public void close()
     {
         runner.close();
+    }
+
+    protected void executeExclusively(Runnable executionBlock)
+    {
+        runner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            runner.getExclusiveLock().unlock();
+        }
     }
 }

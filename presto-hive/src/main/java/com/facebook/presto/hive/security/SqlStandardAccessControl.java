@@ -30,6 +30,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import javax.inject.Inject;
 
@@ -481,5 +482,11 @@ public class SqlStandardAccessControl
     {
         TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
         return metadata.getMetastore();
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
     }
 }

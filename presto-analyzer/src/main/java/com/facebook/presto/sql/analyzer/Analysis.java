@@ -45,16 +45,19 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
@@ -138,6 +141,9 @@ public class Analysis
     private final Map<NodeRef<SampledRelation>, Double> sampleRatios = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<GroupingOperation>> groupingOperations = new LinkedHashMap<>();
+
+    private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
 
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
@@ -912,6 +918,32 @@ public class Analysis
         return functionMap.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableSet.copyOf(entry.getValue())));
     }
 
+    public boolean hasRowFilter(QualifiedObjectName table, String identity)
+    {
+        return rowFilterScopes.contains(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void registerTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.add(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void unregisterTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.remove(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void addRowFilter(Table table, Expression filter)
+    {
+        rowFilters.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(filter);
+    }
+
+    public List<Expression> getRowFilters(Table node)
+    {
+        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+    }
+
     @Immutable
     public static final class Insert
     {
@@ -1120,6 +1152,38 @@ public class Analysis
         public String toString()
         {
             return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+        }
+    }
+
+    private static class RowFilterScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String identity;
+
+        public RowFilterScopeEntry(QualifiedObjectName table, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowFilterScopeEntry that = (RowFilterScopeEntry) o;
+            return table.equals(that.table) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, identity);
         }
     }
 }
