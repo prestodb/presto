@@ -55,6 +55,8 @@ class DenseHll {
 
   int64_t cardinality() const;
 
+  static int64_t cardinality(const char* serialized);
+
   /// Serializes internal state using Presto DenseV2 format.
   void serialize(char* output);
 
@@ -77,23 +79,13 @@ class DenseHll {
   static int32_t estimateInMemorySize(int8_t indexBitLength);
 
  private:
-  static const int kBitsPerBucket = 4;
-  static const int8_t kMaxDelta = (1 << kBitsPerBucket) - 1;
-  static const int8_t kBucketMask = (1 << kBitsPerBucket) - 1;
-
-  static constexpr double kLinearCountingMinEmptyBuckets = 0.4;
-
   int8_t getDelta(int32_t index) const;
-
-  int8_t getValue(int bucket) const;
 
   void setDelta(int32_t index, int8_t value);
 
   int8_t getOverflow(int32_t index) const;
 
   int findOverflowEntry(int32_t index) const;
-
-  double correctBias(double rawEstimate) const;
 
   void adjustBaselineIfNeeded();
 

@@ -20,6 +20,11 @@
 
 namespace facebook::velox::aggregate::hll {
 namespace {
+const int kBitsPerBucket = 4;
+const int8_t kMaxDelta = (1 << kBitsPerBucket) - 1;
+const int8_t kBucketMask = (1 << kBitsPerBucket) - 1;
+constexpr double kLinearCountingMinEmptyBuckets = 0.4;
+
 /// Buckets are stored in a byte array. Each byte stored 2 buckets, 4 bits each.
 /// Even buckets are stored in the first 4 bits of the byte. Odd buckets are
 /// stored in the last 4 bits of the byte. This function returns the offset in
@@ -80,6 +85,35 @@ int8_t getOverflowImpl(
   }
   return 0;
 }
+
+double correctBias(double rawEstimate, int8_t indexBitLength) {
+  const auto& estimates = BiasCorrection::kRawEstimates[indexBitLength - 4];
+  if (rawEstimate < estimates[0] ||
+      rawEstimate > estimates[estimates.size() - 1]) {
+    return rawEstimate;
+  }
+
+  const auto& biases = BiasCorrection::kBias[indexBitLength - 4];
+
+  int position = search(rawEstimate, estimates);
+
+  double bias;
+  if (position >= 0) {
+    bias = biases[position];
+  } else {
+    // interpolate
+    int insertionPoint = -(position + 1);
+
+    double x0 = estimates[insertionPoint - 1];
+    double y0 = biases[insertionPoint - 1];
+    double x1 = estimates[insertionPoint];
+    double y1 = biases[insertionPoint];
+
+    bias = ((((rawEstimate - x0) * (y1 - y0)) / (x1 - x0)) + y0);
+  }
+
+  return rawEstimate - bias;
+}
 } // namespace
 
 DenseHll::DenseHll(int8_t indexBitLength, exec::HashStringAllocator* allocator)
@@ -138,41 +172,112 @@ void DenseHll::insert(int32_t index, int8_t value) {
   }
 }
 
-int64_t DenseHll::cardinality() const {
-  auto numBuckets = 1 << indexBitLength_;
+namespace {
+
+struct DenseHllView {
+  int8_t indexBitLength;
+  int8_t baseline;
+  const int8_t* deltas;
+  int16_t overflows;
+  const uint16_t* overflowBuckets;
+  const int8_t* overflowValues;
+
+  int8_t getDelta(int32_t index) const {
+    int slot = index >> 1;
+    return (deltas[slot] >> shiftForBucket(index)) & kBucketMask;
+  }
+
+  int8_t getValue(int32_t index) const {
+    auto delta = getDelta(index);
+
+    if (delta == kMaxDelta) {
+      delta +=
+          getOverflowImpl(index, overflows, overflowBuckets, overflowValues);
+    }
+
+    return baseline + delta;
+  }
+};
+
+int64_t cardinalityImpl(const DenseHllView& hll) {
+  auto numBuckets = 1 << hll.indexBitLength;
+
+  int32_t baselineCount = 0;
+  for (int i = 0; i < numBuckets; i++) {
+    if (hll.getDelta(i) == 0) {
+      baselineCount++;
+    }
+  }
 
   // If baseline is zero, then baselineCount is the number of buckets with value
   // 0.
-  if ((baseline_ == 0) &&
-      (baselineCount_ > (kLinearCountingMinEmptyBuckets * numBuckets))) {
-    return std::round(linearCounting(baselineCount_, numBuckets));
+  if ((hll.baseline == 0) &&
+      (baselineCount > (kLinearCountingMinEmptyBuckets * numBuckets))) {
+    return std::round(linearCounting(baselineCount, numBuckets));
   }
 
   double sum = 0;
   for (int i = 0; i < numBuckets; i++) {
-    int value = getValue(i);
+    int value = hll.getValue(i);
     sum += 1.0 / (1L << value);
   }
 
-  double estimate = (alpha(indexBitLength_) * numBuckets * numBuckets) / sum;
-  estimate = correctBias(estimate);
+  double estimate = (alpha(hll.indexBitLength) * numBuckets * numBuckets) / sum;
+  estimate = correctBias(estimate, hll.indexBitLength);
 
   return std::round(estimate);
+}
+
+DenseHllView deserialize(const char* serialized) {
+  InputByteStream stream(serialized);
+
+  auto version = stream.read<int8_t>();
+  VELOX_CHECK_EQ(kPrestoDenseV2, version);
+
+  auto indexBitLength = stream.read<int8_t>();
+  auto baseline = stream.read<int8_t>();
+
+  auto numBuckets = 1 << indexBitLength;
+  // next numBuckets / 2 bytes are deltas
+  const int8_t* deltas = stream.read<int8_t>(numBuckets / 2);
+
+  auto overflows = stream.read<int16_t>();
+
+  const uint16_t* overflowBuckets =
+      overflows ? stream.read<uint16_t>(overflows) : nullptr;
+  const int8_t* overflowValues =
+      overflows ? stream.read<int8_t>(overflows) : nullptr;
+
+  return DenseHllView{
+      indexBitLength,
+      baseline,
+      deltas,
+      overflows,
+      overflowBuckets,
+      overflowValues};
+}
+} // namespace
+
+int64_t DenseHll::cardinality() const {
+  DenseHllView hll{
+      indexBitLength_,
+      baseline_,
+      deltas_.data(),
+      overflows_,
+      overflowBuckets_.data(),
+      overflowValues_.data()};
+  return cardinalityImpl(hll);
+}
+
+// static
+int64_t DenseHll::cardinality(const char* serialized) {
+  auto hll = deserialize(serialized);
+  return cardinalityImpl(hll);
 }
 
 int8_t DenseHll::getDelta(int32_t index) const {
   int slot = index >> 1;
   return (deltas_[slot] >> shiftForBucket(index)) & kBucketMask;
-}
-
-int8_t DenseHll::getValue(int32_t index) const {
-  auto delta = getDelta(index);
-
-  if (delta == kMaxDelta) {
-    delta += getOverflow(index);
-  }
-
-  return baseline_ + delta;
 }
 
 void DenseHll::setDelta(int32_t index, int8_t value) {
@@ -199,35 +304,6 @@ int DenseHll::findOverflowEntry(int32_t index) const {
     }
   }
   return -1;
-}
-
-double DenseHll::correctBias(double rawEstimate) const {
-  const auto& estimates = BiasCorrection::kRawEstimates[indexBitLength_ - 4];
-  if (rawEstimate < estimates[0] ||
-      rawEstimate > estimates[estimates.size() - 1]) {
-    return rawEstimate;
-  }
-
-  const auto& biases = BiasCorrection::kBias[indexBitLength_ - 4];
-
-  int position = search(rawEstimate, estimates);
-
-  double bias;
-  if (position >= 0) {
-    bias = biases[position];
-  } else {
-    // interpolate
-    int insertionPoint = -(position + 1);
-
-    double x0 = estimates[insertionPoint - 1];
-    double y0 = biases[insertionPoint - 1];
-    double x1 = estimates[insertionPoint];
-    double y1 = biases[insertionPoint];
-
-    bias = ((((rawEstimate - x0) * (y1 - y0)) / (x1 - x0)) + y0);
-  }
-
-  return rawEstimate - bias;
 }
 
 void DenseHll::adjustBaselineIfNeeded() {
@@ -358,24 +434,26 @@ DenseHll::DenseHll(const char* serialized, exec::HashStringAllocator* allocator)
     : deltas_{exec::StlAllocator<int8_t>(allocator)},
       overflowBuckets_{exec::StlAllocator<uint16_t>(allocator)},
       overflowValues_{exec::StlAllocator<int8_t>(allocator)} {
-  InputByteStream stream(serialized);
-
-  auto version = stream.read<int8_t>();
-  VELOX_CHECK_EQ(kPrestoDenseV2, version);
-
-  indexBitLength_ = stream.read<int8_t>();
-  baseline_ = stream.read<int8_t>();
+  auto hll = deserialize(serialized);
+  indexBitLength_ = hll.indexBitLength;
+  baseline_ = hll.baseline;
 
   auto numBuckets = 1 << indexBitLength_;
   deltas_.resize(numBuckets / 2);
-  stream.copyTo(deltas_.data(), numBuckets / 2);
+  std::copy(hll.deltas, hll.deltas + numBuckets / 2, deltas_.data());
 
-  overflows_ = stream.read<int16_t>();
+  overflows_ = hll.overflows;
   if (overflows_) {
     overflowBuckets_.resize(overflows_);
     overflowValues_.resize(overflows_);
-    stream.copyTo(overflowBuckets_.data(), overflows_);
-    stream.copyTo(overflowValues_.data(), overflows_);
+    std::copy(
+        hll.overflowBuckets,
+        hll.overflowBuckets + overflows_,
+        overflowBuckets_.data());
+    std::copy(
+        hll.overflowValues,
+        hll.overflowValues + overflows_,
+        overflowValues_.data());
   }
 
   baselineCount_ = 0;

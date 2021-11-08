@@ -85,6 +85,11 @@ class DenseHllTest : public ::testing::TestWithParam<int8_t> {
 
     ASSERT_EQ(hllLeft.cardinality(), expected.cardinality());
     ASSERT_EQ(serialize(hllLeft), serialize(expected));
+
+    auto hllLeftSerialized = serialize(hllLeft);
+    ASSERT_EQ(
+        DenseHll::cardinality(hllLeftSerialized.data()),
+        expected.cardinality());
   }
 
   exec::HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
@@ -114,6 +119,9 @@ TEST_P(DenseHllTest, basic) {
 
   DenseHll deserialized = roundTrip(denseHll);
   ASSERT_EQ(expectedCardinality, deserialized.cardinality());
+
+  auto serialized = serialize(denseHll);
+  ASSERT_EQ(expectedCardinality, DenseHll::cardinality(serialized.data()));
 }
 
 TEST_P(DenseHllTest, highCardinality) {
@@ -131,6 +139,9 @@ TEST_P(DenseHllTest, highCardinality) {
 
   DenseHll deserialized = roundTrip(denseHll);
   ASSERT_EQ(denseHll.cardinality(), deserialized.cardinality());
+
+  auto serialized = serialize(denseHll);
+  ASSERT_EQ(denseHll.cardinality(), DenseHll::cardinality(serialized.data()));
 }
 
 namespace {
