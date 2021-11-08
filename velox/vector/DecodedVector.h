@@ -100,13 +100,13 @@ class DecodedVector {
   DecodedVector(const DecodedVector& other) = delete;
   DecodedVector& operator=(const DecodedVector& other) = delete;
 
-  // DecodedVector is used in VectorExec and needs to be move constructed
+  // DecodedVector is used in VectorExec and needs to be move-constructed.
   DecodedVector(DecodedVector&& other) = default;
 
   // Loads the underlying lazy vector if not already loaded unless loadLazy is
   // false.
   //
-  // loadLazy = false is used in HashAggregation to implement pushdown of
+  // loadLazy = false is used in HashAggregation to implement push-down of
   // aggregation into table scan. In this case, DecodedVector is used to combine
   // possibly multiple levels of wrappings into just one and then load
   // LazyVector only for the necessary rows using ValueHook which adds values to
@@ -153,8 +153,8 @@ class DecodedVector {
     return &indices_[0];
   }
 
-  // Returns nullptr if nulls() has a bit per top-level row. Otherwise
-  // returns an a set of indices that gives the bit position in
+  // Returns nullptr if nulls() has a bit per top-level row. Otherwise,
+  // returns a set of indices that gives the bit position in
   // nulls() for each top level decoded row.
   const vector_size_t* nullIndices() {
     if (hasExtraNulls_) {
@@ -225,6 +225,7 @@ class DecodedVector {
   bool isConstantMapping() const {
     return isConstantMapping_;
   }
+
   // Wraps a vector with the same wrapping as another. 'wrapper' must
   // have been previously decoded by 'this'. This is used when 'data'
   // is a component of the base vector of 'wrapper' and must be used
@@ -234,44 +235,66 @@ class DecodedVector {
       const BaseVector& wrapper,
       const SelectivityVector& rows);
 
-  // Preallocated vector of 0, 1, 2,
+  // Pre-allocated vector of 0, 1, 2,
   static const std::vector<vector_size_t>& consecutiveIndices();
 
-  // Preallocated vector of all zeros.
+  // Pre-allocated vector of all zeros.
   static const std::vector<vector_size_t>& zeroIndices();
 
-  bool indicesNotCopied() {
+  bool indicesNotCopied() const {
     return copiedIndices_.empty() || indices_ < copiedIndices_.data() ||
         indices_ >= &copiedIndices_.back();
   }
 
-  bool nullsNotCopied() {
+  bool nullsNotCopied() const {
     return copiedNulls_.empty() || nulls_ != copiedNulls_.data();
   }
 
-  static void initialize();
-
  private:
   void setFlatNulls(const BaseVector& vector, const SelectivityVector& rows);
+
   template <TypeKind kind>
   void decodeBiased(const BaseVector& vector, const SelectivityVector& rows);
+
   void makeIndicesMutable();
+
   void combineWrappers(
       const BaseVector* vector,
       const SelectivityVector& rows,
       int numLevels = -1);
 
+  void applyDictionaryWrapper(
+      const BaseVector& dictionaryVector,
+      const SelectivityVector& rows);
+
+  void applySequenceWrapper(
+      const BaseVector& sequenceVector,
+      const SelectivityVector& rows);
+
   void copyNulls(vector_size_t size);
 
   void fillInIndices();
+
   void setBaseData(const BaseVector& vector, const SelectivityVector& rows);
+
+  void setBaseDataForConstant(
+      const BaseVector& vector,
+      const SelectivityVector& rows);
+
+  void setBaseDataForBias(
+      const BaseVector& vector,
+      const SelectivityVector& rows);
+
+  void reset(vector_size_t size);
+
   // Last valid index into 'indices_' + 1.
   vector_size_t size_ = 0;
 
   // The indices into 'data_' or 'baseVector_' for the rows in
-  // 'activeRows' given to decode(). Only positions that are in
+  // 'rows' given to decode(). Only positions that are in
   // 'selection' are guaranteed to have valid values.
   const vector_size_t* indices_ = nullptr;
+
   // The base array of 'vector' given to decode(), nullptr if vector is of
   // complex type.
   const void* data_ = nullptr;
@@ -288,10 +311,14 @@ class DecodedVector {
   // True if either the leaf vector has nulls or if nulls were added
   // by a dictionary wrapper.
   bool mayHaveNulls_ = false;
+
   // True if nulls added by a dictionary wrapper.
   bool hasExtraNulls_ = false;
+
   bool isIdentityMapping_ = false;
+
   bool isConstantMapping_ = false;
+
   bool loadLazy_ = false;
 
   // Index of an element of the baseVector_ that points to a constant value of
@@ -307,7 +334,7 @@ class DecodedVector {
   // e.g. when combining nested dictionaries.
   std::vector<vector_size_t> copiedIndices_;
 
-  // Used as backing for 'nulls_' when nullness is combined from
+  // Used as backing for 'nulls_' when null-ness is combined from
   // dictionary and base values.
   std::vector<uint64_t> copiedNulls_;
 
