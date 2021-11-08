@@ -56,6 +56,17 @@ int searchIndex(
 
   return -(low + 1);
 }
+
+InputByteStream initializeInputStream(const char* serialized) {
+  InputByteStream stream(serialized);
+
+  auto version = stream.read<int8_t>();
+  VELOX_CHECK_EQ(kPrestoSparseV2, version);
+
+  // Skip indexBitLength.
+  stream.read<int8_t>();
+  return stream;
+}
 } // namespace
 
 bool SparseHll::insertHash(uint64_t hash) {
@@ -85,6 +96,17 @@ int64_t SparseHll::cardinality() const {
   static const int kTotalBuckets = 1 << kIndexBitLength;
 
   int zeroBuckets = kTotalBuckets - entries_.size();
+  return std::round(linearCounting(zeroBuckets, kTotalBuckets));
+}
+
+// static
+int64_t SparseHll::cardinality(const char* serialized) {
+  static const int kTotalBuckets = 1 << kIndexBitLength;
+
+  auto stream = initializeInputStream(serialized);
+  auto size = stream.read<int16_t>();
+
+  int zeroBuckets = kTotalBuckets - size;
   return std::round(linearCounting(zeroBuckets, kTotalBuckets));
 }
 
@@ -118,12 +140,7 @@ SparseHll::SparseHll(
     const char* serialized,
     exec::HashStringAllocator* allocator)
     : entries_{exec::StlAllocator<uint32_t>(allocator)} {
-  InputByteStream stream(serialized);
-
-  auto version = stream.read<int8_t>();
-  VELOX_CHECK_EQ(kPrestoSparseV2, version);
-
-  stream.read<int8_t>();
+  auto stream = initializeInputStream(serialized);
 
   auto size = stream.read<int16_t>();
   entries_.resize(size);
@@ -137,13 +154,7 @@ void SparseHll::mergeWith(const SparseHll& other) {
 }
 
 void SparseHll::mergeWith(const char* serialized) {
-  InputByteStream stream(serialized);
-
-  auto version = stream.read<int8_t>();
-  VELOX_CHECK_EQ(kPrestoSparseV2, version);
-
-  // Skip indexBitLength.
-  stream.read<int8_t>();
+  auto stream = initializeInputStream(serialized);
 
   auto size = stream.read<int16_t>();
   mergeWith(

@@ -68,6 +68,11 @@ class SparseHllTest : public ::testing::Test {
     hllLeft.verify();
 
     ASSERT_EQ(hllLeft.cardinality(), expected.cardinality());
+
+    auto hllLeftSerialized = serialize(11, hllLeft);
+    ASSERT_EQ(
+        SparseHll::cardinality(hllLeftSerialized.data()),
+        expected.cardinality());
   }
 
   SparseHll roundTrip(SparseHll& hll) {
@@ -108,6 +113,9 @@ TEST_F(SparseHllTest, basic) {
   auto deserialized = roundTrip(sparseHll);
   deserialized.verify();
   ASSERT_EQ(17, deserialized.cardinality());
+
+  auto serialized = serialize(11, sparseHll);
+  ASSERT_EQ(17, SparseHll::cardinality(serialized.data()));
 }
 
 TEST_F(SparseHllTest, highCardinality) {
@@ -123,6 +131,9 @@ TEST_F(SparseHllTest, highCardinality) {
   auto deserialized = roundTrip(sparseHll);
   deserialized.verify();
   ASSERT_EQ(1'000, deserialized.cardinality());
+
+  auto serialized = serialize(11, sparseHll);
+  ASSERT_EQ(1'000, SparseHll::cardinality(serialized.data()));
 }
 
 namespace {

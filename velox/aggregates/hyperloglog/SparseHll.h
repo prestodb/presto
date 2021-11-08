@@ -37,6 +37,9 @@ class SparseHll {
 
   int64_t cardinality() const;
 
+  /// Returns cardinality estimate from the specified serialized digest.
+  static int64_t cardinality(const char* serialized);
+
   /// Serializes internal state using Presto SparseV2 format.
   void serialize(int8_t indexBitLength, char* output) const;
 
