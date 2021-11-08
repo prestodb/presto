@@ -484,10 +484,7 @@ void CastExpr::apply(
       }
     }
 
-    if (decoded->isConstantMapping()) {
-      localResult = BaseVector::wrapInConstant(
-          rows.end(), translatedRows->begin(), localResult);
-    } else if (!decoded->isIdentityMapping()) {
+    if (!decoded->isIdentityMapping()) {
       localResult = decoded->wrap(localResult, *input, rows);
     }
 
