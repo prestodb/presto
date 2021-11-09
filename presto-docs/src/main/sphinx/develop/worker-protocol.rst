@@ -98,17 +98,17 @@ Output Buffers
 ~~~~~~~~~~~~~~
 
 Data shuffle involves workers in a downstream stage fetching results from the
-workers in an upstream stage. Each producing worker sets up as many output
-buffers as there are workers in the upstream stage. Output buffers are identified
+workers in an upstream stage. Each producing upstream worker sets up as many output
+buffers as there are workers in the downstream stage. Output buffers are identified
 by a sequential numbers starting with zero. Each downstream worker is assigned a
-single output buffer and it uses it to fetch results from all the downstream workers.
+single output buffer and it uses it to fetch results from all the upstream workers.
 
 The following diagram shows 3 downstream workers. These are assigned output
 buffer numbers 0, 1, and 2. Each upstream worker has 3 output buffers. The
-downstream worker #0 fetches results from all the upstream worker using buffer
-number 0. The downstream worker #1 fetches results from all the upstream worker
+downstream worker #0 fetches results from all the upstream workers using buffer
+number 0. The downstream worker #1 fetches results from all the upstream workers
 using buffer number 1. The downstream worker #2 fetches results from all the
-upstream worker using buffer number 2.
+upstream workers using buffer number 2.
 
 .. image:: worker-protocol-output-buffers.png
   :width: 600
