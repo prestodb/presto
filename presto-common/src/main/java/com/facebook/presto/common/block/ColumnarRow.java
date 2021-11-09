@@ -137,7 +137,7 @@ public final class ColumnarRow
     private ColumnarRow(Block nullCheckBlock, Block[] fields, long retainedSizeInBytes, long estimatedSerializedSizeInBytes)
     {
         this.nullCheckBlock = nullCheckBlock;
-        this.fields = fields.clone();
+        this.fields = fields;
         this.retainedSizeInBytes = retainedSizeInBytes;
         this.estimatedSerializedSizeInBytes = estimatedSerializedSizeInBytes;
     }
