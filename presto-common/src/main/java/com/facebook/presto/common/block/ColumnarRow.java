@@ -22,6 +22,8 @@ public final class ColumnarRow
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnarRow.class).instanceSize();
 
+    private final int positionCount;
+    private final boolean mayHaveNull;
     private final Block nullCheckBlock;
     private final Block[] fields;
     private final long retainedSizeInBytes;
@@ -52,11 +54,15 @@ public final class ColumnarRow
             fieldBlocks[i] = rowBlock.getRawFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
         }
 
-        return new ColumnarRow(block, fieldBlocks, block.getRetainedSizeInBytes(), block.getSizeInBytes());
+        return new ColumnarRow(block.mayHaveNull(), block, fieldBlocks, block.getRetainedSizeInBytes(), block.getSizeInBytes());
     }
 
     private static ColumnarRow toColumnarRow(DictionaryBlock dictionaryBlock)
     {
+        if (!dictionaryBlock.mayHaveNull()) {
+            // no need to remap dictionary ids
+            return toColumnarRowFromDictionaryWithoutNulls(dictionaryBlock);
+        }
         // build a mapping from the old dictionary to a new dictionary with nulls removed
         Block dictionary = dictionaryBlock.getDictionary();
         int[] newDictionaryIndex = new int[dictionary.getPositionCount()];
@@ -88,7 +94,10 @@ public final class ColumnarRow
             fields[i] = new DictionaryBlock(nonNullPositionCount, field, dictionaryIds);
             averageRowSize += field.getPositionCount() == 0 ? 0 : field.getSizeInBytes() / field.getPositionCount();
         }
+        // when nonNullPositionCount == positionCount, no null positions are actually referenced by the dictionary block
+        boolean mayHaveNull = nonNullPositionCount != dictionaryBlock.getPositionCount();
         return new ColumnarRow(
+                mayHaveNull,
                 dictionaryBlock,
                 fields,
                 INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(dictionaryIds),
@@ -97,7 +106,38 @@ public final class ColumnarRow
                 // 2) nulls array size: Byte.BYTES * positionCount
                 // 3) the estimated serialized size for the fields Blocks which were just constructed as new DictionaryBlocks:
                 //     the average row size: averageRowSize * the number of rows: nonNullPositionCount
-                (Integer.BYTES + Byte.BYTES) * positionCount + averageRowSize * nonNullPositionCount);
+                ((long) Integer.BYTES + Byte.BYTES) * positionCount + (averageRowSize * nonNullPositionCount));
+    }
+
+    private static ColumnarRow toColumnarRowFromDictionaryWithoutNulls(DictionaryBlock dictionaryBlock)
+    {
+        ColumnarRow columnarRow = toColumnarRow(dictionaryBlock.getDictionary());
+        Block[] fields = new Block[columnarRow.getFieldCount()];
+        long averageRowSize = 0;
+        int positionCount = dictionaryBlock.getPositionCount();
+        for (int i = 0; i < columnarRow.getFieldCount(); i++) {
+            Block field = columnarRow.getField(i);
+            // Reuse the existing dictionary ids array with offset
+            fields[i] = new DictionaryBlock(
+                    dictionaryBlock.getOffsetBase(),
+                    positionCount,
+                    field,
+                    dictionaryBlock.getRawIds(),
+                    false,
+                    DictionaryId.randomDictionaryId());
+            averageRowSize += field.getPositionCount() == 0 ? 0 : field.getSizeInBytes() / field.getPositionCount();
+        }
+        return new ColumnarRow(
+                false,
+                dictionaryBlock,
+                fields,
+                INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes(), // no new dictionaryIds array was created
+                // The estimated serialized size is the sum of the following:
+                // 1) the offsets size: Integer.BYTES * positionCount. Note that even though ColumnarRow doesn't have the offsets array, the serialized RowBlock still has it. Please see RowBlockEncodingBuffer.
+                // 2) no additional account for nulls array, since we expect there is none
+                // 3) the estimated serialized size for the fields Blocks which were just constructed as new DictionaryBlocks:
+                //     the average row size: averageRowSize * the number of rows
+                ((long) Integer.BYTES) * positionCount + (averageRowSize * positionCount));
     }
 
     private static ColumnarRow toColumnarRow(RunLengthEncodedBlock rleBlock)
@@ -123,6 +163,7 @@ public final class ColumnarRow
             }
         }
         return new ColumnarRow(
+                rleBlock.mayHaveNull(),
                 rleBlock,
                 fields,
                 INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes(),
@@ -134,8 +175,10 @@ public final class ColumnarRow
                 (Integer.BYTES + Byte.BYTES) * positionCount + averageRowSize * positionCount);
     }
 
-    private ColumnarRow(Block nullCheckBlock, Block[] fields, long retainedSizeInBytes, long estimatedSerializedSizeInBytes)
+    private ColumnarRow(boolean mayHaveNull, Block nullCheckBlock, Block[] fields, long retainedSizeInBytes, long estimatedSerializedSizeInBytes)
     {
+        this.positionCount = nullCheckBlock.getPositionCount();
+        this.mayHaveNull = mayHaveNull;
         this.nullCheckBlock = nullCheckBlock;
         this.fields = fields;
         this.retainedSizeInBytes = retainedSizeInBytes;
@@ -144,7 +187,7 @@ public final class ColumnarRow
 
     public int getPositionCount()
     {
-        return nullCheckBlock.getPositionCount();
+        return positionCount;
     }
 
     public int getNonNullPositionCount()
@@ -164,12 +207,12 @@ public final class ColumnarRow
 
     public boolean mayHaveNull()
     {
-        return nullCheckBlock.mayHaveNull();
+        return mayHaveNull;
     }
 
     public boolean isNull(int position)
     {
-        return nullCheckBlock.isNull(position);
+        return mayHaveNull && nullCheckBlock.isNull(position);
     }
 
     public int getFieldCount()
