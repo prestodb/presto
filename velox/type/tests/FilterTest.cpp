@@ -244,6 +244,16 @@ TEST(FilterTest, bigintValuesUsingHashTable) {
   EXPECT_FALSE(filter->testInt64Range(11, 11, false));
   EXPECT_FALSE(filter->testInt64Range(-10, -5, false));
   EXPECT_FALSE(filter->testInt64Range(10'234, 20'000, false));
+  EXPECT_FALSE(filter->testInt64(102));
+  EXPECT_FALSE(filter->testInt64(INT64_MAX));
+
+  EXPECT_TRUE(filter->testInt64Range(5, 50, false));
+  EXPECT_FALSE(filter->testInt64Range(11, 11, false));
+  EXPECT_FALSE(filter->testInt64Range(-10, -5, false));
+  EXPECT_TRUE(filter->testInt64Range(10'000, 20'000, false));
+  EXPECT_FALSE(filter->testInt64Range(9'000, 9'999, false));
+  EXPECT_TRUE(filter->testInt64Range(9'000, 10'000, false));
+  EXPECT_TRUE(filter->testInt64Range(0, 1, false));
 }
 
 TEST(FilterTest, bigintValuesUsingBitmask) {

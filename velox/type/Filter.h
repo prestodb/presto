@@ -699,6 +699,7 @@ class BigintValuesUsingHashTable final : public Filter {
   const int64_t max_;
   std::vector<int64_t> hashTable_;
   bool containsEmptyMarker_ = false;
+  std::vector<int64_t> values_;
 };
 
 /// IN-list filter for integral data types. Implemented as a bitmask. Offers
