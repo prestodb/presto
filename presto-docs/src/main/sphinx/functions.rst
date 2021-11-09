@@ -32,3 +32,4 @@ Functions and Operators
     functions/session
     functions/teradata
     functions/internationalization
+    functions/hive
