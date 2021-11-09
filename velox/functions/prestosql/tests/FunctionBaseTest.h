@@ -429,7 +429,7 @@ class FunctionBaseTest : public testing::Test {
   }
 
   // TODO: Enable ASSERT_EQ for vectors
-  void assertEqualVectors(
+  static void assertEqualVectors(
       const VectorPtr& expected,
       const VectorPtr& actual,
       const std::string& additionalContext = "") {

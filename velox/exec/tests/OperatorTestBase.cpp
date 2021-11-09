@@ -120,4 +120,17 @@ std::shared_ptr<const core::ITypedExpr> OperatorTestBase::parseExpr(
   return core::Expressions::inferTypes(untyped, rowType, pool_.get());
 }
 
+void OperatorTestBase::assertEqualVectors(
+    const VectorPtr& expected,
+    const VectorPtr& actual,
+    const std::string& additionalContext) {
+  ASSERT_EQ(expected->size(), actual->size());
+
+  for (auto i = 0; i < expected->size(); i++) {
+    ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
+        << "at " << i << ": " << expected->toString(i) << " vs. "
+        << actual->toString(i) << additionalContext;
+  }
+}
+
 } // namespace facebook::velox::exec::test

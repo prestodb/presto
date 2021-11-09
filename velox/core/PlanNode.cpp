@@ -178,4 +178,19 @@ CrossJoinNode::CrossJoinNode(
     : PlanNode(id),
       sources_({std::move(left), std::move(right)}),
       outputType_(std::move(outputType)) {}
+
+AssignUniqueIdNode::AssignUniqueIdNode(
+    const PlanNodeId& id,
+    const std::string& idName,
+    const int32_t taskUniqueId,
+    std::shared_ptr<const PlanNode> source)
+    : PlanNode(id), taskUniqueId_(taskUniqueId), sources_{std::move(source)} {
+  std::vector<std::string> names(sources_[0]->outputType()->names());
+  std::vector<TypePtr> types(sources_[0]->outputType()->children());
+
+  names.emplace_back(idName);
+  types.emplace_back(BIGINT());
+  outputType_ = ROW(std::move(names), std::move(types));
+}
+
 } // namespace facebook::velox::core

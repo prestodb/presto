@@ -215,6 +215,12 @@ struct DriverFactory {
   // True if 'planNodes' contains a sync node for the task, e.g.
   // PartitionedOutput.
   bool outputDriver{false};
+  // Ensure one counter per AssignUniqueId plan node.
+  folly::F14FastMap<const std::string, std::shared_ptr<std::atomic_int64_t>>
+      assignUniqueIdCounters;
+
+  std::shared_ptr<std::atomic_int64_t> getAssignUniqueIdCounter(
+      const std::string& planNodeId);
 
   std::shared_ptr<Driver> createDriver(
       std::unique_ptr<DriverCtx> ctx,

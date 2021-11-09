@@ -327,6 +327,12 @@ PlanBuilder& PlanBuilder::enforceSingleRow() {
   return *this;
 }
 
+PlanBuilder& PlanBuilder::assignUniqueId() {
+  planNode_ = std::make_shared<core::AssignUniqueIdNode>(
+      nextPlanNodeId(), "unique", 1, planNode_);
+  return *this;
+}
+
 namespace {
 RowTypePtr toRowType(
     RowTypePtr inputType,

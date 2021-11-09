@@ -49,6 +49,7 @@ ValuesNode              Values                                           Y
 LocalMergeNode          LocalMerge
 LocalPartitionNode      LocalPartition and LocalExchangeSourceOperator
 EnforceSingleRowNode    EnforceSingleRow
+AssignUniqueIdNode      AssignUniqueId
 =====================   ==============================================   ===========================
 
 Plan Nodes
@@ -415,6 +416,32 @@ returns that row unmodified. If input is empty, returns a single row with all
 values set to null. If input contains more than one row raises an exception.
 
 Used for queries with non-correlated sub-queries.
+
+AssignUniqueIdNode
+~~~~~~~~~~~~~~~~~~
+
+The assign unique id operation adds one column at the end of the input columns
+with unique value per row. This unique value marks each output row to be unique
+among all output rows of this operator.
+
+The 64-bit unique id is built in following way:
+- first 24 bits - task unique id
+- next 40 bits - operator counter value
+
+The task unique id is added to ensure the generated id is unique across all
+the nodes executing the same query stage in a distributed query execution.
+
+.. list-table::
+   :widths: 10 30
+   :align: left
+   :header-rows: 1
+
+   * - Property
+     - Description
+   * - idName
+     - Column name for the generated unique id column.
+   * - taskUniqueId
+     - A 24-bit integer to uniquely identify the task id across all the nodes.
 
 Examples
 --------

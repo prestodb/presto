@@ -1205,4 +1205,44 @@ class EnforceSingleRowNode : public PlanNode {
   const std::vector<std::shared_ptr<const PlanNode>> sources_;
 };
 
+/// Adds a new column named `idName` at the end of the input columns
+/// with unique int64_t value per input row.
+///
+/// 64-bit unique id is built in following way:
+///  - first 24 bits - task unique id
+///  - next 40 bits - operator counter value
+///
+/// The task unique id is added to ensure the generated id is unique
+/// across all the nodes executing the same query stage in a distributed
+/// query execution.
+class AssignUniqueIdNode : public PlanNode {
+ public:
+  AssignUniqueIdNode(
+      const PlanNodeId& id,
+      const std::string& idName,
+      const int32_t taskUniqueId,
+      std::shared_ptr<const PlanNode> source);
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
+    return sources_;
+  }
+
+  std::string_view name() const override {
+    return "assign unique id";
+  }
+
+  int32_t taskUniqueId() const {
+    return taskUniqueId_;
+  }
+
+ private:
+  const int32_t taskUniqueId_;
+  const std::vector<std::shared_ptr<const PlanNode>> sources_;
+  RowTypePtr outputType_;
+};
+
 } // namespace facebook::velox::core

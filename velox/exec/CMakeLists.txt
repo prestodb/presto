@@ -47,7 +47,8 @@ add_library(
   TopN.cpp
   Unnest.cpp
   Values.cpp
-  VectorHasher.cpp)
+  VectorHasher.cpp
+  AssignUniqueId.cpp)
 
 target_link_libraries(
   velox_exec

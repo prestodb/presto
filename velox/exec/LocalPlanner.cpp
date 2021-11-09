@@ -15,6 +15,7 @@
  */
 #include "velox/exec/LocalPlanner.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/AssignUniqueId.h"
 #include "velox/exec/CallbackSink.h"
 #include "velox/exec/CrossJoinBuild.h"
 #include "velox/exec/CrossJoinProbe.h"
@@ -209,12 +210,25 @@ void LocalPlanner::plan(
   }
 }
 
+std::shared_ptr<std::atomic_int64_t> DriverFactory::getAssignUniqueIdCounter(
+    const std::string& planNodeId) {
+  auto it = assignUniqueIdCounters.find(planNodeId);
+  if (it != assignUniqueIdCounters.end()) {
+    return it->second;
+  } else {
+    auto counter = std::make_shared<std::atomic_int64_t>();
+    assignUniqueIdCounters.insert({planNodeId, counter});
+    return counter;
+  }
+}
+
 std::shared_ptr<Driver> DriverFactory::createDriver(
     std::unique_ptr<DriverCtx> ctx,
     std::shared_ptr<ExchangeClient> exchangeClient,
     std::function<int(int pipelineId)> numDrivers) {
   std::vector<std::unique_ptr<Operator>> operators;
   operators.reserve(planNodes.size());
+
   for (int32_t i = 0; i < planNodes.size(); i++) {
     // Id of the Operator being made. This is not the same as 'i'
     // because some PlanNodes may get fused.
@@ -326,6 +340,16 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
                 planNode)) {
       operators.push_back(
           std::make_unique<EnforceSingleRow>(id, ctx.get(), enforceSingleRow));
+    } else if (
+        auto assignUniqueIdNode =
+            std::dynamic_pointer_cast<const core::AssignUniqueIdNode>(
+                planNode)) {
+      operators.push_back(std::make_unique<AssignUniqueId>(
+          id,
+          ctx.get(),
+          assignUniqueIdNode,
+          assignUniqueIdNode->taskUniqueId(),
+          getAssignUniqueIdCounter(assignUniqueIdNode->id())));
     } else {
       auto extended = Operator::fromPlanNode(ctx.get(), id, planNode);
       VELOX_CHECK(extended, "Unsupported plan node: {}", planNode->toString());

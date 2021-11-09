@@ -149,6 +149,8 @@ class PlanBuilder {
 
   PlanBuilder& enforceSingleRow();
 
+  PlanBuilder& assignUniqueId();
+
   std::shared_ptr<const core::FieldAccessTypedExpr> field(int index);
 
   std::shared_ptr<const core::FieldAccessTypedExpr> field(
