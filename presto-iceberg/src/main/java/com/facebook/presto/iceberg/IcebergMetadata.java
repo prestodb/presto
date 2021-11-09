@@ -213,11 +213,14 @@ public class IcebergMetadata
                 if (name.getSnapshotId().isPresent()) {
                     throw new PrestoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
                 }
+                // make sure Hadoop FileSystem initialized in classloader-safe context
+                table.refresh();
                 return Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS:
                 if (name.getSnapshotId().isPresent()) {
                     throw new PrestoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
                 }
+                table.refresh();
                 return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS:
                 return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId())));
