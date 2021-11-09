@@ -52,10 +52,6 @@ if(${VELOX_ENABLE_EXEC})
   add_subdirectory(codegen)
 endif()
 
-if(${VELOX_ENABLE_AGGREGATES})
-  add_subdirectory(aggregates)
-endif()
-
 if(${VELOX_ENABLE_DUCKDB})
   add_subdirectory(duckdb)
   add_subdirectory(external/duckdb)

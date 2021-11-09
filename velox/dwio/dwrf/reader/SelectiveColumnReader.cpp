@@ -16,13 +16,13 @@
 
 #include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
 
-#include "velox/aggregates/AggregationHook.h"
 #include "velox/common/base/Portability.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/dwrf/common/DirectDecoder.h"
 #include "velox/dwio/dwrf/common/FloatingPointDecoder.h"
 #include "velox/dwio/dwrf/common/RLEv1.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
+#include "velox/exec/AggregationHook.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/FlatVector.h"
