@@ -42,6 +42,7 @@ void registerVectorFunctions() {
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, "array_constructor");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_distinct, "array_distinct");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_duplicates, "array_duplicates");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_intersect, "array_intersect");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_except, "array_except");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_max, "array_max");

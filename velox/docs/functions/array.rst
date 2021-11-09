@@ -28,6 +28,13 @@ Array Functions
         SELECT array_distinct(ARRAY [1, 2, 1]); -- [1, 2]
         SELECT array_distinct(ARRAY [1, NULL, NULL]); -- [1, NULL]
 
+.. function:: array_duplicates(array(E)) -> array(E)
+
+    Returns a set of elements that occur more than once in array.
+    E must be bigint or varchar.
+
+        select array_duplicates(ARRAY [5, 2, 5, 1, 1, 5, null, null])); -- [null, 1, 5]
+
 .. function:: array_max(array(E)) -> E
 
     Returns the maximum value of input array. ::

@@ -18,6 +18,7 @@ add_library(
   ArrayConstructor.cpp
   ArrayContains.cpp
   ArrayDistinct.cpp
+  ArrayDuplicates.cpp
   ArrayIntersectExcept.cpp
   ArrayMinMax.cpp
   Cardinality.cpp
