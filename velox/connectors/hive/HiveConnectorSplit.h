@@ -22,8 +22,6 @@
 
 namespace facebook::velox::connector::hive {
 
-const std::string kHiveConnectorName = "hive";
-
 struct HiveConnectorSplit : public connector::ConnectorSplit {
   const std::string filePath;
   dwio::common::FileFormat fileFormat;

@@ -42,7 +42,7 @@ class MultiFragmentTest : public OperatorTestBase {
     filesystems::registerLocalFileSystem();
     auto dataCache = std::make_unique<SimpleLRUDataCache>(/*size=*/1 << 30);
     auto hiveConnector =
-        connector::getConnectorFactory(kHiveConnectorName)
+        connector::getConnectorFactory(HiveConnectorFactory::kHiveConnectorName)
             ->newConnector(kHiveConnectorId, nullptr, std::move(dataCache));
     connector::registerConnector(hiveConnector);
     dwrf::registerDwrfReaderFactory();

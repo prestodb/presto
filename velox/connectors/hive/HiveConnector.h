@@ -280,7 +280,16 @@ class HiveConnector final : public Connector {
 
 class HiveConnectorFactory : public ConnectorFactory {
  public:
+  static constexpr const char* FOLLY_NONNULL kHiveConnectorName = "hive";
+  static constexpr const char* FOLLY_NONNULL kHiveHadoop2ConnectorName =
+      "hive-hadoop2";
+
   HiveConnectorFactory() : ConnectorFactory(kHiveConnectorName) {
+    dwio::common::FileSink::registerFactory();
+  }
+
+  HiveConnectorFactory(const char* FOLLY_NONNULL connectorName)
+      : ConnectorFactory(connectorName) {
     dwio::common::FileSink::registerFactory();
   }
 
@@ -292,6 +301,12 @@ class HiveConnectorFactory : public ConnectorFactory {
     return std::make_shared<HiveConnector>(
         id, properties, std::move(dataCache), executor);
   }
+};
+
+class HiveHadoop2ConnectorFactory : public HiveConnectorFactory {
+ public:
+  HiveHadoop2ConnectorFactory()
+      : HiveConnectorFactory(kHiveHadoop2ConnectorName) {}
 };
 
 } // namespace facebook::velox::connector::hive

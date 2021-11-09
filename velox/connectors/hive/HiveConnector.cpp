@@ -570,4 +570,6 @@ HiveConnector::HiveConnector(
       executor_(executor) {}
 
 VELOX_REGISTER_CONNECTOR_FACTORY(std::make_shared<HiveConnectorFactory>())
+VELOX_REGISTER_CONNECTOR_FACTORY(
+    std::make_shared<HiveHadoop2ConnectorFactory>())
 } // namespace facebook::velox::connector::hive
