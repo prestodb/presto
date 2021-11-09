@@ -1630,45 +1630,38 @@ TEST_F(StringFunctionsTest, trim) {
   std::string expectedComplexStr = complexStr.substr(4, complexStr.size() - 8);
   std::string invalidStr = generateComplexUtf8(true);
   std::string expectedInvalidStr = invalidStr.substr(4, invalidStr.size() - 4);
-  auto strings = std::vector<std::string>{
-      "  facebook  "s,
-      "  facebook"s,
-      "facebook  "s,
-      "\n\nfacebook \n "s,
-      " \n"s,
-      ""s,
-      "    "s,
-      "  a  "s,
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "s,
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "s,
-      u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "s,
-      u8"  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"s,
-      u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"s,
-      complexStr,
-      invalidStr};
-  auto row = makeRowVector({makeFlatVector(strings)});
-  auto result = evaluate<FlatVector<StringView>>("trim(c0)", row);
 
-  EXPECT_EQ("facebook", result->valueAt(0).getString());
-  EXPECT_EQ("facebook", result->valueAt(1).getString());
-  EXPECT_EQ("facebook", result->valueAt(2).getString());
-  EXPECT_EQ("facebook", result->valueAt(3).getString());
-  EXPECT_EQ("", result->valueAt(4).getString());
-  EXPECT_EQ("", result->valueAt(5).getString());
-  EXPECT_EQ("", result->valueAt(6).getString());
-  EXPECT_EQ("a", result->valueAt(7).getString());
+  const auto trim = [&](std::optional<std::string> input) {
+    return evaluateOnce<std::string>("trim(c0)", input);
+  };
+
+  EXPECT_EQ("facebook", trim("  facebook  "));
+  EXPECT_EQ("facebook", trim("  facebook"));
+  EXPECT_EQ("facebook", trim("facebook  "));
+  EXPECT_EQ("facebook", trim("\n\nfacebook \n "));
+  EXPECT_EQ("", trim(" \n"));
+  EXPECT_EQ("", trim(""));
+  EXPECT_EQ("", trim("    "));
+  EXPECT_EQ("a", trim("  a  "));
+
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(8).getString());
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(9).getString());
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(10).getString());
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim(u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(11).getString());
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim(u8"  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(12).getString());
-  EXPECT_EQ(expectedComplexStr, result->valueAt(13).getString());
-  EXPECT_EQ(expectedInvalidStr, result->valueAt(14).getString());
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim(u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
+
+  EXPECT_EQ(expectedComplexStr, trim(complexStr));
+  EXPECT_EQ(expectedInvalidStr, trim(invalidStr));
 }
 
 TEST_F(StringFunctionsTest, ltrim) {
@@ -1676,54 +1669,40 @@ TEST_F(StringFunctionsTest, ltrim) {
   std::string expectedComplexStr = complexStr.substr(4, complexStr.size() - 4);
   std::string invalidStr = generateComplexUtf8(true);
   std::string expectedInvalidStr = invalidStr.substr(4, invalidStr.size() - 4);
-  std::vector<std::string> inputStrings = {
-      "facebook"s,
-      "  facebook "s,
-      "\n\nfacebook \n"s,
-      "\n"s,
-      " "s,
-      "    "s,
-      "  a  "s,
-      " facebo ok"s,
-      "\tmove fast"s,
-      "\r\t move fast"s,
-      "\n\t\r hello"s,
-      u8" \u4F60\u597D"s,
-      u8" \u4F60\u597D "s,
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "s,
-      u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "s,
-      u8"  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"s,
-      u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"s,
-      complexStr,
-      invalidStr};
 
-  auto expectedStrings = makeNullableFlatVector<StringView>(
-      {StringView("facebook"),
-       std::nullopt,
-       StringView("facebook \n"),
-       StringView(""),
-       StringView(""),
-       StringView(""),
-       StringView("a  "),
-       StringView("facebo ok"),
-       StringView("move fast"),
-       StringView("move fast"),
-       StringView("hello"),
-       std::nullopt,
-       StringView(u8"\u4F60\u597D "),
-       StringView(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "),
-       StringView(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B "),
-       StringView(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B"),
-       StringView(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B"),
-       StringView(expectedComplexStr),
-       StringView(expectedInvalidStr)});
+  const auto ltrim = [&](std::optional<std::string> input) {
+    return evaluateOnce<std::string>("ltrim(c0)", input);
+  };
 
-  vector_size_t size = inputStrings.size();
-  auto inputStringsVector = makeStrings(size, inputStrings);
+  EXPECT_EQ("facebook", ltrim("facebook"));
+  EXPECT_EQ("facebook ", ltrim("  facebook "));
+  EXPECT_EQ("facebook \n", ltrim("\n\nfacebook \n"));
+  EXPECT_EQ("", ltrim("\n"));
+  EXPECT_EQ("", ltrim(" "));
+  EXPECT_EQ("", ltrim("     "));
+  EXPECT_EQ("a  ", ltrim("  a  "));
+  EXPECT_EQ("facebo ok", ltrim(" facebo ok"));
+  EXPECT_EQ("move fast", ltrim("\tmove fast"));
+  EXPECT_EQ("move fast", ltrim("\r\t move fast"));
+  EXPECT_EQ("hello", ltrim("\n\t\r hello"));
 
-  auto result = evaluate<FlatVector<StringView>>(
-      "ltrim(c0)", makeRowVector({inputStringsVector}));
-  assertEqualVectors(expectedStrings, result);
+  EXPECT_EQ(u8"\u4F60\u597D", ltrim(u8" \u4F60\u597D"));
+  EXPECT_EQ(u8"\u4F60\u597D ", ltrim(u8" \u4F60\u597D "));
+  EXPECT_EQ(
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      ltrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
+  EXPECT_EQ(
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B ",
+      ltrim(u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
+  EXPECT_EQ(
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      ltrim(u8"  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
+  EXPECT_EQ(
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      ltrim(u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
+
+  EXPECT_EQ(expectedComplexStr, ltrim(complexStr));
+  EXPECT_EQ(expectedInvalidStr, ltrim(invalidStr));
 }
 
 TEST_F(StringFunctionsTest, rtrim) {
@@ -1731,54 +1710,40 @@ TEST_F(StringFunctionsTest, rtrim) {
   std::string expectedComplexStr = complexStr.substr(0, complexStr.size() - 4);
   std::string invalidStr = generateComplexUtf8(true);
   std::string expectedInvalidStr = invalidStr;
-  std::vector<std::string> inputStrings = {
-      "facebook"s,
-      " facebook  "s,
-      "\nfacebook \n\n"s,
-      "\n"s,
-      " "s,
-      "    "s,
-      "  a  "s,
-      "facebo ok "s,
-      "move fast\t"s,
-      "move fast\r\t "s,
-      "hello\n\t\r "s,
-      u8" \u4F60\u597D"s,
-      u8" \u4F60\u597D "s,
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "s,
-      u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "s,
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "s,
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "s,
-      complexStr,
-      invalidStr};
 
-  auto expectedStrings = makeNullableFlatVector<StringView>(
-      {StringView("facebook"),
-       std::nullopt,
-       StringView("\nfacebook"),
-       StringView(""),
-       StringView(""),
-       StringView(""),
-       StringView("  a"),
-       StringView("facebo ok"),
-       StringView("move fast"),
-       StringView("move fast"),
-       StringView("hello"),
-       std::nullopt,
-       StringView(u8" \u4F60\u597D"),
-       StringView(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B"),
-       StringView(u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B"),
-       StringView(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B"),
-       StringView(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B"),
-       StringView(expectedComplexStr),
-       StringView(expectedInvalidStr)});
+  const auto rtrim = [&](std::optional<std::string> input) {
+    return evaluateOnce<std::string>("rtrim(c0)", input);
+  };
 
-  vector_size_t size = inputStrings.size();
-  auto inputStringsVector = makeStrings(size, inputStrings);
+  EXPECT_EQ("facebook", rtrim("facebook"));
+  EXPECT_EQ(" facebook", rtrim(" facebook  "));
+  EXPECT_EQ("\nfacebook", rtrim("\nfacebook \n\n"));
+  EXPECT_EQ("", rtrim(" \n"));
+  EXPECT_EQ("", rtrim(" "));
+  EXPECT_EQ("", rtrim("     "));
+  EXPECT_EQ("  a", rtrim("  a  "));
+  EXPECT_EQ("facebo ok", rtrim("facebo ok "));
+  EXPECT_EQ("move fast", rtrim("move fast\t"));
+  EXPECT_EQ("move fast", rtrim("move fast\r\t "));
+  EXPECT_EQ("hello", rtrim("hello\n\t\r "));
 
-  auto result = evaluate<FlatVector<StringView>>(
-      "rtrim(c0)", makeRowVector({inputStringsVector}));
-  assertEqualVectors(expectedStrings, result);
+  EXPECT_EQ(u8" \u4F60\u597D", rtrim(u8" \u4F60\u597D"));
+  EXPECT_EQ(u8" \u4F60\u597D", rtrim(u8" \u4F60\u597D "));
+  EXPECT_EQ(
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
+  EXPECT_EQ(
+      u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim(u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
+  EXPECT_EQ(
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
+  EXPECT_EQ(
+      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
+
+  EXPECT_EQ(expectedComplexStr, rtrim(complexStr));
+  EXPECT_EQ(expectedInvalidStr, rtrim(invalidStr));
 }
 
 TEST_F(StringFunctionsTest, rpad) {
