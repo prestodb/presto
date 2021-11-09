@@ -34,6 +34,7 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
+import com.facebook.presto.spi.function.ExtendHiveBuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -45,6 +46,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.type.TypeManagerAware;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.gen.CacheStatsMBean;
@@ -65,6 +67,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -74,6 +77,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isExperimentalFunctionsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
@@ -82,6 +86,8 @@ import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManage
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -163,8 +169,12 @@ public class FunctionAndTypeManager
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
+        // TODO pass TypeManager via FunctionNamespaceManagerFactory.create
         FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties);
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
+        if (functionNamespaceManager instanceof TypeManagerAware) {
+            ((TypeManagerAware) functionNamespaceManager).setTypeManager(this);
+        }
 
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
         if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
@@ -333,6 +343,23 @@ public class FunctionAndTypeManager
         return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
     }
 
+    private ScalarFunctionImplementation handleShim(ScalarFunctionImplementation scalar)
+    {
+        if (scalar instanceof ExtendHiveBuiltInScalarFunctionImplementation) {
+            ExtendHiveBuiltInScalarFunctionImplementation shim = (ExtendHiveBuiltInScalarFunctionImplementation) scalar;
+            Signature signature = shim.getSignature();
+            MethodHandle methodHandle = shim.getMethodHandle();
+            List<BuiltInScalarFunctionImplementation.ArgumentProperty> properties = signature.getArgumentTypes()
+                    .stream()
+                    .map(t -> valueTypeArgumentProperty(USE_BOXED_TYPE))
+                    .collect(Collectors.toList());
+            return new BuiltInScalarFunctionImplementation(true,
+                    properties,
+                    methodHandle);
+        }
+        return scalar;
+    }
+
     /**
      * Resolves a function using implicit type coercions. We enforce explicit naming for dynamic function namespaces.
      * All unqualified function names will only be resolved against the built-in static function namespace. While it is
@@ -418,7 +445,7 @@ public class FunctionAndTypeManager
         }
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
-        return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
+        return handleShim(functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle));
     }
 
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
@@ -440,7 +467,13 @@ public class FunctionAndTypeManager
 
     public BuiltInScalarFunctionImplementation getBuiltInScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return (BuiltInScalarFunctionImplementation) builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        if (functionHandle instanceof BuiltInFunctionHandle) {
+            return (BuiltInScalarFunctionImplementation) builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        }
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
+        return (BuiltInScalarFunctionImplementation) handleShim(functionNamespaceManager.get()
+                .getScalarFunctionImplementation(functionHandle));
     }
 
     @VisibleForTesting
@@ -521,6 +554,13 @@ public class FunctionAndTypeManager
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
                 .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
+        if (functionNamespaceManager.resolveFunction()) {
+            final List<TypeSignature> parameters = parameterTypes
+                    .stream()
+                    .map(TypeSignatureProvider::getTypeSignature)
+                    .collect(Collectors.toList());
+            return functionNamespaceManager.getFunctionHandle(transactionHandle, functionName, parameters);
+        }
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);

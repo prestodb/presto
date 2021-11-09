@@ -92,4 +92,14 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     void addUserDefinedType(UserDefinedType userDefinedType);
 
     Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName);
+
+    default FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName, List<TypeSignature> parameterTypes)
+    {
+        return null;
+    }
+
+    default boolean resolveFunction()
+    {
+        return false;
+    }
 }

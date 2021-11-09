@@ -15,6 +15,7 @@ package com.facebook.presto.hive.functions;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.google.common.collect.ImmutableList;
 
 public class HiveFunctionsPlugin
         implements Plugin
@@ -22,6 +23,15 @@ public class HiveFunctionsPlugin
     @Override
     public Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
     {
-        return null;
+        return ImmutableList.of(new HiveFunctionNamespaceManagerFactory(getClassLoader()));
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+            classLoader = HiveFunctionsPlugin.class.getClassLoader();
+        }
+        return classLoader;
     }
 }
