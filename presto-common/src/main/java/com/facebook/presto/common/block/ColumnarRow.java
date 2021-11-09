@@ -149,7 +149,7 @@ public final class ColumnarRow
 
     public int getNonNullPositionCount()
     {
-        if (!nullCheckBlock.mayHaveNull()) {
+        if (!mayHaveNull()) {
             return getPositionCount();
         }
 
@@ -160,6 +160,11 @@ public final class ColumnarRow
             }
         }
         return count;
+    }
+
+    public boolean mayHaveNull()
+    {
+        return nullCheckBlock.mayHaveNull();
     }
 
     public boolean isNull(int position)
