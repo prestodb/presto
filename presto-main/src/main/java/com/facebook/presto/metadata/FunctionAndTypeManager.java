@@ -29,12 +29,14 @@ import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.operator.aggregation.ExternalAggregationFunctionShim;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.ExtendHiveBuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.ExternalFunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -462,6 +464,9 @@ public class FunctionAndTypeManager
 
     public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
+        if ((functionHandle instanceof ExternalFunctionHandle)) {
+            return ExternalAggregationFunctionShim.createInternalAggregationFunction(functionHandle, this::getServingFunctionNamespaceManager);
+        }
         return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
     }
 

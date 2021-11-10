@@ -21,10 +21,13 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.hive.functions.aggregation.HiveAggregationFunction;
 import com.facebook.presto.hive.functions.scalar.HiveScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionImplementationProvider;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -38,7 +41,10 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.ql.exec.UDAF;
 import org.apache.hadoop.hive.ql.exec.UDF;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFResolver;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFResolver2;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 
 import javax.inject.Inject;
@@ -62,7 +68,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFunctionNamespaceManager
-        implements FunctionNamespaceManager<HiveFunction>, TypeManagerAware
+        implements FunctionNamespaceManager<HiveFunction>, AggregationFunctionImplementationProvider, TypeManagerAware
 {
     private static final long FUNCTION_NAME_EXPIRE_MILLS = 7_200_000;
     public static final String ID = "hive-functions";
@@ -174,6 +180,15 @@ public class HiveFunctionNamespaceManager
     }
 
     @Override
+    public AggregationFunctionImplementation getAggregationFunctionImplementation(FunctionHandle functionHandle)
+    {
+        checkArgument(functionHandle instanceof HiveFunctionHandle);
+        HiveFunction function = functions.getUnchecked(FunctionKey.from(((HiveFunctionHandle) functionHandle)));
+        verify(function instanceof HiveAggregationFunction);
+        return ((HiveAggregationFunction) function).getImplementation();
+    }
+
+    @Override
     public void addUserDefinedType(UserDefinedType userDefinedType)
     {
         return;
@@ -205,6 +220,9 @@ public class HiveFunctionNamespaceManager
                 Class<?> functionClass = hiveFunctionRegistry.getClass(name);
                 if (anyAssignableFrom(functionClass, GenericUDF.class, UDF.class)) {
                     return HiveScalarFunction.create(functionClass, name, key.getArgumentTypes(), typeManager);
+                }
+                else if (anyAssignableFrom(GenericUDAFResolver2.class, GenericUDAFResolver.class, UDAF.class)) {
+                    return HiveAggregationFunction.create(functionClass, name, key.getArgumentTypes(), typeManager);
                 }
                 else {
                     throw unsupportedFunctionType(functionClass);
