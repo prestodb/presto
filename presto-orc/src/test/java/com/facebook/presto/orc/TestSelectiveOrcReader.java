@@ -843,6 +843,8 @@ public class TestSelectiveOrcReader
 
         // dataStream is null and lengths are 0
         tester.testRoundTrip(VARCHAR, newArrayList("", null), toSubfieldFilters(stringNotEquals(true, "")));
+
+        tester.testRoundTrip(VARCHAR, newArrayList("", ""), toSubfieldFilters(stringLessThan(true, "")));
     }
 
     @Test
@@ -1235,6 +1237,11 @@ public class TestSelectiveOrcReader
     private static TupleDomainFilter stringBetween(boolean nullAllowed, String upper, String lower)
     {
         return BytesRange.of(lower.getBytes(), false, upper.getBytes(), false, nullAllowed);
+    }
+
+    private static TupleDomainFilter stringLessThan(boolean nullAllowed, String upper)
+    {
+        return BytesRange.of(null, true, upper.getBytes(), true, nullAllowed);
     }
 
     private static TupleDomainFilter stringEquals(boolean nullAllowed, String value)
