@@ -116,6 +116,9 @@ class Config {
   // Fail the writer, when Stream size is above threshold
   // Streams greater than 2GB will be failed to be read by Jolly/Presto reader.
   static Entry<bool> STREAM_SIZE_ABOVE_THRESHOLD_CHECK_ENABLED;
+  // Limit the raw data size per batch to avoid being forced
+  // to write oversized stripes.
+  static Entry<uint64_t> RAW_DATA_SIZE_PER_BATCH;
 
  private:
   std::unordered_map<std::string, std::string> configs_;

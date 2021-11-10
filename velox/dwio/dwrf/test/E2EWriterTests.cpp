@@ -39,6 +39,8 @@ using namespace facebook::velox;
 using facebook::velox::memory::MemoryPool;
 using folly::Random;
 
+constexpr uint64_t kSizeMB = 1024UL * 1024UL;
+
 // This test can be run to generate test files. Run it with following command
 // buck test velox/dwio/dwrf/test:velox_dwrf_e2e_writer_tests --
 // DISABLED_TestFileCreation
@@ -573,6 +575,94 @@ TEST(E2EWriterTests, PartialStride) {
   ASSERT_EQ(size - nullCount, reader->columnStatistics(1)->getNumberOfValues())
       << reader->columnStatistics(1)->toString();
   ASSERT_EQ(true, reader->columnStatistics(1)->hasNull().value());
+}
+
+TEST(E2EWriterTests, OversizeRows) {
+  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
+  auto& pool = scopedPool->getPool();
+
+  HiveTypeParser parser;
+  auto type = parser.parse(
+      "struct<"
+      "map_val:map<string, map<string, map<string, map<string, string>>>>,"
+      "list_val:array<array<array<array<string>>>>,"
+      "struct_val:struct<"
+      "map_val_field_1:map<string, map<string, map<string, map<string, string>>>>,"
+      "list_val_field_1:array<array<array<array<string>>>>,"
+      "list_val_field_2:array<array<array<array<string>>>>,"
+      "map_val_field_2:map<string, map<string, map<string, map<string, string>>>>"
+      ">,"
+      ">");
+  auto config = std::make_shared<Config>();
+  config->set(Config::DISABLE_LOW_MEMORY_MODE, true);
+  config->set(Config::STRIPE_SIZE, 10 * kSizeMB);
+  config->set(
+      Config::RAW_DATA_SIZE_PER_BATCH, folly::to<uint64_t>(20 * 1024UL));
+
+  // Retained bytes in vector: 44704
+  auto singleBatch = E2EWriterTestUtil::generateBatches(
+      type, 1, 1, /* seed */ 1411367325, pool);
+
+  E2EWriterTestUtil::testWriter(
+      pool,
+      type,
+      singleBatch,
+      1,
+      1,
+      config,
+      /* useDefaultFlushPolicy */ true,
+      /* flushPerBatch */ false,
+      /* memoryBudget */ std::numeric_limits<int64_t>::max(),
+      false);
+}
+
+TEST(E2EWriterTests, OversizeBatches) {
+  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
+  auto& pool = scopedPool->getPool();
+
+  HiveTypeParser parser;
+  auto type = parser.parse(
+      "struct<"
+      "bool_val:boolean,"
+      "byte_val:tinyint,"
+      "float_val:float,"
+      "double_val:double,"
+      ">");
+  auto config = std::make_shared<Config>();
+  config->set(Config::DISABLE_LOW_MEMORY_MODE, true);
+  config->set(Config::STRIPE_SIZE, 10 * kSizeMB);
+
+  // Test splitting a gigantic batch.
+  auto singleBatch = E2EWriterTestUtil::generateBatches(
+      type, 1, 10000000, /* seed */ 1411367325, pool);
+  // A gigantic batch is split into 10 stripes.
+  E2EWriterTestUtil::testWriter(
+      pool,
+      type,
+      singleBatch,
+      10,
+      10,
+      config,
+      /* useDefaultFlushPolicy */ true,
+      /* flushPerBatch */ false,
+      /* memoryBudget */ std::numeric_limits<int64_t>::max(),
+      false);
+
+  // Test splitting multiple huge batches.
+  auto batches = E2EWriterTestUtil::generateBatches(
+      type, 3, 5000000, /* seed */ 1411367325, pool);
+  // 3 gigantic batches are split into 15~16 stripes.
+  E2EWriterTestUtil::testWriter(
+      pool,
+      type,
+      batches,
+      15,
+      16,
+      config,
+      /* useDefaultFlushPolicy */ true,
+      /* flushPerBatch */ false,
+      /* memoryBudget */ std::numeric_limits<int64_t>::max(),
+      false);
 }
 
 namespace facebook::velox::dwrf {

@@ -39,7 +39,7 @@ class DefaultFlushPolicy {
 
 class RowsPerStripeFlushPolicy {
  public:
-  explicit RowsPerStripeFlushPolicy(const std::vector<uint64_t>& rowsPerStripe);
+  explicit RowsPerStripeFlushPolicy(std::vector<uint64_t> rowsPerStripe);
   bool operator()(bool overMemoryBudget, const WriterContext& context) const;
 
  private:

@@ -53,6 +53,7 @@ class WriterContext : public CompressionBufferPool {
         dictionarySizeFlushThreshold{getConfig(Config::MAX_DICTIONARY_SIZE)},
         isStreamSizeAboveThresholdCheckEnabled{
             getConfig(Config::STREAM_SIZE_ABOVE_THRESHOLD_CHECK_ENABLED)},
+        rawDataSizePerBatch{getConfig(Config::RAW_DATA_SIZE_PER_BATCH)},
         // Currently logging with no metadata. Might consider populating
         // metadata with dwio::common::request::AccessDescriptor upstream and
         // pass down the metric log.
@@ -514,6 +515,7 @@ class WriterContext : public CompressionBufferPool {
   const uint64_t stripeSizeFlushThreshold;
   const uint64_t dictionarySizeFlushThreshold;
   const bool isStreamSizeAboveThresholdCheckEnabled;
+  const uint64_t rawDataSizePerBatch;
   const dwio::common::MetricsLogPtr metricLogger;
 
   template <typename TestType>

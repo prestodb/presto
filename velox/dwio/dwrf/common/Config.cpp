@@ -165,4 +165,7 @@ Config::Entry<bool> Config::STREAM_SIZE_ABOVE_THRESHOLD_CHECK_ENABLED(
     "orc.stream.size.above.threshold.check.enabled",
     true);
 
+Config::Entry<uint64_t> Config::RAW_DATA_SIZE_PER_BATCH(
+    "hive.exec.orc.raw.data.size.per.batch",
+    50 * 1000 * 1000);
 } // namespace facebook::velox::dwrf

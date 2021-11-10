@@ -59,8 +59,8 @@ bool DefaultFlushPolicy::operator()(
 }
 
 RowsPerStripeFlushPolicy::RowsPerStripeFlushPolicy(
-    const std::vector<uint64_t>& rowsPerStripe)
-    : rowsPerStripe_{rowsPerStripe} {
+    std::vector<uint64_t> rowsPerStripe)
+    : rowsPerStripe_{std::move(rowsPerStripe)} {
   // Note: Vector will be empty for empty files.
   for (auto i = 0; i < rowsPerStripe_.size(); i++) {
     DWIO_ENSURE_GT(
