@@ -22,6 +22,7 @@
 #include <optional>
 
 #include "velox/type/Variant.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/SelectivityVector.h"
 #include "velox/vector/TypeAliases.h"
 #include "velox/vector/tests/VectorMaker.h"
@@ -146,11 +147,20 @@ class DecodedVectorTest : public testing::Test {
     EXPECT_EQ(decoded.base()->type(), OpaqueType::create<T>());
   }
 
-  void testConstantNull(TypeKind typeKind) {
+  void testConstantNull(const TypePtr& type) {
     auto constantVector =
-        BaseVector::createConstant(variant(typeKind), 100, pool_.get());
+        BaseVector::createNullConstant(type, 100, pool_.get());
+    EXPECT_EQ(constantVector->isScalar(), type->isPrimitiveType());
     SelectivityVector selection(100);
     DecodedVector decoded(*constantVector, selection);
+    EXPECT_EQ(*decoded.base()->type(), *type);
+    // Decoded vector doesn't ensure base() has "FLAT" encoding for primitive
+    // types.
+    if (!type->isPrimitiveType()) {
+      EXPECT_EQ(
+          decoded.base()->encoding(),
+          BaseVector::create(type, 1, pool_.get())->encoding());
+    }
     EXPECT_TRUE(decoded.isConstantMapping());
     EXPECT_FALSE(decoded.isIdentityMapping());
     for (int32_t i = 0; i < 100; i++) {
@@ -386,14 +396,20 @@ TEST_F(DecodedVectorTest, constant) {
 }
 
 TEST_F(DecodedVectorTest, constantNull) {
-  testConstantNull(TypeKind::BOOLEAN);
-  testConstantNull(TypeKind::TINYINT);
-  testConstantNull(TypeKind::SMALLINT);
-  testConstantNull(TypeKind::INTEGER);
-  testConstantNull(TypeKind::BIGINT);
-  testConstantNull(TypeKind::REAL);
-  testConstantNull(TypeKind::DOUBLE);
-  testConstantNull(TypeKind::VARCHAR);
+  testConstantNull(BOOLEAN());
+  testConstantNull(TINYINT());
+  testConstantNull(SMALLINT());
+  testConstantNull(INTEGER());
+  testConstantNull(BIGINT());
+  testConstantNull(REAL());
+  testConstantNull(DOUBLE());
+  testConstantNull(VARCHAR());
+  testConstantNull(VARBINARY());
+  testConstantNull(TIMESTAMP());
+  testConstantNull(DATE());
+  testConstantNull(ARRAY(INTEGER()));
+  testConstantNull(MAP(INTEGER(), INTEGER()));
+  testConstantNull(ROW({INTEGER()}));
 }
 
 TEST_F(DecodedVectorTest, constantComplexType) {

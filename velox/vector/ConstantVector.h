@@ -71,7 +71,7 @@ class ConstantVector final : public SimpleVector<T> {
       std::optional<ByteCount> storageByteCount = std::nullopt)
       : SimpleVector<T>(
             pool,
-            std::move(type),
+            type,
             BufferPtr(nullptr),
             length,
             metaData,
@@ -84,6 +84,13 @@ class ConstantVector final : public SimpleVector<T> {
         isNull_(isNull),
         initialized_(true) {
     makeNullsBuffer();
+    // Special handling for complex types
+    if (type->size() > 0) {
+      // Only allow null constants to be created through this interface.
+      VELOX_CHECK(isNull_);
+      valueVector_ = BaseVector::create(type, 1, pool);
+      valueVector_->setNull(0, true);
+    }
     if (!isNull_ && std::is_same<T, StringView>::value) {
       // Copy string value.
       StringView* valuePtr = reinterpret_cast<StringView*>(&value_);
