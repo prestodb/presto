@@ -223,7 +223,8 @@ void CastExpr::applyCast(
       return applyCastWithTry<To, double>(
           rows, context, input, resultFlatVector);
     }
-    case TypeKind::VARCHAR: {
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY: {
       return applyCastWithTry<To, StringView>(
           rows, context, input, resultFlatVector);
     }

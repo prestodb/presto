@@ -34,15 +34,42 @@ class ApproxDistinctTest : public AggregationTestBase {
         PlanBuilder()
             .values({makeRowVector({values})})
             .singleAggregation(
-                {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
+                {},
+                {fmt::format("approx_distinct(c0, {})", maxStandardError)},
+                {BIGINT()})
             .planNode();
     ASSERT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
              .partialAggregation(
-                 {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
-             .finalAggregation({}, {"approx_distinct(a0)"})
+                 {},
+                 {fmt::format("approx_distinct(c0, {})", maxStandardError)},
+                 {},
+                 {VARBINARY()})
+             .finalAggregation({}, {"approx_distinct(a0)"}, {BIGINT()})
+             .planNode();
+    ASSERT_EQ(readSingleValue(op), expectedResult);
+
+    op = PlanBuilder()
+             .values({makeRowVector({values})})
+             .singleAggregation(
+                 {},
+                 {fmt::format("approx_set(c0, {})", maxStandardError)},
+                 {VARBINARY()})
+             .project({"cardinality(a0)"})
+             .planNode();
+    ASSERT_EQ(readSingleValue(op), expectedResult);
+
+    op = PlanBuilder()
+             .values({makeRowVector({values})})
+             .partialAggregation(
+                 {},
+                 {fmt::format("approx_set(c0, {})", maxStandardError)},
+                 {},
+                 {VARBINARY()})
+             .finalAggregation({}, {"approx_set(a0)"}, {VARBINARY()})
+             .project({"cardinality(a0)"})
              .planNode();
     ASSERT_EQ(readSingleValue(op), expectedResult);
   }
@@ -50,14 +77,29 @@ class ApproxDistinctTest : public AggregationTestBase {
   void testGlobalAgg(const VectorPtr& values, int64_t expectedResult) {
     auto op = PlanBuilder()
                   .values({makeRowVector({values})})
-                  .singleAggregation({}, {"approx_distinct(c0)"})
+                  .singleAggregation({}, {"approx_distinct(c0)"}, {BIGINT()})
                   .planNode();
     ASSERT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
-             .partialAggregation({}, {"approx_distinct(c0)"})
-             .finalAggregation({}, {"approx_distinct(a0)"})
+             .partialAggregation({}, {"approx_distinct(c0)"}, {}, {VARBINARY()})
+             .finalAggregation({}, {"approx_distinct(a0)"}, {BIGINT()})
+             .planNode();
+    ASSERT_EQ(readSingleValue(op), expectedResult);
+
+    op = PlanBuilder()
+             .values({makeRowVector({values})})
+             .singleAggregation({}, {"approx_set(c0)"}, {VARBINARY()})
+             .project({"cardinality(a0)"})
+             .planNode();
+    ASSERT_EQ(readSingleValue(op), expectedResult);
+
+    op = PlanBuilder()
+             .values({makeRowVector({values})})
+             .partialAggregation({}, {"approx_set(c0)"}, {}, {VARBINARY()})
+             .finalAggregation({}, {"approx_set(a0)"}, {VARBINARY()})
+             .project({"cardinality(a0)"})
              .planNode();
     ASSERT_EQ(readSingleValue(op), expectedResult);
   }
@@ -85,14 +127,30 @@ class ApproxDistinctTest : public AggregationTestBase {
 
     auto op = PlanBuilder()
                   .values({makeRowVector({keys, values})})
-                  .singleAggregation({0}, {"approx_distinct(c1)"})
+                  .singleAggregation({0}, {"approx_distinct(c1)"}, {BIGINT()})
                   .planNode();
+    assertQuery(op, expected);
+
+    op =
+        PlanBuilder()
+            .values({makeRowVector({keys, values})})
+            .partialAggregation({0}, {"approx_distinct(c1)"}, {}, {VARBINARY()})
+            .finalAggregation({0}, {"approx_distinct(a0)"}, {BIGINT()})
+            .planNode();
     assertQuery(op, expected);
 
     op = PlanBuilder()
              .values({makeRowVector({keys, values})})
-             .partialAggregation({0}, {"approx_distinct(c1)"})
-             .finalAggregation({0}, {"approx_distinct(a0)"})
+             .singleAggregation({0}, {"approx_set(c1)"}, {VARBINARY()})
+             .project({"c0", "cardinality(a0)"})
+             .planNode();
+    assertQuery(op, expected);
+
+    op = PlanBuilder()
+             .values({makeRowVector({keys, values})})
+             .partialAggregation({0}, {"approx_set(c1)"}, {}, {VARBINARY()})
+             .finalAggregation({0}, {"approx_set(a0)"}, {VARBINARY()})
+             .project({"c0", "cardinality(a0)"})
              .planNode();
     assertQuery(op, expected);
   }

@@ -109,8 +109,13 @@ inline uint64_t hashOne<StringView>(StringView value) {
 template <typename T>
 class ApproxDistinctAggregate : public exec::Aggregate {
  public:
-  explicit ApproxDistinctAggregate(const TypePtr& resultType)
-      : exec::Aggregate(resultType) {}
+  explicit ApproxDistinctAggregate(
+      const TypePtr& resultType,
+      bool hllAsFinalResult,
+      bool hllAsRawInput)
+      : exec::Aggregate(resultType),
+        hllAsFinalResult_{hllAsFinalResult},
+        hllAsRawInput_{hllAsRawInput} {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(HllAccumulator);
@@ -132,18 +137,22 @@ class ApproxDistinctAggregate : public exec::Aggregate {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    VELOX_CHECK(result);
-    auto flatResult = (*result)->asFlatVector<int64_t>();
+    if (hllAsFinalResult_) {
+      extractAccumulators(groups, numGroups, result);
+    } else {
+      VELOX_CHECK(result);
+      auto flatResult = (*result)->asFlatVector<int64_t>();
 
-    extract(
-        groups,
-        numGroups,
-        flatResult,
-        [](HllAccumulator* accumulator,
-           FlatVector<int64_t>* result,
-           vector_size_t index) {
-          result->set(index, accumulator->cardinality());
-        });
+      extract(
+          groups,
+          numGroups,
+          flatResult,
+          [](HllAccumulator* accumulator,
+             FlatVector<int64_t>* result,
+             vector_size_t index) {
+            result->set(index, accumulator->cardinality());
+          });
+    }
   }
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
@@ -180,22 +189,26 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    decodeArguments(rows, args);
+    if (hllAsRawInput_) {
+      addIntermediateResults(groups, rows, args, false /*unused*/);
+    } else {
+      decodeArguments(rows, args);
 
-    rows.applyToSelected([&](auto row) {
-      if (decodedValue_.isNullAt(row)) {
-        return;
-      }
+      rows.applyToSelected([&](auto row) {
+        if (decodedValue_.isNullAt(row)) {
+          return;
+        }
 
-      auto group = groups[row];
-      auto accumulator = value<HllAccumulator>(group);
-      if (clearNull(group)) {
-        accumulator->setIndexBitLength(indexBitLength_);
-      }
+        auto group = groups[row];
+        auto accumulator = value<HllAccumulator>(group);
+        if (clearNull(group)) {
+          accumulator->setIndexBitLength(indexBitLength_);
+        }
 
-      auto hash = hashOne(decodedValue_.valueAt<T>(row));
-      accumulator->append(hash);
-    });
+        auto hash = hashOne(decodedValue_.valueAt<T>(row));
+        accumulator->append(hash);
+      });
+    }
   }
 
   void addIntermediateResults(
@@ -225,21 +238,25 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    decodeArguments(rows, args);
+    if (hllAsRawInput_) {
+      addSingleGroupIntermediateResults(group, rows, args, false /*unused*/);
+    } else {
+      decodeArguments(rows, args);
 
-    rows.applyToSelected([&](auto row) {
-      if (decodedValue_.isNullAt(row)) {
-        return;
-      }
+      rows.applyToSelected([&](auto row) {
+        if (decodedValue_.isNullAt(row)) {
+          return;
+        }
 
-      auto accumulator = value<HllAccumulator>(group);
-      if (clearNull(group)) {
-        accumulator->setIndexBitLength(indexBitLength_);
-      }
+        auto accumulator = value<HllAccumulator>(group);
+        if (clearNull(group)) {
+          accumulator->setIndexBitLength(indexBitLength_);
+        }
 
-      auto hash = hashOne(decodedValue_.valueAt<T>(row));
-      accumulator->append(hash);
-    });
+        auto hash = hashOne(decodedValue_.valueAt<T>(row));
+        accumulator->append(hash);
+      });
+    }
   }
 
   void addSingleGroupIntermediateResults(
@@ -338,6 +355,14 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     }
   }
 
+  /// Boolean indicating whether final result is approximate cardinality of the
+  /// input set or serialized HLL.
+  const bool hllAsFinalResult_;
+
+  /// Boolean indicating whether raw input contains elements of the set or
+  /// serialized HLLs.
+  const bool hllAsRawInput_;
+
   int8_t indexBitLength_{hll::toIndexBitLength(hll::kDefaultStandardError)};
   double maxStandardError_{-1};
   DecodedVector decodedValue_;
@@ -347,50 +372,42 @@ class ApproxDistinctAggregate : public exec::Aggregate {
 
 template <TypeKind kind>
 std::unique_ptr<exec::Aggregate> createApproxDistinct(
-    const TypePtr& resultType) {
+    const TypePtr& resultType,
+    bool hllAsFinalResult,
+    bool hllAsRawInput) {
   using T = typename TypeTraits<kind>::NativeType;
-  return std::make_unique<ApproxDistinctAggregate<T>>(resultType);
+  return std::make_unique<ApproxDistinctAggregate<T>>(
+      resultType, hllAsFinalResult, hllAsRawInput);
 }
 
-bool registerApproxDistinct(const std::string& name) {
+bool registerApproxDistinct(
+    const std::string& name,
+    bool hllAsFinalResult,
+    bool hllAsRawInput) {
   exec::AggregateFunctions().Register(
       name,
-      [name](
-          core::AggregationNode::Step step,
+      [name, hllAsFinalResult, hllAsRawInput](
+          core::AggregationNode::Step /*step*/,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
-        auto isRawInput = exec::isRawInput(step);
-        auto isPartialOutput = exec::isPartialOutput(step);
-
-        if (isRawInput) {
-          VELOX_USER_CHECK_GE(
-              argTypes.size(), 1, "{} takes 1 or 2 arguments", name);
-          VELOX_USER_CHECK_LE(
-              argTypes.size(), 2, "{} takes 1 or 2 arguments", name);
-        } else {
-          VELOX_USER_CHECK_EQ(
-              argTypes.size(),
-              1,
-              "The type of partial result for {} must be VARBINARY",
-              name);
-          VELOX_USER_CHECK_GE(
-              argTypes[0]->kind(),
-              TypeKind::VARBINARY,
-              "The type of partial result for {} must be VARBINARY",
-              name);
-        }
-
-        TypePtr type = isRawInput ? argTypes[0] : BIGINT();
-        TypePtr aggResultType = isPartialOutput
-            ? std::dynamic_pointer_cast<const Type>(VARBINARY())
-            : BIGINT();
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
+        TypePtr type = argTypes[0]->isVarbinary() ? BIGINT() : argTypes[0];
         return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-            createApproxDistinct, type->kind(), aggResultType);
+            createApproxDistinct,
+            type->kind(),
+            resultType,
+            hllAsFinalResult,
+            hllAsRawInput);
       });
   return true;
 }
 
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerApproxDistinct(kApproxDistinct);
+    registerApproxDistinct(kApproxDistinct, false, false);
+
+static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
+    registerApproxDistinct(kApproxSet, true, false);
+
+static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
+    registerApproxDistinct(kMerge, true, true);
 } // namespace
 } // namespace facebook::velox::aggregate

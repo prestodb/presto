@@ -18,6 +18,7 @@
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
 #include "velox/functions/prestosql/Hash.h"
+#include "velox/functions/prestosql/HyperLogLogFunctions.h"
 #include "velox/functions/prestosql/JsonExtractScalar.h"
 #include "velox/functions/prestosql/Rand.h"
 #include "velox/functions/prestosql/RegisterArithmetic.h"
@@ -82,6 +83,8 @@ void registerFunctions() {
   registerFunction<MillisecondFunction, int64_t, Timestamp>({"millisecond"});
   registerFunction<DateTruncFunction, Timestamp, Varchar, Timestamp>(
       {"date_trunc"});
+
+  registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
 
   registerArithmeticFunctions();
   registerCheckedArithmeticFunctions();

@@ -15,6 +15,7 @@
  */
 #include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/functions/lib/Re2Functions.h"
+#include "velox/functions/prestosql/HyperLogLogType.h"
 #include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/WidthBucketArray.h"
 
@@ -30,6 +31,9 @@ void registerVectorFunctions() {
   registerType("timestamp with time zone", [](auto /*childTypes*/) {
     return TIMESTAMP_WITH_TIME_ZONE();
   });
+
+  registerType(
+      "hyperloglog", [](auto /*childTypes*/) { return HYPERLOGLOG(); });
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_element_at, "element_at");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, "subscript");

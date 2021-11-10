@@ -110,6 +110,14 @@ velox::variant variantAt<TypeKind::VARCHAR>(
 }
 
 template <>
+velox::variant variantAt<TypeKind::VARBINARY>(
+    ::duckdb::DataChunk* dataChunk,
+    int32_t row,
+    int32_t column) {
+  return velox::variant(StringView(dataChunk->GetValue(column, row).str_value));
+}
+
+template <>
 velox::variant variantAt<TypeKind::TIMESTAMP>(
     ::duckdb::DataChunk* dataChunk,
     int32_t row,

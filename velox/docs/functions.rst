@@ -16,6 +16,7 @@ Presto Functions
     functions/binary
     functions/url
     functions/aggregate
+    functions/hyperloglog
 
 Here is a list of all scalar and aggregate Presto functions available in Velox.
 Function names link to function descriptions. Check out coverage maps
