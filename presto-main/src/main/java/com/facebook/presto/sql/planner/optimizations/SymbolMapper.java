@@ -143,7 +143,7 @@ public class SymbolMapper
     {
         // SymbolMapper inlines symbol with multiple level reference (SymbolInliner only inline single level).
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
-        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<VariableReferenceExpression, SortOrder>();
+        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<>();
         for (VariableReferenceExpression variable : orderingScheme.getOrderByVariables()) {
             VariableReferenceExpression translated = map(variable);
             // Some variables may become duplicates after canonicalization, so we put them only once.
