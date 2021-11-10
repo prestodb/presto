@@ -83,11 +83,12 @@ TEST_F(AssignUniqueIdTest, exceedRequestLimit) {
 }
 
 TEST_F(AssignUniqueIdTest, multiThread) {
-  vector_size_t batchSize = 1000;
-  auto input = {makeRowVector(
-      {makeFlatVector<int32_t>(batchSize, [](auto row) { return row; })})};
+  for (int i = 0; i < 3; i++) {
+    vector_size_t batchSize = 1000;
+    auto input = {makeRowVector(
+        {makeFlatVector<int32_t>(batchSize, [](auto row) { return row; })})};
+    auto plan = PlanBuilder().values(input, true).assignUniqueId().planNode();
 
-  auto plan = PlanBuilder().values(input, true).assignUniqueId().planNode();
-
-  verifyUniqueId(plan, input, 3);
+    verifyUniqueId(plan, input, 8);
+  }
 }

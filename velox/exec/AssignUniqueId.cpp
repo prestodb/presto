@@ -44,6 +44,9 @@ AssignUniqueId::AssignUniqueId(
 
   resultProjections_.emplace_back(0, numColumns - 1);
   results_.resize(1);
+
+  rowIdCounter_ = 0;
+  maxRowIdCounterValue_ = 0;
 }
 
 void AssignUniqueId::addInput(RowVectorPtr input) {
