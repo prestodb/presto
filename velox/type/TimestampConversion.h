@@ -76,4 +76,6 @@ inline Timestamp fromTimestampString(const StringView& str) {
   return fromTimestampString(str.data(), str.size());
 }
 
+Timestamp fromDatetime(int32_t daysSinceEpoch, int64_t microsSinceMidnight);
+
 } // namespace facebook::velox::util

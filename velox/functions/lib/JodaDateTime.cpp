@@ -18,12 +18,17 @@
 #include <cctype>
 #include <unordered_map>
 #include "velox/common/base/Exceptions.h"
+#include "velox/type/TimestampConversion.h"
 
 namespace facebook::velox::functions {
 
 namespace {
 
 static constexpr size_t kJodaReserveSize{8};
+
+inline bool characterIsDigit(char c) {
+  return c >= '0' && c <= '9';
+}
 
 inline JodaFormatSpecifier getSpecifier(char c) {
   static std::unordered_map<char, JodaFormatSpecifier> specifierMap{
@@ -106,6 +111,138 @@ JodaFormatter::JodaFormatter(std::string format) : format_(std::move(format)) {
     literalTokens_.emplace_back("");
   }
   VELOX_CHECK_EQ(literalTokens_.size(), patternTokens_.size() + 1);
+}
+
+Timestamp JodaFormatter::parse(const std::string& input) {
+  struct {
+    int32_t year = -1;
+    int32_t month = 1;
+    int32_t day = 1;
+
+    int32_t hour = 0;
+    int32_t minute = 0;
+    int32_t second = 0;
+    int32_t microsecond = 0;
+  } jodaDate;
+  const char* cur = input.data();
+  const char* end = cur + input.size();
+
+  for (size_t i = 0; i < literalTokens_.size(); ++i) {
+    // First ensure that the literal token matches.
+    const auto& curToken = literalTokens_[i];
+
+    if (curToken.size() > (end - cur) ||
+        std::memcmp(cur, curToken.data(), curToken.size()) != 0) {
+      VELOX_USER_FAIL(
+          "Invalid format: \"{}\" is malformed at \"{}\"", format_, input);
+    }
+    cur += curToken.size();
+
+    // If there's still a pattern to be read, read it and add to
+    // `jodaDate`.
+    if (i < patternTokens_.size()) {
+      const auto& curPattern = patternTokens_[i];
+      uint64_t number = 0;
+      auto startPos = cur;
+
+      // TODO: For now we only support numeric specifiers.
+      while (cur < end && characterIsDigit(*cur)) {
+        number = number * 10 + (*cur - '0');
+        ++cur;
+      }
+
+      // Need to have read at least one digit.
+      VELOX_USER_CHECK_GT(
+          cur,
+          startPos,
+          "Invalid format: \"{}\" is malformed at \"{}\"",
+          input,
+          std::string(cur, end - cur));
+
+      switch (curPattern) {
+        case JodaFormatSpecifier::YEAR_OF_ERA:
+          jodaDate.year = number;
+          break;
+
+        case JodaFormatSpecifier::MONTH_OF_YEAR:
+          jodaDate.month = number;
+
+          // Joda has this weird behavior where it returns 1970 as the year by
+          // default (if no year is specified), but if either day or month are
+          // specified, it fallsback to 2000.
+          if (jodaDate.year == -1) {
+            jodaDate.year = 2000;
+          }
+          break;
+
+        case JodaFormatSpecifier::DAY_OF_MONTH:
+          jodaDate.day = number;
+          if (jodaDate.year == -1) {
+            jodaDate.year = 2000;
+          }
+          break;
+
+        case JodaFormatSpecifier::HOUR_OF_DAY:
+          jodaDate.hour = number;
+          break;
+
+        case JodaFormatSpecifier::MINUTE_OF_HOUR:
+          jodaDate.minute = number;
+          break;
+
+        case JodaFormatSpecifier::SECOND_OF_MINUTE:
+          jodaDate.second = number;
+          break;
+
+        default:
+          VELOX_NYI("Numeric Joda specifier not implemented yet.");
+      }
+    }
+  }
+
+  // Ensure all input was consumed.
+  VELOX_USER_CHECK(
+      cur == end,
+      "Invalid format: \"{}\" is malformed at \"{}\"",
+      input,
+      std::string(cur, end - cur));
+
+  // Date time validations for Joda compatibility. Additional date checks will
+  // be performed below when converting it to timestamp.
+  if (jodaDate.year == -1) {
+    jodaDate.year = 1970;
+  }
+
+  // Enforce Joda's year range.
+  if (jodaDate.year > 294247 || jodaDate.year < 1) {
+    VELOX_USER_FAIL(
+        "Value {} for yearOfEra must be in the range [1,294247]",
+        jodaDate.year);
+  }
+
+  if (jodaDate.hour > 23 || jodaDate.hour < 0) {
+    VELOX_USER_FAIL(
+        "Value {} for hourOfDay must be in the range [0,23]", jodaDate.hour);
+  }
+
+  if (jodaDate.minute > 59 || jodaDate.minute < 0) {
+    VELOX_USER_FAIL(
+        "Value {} for minuteOfHour must be in the range [0,59]",
+        jodaDate.minute);
+  }
+
+  if (jodaDate.second > 59 || jodaDate.second < 0) {
+    VELOX_USER_FAIL(
+        "Value {} for secondOfMinute must be in the range [0,59]",
+        jodaDate.second);
+  }
+
+  // Convert the parsed date/time into a timestamp.
+  int32_t daysSinceEpoch =
+      util::fromDate(jodaDate.year, jodaDate.month, jodaDate.day);
+  int64_t microsSinceMidnight = util::fromTime(
+      jodaDate.hour, jodaDate.minute, jodaDate.second, jodaDate.microsecond);
+  return util::fromDatetime(daysSinceEpoch, microsSinceMidnight);
 }
 
 } // namespace facebook::velox::functions

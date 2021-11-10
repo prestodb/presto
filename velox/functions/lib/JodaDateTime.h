@@ -18,6 +18,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "velox/type/Timestamp.h"
 
 namespace facebook::velox::functions {
 
@@ -104,6 +105,10 @@ class JodaFormatter {
   const std::vector<size_t>& patternTokensCount() const {
     return patternTokensCount_;
   }
+
+  // Parses `input` according to the format specified in the constructor. Throws
+  // in case the input couldn't be parsed.
+  Timestamp parse(const std::string& input);
 
  private:
   const std::string format_;

@@ -497,15 +497,16 @@ int64_t fromTimeString(const char* str, size_t len) {
   return microsSinceMidnight;
 }
 
-namespace {
-
 Timestamp fromDatetime(int32_t daysSinceEpoch, int64_t microsSinceMidnight) {
-  int64_t secondsSinceEpoch = daysSinceEpoch * kSecsPerDay;
+  int64_t secondsSinceEpoch =
+      static_cast<int64_t>(daysSinceEpoch) * kSecsPerDay;
   secondsSinceEpoch += microsSinceMidnight / kMicrosPerSec;
   return Timestamp(
       secondsSinceEpoch,
       (microsSinceMidnight % kMicrosPerSec) * kNanosPerMicro);
 }
+
+namespace {
 
 void parserError(const char* str, size_t len) {
   VELOX_USER_FAIL(
