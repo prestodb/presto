@@ -964,6 +964,38 @@ public final class DateTimeFunctions
         return milliseconds / MILLISECONDS_IN_DAY;
     }
 
+    @Description("last day of the month of the given timestamp")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    {
+        long millis = unpackMillisUtc(timestampWithTimeZone - MILLISECONDS_IN_DAY);
+        millis = unpackChronology(timestampWithTimeZone).monthOfYear().roundCeiling(millis);
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("last day of the month of the given timestamp")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    {
+        if (properties.isLegacyTimestamp()) {
+            long millis = getChronology(properties.getTimeZoneKey()).monthOfYear().roundCeiling(timestamp) - MILLISECONDS_IN_DAY;
+            return MILLISECONDS.toDays(millis);
+        }
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("last day of the month of the given date")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
+    {
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date)) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
+    }
+
     @Description("day of the year of the given timestamp")
     @ScalarFunction(value = "day_of_year", alias = "doy")
     @SqlType(StandardTypes.BIGINT)
