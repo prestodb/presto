@@ -420,8 +420,7 @@ public class SliceDirectSelectiveStreamReader
         int filteredPositionCount = 0;
         if (positionsIndex > 0) {
             if (dataStream == null) {
-                // The length check has passed and there is no need to run testBytes because there is no data
-                filteredPositionCount = positionsIndex;
+                filteredPositionCount = testEmptyStrings(outputPositions, positionsIndex);
             }
             else {
                 int totalPositionCount = outputPositions[positionsIndex - 1] + 1;
@@ -468,6 +467,31 @@ public class SliceDirectSelectiveStreamReader
         }
 
         return positionsIndex;
+    }
+
+    private int testEmptyStrings(int[] positions, int positionCount)
+    {
+        if (nonDeterministicFilter) {
+            int positionsIndex = 0;
+            for (int i = 0; i < positionCount; i++) {
+                int position = positions[i];
+
+                if (filter.testBytes("".getBytes(), 0, 0)) {
+                    positions[positionsIndex++] = position;
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
+                }
+            }
+            return positionsIndex;
+        }
+
+        if (filter.testBytes("".getBytes(), 0, 0)) {
+            return positionCount;
+        }
+
+        return 0;
     }
 
     private int testBytes(int[] positions, int positionCount)
