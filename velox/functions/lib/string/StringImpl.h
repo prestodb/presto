@@ -458,6 +458,44 @@ FOLLY_ALWAYS_INLINE bool isAsciiWhiteSpace(char ch) {
   return ch == '\t' || ch == '\n' || ch == '\r' || ch == ' ';
 }
 
+template <typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE bool splitPart(
+    TOutString& output,
+    const TInString& input,
+    const TInString& delimiter,
+    const int64_t& index) {
+  std::string_view delim = std::string_view(delimiter.data(), delimiter.size());
+  std::string_view inputSv = std::string_view(input.data(), input.size());
+  int64_t iteration = 1;
+  size_t curPos = 0;
+  if (delim.size() == 0) {
+    if (index == 1) {
+      output.setNoCopy(StringView(input.data(), input.size()));
+      return true;
+    }
+    return false;
+  }
+  while (curPos <= inputSv.size()) {
+    size_t start = curPos;
+    curPos = inputSv.find(delim, curPos);
+    if (iteration == index) {
+      size_t end = curPos;
+      if (end == std::string_view::npos) {
+        end = inputSv.size();
+      }
+      output.setNoCopy(StringView(input.data() + start, end - start));
+      return true;
+    }
+
+    if (curPos == std::string_view::npos) {
+      return false;
+    }
+    curPos += delim.size();
+    iteration++;
+  }
+  return false;
+}
+
 template <
     bool leftTrim,
     bool rightTrim,
