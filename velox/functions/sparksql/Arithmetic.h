@@ -25,27 +25,31 @@
 namespace facebook::velox::functions::sparksql {
 
 template <typename T>
-VELOX_UDF_BEGIN(pmod)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T a, const T n) {
-  if (UNLIKELY(n == 0)) {
-    return false;
+struct PModFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool
+  call(TInput& result, const TInput a, const TInput n) {
+    if (UNLIKELY(n == 0)) {
+      return false;
+    }
+    TInput r = a % n;
+    result = (r > 0) ? r : (r + n) % n;
+    return true;
   }
-  T r = a % n;
-  result = (r > 0) ? r : (r + n) % n;
-  return true;
-}
-VELOX_UDF_END();
+};
 
 template <typename T>
-VELOX_UDF_BEGIN(remainder)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T a, const T n) {
-  if (UNLIKELY(n == 0)) {
-    return false;
+struct RemainderFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool
+  call(TInput& result, const TInput a, const TInput n) {
+    if (UNLIKELY(n == 0)) {
+      return false;
+    }
+    result = a % n;
+    return true;
   }
-  result = a % n;
-  return true;
-}
-VELOX_UDF_END();
+};
 
 template <typename T>
 VELOX_UDF_BEGIN(unaryminus)

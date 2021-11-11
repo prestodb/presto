@@ -20,21 +20,21 @@
 namespace facebook::velox::functions {
 namespace {
 
-template <template <class> class T>
+template <template <class> typename T>
 void registerBinaryIntegral(const std::vector<std::string>& aliases) {
-  registerFunction<T<int8_t>, int8_t, int8_t, int8_t>(aliases);
-  registerFunction<T<int16_t>, int16_t, int16_t, int16_t>(aliases);
-  registerFunction<T<int32_t>, int32_t, int32_t, int32_t>(aliases);
-  registerFunction<T<int64_t>, int64_t, int64_t, int64_t>(aliases);
+  registerFunction<T, int8_t, int8_t, int8_t>(aliases);
+  registerFunction<T, int16_t, int16_t, int16_t>(aliases);
+  registerFunction<T, int32_t, int32_t, int32_t>(aliases);
+  registerFunction<T, int64_t, int64_t, int64_t>(aliases);
 }
 
-template <template <class> class T>
+template <template <class> typename T>
 void registerBinaryFloatingPoint(const std::vector<std::string>& aliases) {
-  registerFunction<T<double>, double, double, double>(aliases);
-  registerFunction<T<float>, float, float, float>(aliases);
+  registerFunction<T, double, double, double>(aliases);
+  registerFunction<T, float, float, float>(aliases);
 }
 
-template <template <class> class T>
+template <template <class> typename T>
 void registerBinaryNumeric(const std::vector<std::string>& aliases) {
   registerBinaryIntegral<T>(aliases);
   registerBinaryFloatingPoint<T>(aliases);

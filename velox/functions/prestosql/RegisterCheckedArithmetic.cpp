@@ -21,11 +21,11 @@
 namespace facebook::velox::functions {
 
 void registerCheckedArithmeticFunctions() {
-  registerBinaryIntegral<udf_checked_plus>({"plus"});
-  registerBinaryIntegral<udf_checked_minus>({"minus"});
-  registerBinaryIntegral<udf_checked_multiply>({"multiply"});
-  registerBinaryIntegral<udf_checked_modulus>({"modulus"});
-  registerBinaryIntegral<udf_checked_divide>({"divide"});
+  registerBinaryIntegral<CheckedPlusFunction>({"plus"});
+  registerBinaryIntegral<CheckedMinusFunction>({"minus"});
+  registerBinaryIntegral<CheckedMultiplyFunction>({"multiply"});
+  registerBinaryIntegral<CheckedModulusFunction>({"modulus"});
+  registerBinaryIntegral<CheckedDivideFunction>({"divide"});
   registerUnaryIntegral<udf_checked_negate>({"negate"});
 }
 
