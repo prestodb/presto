@@ -344,10 +344,8 @@ class FunctionBaseTest : public testing::Test {
         0);
   }
 
-  template <typename T>
-  std::shared_ptr<T> evaluate(
-      const std::string& expression,
-      const RowVectorPtr& data) {
+  // Use this directly if you don't want it to cast the returned vector.
+  VectorPtr evaluate(const std::string& expression, const RowVectorPtr& data) {
     auto rowType = std::dynamic_pointer_cast<const RowType>(data->type());
     exec::ExprSet exprSet({makeTypedExpr(expression, rowType)}, &execCtx_);
 
@@ -355,8 +353,14 @@ class FunctionBaseTest : public testing::Test {
     exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
     std::vector<VectorPtr> results(1);
     exprSet.eval(*rows, &evalCtx, &results);
+    return results[0];
+  }
 
-    auto result = results[0];
+  template <typename T>
+  std::shared_ptr<T> evaluate(
+      const std::string& expression,
+      const RowVectorPtr& data) {
+    auto result = evaluate(expression, data);
     VELOX_CHECK(result, "Expression evaluation result is null: {}", expression);
 
     auto castedResult = std::dynamic_pointer_cast<T>(result);

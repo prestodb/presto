@@ -64,7 +64,7 @@ inline JodaFormatSpecifier getSpecifier(char c) {
 
 } // namespace
 
-JodaFormatter::JodaFormatter(std::string format) : format_(std::move(format)) {
+void JodaFormatter::initialize() {
   literalTokens_.reserve(kJodaReserveSize);
   patternTokens_.reserve(kJodaReserveSize);
   patternTokensCount_.reserve(kJodaReserveSize);

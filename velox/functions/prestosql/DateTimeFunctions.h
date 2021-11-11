@@ -15,7 +15,9 @@
  */
 #include "velox/external/date/tz.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/lib/JodaDateTime.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
+#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
 
@@ -295,6 +297,34 @@ struct DateTruncFunction {
     if (timeZone_ != nullptr) {
       result.toTimezone(*timeZone_);
     }
+    return true;
+  }
+};
+
+template <typename T>
+struct ParseDateTimeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  std::optional<JodaFormatter> format_;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* /*input*/,
+      const arg_type<Varchar>* format) {
+    if (format != nullptr) {
+      format_.emplace(*format);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& format) {
+    auto ts = format_.has_value() ? format_->parse(input)
+                                  : JodaFormatter(format).parse(input);
+    // TODO: Need to extend JodaFormatter to parse and add the timezone
+    // information as the second argument.
+    result = std::make_tuple(ts.toMillis(), (int16_t)0);
     return true;
   }
 };

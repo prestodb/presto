@@ -37,6 +37,18 @@ The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
 
     Returns ``timestamp`` truncated to ``unit``.
 
+Java Date Functions
+-------------------
+
+The functions in this section leverage a native cpp implementation that follows
+a format string compatible with JodaTime’s `DateTimeFormat
+<http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html>`_
+pattern format.
+
+.. function:: parse_datetime(string, format) -> timestamp with time zone
+
+    Parses string into a timestamp with time zone using ``format``.
+
 Convenience Extraction Functions
 --------------------------------
 

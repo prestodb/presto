@@ -28,7 +28,42 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
     });
   }
+
+ public:
+  struct TimestampWithTimezone {
+    TimestampWithTimezone(int64_t milliSeconds, int16_t timezoneId)
+        : milliSeconds_(milliSeconds), timezoneId_(timezoneId) {}
+
+    int64_t milliSeconds_{0};
+    int16_t timezoneId_{0};
+  };
+
+  std::optional<TimestampWithTimezone> parseDatetime(
+      const std::optional<std::string>& input,
+      const std::optional<std::string>& format) {
+    auto resultVector = evaluate(
+        "parse_datetime(c0, c1)",
+        makeRowVector(
+            {makeNullableFlatVector<std::string>({input}),
+             makeNullableFlatVector<std::string>({format})}));
+    EXPECT_EQ(1, resultVector->size());
+
+    if (resultVector->isNullAt(0)) {
+      return std::nullopt;
+    }
+
+    auto rowVector = resultVector->as<RowVector>();
+    return TimestampWithTimezone{
+        rowVector->children()[0]->as<SimpleVector<int64_t>>()->valueAt(0),
+        rowVector->children()[1]->as<SimpleVector<int16_t>>()->valueAt(0)};
+  }
 };
+
+bool operator==(
+    const DateTimeFunctionsTest::TimestampWithTimezone& a,
+    const DateTimeFunctionsTest::TimestampWithTimezone& b) {
+  return a.milliSeconds_ == b.milliSeconds_ && a.timezoneId_ == b.timezoneId_;
+}
 
 // Test cases from PrestoDB [1] are covered here as well:
 // Timestamp(998474645, 321000000) from "TIMESTAMP '2001-08-22 03:04:05.321'"
@@ -376,4 +411,23 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
   EXPECT_EQ(
       Timestamp(978287400, 0),
       dateTrunc("year", Timestamp(998'474'645, 321'001'234)));
+}
+
+TEST_F(DateTimeFunctionsTest, parseDatetime) {
+  // Check null behavior.
+  EXPECT_EQ(std::nullopt, parseDatetime("1970-01-01", std::nullopt));
+  EXPECT_EQ(std::nullopt, parseDatetime(std::nullopt, "YYYY-MM-dd"));
+  EXPECT_EQ(std::nullopt, parseDatetime(std::nullopt, std::nullopt));
+
+  // Ensure it throws.
+  EXPECT_THROW(parseDatetime("", ""), VeloxUserError);
+  EXPECT_THROW(parseDatetime("1234", "Y Y"), VeloxUserError);
+
+  // Simple tests. More exhaustive tests are provided as part of Joda's
+  // implementation.
+  EXPECT_EQ(
+      TimestampWithTimezone(0, 0), parseDatetime("1970-01-01", "YYYY-MM-dd"));
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, 0),
+      parseDatetime("1970-01-02", "YYYY-MM-dd"));
 }

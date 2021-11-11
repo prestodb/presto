@@ -15,7 +15,9 @@
  */
 #pragma once
 
+#include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/type/Type.h"
+#include "velox/vector/VectorTypeUtils.h"
 
 namespace facebook::velox {
 
@@ -48,5 +50,8 @@ inline std::shared_ptr<const TimestampWithTimeZoneType>
 TIMESTAMP_WITH_TIME_ZONE() {
   return TimestampWithTimeZoneType::get();
 }
+
+// Type used for function registration.
+using TimestampWithTimezone = Row<int64_t, int16_t>;
 
 } // namespace facebook::velox

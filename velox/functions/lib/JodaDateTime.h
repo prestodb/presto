@@ -92,7 +92,14 @@ enum class JodaFormatSpecifier : uint8_t {
 /// Compiles a Joda-compatible datetime format string.
 class JodaFormatter {
  public:
-  explicit JodaFormatter(std::string format);
+  explicit JodaFormatter(std::string format) : format_(std::move(format)) {
+    initialize();
+  }
+
+  explicit JodaFormatter(StringView format)
+      : format_(format.data(), format.size()) {
+    initialize();
+  }
 
   const std::vector<std::string_view>& literalTokens() const {
     return literalTokens_;
@@ -111,6 +118,8 @@ class JodaFormatter {
   Timestamp parse(const std::string& input);
 
  private:
+  void initialize();
+
   const std::string format_;
 
   // Stores the literal tokens (substrings) found while parsing `format_`.
