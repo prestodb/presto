@@ -51,33 +51,33 @@ class SimpleVectorTest : public ::testing::Test {
 
   ExpectedData<StringView> genStringRoundTripDataVariableWidth() {
     return {
-        StringView("foo"),
+        "foo"_sv,
         std::nullopt,
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("banana"),
-        StringView("banana"),
-        StringView("banana"),
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "banana"_sv,
+        "banana"_sv,
+        "banana"_sv,
     };
   }
 
   ExpectedData<StringView> genStringRoundTripFixedWidthData() {
     return {
-        StringView("foo"),
+        "foo"_sv,
         std::nullopt,
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("baz"),
-        StringView("grr"),
-        StringView("grr"),
-        StringView("grr"),
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "baz"_sv,
+        "grr"_sv,
+        "grr"_sv,
+        "grr"_sv,
     };
   }
 

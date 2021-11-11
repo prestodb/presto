@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <sstream>
 #include "velox/type/Type.h"
@@ -111,4 +112,11 @@ TEST(Type, StringViewSelfComparison) {
     EXPECT_EQ(lhs == rhs, true);
     EXPECT_EQ(lhs != rhs, false);
   }
+}
+
+TEST(Type, StringViewLiteral) {
+  EXPECT_EQ("ab"_sv, StringView("ab"));
+
+  std::vector<StringView> vec = {"a"_sv, "b"_sv};
+  EXPECT_THAT(vec, ::testing::ElementsAre("a"_sv, "b"_sv));
 }

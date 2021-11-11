@@ -88,7 +88,7 @@ TEST_F(VectorMakerTest, flatVectorString) {
   EXPECT_EQ(0, flatVector->getNullCount().value());
   EXPECT_FALSE(flatVector->isSorted().value());
   EXPECT_EQ(5, flatVector->getDistinctValueCount().value());
-  EXPECT_EQ(StringView(""), flatVector->getMin().value());
+  EXPECT_EQ(""_sv, flatVector->getMin().value());
   EXPECT_EQ(StringView("world"), flatVector->getMax().value());
 
   for (vector_size_t i = 0; i < data.size(); i++) {
@@ -564,15 +564,15 @@ TEST_F(VectorMakerTest, sequenceVector) {
 
 TEST_F(VectorMakerTest, sequenceVectorString) {
   std::vector<std::optional<StringView>> data = {
-      StringView{"a"},
-      StringView{"a"},
-      StringView{"a"},
+      "a"_sv,
+      "a"_sv,
+      "a"_sv,
       std::nullopt,
       std::nullopt,
-      StringView{"b"},
+      "b"_sv,
       std::nullopt,
-      StringView{"c"},
-      StringView{"c"},
+      "c"_sv,
+      "c"_sv,
   };
   auto sequenceVector = maker_.sequenceVector(data);
 
@@ -582,8 +582,8 @@ TEST_F(VectorMakerTest, sequenceVectorString) {
   EXPECT_EQ(3, sequenceVector->getNullCount().value());
   EXPECT_FALSE(sequenceVector->isSorted().value());
   EXPECT_EQ(3, sequenceVector->getDistinctValueCount().value());
-  EXPECT_EQ(StringView("a"), sequenceVector->getMin().value());
-  EXPECT_EQ(StringView("c"), sequenceVector->getMax().value());
+  EXPECT_EQ("a"_sv, sequenceVector->getMin().value());
+  EXPECT_EQ("c"_sv, sequenceVector->getMax().value());
 
   for (vector_size_t i = 0; i < data.size(); i++) {
     if (data[i] == std::nullopt) {

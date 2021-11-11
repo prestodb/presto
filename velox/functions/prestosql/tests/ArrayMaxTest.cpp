@@ -70,78 +70,74 @@ TEST_F(ArrayMaxTest, booleanNoNulls) {
 }
 
 TEST_F(ArrayMaxTest, varcharWithNulls) {
-  using S = StringView;
-  auto input = makeNullableArrayVector<S>({
-      {S("red"), S("blue")},
-      {std::nullopt, S("blue"), S("yellow"), S("orange")},
+  auto input = makeNullableArrayVector<StringView>({
+      {"red"_sv, "blue"_sv},
+      {std::nullopt, "blue"_sv, "yellow"_sv, "orange"_sv},
       {},
-      {S("red"), S("purple"), S("green")},
+      {"red"_sv, "purple"_sv, "green"_sv},
   });
 
   auto expected = makeNullableFlatVector<StringView>(
-      {S("red"), std::nullopt, std::nullopt, S("red")});
+      {"red"_sv, std::nullopt, std::nullopt, "red"_sv});
 
   testArrayMax(input, expected);
 }
 
 TEST_F(ArrayMaxTest, varcharNoNulls) {
-  using S = StringView;
-  auto input = makeArrayVector<S>({
-      {S("red"), S("blue")},
-      {S("blue"), S("yellow"), S("orange")},
+  auto input = makeArrayVector<StringView>({
+      {"red"_sv, "blue"_sv},
+      {"blue"_sv, "yellow"_sv, "orange"_sv},
       {},
-      {S("red"), S("purple"), S("green")},
+      {"red"_sv, "purple"_sv, "green"_sv},
   });
 
   auto expected = makeNullableFlatVector<StringView>(
-      {S("red"), S("yellow"), std::nullopt, S("red")});
+      {"red"_sv, "yellow"_sv, std::nullopt, "red"_sv});
 
   testArrayMax(input, expected);
 }
 
 // Test non-inlined (> 12 length) nullable strings.
 TEST_F(ArrayMaxTest, longVarcharWithNulls) {
-  using S = StringView;
-  auto input = makeNullableArrayVector<S>({
-      {S("red shiny car ahead"), S("blue clear sky above")},
+  auto input = makeNullableArrayVector<StringView>({
+      {"red shiny car ahead"_sv, "blue clear sky above"_sv},
       {std::nullopt,
-       S("blue clear sky above"),
-       S("yellow rose flowers"),
-       S("orange beautiful sunset")},
+       "blue clear sky above"_sv,
+       "yellow rose flowers"_sv,
+       "orange beautiful sunset"_sv},
       {},
-      {S("red shiny car ahead"),
-       S("purple is an elegant color"),
-       S("green plants make us happy")},
+      {"red shiny car ahead"_sv,
+       "purple is an elegant color"_sv,
+       "green plants make us happy"_sv},
   });
 
-  auto expected = makeNullableFlatVector<S>(
-      {S("red shiny car ahead"),
+  auto expected = makeNullableFlatVector<StringView>(
+      {"red shiny car ahead"_sv,
        std::nullopt,
        std::nullopt,
-       S("red shiny car ahead")});
+       "red shiny car ahead"_sv});
 
   testArrayMax(input, expected);
 }
 
 // Test non-inlined (> 12 length) strings.
 TEST_F(ArrayMaxTest, longVarcharNoNulls) {
-  using S = StringView;
-  auto input = makeNullableArrayVector<S>({
-      {S("red shiny car ahead"), S("blue clear sky above")},
-      {S("blue clear sky above"),
-       S("yellow rose flowers"),
-       S("orange beautiful sunset")},
+  auto input = makeNullableArrayVector<StringView>({
+      {"red shiny car ahead"_sv, "blue clear sky above"_sv},
+      {"blue clear sky above"_sv,
+       "yellow rose flowers"_sv,
+       "orange beautiful sunset"_sv},
       {},
-      {S("red shiny car ahead"),
-       S("purple is an elegant color"),
-       S("green plants make us happy")},
+      {"red shiny car ahead"_sv,
+       "purple is an elegant color"_sv,
+       "green plants make us happy"_sv},
   });
 
-  auto expected = makeNullableFlatVector<S>(
-      {S("red shiny car ahead"),
-       S("yellow rose flowers"),
+  auto expected = makeNullableFlatVector<StringView>(
+      {"red shiny car ahead"_sv,
+       "yellow rose flowers"_sv,
        std::nullopt,
-       S("red shiny car ahead")});
+       "red shiny car ahead"_sv});
 
   testArrayMax(input, expected);
 }

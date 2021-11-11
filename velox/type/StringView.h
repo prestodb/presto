@@ -25,8 +25,7 @@
 
 #include "velox/common/base/BitUtil.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 // Variable length string or binary type for use in vectors. This has
 // semantics similar to std::string_view or folly::StringPiece and
@@ -230,8 +229,15 @@ struct StringView {
   } value_;
 };
 
-} // namespace velox
-} // namespace facebook
+// This creates a user-defined literal for StringView. You can use it as:
+//
+//   auto myStringView = "my string"_sv;
+//   auto vec = {"str1"_sv, "str2"_sv};
+inline StringView operator"" _sv(const char* str, size_t len) {
+  return StringView(str, len);
+}
+
+} // namespace facebook::velox
 
 namespace std {
 template <>

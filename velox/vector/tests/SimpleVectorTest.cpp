@@ -65,9 +65,8 @@ void assertIsAscii(
 
 class SimpleVectorNonParameterizedTest : public SimpleVectorTest {
  protected:
-  using S = StringView;
   ExpectedData<StringView> stringData_ =
-      {S("àá"), S("abc"), S("xyz"), S("mno"), S("wv"), S("abc"), S("xyz")};
+      {"àá"_sv, "abc"_sv, "xyz"_sv, "mno"_sv, "wv"_sv, "abc"_sv, "xyz"_sv};
 };
 
 TEST_F(SimpleVectorNonParameterizedTest, ConstantVectorTest) {
