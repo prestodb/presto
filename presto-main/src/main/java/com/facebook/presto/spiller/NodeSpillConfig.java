@@ -106,7 +106,7 @@ public class NodeSpillConfig
         this.tempStorageBufferSize = tempStorageBufferSize;
         return this;
     }
-    
+
     @NotNull
     public String getLocalTempStorePath()
     {
