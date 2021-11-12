@@ -18,6 +18,8 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
+import java.nio.file.Paths;
+
 public class NodeSpillConfig
 {
     private DataSize maxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
@@ -27,6 +29,7 @@ public class NodeSpillConfig
 
     private boolean spillCompressionEnabled;
     private boolean spillEncryptionEnabled;
+    private String localTempStorePath;
 
     @NotNull
     public DataSize getMaxSpillPerNode()
@@ -101,6 +104,22 @@ public class NodeSpillConfig
     public NodeSpillConfig setTempStorageBufferSize(DataSize tempStorageBufferSize)
     {
         this.tempStorageBufferSize = tempStorageBufferSize;
+        return this;
+    }
+    
+    @NotNull
+    public String getLocalTempStorePath()
+    {
+        if (null == localTempStorePath) {
+            localTempStorePath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage").toAbsolutePath().toString();
+        }
+        return localTempStorePath;
+    }
+
+    @Config("local.temp-storage.path")
+    public NodeSpillConfig setLocalTempStorePath(String localTempStorePath)
+    {
+        this.localTempStorePath = localTempStorePath;
         return this;
     }
 }
