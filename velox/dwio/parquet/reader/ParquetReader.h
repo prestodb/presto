@@ -18,6 +18,7 @@
 
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/ReaderFactory.h"
+#include "velox/dwio/parquet/reader/duckdb/Allocator.h"
 #include "velox/dwio/parquet/reader/duckdb/InputStreamFileSystem.h"
 #include "velox/external/duckdb/parquet-amalgamation.hpp"
 
@@ -75,7 +76,7 @@ class ParquetReader : public dwio::common::Reader {
     return &fileSystem;
   }
 
-  ::duckdb::Allocator allocator_;
+  duckdb::VeloxPoolAllocator allocator_;
   std::shared_ptr<::duckdb::ParquetReader> reader_;
   memory::MemoryPool& pool_;
 

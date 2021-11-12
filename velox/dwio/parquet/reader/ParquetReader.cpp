@@ -168,7 +168,8 @@ size_t ParquetRowReader::estimatedRowSize() const {
 ParquetReader::ParquetReader(
     std::unique_ptr<dwio::common::InputStream> stream,
     const dwio::common::ReaderOptions& options)
-    : reader_(std::make_shared<::duckdb::ParquetReader>(
+    : allocator_(options.getMemoryPool()),
+      reader_(std::make_shared<::duckdb::ParquetReader>(
           allocator_,
           getFileSystem()->OpenStream(std::move(stream)))),
       pool_(options.getMemoryPool()) {
