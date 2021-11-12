@@ -941,6 +941,19 @@ public class CachingHiveMetastore
         delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
     }
 
+    @Override
+    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        tableCache.invalidate(getCachingKey(metastoreContext, hiveTableName(databaseName, tableName)));
+        return delegate.lock(metastoreContext, databaseName, tableName);
+    }
+
+    @Override
+    public void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        delegate.unlock(metastoreContext, lockId);
+    }
+
     public Set<HivePrivilegeInfo> loadTablePrivileges(KeyAndContext<UserTableKey> loadTablePrivilegesKey)
     {
         return delegate.listTablePrivileges(loadTablePrivilegesKey.getContext(), loadTablePrivilegesKey.getKey().getDatabase(), loadTablePrivilegesKey.getKey().getTable(), loadTablePrivilegesKey.getKey().getPrincipal());

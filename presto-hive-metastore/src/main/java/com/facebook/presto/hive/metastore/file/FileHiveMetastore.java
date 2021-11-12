@@ -28,6 +28,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.HiveTableName;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
@@ -45,6 +46,8 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -81,6 +84,7 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
@@ -122,6 +126,9 @@ public class FileHiveMetastore
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
     private final FileSystem metadataFileSystem;
+
+    private final BiMap<Long, HiveTableName> lockedHiveTables = HashBiMap.create();
+    private long currentLockId;
 
     private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
@@ -1003,6 +1010,30 @@ public class FileHiveMetastore
     public synchronized void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         throw new UnsupportedOperationException("setPartitionLeases is not supported in FileHiveMetastore");
+    }
+
+    @Override
+    public synchronized long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
+        while (lockedHiveTables.containsValue(hiveTableName)) {
+            try {
+                Thread.sleep(10);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Waiting for lock interrupted");
+            }
+        }
+        long lockId = ++currentLockId;
+        lockedHiveTables.put(lockId, hiveTableName);
+        return lockId;
+    }
+
+    @Override
+    public synchronized void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        lockedHiveTables.remove(lockId);
     }
 
     private synchronized void setTablePrivileges(

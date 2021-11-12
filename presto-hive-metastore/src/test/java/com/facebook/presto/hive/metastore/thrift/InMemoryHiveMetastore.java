@@ -507,6 +507,18 @@ public class InMemoryHiveMetastore
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private Partition getPartitionFromInMemoryMap(MetastoreContext metastoreContext, PartitionName name)
     {
         com.facebook.presto.hive.metastore.Partition partition = partitions.get(name);
