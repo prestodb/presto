@@ -28,7 +28,6 @@ add_subdirectory(code_generator)
 add_subdirectory(ast)
 add_subdirectory(udf_manager)
 add_subdirectory(utils)
-add_subdirectory(benchmark)
 add_subdirectory(functions)
 add_subdirectory(vector_function)
 
@@ -49,5 +48,6 @@ target_link_libraries(
   velox_expression)
 
 if(${VELOX_BUILD_TESTING})
+  add_subdirectory(benchmark)
   add_subdirectory(tests)
 endif()

@@ -57,6 +57,6 @@ if(${VELOX_ENABLE_DUCKDB})
   add_subdirectory(external/duckdb)
 endif()
 
-if(${CODEGEN_SUPPORT} AND ${VELOX_BUILD_TESTING})
+if(${VELOX_CODEGEN_SUPPORT})
   add_subdirectory(experimental/codegen)
 endif()

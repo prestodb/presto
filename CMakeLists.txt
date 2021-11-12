@@ -89,16 +89,17 @@ endif()
 
 # If CODEGEN support isn't explicitly set, we guestimate the value based on the
 # compiler
-if((NOT DEFINED CODEGEN_SUPPORT) AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+if((NOT DEFINED VELOX_CODEGEN_SUPPORT) AND (CMAKE_CXX_COMPILER_ID MATCHES
+                                            "Clang"))
   message(STATUS "Enabling Codegen")
-  set(CODEGEN_SUPPORT True)
+  set(VELOX_CODEGEN_SUPPORT True)
 else()
   message(STATUS "Disabling Codegen")
-  set(CODEGEN_SUPPORT False)
+  set(VELOX_CODEGEN_SUPPORT False)
 endif()
 
 # define processor variable for conditional compilation
-if(${CODEGEN_SUPPORT})
+if(${VELOX_CODEGEN_SUPPORT})
   add_compile_definitions(CODEGEN_ENABLED=1)
 endif()
 
