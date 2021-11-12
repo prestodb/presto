@@ -79,7 +79,7 @@ public final class PrestoSystemRequirements
         }
         else if ("Mac OS X".equals(osName)) {
             if (!"x86_64".equals(osArch) && !"aarch64".equals(osArch)) {
-                failRequirement("Trino requires x86_64 or aarch64 on Mac OS X (found %s)", osArch);
+                failRequirement("Presto requires x86_64 or aarch64 on Mac OS X (found %s)", osArch);
             }
         }
         else {
