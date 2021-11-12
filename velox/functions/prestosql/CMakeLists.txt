@@ -28,6 +28,7 @@ add_library(
   ElementAt.cpp
   FilterFunctions.cpp
   FromUnixTime.cpp
+  GreatestLeast.cpp
   InPredicate.cpp
   Map.cpp
   MapConcat.cpp
@@ -45,10 +46,10 @@ add_library(
   Subscript.cpp
   ToUtf8.cpp
   Transform.cpp
+  URLFunctions.cpp
   VectorArithmetic.cpp
   VectorFunctions.cpp
-  WidthBucketArray.cpp
-  GreatestLeast.cpp)
+  WidthBucketArray.cpp)
 
 target_link_libraries(
   velox_functions_prestosql

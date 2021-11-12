@@ -30,6 +30,7 @@ add_executable(
   ArrayIntersectTest.cpp
   ArrayMaxTest.cpp
   ArrayMinTest.cpp
+  BitwiseTest.cpp
   CardinalityTest.cpp
   CeilFloorTest.cpp
   CoalesceTest.cpp
@@ -51,9 +52,9 @@ add_executable(
   SplitTest.cpp
   StringFunctionsTest.cpp
   TransformTest.cpp
+  URLFunctionsTest.cpp
   WidthBucketArrayTest.cpp
-  GreatestLeastTest.cpp
-  BitwiseTest.cpp)
+  GreatestLeastTest.cpp)
 
 add_test(velox_functions_test velox_functions_test)
 
