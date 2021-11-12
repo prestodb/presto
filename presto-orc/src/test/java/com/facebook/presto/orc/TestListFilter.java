@@ -14,8 +14,9 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.reader.ListFilter;
 import com.google.common.collect.ImmutableList;

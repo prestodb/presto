@@ -11,20 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.common.predicate;
 
-import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
-import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
-import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
-import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
-import com.facebook.presto.orc.TupleDomainFilter.BytesValuesExclusive;
-import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
-import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
-import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
-import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintMultiRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingBitmask;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingHashTable;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesValues;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesValuesExclusive;
+import com.facebook.presto.common.predicate.TupleDomainFilter.DoubleRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.FloatRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.LongDecimalRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.MultiRange;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

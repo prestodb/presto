@@ -11,9 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
-
-import com.google.common.annotations.VisibleForTesting;
+package com.facebook.presto.common.predicate;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -22,10 +20,10 @@ import java.util.Objects;
 
 import static com.facebook.presto.common.array.ByteArrayUtils.compareRanges;
 import static com.facebook.presto.common.array.ByteArrayUtils.hash;
+import static com.facebook.presto.common.predicate.TupleDomainFilterUtils.checkArgument;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.compare;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -51,7 +49,7 @@ public interface TupleDomainFilter
     /**
      * Used to apply is [not] null filters to complex types, e.g.
      * a[1] is null AND a[3] is not null, where a is an array(array(T)).
-     *
+     * <p>
      * In these case, the exact values are not known, but it is known whether they are
      * null or not. Furthermore, for some positions only nulls are allowed (a[1] is null),
      * for others only non-nulls (a[3] is not null), and for the rest both are allowed
@@ -83,6 +81,7 @@ public interface TupleDomainFilter
      * fail. To enable this functionality, the filter keeps track of the boundaries of
      * top-level positions and allows the caller to find out where the current top-level
      * position started and how far it continues.
+     *
      * @return number of positions from the start of the current top-level position up to
      * the current position (excluding current position)
      */
@@ -95,7 +94,7 @@ public interface TupleDomainFilter
 
     /**
      * @return true if getPrecedingPositionsToFail or getSucceedingPositionsToFail may return
-     *      non-zero values
+     * non-zero values
      */
     boolean isPositionalFilter();
 
@@ -249,7 +248,7 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this).toString();
+            return format("%s{}", this.getClass().getName());
         }
     }
 
@@ -312,7 +311,7 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this).toString();
+            return format("%s{}", this.getClass().getName());
         }
     }
 
@@ -375,7 +374,7 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this).toString();
+            return format("%s{}", this.getClass().getName());
         }
     }
 
@@ -426,10 +425,12 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("value", value)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{value='").append(value);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -439,7 +440,6 @@ public interface TupleDomainFilter
         private final long lower;
         private final long upper;
 
-        @VisibleForTesting
         protected BigintRange(long lower, long upper, boolean nullAllowed)
         {
             super(true, nullAllowed);
@@ -500,11 +500,13 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("lower", lower)
-                    .add("upper", upper)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{lower='").append(lower);
+            sb.append(", upper=").append(upper);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -608,11 +610,13 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("min", min)
-                    .add("max", max)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{min='").append(min);
+            sb.append(", max=").append(max);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -682,12 +686,14 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("min", min)
-                    .add("max", max)
-                    .add("bitmask", bitmask)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{min='").append(min);
+            sb.append(", max=").append(max);
+            sb.append(", bitmask=").append(bitmask);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -707,6 +713,26 @@ public interface TupleDomainFilter
             this.upperUnbounded = upperUnbounded;
             this.upperExclusive = upperExclusive;
         }
+
+        public boolean getLowerUnbounded()
+        {
+            return lowerUnbounded;
+        }
+
+        public boolean getLowerExclusive()
+        {
+            return lowerExclusive;
+        }
+
+        public boolean getUpperUnbounded()
+        {
+            return upperUnbounded;
+        }
+
+        public boolean getUpperExclusive()
+        {
+            return upperExclusive;
+        }
     }
 
     class DoubleRange
@@ -715,12 +741,11 @@ public interface TupleDomainFilter
         private final double lower;
         private final double upper;
 
-        @VisibleForTesting
         protected DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
-            checkArgument(lowerUnbounded || !Double.isNaN(lower));
-            checkArgument(upperUnbounded || !Double.isNaN(upper));
+            checkArgument(lowerUnbounded || !Double.isNaN(lower), "lower should either be unbounded or not NaN");
+            checkArgument(upperUnbounded || !Double.isNaN(upper), "upper should either be unbounded or not NaN");
             this.lower = lower;
             this.upper = upper;
         }
@@ -795,15 +820,17 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("lower", lower)
-                    .add("lowerUnbounded", lowerUnbounded)
-                    .add("lowerExclusive", lowerExclusive)
-                    .add("upper", upper)
-                    .add("upperUnbounded", upperUnbounded)
-                    .add("upperExclusive", upperExclusive)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{lower='").append(lower);
+            sb.append(", lowerUnbounded=").append(lowerUnbounded);
+            sb.append(", lowerExclusive=").append(lowerExclusive);
+            sb.append(", upper='").append(upper);
+            sb.append(", upperUnbounded=").append(upperUnbounded);
+            sb.append(", upperExclusive=").append(upperExclusive);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -816,8 +843,8 @@ public interface TupleDomainFilter
         private FloatRange(float lower, boolean lowerUnbounded, boolean lowerExclusive, float upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
-            checkArgument(lowerUnbounded || !Float.isNaN(lower));
-            checkArgument(upperUnbounded || !Float.isNaN(upper));
+            checkArgument(lowerUnbounded || !Float.isNaN(lower), "lower should either be unbounded or not NaN");
+            checkArgument(upperUnbounded || !Float.isNaN(upper), "upper should either be unbounded or not NaN");
             this.lower = lower;
             this.upper = upper;
         }
@@ -882,15 +909,17 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("lower", lower)
-                    .add("lowerUnbounded", lowerUnbounded)
-                    .add("lowerExclusive", lowerExclusive)
-                    .add("upper", upper)
-                    .add("upperUnbounded", upperUnbounded)
-                    .add("upperExclusive", upperExclusive)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{lower='").append(lower);
+            sb.append(", lowerUnbounded=").append(lowerUnbounded);
+            sb.append(", lowerExclusive=").append(lowerExclusive);
+            sb.append(", upper='").append(upper);
+            sb.append(", upperUnbounded=").append(upperUnbounded);
+            sb.append(", upperExclusive=").append(upperExclusive);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -972,17 +1001,19 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("lowerLow", lowerLow)
-                    .add("lowerHigh", lowerHigh)
-                    .add("lowerUnbounded", lowerUnbounded)
-                    .add("lowerExclusive", lowerExclusive)
-                    .add("upperLow", upperLow)
-                    .add("upperHigh", upperHigh)
-                    .add("upperUnbounded", upperUnbounded)
-                    .add("upperExclusive", upperExclusive)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{lowerLow='").append(lowerLow);
+            sb.append(", lowerHigh=").append(lowerHigh);
+            sb.append(", lowerUnbounded=").append(lowerUnbounded);
+            sb.append(", lowerExclusive=").append(lowerExclusive);
+            sb.append(", upperLow='").append(upperLow);
+            sb.append(", upperHigh='").append(upperHigh);
+            sb.append(", upperUnbounded=").append(upperUnbounded);
+            sb.append(", upperExclusive=").append(upperExclusive);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -1084,13 +1115,15 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("lower", lower)
-                    .add("lowerExclusive", lowerExclusive)
-                    .add("upper", upper)
-                    .add("upperExclusive", upperExclusive)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{lower='").append(lower);
+            sb.append(", lowerExclusive=").append(lowerExclusive);
+            sb.append(", upper='").append(upper);
+            sb.append(", upperExclusive=").append(upperExclusive);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -1214,10 +1247,12 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("values", values)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{values='").append(values);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -1277,10 +1312,12 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("delegate", delegate)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{delegate='").append(delegate);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -1352,10 +1389,12 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("ranges", ranges)
-                    .add("nullAllowed", nullAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{ranges='").append(ranges);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
@@ -1469,11 +1508,13 @@ public interface TupleDomainFilter
         @Override
         public String toString()
         {
-            return toStringHelper(this)
-                    .add("filters", filters)
-                    .add("nullAllowed", nullAllowed)
-                    .add("nanAllowed", nanAllowed)
-                    .toString();
+            StringBuilder sb = new StringBuilder(this.getClass().getName());
+            sb.append("{filters='").append(filters);
+            sb.append(", nullAllowed=").append(nullAllowed);
+            sb.append(", nanAllowed=").append(nanAllowed);
+            sb.append("}");
+
+            return sb.toString();
         }
     }
 
