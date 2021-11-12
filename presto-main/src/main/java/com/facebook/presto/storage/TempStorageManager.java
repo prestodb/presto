@@ -24,6 +24,7 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageContext;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spiller.LocalTempStorage;
+import com.facebook.presto.spiller.NodeSpillConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,20 +58,30 @@ public class TempStorageManager
     private final AtomicBoolean tempStorageLoading = new AtomicBoolean();
 
     private final NodeManager nodeManager;
+    private final String localTempStorePath;
 
     @Inject
-    public TempStorageManager(InternalNodeManager internalNodeManager, NodeInfo nodeInfo)
+    public TempStorageManager(InternalNodeManager internalNodeManager, NodeInfo nodeInfo, NodeSpillConfig nodeSpillConfig))
     {
         this(new ConnectorAwareNodeManager(
                 requireNonNull(internalNodeManager, "internalNodeManager is null"),
                 requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment(),
-                new ConnectorId(GlobalSystemConnector.NAME)));
+                new ConnectorId(GlobalSystemConnector.NAME)),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getLocalTempStorePath());
+    }
+
+    @VisibleForTesting
+    public TempStorageManager(NodeManager nodeManager, String localTempStorePath)
+    {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.localTempStorePath = localTempStorePath;
     }
 
     @VisibleForTesting
     public TempStorageManager(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.localTempStorePath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage").toAbsolutePath().toString();
     }
 
     public void addTempStorageFactory(TempStorageFactory tempStorageFactory)
@@ -98,10 +109,9 @@ public class TempStorageManager
         addTempStorageFactory(new LocalTempStorage.Factory());
         storageProperties.put(
                 LocalTempStorage.NAME,
-                // TODO: Local temp storage should be configurable
                 ImmutableMap.of(
                         TEMP_STORAGE_PATH,
-                        Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage").toAbsolutePath().toString(),
+                        localTempStorePath,
                         TEMP_STORAGE_FACTORY_NAME,
                         "local"));
 
