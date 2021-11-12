@@ -201,21 +201,31 @@ class DriverTest : public OperatorTestBase {
     }
   }
 
-  // Checks that 'task' transits to finished state within a short
-  // time. The finish takes place on a different thread after all
-  // results are produced and the cursor is at end, so that we may
-  // sometimes arrive at the check before the state change.
-  void expectFinished(std::shared_ptr<Task> task) {
-    constexpr int32_t kMaxWait = 5;
-    TaskState state;
+  // Checks that Test passes within a reasonable delay. The test can
+  // be flaky under indeterminate timing (heavy load) because we wait
+  // for a future that is realized after all threads have acknowledged
+  // a stop or pause.  Setting the next state is not in the same
+  // critical section as realizing the future, hence there can be a
+  // delay of some hundreds of instructions before all the consequent
+  // state changes occur. For cases where we have a cursor at end and
+  // the final state is set only after the cursor at end is visible to
+  // the caller, we do not have a good way to combine all inside the
+  // same critical section.
+  template <typename Test>
+  void expectWithDelay(
+      Test test,
+      const char* file,
+      int32_t line,
+      const char* message) {
+    constexpr int32_t kMaxWait = 1000;
+
     for (auto i = 0; i < kMaxWait; ++i) {
-      state = task->state();
-      if (state == kFinished) {
-        break;
+      if (test()) {
+        return;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    EXPECT_EQ(state, kFinished);
+    FAIL() << file << ":" << line << " " << message << "not realized within 1s";
   }
 
  public:
@@ -300,6 +310,9 @@ class DriverTest : public OperatorTestBase {
 
   folly::Random::DefaultGenerator rng_;
 };
+
+#define EXPECT_WITH_DELAY(test) \
+  expectWithDelay([&]() { return test; }, __FILE__, __LINE__, #test)
 
 TEST_F(DriverTest, error) {
   Driver::testingJoinAndReinitializeExecutor(10);
@@ -389,7 +402,9 @@ TEST_F(DriverTest, slow) {
   auto& executor = folly::QueuedImmediateExecutor::instance();
   auto future = tasks_[0]->cancelPool()->finishFuture().via(&executor);
   future.wait();
-  EXPECT_EQ(tasks_[0]->numDrivers(), 0);
+  // Note that the driver count drops after the last thread stops and
+  // realizes the future.
+  EXPECT_WITH_DELAY(tasks_[0]->numDrivers() == 0);
   const auto stats = tasks_[0]->taskStats().pipelineStats;
   ASSERT_TRUE(!stats.empty() && !stats[0].operatorStats.empty());
   // Check that the blocking of the CallbackSink at the end of the pipeline is
@@ -416,8 +431,8 @@ TEST_F(DriverTest, DISABLED_pause) {
   readResults(params, ResultOperation::kPause, 370'000'000, &numRead);
   // Each thread will fully read the 1M rows in values.
   EXPECT_EQ(numRead, 10 * hits);
-  EXPECT_TRUE(stateFutures_.at(0).isReady());
-  expectFinished(tasks_[0]);
+  EXPECT_WITH_DELAY(stateFutures_.at(0).isReady());
+  EXPECT_WITH_DELAY(tasks_[0]->state() == TaskState::kFinished);
   EXPECT_EQ(tasks_[0]->numDrivers(), 0);
   const auto taskStats = tasks_[0]->taskStats();
   ASSERT_EQ(taskStats.pipelineStats.size(), 1);
@@ -457,8 +472,8 @@ TEST_F(DriverTest, DISABLED_yield) {
   }
   for (int32_t i = 0; i < kNumTasks; ++i) {
     threads[i].join();
+    EXPECT_WITH_DELAY(stateFutures_.at(i).isReady());
     EXPECT_EQ(counters[i], kThreadsPerTask * hits);
-    EXPECT_TRUE(stateFutures_.at(i).isReady());
   }
 }
 
