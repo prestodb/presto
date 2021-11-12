@@ -61,7 +61,7 @@ public class TempStorageManager
     private final String localTempStorePath;
 
     @Inject
-    public TempStorageManager(InternalNodeManager internalNodeManager, NodeInfo nodeInfo, NodeSpillConfig nodeSpillConfig))
+    public TempStorageManager(InternalNodeManager internalNodeManager, NodeInfo nodeInfo, NodeSpillConfig nodeSpillConfig)
     {
         this(new ConnectorAwareNodeManager(
                 requireNonNull(internalNodeManager, "internalNodeManager is null"),
