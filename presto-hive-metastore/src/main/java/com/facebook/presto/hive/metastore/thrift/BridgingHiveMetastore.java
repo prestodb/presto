@@ -378,4 +378,16 @@ public class BridgingHiveMetastore
     {
         delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
     }
+
+    @Override
+    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return delegate.lock(metastoreContext, databaseName, tableName);
+    }
+
+    @Override
+    public void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        delegate.unlock(metastoreContext, lockId);
+    }
 }

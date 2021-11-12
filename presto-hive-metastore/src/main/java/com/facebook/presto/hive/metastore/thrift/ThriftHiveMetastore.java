@@ -41,8 +41,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
+import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -51,6 +53,11 @@ import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.InvalidInputException;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
 import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
+import org.apache.hadoop.hive.metastore.api.LockComponent;
+import org.apache.hadoop.hive.metastore.api.LockLevel;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
+import org.apache.hadoop.hive.metastore.api.LockState;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -60,6 +67,7 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
+import org.apache.hadoop.hive.metastore.api.UnlockRequest;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -67,6 +75,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -75,6 +84,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -108,6 +118,9 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
+import static org.apache.hadoop.hive.metastore.api.LockState.ACQUIRED;
+import static org.apache.hadoop.hive.metastore.api.LockState.WAITING;
+import static org.apache.hadoop.hive.metastore.api.LockType.EXCLUSIVE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
@@ -1276,6 +1289,100 @@ public class ThriftHiveMetastore
         }
         catch (Exception e) {
             throw propagate(e);
+        }
+    }
+
+    @Override
+    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        try {
+            final LockComponent lockComponent = new LockComponent(EXCLUSIVE, LockLevel.TABLE, databaseName);
+            lockComponent.setTablename(tableName);
+            final LockRequest lockRequest = new LockRequest(Lists.newArrayList(lockComponent),
+                    metastoreContext.getUsername(),
+                    InetAddress.getLocalHost().getHostName());
+            LockResponse lockResponse = stats.getLock().wrap(() -> getMetastoreClientThenCall(metastoreContext, client -> client.lock(lockRequest))).call();
+            LockState state = lockResponse.getState();
+            long lockId = lockResponse.getLockid();
+            final AtomicBoolean acquired = new AtomicBoolean(state.equals(ACQUIRED));
+
+            try {
+                if (state.equals(WAITING)) {
+                    retry()
+                            .maxAttempts(Integer.MAX_VALUE - 100)
+                            .stopOnIllegalExceptions()
+                            .exceptionMapper(e -> {
+                                if (e instanceof WaitingForLockException) {
+                                    // only retry on waiting for lock exception
+                                    return e;
+                                }
+                                else {
+                                    return new IllegalStateException(e.getMessage(), e);
+                                }
+                            })
+                            .run("lock", stats.getLock().wrap(() ->
+                                getMetastoreClientThenCall(metastoreContext, client -> {
+                                    LockResponse response = client.checkLock(new CheckLockRequest(lockId));
+                                    LockState newState = response.getState();
+                                    if (newState.equals(WAITING)) {
+                                        throw new WaitingForLockException("Waiting for lock.");
+                                    }
+                                    else if (newState.equals(ACQUIRED)) {
+                                        acquired.set(true);
+                                    }
+                                    else {
+                                        throw new RuntimeException(String.format("Failed to acquire lock: %s", newState.name()));
+                                    }
+                                    return null;
+                                })));
+                }
+            }
+            finally {
+                if (!acquired.get()) {
+                    unlock(metastoreContext, lockId);
+                }
+            }
+
+            if (!acquired.get()) {
+                throw new RuntimeException("Failed to acquire lock");
+            }
+
+            return lockId;
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        try {
+            retry()
+                    .stopOnIllegalExceptions()
+                    .run("unlock",
+                        stats.getUnlock().wrap(() -> getMetastoreClientThenCall(metastoreContext, client -> {
+                            client.unlock(new UnlockRequest(lockId));
+                            return null;
+                        })));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private static class WaitingForLockException
+            extends RuntimeException
+    {
+        public WaitingForLockException(String message)
+        {
+            super(message);
         }
     }
 
