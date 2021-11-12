@@ -15,7 +15,7 @@
  */
 #include "velox/serializers/PrestoSerializer.h"
 #include <gtest/gtest.h>
-#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/tests/VectorMaker.h"

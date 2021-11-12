@@ -17,7 +17,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/lib/JodaDateTime.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
-#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
 

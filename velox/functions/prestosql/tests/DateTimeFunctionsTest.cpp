@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Timestamp.h"
 
 using namespace facebook::velox;

@@ -16,10 +16,10 @@
 #pragma once
 
 #include "velox/functions/Macros.h"
-#include "velox/functions/prestosql/HyperLogLogType.h"
 #include "velox/functions/prestosql/hyperloglog/DenseHll.h"
 #include "velox/functions/prestosql/hyperloglog/HllUtils.h"
 #include "velox/functions/prestosql/hyperloglog/SparseHll.h"
+#include "velox/functions/prestosql/types/HyperLogLogType.h"
 
 namespace facebook::velox::functions {
 

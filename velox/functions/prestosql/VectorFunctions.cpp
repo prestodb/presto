@@ -15,9 +15,9 @@
  */
 #include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/functions/lib/Re2Functions.h"
-#include "velox/functions/prestosql/HyperLogLogType.h"
-#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/WidthBucketArray.h"
+#include "velox/functions/prestosql/types/HyperLogLogType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
 
