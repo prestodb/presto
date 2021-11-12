@@ -11,28 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintMultiRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingBitmask;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingHashTable;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesValues;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesValuesExclusive;
+import com.facebook.presto.common.predicate.TupleDomainFilter.DoubleRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.FloatRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.LongDecimalRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.MultiRange;
+import com.facebook.presto.common.predicate.TupleDomainFilterUtils;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
-import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
-import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
-import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
-import com.facebook.presto.orc.TupleDomainFilter.BytesValuesExclusive;
-import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
-import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
-import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
-import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
@@ -68,6 +70,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.predicate.TupleDomainFilter.ALWAYS_FALSE;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.CharType.createCharType;
@@ -89,9 +94,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -111,6 +113,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomainFilterUtils
+
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
 
@@ -356,7 +359,7 @@ public class TestTupleDomainFilterUtils
     public void testVarchar()
     {
         assertEquals(toFilter(equal(C_VARCHAR, stringLiteral("abc", VARCHAR))), BytesRange.of(toBytes("abc"), false, toBytes("abc"), false, false));
-        assertEquals(toFilter(not(equal(C_VARCHAR, stringLiteral("abc", VARCHAR)))), TupleDomainFilter.BytesValuesExclusive.of(new byte[][]{toBytes("abc")}, false));
+        assertEquals(toFilter(not(equal(C_VARCHAR, stringLiteral("abc", VARCHAR)))), TupleDomainFilter.BytesValuesExclusive.of(new byte[][] {toBytes("abc")}, false));
 
         assertEquals(toFilter(lessThan(C_VARCHAR, stringLiteral("abc", VARCHAR))), BytesRange.of(null, true, toBytes("abc"), true, false));
         assertEquals(toFilter(lessThanOrEqual(C_VARCHAR, stringLiteral("abc", VARCHAR))), BytesRange.of(null, true, toBytes("abc"), false, false));
@@ -367,7 +370,7 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(in(C_VARCHAR, ImmutableList.of(stringLiteral("Ex", createVarcharType(7)), stringLiteral("oriente")))),
                 BytesValues.of(new byte[][] {toBytes("Ex"), toBytes("oriente")}, false));
         assertEquals(toFilter(not(in(C_VARCHAR, ImmutableList.of(stringLiteral("Ex", createVarcharType(7)), stringLiteral("oriente"))))),
-                BytesValuesExclusive.of(new byte[][]{toBytes("Ex"), toBytes("oriente")}, false));
+                BytesValuesExclusive.of(new byte[][] {toBytes("Ex"), toBytes("oriente")}, false));
     }
 
     @Test
