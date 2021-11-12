@@ -415,7 +415,7 @@ TEST_F(DriverTest, slow) {
   EXPECT_TRUE(stateFutures_.at(0).hasException());
 }
 
-TEST_F(DriverTest, DISABLED_pause) {
+TEST_F(DriverTest, pause) {
   CursorParameters params;
   int32_t hits;
   params.planNode = makeValuesFilterProject(
@@ -443,7 +443,7 @@ TEST_F(DriverTest, DISABLED_pause) {
   EXPECT_EQ(operators[1].outputPositions, 10 * hits);
 }
 
-TEST_F(DriverTest, DISABLED_yield) {
+TEST_F(DriverTest, yield) {
   constexpr int32_t kNumTasks = 20;
   constexpr int32_t kThreadsPerTask = 5;
   std::vector<int32_t> counters;
