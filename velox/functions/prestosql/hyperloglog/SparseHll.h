@@ -43,6 +43,8 @@ class SparseHll {
   /// Serializes internal state using Presto SparseV2 format.
   void serialize(int8_t indexBitLength, char* output) const;
 
+  static std::string serializeEmpty(int8_t indexBitLength);
+
   /// Returns true if 'input' has Presto SparseV2 format.
   static bool canDeserialize(const char* input);
 

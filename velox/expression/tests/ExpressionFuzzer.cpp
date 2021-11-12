@@ -61,7 +61,9 @@ static std::unordered_set<std::string> kSkipFunctions = {
     // the max value of int32_t, which leads to strings billions of characters
     // long.
     "lpad",
-    "rpad"};
+    "rpad",
+    // The empty_approx_set function requires constant argument.
+    "empty_approx_set"};
 
 // Called if at least one of the ptrs has an exception.
 void compareExceptions(

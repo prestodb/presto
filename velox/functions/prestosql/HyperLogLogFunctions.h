@@ -18,6 +18,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/HyperLogLogType.h"
 #include "velox/functions/prestosql/hyperloglog/DenseHll.h"
+#include "velox/functions/prestosql/hyperloglog/HllUtils.h"
 #include "velox/functions/prestosql/hyperloglog/SparseHll.h"
 
 namespace facebook::velox::functions {
@@ -37,6 +38,45 @@ struct CardinalityFunction {
     } else {
       result = DenseHll::cardinality(hll.data());
     }
+    return true;
+  }
+};
+
+template <typename T>
+struct EmptyApproxSetFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(out_type<HyperLogLog>& result) {
+    static const std::string kEmpty =
+        aggregate::hll::SparseHll::serializeEmpty(11);
+
+    result.resize(kEmpty.size());
+    memcpy(result.data(), kEmpty.data(), kEmpty.size());
+    return true;
+  }
+};
+
+template <typename T>
+struct EmptyApproxSetWithMaxErrorFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  std::string serialized_;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const double* maxStandardError) {
+    VELOX_USER_CHECK_NOT_NULL(
+        maxStandardError,
+        "empty_approx_set function requires constant value for maxStandardError argument");
+    aggregate::hll::checkMaxStandardError(*maxStandardError);
+    serialized_ = aggregate::hll::SparseHll::serializeEmpty(
+        aggregate::hll::toIndexBitLength(*maxStandardError));
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<HyperLogLog>& result,
+      double /*maxStandardError*/) {
+    result.resize(serialized_.size());
+    memcpy(result.data(), serialized_.data(), serialized_.size());
     return true;
   }
 };

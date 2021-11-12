@@ -121,6 +121,20 @@ void SparseHll::serialize(int8_t indexBitLength, char* output) const {
 }
 
 // static
+std::string SparseHll::serializeEmpty(int8_t indexBitLength) {
+  static const size_t kSize = 4;
+
+  std::string serialized;
+  serialized.resize(kSize);
+
+  OutputByteStream stream(serialized.data());
+  stream.appendOne(kPrestoSparseV2);
+  stream.appendOne(indexBitLength);
+  stream.appendOne((int16_t)0);
+  return serialized;
+}
+
+// static
 bool SparseHll::canDeserialize(const char* input) {
   return *reinterpret_cast<const int8_t*>(input) == kPrestoSparseV2;
 }

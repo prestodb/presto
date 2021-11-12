@@ -46,40 +46,7 @@ inline std::shared_ptr<const HyperLogLogType> HYPERLOGLOG() {
   return HyperLogLogType::get();
 }
 
-// Type used for function registration.
-struct HyperLogLog {
- private:
-  HyperLogLog() {}
-};
-
-// Template specializations for the type defined.
-template <>
-struct CppToType<HyperLogLog> {
-  static constexpr bool isPrimitiveType = true;
-  static constexpr bool isFixedWidth = false;
-  static constexpr TypeKind typeKind = TypeKind::VARBINARY;
-
-  static auto create() {
-    return HyperLogLogType::get();
-  }
-};
-
-// What kind of vector should be used underneath to store this type.
-template <>
-struct TypeToFlatVector<HyperLogLog> {
-  using type = FlatVector<StringView>;
-};
-
-namespace exec {
-namespace detail {
-
-// Input and output arg mapping for simple functions.
-template <>
-struct resolver<HyperLogLog> {
-  using in_type = resolver<Varbinary>::in_type;
-  using out_type = resolver<Varbinary>::out_type;
-};
-
-} // namespace detail
-} // namespace exec
+// Type to use for inputs and outputs of simple functions, e.g.
+// arg_type<HyperLogLog> and out_type<HyperLogLog>.
+using HyperLogLog = Varbinary;
 } // namespace facebook::velox

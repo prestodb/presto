@@ -81,5 +81,17 @@ TEST_F(HyperLogLogFunctionsTest, cardinalityDense) {
   EXPECT_EQ(denseHll.cardinality(), cardinality(serialized));
 }
 
+TEST_F(HyperLogLogFunctionsTest, emptyApproxSet) {
+  EXPECT_EQ(
+      0,
+      evaluateOnce<int64_t>(
+          "cardinality(empty_approx_set())", makeRowVector(ROW({}), 1)));
+
+  EXPECT_EQ(
+      0,
+      evaluateOnce<int64_t>(
+          "cardinality(empty_approx_set(0.1))", makeRowVector(ROW({}), 1)));
+}
+
 } // namespace
 } // namespace facebook::velox

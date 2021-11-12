@@ -95,6 +95,9 @@ void registerFunctions() {
       Varchar>({"parse_datetime"});
 
   registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
+  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
+  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
+      {"empty_approx_set"});
 
   registerArithmeticFunctions();
   registerCheckedArithmeticFunctions();

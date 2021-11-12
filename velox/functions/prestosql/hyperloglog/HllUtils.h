@@ -26,6 +26,21 @@ constexpr double kDefaultStandardError = 0.023;
 const int8_t kPrestoSparseV2 = 2;
 const int8_t kPrestoDenseV2 = 3;
 
+inline void checkMaxStandardError(double error) {
+  VELOX_USER_CHECK_GE(
+      error,
+      kLowestMaxStandardError,
+      "Max standard error must be in [{}, {}] range",
+      kLowestMaxStandardError,
+      kHighestMaxStandardError);
+  VELOX_USER_CHECK_LE(
+      error,
+      kHighestMaxStandardError,
+      "Max standard error must be in [{}, {}] range",
+      kLowestMaxStandardError,
+      kHighestMaxStandardError);
+}
+
 inline int8_t toIndexBitLength(double maxStandardError) {
   return (32 -
           __builtin_clz(

@@ -53,6 +53,17 @@ Functions
     This will perform :func:`approx_distinct` on the data summarized by the
     ``hll`` HyperLogLog data sketch.
 
+.. function:: empty_approx_set() -> HyperLogLog
+
+    Returns an empty ``HyperLogLog``.
+    The value of the maximum standard error is defaulted to ``0.01625``.
+
+.. function:: empty_approx_set(e) -> HyperLogLog
+
+    Returns an empty ``HyperLogLog`` with a maximum standard error of ``e``.
+    The current implementation of this function requires that ``e`` be in
+    the range of ``[0.0040625, 0.26000]``.
+
 .. function:: merge(HyperLogLog) -> HyperLogLog
 
     Returns the ``HyperLogLog`` of the aggregate union of the individual ``hll``

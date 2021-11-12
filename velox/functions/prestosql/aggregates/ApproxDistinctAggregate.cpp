@@ -331,18 +331,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
   }
 
   void checkSetMaxStandardError(double error) {
-    VELOX_USER_CHECK_GE(
-        error,
-        hll::kLowestMaxStandardError,
-        "Max standard error must be in [{}, {}] range",
-        hll::kLowestMaxStandardError,
-        hll::kHighestMaxStandardError);
-    VELOX_USER_CHECK_LE(
-        error,
-        hll::kHighestMaxStandardError,
-        "Max standard error must be in [{}, {}] range",
-        hll::kLowestMaxStandardError,
-        hll::kHighestMaxStandardError);
+    hll::checkMaxStandardError(error);
 
     if (maxStandardError_ < 0) {
       maxStandardError_ = error;
