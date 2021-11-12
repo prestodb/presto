@@ -433,6 +433,7 @@ struct UnsafeRowSerializer {
     inline static std::optional<size_t> serialize(
         const std::multimap<KeysType, ValuesType>& data,
         char* buffer) {
+      VELOX_NYI("Static serializer for map needs to be first fixed");
       // Allocate space for writing offset to values.
       char* valueOffsetLocation = buffer;
       size_t mapSize = 1 * UnsafeRow::kFieldWidthBytes;

@@ -16,8 +16,12 @@
 
 #pragma once
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/row/UnsafeRowSerializer.h"
+#include "velox/type/Date.h"
+#include "velox/type/Timestamp.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::row {
 
@@ -163,6 +167,29 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
     }
   }
 
+/// Template definition for unsupported types in the dynamic path.
+#define FUNC(TYPE)                                              \
+  inline static std::optional<size_t> serializeComplexType(     \
+      const TypePtr& type,                                      \
+      const TYPE& /*data*/,                                     \
+      char* /*buffer*/,                                         \
+      size_t /*idx*/) {                                         \
+    VELOX_CHECK(false, "Unsupported type " + type->toString()); \
+  }
+  FUNC(int8_t)
+  FUNC(int16_t)
+  FUNC(int32_t)
+  FUNC(int64_t)
+  FUNC(double)
+  FUNC(float)
+  FUNC(std::string)
+  FUNC(StringView)
+  FUNC(char*)
+  FUNC(Timestamp)
+  FUNC(Date)
+
+#undef FUNC
+
   /// Dynamic complex type serialization function.
   /// \param type
   /// \param data
@@ -177,26 +204,41 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
       char* buffer,
       size_t idx) {
     if (type->isArray()) {
-      auto arrayVectorPtr = std::dynamic_pointer_cast<ArrayVector>(data);
-      return serializeComplexType(type, arrayVectorPtr, buffer, idx);
+      const auto* arrays = data->wrappedVector()->as<ArrayVector>();
+      VELOX_CHECK(arrays, "Invalid array in unsaferow conversion from");
+      return serializeComplexType(
+          type, arrays, buffer, data->wrappedIndex(idx));
     } else if (type->isMap()) {
-      auto mapVectorPtr = std::dynamic_pointer_cast<MapVector>(data);
-      return serializeComplexType(type, mapVectorPtr, buffer, idx);
+      const auto* maps = data->wrappedVector()->as<MapVector>();
+      VELOX_CHECK(maps, "Invalid map in unsaferow conversion from");
+      return serializeComplexType(type, maps, buffer, data->wrappedIndex(idx));
     } else if (type->isRow()) {
-      auto rowVectorPtr = std::dynamic_pointer_cast<RowVector>(data);
-      return serializeComplexType(type, rowVectorPtr, buffer, idx);
+      const auto* rows = data->wrappedVector()->as<RowVector>();
+      VELOX_CHECK(rows, "Invalid map in unsaferow conversion from");
+      return serializeComplexType(type, rows, buffer, data->wrappedIndex(idx));
     }
     throw UnsupportedSerializationException();
   }
 
-  /// Template definition for unsupported types in the dynamic path.
-  template <typename T>
-  inline static std::optional<size_t> serializeComplexType(
-      const TypePtr& type,
-      const T& data,
+  /// Serializing an element in Velox array given its
+  /// offset and size (the elements in that location) in an the array
+  /// \return the size of written bytes
+  inline static std::optional<size_t> serializeArray(
+      const TypePtr& elementsType,
       char* buffer,
-      size_t idx) {
-    throw UnsupportedSerializationException();
+      int32_t offset,
+      vector_size_t size,
+      const VectorPtr& elementsVector) {
+    // Write the number of elements.
+    writeWord(buffer, size);
+    char* nullSet = buffer + 1 * UnsafeRow::kFieldWidthBytes;
+
+    auto serializedDataSize = serializeVector(
+        elementsType, buffer, nullSet, offset, size, elementsVector);
+
+    // Size is metadata (1 word) + data.
+    return UnsafeRow::alignToFieldWidth(
+        1 * UnsafeRow::kFieldWidthBytes + serializedDataSize.value_or(0));
   }
 
   /// Dynamic array serialization function.
@@ -208,7 +250,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   /// otherwise
   inline static std::optional<size_t> serializeComplexType(
       const TypePtr& type,
-      const ArrayVectorPtr data,
+      const ArrayVector* data,
       char* buffer,
       size_t idx) {
     VELOX_CHECK(data->isIndexInRange(idx));
@@ -222,85 +264,8 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
 
     auto arrayTypePtr = std::dynamic_pointer_cast<const ArrayType>(type);
 
-    // Write the number of elements.
-    writeWord(buffer, size);
-    char* nullSet = buffer + 1 * UnsafeRow::kFieldWidthBytes;
-
-    auto serializedDataSize = serializeVector(
-        arrayTypePtr->elementType(),
-        buffer,
-        nullSet,
-        offset,
-        size,
-        data->elements());
-
-    // Size is metadata (1 word) + data.
-    return UnsafeRow::alignToFieldWidth(
-        1 * UnsafeRow::kFieldWidthBytes + serializedDataSize.value_or(0));
-  }
-
-  /// Dynamic serialization function for elements in a map vector.
-  /// \param type
-  /// \param mapElementStart Pointer to the start of this element.
-  /// \param offset
-  /// \param size
-  /// \param vector
-  /// \return size of variable length data written, 0 if no variable length data
-  /// is written or only fixed data length data is written, std::nullopt
-  /// otherwise
-  inline static std::optional<size_t> serializeMapVectorElements(
-      const TypePtr& type,
-      char* mapElementStart,
-      int32_t offset,
-      vector_size_t size,
-      const VectorPtr& vector) {
-    if (type->isArray()) {
-      // Write the array metadata (i.e. number of elements).
-      writeWord(mapElementStart, size);
-      char* nullSet = mapElementStart + 1 * UnsafeRow::kFieldWidthBytes;
-
-      auto serializedDataSize =
-          serializeVector(type, mapElementStart, nullSet, offset, size, vector);
-      return UnsafeRow::alignToFieldWidth(
-          UnsafeRow::kFieldWidthBytes + serializedDataSize.value_or(0));
-    } else if (type->isMap()) {
-      // Write offset to values.
-      char* offsetToValuesLocation = mapElementStart;
-
-      // Write number of keys.
-      char* numKeysLocation =
-          offsetToValuesLocation + UnsafeRow::kFieldWidthBytes;
-      writeWord(numKeysLocation, size);
-
-      auto mapTypePtr = std::dynamic_pointer_cast<const MapType>(type);
-
-      char* keysLocation = numKeysLocation + UnsafeRow::kFieldWidthBytes;
-      auto keysSize = serializeVector(
-          mapTypePtr->keyType(),
-          mapElementStart,
-          keysLocation,
-          offset,
-          size,
-          vector);
-
-      writeWord(offsetToValuesLocation, keysSize.value_or(0));
-
-      char* valuesLocation = keysLocation + keysSize.value_or(0);
-      auto valuesSize = serializeVector(
-          mapTypePtr->valueType(),
-          mapElementStart,
-          valuesLocation,
-          offset,
-          size,
-          vector);
-
-      return UnsafeRow::alignToFieldWidth(
-          2 * UnsafeRow::kFieldWidthBytes + keysSize.value_or(0) +
-          valuesSize.value_or(0));
-    }
-
-    return serializeVector(
-        type, mapElementStart, mapElementStart, offset, size, vector);
+    return serializeArray(
+        arrayTypePtr->elementType(), buffer, offset, size, data->elements());
   }
 
   /// Dynamic map serialization function.
@@ -313,7 +278,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   /// otherwise
   inline static std::optional<size_t> serializeComplexType(
       const TypePtr& type,
-      const MapVectorPtr data,
+      const MapVector* data,
       char* buffer,
       size_t idx) {
     VELOX_CHECK(data->isIndexInRange(idx));
@@ -322,36 +287,30 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
       return std::nullopt;
     }
 
-    auto mapTypePtr = std::dynamic_pointer_cast<const MapType>(type);
-
+    auto* mapTypePtr = static_cast<const MapType*>(type.get());
+    // Based on Spark definition to a serialized map
+    // we serialize keys and values arrays back to back
+    // And only add the size (in bytes) of serialized keys
     int32_t offset = data->offsetAt(idx);
     vector_size_t size = data->sizeAt(idx);
 
-    char* offsetToValuesLocation = buffer;
-    char* numKeysLocation = buffer + UnsafeRow::kFieldWidthBytes;
+    auto keysArrayByteSize = serializeArray(
+        mapTypePtr->keyType(),
+        buffer + UnsafeRow::kFieldWidthBytes,
+        offset,
+        size,
+        data->mapKeys());
 
-    // Write the keys.
-    char* keysLocation = buffer + 2 * UnsafeRow::kFieldWidthBytes;
-    auto keysSize = serializeMapVectorElements(
-        mapTypePtr->keyType(), keysLocation, offset, size, data->mapKeys());
+    writeWord(buffer, keysArrayByteSize.value_or(0));
 
-    // Write the keys metadata.
-    writeWord(numKeysLocation, size);
-    writeWord(
-        offsetToValuesLocation,
-        1 * UnsafeRow::kFieldWidthBytes + keysSize.value_or(0));
-
-    char* valuesLocation = keysLocation + keysSize.value_or(0);
-    auto valuesSize = serializeMapVectorElements(
+    auto valuesArrayByteSize = serializeArray(
         mapTypePtr->valueType(),
-        valuesLocation,
+        buffer + UnsafeRow::kFieldWidthBytes + keysArrayByteSize.value_or(0),
         offset,
         size,
         data->mapValues());
-
-    // Total size = 2 words of metadata + keysSize + valuesSize.
-    return 2 * UnsafeRow::kFieldWidthBytes + keysSize.value_or(0) +
-        valuesSize.value_or(0);
+    return keysArrayByteSize.value_or(0) + valuesArrayByteSize.value_or(0) +
+        UnsafeRow::kFieldWidthBytes;
   }
 
   /// Dynamic row serialization function. This implementation assumes the
@@ -374,7 +333,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   //  UnsafeRowSerializerTest.cpp
   inline static std::optional<size_t> serializeComplexType(
       const TypePtr& type,
-      const RowVectorPtr data,
+      const RowVector* data,
       char* buffer,
       size_t idx) {
     if (data == nullptr) {
