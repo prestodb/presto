@@ -50,6 +50,7 @@ public class TestNodeSpillConfig
                 .put("experimental.spill-compression-enabled", "true")
                 .put("experimental.spill-encryption-enabled", "true")
                 .put("experimental.temp-storage-buffer-size", "24MB")
+                .put("local.temp-storage.path", "/tmp/presto/local_temp_storage")
                 .build();
 
         NodeSpillConfig expected = new NodeSpillConfig()
@@ -58,7 +59,8 @@ public class TestNodeSpillConfig
                 .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE))
                 .setSpillCompressionEnabled(true)
                 .setSpillEncryptionEnabled(true)
-                .setTempStorageBufferSize(new DataSize(24, MEGABYTE));
+                .setTempStorageBufferSize(new DataSize(24, MEGABYTE))
+                .setLocalTempStorePath("/tmp/presto/local_temp_storage");
 
         assertFullMapping(properties, expected);
     }
