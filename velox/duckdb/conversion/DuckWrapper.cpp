@@ -30,6 +30,35 @@ using ::duckdb::LogicalTypeId;
 using ::duckdb::PhysicalType;
 using ::duckdb::QueryResult;
 
+namespace {
+
+class DuckDBBufferReleaser {
+ public:
+  explicit DuckDBBufferReleaser(
+      ::duckdb::buffer_ptr<::duckdb::VectorBuffer> buffer)
+      : buffer_(std::move(buffer)) {}
+
+  void addRef() const {}
+  void release() const {}
+
+ private:
+  const ::duckdb::buffer_ptr<::duckdb::VectorBuffer> buffer_;
+};
+
+class DuckDBValidityReleaser {
+ public:
+  explicit DuckDBValidityReleaser(const ::duckdb::ValidityMask& validity)
+      : validity_(validity) {}
+
+  void addRef() const {}
+  void release() const {}
+
+ private:
+  const ::duckdb::ValidityMask validity_;
+};
+
+} // namespace
+
 DuckDBWrapper::DuckDBWrapper(core::ExecCtx* context, const char* path)
     : context_(context) {
   db_ = std::make_unique<DuckDB>(path);
@@ -112,13 +141,10 @@ VectorPtr convert(
   auto vectorType = duckVector.GetVectorType();
   switch (vectorType) {
     case ::duckdb::VectorType::FLAT_VECTOR: {
+      VectorPtr result;
       auto& duckValidity = ::duckdb::FlatVector::Validity(duckVector);
       auto* duckData =
           ::duckdb::FlatVector::GetData<typename OP::DUCK_TYPE>(duckVector);
-
-      // TODO Figure out how to perform a zero-copy conversion.
-      auto result = BaseVector::create(veloxType, size, pool);
-      auto flatResult = result->as<FlatVector<typename OP::VELOX_TYPE>>();
 
       // Some DuckDB vectors have different internal layout and cannot be
       // trivially copied.
@@ -126,21 +152,39 @@ VectorPtr convert(
           duckVector.GetType() == LogicalTypeId::TIMESTAMP ||
           duckVector.GetType() == LogicalTypeId::DATE ||
           duckVector.GetType() == LogicalTypeId::VARCHAR) {
+        // TODO Figure out how to perform a zero-copy conversion.
+        result = BaseVector::create(veloxType, size, pool);
+        auto flatResult = result->as<FlatVector<typename OP::VELOX_TYPE>>();
+
         for (auto i = 0; i < size; i++) {
           if (duckValidity.RowIsValid(i) &&
               (!validity || bits::isBitSet(validity, i))) {
             flatResult->set(i, OP::toVelox(duckData[i]));
           }
         }
+
+        if (!duckValidity.AllValid()) {
+          auto rawNulls = flatResult->mutableRawNulls();
+          memcpy(rawNulls, duckValidity.GetData(), bits::nbytes(size));
+        }
       } else {
-        auto rawValues = flatResult->mutableRawValues();
-        memcpy(rawValues, duckData, size * sizeof(typename OP::VELOX_TYPE));
+        auto valuesView = BufferView<DuckDBBufferReleaser>::create(
+            reinterpret_cast<const uint8_t*>(duckData),
+            size * sizeof(typename OP::VELOX_TYPE),
+            DuckDBBufferReleaser(duckVector.GetBuffer()));
+
+        BufferPtr nullsView(nullptr);
+        if (!duckValidity.AllValid()) {
+          nullsView = BufferView<DuckDBValidityReleaser>::create(
+              reinterpret_cast<const uint8_t*>(duckValidity.GetData()),
+              bits::nbytes(size),
+              DuckDBValidityReleaser(duckValidity));
+        }
+
+        result = std::make_shared<FlatVector<typename OP::VELOX_TYPE>>(
+            pool, nullsView, size, valuesView, std::vector<BufferPtr>());
       }
 
-      if (!duckValidity.AllValid()) {
-        auto rawNulls = flatResult->mutableRawNulls();
-        memcpy(rawNulls, duckValidity.GetData(), bits::nbytes(size));
-      }
       return result;
     }
     case ::duckdb::VectorType::DICTIONARY_VECTOR: {
