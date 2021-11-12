@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.common.array;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.orc.ByteArrayUtils.compareRanges;
+import static com.facebook.presto.common.array.ByteArrayUtils.compareRanges;
 import static org.testng.Assert.assertEquals;
 
 public class TestByteArrayUtils
