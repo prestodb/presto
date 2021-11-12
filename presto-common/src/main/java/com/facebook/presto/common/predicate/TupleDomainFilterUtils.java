@@ -11,34 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.common.predicate;
 
-import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.Marker;
-import com.facebook.presto.common.predicate.Range;
-import com.facebook.presto.common.predicate.SortedRangeSet;
-import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintMultiRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingBitmask;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingHashTable;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesValues;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesValuesExclusive;
+import com.facebook.presto.common.predicate.TupleDomainFilter.DoubleRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.FloatRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.LongDecimalRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.MultiRange;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
-import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
-import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
-import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
-import com.facebook.presto.orc.TupleDomainFilter.BytesValuesExclusive;
-import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
-import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
-import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
-import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
 import io.airlift.slice.Slice;
 
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.common.predicate.TupleDomainFilter.ALWAYS_FALSE;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -49,15 +47,10 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.util.stream.Collectors.toList;
 
 public class TupleDomainFilterUtils
 {
@@ -97,8 +90,8 @@ public class TupleDomainFilterUtils
 
         List<TupleDomainFilter> rangeFilters = ranges.stream()
                 .map(range -> createRangeFilter(type, range, false))
-                .filter(not(ALWAYS_FALSE::equals))
-                .collect(toImmutableList());
+                .filter(rangeFilter -> !rangeFilter.equals(ALWAYS_FALSE))
+                .collect(toList());
         if (rangeFilters.isEmpty()) {
             return nullAllowed ? IS_NULL : ALWAYS_FALSE;
         }
@@ -107,7 +100,7 @@ public class TupleDomainFilterUtils
         if (firstRangeFilter instanceof BigintRange) {
             List<BigintRange> bigintRanges = rangeFilters.stream()
                     .map(BigintRange.class::cast)
-                    .collect(toImmutableList());
+                    .collect(toList());
 
             if (bigintRanges.stream().allMatch(BigintRange::isSingleValue)) {
                 return toBigintValues(
@@ -123,7 +116,7 @@ public class TupleDomainFilterUtils
         if (firstRangeFilter instanceof BytesRange) {
             List<BytesRange> bytesRanges = rangeFilters.stream()
                     .map(BytesRange.class::cast)
-                    .collect(toImmutableList());
+                    .collect(toList());
 
             if (bytesRanges.stream().allMatch(BytesRange::isSingleValue)) {
                 return BytesValues.of(
@@ -356,5 +349,12 @@ public class TupleDomainFilterUtils
         }
 
         return BigintValuesUsingBitmask.of(min, max, values, nullAllowed);
+    }
+
+    static void checkArgument(boolean expression, String message)
+    {
+        if (!expression) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }
