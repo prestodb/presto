@@ -44,7 +44,8 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, prefix + "array_contains");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_element_at, prefix + "element_at");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, prefix + "named_struct");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map_from_arrays");
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_map_allow_duplicates, prefix + "map_from_arrays");
   // String functions.
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
