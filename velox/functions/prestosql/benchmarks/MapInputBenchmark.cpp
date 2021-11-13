@@ -15,6 +15,7 @@
  */
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
+#include "velox/expression/EvalCtx.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/VectorFunctions.h"
@@ -39,11 +40,14 @@ class MapSumValuesAndKeysVector : public exec::VectorFunction {
     auto mapIndices = mapHolder->indices();
 
     auto mapKeys = mapVector->mapKeys();
-    exec::LocalDecodedVector mapKeysHolder(context, *mapKeys, rows);
+    exec::LocalSelectivityVector mapKeysRows(context, mapKeys->size());
+    exec::LocalDecodedVector mapKeysHolder(context, *mapKeys, *mapKeysRows);
     auto decodedMapKeys = mapKeysHolder.get();
 
     auto mapValues = mapVector->mapValues();
-    exec::LocalDecodedVector mapValuesHolder(context, *mapValues, rows);
+    exec::LocalSelectivityVector mapValuesRows(context, mapKeys->size());
+    exec::LocalDecodedVector mapValuesHolder(
+        context, *mapValues, *mapValuesRows);
     auto decodedMapValues = mapValuesHolder.get();
 
     auto rawOffsets = mapVector->rawOffsets();
@@ -77,16 +81,18 @@ class NestedMapSumValuesAndKeysVector : public exec::VectorFunction {
       VectorPtr* result) const override {
     auto arg = args.at(0);
 
-    auto mapVector = arg->as<MapVector>();
     exec::LocalDecodedVector mapHolder(context, *arg, rows);
+    auto mapVector = mapHolder->base()->as<MapVector>();
     auto mapIndices = mapHolder->indices();
 
     auto mapKeys = mapVector->mapKeys();
-    exec::LocalDecodedVector mapKeysHolder(context, *mapKeys, rows);
+    exec::LocalSelectivityVector rowsKeys(context, mapKeys->size());
+    exec::LocalDecodedVector mapKeysHolder(context, *mapKeys, *rowsKeys);
     auto decodedMapKeys = mapKeysHolder.get();
 
     auto mapValues = mapVector->mapValues();
-    exec::LocalDecodedVector mapValuesHolder(context, *mapValues, rows);
+    exec::LocalSelectivityVector rowsValues(context, mapValues->size());
+    exec::LocalDecodedVector mapValuesHolder(context, *mapValues, *rowsValues);
     auto decodedMapValues = mapValuesHolder.get();
 
     auto rawOffsets = mapVector->rawOffsets();
@@ -94,16 +100,24 @@ class NestedMapSumValuesAndKeysVector : public exec::VectorFunction {
 
     // Read inner map
     auto innerMapVector = decodedMapValues->base()->as<MapVector>();
-    exec::LocalDecodedVector innerMapHolder(context, *innerMapVector, rows);
+    exec::LocalSelectivityVector innerMapVectorRows(
+        context, innerMapVector->size());
+    exec::LocalDecodedVector innerMapHolder(
+        context, *innerMapVector, *innerMapVectorRows);
     auto innerMapIndices = innerMapHolder->indices();
 
     auto innerMapKeys = innerMapVector->mapKeys();
-    exec::LocalDecodedVector innerMapKeysHolder(context, *innerMapKeys, rows);
+    exec::LocalSelectivityVector innerMapKeysRows(
+        context, innerMapKeys->size());
+    exec::LocalDecodedVector innerMapKeysHolder(
+        context, *innerMapKeys, *innerMapKeysRows);
     auto decodedInnerMapKeys = innerMapKeysHolder.get();
 
     auto innerMapValues = innerMapVector->mapValues();
+    exec::LocalSelectivityVector innerMapValuesRows(
+        context, innerMapKeys->size());
     exec::LocalDecodedVector innerMapValuesHolder(
-        context, *innerMapValues, rows);
+        context, *innerMapValues, *innerMapValuesRows);
     auto decodedInnerMapValues = innerMapValuesHolder.get();
 
     auto innerRawOffsets = innerMapVector->rawOffsets();
@@ -138,7 +152,43 @@ class NestedMapSumValuesAndKeysVector : public exec::VectorFunction {
   }
 };
 
-// Simple function implementation
+// This is an intresting point of comparison, here we use the vector reader
+// inside of the vector function. This allows to better isolate hidden factors
+// and to time different components.
+class NestedMapWithMapView : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    LocalDecodedVector decoded_(context, *args[0], rows);
+    using exec_in_t = typename VectorExec::template resolver<
+        Map<int64_t, Map<int64_t, int64_t>>>::in_type;
+    VectorReader<Map<int64_t, Map<int64_t, int64_t>>> reader{
+        decoded_->as<exec_in_t>()};
+
+    // Prepare results
+    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
+    auto flatResult = (*result)->asFlatVector<int64_t>();
+
+    rows.applyToSelected([&](vector_size_t row) {
+      auto sum = 0;
+      for (const auto& entry : reader[row]) {
+        sum += entry.first;
+        for (const auto& entryInner : *entry.second) {
+          sum += entryInner.first;
+          sum += *entryInner.second;
+        }
+      }
+
+      flatResult->set(row, sum);
+    });
+  }
+};
+
+// Simple function implementations
 template <typename T>
 struct MapSumValuesAndKeysSimple {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -203,6 +253,16 @@ class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
              .argumentType("map(K,V)")
              .build()},
         std::make_unique<NestedMapSumValuesAndKeysVector>());
+
+    facebook::velox::exec::registerVectorFunction(
+        "nested_map_sum_vector_mapview",
+        {exec::FunctionSignatureBuilder()
+             .typeVariable("K")
+             .typeVariable("V")
+             .returnType("bigint")
+             .argumentType("map(K,V)")
+             .build()},
+        std::make_unique<NestedMapWithMapView>());
   }
 
   RowVectorPtr makeMapDataMap() {
@@ -304,7 +364,11 @@ class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
         compileExpression("nested_map_sum_vector(c0)", rowVector->type());
     auto exprSet2 =
         compileExpression("nested_map_sum_simple(c0)", rowVector->type());
-    return hasSameResults(exprSet1, exprSet2, rowVector);
+    auto exprSet3 = compileExpression(
+        "nested_map_sum_vector_mapview(c0)", rowVector->type());
+
+    return hasSameResults(exprSet1, exprSet2, rowVector) &&
+        hasSameResults(exprSet3, exprSet2, rowVector);
   }
 };
 
@@ -327,11 +391,16 @@ BENCHMARK_RELATIVE(nestedMapSumSimpleFunction) {
   MapInputBenchmark benchmark;
   benchmark.runNested("nested_map_sum_simple");
 }
+
+BENCHMARK_RELATIVE(nestedMapSumVectorFunctionMapView) {
+  MapInputBenchmark benchmark;
+  benchmark.runNested("nested_map_sum_vector_mapview");
+}
 } // namespace
 
 int main(int /*argc*/, char** /*argv*/) {
   MapInputBenchmark benchmark;
-  if (benchmark.testNestedMapSum() && benchmark.testMapSum()) {
+  if (benchmark.testMapSum() && benchmark.testNestedMapSum()) {
     folly::runBenchmarks();
   } else {
     VELOX_UNREACHABLE("tests failed");

@@ -14,8 +14,13 @@
 
 add_executable(
   velox_expression_test
-  ExprTest.cpp CastExprTest.cpp EvalSimplifiedTest.cpp SignatureBinderTest.cpp
-  SimpleFunctionTest.cpp ArrayViewTest.cpp)
+  ExprTest.cpp
+  CastExprTest.cpp
+  EvalSimplifiedTest.cpp
+  SignatureBinderTest.cpp
+  SimpleFunctionTest.cpp
+  ArrayViewTest.cpp
+  MapViewTest.cpp)
 
 add_test(
   NAME velox_expression_test

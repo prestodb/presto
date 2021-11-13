@@ -273,6 +273,35 @@ class FunctionBaseTest : public testing::Test {
         size, sizeAt, keyAt, valueAt, isNullAt, valueIsNullAt);
   }
 
+  // Create map vector from nested std::vector representation.
+  template <typename TKey, typename TValue>
+  MapVectorPtr makeMapVector(
+      const std::vector<std::vector<std::pair<TKey, std::optional<TValue>>>>&
+          maps) {
+    std::vector<vector_size_t> lengths;
+    std::vector<TKey> keys;
+    std::vector<TValue> values;
+    std::vector<bool> nullValues;
+    auto undefined = TValue();
+
+    for (const auto& map : maps) {
+      lengths.push_back(map.size());
+      for (const auto& [key, value] : map) {
+        keys.push_back(key);
+        values.push_back(value.value_or(undefined));
+        nullValues.push_back(!value.has_value());
+      }
+    }
+
+    return makeMapVector<TKey, TValue>(
+        maps.size(),
+        [&](vector_size_t row) { return lengths[row]; },
+        [&](vector_size_t idx) { return keys[idx]; },
+        [&](vector_size_t idx) { return values[idx]; },
+        nullptr,
+        [&](vector_size_t idx) { return nullValues[idx]; });
+  }
+
   template <typename T>
   VectorPtr makeConstant(T value, vector_size_t size) {
     return BaseVector::createConstant(value, size, execCtx_.pool());

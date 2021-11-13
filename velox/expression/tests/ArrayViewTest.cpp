@@ -17,7 +17,6 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
-#include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 namespace {
@@ -46,7 +45,7 @@ TEST_F(ArrayViewTest, intArray) {
     ASSERT_EQ(arrayDataBigInt[i][j].has_value(), item.has_value());
 
     // Test bool implicit cast.
-    ASSERT_EQ(arrayDataBigInt[i][j].has_value(), item);
+    ASSERT_EQ(arrayDataBigInt[i][j].has_value(), static_cast<bool>(item));
 
     if (arrayDataBigInt[i][j].has_value()) {
       // Test * operator.
@@ -54,7 +53,6 @@ TEST_F(ArrayViewTest, intArray) {
 
       // Test value().
       ASSERT_EQ(arrayDataBigInt[i][j].value(), item.value());
-      ASSERT_TRUE(item == arrayDataBigInt[i][j].value());
     }
     ASSERT_TRUE(item == arrayDataBigInt[i][j]);
   };

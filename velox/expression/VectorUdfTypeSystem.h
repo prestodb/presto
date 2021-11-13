@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include "velox/core/CoreTypeSystem.h"
+#include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/UDFOutputString.h"
 #include "velox/type/Type.h"
 #include "velox/vector/DecodedVector.h"
@@ -32,6 +33,9 @@ class StringProxy;
 template <typename V>
 class ArrayView;
 
+template <typename K, typename V>
+class MapView;
+
 template <typename T, typename U>
 struct VectorReader;
 
@@ -44,8 +48,7 @@ struct resolver {
 
 template <typename K, typename V>
 struct resolver<Map<K, V>> {
-  using in_type = core::
-      SlowMapVal<typename resolver<K>::in_type, typename resolver<V>::in_type>;
+  using in_type = MapView<K, V>;
   using out_type = core::SlowMapWriter<
       typename resolver<K>::out_type,
       typename resolver<V>::out_type>;
@@ -256,139 +259,6 @@ struct VectorWriter<Map<K, V>> {
   size_t offset_ = 0;
 };
 
-// Represents an array of elements with an interface similar to std::vector.
-template <typename V>
-class ArrayView {
-  using reader_t = VectorReader<V>;
-  using element_t = typename reader_t::exec_in_t;
-
- public:
-  ArrayView(const reader_t* reader, vector_size_t offset, vector_size_t size)
-      : reader_(reader), offset_(offset), size_(size) {}
-
-  // The previous doLoad protocal creates a value and then assigns to it.
-  // TODO: this should deprecated once we deprectae the doLoad protocoal.
-  ArrayView() : reader_(nullptr), offset_(0), size_(0) {}
-
-  // Represents an element in the array with an interface similar to
-  // std::optional.
-  struct Element {
-    operator bool() const {
-      return this->has_value();
-    }
-
-    bool operator==(const element_t& rhs) const {
-      return has_value() && (rhs == value());
-    }
-
-    bool operator==(const std::optional<element_t>& rhs) const {
-      if (!rhs.has_value()) {
-        return !has_value();
-      } else {
-        return rhs == value();
-      }
-    }
-
-    bool has_value() const {
-      return reader_->isSet(index_);
-    }
-
-    element_t value() const {
-      DCHECK(has_value());
-      return (*reader_)[index_];
-    }
-
-    element_t operator*() const {
-      DCHECK(has_value());
-      return (*reader_)[index_];
-    }
-
-   private:
-    Element(const ArrayView& arrayView, size_t index)
-        : reader_(arrayView.reader_), index_(index + arrayView.offset_) {}
-
-    const reader_t* reader_;
-    size_t index_;
-
-    friend class ArrayView;
-  };
-
-  // Iterator class.
-  struct Iterator
-      : public std::iterator<std::input_iterator_tag, Element, size_t> {
-    FOLLY_ALWAYS_INLINE bool operator!=(const Iterator& rhs) const {
-      return element_.index_ != rhs.element_.index_;
-    }
-
-    FOLLY_ALWAYS_INLINE bool operator==(const Iterator& rhs) const {
-      return element_.index_ == rhs.element_.index_;
-    }
-
-    FOLLY_ALWAYS_INLINE const Element& operator*() const {
-      return element_;
-    }
-
-    FOLLY_ALWAYS_INLINE const Element* operator->() const {
-      return &element_;
-    }
-
-    FOLLY_ALWAYS_INLINE bool operator<(const Iterator& rhs) const {
-      return this->element_.index_ < rhs.element_.index_;
-    }
-
-    // Implelement post increment.
-    FOLLY_ALWAYS_INLINE Iterator operator++(int) {
-      Iterator old = *this;
-      ++*this;
-      return old;
-    }
-
-    // Implelement pre increment.
-    FOLLY_ALWAYS_INLINE Iterator& operator++() {
-      ++element_.index_;
-      return *this;
-    }
-
-   private:
-    explicit Iterator(const Element& element) : element_(element) {}
-
-    Element element_;
-
-    friend class ArrayView;
-  };
-
-  Iterator begin() const {
-    return Iterator{Element{*this, 0}};
-  }
-
-  Iterator end() const {
-    return Iterator{Element{*this, size_}};
-  }
-
-  // Returns true if any of the arrayViews in the vector might have null
-  // element.
-  bool mayHaveNulls() const {
-    return reader_->mayHaveNulls();
-  }
-
-  const Element operator[](size_t index) const {
-    return Element{*this, index};
-  }
-
-  const Element at(size_t index) const {
-    return (*this)[index];
-  }
-
-  size_t size() const {
-    return size_;
-  }
-
- private:
-  const reader_t* reader_;
-  vector_size_t offset_;
-  size_t size_;
-};
-
 namespace detail {
 
 template <typename TOut, typename TIn>
@@ -403,16 +273,11 @@ DecodeResult<T> decode(DecodedVector& decoder, const BaseVector& vector) {
   decoder.decode(vector, rows);
   return decoder.as<T>();
 }
-
 } // namespace detail
 
 template <typename K, typename V>
 struct VectorReader<Map<K, V>> {
-  // todo(youknowjack): in future, directly expose the slice data
-
   using in_vector_t = typename TypeToFlatVector<Map<K, V>>::type;
-  using key_vector_t = typename TypeToFlatVector<K>::type;
-  using val_vector_t = typename TypeToFlatVector<V>::type;
   using exec_in_t = typename VectorExec::template resolver<Map<K, V>>::in_type;
   using exec_in_key_t = typename VectorExec::template resolver<K>::in_type;
   using exec_in_val_t = typename VectorExec::template resolver<V>::in_type;
@@ -428,38 +293,9 @@ struct VectorReader<Map<K, V>> {
             detail::decode<exec_in_val_t>(decodedVals_, *vector_.mapValues())} {
   }
 
-  bool doLoad(size_t outerOffset, exec_in_t& target) const {
-    if (UNLIKELY(!isSet(outerOffset))) {
-      return false;
-    }
-    vector_size_t offset = decoded_.decodedIndex(outerOffset);
-    const size_t offsetStart = offsets_[offset];
-    const size_t offsetEnd = offsetStart + lengths_[offset];
-
-    target.reserve(target.size() + offsetEnd - offsetStart);
-
-    for (size_t i = offsetStart; i != offsetEnd; ++i) {
-      exec_in_key_t key{};
-      exec_in_val_t val{};
-      if (UNLIKELY(!keyReader_.doLoad(i, key))) {
-        VELOX_USER_CHECK(false, "null map key not allowed");
-      }
-      const bool isSet = valReader_.doLoad(i, val);
-      if (LIKELY(isSet)) {
-        target.emplace(key, std::optional<exec_in_val_t>{std::move(val)});
-      } else {
-        target.emplace(key, std::optional<exec_in_val_t>{});
-      }
-    }
-    return true;
-  }
-
-  // note: because it uses a cached map; it is only valid until a new offset
-  // is fetched!! scary
-  exec_in_t& operator[](size_t offset) const {
-    m_.clear();
-    doLoad(offset, m_);
-    return m_;
+  exec_in_t operator[](size_t offset) const {
+    auto index = decoded_.decodedIndex(offset);
+    return MapView{&keyReader_, &valReader_, offsets_[index], lengths_[index]};
   }
 
   bool isSet(size_t offset) const {
@@ -470,7 +306,6 @@ struct VectorReader<Map<K, V>> {
   const MapVector& vector_;
   DecodedVector decodedKeys_;
   DecodedVector decodedVals_;
-  mutable exec_in_t m_{};
 
   const vector_size_t* offsets_;
   const vector_size_t* lengths_;
