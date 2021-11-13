@@ -521,6 +521,11 @@ public class FunctionAndTypeManager
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
                 .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
+
+        if (functionNamespaceManager.canResolveFunction()) {
+            return functionNamespaceManager.resolveFunction(transactionHandle, functionName, parameterTypes.stream().map(TypeSignatureProvider::getTypeSignature).collect(toImmutableList()));
+        }
+
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
