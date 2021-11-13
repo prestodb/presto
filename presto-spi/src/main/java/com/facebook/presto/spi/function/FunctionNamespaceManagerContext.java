@@ -13,13 +13,21 @@
  */
 package com.facebook.presto.spi.function;
 
-import java.util.Map;
+import com.facebook.presto.common.type.TypeManager;
 
-public interface FunctionNamespaceManagerFactory
+import static java.util.Objects.requireNonNull;
+
+public class FunctionNamespaceManagerContext
 {
-    String getName();
+    private final TypeManager typeManager;
 
-    FunctionHandleResolver getHandleResolver();
+    public FunctionNamespaceManagerContext(TypeManager typeManager)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+    }
 
-    FunctionNamespaceManager<?> create(String catalogName, Map<String, String> config, FunctionNamespaceManagerContext context);
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
+    }
 }
