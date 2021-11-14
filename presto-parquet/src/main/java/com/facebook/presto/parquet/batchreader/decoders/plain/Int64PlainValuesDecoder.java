@@ -52,6 +52,14 @@ public class Int64PlainValuesDecoder
     }
 
     @Override
+    public long readNext()
+    {
+        long value = BytesUtils.getLong(byteBuffer, bufferOffset);
+        bufferOffset += 8;
+        return value;
+    }
+
+    @Override
     public void skip(int length)
     {
         checkArgument(bufferOffset + length * 8 <= bufferEnd, "End of stream: invalid read request");

@@ -22,7 +22,7 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
-import com.facebook.presto.parquet.reader.ParquetReader;
+import com.facebook.presto.parquet.reader.ParquetLegacyReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public class ParquetPageSource
         implements ConnectorPageSource
 {
-    private final ParquetReader parquetReader;
+    private final ParquetLegacyReader parquetReader;
     // for debugging heap dump
     private final List<String> columnNames;
     private final List<Type> types;
@@ -53,7 +53,7 @@ public class ParquetPageSource
     private final RuntimeStats runtimeStats;
 
     public ParquetPageSource(
-            ParquetReader parquetReader,
+            ParquetLegacyReader parquetReader,
             List<Type> types,
             List<Optional<Field>> fields,
             List<String> columnNames,

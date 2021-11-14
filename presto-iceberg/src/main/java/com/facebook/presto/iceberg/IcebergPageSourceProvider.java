@@ -54,7 +54,7 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.predicate.Predicate;
-import com.facebook.presto.parquet.reader.ParquetReader;
+import com.facebook.presto.parquet.reader.ParquetLegacyReader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -344,7 +344,7 @@ public class IcebergPageSourceProvider
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = new ParquetReader(
+            ParquetLegacyReader parquetReader = new ParquetLegacyReader(
                     messageColumnIO,
                     blocks,
                     dataSource,

@@ -68,7 +68,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class ParquetReader
+public class ParquetLegacyReader
         implements Closeable
 {
     private static final int MAX_VECTOR_LENGTH = 1024;
@@ -99,14 +99,14 @@ public class ParquetReader
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
 
-    public ParquetReader(MessageColumnIO
-            messageColumnIO,
-            List<BlockMetaData> blocks,
-            ParquetDataSource dataSource,
-            AggregatedMemoryContext systemMemoryContext,
-            DataSize maxReadBlockSize,
-            boolean batchReadEnabled,
-            boolean enableVerification)
+    // Previous ParquetReader
+    public ParquetLegacyReader(MessageColumnIO messageColumnIO,
+                               List<BlockMetaData> blocks,
+                               ParquetDataSource dataSource,
+                               AggregatedMemoryContext systemMemoryContext,
+                               DataSize maxReadBlockSize,
+                               boolean batchReadEnabled,
+                               boolean enableVerification)
     {
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -279,7 +279,7 @@ public class ParquetReader
     private byte[] allocateBlock(int length)
     {
         byte[] buffer = new byte[length];
-        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext(ParquetReader.class.getSimpleName());
+        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext(ParquetLegacyReader.class.getSimpleName());
         blockMemoryContext.setBytes(buffer.length);
         return buffer;
     }

@@ -71,6 +71,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -394,7 +395,8 @@ public enum FileFormat
             HdfsEnvironment hdfsEnvironment,
             File targetFile,
             List<String> columnNames,
-            List<Type> columnTypes);
+            List<Type> columnTypes)
+            throws FileNotFoundException;
 
     public abstract FormatWriter createFileFormatWriter(
             ConnectorSession session,

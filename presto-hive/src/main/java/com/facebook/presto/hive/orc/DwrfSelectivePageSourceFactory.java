@@ -34,6 +34,7 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -100,12 +101,12 @@ public class DwrfSelectivePageSourceFactory
             long length,
             long fileSize,
             Storage storage,
-            List<HiveColumnHandle> columns,
+            SchemaTableName tableName, List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             Map<Integer, HiveCoercer> coercers,
             Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,
-            TupleDomain<Subfield> domainPredicate,
+            Map<String, HiveColumnHandle> predicateColumns, TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,

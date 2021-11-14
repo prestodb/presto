@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.batchreader.BinaryFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.BinaryNestedBatchReader;
 import com.facebook.presto.parquet.batchreader.BooleanFlatBatchReader;
@@ -38,13 +41,22 @@ import com.facebook.presto.parquet.reader.LongDecimalColumnReader;
 import com.facebook.presto.parquet.reader.LongTimestampMicrosColumnReader;
 import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
+import com.facebook.presto.parquet.selectivereader.Int64FlatSelectiveColumnReader;
+import com.facebook.presto.parquet.selectivereader.SelectiveColumnReader;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.Iterables;
+import org.apache.parquet.column.ColumnDescriptor;
 
+import javax.annotation.Nullable;
+
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 
@@ -104,6 +116,21 @@ public class ColumnReaderFactory
         }
     }
 
+    public static SelectiveColumnReader createSelectiveReader(
+            ParquetDataSource parquetDataSource,
+            ColumnDescriptor descriptor,
+            @Nullable Field field,
+            @Nullable Map<Subfield, TupleDomainFilter> tupleDomainFilter,
+            boolean outputRequired,
+            AggregatedMemoryContext systemMemoryContext)
+    {
+        switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
+            case INT64:
+                return new Int64FlatSelectiveColumnReader(parquetDataSource, descriptor, field, getOnlyFilter(descriptor, tupleDomainFilter), outputRequired, systemMemoryContext.newLocalMemoryContext("SelectiveColumnReader"));
+        }
+        throw new UnsupportedOperationException("Type " + descriptor.getPrimitiveType().getPrimitiveTypeName() + " not supported");
+    }
+
     private static Optional<AbstractColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         Optional<Type> type = createDecimalType(descriptor);
@@ -117,5 +144,16 @@ public class ColumnReaderFactory
             }
         }
         return Optional.empty();
+    }
+
+    @Nullable
+    private static TupleDomainFilter getOnlyFilter(ColumnDescriptor descriptor, Map<Subfield, TupleDomainFilter> filters)
+    {
+        if (filters == null || filters.isEmpty()) {
+            return null;
+        }
+
+        checkArgument(filters.size() == 1, format("Stream reader for %s doesn't support multiple range filters", descriptor.getPrimitiveType()));
+        return Iterables.getOnlyElement(filters.values());
     }
 }

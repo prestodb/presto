@@ -15,12 +15,12 @@ package com.facebook.presto.hive.parquet;
 
 import org.testng.annotations.Test;
 
-@Test
-public class TestParquetReader
-        extends AbstractTestParquetReader
+@Test(groups = "ci")
+public class TestFullParquetLegacyReader
+        extends AbstractTestParquetLegacyReader
 {
-    public TestParquetReader()
+    public TestFullParquetLegacyReader()
     {
-        super(ParquetTester.quickParquetTester());
+        super(ParquetTester.fullParquetTester());
     }
 }
