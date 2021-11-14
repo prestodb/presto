@@ -1476,7 +1476,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.parquet.pushdown-filter-enabled")
-    @ConfigDescription("Experimental: enable complex filter pushdown for Aria Parquet")
+    @ConfigDescription("Experimental: enable complex filter pushdown for Parquet")
     public HiveClientConfig setParquetPushdownFilterEnabled(boolean parquetPushdownFilterEnabled)
     {
         this.parquetPushdownFilterEnabled = parquetPushdownFilterEnabled;

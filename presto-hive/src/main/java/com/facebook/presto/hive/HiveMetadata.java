@@ -215,6 +215,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabl
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isParquetPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPreferManifestsToListFiles;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isShufflePartitionedColumnsForTableWriteEnabled;
@@ -227,6 +228,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.values;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -2646,7 +2648,7 @@ public class HiveMetadata
         boolean pushdownFilterEnabled = HiveSessionProperties.isPushdownFilterEnabled(session);
         if (pushdownFilterEnabled) {
             HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
-            if (hiveStorageFormat == ORC || hiveStorageFormat == DWRF) {
+            if (hiveStorageFormat == ORC || hiveStorageFormat == DWRF || hiveStorageFormat == PARQUET && isParquetPushdownFilterEnabled(session)) {
                 return true;
             }
         }
