@@ -32,6 +32,7 @@ import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
+import com.facebook.presto.hive.parquet.ParquetSelectivePageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
@@ -190,6 +191,7 @@ public class HiveClientModule
         Multibinder<HiveSelectivePageSourceFactory> selectivePageSourceFactoryBinder = newSetBinder(binder, HiveSelectivePageSourceFactory.class);
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(DwrfSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
+        selectivePageSourceFactoryBinder.addBinding().to(ParquetSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataSinkFactory.class).to(OutputStreamDataSinkFactory.class).in(Scopes.SINGLETON);
 

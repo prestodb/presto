@@ -5424,6 +5424,37 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(getQueryRunner().tableExists(session, "test_parquet_table"));
     }
 
+    @Test
+    public void testParquetSelectivePageSourceFails()
+    {
+        assertUpdate("CREATE TABLE test_parquet_filter_pushdoown (a BIGINT, b BOOLEAN) WITH (format = 'parquet')");
+        assertUpdate(getSession(), "INSERT INTO test_parquet_filter_pushdoown VALUES (1, true)", 1);
+
+        Session noPushdownSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "false")
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "false")
+                .build();
+        assertQuery(noPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown", "select 1");
+        assertQuery(noPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = true", "select 1");
+        assertQueryReturnsEmptyResult(noPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false");
+
+        Session filterPushdownSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "false")
+                .build();
+        assertQuery(filterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown", "select 1");
+        assertQuery(filterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = true", "select 1");
+        assertQueryReturnsEmptyResult(filterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false");
+
+        Session parquetFilterPushdownSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "true")
+                .build();
+        assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown", "Parquet reader doesn't support filter pushdown yet");
+        assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = true", "Parquet reader doesn't support filter pushdown yet");
+        assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false", "Parquet reader doesn't support filter pushdown yet");
+    }
+
     private void testPageFileCompression(String compression)
     {
         Session testSession = Session.builder(getQueryRunner().getDefaultSession())
