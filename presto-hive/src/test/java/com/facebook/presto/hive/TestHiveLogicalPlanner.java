@@ -83,6 +83,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_IGNORE_STATS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -543,6 +544,9 @@ public class TestHiveLogicalPlanner
         Session optimizeMetadataQueries = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
                 .build();
+        Session optimizeMetadataQueriesIgnoreStats = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES_IGNORE_STATS, Boolean.toString(true))
+                .build();
         Session shufflePartitionColumns = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG, SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.toString(true))
                 .build();
@@ -585,6 +589,16 @@ public class TestHiveLogicalPlanner
                                     PlanMatchPattern.tableScan("test_metadata_aggregation_folding_with_empty_partitions")),
                             anyTree(
                                     PlanMatchPattern.tableScan("test_metadata_aggregation_folding_with_empty_partitions"))));
+            // Ignore metastore stats. Enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueriesIgnoreStats,
+                    "SELECT * FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds = (SELECT max(ds) from test_metadata_aggregation_folding_with_empty_partitions)",
+                    anyTree(
+                            join(
+                                    INNER,
+                                    ImmutableList.of(),
+                                    tableScan("test_metadata_aggregation_folding_with_empty_partitions", getSingleValueColumnDomain("ds", "2020-07-20"), TRUE_CONSTANT, ImmutableSet.of("ds")),
+                                    anyTree(any()))));
             // Max ds matching the filter has stats. Enable rewrite.
             assertPlan(
                     optimizeMetadataQueries,
@@ -635,6 +649,16 @@ public class TestHiveLogicalPlanner
                     optimizeMetadataQueries,
                     "SELECT MIN(ds), MAX(ds) FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds BETWEEN '2020-06-30' AND '2020-07-03'",
                     anyTree(tableScanWithConstraint("test_metadata_aggregation_folding_with_empty_partitions", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2020-06-30", "2020-07-01", "2020-07-02"))))));
+            // Ignore metadata stats. Always enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueriesIgnoreStats,
+                    "SELECT MIN(ds), MAX(ds) FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds BETWEEN '2020-06-30' AND '2020-07-03'",
+                    anyTree(
+                            project(
+                                    ImmutableMap.of(
+                                            "min", expression("'2020-06-30'"),
+                                            "max", expression("'2020-07-02'")),
+                                    anyTree(values()))));
             // Both resulting partitions have stats. Enable rewrite.
             assertPlan(
                     optimizeMetadataQueries,
