@@ -79,13 +79,13 @@ class LocalMergeSource : public MergeSource {
       : queue_(LocalMergeSourceQueue(rowType, mappedMemory, queueSize)) {}
 
   BlockingReason next(ContinueFuture* future, char** row) override {
-    auto lockedQueue = queue_.wlock();
-    return lockedQueue->next(future, row);
+    return queue_.withWLock(
+        [&](auto& queue) { return queue.next(future, row); });
   }
 
   BlockingReason enqueue(RowVectorPtr input, ContinueFuture* future) override {
-    auto lockedQueue = queue_.wlock();
-    return lockedQueue->enqueue(input, future);
+    return queue_.withWLock(
+        [&](auto& queue) { return queue.enqueue(input, future); });
   }
 
  private:
