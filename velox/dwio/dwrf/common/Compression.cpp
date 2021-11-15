@@ -444,14 +444,22 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
       }
       // compressor remain as nullptr
       break;
-    case CompressionKind_ZLIB:
-      compressor = std::make_unique<ZlibCompressor>(
-          config.get(Config::ZLIB_COMPRESSION_LEVEL));
+    case CompressionKind_ZLIB: {
+      int32_t zlibCompressionLevel = config.get(Config::ZLIB_COMPRESSION_LEVEL);
+      compressor = std::make_unique<ZlibCompressor>(zlibCompressionLevel);
+      LOG_FIRST_N(INFO, 1) << fmt::format(
+          "Initialized zlib compressor with compression level {}",
+          zlibCompressionLevel);
       break;
-    case CompressionKind_ZSTD:
-      compressor = std::make_unique<ZstdCompressor>(
-          config.get(Config::ZSTD_COMPRESSION_LEVEL));
+    }
+    case CompressionKind_ZSTD: {
+      int32_t zstdCompressionLevel = config.get(Config::ZSTD_COMPRESSION_LEVEL);
+      compressor = std::make_unique<ZstdCompressor>(zstdCompressionLevel);
+      LOG_FIRST_N(INFO, 1) << fmt::format(
+          "Initialized zstd compressor with compression level {}",
+          zstdCompressionLevel);
       break;
+    }
     case CompressionKind_SNAPPY:
     case CompressionKind_LZO:
     case CompressionKind_LZ4:
