@@ -93,6 +93,7 @@ public class FeaturesConfig
     private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
     private boolean optimizedScaleWriterProducerBuffer;
     private boolean optimizeMetadataQueries;
+    private boolean optimizeMetadataQueriesIgnoreStats;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
@@ -751,10 +752,23 @@ public class FeaturesConfig
     }
 
     @Config("optimizer.optimize-metadata-queries")
-    @ConfigDescription("Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)")
+    @ConfigDescription("Enable optimization for metadata queries if the resulting partitions are not empty according to the partition stats")
     public FeaturesConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
+        return this;
+    }
+
+    public boolean isOptimizeMetadataQueriesIgnoreStats()
+    {
+        return optimizeMetadataQueriesIgnoreStats;
+    }
+
+    @Config("optimizer.optimize-metadata-queries-ignore-stats")
+    @ConfigDescription("Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)")
+    public FeaturesConfig setOptimizeMetadataQueriesIgnoreStats(boolean optimizeMetadataQueriesIgnoreStats)
+    {
+        this.optimizeMetadataQueriesIgnoreStats = optimizeMetadataQueriesIgnoreStats;
         return this;
     }
 
