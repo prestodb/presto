@@ -2279,3 +2279,25 @@ TEST_F(ExprTest, peelNulls) {
       [](vector_size_t row) { return row != 2; });
   assertEqualVectors(expectedResult, result);
 }
+
+TEST_F(ExprTest, accessNested) {
+  // Construct Row(Row(Row(int))) vector
+  auto base = makeFlatVector<int32_t>({1, 2, 3, 4, 5});
+  auto level1 = makeRowVector({base});
+  auto level2 = makeRowVector({level1});
+  auto level3 = makeRowVector({level2});
+
+  auto level1Type = ROW({"c0"}, {base->type()});
+  auto level2Type = ROW({"c0"}, {level1Type});
+  auto level3Type = ROW({"c0"}, {level2Type});
+
+  // Access level3->level2->level1->base
+  // TODO: Expression "c0.c0.c0" currently not supported by DuckDB
+  // So we wrap with parentheses to force parsing as struct extract
+  // Track https://github.com/duckdb/duckdb/issues/2568
+  auto exprSet = compileExpression("(c0).c0.c0", level3Type);
+
+  auto result = evaluate(exprSet.get(), level3);
+
+  assertEqualVectors(base, result);
+}
