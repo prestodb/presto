@@ -205,6 +205,7 @@ std::shared_ptr<exec::VectorFunction> makeIn(
     CASE(REAL);
     CASE(DOUBLE);
     CASE(TIMESTAMP);
+    CASE(DATE);
 #undef CASE
     default:
       VELOX_NYI("{} does not support {}", name, inputArgs[0].type->toString());

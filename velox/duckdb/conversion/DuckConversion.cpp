@@ -74,6 +74,7 @@ bool duckdbTypeIsSupported(LogicalType type) {
     case LogicalTypeId::DOUBLE:
     case LogicalTypeId::VARCHAR:
     case LogicalTypeId::TIMESTAMP:
+    case LogicalTypeId::DATE:
       return true;
     default:
       return false;
@@ -102,6 +103,7 @@ TypePtr toVeloxType(LogicalType type) {
     case LogicalTypeId::VARCHAR:
       return VARCHAR();
     case LogicalTypeId::DATE:
+      return DATE();
     case LogicalTypeId::TIMESTAMP:
       return TIMESTAMP();
     case LogicalTypeId::BLOB:

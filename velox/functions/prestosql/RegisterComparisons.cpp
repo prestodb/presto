@@ -35,6 +35,7 @@ void registerComparisonFunctions() {
   registerFunction<udf_between<double>, bool, double, double, double>();
   registerFunction<udf_between<float>, bool, float, float, float>();
   registerFunction<udf_between<StringView>, bool, Varchar, Varchar, Varchar>();
+  registerFunction<udf_between<Date>, bool, Date, Date, Date>();
 }
 
 } // namespace facebook::velox::functions

@@ -38,6 +38,13 @@ struct KindToFlatVector<TypeKind::TIMESTAMP> {
 };
 
 template <>
+struct KindToFlatVector<TypeKind::DATE> {
+  using type = FlatVector<Date>;
+  using WrapperType = Date;
+  using HashRowType = Date;
+};
+
+template <>
 struct KindToFlatVector<TypeKind::MAP> {
   using type = MapVector;
   using WrapperType = ComplexType;

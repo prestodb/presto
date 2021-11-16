@@ -176,9 +176,8 @@ TEST(DuckParserTest, cast) {
       "cast(\"str_col\", TIMESTAMP)",
       parseExpr("cast(str_col as timestamp)")->toString());
 
-  // NB: DuckDB returns TIMESTAMP for `cast as date`.
   EXPECT_EQ(
-      "cast(\"str_col\", TIMESTAMP)",
+      "cast(\"str_col\", DATE)",
       parseExpr("cast(str_col as date)")->toString());
 
   // Unsupported casts for now.

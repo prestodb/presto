@@ -131,6 +131,16 @@ TEST(Type, DateToString) {
   // 50 years before epoch
   Date wayBeforeEpoch(-18262);
   EXPECT_EQ(wayBeforeEpoch.toString(), "1920-01-02");
+
+  // Trying a very large -integer for boundary checks. Such values are tested in
+  // ExpressionFuzzer.
+  // Since we use int64 for the intermediate conversion of days to ms,
+  // the large -ve value remains valid. However, gmtime uses int32
+  // for the number of years, so the eventual results might look like garbage.
+  // However, they are consistent with presto java so keeping the same
+  // implementation.
+  Date dateOverflow(-1855961014);
+  EXPECT_EQ(dateOverflow.toString(), "-5079479-05-03");
 }
 
 TEST(Type, DateComparison) {
@@ -160,6 +170,32 @@ TEST(Type, DateComparison) {
   EXPECT_GE(jan2020, jan2020Copy);
   EXPECT_GE(jan2020, dec2019);
   EXPECT_GE(epoch, beforeEpoch);
+}
+
+TEST(Type, parseStringToDate) {
+  auto parseDate = [](const std::string& dateStr) {
+    Date returnDate;
+    parseTo(dateStr, returnDate);
+    return returnDate;
+  };
+
+  // Epoch.
+  EXPECT_EQ(parseDate("1970-01-01").days(), 0);
+
+  // 50 years after epoch.
+  EXPECT_EQ(parseDate("2020-01-01").days(), 18262);
+
+  // Before epoch.
+  EXPECT_EQ(parseDate("1969-12-27").days(), -5);
+
+  // 50 years before epoch.
+  EXPECT_EQ(parseDate("1920-01-02").days(), -18262);
+
+  // Century before epoch.
+  EXPECT_EQ(parseDate("1812-04-15").days(), -57604);
+
+  // Century after epoch.
+  EXPECT_EQ(parseDate("2135-11-09").days(), 60577);
 }
 
 TEST(Type, Map) {

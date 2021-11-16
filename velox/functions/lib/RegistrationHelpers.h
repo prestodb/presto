@@ -52,6 +52,7 @@ void registerBinaryScalar(const std::vector<std::string>& aliases) {
   registerFunction<T<Varbinary>, TReturn, Varbinary, Varbinary>(aliases);
   registerFunction<T<bool>, TReturn, bool, bool>(aliases);
   registerFunction<T<Timestamp>, TReturn, Timestamp, Timestamp>(aliases);
+  registerFunction<T<Date>, TReturn, Date, Date>(aliases);
 }
 
 template <template <class> class T, typename TReturn>

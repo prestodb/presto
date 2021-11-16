@@ -127,6 +127,24 @@ TEST_F(GreatestLeastTest, leastTimeStamp) {
       {Timestamp(0, 0), Timestamp(10, 1), Timestamp(1, 10)});
 }
 
+TEST_F(GreatestLeastTest, greatestDate) {
+  runTest<Date>(
+      "greatest(c0, c1, c2)",
+      {{Date(0), Date(5), Date(0)},
+       {Date(1), Date(0), Date(-5)},
+       {Date(5), Date(-5), Date(-10)}},
+      {Date(5), Date(5), Date(0)});
+}
+
+TEST_F(GreatestLeastTest, leastDate) {
+  runTest<Date>(
+      "least(c0, c1, c2)",
+      {{Date(0), Date(0), Date(5)},
+       {Date(1), Date(-1), Date(-1)},
+       {Date(5), Date(5), Date(-5)}},
+      {Date(0), Date(-1), Date(-5)});
+}
+
 TEST_F(GreatestLeastTest, stringBuffersMoved) {
   runTest<StringView>(
       "least(c0, c1)",

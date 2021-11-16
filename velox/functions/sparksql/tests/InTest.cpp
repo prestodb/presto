@@ -154,6 +154,11 @@ TEST_F(InTest, Timestamp) {
       in<Timestamp>(Timestamp(0, 0), {Timestamp(0, 0), Timestamp()}), true);
 }
 
+TEST_F(InTest, Date) {
+  EXPECT_EQ(in<Date>(Date(0), {Date(1), std::nullopt}), std::nullopt);
+  EXPECT_EQ(in<Date>(Date(0), {Date(0), Date()}), true);
+}
+
 TEST_F(InTest, Bool) {
   EXPECT_EQ(in<bool>(true, {true, false, std::nullopt}), true);
   EXPECT_EQ(in<bool>(true, {false, std::nullopt}), std::nullopt);

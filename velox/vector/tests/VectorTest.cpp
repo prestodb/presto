@@ -772,6 +772,11 @@ Timestamp VectorTest::testValue(int32_t i, BufferPtr& space) {
   return Timestamp(i * 1000, (i % 1000) * 1000000);
 }
 
+template <>
+Date VectorTest::testValue(int32_t i, BufferPtr& space) {
+  return Date(i);
+}
+
 VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
   BufferPtr nulls;
   BufferPtr offsets;
@@ -835,6 +840,7 @@ TEST_F(VectorTest, createStr) {
 TEST_F(VectorTest, createOther) {
   testFlat<TypeKind::BOOLEAN>(BOOLEAN(), vectorSize_);
   testFlat<TypeKind::TIMESTAMP>(TIMESTAMP(), vectorSize_);
+  testFlat<TypeKind::DATE>(DATE(), vectorSize_);
 }
 
 TEST_F(VectorTest, createOpaque) {

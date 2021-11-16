@@ -459,5 +459,12 @@ inline Timestamp ByteStream::read<Timestamp>() {
   return value;
 }
 
+template <>
+inline Date ByteStream::read<Date>() {
+  Date value;
+  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
+  return value;
+}
+
 } // namespace velox
 } // namespace facebook

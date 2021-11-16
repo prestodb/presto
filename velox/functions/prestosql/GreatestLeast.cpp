@@ -128,6 +128,10 @@ class ExtremeValueFunction : public exec::VectorFunction {
         applyTyped<TypeTraits<TypeKind::TIMESTAMP>::NativeType>(
             rows, args, outputType, context, result);
         return;
+      case TypeKind::DATE:
+        applyTyped<TypeTraits<TypeKind::DATE>::NativeType>(
+            rows, args, outputType, context, result);
+        return;
       default:
         VELOX_FAIL(
             "Unsupported input type for {}: {}",
@@ -138,7 +142,7 @@ class ExtremeValueFunction : public exec::VectorFunction {
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     std::vector<std::string> types = {
-        "bigint", "double", "varchar", "timestamp"};
+        "bigint", "double", "varchar", "timestamp", "date"};
     std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
     for (const auto& type : types) {
       signatures.emplace_back(exec::FunctionSignatureBuilder()

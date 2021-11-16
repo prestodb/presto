@@ -170,7 +170,8 @@ const char* exportArrowFormatStr(const TypePtr& type) {
       // TODO: need to figure out how we'll map this since in Velox we currently
       // store timestamps as two int64s (epoch in sec and nanos).
       return "ttn"; // time64 [nanoseconds]
-
+    case TypeKind::DATE:
+      return "tdD"; // date32[days]
     // Complex/nested types.
     case TypeKind::ARRAY:
       return "+L"; // large list
@@ -333,6 +334,9 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
       // Mapping it to ttn for now.
       if (format[1] == 't' && format[2] == 'n') {
         return TIMESTAMP();
+      }
+      if (format[1] == 'd' && format[2] == 'D') {
+        return DATE();
       }
       break;
 

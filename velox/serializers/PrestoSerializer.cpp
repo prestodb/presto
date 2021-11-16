@@ -16,6 +16,7 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include <boost/crc.hpp>
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/Date.h"
 #include "velox/vector/BiasVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
@@ -105,6 +106,8 @@ std::string typeToEncodingName(const TypePtr& type) {
       return "VARIABLE_WIDTH";
     case TypeKind::TIMESTAMP:
       return "LONG_ARRAY";
+    case TypeKind::DATE:
+      return "INT_ARRAY";
     case TypeKind::ARRAY:
       return "ARRAY";
     case TypeKind::MAP:
@@ -192,6 +195,36 @@ void readValues<Timestamp>(
   } else {
     for (int32_t row = 0; row < size; ++row) {
       rawValues[row] = readTimestamp(source);
+    }
+  }
+}
+
+Date readDate(ByteStream* source) {
+  int32_t days = source->read<int32_t>();
+  return Date(days);
+}
+
+template <>
+void readValues<Date>(
+    ByteStream* source,
+    vector_size_t size,
+    BufferPtr nulls,
+    vector_size_t nullCount,
+    BufferPtr values) {
+  auto rawValues = values->asMutable<Date>();
+  if (nullCount) {
+    int32_t toClear = 0;
+    bits::forEachSetBit(nulls->as<uint64_t>(), 0, size, [&](int32_t row) {
+      // Set the values between the last non-null and this to type default.
+      for (; toClear < row; ++toClear) {
+        rawValues[toClear] = Date();
+      }
+      rawValues[row] = readDate(source);
+      toClear = row + 1;
+    });
+  } else {
+    for (int32_t row = 0; row < size; ++row) {
+      rawValues[row] = readDate(source);
     }
   }
 }
@@ -573,6 +606,7 @@ void readColumns(
           {TypeKind::REAL, &read<float>},
           {TypeKind::DOUBLE, &read<double>},
           {TypeKind::TIMESTAMP, &read<Timestamp>},
+          {TypeKind::DATE, &read<Date>},
           {TypeKind::VARCHAR, &read<StringView>},
           {TypeKind::VARBINARY, &read<StringView>},
           {TypeKind::ARRAY, &readArrayVector},
@@ -802,6 +836,13 @@ template <>
 void VectorStream::append(folly::Range<const Timestamp*> values) {
   for (auto& value : values) {
     appendOne(value.toMillis());
+  }
+}
+
+template <>
+void VectorStream::append(folly::Range<const Date*> values) {
+  for (auto& value : values) {
+    appendOne(value.days());
   }
 }
 

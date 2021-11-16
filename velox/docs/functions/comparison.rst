@@ -8,7 +8,7 @@ These functions are not in the SQL standard, but are a common extension.
 Like most other functions in Presto, they return null if any argument is null.
 Note that in some other databases, such as PostgreSQL, they only return null
 if all arguments are null.
-The following types are supported: DOUBLE, BIGINT, VARCHAR, TIMESTAMP
+The following types are supported: DOUBLE, BIGINT, VARCHAR, TIMESTAMP, DATE
 
 .. function:: least(value1, value2, ..., valueN) -> [same as input]
 

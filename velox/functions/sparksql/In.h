@@ -23,6 +23,7 @@ namespace facebook::velox::functions::sparksql {
 //   - String, Binary
 //   - Float, Double
 //   - Timestamp
+//   - Date
 //
 // Unsupported:
 //   - Decimal

@@ -29,7 +29,7 @@ namespace facebook::velox {
 struct Date {
  public:
   constexpr Date() : days_(0) {}
-  explicit constexpr Date(int32_t days) : days_(days) {}
+  constexpr Date(int32_t days) : days_(days) {}
 
   int32_t days() const {
     return days_;
@@ -81,7 +81,7 @@ void parseTo(folly::StringPiece in, ::facebook::velox::Date& out);
 
 template <typename T>
 void toAppend(const ::facebook::velox::Date& value, T* result) {
-  VELOX_NYI();
+  result->append(value.toString());
 }
 
 } // namespace facebook::velox

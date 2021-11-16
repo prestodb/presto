@@ -220,6 +220,10 @@ TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   vector = vectorMaker_.flatVectorNullable<Timestamp>({});
   EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
 
+  // Dates.
+  vector = vectorMaker_.flatVectorNullable<Date>({});
+  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+
   // Arrays.
   vector = vectorMaker_.arrayVector<int64_t>({{1, 2, 3}, {4, 5}});
   EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);

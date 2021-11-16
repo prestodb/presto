@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 #include "velox/type/Date.h"
+#include "velox/type/TimestampConversion.h"
 
 namespace facebook::velox {
 
 void parseTo(folly::StringPiece in, Date& out) {
-  VELOX_NYI();
+  auto daysSinceEpoch = util::fromDateString(in.data());
+  out = Date(daysSinceEpoch);
 }
 
 std::string Date::toString() const {
   // Find the number of seconds for the days_;
-  int64_t daySeconds = days_ * 86400;
+  // Casting 86400 to int64 to handle overflows gracefully.
+  int64_t daySeconds = days_ * (int64_t)(86400);
   auto tmValue = gmtime((const time_t*)&daySeconds);
   if (!tmValue) {
-    VELOX_FAIL("Can't convert days to time: {}", days_);
+    VELOX_FAIL("Can't convert days to dates: {}", days_);
   }
 
   // return ISO 8601 time format.
