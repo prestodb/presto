@@ -102,7 +102,18 @@ function update_brew {
 function install_build_prerequisites {
   for pkg in ${MACOS_DEPS}
   do
-    brew install --formula $pkg && echo "Installation of $pkg is successful" || brew upgrade --formula $pkg
+    if [[ "${pkg}" =~ ^([0-9a-z-]*):([0-9](\.[0-9\])*)$ ]];
+    then
+      pkg=${BASH_REMATCH[1]}
+      ver=${BASH_REMATCH[2]}
+      echo "Installing '${pkg}' at '${ver}'"
+      tap="velox/local-${pkg}"
+      brew tap-new "${tap}"
+      brew extract "--version=${ver}" "${pkg}" "${tap}"
+      brew install "${tap}/${pkg}@${ver}"
+    else
+      brew install --formula "${pkg}" && echo "Installation of ${pkg} is successful" || brew upgrade --formula "$pkg"
+    fi
   done
 
   pip3 install --user cmake-format regex
