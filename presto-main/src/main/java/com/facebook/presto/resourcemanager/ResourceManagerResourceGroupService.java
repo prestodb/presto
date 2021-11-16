@@ -17,7 +17,6 @@ import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import io.airlift.units.Duration;
@@ -25,11 +24,10 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -39,8 +37,9 @@ public class ResourceManagerResourceGroupService
 {
     private final DriftClient<ResourceManagerClient> resourceManagerClient;
     private final InternalNodeManager internalNodeManager;
-    private final Cache<InternalNode, List<ResourceGroupRuntimeInfo>> cache;
+    private final Function<InternalNode, List<ResourceGroupRuntimeInfo>> cache;
     private final Executor executor = Executors.newCachedThreadPool();
+    private final Boolean resourceGroupServiceCacheEnable;
 
     @Inject
     public ResourceManagerResourceGroupService(
@@ -52,31 +51,32 @@ public class ResourceManagerResourceGroupService
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         Duration cacheExpireDuration = requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getResourceGroupServiceCacheExpireInterval();
         Duration cacheRefreshDuration = resourceManagerConfig.getResourceGroupServiceCacheRefreshInterval();
-        this.cache = CacheBuilder.newBuilder()
-                .expireAfterWrite(cacheExpireDuration.roundTo(MILLISECONDS), MILLISECONDS)
-                .refreshAfterWrite(cacheRefreshDuration.roundTo(MILLISECONDS), MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<InternalNode, List<ResourceGroupRuntimeInfo>>() {
-                    @Override
-                    public List<ResourceGroupRuntimeInfo> load(InternalNode internalNode)
-                            throws ResourceManagerInconsistentException
+        resourceGroupServiceCacheEnable = resourceManagerConfig.getResourceGroupServiceCacheEnabled();
+        if (resourceGroupServiceCacheEnable) {
+            this.cache = CacheBuilder.newBuilder()
+                    .expireAfterWrite(cacheExpireDuration.roundTo(MILLISECONDS), MILLISECONDS)
+                    .refreshAfterWrite(cacheRefreshDuration.roundTo(MILLISECONDS), MILLISECONDS)
+                    .build(asyncReloading(new CacheLoader<InternalNode, List<ResourceGroupRuntimeInfo>>()
                     {
-                        return getResourceGroupInfos(internalNode);
-                    }
-                }, executor));
+                        @Override
+                        public List<ResourceGroupRuntimeInfo> load(InternalNode internalNode)
+                                throws ResourceManagerInconsistentException
+                        {
+                            return getResourceGroupInfos(internalNode);
+                        }
+                    }, executor));
+        }
+        else {
+            this.cache = internalNode -> getResourceGroupInfos(internalNode);
+        }
     }
 
     @Override
     public List<ResourceGroupRuntimeInfo> getResourceGroupInfo()
             throws ResourceManagerInconsistentException
     {
-        try {
-            InternalNode currentNode = internalNodeManager.getCurrentNode();
-            return cache.get(currentNode, () -> getResourceGroupInfos(currentNode));
-        }
-        catch (ExecutionException e) {
-            throwIfInstanceOf(e.getCause(), ResourceManagerInconsistentException.class);
-            throw new RuntimeException(e.getCause());
-        }
+        InternalNode currentNode = internalNodeManager.getCurrentNode();
+        return cache.apply(currentNode);
     }
 
     private List<ResourceGroupRuntimeInfo> getResourceGroupInfos(InternalNode internalNode)
