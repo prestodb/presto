@@ -173,6 +173,7 @@
         <module>presto-testng-services</module>
         <module>presto-node-ttl-fetchers</module>
         <module>presto-cluster-ttl-providers</module>
+        <module>presto-hive-functions</module>
     </modules>
 
     <dependencyManagement>
@@ -243,6 +244,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cluster-ttl-providers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hive-functions</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
