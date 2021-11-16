@@ -59,8 +59,6 @@ public class TestDistributedQueuesDb
         coordinatorProperties.put("resource-manager.query-heartbeat-interval", "10ms");
         coordinatorProperties.put("resource-group-runtimeinfo-refresh-interval", "100ms");
         coordinatorProperties.put("concurrency-threshold-to-enable-resource-group-refresh", "0");
-        coordinatorProperties.put("resource-manager.resource-group-service-cache-expire-interval", "1s");
-        coordinatorProperties.put("resource-manager.resource-group-service-cache-refresh-interval", "10ms");
 
         queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2);
     }
