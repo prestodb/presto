@@ -38,8 +38,7 @@ class SelectiveColumnReader : public ColumnReader {
       const EncodingKey& ek,
       StripeStreams& stripe,
       common::ScanSpec* scanSpec,
-      const TypePtr& type,
-      bool loadIndex = false);
+      const TypePtr& type);
 
   /**
    * Read the next group of values into a RowVector.
@@ -188,6 +187,20 @@ class SelectiveColumnReader : public ColumnReader {
     readOffset_ = readOffset;
   }
 
+  virtual void setReadOffsetRecursive(int32_t readOffset) {
+    setReadOffset(readOffset);
+  }
+
+  // Recursively sets 'isTopLevel_'. Recurses down non-nullable structs,
+  // otherwise only sets 'isTopLevel_' of 'this'
+  virtual void setIsTopLevel() {
+    isTopLevel_ = true;
+  }
+
+  bool isTopLevel() const {
+    return isTopLevel_;
+  }
+
   uint64_t initTimeClocks() const {
     return initTimeClocks_;
   }
@@ -229,6 +242,7 @@ class SelectiveColumnReader : public ColumnReader {
 
  protected:
   static constexpr int8_t kNoValueSize = -1;
+  static constexpr uint32_t kRowGroupNotSet = ~0;
 
   template <typename T>
   void ensureValuesCapacity(vector_size_t numRows);
@@ -278,6 +292,7 @@ class SelectiveColumnReader : public ColumnReader {
   char* copyStringValue(folly::StringPiece value);
 
   void ensureRowGroupIndex() const {
+    VELOX_CHECK(index_ || indexStream_, "Reader needs to have an index stream");
     if (indexStream_) {
       index_ = ProtoUtils::readProto<proto::RowIndex>(std::move(indexStream_));
     }
@@ -292,6 +307,7 @@ class SelectiveColumnReader : public ColumnReader {
   mutable std::unique_ptr<proto::RowIndex> index_;
   // Number of rows in a row group. Last row group may have fewer rows.
   uint32_t rowsPerRowGroup_;
+
   // Row number after last read row, relative to stripe start.
   vector_size_t readOffset_ = 0;
   // The rows to process in read(). References memory supplied by
@@ -326,6 +342,13 @@ class SelectiveColumnReader : public ColumnReader {
 
   // true if 'this' is in a state where gatValues can be called.
   bool mayGetValues_ = false;
+
+  // True if row numbers of 'this' correspond 1:1 to row numbers in
+  // the file. This is false inside lists, maps and nullable
+  // structs. If true, a skip of n rows can use row group indices to
+  // skip long distances. Lazy vectors will only be made for results
+  // of top level readers.
+  bool isTopLevel_{false};
 
   // Maps from position in non-null rows to a position in value
   // sequence with nulls included. Empty if no nulls.
@@ -384,8 +407,10 @@ class SelectiveColumnReaderFactory : public ColumnReaderFactory {
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
       uint32_t sequence) override {
-    return SelectiveColumnReader::build(
+    auto reader = SelectiveColumnReader::build(
         requestedType, dataType, stripe, scanSpec_, sequence);
+    reader->setIsTopLevel();
+    return reader;
   }
 
  private:

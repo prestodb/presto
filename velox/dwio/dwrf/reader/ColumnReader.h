@@ -87,6 +87,9 @@ class ColumnReader {
     return kEmpty;
   }
 
+  // Sets the streams of this and child readers to the first row of
+  // the row group at 'index'. This advances readers and touches the
+  // actual data, unlike setRowGroup().
   virtual void seekToRowGroup(uint32_t /*index*/) {
     VELOX_NYI();
   }

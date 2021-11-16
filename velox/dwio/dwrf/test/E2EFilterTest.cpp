@@ -88,10 +88,16 @@ struct FilterSpec {
   float startPct = 50;
   float selectPct = 20;
   FilterKind filterKind = FilterKind::kBigintRange;
+  // If true, makes a filter that matches max value in the column so as to skip
+  // row groups on min/max.
+  bool isForRowGroupSkip{false};
 };
 
 class AbstractColumnStats {
  public:
+  // ASCII string greater than test data values. Used for row group skipping
+  // tests.
+  static constexpr const char* kMaxString = "~~~~~";
   explicit AbstractColumnStats(TypePtr type) : type_(type) {}
 
   virtual ~AbstractColumnStats() = default;
@@ -108,6 +114,13 @@ class AbstractColumnStats {
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
       std::vector<uint32_t>& hits) = 0;
+
+  virtual std::unique_ptr<velox::common::Filter> rowGroupSkipFilter(
+      const std::vector<RowVectorPtr>& /*batches*/,
+      const Subfield& /*subfield*/,
+      std::vector<uint32_t>& /*hits*/) {
+    VELOX_NYI();
+  }
 
  protected:
   const TypePtr type_;
@@ -191,6 +204,38 @@ class ColumnStats : public AbstractColumnStats {
     return filter;
   }
 
+  std::unique_ptr<velox::common::Filter> rowGroupSkipFilter(
+      const std::vector<RowVectorPtr>& batches,
+      const Subfield& subfield,
+      std::vector<uint32_t>& hits) override {
+    std::unique_ptr<velox::common::Filter> filter;
+    filter = makeRowGroupSkipRangeFilter(batches, subfield);
+    size_t numHits = 0;
+    SimpleVector<T>* values = nullptr;
+    int32_t previousBatch = -1;
+    for (auto hit : hits) {
+      auto batch = batchNumber(hit);
+      if (batch != previousBatch) {
+        previousBatch = batch;
+        auto vector = batches[batch];
+        values = getChildBySubfield(batches[batch].get(), subfield)
+                     ->as<SimpleVector<T>>();
+      }
+      auto row = batchRow(hit);
+      if (values->isNullAt(row)) {
+        if (filter->testNull()) {
+          hits[numHits++] = hit;
+        }
+        continue;
+      }
+      if (velox::common::applyFilter(*filter, values->valueAt(row))) {
+        hits[numHits++] = hit;
+      }
+    }
+    hits.resize(numHits);
+    return filter;
+  }
+
  private:
   void addSample(SimpleVector<T>* vector, vector_size_t index) {
     ++numSamples_;
@@ -237,6 +282,31 @@ class ColumnStats : public AbstractColumnStats {
     }
     return std::make_unique<velox::common::BigintRange>(
         lower, upper, selectPct > 25);
+  }
+
+  std::unique_ptr<velox::common::Filter> makeRowGroupSkipRangeFilter(
+      const std::vector<RowVectorPtr>& batches,
+      const Subfield& subfield) {
+    T max;
+    bool hasMax = false;
+    for (auto batch : batches) {
+      auto values =
+          getChildBySubfield(batch.get(), subfield)->as<SimpleVector<T>>();
+
+      for (auto i = 0; i < values->size(); ++i) {
+        if (values->isNullAt(i)) {
+          continue;
+        }
+        if (hasMax && max < values->valueAt(i)) {
+          max = values->valueAt(i);
+        } else if (!hasMax) {
+          max = values->valueAt(i);
+          hasMax = true;
+        }
+      }
+    }
+
+    return std::make_unique<velox::common::BigintRange>(max, max, false);
   }
 
   static constexpr size_t kUniquesMask = 0xfff;
@@ -298,6 +368,15 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
       false,
       selectPct > 25);
 }
+template <>
+std::unique_ptr<velox::common::Filter>
+ColumnStats<StringView>::makeRowGroupSkipRangeFilter(
+    const std::vector<RowVectorPtr>& /*batches*/,
+    const Subfield& /*subfield*/) {
+  static std::string max = kMaxString;
+  return std::make_unique<velox::common::BytesRange>(
+      max, false, false, max, false, false, false);
+}
 
 template <TypeKind Kind>
 std::unique_ptr<AbstractColumnStats> makeStats(TypePtr type) {
@@ -326,6 +405,8 @@ void TestingHook<StringView>::addValue(vector_size_t row, const void* value) {
 
 class E2EFilterTest : public testing::Test {
  protected:
+  static constexpr int32_t kRowsInGroup = 10'000;
+
   void SetUp() override {
     pool_ = memory::getDefaultScopedMemoryPool();
     rng_.seed(1);
@@ -334,7 +415,8 @@ class E2EFilterTest : public testing::Test {
   void makeDataset(
       const std::string& columns,
       std::function<void()> customizeData,
-      bool wrapInStruct) {
+      bool wrapInStruct,
+      bool forRowGroupSkip = false) {
     const size_t batchCount = 4;
     const size_t size = 25'000;
     std::string schema = wrapInStruct
@@ -351,8 +433,10 @@ class E2EFilterTest : public testing::Test {
     if (customizeData) {
       customizeData();
     }
-
-    writeToMemory(rowType_, batches_);
+    if (forRowGroupSkip) {
+      addRowGroupSpecificData();
+    }
+    writeToMemory(rowType_, batches_, forRowGroupSkip);
 
     auto spec = makeScanSpec(SubfieldFilters{});
 
@@ -360,6 +444,53 @@ class E2EFilterTest : public testing::Test {
     readWithoutFilter(spec.get(), batches_, timeWithNoFilter);
     std::cout << " Time without filter: " << timeWithNoFilter << " us"
               << std::endl;
+  }
+
+  // Adds high values to 'batches_' so that these values occur only in some row
+  // groups. Tests skipping row groups based on row group stats.
+  void addRowGroupSpecificData() {
+    auto type = batches_[0]->type();
+    for (auto i = 0; i < type->size(); ++i) {
+      if (type->childAt(i)->kind() == TypeKind::BIGINT) {
+        setRowGroupMarkers<int64_t>(
+            batches_, i, std::numeric_limits<int64_t>::max());
+        return;
+      }
+      if (type->childAt(i)->kind() == TypeKind::VARCHAR) {
+        static StringView marker(
+            AbstractColumnStats::kMaxString,
+            strlen(AbstractColumnStats::kMaxString));
+        setRowGroupMarkers<StringView>(batches_, i, marker);
+        return;
+      }
+    }
+  }
+
+  // Adds 'marker' to random places in selectable  row groups for 'i'th child in
+  // 'batches' If 'marker' occurs in skippable row groups, sets the element to
+  // T(). Row group numbers that are multiples of 3 are skippable.
+  template <typename T>
+  void setRowGroupMarkers(
+      const std::vector<RowVectorPtr>& batches,
+      int32_t child,
+      T marker) {
+    int32_t row = 0;
+    for (auto& batch : batches) {
+      auto values = batch->childAt(child)->as<FlatVector<T>>();
+      for (auto i = 0; i < values->size(); ++i) {
+        auto rowGroup = row++ / kRowsInGroup;
+        bool isIn = (rowGroup % 3) != 0;
+        if (isIn) {
+          if (folly::Random::rand32(rng_) % 100 == 0) {
+            values->set(i, marker);
+          }
+        } else {
+          if (!values->isNullAt(i) && values->valueAt(i) == marker) {
+            values->set(i, T());
+          }
+        }
+      }
+    }
   }
 
   SubfieldFilters makeFilters(
@@ -416,13 +547,18 @@ class E2EFilterTest : public testing::Test {
       }
 
       stats->sample(batches, subfield, hitRows);
-      auto filter = stats->filter(
-          filterSpec.startPct,
-          filterSpec.selectPct,
-          filterSpec.filterKind,
-          batches,
-          subfield,
-          hitRows);
+      std::unique_ptr<Filter> filter;
+      if (filterSpec.isForRowGroupSkip) {
+        filter = stats->rowGroupSkipFilter(batches, subfield, hitRows);
+      } else {
+        filter = stats->filter(
+            filterSpec.startPct,
+            filterSpec.selectPct,
+            filterSpec.filterKind,
+            batches,
+            subfield,
+            hitRows);
+      }
       filters[Subfield(filterSpec.field)] = std::move(filter);
     }
 
@@ -514,6 +650,22 @@ class E2EFilterTest : public testing::Test {
     }
   }
 
+  // Makes non-null strings unique by appending a row number.
+  void makeStringUnique(const Subfield& field) {
+    for (RowVectorPtr batch : batches_) {
+      auto strings =
+          getChildBySubfield(batch.get(), field)->as<FlatVector<StringView>>();
+      for (auto row = 0; row < strings->size(); ++row) {
+        if (strings->isNullAt(row)) {
+          continue;
+        }
+        std::string value = strings->valueAt(row);
+        value += fmt::format("{}", row);
+        strings->set(row, StringView(value));
+      }
+    }
+  }
+
   // Makes all data in 'batches_' non-null. This finds a sampling of
   // non-null values from each column and replaces nulls in the column
   // in question with one of these. A column where only nulls are
@@ -547,15 +699,20 @@ class E2EFilterTest : public testing::Test {
 
   void writeToMemory(
       const TypePtr& type,
-      const std::vector<RowVectorPtr>& batches) {
+      const std::vector<RowVectorPtr>& batches,
+      bool forRowGroupSkip) {
     auto config = std::make_shared<dwrf::Config>();
     config->set(dwrf::Config::COMPRESSION, dwrf::CompressionKind_NONE);
     config->set(dwrf::Config::USE_VINTS, useVInts_);
     WriterOptions options;
     options.config = config;
     options.schema = type;
-    options.flushPolicy = [](auto /* unused */, auto& /* unused */) {
-      return true;
+    int32_t flushCounter = 0;
+    // If we test row group skip, we have all the data in one stripe. For scan,
+    // we start  a stripe every 'flushEveryNBatches_' batches.
+    options.flushPolicy = [&](auto /* unused */, auto& /* unused */) {
+      return forRowGroupSkip ? false
+                             : (++flushCounter % flushEveryNBatches_ == 0);
     };
     sink_ = std::make_unique<MemorySink>(*pool_, 200 * 1024 * 1024);
     sinkPtr_ = sink_.get();
@@ -627,7 +784,7 @@ class E2EFilterTest : public testing::Test {
     // The  spec must stay live over the lifetime of the reader.
     rowReaderOpts.setScanSpec(spec);
     auto rowReader = reader->createRowReader(rowReaderOpts);
-
+    runtimeStats_ = dwio::common::RuntimeStatistics();
     auto rowIndex = 0;
     auto batch = BaseVector::create(rowType_, 1, pool_.get());
     while (true) {
@@ -675,6 +832,7 @@ class E2EFilterTest : public testing::Test {
     if (!skipCheck) {
       ASSERT_EQ(rowIndex, hitRows.size());
     }
+    rowReader->updateRuntimeStats(runtimeStats_);
   }
 
   template <TypeKind Kind>
@@ -731,24 +889,48 @@ class E2EFilterTest : public testing::Test {
   static void makeFieldSpecs(
       const std::string& pathPrefix,
       int32_t level,
-      const std::shared_ptr<const RowType>& type,
+      const std::shared_ptr<const Type>& type,
       ScanSpec* spec) {
-    for (auto i = 0; i < type->size(); ++i) {
-      std::string path =
-          level == 0 ? type->nameOf(i) : pathPrefix + "." + type->nameOf(i);
-      Subfield subfield(path);
-      ScanSpec* fieldSpec = spec->getOrCreateChild(subfield);
-      fieldSpec->setProjectOut(true);
-      fieldSpec->setExtractValues(true);
-      fieldSpec->setChannel(i);
-      auto fieldType = type->childAt(i);
-      if (fieldType->kind() == TypeKind::ROW) {
-        makeFieldSpecs(
-            path,
-            level + 1,
-            std::static_pointer_cast<const RowType>(fieldType),
-            spec);
+    switch (type->kind()) {
+      case TypeKind::ROW: {
+        auto rowType = dynamic_cast<const RowType*>(type.get());
+        for (auto i = 0; i < type->size(); ++i) {
+          std::string path = level == 0 ? rowType->nameOf(i)
+                                        : pathPrefix + "." + rowType->nameOf(i);
+          Subfield subfield(path);
+          ScanSpec* fieldSpec = spec->getOrCreateChild(subfield);
+          fieldSpec->setProjectOut(true);
+          fieldSpec->setExtractValues(true);
+          fieldSpec->setChannel(i);
+          makeFieldSpecs(path, level + 1, type->childAt(i), spec);
+        }
+        break;
       }
+      case TypeKind::MAP: {
+        auto keySpec = spec->getOrCreateChild(Subfield(pathPrefix + ".keys"));
+        keySpec->setProjectOut(true);
+        keySpec->setExtractValues(true);
+        makeFieldSpecs(pathPrefix + ".keys", level + 1, type->childAt(0), spec);
+        auto valueSpec =
+            spec->getOrCreateChild(Subfield(pathPrefix + ".elements"));
+        valueSpec->setProjectOut(true);
+        valueSpec->setExtractValues(true);
+        makeFieldSpecs(
+            pathPrefix + ".elements", level + 1, type->childAt(1), spec);
+        break;
+      }
+      case TypeKind::ARRAY: {
+        auto childSpec =
+            spec->getOrCreateChild(Subfield(pathPrefix + ".elements"));
+        childSpec->setProjectOut(true);
+        childSpec->setExtractValues(true);
+        makeFieldSpecs(
+            pathPrefix + ".elements", level + 1, type->childAt(0), spec);
+        break;
+      }
+
+      default:
+        break;
     }
   }
 
@@ -853,6 +1035,29 @@ class E2EFilterTest : public testing::Test {
               << "in " << timeWithFilter << " us" << std::endl;
   }
 
+  void testRowGroupSkip(const std::vector<std::string>& filterable) {
+    std::vector<FilterSpec> specs;
+    // Makes a row group skipping filter for the first bigint column.
+    for (auto& field : filterable) {
+      VectorPtr child = getChildBySubfield(batches_[0].get(), Subfield(field));
+      if (child->typeKind() == TypeKind::BIGINT ||
+          child->typeKind() == TypeKind::VARCHAR) {
+        specs.emplace_back();
+        specs.back().field = field;
+        specs.back().isForRowGroupSkip = true;
+        break;
+      }
+    }
+    if (specs.empty()) {
+      // No suitable column.
+      return;
+    }
+    std::cout << ": Testing with row group skip " << specsToString(specs)
+              << std::endl;
+    testFilterSpecs(specs);
+    EXPECT_LT(0, runtimeStats_.skippedStrides);
+  }
+
   void testWithTypes(
       const std::string& columns,
       std::function<void()> customize,
@@ -880,6 +1085,8 @@ class E2EFilterTest : public testing::Test {
           std::cout << i << ": Testing " << specsToString(specs) << std::endl;
           testFilterSpecs(specs);
         }
+        makeDataset(columns, customize, wrapInStruct, true);
+        testRowGroupSkip(filterable);
       }
     }
     std::cout << "Coverage:" << std::endl;
@@ -898,7 +1105,10 @@ class E2EFilterTest : public testing::Test {
   std::unordered_map<std::string, std::array<int32_t, 2>> filterCoverage_;
   folly::Random::DefaultGenerator rng_;
   bool useVInts_ = true;
-}; // namespace facebook::velox::dwio::dwrf
+  dwio::common::RuntimeStatistics runtimeStats_;
+  // Number of calls to flush policy between starting new stripes.
+  int32_t flushEveryNBatches_{10};
+};
 
 TEST_F(E2EFilterTest, integerDirect) {
   testWithTypes(
@@ -984,15 +1194,21 @@ TEST_F(E2EFilterTest, floatAndDouble) {
 }
 
 TEST_F(E2EFilterTest, stringDirect) {
+  flushEveryNBatches_ = 1;
   testWithTypes(
       "string_val:string,"
       "string_val_2:string",
-      [&]() {},
+      [&]() {
+        makeStringUnique(Subfield("string_val"));
+        makeStringUnique(Subfield("string_val_2"));
+      },
+
       true,
       {"string_val", "string_val_2"},
       20,
       true);
 }
+
 TEST_F(E2EFilterTest, stringDictionary) {
   testWithTypes(
       "string_val:string,"
@@ -1013,8 +1229,8 @@ TEST_F(E2EFilterTest, listAndMap) {
       "long_val:bigint,"
       "long_val_2:bigint,"
       "int_val:int,"
-      "array_val:array<array<int>>,"
-      "map_val:map<bigint,map<int, int>>",
+      "array_val:array<struct<array_member: array<int>>>,"
+      "map_val:map<bigint,struct<nested_map: map<int, int>>>",
       [&]() {},
       true,
       {"long_val", "long_val_2", "int_val"},

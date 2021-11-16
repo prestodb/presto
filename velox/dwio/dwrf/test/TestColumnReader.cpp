@@ -296,6 +296,9 @@ TEST_P(TestColumnReader, testBooleanWithNulls) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
+
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   // alternate 4 non-null and 4 null via [0xf0 for x in range(512 / 8)]
@@ -341,6 +344,8 @@ TEST_P(TestColumnReader, testBooleanWithNullsFractional) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
@@ -399,6 +404,8 @@ TEST_P(TestColumnReader, testBooleanSkipsWithNulls) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   // alternate 4 non-null and 4 null via [0xf0 for x in range(512 / 8)]
@@ -448,6 +455,8 @@ TEST_P(TestColumnReader, testByteWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
@@ -503,6 +512,8 @@ TEST_P(TestColumnReader, testBatchReusedSizeEnsured) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_PRESENT, false))
@@ -539,6 +550,8 @@ TEST_P(TestColumnReader, testByteSkipsWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
@@ -598,6 +611,8 @@ TEST_P(TestColumnReader, testIntegerWithNulls) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   const unsigned char buffer1[] = {0x16, 0xf0};
@@ -645,6 +660,8 @@ TEST_P(TestColumnReader, testIntDictSkipNoNullsAllInDict) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
@@ -707,6 +724,8 @@ TEST_P(TestColumnReader, testIntDictSkipWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
@@ -793,6 +812,8 @@ TEST_P(TestColumnReader, testIntDictBoundary) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
 
@@ -856,6 +877,8 @@ TEST_P(StringReaderTests, testDictionaryWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, _, _)).WillRepeatedly(Return(nullptr));
   const unsigned char buffer1[] = {0x19, 0xf0};
@@ -929,6 +952,8 @@ TEST_P(StringReaderTests, testStringDictSkipNoNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   char data[1024];
@@ -1073,6 +1098,8 @@ TEST_P(StringReaderTests, testStringDictSkipWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   const unsigned char present[] = {0x16, 0xaa};
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_PRESENT, false))
@@ -1307,6 +1334,8 @@ TEST_P(TestColumnReader, testSkipWithNulls) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   const unsigned char buffer1[] = {
@@ -1402,6 +1431,8 @@ TEST_P(StringReaderTests, testBinaryDirect) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
@@ -1458,6 +1489,8 @@ TEST_P(StringReaderTests, testBinaryDirectWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
@@ -1525,6 +1558,8 @@ TEST_P(TestColumnReader, testShortBlobError) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
@@ -1568,6 +1603,8 @@ TEST_P(StringReaderTests, testStringDirectShortBuffer) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
@@ -1625,6 +1662,8 @@ TEST_P(StringReaderTests, testStringDirectShortBufferWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
@@ -1697,6 +1736,8 @@ TEST_P(StringReaderTests, testStringDirectNullAcrossWindow) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
@@ -1771,6 +1812,8 @@ TEST_P(StringReaderTests, testStringDirectSkip) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
@@ -1836,6 +1879,8 @@ TEST_P(StringReaderTests, testStringDirectSkipWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
@@ -2797,7 +2842,7 @@ TEST_P(TestColumnReader, testFloatBatchNotAligned) {
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
 
-  EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
+  EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   const float testValues[] = {1.0f, 2.5f, -100.125f};
@@ -2838,7 +2883,7 @@ TEST_P(TestColumnReader, testFloatWithNulls) {
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
 
-  EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
+  EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   // 13 non-nulls followed by 19 nulls
@@ -2907,7 +2952,7 @@ TEST_P(TestColumnReader, testFloatSkipWithNulls) {
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
 
-  EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
+  EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   // 2 non-nulls, 2 nulls, 2 non-nulls, 2 nulls
@@ -2994,7 +3039,7 @@ TEST_P(TestColumnReader, testDoubleWithNulls) {
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
 
-  EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
+  EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   // 13 non-nulls followed by 19 nulls
@@ -3068,7 +3113,7 @@ TEST_P(TestColumnReader, testDoubleSkipWithNulls) {
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
 
-  EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_ROW_INDEX, false))
+  EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   // 1 non-null, 5 nulls, 2 non-nulls
@@ -3498,6 +3543,8 @@ TEST_P(StringReaderTests, testStringDictUseBatchAfterClose) {
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
   EXPECT_CALL(streams, getStreamProxy(1, proto::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
 
@@ -3606,6 +3653,8 @@ TEST_P(StringReaderTests, testStringDictStrideDictDoesntExist) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   std::array<char, 1024> data;
@@ -3759,6 +3808,8 @@ TEST_P(StringReaderTests, testStringDictZeroLengthStrideDict) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   std::array<char, 1024> data;
