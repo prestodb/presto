@@ -90,42 +90,32 @@ public class HiveMaterializedViewUtils
             throw new PrestoException(NOT_SUPPORTED, "Unpartitioned materialized view is not supported.");
         }
 
-        List<Table> baseTables = viewDefinition.getBaseTables().stream()
+        viewDefinition.getBaseTables().stream()
                 .map(baseTableName -> metastore.getTable(metastoreContext, baseTableName.getSchemaName(), baseTableName.getTableName())
                         .orElseThrow(() -> new TableNotFoundException(baseTableName)))
-                .collect(toImmutableList());
-
-        Map<SchemaTableName, List<Column>> baseTablePartitions = baseTables.stream()
-                .collect(toImmutableMap(
-                        table -> new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                        Table::getPartitionColumns));
-
-        for (SchemaTableName baseTable : baseTablePartitions.keySet()) {
-            if (!isCommonPartitionFound(baseTable, baseTablePartitions.get(baseTable), viewPartitions, viewToBaseColumnMap)) {
-                throw new PrestoException(
-                        NOT_SUPPORTED,
-                        format("Materialized view %s must have at least partition to base table partition mapping for all base tables.", viewName));
-            }
-        }
+                .forEach(table -> {
+                    if (!isCommonPartitionFound(table, viewPartitions, viewToBaseColumnMap)) {
+                        throw new PrestoException(
+                                NOT_SUPPORTED,
+                                format("Materialized view %s must have at least partition to base table partition mapping for all base tables.", viewName));
+                    }
+                });
     }
 
     private static boolean isCommonPartitionFound(
-            SchemaTableName baseTable,
-            List<Column> baseTablePartitions,
+            Table baseTable,
             List<Column> viewPartitions,
             Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap)
     {
+        SchemaTableName baseTableName = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
         for (Column viewPartition : viewPartitions) {
-            for (Column basePartition : baseTablePartitions) {
-                if (viewToBaseColumnMap
-                        .getOrDefault(viewPartition.getName(), emptyMap())
-                        .getOrDefault(baseTable, "")
-                        .equals(basePartition.getName())) {
-                    return true;
-                }
+            String viewPartitionMapToBaseTablePartition = viewToBaseColumnMap
+                    .getOrDefault(viewPartition.getName(), emptyMap())
+                    .getOrDefault(baseTableName, "");
+            if (baseTable.getPartitionColumns().stream().anyMatch(baseTablePartition -> baseTablePartition.getName().equals(viewPartitionMapToBaseTablePartition))) {
+                return true;
             }
         }
-
         return false;
     }
 

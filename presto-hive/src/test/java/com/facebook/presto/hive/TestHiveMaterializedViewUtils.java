@@ -23,6 +23,9 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +43,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.differenceDataPredicates;
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.getEmptyMaterializedViewDataPredicates;
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.getMaterializedDataPredicates;
+import static com.facebook.presto.hive.HiveMaterializedViewUtils.validateMaterializedViewPartitionColumns;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -55,6 +59,7 @@ public class TestHiveMaterializedViewUtils
     private static final String USER_NAME = "user";
     private static final String LOCATION = "test/location";
     private static final String QUERY_ID = "queryId";
+    private static final String SQL = "sql";
 
     private final LiteralEncoder literalEncoder = new LiteralEncoder(new TestingBlockEncodingSerde());
     private final MetastoreContext metastoreContext = new MetastoreContext(USER_NAME, QUERY_ID, Optional.empty(), Optional.empty(), Optional.empty());
@@ -439,6 +444,97 @@ public class TestHiveMaterializedViewUtils
         assertEquals(diffDataPredicates, getEmptyMaterializedViewDataPredicates());
     }
 
+    @Test
+    public void testValidateMaterializedViewPartitionColumnsOneColumnMatch()
+    {
+        TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
+
+        Column dsColumn = new Column("ds", HIVE_STRING, Optional.empty());
+        Column shipmodeColumn = new Column("shipmode", HIVE_STRING, Optional.empty());
+        List<Column> partitionColumns = ImmutableList.of(dsColumn, shipmodeColumn);
+
+        SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
+        Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(dsColumn.getName(), ImmutableMap.of(tableName, dsColumn.getName()));
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
+        List<Column> viewPartitionColumns = ImmutableList.of(dsColumn);
+
+        validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
+    }
+
+    @Test
+    public void testValidateMaterializedViewPartitionColumnsTwoColumnMatchDifferentTable()
+    {
+        TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
+
+        Column dsColumn = new Column("ds", HIVE_STRING, Optional.empty());
+        Column shipmodeColumn = new Column("shipmode", HIVE_STRING, Optional.empty());
+
+        SchemaTableName tableName1 = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(ImmutableList.of(dsColumn)), ImmutableList.of());
+
+        String table2 = "table2";
+        SchemaTableName tableName2 = new SchemaTableName(SCHEMA_NAME, table2);
+        testMetastore.addTable(SCHEMA_NAME, table2, getTable(table2, ImmutableList.of(shipmodeColumn)), ImmutableList.of());
+
+        Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(
+                dsColumn.getName(), ImmutableMap.of(tableName1, dsColumn.getName()),
+                shipmodeColumn.getName(), ImmutableMap.of(tableName2, shipmodeColumn.getName()));
+        List<Column> viewPartitionColumns = ImmutableList.of(dsColumn, shipmodeColumn);
+
+        validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName1, tableName2), originalColumnMapping));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Materialized view schema.table must have at least one column directly defined by a base table column.")
+    public void testValidateMaterializedViewPartitionColumnsEmptyBaseColumnMap()
+    {
+        TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
+
+        Column dsColumn = new Column("ds", HIVE_STRING, Optional.empty());
+        Column shipmodeColumn = new Column("shipmode", HIVE_STRING, Optional.empty());
+        List<Column> partitionColumns = ImmutableList.of(dsColumn, shipmodeColumn);
+
+        SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
+        Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of();
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
+        List<Column> viewPartitionColumns = ImmutableList.of(dsColumn);
+
+        validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Unpartitioned materialized view is not supported.")
+    public void testValidateMaterializedViewPartitionColumnsEmptyViewPartition()
+    {
+        TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
+
+        Column dsColumn = new Column("ds", HIVE_STRING, Optional.empty());
+        Column shipmodeColumn = new Column("shipmode", HIVE_STRING, Optional.empty());
+        List<Column> partitionColumns = ImmutableList.of(dsColumn, shipmodeColumn);
+
+        SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
+        Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(dsColumn.getName(), ImmutableMap.of(tableName, dsColumn.getName()));
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
+        List<Column> viewPartitionColumns = ImmutableList.of();
+
+        validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Materialized view schema.table must have at least partition to base table partition mapping for all base tables.")
+    public void testValidateMaterializedViewPartitionColumnsNoneCommonPartition()
+    {
+        TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
+
+        Column dsColumn = new Column("ds", HIVE_STRING, Optional.empty());
+        Column shipmodeColumn = new Column("shipmode", HIVE_STRING, Optional.empty());
+        List<Column> partitionColumns = ImmutableList.of(shipmodeColumn);
+
+        SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, TABLE_NAME);
+        Map<String, Map<SchemaTableName, String>> originalColumnMapping = ImmutableMap.of(dsColumn.getName(), ImmutableMap.of(tableName, dsColumn.getName()));
+        testMetastore.addTable(SCHEMA_NAME, TABLE_NAME, getTable(partitionColumns), ImmutableList.of());
+        List<Column> viewPartitionColumns = ImmutableList.of(dsColumn);
+
+        validateMaterializedViewPartitionColumns(testMetastore, metastoreContext, getTable(viewPartitionColumns), getConnectorMaterializedViewDefinition(ImmutableList.of(tableName), originalColumnMapping));
+    }
+
     private void comparePredicates(MaterializedDataPredicates dataPredicates, List<String> keys, ImmutableList<List<TestingPartitionResult>> results)
     {
         List<String> columnNames = dataPredicates.getColumnNames();
@@ -470,9 +566,14 @@ public class TestHiveMaterializedViewUtils
 
     private static Table getTable(List<Column> partitionColumns)
     {
+        return getTable(TABLE_NAME, partitionColumns);
+    }
+
+    private static Table getTable(String tableName, List<Column> partitionColumns)
+    {
         return new Table(
                 SCHEMA_NAME,
-                TABLE_NAME,
+                tableName,
                 USER_NAME,
                 PrestoTableType.MANAGED_TABLE,
                 new Storage(fromHiveStorageFormat(ORC),
@@ -500,5 +601,12 @@ public class TestHiveMaterializedViewUtils
             this.type = type;
             this.partitionValue = partitionValue;
         }
+    }
+
+    private static ConnectorMaterializedViewDefinition getConnectorMaterializedViewDefinition(
+            List<SchemaTableName> tables,
+            Map<String, Map<SchemaTableName, String>> originalColumnMapping)
+    {
+        return new ConnectorMaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, Optional.empty());
     }
 }
