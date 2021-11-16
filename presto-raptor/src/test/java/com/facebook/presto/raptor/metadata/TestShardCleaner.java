@@ -300,7 +300,7 @@ public class TestShardCleaner
         assertFalse(shardFileExists(shard4));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCleanBackupShards()
             throws Exception
     {
@@ -339,7 +339,7 @@ public class TestShardCleaner
                 row(shard3));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDeleteOldCompletedTransactions()
     {
         TestingDao dao = dbi.onDemand(TestingDao.class);
