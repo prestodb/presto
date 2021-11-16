@@ -235,3 +235,12 @@ TEST(DuckParserTest, isNull) {
 TEST(DuckParserTest, isNotNull) {
   EXPECT_EQ("not(is_null(\"a\"))", parseExpr("a IS NOT NULL")->toString());
 }
+
+TEST(DuckParserTest, structExtract) {
+  // struct_extract is not the desired parsed function, but it being handled
+  // enables nested dot (e.g. (a).b.c or (a.b).c)
+  EXPECT_EQ("dot(\"a\",\"b\")", parseExpr("(a).b")->toString());
+  EXPECT_EQ("dot(\"a\",\"b\")", parseExpr("(a.b)")->toString());
+  EXPECT_EQ("dot(dot(\"a\",\"b\"),\"c\")", parseExpr("(a).b.c")->toString());
+  EXPECT_EQ("dot(dot(\"a\",\"b\"),\"c\")", parseExpr("(a.b).c")->toString());
+}

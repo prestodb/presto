@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/duckdb/conversion/DuckParser.h"
+#include "velox/common/base/Exceptions.h"
+#include "velox/core/Expressions.h"
 #include "velox/duckdb/conversion/DuckConversion.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/external/duckdb/duckdb.hpp"
@@ -243,6 +245,23 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(ParsedExpression& expr) {
 
   for (const auto& c : operExpr.children) {
     params.emplace_back(parseExpr(*c));
+  }
+
+  // STRUCT_EXTRACT(struct, 'entry') resolves nested field access such as
+  // (a).b.c, (a.b).c
+  if (expr.GetExpressionType() == ExpressionType::STRUCT_EXTRACT) {
+    VELOX_CHECK_EQ(params.size(), 2);
+    std::vector<std::shared_ptr<const core::IExpr>> input = {params[0]};
+
+    if (auto constantExpr =
+            std::dynamic_pointer_cast<const core::ConstantExpr>(params[1])) {
+      auto fieldName = constantExpr->value().value<std::string>();
+
+      return std::make_shared<const core::FieldAccessExpr>(
+          fieldName, std::move(input));
+    } else {
+      VELOX_UNSUPPORTED("STRUCT_EXTRACT field name must be constant");
+    }
   }
 
   if (expr.GetExpressionType() == ExpressionType::OPERATOR_IS_NOT_NULL) {
