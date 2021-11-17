@@ -15,6 +15,7 @@
  */
 #include "velox/exec/RowContainer.h"
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <array>
 #include <random>
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
@@ -27,6 +28,21 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::test;
 using namespace facebook::velox::dwio;
+
+namespace {
+static void assertEqualVectors(
+    const VectorPtr& expected,
+    const VectorPtr& actual,
+    const std::string& additionalContext = "") {
+  ASSERT_EQ(expected->size(), actual->size());
+
+  for (auto i = 0; i < expected->size(); i++) {
+    ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
+        << "at " << i << ": " << expected->toString(i) << " vs. "
+        << actual->toString(i) << additionalContext;
+  }
+}
+} // namespace
 
 class RowContainerTest : public testing::Test {
  protected:
@@ -132,6 +148,64 @@ class RowContainerTest : public testing::Test {
     testExtractColumnForAllRows(rowContainer, rows, 0, input);
 
     testExtractColumnForOddRows(rowContainer, rows, 0, input);
+  }
+
+  template <typename T>
+  void testCompareFloats(TypePtr type, bool ascending) {
+    auto rowContainer = makeRowContainer({type}, {type});
+    auto lowest = std::numeric_limits<T>::lowest();
+    auto min = std::numeric_limits<T>::min();
+    auto max = std::numeric_limits<T>::max();
+    auto nan = std::numeric_limits<T>::quiet_NaN();
+    auto inf = std::numeric_limits<T>::infinity();
+
+    facebook::velox::test::VectorMaker vectorMaker{pool_.get()};
+    VectorPtr values =
+        vectorMaker.flatVector<T>({max, inf, 0.0, nan, lowest, min});
+    int numRows = values->size();
+
+    SelectivityVector allRows(numRows);
+    DecodedVector decoded(*values, allRows);
+    std::vector<char*> rows(numRows);
+    std::vector<std::pair<int, char*>> indexedRows(numRows);
+    for (size_t i = 0; i < numRows; ++i) {
+      rows[i] = rowContainer->newRow();
+      rowContainer->store(decoded, i, rows[i], 0);
+      indexedRows[i] = std::make_pair(i, rows[i]);
+    }
+
+    std::vector<T> expectedOrder = {lowest, 0.0, min, max, inf, nan};
+    if (!ascending) {
+      std::reverse(expectedOrder.begin(), expectedOrder.end());
+    }
+    VectorPtr expected = vectorMaker.flatVector<T>(expectedOrder);
+
+    // Verify compare method with two rows as input
+    std::sort(rows.begin(), rows.end(), [&](const char* l, const char* r) {
+      return rowContainer->compare(l, r, 0, {true, ascending}) < 0;
+    });
+    VectorPtr result = BaseVector::create(type, numRows, pool_.get());
+    rowContainer->extractColumn(rows.data(), numRows, 0, result);
+    assertEqualVectors(expected, result);
+
+    // Verify compare method with row and decoded vector as input
+    std::sort(
+        indexedRows.begin(),
+        indexedRows.end(),
+        [&](const std::pair<int, char*>& l, const std::pair<int, char*>& r) {
+          return rowContainer->compare(
+                     l.second,
+                     rowContainer->columnAt(0),
+                     decoded,
+                     r.first,
+                     {true, ascending}) < 0;
+        });
+    std::vector<T> sorted;
+    for (const auto& irow : indexedRows) {
+      sorted.push_back(decoded.valueAt<T>(irow.first));
+    }
+    result = vectorMaker.flatVector<T>(sorted);
+    assertEqualVectors(expected, result);
   }
 
   std::unique_ptr<memory::MemoryPool> pool_;
@@ -402,4 +476,20 @@ TEST_F(RowContainerTest, rowSize) {
   EXPECT_EQ(0, data->listRows(&iter, kNumRows, rows.data()));
 
   EXPECT_EQ(rows, rowsFromContainer);
+}
+
+// Verify comparison of fringe float values
+TEST_F(RowContainerTest, compareFloat) {
+  // Verify ascending order
+  testCompareFloats<float>(REAL(), true);
+  // Verify descending order
+  testCompareFloats<float>(REAL(), false);
+}
+
+// Verify comparison of fringe double values
+TEST_F(RowContainerTest, compareDouble) {
+  // Verify ascending order
+  testCompareFloats<double>(DOUBLE(), true);
+  // Verify descending order
+  testCompareFloats<double>(DOUBLE(), false);
 }

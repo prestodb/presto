@@ -564,7 +564,7 @@ class RowContainer {
     }
     auto left = valueAt<T>(row, column.offset());
     auto right = decoded.valueAt<T>(index);
-    auto result = left < right ? -1 : left == right ? 0 : 1;
+    auto result = comparePrimitiveAsc(left, right);
     return flags.ascending ? result : result * -1;
   }
 
@@ -599,8 +599,23 @@ class RowContainer {
     }
     auto leftValue = valueAt<T>(left, offset);
     auto rightValue = valueAt<T>(right, offset);
-    auto result = leftValue < rightValue ? -1 : leftValue == rightValue ? 0 : 1;
+    auto result = comparePrimitiveAsc(leftValue, rightValue);
     return flags.ascending ? result : result * -1;
+  }
+
+  template <typename T>
+  static inline int comparePrimitiveAsc(const T& left, const T& right) {
+    if constexpr (std::is_floating_point<T>::value) {
+      bool isLeftNan = std::isnan(left);
+      bool isRightNan = std::isnan(right);
+      if (isLeftNan) {
+        return isRightNan ? 0 : 1;
+      }
+      if (isRightNan) {
+        return -1;
+      }
+    }
+    return left < right ? -1 : left == right ? 0 : 1;
   }
 
   void storeComplexType(
