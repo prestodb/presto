@@ -2599,6 +2599,42 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testInsertBySelectingFromMaterializedView()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table1 = "orders_partitioned_source";
+        String table2 = "orders_partitioned_target";
+        String table3 = "orders_from_mv";
+        String view = "test_orders_view";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", table1));
+            assertTrue(getQueryRunner().tableExists(getSession(), table1));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS SELECT orderkey, orderpriority, ds FROM %s", view, table1));
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+
+            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WHERE 1=0", table2, table1), 0);
+            assertTrue(getQueryRunner().tableExists(getSession(), table2));
+
+            assertQueryFails(format("CREATE TABLE %s AS SELECT * FROM %s", table3, view),
+                    ".*CreateTableAsSelect by selecting from a materialized view \\w+ is not supported.*");
+
+            assertUpdate(format("INSERT INTO %s VALUES(99999, '1-URGENT', '2019-01-02')", table2), 1);
+            assertUpdate(format("INSERT INTO %s SELECT * FROM %s WHERE ds = '2020-01-01'", table2, table1), 255);
+            assertQueryFails(format("INSERT INTO %s SELECT * FROM %s WHERE ds = '2020-01-01'", table2, view),
+                    ".*Insert by selecting from a materialized view \\w+ is not supported.*");
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table1);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+        }
+    }
+
+    @Test
     public void testMaterializedViewQueryAccessControl()
     {
         QueryRunner queryRunner = getQueryRunner();
