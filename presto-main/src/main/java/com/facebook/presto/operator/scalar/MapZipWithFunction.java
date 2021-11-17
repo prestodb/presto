@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.NotSupportedException;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -114,11 +113,6 @@ public final class MapZipWithFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(MapZipWithLambda.class)),
                 METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType).bindTo(keyNativeHashCode).bindTo(keyBlockNativeEquals).bindTo(keyBlockHashCode));
-    }
-
-    public static Object createState(MapType mapType)
-    {
-        return new PageBuilder(ImmutableList.of(mapType));
     }
 
     public static Block mapZipWith(
