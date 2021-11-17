@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -73,7 +72,6 @@ public final class ArrayJoin
             ArrayJoin.class,
             "arrayJoinStack",
             MethodHandle.class,
-            Object.class,
             SqlFunctionProperties.class,
             Block.class,
             Slice.class);
@@ -92,8 +90,6 @@ public final class ArrayJoin
     private static final MethodHandle GET_LONG = methodHandle(Type.class, "getLong", Block.class, int.class);
     private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
 
-    private static final MethodHandle STATE_FACTORY = methodHandle(ArrayJoin.class, "createState");
-
     public static class ArrayJoinWithNullReplacement
             extends SqlScalarFunction
     {
@@ -101,7 +97,6 @@ public final class ArrayJoin
                 ArrayJoin.class,
                 "arrayJoinStack",
                 MethodHandle.class,
-                Object.class,
                 SqlFunctionProperties.class,
                 Block.class,
                 Slice.class,
@@ -171,12 +166,6 @@ public final class ArrayJoin
                 false));
     }
 
-    @UsedByGeneratedCode
-    public static Object createState()
-    {
-        return new PageBuilder(ImmutableList.of(VARCHAR));
-    }
-
     @Override
     public SqlFunctionVisibility getVisibility()
     {
@@ -225,7 +214,7 @@ public final class ArrayJoin
                     false,
                     argumentProperties,
                     methodHandleStack.bindTo(null),
-                    Optional.of(STATE_FACTORY));
+                    Optional.empty());
         }
         else {
             try {
@@ -273,7 +262,7 @@ public final class ArrayJoin
                                         argumentProperties,
                                         ReturnPlaceConvention.STACK,
                                         targetStack,
-                                        Optional.of(STATE_FACTORY)),
+                                        Optional.empty()),
                                 new ScalarImplementationChoice(
                                         false,
                                         argumentProperties,
@@ -290,12 +279,11 @@ public final class ArrayJoin
     @UsedByGeneratedCode
     public static Slice arrayJoinStack(
             MethodHandle castFunction,
-            Object state,
             SqlFunctionProperties properties,
             Block arrayBlock,
             Slice delimiter)
     {
-        return arrayJoinStack(castFunction, state, properties, arrayBlock, delimiter, null);
+        return arrayJoinStack(castFunction, properties, arrayBlock, delimiter, null);
     }
 
     @UsedByGeneratedCode
@@ -312,28 +300,13 @@ public final class ArrayJoin
     @UsedByGeneratedCode
     public static Slice arrayJoinStack(
             MethodHandle castFunction,
-            Object state,
             SqlFunctionProperties properties,
             Block arrayBlock,
             Slice delimiter,
             Slice nullReplacement)
     {
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        try {
-            arrayJoinProvidedBlock(castFunction, properties, blockBuilder, arrayBlock, delimiter, nullReplacement);
-        }
-        catch (PrestoException e) {
-            // Restore pageBuilder into a consistent state
-            pageBuilder.declarePosition();
-        }
-
-        pageBuilder.declarePosition();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, arrayBlock.getPositionCount() * 2);
+        arrayJoinProvidedBlock(castFunction, properties, blockBuilder, arrayBlock, delimiter, nullReplacement);
         return VARCHAR.getSlice(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
 
