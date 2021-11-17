@@ -23,22 +23,58 @@ namespace facebook::velox::dwrf {
 
 EncodingIter::EncodingIter(
     const proto::StripeFooter& footer,
-    const std::vector<proto::StripeEncryptionGroup>& encryptionGroups)
+    const std::vector<proto::StripeEncryptionGroup>& encryptionGroups,
+    int32_t encryptionGroupIndex,
+    google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+        current,
+    google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+        currentEnd)
     : footer_{footer},
       encryptionGroups_{encryptionGroups},
-      current_{footer_.encoding().begin()},
-      currentEnd_{footer_.encoding().end()} {
+      encryptionGroupIndex_{encryptionGroupIndex},
+      current_{std::move(current)},
+      currentEnd_{std::move(currentEnd)} {
   // Move to the end or a valid position.
-  if (footer_.encoding().empty()) {
+  if (current_ == currentEnd_) {
     next();
   }
 }
 
-bool EncodingIter::empty() const {
-  return footer_.encoding().empty() && emptyEncryptionGroups();
+/* static */ EncodingIter EncodingIter::begin(
+    const proto::StripeFooter& footer,
+    const std::vector<proto::StripeEncryptionGroup>& encryptionGroups) {
+  return EncodingIter{
+      footer,
+      encryptionGroups,
+      -1,
+      footer.encoding().begin(),
+      footer.encoding().end()};
 }
 
-bool EncodingIter::next() {
+/* static */ EncodingIter EncodingIter::end(
+    const proto::StripeFooter& footer,
+    const std::vector<proto::StripeEncryptionGroup>& encryptionGroups) {
+  if (encryptionGroups.empty()) {
+    const auto& footerEncodings = footer.encoding();
+    return EncodingIter{
+        footer,
+        encryptionGroups,
+        -1,
+        footerEncodings.end(),
+        footerEncodings.end()};
+  }
+  const auto lastEncryptionGroupIndex =
+      folly::to<int32_t>(encryptionGroups.size()) - 1;
+  const auto& lastEncryptionGroupEncodings = encryptionGroups.back().encoding();
+  return EncodingIter{
+      footer,
+      encryptionGroups,
+      lastEncryptionGroupIndex,
+      lastEncryptionGroupEncodings.end(),
+      lastEncryptionGroupEncodings.end()};
+}
+
+void EncodingIter::next() {
   // The check is needed for the initial position
   // if footer is empty but encryption groups are not.
   if (current_ != currentEnd_) {
@@ -47,29 +83,40 @@ bool EncodingIter::next() {
   // Get to the absolute end or a valid position.
   while (current_ == currentEnd_) {
     if (encryptionGroupIndex_ == encryptionGroups_.size() - 1) {
-      return false;
+      return;
     }
     const auto& encryptionGroup = encryptionGroups_.at(++encryptionGroupIndex_);
     current_ = encryptionGroup.encoding().begin();
     currentEnd_ = encryptionGroup.encoding().end();
   }
-  return true;
+  return;
 }
 
-const proto::ColumnEncoding& EncodingIter::current() const {
+EncodingIter& EncodingIter::operator++() {
+  next();
+  return *this;
+}
+
+EncodingIter EncodingIter::operator++(int) {
+  auto current = *this;
+  next();
+  return current;
+}
+
+bool EncodingIter::operator==(const EncodingIter& other) const {
+  return current_ == other.current_;
+}
+
+bool EncodingIter::operator!=(const EncodingIter& other) const {
+  return current_ != other.current_;
+}
+
+EncodingIter::reference EncodingIter::operator*() const {
   return *current_;
 }
 
-bool EncodingIter::emptyEncryptionGroups() const {
-  if (encryptionGroups_.empty()) {
-    return true;
-  }
-  for (const auto& group : encryptionGroups_) {
-    if (!group.encoding().empty()) {
-      return false;
-    }
-  }
-  return true;
+EncodingIter::pointer EncodingIter::operator->() const {
+  return &(*current_);
 }
 
 EncodingManager::EncodingManager(
@@ -111,8 +158,12 @@ const proto::StripeFooter& EncodingManager::getFooter() const {
   return footer_;
 }
 
-EncodingIter EncodingManager::getEncodingIter() const {
-  return EncodingIter{footer_, encryptionGroups_};
+EncodingIter EncodingManager::begin() const {
+  return EncodingIter::begin(footer_, encryptionGroups_);
+}
+
+EncodingIter EncodingManager::end() const {
+  return EncodingIter::end(footer_, encryptionGroups_);
 }
 
 void EncodingManager::initEncryptionGroups() {

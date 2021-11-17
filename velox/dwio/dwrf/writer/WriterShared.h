@@ -16,10 +16,14 @@
 
 #pragma once
 
+#include <iterator>
 #include <limits>
+
+#include <gtest/gtest_prod.h>
 
 #include "velox/dwio/dwrf/common/Encryption.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
+#include "velox/dwio/dwrf/proto/dwrf_proto.pb.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
 
@@ -27,20 +31,41 @@ namespace facebook::velox::dwrf {
 
 class EncodingIter {
  public:
-  EncodingIter(
+  using value_type = const proto::ColumnEncoding;
+  using reference = const proto::ColumnEncoding&;
+  using pointer = const proto::ColumnEncoding*;
+  using iterator_category = std::forward_iterator_tag;
+  using difference_type = int64_t;
+
+  static EncodingIter begin(
       const proto::StripeFooter& footer,
       const std::vector<proto::StripeEncryptionGroup>& encryptionGroups);
 
-  // Checks if the iterator is empty. Should just be called once.
-  bool empty() const;
+  static EncodingIter end(
+      const proto::StripeFooter& footer,
+      const std::vector<proto::StripeEncryptionGroup>& encryptionGroups);
 
-  bool next();
-
-  // Caller is responsible for checking whether the iterator is empty
-  // before accessing the first element.
-  const proto::ColumnEncoding& current() const;
+  EncodingIter& operator++();
+  EncodingIter operator++(int);
+  bool operator==(const EncodingIter& other) const;
+  bool operator!=(const EncodingIter& other) const;
+  reference operator*() const;
+  pointer operator->() const;
 
  private:
+  EncodingIter(
+      const proto::StripeFooter& footer,
+      const std::vector<proto::StripeEncryptionGroup>& encryptionGroups,
+      int32_t encryptionGroupIndex,
+      google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+          current,
+      google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+          currentEnd);
+
+  void next();
+
+  FRIEND_TEST(TestEncodingIter, Ctor);
+  FRIEND_TEST(TestEncodingIter, EncodingIterBeginAndEnd);
   bool emptyEncryptionGroups() const;
 
   const proto::StripeFooter& footer_;
@@ -52,22 +77,27 @@ class EncodingIter {
       currentEnd_;
 };
 
-class EncodingManager {
+class EncodingContainer {
+ public:
+  virtual ~EncodingContainer() = default;
+  virtual EncodingIter begin() const = 0;
+  virtual EncodingIter end() const = 0;
+};
+
+class EncodingManager : public EncodingContainer {
  public:
   explicit EncodingManager(
       const encryption::EncryptionHandler& encryptionHandler);
+  virtual ~EncodingManager() override = default;
 
   proto::ColumnEncoding& addEncodingToFooter(uint32_t nodeId);
-
   proto::Stream* addStreamToFooter(uint32_t nodeId, uint32_t& currentIndex);
-
   std::string* addEncryptionGroupToFooter();
-
   proto::StripeEncryptionGroup getEncryptionGroup(uint32_t i);
-
   const proto::StripeFooter& getFooter() const;
 
-  EncodingIter getEncodingIter() const;
+  EncodingIter begin() const override;
+  EncodingIter end() const override;
 
  private:
   void initEncryptionGroups();
