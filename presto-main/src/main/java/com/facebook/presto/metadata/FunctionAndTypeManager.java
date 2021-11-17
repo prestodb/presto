@@ -30,7 +30,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -41,6 +40,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -439,9 +439,13 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
     }
 
-    public BuiltInScalarFunctionImplementation getBuiltInScalarFunctionImplementation(FunctionHandle functionHandle)
+    public JavaScalarFunctionImplementation getJavaScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return (BuiltInScalarFunctionImplementation) builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        ScalarFunctionImplementation implementation = getScalarFunctionImplementation(functionHandle);
+        checkArgument(
+                implementation instanceof JavaScalarFunctionImplementation,
+                format("Implementation of function %s is not a JavaScalarFunctionImplementation", getFunctionMetadata(functionHandle).getName()));
+        return (JavaScalarFunctionImplementation) implementation;
     }
 
     @VisibleForTesting

@@ -13,21 +13,17 @@
  */
 package com.facebook.presto.spi.function;
 
-public enum FunctionImplementationType
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+
+public interface JavaScalarFunctionImplementation
+        extends ScalarFunctionImplementation
 {
-    JAVA(false),
-    SQL(false),
-    THRIFT(true);
-
-    private final boolean external;
-
-    FunctionImplementationType(boolean external)
+    InvocationConvention getInvocationConvention();
+    MethodHandle getMethodHandle();
+    default boolean isNullable()
     {
-        this.external = external;
-    }
-
-    public boolean isExternal()
-    {
-        return external;
+        return getInvocationConvention().getReturnConvention().equals(NULLABLE_RETURN);
     }
 }

@@ -25,9 +25,7 @@ import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -46,10 +44,11 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.STACK;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -218,7 +217,7 @@ public final class ArrayJoin
         }
         else {
             try {
-                BuiltInScalarFunctionImplementation castFunction = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR_TYPE_SIGNATURE));
+                MethodHandle cast = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR_TYPE_SIGNATURE)).getMethodHandle();
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();
@@ -238,8 +237,6 @@ public final class ArrayJoin
                     throw new UnsupportedOperationException("Unsupported type: " + elementType.getName());
                 }
 
-                MethodHandle cast = castFunction.getMethodHandle();
-
                 // if the cast doesn't take a SqlFunctionProperties, create an adapter that drops the provided session
                 if (cast.type().parameterArray()[0] != SqlFunctionProperties.class) {
                     cast = MethodHandles.dropArguments(cast, 0, SqlFunctionProperties.class);
@@ -257,13 +254,13 @@ public final class ArrayJoin
                 MethodHandle targetProvidedBlock = MethodHandles.insertArguments(methodHandleProvidedBlock, 0, cast);
                 return new BuiltInScalarFunctionImplementation(
                         ImmutableList.of(
-                                new ScalarImplementationChoice(
+                                new ScalarFunctionImplementationChoice(
                                         false,
                                         argumentProperties,
-                                        ReturnPlaceConvention.STACK,
+                                        STACK,
                                         targetStack,
                                         Optional.empty()),
-                                new ScalarImplementationChoice(
+                                new ScalarFunctionImplementationChoice(
                                         false,
                                         argumentProperties,
                                         PROVIDED_BLOCKBUILDER,
