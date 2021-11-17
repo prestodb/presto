@@ -47,7 +47,6 @@ class DecodedVectorTest : public testing::Test {
       SimpleVector<T>* outVector,
       bool dbgPrintVec) {
     DecodedVector decoded(*outVector, selection);
-    auto decodedResult = decoded.as<T>();
     auto end = selection.end();
     ASSERT_EQ(expected.size(), end);
 
@@ -57,9 +56,10 @@ class DecodedVectorTest : public testing::Test {
       }
       bool actualIsNull = outVector->isNullAt(index);
       auto actualValue = outVector->valueAt(index);
-      ASSERT_EQ(actualIsNull, decodedResult.isNullAt(index));
+      ASSERT_EQ(actualIsNull, decoded.isNullAt(index));
       if (!actualIsNull) {
-        ASSERT_EQ(actualValue, decodedResult[index]);
+        auto decodedValue = decoded.template valueAt<T>(index);
+        ASSERT_EQ(actualValue, decodedValue);
       }
       const bool isNull = (expected[index] == std::nullopt);
       if (dbgPrintVec) {

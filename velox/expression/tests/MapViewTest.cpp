@@ -22,8 +22,13 @@
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 namespace {
-
 using namespace facebook::velox;
+
+DecodedVector* decode(DecodedVector& decoder, const BaseVector& vector) {
+  SelectivityVector rows(vector.size());
+  decoder.decode(vector, rows);
+  return &decoder;
+}
 
 class MapViewTest : public functions::test::FunctionBaseTest {
  protected:
@@ -49,8 +54,7 @@ TEST_F(MapViewTest, testReadingRangeLoop) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   for (auto i = 0; i < mapsData.size(); i++) {
     auto mapView = reader[i];
@@ -75,8 +79,7 @@ TEST_F(MapViewTest, testReadingIteratorLoop) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   for (auto i = 0; i < mapsData.size(); ++i) {
     auto mapView = reader[i];
@@ -102,8 +105,7 @@ TEST_F(MapViewTest, testIndexedLoop) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   for (auto i = 0; i < mapsData.size(); ++i) {
     auto mapView = reader[i];
@@ -128,8 +130,7 @@ TEST_F(MapViewTest, testCompareLazyValueAccess) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   // Compare LazyValueAccess with constant.
   ASSERT_EQ(reader[1][0].first, 1);
@@ -155,8 +156,7 @@ TEST_F(MapViewTest, testCompareVectorOptionalValueAccessor) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   // Compare VectorOptionalValueAccessor with std::optional.
   ASSERT_EQ(reader[2][2].second, std::optional(4));
@@ -217,8 +217,7 @@ TEST_F(MapViewTest, testCompareMapViewElement) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   // Compare VectorOptionalValueAccessor with constant.
   ASSERT_NE(reader[2][2], reader[2][1]);
@@ -229,8 +228,7 @@ TEST_F(MapViewTest, testAssignToOptional) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   std::optional<int64_t> element = reader[2][2].second;
   std::optional<int64_t> element2 = reader[2][1].second;
@@ -243,8 +241,7 @@ TEST_F(MapViewTest, testFind) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   ASSERT_EQ(reader[1].find(5), reader[1].end());
   ASSERT_NE(reader[1].find(4), reader[1].end());
@@ -256,8 +253,7 @@ TEST_F(MapViewTest, testAt) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   ASSERT_THROW(reader[1].at(5), VeloxException);
   ASSERT_EQ(reader[1].at(4), std::nullopt);
@@ -268,8 +264,7 @@ TEST_F(MapViewTest, testValueOr) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
   exec::VectorReader<Map<int64_t, int64_t>> reader(
-      exec::detail::decode<exec::MapView<int64_t, int64_t>>(
-          decoded, *mapVector.get()));
+      decode(decoded, *mapVector.get()));
 
   ASSERT_EQ(reader[1].at(4).value_or(10), 10);
   ASSERT_EQ(reader[1].at(3).value_or(10), 3);

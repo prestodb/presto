@@ -166,8 +166,7 @@ class NestedMapWithMapView : public exec::VectorFunction {
     LocalDecodedVector decoded_(context, *args[0], rows);
     using exec_in_t = typename VectorExec::template resolver<
         Map<int64_t, Map<int64_t, int64_t>>>::in_type;
-    VectorReader<Map<int64_t, Map<int64_t, int64_t>>> reader{
-        decoded_->as<exec_in_t>()};
+    VectorReader<Map<int64_t, Map<int64_t, int64_t>>> reader{decoded_.get()};
 
     // Prepare results
     BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);

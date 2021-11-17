@@ -37,8 +37,7 @@ TEST_F(ArrayViewTest, intArray) {
   auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
   DecodedVector decoded;
   exec::VectorReader<Array<int64_t>> reader(
-      exec::detail::decode<exec::ArrayView<int64_t>>(
-          decoded, *arrayVector.get()));
+      exec::detail::decode(decoded, *arrayVector.get()));
 
   auto testItem = [&](int i, int j, auto item) {
     // Test has_value.

@@ -24,6 +24,8 @@
 
 namespace facebook::velox {
 
+// TODO: Deprecate this after all uses are deprecated.
+// This is not used in VELOX and should be avoided.
 // Represents the result of decoding a vector into base data, nulls
 // and indices for base data/nulls. This is meant to be lightweight
 // copyable and does not own memory.

@@ -185,13 +185,13 @@ class VectorAdapter : public VectorFunction {
               bool allNotNull,
               const DecodedArgs& packed,
               TReader&... readers) const {
-    auto oneUnpacked = packed.at(POSITION)->as<exec_arg_at<POSITION>>();
+    auto* oneUnpacked = packed.at(POSITION);
     auto oneReader = VectorReader<arg_at<POSITION>>(oneUnpacked);
 
     // context->nullPruned() is true after rows with nulls have been
     // pruned out of 'rows', so we won't be seeing any more nulls here.
     bool nextNonNull = applyContext.context->nullsPruned() ||
-        (allNotNull && !oneUnpacked.mayHaveNulls());
+        (allNotNull && !oneUnpacked->mayHaveNulls());
     unpack<POSITION + 1>(
         applyContext, nextNonNull, packed, readers..., oneReader);
   }

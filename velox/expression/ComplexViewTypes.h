@@ -457,7 +457,7 @@ class MapView {
  private:
   const key_reader_t* keyReader_;
   const value_reader_t* valueReader_;
-  const vector_size_t offset_;
-  const vector_size_t size_;
+  vector_size_t offset_;
+  vector_size_t size_;
 };
 } // namespace facebook::velox::exec
