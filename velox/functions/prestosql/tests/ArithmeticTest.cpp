@@ -420,5 +420,55 @@ TEST_F(ArithmeticTest, signIntegral) {
   EXPECT_EQ(-1, sign(-10));
 }
 
+TEST_F(ArithmeticTest, infinity) {
+  const auto infinity = [&]() {
+    return evaluateOnce<double>("infinity()", makeRowVector(ROW({}), 1));
+  };
+
+  EXPECT_EQ(kInf, infinity());
+}
+
+TEST_F(ArithmeticTest, isFinite) {
+  const auto isFinite = [&](std::optional<double> a) {
+    return evaluateOnce<bool>("is_finite(c0)", a);
+  };
+
+  EXPECT_EQ(true, isFinite(0.0));
+  EXPECT_EQ(false, isFinite(kInf));
+  EXPECT_EQ(false, isFinite(-kInf));
+  EXPECT_EQ(false, isFinite(1.0 / 0.0));
+  EXPECT_EQ(false, isFinite(-1.0 / 0.0));
+}
+
+TEST_F(ArithmeticTest, isInfinite) {
+  const auto isInfinite = [&](std::optional<double> a) {
+    return evaluateOnce<bool>("is_infinite(c0)", a);
+  };
+
+  EXPECT_EQ(false, isInfinite(0.0));
+  EXPECT_EQ(true, isInfinite(kInf));
+  EXPECT_EQ(true, isInfinite(-kInf));
+  EXPECT_EQ(true, isInfinite(1.0 / 0.0));
+  EXPECT_EQ(true, isInfinite(-1.0 / 0.0));
+}
+
+TEST_F(ArithmeticTest, isNan) {
+  const auto isNan = [&](std::optional<double> a) {
+    return evaluateOnce<bool>("is_nan(c0)", a);
+  };
+
+  EXPECT_EQ(false, isNan(0.0));
+  EXPECT_EQ(true, isNan(kNan));
+  EXPECT_EQ(true, isNan(0.0 / 0.0));
+}
+
+TEST_F(ArithmeticTest, nan) {
+  const auto nan = [&]() {
+    return evaluateOnce<double>("nan()", makeRowVector(ROW({}), 1));
+  };
+
+  EXPECT_EQ(true, std::isnan(nan().value()));
+}
+
 } // namespace
 } // namespace facebook::velox

@@ -319,4 +319,39 @@ FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(infinity)
+FOLLY_ALWAYS_INLINE bool call(double& result) {
+  result = std::numeric_limits<double>::infinity();
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(is_finite)
+FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+  result = !std::isinf(a);
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(is_infinite)
+FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+  result = std::isinf(a);
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(is_nan)
+FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+  result = std::isnan(a);
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(nan)
+FOLLY_ALWAYS_INLINE bool call(double& result) {
+  result = std::numeric_limits<double>::quiet_NaN();
+  return true;
+}
+VELOX_UDF_END();
+
 } // namespace facebook::velox::functions

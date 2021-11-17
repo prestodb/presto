@@ -105,6 +105,11 @@ void registerArithmeticFunctions() {
   registerFunction<udf_bitwise_shift_left, int64_t, int64_t, int64_t, int64_t>(
       {});
   registerUnaryNumeric<udf_sign>({});
+  registerFunction<udf_infinity, double>({});
+  registerFunction<udf_is_finite, bool, double>({});
+  registerFunction<udf_is_infinite, bool, double>({});
+  registerFunction<udf_is_nan, bool, double>({});
+  registerFunction<udf_nan, double>({});
 }
 
 } // namespace facebook::velox::functions
