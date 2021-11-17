@@ -147,7 +147,6 @@ public final class HttpRequestSessionContext
                 ImmutableMap.of());
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
-        traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));
         userAgent = servletRequest.getHeader(USER_AGENT);
         remoteUserAddress = !isNullOrEmpty(servletRequest.getHeader(X_FORWARDED_FOR)) ? servletRequest.getHeader(X_FORWARDED_FOR) : servletRequest.getRemoteAddr();
         timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
@@ -197,11 +196,18 @@ public final class HttpRequestSessionContext
 
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
         if (isTracingEnabled()) {
             this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(), "tracer is null"));
+
+            // If tunnel trace token is null, we expose the Presto tracing id.
+            // Otherwise we preserve the ability of trace token tunneling but
+            // still trace Presto internally for aggregation purposes.
+            traceToken = Optional.ofNullable(tunnelTraceId == null ? this.tracer.get().getTracerId() : tunnelTraceId);
         }
         else {
             this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
+            traceToken = Optional.ofNullable(tunnelTraceId);
         }
     }
 
