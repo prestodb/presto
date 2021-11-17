@@ -54,6 +54,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
+import static com.facebook.presto.spi.StandardWarningCode.SAME_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -154,6 +155,11 @@ public class SymbolMapper
                 warningCollector.add(new PrestoWarning(
                         MULTIPLE_ORDER_BY,
                         "Multiple ORDER BY for a variable were given, only first provided will be considered"));
+            }
+            else {
+                warningCollector.add(new PrestoWarning(
+                        SAME_ORDER_BY,
+                        "Multiple ORDER BY for a same variable were given, only first provided will be considered"));
             }
         }
 
