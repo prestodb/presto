@@ -36,8 +36,9 @@ void DwrfRowReader::checkSkipStrides(
     return;
   }
 
-  if (currentRowInStripe == 0) {
+  if (currentRowInStripe == 0 || recomputeStridesToSkip_) {
     stridesToSkip_ = columnReader_->filterRowGroups(strideSize, context);
+    recomputeStridesToSkip_ = false;
   }
 
   if (stridesToSkip_.empty()) {
@@ -124,6 +125,7 @@ uint64_t DwrfRowReader::next(uint64_t size, VectorPtr& result) {
 
 void DwrfRowReader::resetFilterCaches() {
   dynamic_cast<SelectiveColumnReader*>(columnReader())->resetFilterCaches();
+  recomputeStridesToSkip_ = true;
 }
 
 std::unique_ptr<DwrfReader> DwrfReader::create(

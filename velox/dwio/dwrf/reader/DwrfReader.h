@@ -76,6 +76,11 @@ class DwrfRowReader : public DwrfRowReaderShared {
 
   // Number of skipped strides.
   int64_t skippedStrides_{0};
+
+  // Set to true after clearing filter caches, i.e.  adding a dynamic
+  // filter. Causes filters to be re-evaluated against stride stats on
+  // next stride instead of next stripe.
+  bool recomputeStridesToSkip_{false};
 };
 
 class DwrfReader : public DwrfReaderShared {
