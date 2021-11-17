@@ -296,7 +296,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
             case THRIFT:
                 checkArgument(function.getFunctionHandle().isPresent(), "Need functionHandle to get function implementation");
                 return new ThriftScalarFunctionImplementation(function.getFunctionHandle().get(), function.getRoutineCharacteristics().getLanguage());
-            case BUILTIN:
+            case JAVA:
                 throw new IllegalStateException(
                         format("SqlInvokedFunction %s has BUILTIN implementation type but %s cannot manage BUILTIN functions", function.getSignature().getName(), this.getClass()));
             default:
