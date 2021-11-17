@@ -118,13 +118,13 @@ void FlatMapColumnWriter<K>::reset() {
   rowsInCurrentStride_ = 0;
 }
 
-KeyInfo getKeyInfo(const int64_t key) {
+KeyInfo getKeyInfo(int64_t key) {
   KeyInfo keyInfo;
   keyInfo.set_intkey(key);
   return keyInfo;
 }
 
-KeyInfo getKeyInfo(const folly::StringPiece key) {
+KeyInfo getKeyInfo(StringView key) {
   KeyInfo keyInfo;
   keyInfo.set_byteskey(key.data(), key.size());
   return keyInfo;
@@ -132,7 +132,7 @@ KeyInfo getKeyInfo(const folly::StringPiece key) {
 
 template <TypeKind K>
 ValueWriter& FlatMapColumnWriter<K>::getValueWriter(
-    const typename TypeInfo<K>::Key& key,
+    KeyType key,
     uint32_t inMapSize) {
   auto it = valueWriters_.find(key);
   if (it != valueWriters_.end()) {
@@ -172,90 +172,166 @@ ValueWriter& FlatMapColumnWriter<K>::getValueWriter(
 }
 
 template <TypeKind K>
-typename TypeInfo<K>::Key getKey(
-    const typename TypeInfo<K>::Vector* slice,
-    uint32_t offset) {
-  return slice->rawValues()[offset];
-}
-
-template <>
-folly::StringPiece getKey<TypeKind::VARCHAR>(
-    const FlatVector<StringView>* slice,
-    uint32_t offset) {
-  auto data = slice->rawValues();
-  return folly::StringPiece{data[offset].data(), data[offset].size()};
-}
-
-template <>
-folly::StringPiece getKey<TypeKind::VARBINARY>(
-    const FlatVector<StringView>* slice,
-    uint32_t offset) {
-  auto data = slice->rawValues();
-  return folly::StringPiece{data[offset].data(), data[offset].size()};
-}
-
-template <TypeKind K>
 uint32_t updateKeyStatistics(
     typename TypeInfo<K>::StatisticsBuilder& keyStatsBuilder,
-    const typename TypeInfo<K>::Vector* slice,
-    uint32_t offset) {
-  auto key = slice->rawValues()[offset];
-  auto size = sizeof(typename TypeInfo<K>::Key);
-  keyStatsBuilder.addValues(key);
-  return size;
+    typename TypeTraits<K>::NativeType value) {
+  keyStatsBuilder.addValues(value);
+  return sizeof(typename TypeTraits<K>::NativeType);
 }
 
 template <>
 uint32_t updateKeyStatistics<TypeKind::VARCHAR>(
     StringStatisticsBuilder& keyStatsBuilder,
-    const FlatVector<StringView>* slice,
-    uint32_t offset) {
-  auto data = slice->rawValues();
-  auto size = data[offset].size();
-  keyStatsBuilder.addValues(folly::StringPiece{data[offset].data(), size});
+    StringView value) {
+  auto size = value.size();
+  keyStatsBuilder.addValues(folly::StringPiece{value.data(), size});
   return size;
 }
 
 template <>
 uint32_t updateKeyStatistics<TypeKind::VARBINARY>(
     BinaryStatisticsBuilder& keyStatsBuilder,
-    const FlatVector<StringView>* slice,
-    uint32_t offset) {
-  auto data = slice->rawValues();
-  auto size = data[offset].size();
+    StringView value) {
+  auto size = value.size();
   keyStatsBuilder.addValues(size);
   return size;
 }
+
+namespace {
+
+// Adapters to handle flat or decoded vector using same interfaces. For usages
+// when type is not important (ie. we don't call valueAt()), we can rely on the
+// default type.
+template <typename T = int8_t>
+class Flat {
+ public:
+  explicit Flat(const VectorPtr& vector)
+      : vector_{vector}, nulls_{vector_->rawNulls()} {
+    auto casted = vector->asFlatVector<T>();
+    values_ = casted ? casted->rawValues() : nullptr;
+  }
+
+  bool hasNulls() const {
+    return vector_->mayHaveNulls();
+  }
+
+  bool isNullAt(vector_size_t index) const {
+    return bits::isBitNull(nulls_, index);
+  }
+
+  T valueAt(vector_size_t index) const {
+    return values_[index];
+  }
+
+  vector_size_t index(vector_size_t index) const {
+    return index;
+  }
+
+ private:
+  const VectorPtr& vector_;
+  const uint64_t* nulls_;
+  const T* values_;
+};
+
+template <typename T = int8_t>
+class Decoded {
+ public:
+  explicit Decoded(const DecodedVector& decoded) : decoded_{decoded} {}
+
+  bool hasNulls() const {
+    return decoded_.mayHaveNulls();
+  }
+
+  bool isNullAt(vector_size_t index) const {
+    return decoded_.isNullAt(index);
+  }
+
+  T valueAt(vector_size_t index) const {
+    return decoded_.valueAt<T>(index);
+  }
+
+  vector_size_t index(vector_size_t index) const {
+    return decoded_.index(index);
+  }
+
+ private:
+  const DecodedVector& decoded_;
+};
+
+template <typename Map, typename MapOp>
+uint64_t iterateMaps(const Ranges& ranges, const Map& map, const MapOp& mapOp) {
+  uint64_t nullCount = 0;
+  if (map.hasNulls()) {
+    for (auto& index : ranges) {
+      if (map.isNullAt(index)) {
+        ++nullCount;
+      } else {
+        mapOp(map.index(index));
+      }
+    }
+  } else {
+    for (auto& index : ranges) {
+      mapOp(map.index(index));
+    }
+  }
+  return nullCount;
+}
+
+} // namespace
 
 template <TypeKind K>
 uint64_t FlatMapColumnWriter<K>::write(
     const VectorPtr& slice,
     const Ranges& ranges) {
-  ColumnWriter::write(slice, ranges);
-  auto nulls = slice->rawNulls();
-  auto mapSlice = slice->as<MapVector>();
-  auto offsets = mapSlice->rawOffsets();
-  auto lengths = mapSlice->rawSizes();
-  auto keys = mapSlice->mapKeys()->as<typename TypeInfo<K>::Vector>();
-  auto values = mapSlice->mapValues();
-
+  // Define variables captured and used by below lambdas.
+  const vector_size_t* offsets;
+  const vector_size_t* lengths;
   uint64_t rawSize = 0;
   uint64_t mapCount = 0;
+  Ranges keyRanges;
 
-  auto iterateMap = [&](uint64_t offsetIndex) {
+  // Lambda that iterates keys of a map and records the offsets to write to
+  // particular value node.
+  auto processMap = [&](uint64_t offsetIndex, const auto& keysVector) {
     auto begin = offsets[offsetIndex];
     auto end = begin + lengths[offsetIndex];
 
     for (auto i = begin; i < end; ++i) {
-      auto key = getKey<K>(keys, i);
+      auto key = keysVector.valueAt(i);
       ValueWriter& valueWriter = getValueWriter(key, ranges.size());
       valueWriter.addOffset(i, mapCount);
-      auto keySize = updateKeyStatistics<K>(*keyFileStatsBuilder_, keys, i);
+      auto keySize = updateKeyStatistics<K>(*keyFileStatsBuilder_, key);
       keyFileStatsBuilder_->increaseRawSize(keySize);
       rawSize += keySize;
     }
 
     ++mapCount;
+  };
+
+  // Lambda that calculates child ranges
+  auto computeKeyRanges = [&](uint64_t offsetIndex) {
+    auto begin = offsets[offsetIndex];
+    keyRanges.add(begin, begin + lengths[offsetIndex]);
+  };
+
+  // Lambda that process the batch
+  auto processBatch = [&](const auto& map, const auto& mapSlice) {
+    auto& mapKeys = mapSlice->mapKeys();
+    auto keysFlat = mapKeys->template asFlatVector<KeyType>();
+    if (keysFlat) {
+      // Keys are flat
+      Flat<KeyType> keysVector{mapKeys};
+      return iterateMaps(
+          ranges, map, [&](auto offset) { processMap(offset, keysVector); });
+    } else {
+      // Keys are encoded. Decode.
+      iterateMaps(ranges, map, computeKeyRanges);
+      auto localDecodedKeys = decode(mapKeys, keyRanges);
+      auto& decodedKeys = localDecodedKeys.get();
+      Decoded<KeyType> keysVector{decodedKeys};
+      return iterateMaps(
+          ranges, map, [&](auto offset) { processMap(offset, keysVector); });
+    }
   };
 
   // Reset all existing value writer buffers
@@ -267,20 +343,27 @@ uint64_t FlatMapColumnWriter<K>::write(
 
   // Fill value buffers per key
   uint64_t nullCount = 0;
-  if (slice->mayHaveNulls()) {
-    for (auto& index : ranges) {
-      if (bits::isBitNull(nulls, index)) {
-        ++nullCount;
-      } else {
-        iterateMap(index);
-      }
-    }
+  const MapVector* mapSlice = slice->as<MapVector>();
+  if (mapSlice) {
+    // Map is flat
+    ColumnWriter::write(slice, ranges);
+    offsets = mapSlice->rawOffsets();
+    lengths = mapSlice->rawSizes();
+    nullCount = processBatch(Flat{slice}, mapSlice);
   } else {
-    for (auto& index : ranges) {
-      iterateMap(index);
-    }
+    // Map is encoded. Decode.
+    auto localDecodedMap = decode(slice, ranges);
+    auto& decodedMap = localDecodedMap.get();
+    ColumnWriter::write(decodedMap, ranges);
+    mapSlice = decodedMap.base()->template as<MapVector>();
+    DWIO_ENSURE(mapSlice, "unexpected vector type");
+
+    offsets = mapSlice->rawOffsets();
+    lengths = mapSlice->rawSizes();
+    nullCount = processBatch(Decoded{decodedMap}, mapSlice);
   }
 
+  auto& values = mapSlice->mapValues();
   // Write all accumulated buffers (this includes value writers that weren't
   // used in this write. This is how we backfill unused value writers)
   for (auto& pair : valueWriters_) {

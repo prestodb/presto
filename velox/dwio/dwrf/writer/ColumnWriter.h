@@ -201,6 +201,10 @@ class ColumnWriter {
         !context_.isLowMemoryMode();
   }
 
+  WriterContext::LocalDecodedVector decode(
+      const VectorPtr& slice,
+      const Ranges& ranges);
+
   WriterContext& context_;
   const dwio::common::TypeWithId& type_;
   const uint32_t id_;

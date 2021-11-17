@@ -187,43 +187,31 @@ struct TypeInfo {};
 template <>
 struct TypeInfo<TypeKind::TINYINT> {
   using StatisticsBuilder = IntegerStatisticsBuilder;
-  using Key = TypeTraits<TypeKind::TINYINT>::NativeType;
-  using Vector = FlatVector<TypeTraits<TypeKind::TINYINT>::NativeType>;
 };
 
 template <>
 struct TypeInfo<TypeKind::SMALLINT> {
   using StatisticsBuilder = IntegerStatisticsBuilder;
-  using Key = TypeTraits<TypeKind::SMALLINT>::NativeType;
-  using Vector = FlatVector<TypeTraits<TypeKind::SMALLINT>::NativeType>;
 };
 
 template <>
 struct TypeInfo<TypeKind::INTEGER> {
   using StatisticsBuilder = IntegerStatisticsBuilder;
-  using Key = TypeTraits<TypeKind::INTEGER>::NativeType;
-  using Vector = FlatVector<TypeTraits<TypeKind::INTEGER>::NativeType>;
 };
 
 template <>
 struct TypeInfo<TypeKind::BIGINT> {
   using StatisticsBuilder = IntegerStatisticsBuilder;
-  using Key = TypeTraits<TypeKind::BIGINT>::NativeType;
-  using Vector = FlatVector<TypeTraits<TypeKind::BIGINT>::NativeType>;
 };
 
 template <>
 struct TypeInfo<TypeKind::VARCHAR> {
   using StatisticsBuilder = StringStatisticsBuilder;
-  using Key = folly::StringPiece;
-  using Vector = FlatVector<TypeTraits<TypeKind::VARCHAR>::NativeType>;
 };
 
 template <>
 struct TypeInfo<TypeKind::VARBINARY> {
   using StatisticsBuilder = BinaryStatisticsBuilder;
-  using Key = folly::StringPiece;
-  using Vector = FlatVector<TypeTraits<TypeKind::VARBINARY>::NativeType>;
 };
 
 } // namespace
@@ -250,19 +238,18 @@ class FlatMapColumnWriter : public ColumnWriter {
                               statsFactory) const override;
 
  private:
+  using KeyType = typename TypeTraits<K>::NativeType;
+
   void setEncoding(proto::ColumnEncoding& encoding) const override;
 
-  ValueWriter& getValueWriter(
-      const typename TypeInfo<K>::Key& key,
-      uint32_t inMapSize);
+  ValueWriter& getValueWriter(KeyType key, uint32_t inMapSize);
 
   void clearNodes();
 
   // Map of value writers for each key in the dictionary. Needs referential
   // stability because a member variable is captured by reference by lambda
   // function passed to another class.
-  folly::F14NodeMap<typename TypeInfo<K>::Key, ValueWriter, folly::Hash>
-      valueWriters_;
+  folly::F14NodeMap<KeyType, ValueWriter, folly::Hash> valueWriters_;
 
   // Captures row count for each completed stride in current stripe
   std::vector<size_t> rowsInStrides_;

@@ -638,6 +638,11 @@ std::string getNullCountStr(const T& vector) {
 template <typename TKEY, typename TVALUE>
 void printMap(const std::string& title, const VectorPtr& batch) {
   auto mv = std::dynamic_pointer_cast<MapVector>(batch);
+  if (!mv) {
+    VLOG(3) << "To be implemented for encoded vector";
+    return;
+  }
+
   VLOG(3) << "*******" << title << "*******";
   VLOG(3) << "Size: " << mv->size() << ", Null count: " << getNullCountStr(*mv);
   for (int32_t i = 0; i <= mv->size(); ++i) {
@@ -659,12 +664,55 @@ void printMap(const std::string& title, const VectorPtr& batch) {
   }
 }
 
+VectorPtr
+wrapInDictionary(const VectorPtr& batch, size_t stride, MemoryPool& pool) {
+  VectorPtr ret = batch;
+  // Wrap key if least significant bit is 1
+  if (stride & 0x01) {
+    auto map = batch->as<MapVector>();
+    auto keys = map->mapKeys();
+    auto size = keys->size();
+
+    auto indices = AlignedBuffer::allocate<vector_size_t>(size, &pool);
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    for (auto i = 0; i < size; ++i) {
+      rawIndices[i] = i;
+    }
+
+    ret = std::make_shared<MapVector>(
+        map->pool(),
+        map->type(),
+        map->nulls(),
+        map->size(),
+        map->offsets(),
+        map->sizes(),
+        BaseVector::wrapInDictionary(nullptr, indices, size, keys),
+        map->mapValues());
+  }
+
+  // Wrap map if 2nd least significant bit is 1
+  if (stride & 0x02) {
+    auto size = ret->size();
+
+    auto indices = AlignedBuffer::allocate<vector_size_t>(size, &pool);
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    for (auto i = 0; i < size; ++i) {
+      rawIndices[i] = i;
+    }
+
+    ret = BaseVector::wrapInDictionary(nullptr, indices, size, ret);
+  }
+
+  return ret;
+}
+
 template <typename TKEY, typename TVALUE>
 void testMapWriter(
     MemoryPool& pool,
     const std::vector<VectorPtr>& batches,
     bool useFlatMap,
     bool disableDictionaryEncoding,
+    bool testEncoded,
     bool printMaps = true) {
   const auto rowType = CppToType<Row<Map<TKEY, TVALUE>>>::create();
   const auto dataType = rowType->childAt(0);
@@ -684,7 +732,9 @@ void testMapWriter(
 
   WriterContext context{config, getDefaultScopedMemoryPool()};
   const auto writer = ColumnWriter::create(context, *dataTypeWithId);
-  const size_t strideCount = 2;
+  // For writing flat map with encoded input, we'd like to test all 4
+  // combinations.
+  size_t strideCount = testEncoded ? 4 : 2;
 
   // Each batch represents an input for a separate stripe
   for (auto batch : batches) {
@@ -693,11 +743,17 @@ void testMapWriter(
     }
 
     proto::StripeFooter sf;
+    std::vector<VectorPtr> writtenBatches;
 
     // Write map
     for (auto strideI = 0; strideI < strideCount; ++strideI) {
-      writer->write(batch, Ranges::of(0, batch->size()));
+      auto toWrite = batch;
+      if (testEncoded) {
+        toWrite = wrapInDictionary(toWrite, strideI, pool);
+      }
+      writer->write(toWrite, Ranges::of(0, toWrite->size()));
       writer->createIndexEntry();
+      writtenBatches.push_back(toWrite);
     }
 
     writer->flush([&sf](uint32_t /* unused */) -> proto::ColumnEncoding& {
@@ -711,16 +767,16 @@ void testMapWriter(
       VectorPtr out;
 
       // Read map
-      for (auto strideI = 0; strideI < strideCount; ++strideI) {
-        reader->next(batch->size(), out);
-        ASSERT_EQ(out->size(), batch->size()) << "Batch size mismatch";
+      for (auto& writtenBatch : writtenBatches) {
+        reader->next(writtenBatch->size(), out);
+        ASSERT_EQ(out->size(), writtenBatch->size()) << "Batch size mismatch";
 
         if (printMaps) {
           printMap<TKEY, TVALUE>("Result", out);
         }
 
-        for (int32_t i = 0; i < batch->size(); ++i) {
-          ASSERT_TRUE(batch->equalValueAt(out.get(), i, i))
+        for (int32_t i = 0; i < writtenBatch->size(); ++i) {
+          ASSERT_TRUE(writtenBatch->equalValueAt(out.get(), i, i))
               << "Row mismatch at index " << i;
         }
       }
@@ -775,9 +831,13 @@ void testMapWriter(
     bool useFlatMap,
     bool printMaps = true) {
   std::vector<VectorPtr> batches{batch, batch};
-  testMapWriter<TKEY, TVALUE>(pool, batches, useFlatMap, true, printMaps);
+  testMapWriter<TKEY, TVALUE>(
+      pool, batches, useFlatMap, true, false, printMaps);
   if (useFlatMap) {
-    testMapWriter<TKEY, TVALUE>(pool, batches, useFlatMap, false, printMaps);
+    testMapWriter<TKEY, TVALUE>(
+        pool, batches, useFlatMap, false, false, printMaps);
+    testMapWriter<TKEY, TVALUE>(
+        pool, batches, useFlatMap, true, true, printMaps);
   }
 }
 
@@ -903,7 +963,8 @@ TEST(ColumnWriterTests, TestMapWriterMixedBatchTypeHandling) {
           pool,
           batches,
           /* useFlatMap */ true,
-          /* disableFlatMapDictEncoding */ true)),
+          true,
+          false)),
       exception::LoggedException);
 }
 
@@ -931,8 +992,8 @@ void testMapWriterImpl() {
   auto& pool = *scopedPool;
   auto batch = BatchMaker::createVector<TypeKind::MAP>(type, 100, pool);
 
-  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false, false);
-  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true, false);
+  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
+  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
 }
 
 TEST(ColumnWriterTests, TestMapWriterNestedMap) {
@@ -972,12 +1033,14 @@ TEST(ColumnWriterTests, TestMapWriterDifferentStripeBatches) {
       pool,
       batches,
       /* useFlatMap */ false,
-      /* disableFlatMapDictEncoding */ false);
+      false,
+      false);
   testMapWriter<keyType, valueType>(
       pool,
       batches,
       /* useFlatMap */ true,
-      /* disableFlatMapDictEncoding */ false);
+      false,
+      false);
 }
 
 TEST(ColumnWriterTests, TestMapWriterNullValues) {
@@ -1066,13 +1129,11 @@ TEST(ColumnWriterTests, TestMapWriterBigBatch) {
   testMapWriter<keyType, valueType>(
       pool,
       batch,
-      /* useFlatMap */ false,
-      /* printMaps */ false);
+      /* useFlatMap */ false);
   testMapWriter<keyType, valueType>(
       pool,
       batch,
-      /* useFlatMap */ true,
-      /* printMaps */ false);
+      /* useFlatMap */ true);
 }
 
 std::unique_ptr<DwrfReader> getDwrfReader(
