@@ -49,6 +49,7 @@ add_executable(
   ReduceTest.cpp
   ReverseTest.cpp
   RoundTest.cpp
+  SliceTest.cpp
   SplitTest.cpp
   StringFunctionsTest.cpp
   TransformTest.cpp

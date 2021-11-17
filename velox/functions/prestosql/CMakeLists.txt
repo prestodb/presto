@@ -41,6 +41,7 @@ add_library(
   RegisterComparisons.cpp
   Reverse.cpp
   RowFunction.cpp
+  Slice.cpp
   Split.cpp
   StringFunctions.cpp
   Subscript.cpp

@@ -99,6 +99,11 @@ Array Functions
 
     Returns an array which has the reversed order of the input array.
 
+.. function:: slice(array(E), start, length) -> array(E)
+
+    Returns a subarray starting from index ``start``(or starting from the end
+    if ``start`` is negative) with a length of ``length``.
+
 .. function:: subscript(array(E), index) -> E
 
     Returns element of ``array`` at given ``index``. The index starts from one.

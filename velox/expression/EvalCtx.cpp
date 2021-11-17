@@ -201,6 +201,12 @@ void EvalCtx::setError(
   addError(index, exceptionPtr, &errors_);
 }
 
+void EvalCtx::setErrors(
+    const SelectivityVector& rows,
+    const std::exception_ptr& exceptionPtr) {
+  rows.applyToSelected([&](auto row) { setError(row, exceptionPtr); });
+}
+
 VectorPtr EvalCtx::getField(int32_t index) const {
   VectorPtr field;
   if (!peeledFields_.empty()) {

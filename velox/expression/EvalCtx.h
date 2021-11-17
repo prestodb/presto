@@ -74,6 +74,10 @@ class EvalCtx {
 
   void setError(vector_size_t index, const std::exception_ptr& exceptionPtr);
 
+  void setErrors(
+      const SelectivityVector& rows,
+      const std::exception_ptr& exceptionPtr);
+
   /// Invokes a function on each selected row. Records per-row exceptions by
   /// calling 'setError'. The function must take a single "row" argument of type
   /// vector_size_t and return void.
