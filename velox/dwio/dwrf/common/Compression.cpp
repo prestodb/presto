@@ -15,11 +15,13 @@
  */
 
 #include "velox/dwio/dwrf/common/Compression.h"
+
 #include "velox/dwio/common/compression/LzoDecompressor.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/common/PagedInputStream.h"
 #include "velox/dwio/dwrf/common/PagedOutputStream.h"
 
+#include <folly/logging/xlog.h>
 #include <lz4.h>
 #include <snappy.h>
 #include <zlib.h>
@@ -447,7 +449,7 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
     case CompressionKind_ZLIB: {
       int32_t zlibCompressionLevel = config.get(Config::ZLIB_COMPRESSION_LEVEL);
       compressor = std::make_unique<ZlibCompressor>(zlibCompressionLevel);
-      LOG_FIRST_N(INFO, 1) << fmt::format(
+      XLOG_FIRST_N(INFO, 1) << fmt::format(
           "Initialized zlib compressor with compression level {}",
           zlibCompressionLevel);
       break;
@@ -455,7 +457,7 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
     case CompressionKind_ZSTD: {
       int32_t zstdCompressionLevel = config.get(Config::ZSTD_COMPRESSION_LEVEL);
       compressor = std::make_unique<ZstdCompressor>(zstdCompressionLevel);
-      LOG_FIRST_N(INFO, 1) << fmt::format(
+      XLOG_FIRST_N(INFO, 1) << fmt::format(
           "Initialized zstd compressor with compression level {}",
           zstdCompressionLevel);
       break;
