@@ -125,7 +125,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
+import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -694,7 +694,7 @@ public class ExpressionInterpreter
                     return value;
                 case MINUS:
                     FunctionHandle operatorHandle = metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.NEGATION, fromTypes(types(node.getValue())));
-                    MethodHandle handle = metadata.getFunctionAndTypeManager().getBuiltInScalarFunctionImplementation(operatorHandle).getMethodHandle();
+                    MethodHandle handle = metadata.getFunctionAndTypeManager().getJavaScalarFunctionImplementation(operatorHandle).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == SqlFunctionProperties.class) {
                         handle = handle.bindTo(connectorSession.getSqlFunctionProperties());
@@ -946,7 +946,7 @@ public class ExpressionInterpreter
                 // do not interpret remote functions on coordinator
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
             }
-            else if (implementationType.equals(BUILTIN)) {
+            else if (implementationType.equals(JAVA)) {
                 result = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
             }
             else {
