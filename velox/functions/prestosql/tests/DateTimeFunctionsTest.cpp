@@ -17,6 +17,7 @@
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Timestamp.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
 
@@ -430,4 +431,14 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   EXPECT_EQ(
       TimestampWithTimezone(86400000, 0),
       parseDatetime("1970-01-02", "YYYY-MM-dd"));
+
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, util::getTimeZoneID("-09:00")),
+      parseDatetime("1970-01-02+00:00-09:00", "YYYY-MM-dd+HH:mmZZ"));
+
+  setQueryTimeZone("Asia/Kolkata");
+
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, util::getTimeZoneID("Asia/Kolkata")),
+      parseDatetime("1970-01-02+00:00", "YYYY-MM-dd+HH:mm"));
 }

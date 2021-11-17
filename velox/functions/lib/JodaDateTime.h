@@ -89,6 +89,11 @@ enum class JodaFormatSpecifier : uint8_t {
   TIMEZONE_OFFSET_ID = 20
 };
 
+struct JodaResult {
+  Timestamp timestamp;
+  int64_t timezoneId{-1};
+};
+
 /// Compiles a Joda-compatible datetime format string.
 class JodaFormatter {
  public:
@@ -115,7 +120,7 @@ class JodaFormatter {
 
   // Parses `input` according to the format specified in the constructor. Throws
   // in case the input couldn't be parsed.
-  Timestamp parse(const std::string& input);
+  JodaResult parse(const std::string& input);
 
  private:
   void initialize();

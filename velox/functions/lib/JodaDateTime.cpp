@@ -19,8 +19,11 @@
 #include <unordered_map>
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/TimestampConversion.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions {
+
+static thread_local std::string timezoneBuffer = "+00:00";
 
 namespace {
 
@@ -113,17 +116,70 @@ void JodaFormatter::initialize() {
   VELOX_CHECK_EQ(literalTokens_.size(), patternTokens_.size() + 1);
 }
 
-Timestamp JodaFormatter::parse(const std::string& input) {
-  struct {
-    int32_t year = -1;
-    int32_t month = 1;
-    int32_t day = 1;
+namespace {
 
-    int32_t hour = 0;
-    int32_t minute = 0;
-    int32_t second = 0;
-    int32_t microsecond = 0;
-  } jodaDate;
+struct JodaDate {
+  int32_t year = -1;
+  int32_t month = 1;
+  int32_t day = 1;
+
+  int32_t hour = 0;
+  int32_t minute = 0;
+  int32_t second = 0;
+  int32_t microsecond = 0;
+  int64_t timezoneId = -1;
+};
+
+void parseFail(const std::string& input, const char* cur, const char* end) {
+  VELOX_USER_FAIL(
+      "Invalid format: \"{}\" is malformed at \"{}\"",
+      input,
+      std::string_view(cur, end - cur));
+}
+
+// Returns number of characters consumed, or throws if timezone offset id could
+// not be parsed.
+int64_t
+parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
+  // For timezone offset ids, there are only two formats allowed by Joda:
+  //
+  // 1. '+' or '-' followed by two digits: "+00"
+  // 2. '+' or '-' followed by two digits, ":", then two more digits:
+  //    "+00:00"
+  if (cur < end && (*cur == '-' || *cur == '+')) {
+    // Long format: "+00:00"
+    if ((end - cur) >= 6 && *(cur + 3) == ':') {
+      // Fast path for the common case ("+00:00" or "-00:00"), to prevent
+      // calling getTimeZoneID(), which does a map lookup.
+      if (std::strncmp(cur + 1, "00:00", 5) == 0) {
+        jodaDate.timezoneId = 0;
+      } else {
+        jodaDate.timezoneId = util::getTimeZoneID(std::string_view(cur, 6));
+      }
+      return 6;
+    }
+    // Short format: "+00"
+    else if ((end - cur) >= 3) {
+      // Same fast path described above.
+      if (std::strncmp(cur + 1, "00", 2) == 0) {
+        jodaDate.timezoneId = 0;
+      } else {
+        // We need to concatenate the 3 first chars with a trailing ":00" before
+        // calling getTimeZoneID, so we use a static thread_local buffer to
+        // prevent extra allocations.
+        std::memcpy(&timezoneBuffer[0], cur, 3);
+        jodaDate.timezoneId = util::getTimeZoneID(timezoneBuffer);
+      }
+      return 3;
+    }
+  }
+  throw std::runtime_error("Unable to parse timezone offset id.");
+}
+
+} // namespace
+
+JodaResult JodaFormatter::parse(const std::string& input) {
+  JodaDate jodaDate;
   const char* cur = input.data();
   const char* end = cur + input.size();
 
@@ -133,8 +189,7 @@ Timestamp JodaFormatter::parse(const std::string& input) {
 
     if (curToken.size() > (end - cur) ||
         std::memcmp(cur, curToken.data(), curToken.size()) != 0) {
-      VELOX_USER_FAIL(
-          "Invalid format: \"{}\" is malformed at \"{}\"", format_, input);
+      parseFail(input, cur, end);
     }
     cur += curToken.size();
 
@@ -142,70 +197,74 @@ Timestamp JodaFormatter::parse(const std::string& input) {
     // `jodaDate`.
     if (i < patternTokens_.size()) {
       const auto& curPattern = patternTokens_[i];
-      uint64_t number = 0;
-      auto startPos = cur;
 
-      // TODO: For now we only support numeric specifiers.
-      while (cur < end && characterIsDigit(*cur)) {
-        number = number * 10 + (*cur - '0');
-        ++cur;
-      }
+      // For now, timezone offset is the only non-numeric token supported.
+      if (curPattern != JodaFormatSpecifier::TIMEZONE_OFFSET_ID) {
+        uint64_t number = 0;
+        auto startPos = cur;
 
-      // Need to have read at least one digit.
-      VELOX_USER_CHECK_GT(
-          cur,
-          startPos,
-          "Invalid format: \"{}\" is malformed at \"{}\"",
-          input,
-          std::string(cur, end - cur));
+        while (cur < end && characterIsDigit(*cur)) {
+          number = number * 10 + (*cur - '0');
+          ++cur;
+        }
 
-      switch (curPattern) {
-        case JodaFormatSpecifier::YEAR_OF_ERA:
-          jodaDate.year = number;
-          break;
+        // Need to have read at least one digit.
+        if (cur <= startPos) {
+          parseFail(input, cur, end);
+        }
 
-        case JodaFormatSpecifier::MONTH_OF_YEAR:
-          jodaDate.month = number;
+        switch (curPattern) {
+          case JodaFormatSpecifier::YEAR_OF_ERA:
+            jodaDate.year = number;
+            break;
 
-          // Joda has this weird behavior where it returns 1970 as the year by
-          // default (if no year is specified), but if either day or month are
-          // specified, it fallsback to 2000.
-          if (jodaDate.year == -1) {
-            jodaDate.year = 2000;
-          }
-          break;
+          case JodaFormatSpecifier::MONTH_OF_YEAR:
+            jodaDate.month = number;
 
-        case JodaFormatSpecifier::DAY_OF_MONTH:
-          jodaDate.day = number;
-          if (jodaDate.year == -1) {
-            jodaDate.year = 2000;
-          }
-          break;
+            // Joda has this weird behavior where it returns 1970 as the year by
+            // default (if no year is specified), but if either day or month are
+            // specified, it fallsback to 2000.
+            if (jodaDate.year == -1) {
+              jodaDate.year = 2000;
+            }
+            break;
 
-        case JodaFormatSpecifier::HOUR_OF_DAY:
-          jodaDate.hour = number;
-          break;
+          case JodaFormatSpecifier::DAY_OF_MONTH:
+            jodaDate.day = number;
+            if (jodaDate.year == -1) {
+              jodaDate.year = 2000;
+            }
+            break;
 
-        case JodaFormatSpecifier::MINUTE_OF_HOUR:
-          jodaDate.minute = number;
-          break;
+          case JodaFormatSpecifier::HOUR_OF_DAY:
+            jodaDate.hour = number;
+            break;
 
-        case JodaFormatSpecifier::SECOND_OF_MINUTE:
-          jodaDate.second = number;
-          break;
+          case JodaFormatSpecifier::MINUTE_OF_HOUR:
+            jodaDate.minute = number;
+            break;
 
-        default:
-          VELOX_NYI("Numeric Joda specifier not implemented yet.");
+          case JodaFormatSpecifier::SECOND_OF_MINUTE:
+            jodaDate.second = number;
+            break;
+
+          default:
+            VELOX_NYI("Numeric Joda specifier not implemented yet.");
+        }
+      } else {
+        try {
+          cur += parseTimezoneOffset(cur, end, jodaDate);
+        } catch (...) {
+          parseFail(input, cur, end);
+        }
       }
     }
   }
 
   // Ensure all input was consumed.
-  VELOX_USER_CHECK(
-      cur == end,
-      "Invalid format: \"{}\" is malformed at \"{}\"",
-      input,
-      std::string(cur, end - cur));
+  if (cur < end) {
+    parseFail(input, cur, end);
+  }
 
   // Date time validations for Joda compatibility. Additional date checks will
   // be performed below when converting it to timestamp.
@@ -242,7 +301,9 @@ Timestamp JodaFormatter::parse(const std::string& input) {
       util::fromDate(jodaDate.year, jodaDate.month, jodaDate.day);
   int64_t microsSinceMidnight = util::fromTime(
       jodaDate.hour, jodaDate.minute, jodaDate.second, jodaDate.microsecond);
-  return util::fromDatetime(daysSinceEpoch, microsSinceMidnight);
+  return {
+      util::fromDatetime(daysSinceEpoch, microsSinceMidnight),
+      jodaDate.timezoneId};
 }
 
 } // namespace facebook::velox::functions

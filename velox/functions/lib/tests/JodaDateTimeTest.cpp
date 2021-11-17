@@ -16,6 +16,7 @@
 #include "velox/functions/lib/JodaDateTime.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/TimestampConversion.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -28,8 +29,22 @@ namespace {
 
 class JodaDateTimeTest : public testing::Test {
  protected:
-  Timestamp parse(const std::string& input, const std::string& format) {
+  auto parseAll(const std::string& input, const std::string& format) {
     return JodaFormatter(format).parse(input);
+  }
+
+  Timestamp parse(const std::string& input, const std::string& format) {
+    return parseAll(input, format).timestamp;
+  }
+
+  // Parses and returns the timezone converted back to string, to ease
+  // verifiability.
+  std::string parseTZ(const std::string& input, const std::string& format) {
+    auto result = JodaFormatter(format).parse(input);
+    if (result.timezoneId == 0) {
+      return "+00:00";
+    }
+    return util::getTimeZoneName(result.timezoneId);
   }
 };
 
@@ -189,6 +204,59 @@ TEST_F(JodaDateTimeTest, parseSecond) {
   EXPECT_THROW(parse("123456789", "s"), VeloxUserError);
 }
 
+TEST_F(JodaDateTimeTest, parseTimezone) {
+  // Broken timezone offfsets; allowed formats are either "+00:00" or "+00".
+  EXPECT_THROW(parse("", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("0", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse(":00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("+0", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("+00:", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("+00:0", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("12", "YYZZ"), VeloxUserError);
+
+  // GMT
+  EXPECT_EQ("+00:00", parseTZ("+00:00", "ZZ"));
+  EXPECT_EQ("+00:00", parseTZ("-00:00", "ZZ"));
+
+  // Valid long format:
+  EXPECT_EQ("+00:01", parseTZ("+00:01", "ZZ"));
+  EXPECT_EQ("-00:01", parseTZ("-00:01", "ZZ"));
+  EXPECT_EQ("+01:00", parseTZ("+01:00", "ZZ"));
+  EXPECT_EQ("+13:59", parseTZ("+13:59", "ZZ"));
+  EXPECT_EQ("-07:32", parseTZ("-07:32", "ZZ"));
+  EXPECT_EQ("+14:00", parseTZ("+14:00", "ZZ"));
+  EXPECT_EQ("-14:00", parseTZ("-14:00", "ZZ"));
+
+  // Invalid long format:
+  EXPECT_THROW(parseTZ("+14:01", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("-14:01", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+00:60", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+00:99", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+00:100", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+15:00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+16:00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("-15:00", "ZZ"), VeloxUserError);
+
+  // GMT short format:
+  EXPECT_EQ("+00:00", parseTZ("+00", "ZZ"));
+  EXPECT_EQ("+00:00", parseTZ("-00", "ZZ"));
+
+  // Valid short format:
+  EXPECT_EQ("+13:00", parseTZ("+13", "ZZ"));
+  EXPECT_EQ("-01:00", parseTZ("-01", "ZZ"));
+  EXPECT_EQ("-10:00", parseTZ("-10", "ZZ"));
+  EXPECT_EQ("+03:00", parseTZ("+03", "ZZ"));
+  EXPECT_EQ("-14:00", parseTZ("-14", "ZZ"));
+  EXPECT_EQ("+14:00", parseTZ("+14", "ZZ"));
+
+  // Invalid short format:
+  EXPECT_THROW(parseTZ("-15", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+15", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+16", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("-16", "ZZ"), VeloxUserError);
+}
+
 TEST_F(JodaDateTimeTest, parseMixed) {
   // Common patterns found.
   EXPECT_EQ(
@@ -203,6 +271,15 @@ TEST_F(JodaDateTimeTest, parseMixed) {
   EXPECT_EQ(
       util::fromTimestampString("2019-07-03 11:04:10"),
       parse("10:04:11 03-07-2019", "ss:mm:HH dd-MM-YYYY"));
+
+  // Include timezone.
+  auto result = parseAll("2021-11-05+01:00+09:00", "YYYY-MM-dd+HH:mmZZ");
+  EXPECT_EQ(util::fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
+  EXPECT_EQ("+09:00", util::getTimeZoneName(result.timezoneId));
+
+  result = parseAll("-07:232021-11-05+01:00", "ZZYYYY-MM-dd+HH:mm");
+  EXPECT_EQ(util::fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
+  EXPECT_EQ("-07:23", util::getTimeZoneName(result.timezoneId));
 }
 
 } // namespace
