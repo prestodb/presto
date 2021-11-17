@@ -25,6 +25,7 @@
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/proto/dwrf_proto.pb.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
+#include "velox/dwio/dwrf/writer/LayoutPlanner.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
 
 namespace facebook::velox::dwrf {
@@ -111,6 +112,10 @@ struct WriterOptionsShared {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
   std::shared_ptr<const Type> schema;
   std::function<bool(bool, const WriterContext&)> flushPolicy;
+  // Change the interface to stream list and encoding iter.
+  std::function<
+      std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+      layoutPlannerFactory;
   std::shared_ptr<encryption::EncryptionSpecification> encryptionSpec;
   std::shared_ptr<dwio::common::encryption::EncrypterFactory> encrypterFactory;
   int64_t memoryBudget = std::numeric_limits<int64_t>::max();
@@ -124,7 +129,8 @@ class WriterShared : public WriterBase {
       memory::MemoryPool& parentPool)
       : WriterBase{std::move(sink)},
         schema_{dwio::common::TypeWithId::create(options.schema)},
-        flushPolicy_{options.flushPolicy} {
+        flushPolicy_{options.flushPolicy},
+        layoutPlannerFactory_{options.layoutPlannerFactory} {
     auto handler =
         (options.encryptionSpec ? encryption::EncryptionHandler::create(
                                       schema_,
@@ -144,6 +150,13 @@ class WriterShared : public WriterBase {
       flushPolicy_ = DefaultFlushPolicy(
           context.stripeSizeFlushThreshold,
           context.dictionarySizeFlushThreshold);
+    }
+
+    if (!layoutPlannerFactory_) {
+      layoutPlannerFactory_ = [](StreamList streams,
+                                 const EncodingContainer& /* unused */) {
+        return std::make_unique<LayoutPlanner>(std::move(streams));
+      };
     }
   }
 
@@ -193,6 +206,9 @@ class WriterShared : public WriterBase {
 
   const std::shared_ptr<const dwio::common::TypeWithId> schema_;
   std::function<bool(bool, const WriterContext&)> flushPolicy_;
+  std::function<
+      std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+      layoutPlannerFactory_;
 };
 
 } // namespace facebook::velox::dwrf

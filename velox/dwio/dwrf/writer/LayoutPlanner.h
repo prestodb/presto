@@ -20,10 +20,15 @@
 #include "velox/dwio/dwrf/writer/WriterContext.h"
 
 namespace facebook::velox::dwrf {
+using StreamList =
+    std::vector<std::pair<const StreamIdentifier*, DataBufferHolder*>>;
+
+StreamList getStreamList(WriterContext& context);
 
 class LayoutPlanner {
  public:
-  explicit LayoutPlanner(WriterContext& context);
+  explicit LayoutPlanner(StreamList streamList);
+  virtual ~LayoutPlanner() = default;
 
   void iterateIndexStreams(
       std::function<void(const StreamIdentifier&, DataBufferHolder&)> consumer);
@@ -31,12 +36,9 @@ class LayoutPlanner {
   void iterateDataStreams(
       std::function<void(const StreamIdentifier&, DataBufferHolder&)> consumer);
 
- private:
-  void plan();
+  virtual void plan();
 
-  using StreamList =
-      std::vector<std::pair<const StreamIdentifier*, DataBufferHolder*>>;
-
+ protected:
   StreamList streams_;
   size_t indexCount_;
 

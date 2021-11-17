@@ -18,14 +18,18 @@
 
 namespace facebook::velox::dwrf {
 
-LayoutPlanner::LayoutPlanner(WriterContext& context) {
-  streams_.reserve(context.getStreamCount());
+StreamList getStreamList(WriterContext& context) {
+  StreamList streams;
+  streams.reserve(context.getStreamCount());
   context.iterateUnSuppressedStreams([&](auto& pair) {
-    streams_.push_back(std::make_pair(
+    streams.push_back(std::make_pair(
         std::addressof(pair.first), std::addressof(pair.second)));
   });
-  plan();
+  return streams;
 }
+
+LayoutPlanner::LayoutPlanner(StreamList streams)
+    : streams_{std::move(streams)} {}
 
 void LayoutPlanner::iterateIndexStreams(
     std::function<void(const StreamIdentifier&, DataBufferHolder&)> consumer) {

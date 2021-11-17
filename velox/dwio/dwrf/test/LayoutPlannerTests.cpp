@@ -48,7 +48,8 @@ TEST(LayoutPlannerTests, Basic) {
   addStream(2, 0, StreamKind::StreamKind_DATA, 6); // 8
 
   // we expect index streams to be sorted by ascending size (7, 6)
-  LayoutPlanner planner{context};
+  LayoutPlanner planner{getStreamList(context)};
+  planner.plan();
   std::vector<size_t> indices{7, 6};
   size_t pos = 0;
   planner.iterateIndexStreams([&](auto& stream, auto& /* ignored */) {
@@ -71,5 +72,4 @@ TEST(LayoutPlannerTests, Basic) {
   });
   ASSERT_EQ(pos, dataStreams.size());
 }
-
 } // namespace facebook::velox::dwrf
