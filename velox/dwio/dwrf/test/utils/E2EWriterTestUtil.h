@@ -23,15 +23,36 @@ namespace facebook::velox::dwrf {
 
 class E2EWriterTestUtil {
  public:
+  /**
+   * Writes data and returns the writer so that the caller can control
+   * its life cycle. The writer is constructed with the supplied parameters.
+   *    sink                    the container for writer output, could be
+   *                            in-memory or on-disk.
+   *    type                    schema of the output data
+   *    batches                 generated data
+   *    config                  ORC configs
+   *    flushPolicy             function called by writer to determine when to
+   *                            flush the current stripe and start a new one
+   *    layoutPlannerFactory    supplies the layout planner and determine how
+   *                            order of the data streams prior to flush
+   *    writerMemoryCap         total memory budget for the writer
+   */
   static std::unique_ptr<Writer> writeData(
       std::unique_ptr<dwio::common::DataSink> sink,
       const std::shared_ptr<const Type>& type,
       const std::vector<VectorPtr>& batches,
       const std::shared_ptr<Config>& config,
-      const bool useDefaultFlushPolicy,
-      const bool flushPerBatch,
+      std::function<bool(bool, const WriterContext&)> flushPolicy = nullptr,
+      std::function<
+          std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+          layoutPlannerFactory = nullptr,
       const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max());
 
+  /**
+   * Creates a writer with the supplied configuration and check the IO
+   * characteristics and the content of its output. Uses writeData to perform
+   * the data write and pass through most of the parameters.
+   */
   static void testWriter(
       memory::MemoryPool& pool,
       const std::shared_ptr<const Type>& type,
@@ -41,8 +62,10 @@ class E2EWriterTestUtil {
       size_t numStripesLower,
       size_t numStripesUpper,
       const std::shared_ptr<Config>& config,
-      const bool useDefaultFlushPolicy = false,
-      const bool flushPerBatch = true,
+      std::function<bool(bool, const WriterContext&)> flushPolicy = nullptr,
+      std::function<
+          std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+          layoutPlannerFactory = nullptr,
       const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max(),
       const bool verifyContent = true);
 
@@ -54,6 +77,13 @@ class E2EWriterTestUtil {
       memory::MemoryPool& pool);
 
   static std::vector<VectorPtr> generateBatches(VectorPtr batch);
+
+  static std::function<bool(bool, const WriterContext&)> simpleFlushPolicy(
+      bool flushPerBatch) {
+    return [flushPerBatch](bool /* unused */, auto& /* unused */) {
+      return flushPerBatch;
+    };
+  }
 };
 
 } // namespace facebook::velox::dwrf

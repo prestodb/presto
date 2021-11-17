@@ -83,7 +83,11 @@ TEST(E2EWriterTests, DISABLED_TestFileCreation) {
 
   auto sink = std::make_unique<FileSink>("/tmp/e2e_generated_file.orc");
   E2EWriterTestUtil::writeData(
-      std::move(sink), type, batches, config, false, true);
+      std::move(sink),
+      type,
+      batches,
+      config,
+      E2EWriterTestUtil::simpleFlushPolicy(true));
 }
 
 VectorPtr createRowVector(
@@ -140,7 +144,7 @@ TEST(E2EWriterTests, E2E) {
     size = 200;
   }
 
-  E2EWriterTestUtil::testWriter(pool, type, batches, 1, 1, config, true, false);
+  E2EWriterTestUtil::testWriter(pool, type, batches, 1, 1, config);
 }
 
 TEST(E2EWriterTests, MaxFlatMapKeys) {
@@ -197,8 +201,7 @@ TEST(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
       type,
       E2EWriterTestUtil::generateBatches(std::move(batch)),
       config,
-      false,
-      true);
+      E2EWriterTestUtil::simpleFlushPolicy(true));
 
   // read it back and verify no present streams exist.
   auto input =
@@ -305,8 +308,7 @@ TEST(E2EWriterTests, FlatMapBackfill) {
       1,
       1,
       config,
-      /* useDefaultFlushPolicy */ false,
-      /* flushPerBatch */ false);
+      E2EWriterTestUtil::simpleFlushPolicy(false));
 }
 
 void testFlatMapWithNulls(bool firstRowNotNull, bool shareDictionary = false) {
@@ -351,8 +353,7 @@ void testFlatMapWithNulls(bool firstRowNotNull, bool shareDictionary = false) {
       1,
       1,
       config,
-      /* useDefaultFlushPolicy */ false,
-      /* flushPerBatch */ false);
+      E2EWriterTestUtil::simpleFlushPolicy(false));
 }
 
 TEST(E2EWriterTests, FlatMapWithNulls) {
@@ -404,8 +405,7 @@ TEST(E2EWriterTests, FlatMapEmpty) {
       1,
       1,
       config,
-      /* useDefaultFlushPolicy */ false,
-      /* flushPerBatch */ false);
+      E2EWriterTestUtil::simpleFlushPolicy(false));
 }
 
 void testFlatMapConfig(
@@ -610,8 +610,8 @@ TEST(E2EWriterTests, OversizeRows) {
       1,
       1,
       config,
-      /* useDefaultFlushPolicy */ true,
-      /* flushPerBatch */ false,
+      /* flushPolicy */ nullptr,
+      /* layoutPlannerFactory */ nullptr,
       /* memoryBudget */ std::numeric_limits<int64_t>::max(),
       false);
 }
@@ -643,8 +643,8 @@ TEST(E2EWriterTests, OversizeBatches) {
       10,
       10,
       config,
-      /* useDefaultFlushPolicy */ true,
-      /* flushPerBatch */ false,
+      /* flushPolicy */ nullptr,
+      /* layoutPlannerFactory */ nullptr,
       /* memoryBudget */ std::numeric_limits<int64_t>::max(),
       false);
 
@@ -659,8 +659,8 @@ TEST(E2EWriterTests, OversizeBatches) {
       15,
       16,
       config,
-      /* useDefaultFlushPolicy */ true,
-      /* flushPerBatch */ false,
+      /* flushPolicy */ nullptr,
+      /* layoutPlannerFactory */ nullptr,
       /* memoryBudget */ std::numeric_limits<int64_t>::max(),
       false);
 }

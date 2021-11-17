@@ -34,20 +34,18 @@ namespace facebook::velox::dwrf {
     const std::shared_ptr<const Type>& type,
     const std::vector<VectorPtr>& batches,
     const std::shared_ptr<Config>& config,
-    const bool useDefaultFlushPolicy,
-    const bool flushPerBatch,
+    std::function<bool(bool, const WriterContext&)> flushPolicy,
+    std::function<
+        std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+        layoutPlannerFactory,
     const int64_t writerMemoryCap) {
   // write file to memory
   WriterOptions options;
   options.config = config;
   options.schema = type;
   options.memoryBudget = writerMemoryCap;
-  if (!useDefaultFlushPolicy) {
-    options.flushPolicy = [flushPerBatch](
-                              bool /* unused */, auto& /* unused */) {
-      return flushPerBatch;
-    };
-  }
+  options.flushPolicy = flushPolicy;
+  options.layoutPlannerFactory = layoutPlannerFactory;
 
   auto writer = std::make_unique<Writer>(
       options,
@@ -71,8 +69,10 @@ namespace facebook::velox::dwrf {
     size_t numStripesLower,
     size_t numStripesUpper,
     const std::shared_ptr<Config>& config,
-    const bool useDefaultFlushPolicy,
-    const bool flushPerBatch,
+    std::function<bool(bool, const WriterContext&)> flushPolicy,
+    std::function<
+        std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+        layoutPlannerFactory,
     const int64_t writerMemoryCap,
     const bool verifyContent) {
   // write file to memory
@@ -85,8 +85,8 @@ namespace facebook::velox::dwrf {
       type,
       batches,
       config,
-      useDefaultFlushPolicy,
-      flushPerBatch,
+      flushPolicy,
+      layoutPlannerFactory,
       writerMemoryCap);
   // read it back and compare
   auto input =

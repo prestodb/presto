@@ -98,8 +98,8 @@ void testWriterDefaultFlushPolicy(
       numStripesLower,
       numStripesUpper,
       config,
-      /* useDefaultFlushPolicy */ true,
-      /* flushPerBatch */ false,
+      /* flushPolicy */ nullptr,
+      /* layoutPlannerFactory */ nullptr,
       memoryBudget,
       false);
 }
