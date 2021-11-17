@@ -48,6 +48,9 @@ Presto comes with sample configuration that should work out-of-the-box for devel
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
+If `VM options` doesn't exist in the dialog, you need to select `Modify options`
+and enable `Add VM options`.
+
 Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
