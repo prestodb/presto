@@ -177,6 +177,37 @@ target_link_libraries(
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
 
+add_executable(velox_dwio_dwrf_writer_context_test TestWriterContext.cpp)
+add_test(velox_dwio_dwrf_writer_context_test
+         velox_dwio_dwrf_writer_context_test)
+
+target_link_libraries(
+  velox_dwio_dwrf_writer_context_test
+  ${VELOX_LINK_LIBS}
+  ${DOUBLE_CONVERSION}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${LZ4}
+  ${LZO}
+  ${ZSTD}
+  ${ZLIB_LIBRARIES}
+  ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_dwrf_writer_encoding_manager_test
+               EncodingManagerTests.cpp)
+add_test(velox_dwio_dwrf_writer_encoding_manager_test
+         velox_dwio_dwrf_writer_encoding_manager_test)
+
+target_link_libraries(
+  velox_dwio_dwrf_writer_encoding_manager_test
+  ${VELOX_LINK_LIBS}
+  ${DOUBLE_CONVERSION}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${LZ4}
+  ${LZO}
+  ${ZSTD}
+  ${ZLIB_LIBRARIES}
+  ${TEST_LINK_LIBS})
+
 add_executable(velox_dwio_dwrf_writer_sink_test WriterSinkTests.cpp)
 add_test(velox_dwio_dwrf_writer_sink_test velox_dwio_dwrf_writer_sink_test)
 

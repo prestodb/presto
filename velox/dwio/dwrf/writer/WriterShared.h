@@ -18,10 +18,64 @@
 
 #include <limits>
 
+#include "velox/dwio/dwrf/common/Encryption.h"
+#include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
 
 namespace facebook::velox::dwrf {
+
+class EncodingIter {
+ public:
+  EncodingIter(
+      const proto::StripeFooter& footer,
+      const std::vector<proto::StripeEncryptionGroup>& encryptionGroups);
+
+  // Checks if the iterator is empty. Should just be called once.
+  bool empty() const;
+
+  bool next();
+
+  // Caller is responsible for checking whether the iterator is empty
+  // before accessing the first element.
+  const proto::ColumnEncoding& current() const;
+
+ private:
+  bool emptyEncryptionGroups() const;
+
+  const proto::StripeFooter& footer_;
+  const std::vector<proto::StripeEncryptionGroup>& encryptionGroups_;
+  int32_t encryptionGroupIndex_{-1};
+  google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+      current_;
+  google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+      currentEnd_;
+};
+
+class EncodingManager {
+ public:
+  explicit EncodingManager(
+      const encryption::EncryptionHandler& encryptionHandler);
+
+  proto::ColumnEncoding& addEncodingToFooter(uint32_t nodeId);
+
+  proto::Stream* addStreamToFooter(uint32_t nodeId, uint32_t& currentIndex);
+
+  std::string* addEncryptionGroupToFooter();
+
+  proto::StripeEncryptionGroup getEncryptionGroup(uint32_t i);
+
+  const proto::StripeFooter& getFooter() const;
+
+  EncodingIter getEncodingIter() const;
+
+ private:
+  void initEncryptionGroups();
+
+  const encryption::EncryptionHandler& encryptionHandler_;
+  proto::StripeFooter footer_;
+  std::vector<proto::StripeEncryptionGroup> encryptionGroups_;
+};
 
 struct WriterOptionsShared {
   std::shared_ptr<const Config> config = std::make_shared<Config>();

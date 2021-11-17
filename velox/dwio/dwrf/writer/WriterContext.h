@@ -19,7 +19,6 @@
 #include <gtest/gtest_prod.h>
 
 #include "velox/dwio/dwrf/common/Compression.h"
-#include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/IntegerDictionaryEncoder.h"
 #include "velox/dwio/dwrf/writer/RatioTracker.h"
