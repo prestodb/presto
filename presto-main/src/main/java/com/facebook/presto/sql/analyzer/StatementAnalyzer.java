@@ -1216,6 +1216,16 @@ class StatementAnalyzer
             Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
                     GET_MATERIALIZED_VIEW_TIME_NANOS,
                     () -> metadata.getMaterializedView(session, name));
+            // Prevent INSERT and CREATE TABLE when selecting from a materialized view.
+            if (optionalMaterializedView.isPresent()
+                    && (analysis.getStatement() instanceof Insert || analysis.getStatement() instanceof CreateTableAsSelect)) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        table,
+                        "%s by selecting from a materialized view %s is not supported",
+                        analysis.getStatement().getClass().getSimpleName(),
+                        optionalMaterializedView.get().getTable());
+            }
             Statement statement = analysis.getStatement();
             if (isMaterializedViewDataConsistencyEnabled(session) && optionalMaterializedView.isPresent() && statement instanceof Query) {
                 // When the materialized view has already been expanded, do not process it. Just use it as a table.
