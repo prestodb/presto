@@ -154,7 +154,7 @@ public class TestWarnings
     @Test
     public void testSameOrderByWarnings()
     {
-        String query = "SELECT ARRAY_AGG( x ORDER BY x ASC, x DESC ) FROM ( SELECT 0 as x, 0 AS y)";
+        String query = "SELECT ARRAY_AGG( x ORDER BY x ASC, x DESC ) FROM ( SELECT 0 as x)";
         assertWarnings(
                 queryRunner, TEST_SESSION, query, ImmutableSet.of(SAME_ORDER_BY.toWarningCode()));
     }
