@@ -40,108 +40,45 @@ TEST(MemoryUsageTrackerTest, constructor) {
 }
 
 TEST(MemoryUsageTrackerTest, update) {
-  auto parent = MemoryUsageTracker::create();
+  constexpr int64_t kMaxSize = 1 << 30; // 1GB
+  constexpr int64_t kMB = 1 << 20;
+  auto config = MemoryUsageConfigBuilder().maxUserMemory(kMaxSize).build();
+  auto parent = MemoryUsageTracker::create(config);
 
-  auto verifyUsage = [](MemoryUsageTracker* userTracker,
-                        MemoryUsageTracker* systemTracker,
-                        MemoryUsageTracker* parent,
-                        std::vector<int64_t> currentUserBytes,
-                        std::vector<int64_t> currentSystemBytes,
-                        std::vector<int64_t> currentTotalBytes,
-                        std::vector<int64_t> peakUserBytes,
-                        std::vector<int64_t> peakSystemBytes,
-                        std::vector<int64_t> peakTotalBytes) {
-    std::vector<MemoryUsageTracker*> trackers = {
-        userTracker, systemTracker, parent};
-    for (int i = 0; i < 3; ++i) {
-      EXPECT_EQ(trackers[i]->getCurrentUserBytes(), currentUserBytes[i]);
-      EXPECT_EQ(trackers[i]->getCurrentSystemBytes(), currentSystemBytes[i]);
-      EXPECT_EQ(trackers[i]->getCurrentTotalBytes(), currentTotalBytes[i]);
-      EXPECT_EQ(trackers[i]->getPeakUserBytes(), peakUserBytes[i]);
-      EXPECT_EQ(trackers[i]->getPeakSystemBytes(), peakSystemBytes[i]);
-      EXPECT_EQ(trackers[i]->getPeakTotalBytes(), peakTotalBytes[i]);
-    }
-  };
+  auto child1 = parent->addChild();
+  auto child2 = parent->addChild();
 
-  auto userTracker = parent->addChild(false);
-  auto systemTracker = parent->addChild(true);
+  EXPECT_THROW(child1->reserve(2 * kMaxSize), VeloxRuntimeError);
 
-  userTracker->update(20);
+  EXPECT_EQ(0, parent->getCurrentTotalBytes());
+  child1->update(1000);
+  EXPECT_EQ(kMB, parent->getCurrentTotalBytes());
+  EXPECT_EQ(kMB - 1000, child1->getAvailableReservation());
+  child1->update(1000);
+  EXPECT_EQ(kMB, parent->getCurrentTotalBytes());
+  child1->update(kMB);
+  EXPECT_EQ(2 * kMB, parent->getCurrentTotalBytes());
+  child1->update(100 * kMB);
+  // Larger sizes round up to next 8MB.
+  EXPECT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  child1->update(-kMB);
+  // 1MB less does not decrease the reservation.
+  EXPECT_EQ(104 * kMB, parent->getCurrentTotalBytes());
 
-  verifyUsage(
-      userTracker.get(),
-      systemTracker.get(),
-      parent.get(),
-      {20, 0, 20},
-      {0, 0, 0},
-      {20, 0, 20},
-      {20, 0, 20},
-      {0, 0, 0},
-      {20, 0, 20});
+  child1->update(-7 * kMB);
+  EXPECT_EQ(96 * kMB, parent->getCurrentTotalBytes());
+  child1->update(-92 * kMB);
+  EXPECT_EQ(2 * kMB, parent->getCurrentTotalBytes());
+  child1->update(-kMB);
+  EXPECT_EQ(kMB, parent->getCurrentTotalBytes());
 
-  userTracker->update(30);
-  verifyUsage(
-      userTracker.get(),
-      systemTracker.get(),
-      parent.get(),
-      {50, 0, 50},
-      {0, 0, 0},
-      {50, 0, 50},
-      {50, 0, 50},
-      {0, 0, 0},
-      {50, 0, 50});
-
-  userTracker->update(-20);
-  verifyUsage(
-      userTracker.get(),
-      systemTracker.get(),
-      parent.get(),
-      {30, 0, 30},
-      {0, 0, 0},
-      {30, 0, 30},
-      {50, 0, 50},
-      {0, 0, 0},
-      {50, 0, 50});
-
-  systemTracker->update(100);
-  verifyUsage(
-      userTracker.get(),
-      systemTracker.get(),
-      parent.get(),
-      {30, 0, 30},
-      {0, 100, 100},
-      {30, 100, 130},
-      {50, 0, 50},
-      {0, 100, 100},
-      {50, 100, 130});
-
-  systemTracker->update(-80);
-  verifyUsage(
-      userTracker.get(),
-      systemTracker.get(),
-      parent.get(),
-      {30, 0, 30},
-      {0, 20, 20},
-      {30, 20, 50},
-      {50, 0, 50},
-      {0, 100, 100},
-      {50, 100, 130});
-
-  userTracker->update(50);
-  verifyUsage(
-      userTracker.get(),
-      systemTracker.get(),
-      parent.get(),
-      {80, 0, 80},
-      {0, 20, 20},
-      {80, 20, 100},
-      {80, 0, 80},
-      {0, 100, 100},
-      {80, 100, 130});
+  child1->update(-2000);
+  EXPECT_EQ(0, parent->getCurrentTotalBytes());
 }
 
 TEST(MemoryUsageTrackerTest, reserve) {
-  constexpr int64_t kMaxSize = 1 << 20;
+  constexpr int64_t kMaxSize = 1 << 30;
+  constexpr int64_t kMB = 1 << 20;
   auto config = MemoryUsageConfigBuilder().maxUserMemory(kMaxSize).build();
   auto parent = MemoryUsageTracker::create(config);
 
@@ -149,49 +86,24 @@ TEST(MemoryUsageTrackerTest, reserve) {
 
   EXPECT_THROW(child->reserve(2 * kMaxSize), VeloxRuntimeError);
 
-  child->reserve(1024);
-  EXPECT_THROW(child->update(2 * kMaxSize), VeloxRuntimeError);
-  EXPECT_EQ(child->getAvailableReservation(), 1024);
-  EXPECT_EQ(child->getCurrentTotalBytes(), 1024);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), 1024);
-
-  child->update(512);
-  EXPECT_EQ(child->getAvailableReservation(), 512);
-  EXPECT_EQ(child->getCurrentTotalBytes(), 1024);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), 1024);
-
-  child->update(1024);
-  EXPECT_EQ(child->getAvailableReservation(), 0);
-  EXPECT_EQ(child->getCurrentTotalBytes(), 1536);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), 1536);
-
-  child->update(512);
-  EXPECT_EQ(child->getAvailableReservation(), 0);
-  EXPECT_EQ(child->getCurrentTotalBytes(), 2048);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), 2048);
-
-  child->update(-512);
-  EXPECT_EQ(child->getAvailableReservation(), 0);
-  EXPECT_EQ(child->getCurrentTotalBytes(), 1536);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), 1536);
-
-  child->update(-1024);
-  EXPECT_EQ(child->getAvailableReservation(), 512);
-  EXPECT_EQ(child->getCurrentTotalBytes(), 1024);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), 1024);
-
-  child->update(-512);
-  EXPECT_EQ(child->getAvailableReservation(), 1024);
-  EXPECT_EQ(child->getCurrentTotalBytes(), 1024);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), 1024);
-
-  // We free past the allocated size at reservation time. 'usedReservation_'
-  // goes negative.
-  child->update(-512);
-  EXPECT_EQ(child->getAvailableReservation(), 1536);
-
+  child->reserve(100 * kMB);
+  EXPECT_EQ(0, child->getCurrentTotalBytes());
+  // The reservationon child shows up as a reservation on the child
+  // and as an allocation on the parent.
+  EXPECT_EQ(104 * kMB, child->getAvailableReservation());
+  EXPECT_EQ(0, child->getCurrentTotalBytes());
+  EXPECT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  child->update(60 * kMB);
+  EXPECT_EQ(60 * kMB, child->getCurrentTotalBytes());
+  EXPECT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  EXPECT_EQ((104 - 60) * kMB, child->getAvailableReservation());
+  child->update(70 * kMB);
+  // Extended and rounded up the reservation to then next 8MB.
+  EXPECT_EQ(136 * kMB, parent->getCurrentTotalBytes());
+  child->update(-130 * kMB);
+  // The reservation goes down to the explicitly made reservation.
+  EXPECT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  EXPECT_EQ(104 * kMB, child->getAvailableReservation());
   child->release();
-  EXPECT_EQ(child->getAvailableReservation(), 0);
-  EXPECT_EQ(child->getCurrentTotalBytes(), -512);
-  EXPECT_EQ(parent->getCurrentTotalBytes(), -512);
+  EXPECT_EQ(0, parent->getCurrentTotalBytes());
 }

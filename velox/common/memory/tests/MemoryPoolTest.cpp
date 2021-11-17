@@ -423,8 +423,8 @@ TEST(MemoryPoolTest, scopedChildUsageTest) {
       EXPECT_EQ(tree[i]->getMaxBytes(), maxBytes[i]);
       auto tracker = tree[i]->getMemoryUsageTracker();
       ASSERT_TRUE(tracker);
-      EXPECT_EQ(tracker->getCurrentUserBytes(), trackerCurrentBytes[i]);
-      EXPECT_EQ(tracker->getPeakTotalBytes(), trackerMaxBytes[i]);
+      EXPECT_GE(tracker->getCurrentUserBytes(), trackerCurrentBytes[i]);
+      EXPECT_GE(tracker->getPeakTotalBytes(), trackerMaxBytes[i]);
     }
   };
 
@@ -505,8 +505,8 @@ TEST(MemoryPoolTest, scopedChildUsageTest) {
 
   // Verify the stats still holds the correct stats.
   for (unsigned i = 0, e = trackers.size(); i != e; ++i) {
-    EXPECT_EQ(trackers[i]->getCurrentUserBytes(), expectedCurrentBytes[i]);
-    EXPECT_EQ(trackers[i]->getPeakTotalBytes(), expectedMaxBytes[i]);
+    EXPECT_GE(trackers[i]->getCurrentUserBytes(), expectedCurrentBytes[i]);
+    EXPECT_GE(trackers[i]->getPeakTotalBytes(), expectedMaxBytes[i]);
   }
 }
 } // namespace memory

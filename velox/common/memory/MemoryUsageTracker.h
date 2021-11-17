@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::memory {
@@ -69,20 +70,23 @@ struct MemoryUsageConfigBuilder {
 // and cumulative allocation volume for a MemoryPool or MappedMemory
 // allocator. This is supplied at construction when creating a child
 // MemoryPool or MappedMemory. These trackers form a tree. The
-// tracking information is aggregated from leaf to root. Each level
-// in the tree may specify a maximum allocation. Updating the
-// allocated amount past the maximum will throw. This is why the
-// update should precede the actual allocation. A tracker can
-// specify a reservation. Making a reservation means that no memory is
-// allocated but the allocated size  is updated so as to
-// make sure that at least the reserved  amount can be
-// allocated. Allocations that fit within the reserved are not
-// counted as new because the counting  was done when
-// making the reservation.  Allocating past the reservation is possible, but
-// then allocation is recorded  in the tracker and it can fail. Freeing data
-// when above reservation counts as free up to the reservation size. Freeing
-// data within the reservation drops the usage but not the reservation.
-// release() frees unused reserved capacity.
+// tracking information is aggregated from leaf to root. Each level in
+// the tree may specify a maximum allocation. Updating the allocated
+// amount past the maximum will throw. This is why the update should
+// precede the actual allocation. A tracker can specify a
+// reservation. Making a reservation means that no memory is allocated
+// but the allocated size is updated so as to make sure that at least
+// the reserved amount can be allocated. Allocations that fit within
+// the reserved are not counted as new because the counting was done
+// when making the reservation.  Allocating past the reservation is
+// possible and will increase the reservation by a size-dependent
+// quantum. This may fail if the new size in some parent exceeds a
+// cap. Freeing data within the reservation drops the usage but not
+// the reservation.  Automatically updated reservations are freed when
+// enough memory is freed.  Explicitly made reservations must be freed
+// with release(). Parents are updated only at reservation time to
+// avoid cache coherence traffic that arises when every thread
+// constantly updates the same top level allocation counter.
 class MemoryUsageTracker
     : public std::enable_shared_from_this<MemoryUsageTracker> {
  public:
@@ -122,21 +126,21 @@ class MemoryUsageTracker
   // leaf memory pool or mapped memory, which is accessed within a
   // single thread.
   void reserve(int64_t size) {
-    int64_t actualSize = size - (reservation_ - usedReservation_);
-    if (actualSize > 0) {
-      update(type_, actualSize);
-      reservation_ += actualSize;
-    }
+    std::lock_guard<std::mutex> l(mutex_);
+
+    minReservation_ += reserveLocked(size);
   }
 
   // Release unused reservation. Used reservation will be released as the
-  // allocations are freed. Note that this function is not thread-safe.
+  // allocations are freed.
   void release() {
+    std::lock_guard<std::mutex> l(mutex_);
     int64_t remaining = reservation_ - usedReservation_;
     if (remaining) {
-      update(type_, -remaining);
+      updateInternal(type_, -remaining);
     }
     reservation_ = 0;
+    minReservation_ = 0;
     usedReservation_ = 0;
   }
 
@@ -145,34 +149,44 @@ class MemoryUsageTracker
   // the new allocated amount exceeds the reservation, propagates the
   // change upward.
   void update(int64_t size) {
-    if (int64_t increment = updateUsed(size)) {
-      try {
-        update(type_, increment);
-      } catch (const VeloxRuntimeError& e) {
-        // Revert the increment to reservation usage.
-        usedReservation_.fetch_sub(size);
-        std::rethrow_exception(std::current_exception());
+    std::lock_guard<std::mutex> l(mutex_);
+    if (size > 0) {
+      if (usedReservation_ + size > reservation_) {
+        reserveLocked(size);
       }
+      usedReservation_ += size;
+      return;
     }
+    auto newUsed = usedReservation_ + size;
+    auto newCap = std::max(minReservation_, newUsed);
+    auto newQuantized = quantizedSize(newCap);
+    if (newQuantized != reservation_) {
+      auto increment = newQuantized - reservation_;
+      updateInternal(type_, increment);
+      reservation_ = newQuantized;
+    }
+    usedReservation_ += size;
   }
 
   int64_t getCurrentUserBytes() const {
-    return currentUsageInBytes_[static_cast<int>(UsageType::kUserMem)];
+    return adjustByReservation(user(currentUsageInBytes_));
   }
   int64_t getCurrentSystemBytes() const {
-    return currentUsageInBytes_[static_cast<int>(UsageType::kSystemMem)];
+    return adjustByReservation(system(currentUsageInBytes_));
   }
   int64_t getCurrentTotalBytes() const {
-    return getCurrentUserBytes() + getCurrentSystemBytes();
+    return adjustByReservation(
+        user(currentUsageInBytes_) + system(currentUsageInBytes_));
   }
+
   int64_t getPeakUserBytes() const {
-    return peakUsageInBytes_[static_cast<int>(UsageType::kUserMem)];
+    return user(peakUsageInBytes_);
   }
   int64_t getPeakSystemBytes() const {
-    return peakUsageInBytes_[static_cast<int>(UsageType::kSystemMem)];
+    return system(peakUsageInBytes_);
   }
   int64_t getPeakTotalBytes() const {
-    return peakUsageInBytes_[static_cast<int>(UsageType::kTotalMem)];
+    return total(peakUsageInBytes_);
   }
 
   int64_t getAvailableReservation() const {
@@ -180,11 +194,11 @@ class MemoryUsageTracker
   }
 
   int64_t getNumAllocs() const {
-    return numAllocs_[static_cast<int>(UsageType::kTotalMem)];
+    return total(numAllocs_);
   }
 
   int64_t getCumulativeBytes() const {
-    return cumulativeBytes_[static_cast<int>(UsageType::kTotalMem)];
+    return total(cumulativeBytes_);
   }
 
   std::shared_ptr<MemoryUsageTracker> addChild(
@@ -197,11 +211,96 @@ class MemoryUsageTracker
   }
 
   int64_t getUserMemoryCap() const {
-    return maxMemory_[static_cast<int>(UsageType::kUserMem)];
+    return user(maxMemory_);
   }
 
  private:
+  static constexpr int64_t kMB = 1 << 20;
+
   enum class UsageType : int { kUserMem = 0, kSystemMem = 1, kTotalMem = 2 };
+
+  template <typename T, size_t size>
+  static T& usage(std::array<T, size>& array, UsageType type) {
+    return array[static_cast<int32_t>(type)];
+  }
+
+  template <typename T, size_t size>
+  static T& user(std::array<T, size>& array) {
+    return usage(array, UsageType::kUserMem);
+  }
+
+  template <typename T, size_t size>
+  static T& system(std::array<T, size>& array) {
+    return usage(array, UsageType::kSystemMem);
+  }
+
+  template <typename T, size_t size>
+  static T& total(std::array<T, size>& array) {
+    return usage(array, UsageType::kTotalMem);
+  }
+
+  template <typename T, size_t size>
+  static int64_t usage(const std::array<T, size>& array, UsageType type) {
+    return array[static_cast<int32_t>(type)];
+  }
+
+  template <typename T, size_t size>
+  static int64_t user(const std::array<T, size>& array) {
+    return usage(array, UsageType::kUserMem);
+  }
+
+  template <typename T, size_t size>
+  static int64_t system(const std::array<T, size>& array) {
+    return usage(array, UsageType::kSystemMem);
+  }
+
+  template <typename T, size_t size>
+  static int64_t total(const std::array<T, size>& array) {
+    return usage(array, UsageType::kTotalMem);
+  }
+
+  int64_t reserveLocked(int64_t size) {
+    int64_t neededSize = size - (reservation_ - usedReservation_);
+    if (neededSize > 0) {
+      auto increment = roundedDelta(reservation_, neededSize);
+      updateInternal(type_, increment);
+      reservation_ += increment;
+      return increment;
+    }
+    return 0;
+  }
+
+  // Returns a rounded up delta based on adding 'delta' to
+  // 'size'. Adding the rounded delta to 'size' will result in 'size'
+  // a quantized size, rounded to the MB or 8MB for larger sizes.
+  static int64_t roundedDelta(int64_t size, int64_t delta) {
+    return quantizedSize(size + delta) - size;
+  }
+
+  // Returns the next higher quantized size. Small sizes are at MB granularity,
+  // larger ones at coarser granularity.
+  static uint64_t quantizedSize(uint64_t size) {
+    if (size < 16 * kMB) {
+      return bits::roundUp(size, kMB);
+    }
+    if (size < 64 * kMB) {
+      return bits::roundUp(size, 4 * kMB);
+    }
+    return bits::roundUp(size, 8 * kMB);
+  }
+
+  int64_t adjustByReservation(int64_t total) const {
+    return reservation_
+        ? std::max<int64_t>(total - getAvailableReservation(), 0)
+        : std::max<int64_t>(0, total);
+  }
+
+  // Serializes update(). UpdateInternal works based on atomics so
+  // children updating the same parent do not have to be serialized
+  // but multiple threads updating the same leaf must be serialized
+  // because the reservation decision needs a consistent read/write of
+  // both reservation and used reservation.
+  std::mutex mutex_;
   std::shared_ptr<MemoryUsageTracker> parent_;
   UsageType type_;
   std::array<std::atomic<int64_t>, 2> currentUsageInBytes_{};
@@ -211,6 +310,9 @@ class MemoryUsageTracker
   std::array<int64_t, 3> cumulativeBytes_{};
 
   int64_t reservation_{0};
+
+  // Minimum amount of reserved memory to hold until explicit release().
+  int64_t minReservation_{0};
   std::atomic<int64_t> usedReservation_{};
 
   explicit MemoryUsageTracker(
@@ -238,84 +340,16 @@ class MemoryUsageTracker
     }
   }
 
-  void update(UsageType type, int64_t size) {
-    // Update parent first. If one of the ancestor's limits are exceeded, it
-    // will throw VeloxMemoryCapExceeded exception.
-    if (parent_) {
-      parent_->update(type, size);
+  void updateInternal(UsageType type, int64_t size);
+
+  void checkNonNegativeSizes(const char* message) const {
+    if (user(currentUsageInBytes_) < 0 || system(currentUsageInBytes_) < 0 ||
+        total(currentUsageInBytes_) < 0) {
+      LOG_EVERY_N(ERROR, 100)
+          << "MEMR: Negative usage " << message << user(currentUsageInBytes_)
+          << " " << system(currentUsageInBytes_) << " "
+          << total(currentUsageInBytes_);
     }
-
-    auto newPeak = currentUsageInBytes_[static_cast<int>(type)].fetch_add(
-                       size, std::memory_order_relaxed) +
-        size;
-
-    if (size > 0) {
-      ++numAllocs_[static_cast<int>(type)];
-      cumulativeBytes_[static_cast<int>(type)] += size;
-      ++numAllocs_[static_cast<int>(UsageType::kTotalMem)];
-      cumulativeBytes_[static_cast<int>(UsageType::kTotalMem)] += size;
-    }
-
-    // We track the peak usage of total memory independent of user and
-    // system memory since freed user memory can be reallocated as system
-    // memory and vice versa.
-    int64_t total = getCurrentUserBytes() + getCurrentSystemBytes();
-
-    // Enforce the limit. Throw VeloxMemoryCapException exception if the limits
-    // are exceeded.
-    if (size > 0 &&
-        (newPeak > maxMemory_[static_cast<int>(type)] ||
-         total > maxMemory_[static_cast<int>(UsageType::kTotalMem)])) {
-      // Exceeded the limit. Fail allocation after reverting changes to
-      // parent and currentUsageInBytes_.
-      if (parent_) {
-        parent_->update(type, -size);
-      }
-      currentUsageInBytes_[static_cast<int>(type)].fetch_add(
-          -size, std::memory_order_relaxed);
-
-      VELOX_MEM_CAP_EXCEEDED();
-    }
-
-    maySetMax(type, newPeak);
-    maySetMax(UsageType::kTotalMem, total);
-  }
-
-  // Increments the amount of 'usedReservation_' by 'size'.  Returns the
-  // amount by which current size must be incremented. If both old and
-  // new values are below the reservation, there is no increment. If
-  // the increment crosses reservation, then the increment is, in the
-  // case of allocation, the amount that goes above the reservation
-  // and for deallocation the amount that takes the current size to
-  // reservation but not below this. If both new and old amounts used
-  // are above reservation, the increment is the delta between the
-  // two.
-  int64_t updateUsed(int64_t size) {
-    int64_t increment = size;
-    int64_t reservation = reservation_;
-    if (reservation > 0) {
-      int64_t oldUsed = 0;
-      int64_t newUsed = 0;
-      do {
-        oldUsed = usedReservation_;
-        newUsed = oldUsed + size;
-        if (newUsed < reservation && oldUsed < reservation_) {
-          // The usage stays below reservation. No change to allocated size.
-          increment = 0;
-        } else if (newUsed < reservation_ && oldUsed > reservation_) {
-          // Usage goes below reservation due to a free.
-          increment = reservation_ - oldUsed;
-        } else if (newUsed > reservation_ && oldUsed < reservation_) {
-          // Usage goes above reservation due to allocation.
-          increment = newUsed - reservation_;
-        } else {
-          // Old and new are both above reservation. The delta is directly
-          // reflected in allocated size.
-          increment = size;
-        }
-      } while (!usedReservation_.compare_exchange_weak(oldUsed, newUsed));
-    }
-    return increment;
   }
 };
 } // namespace facebook::velox::memory

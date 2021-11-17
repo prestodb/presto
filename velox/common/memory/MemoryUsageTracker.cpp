@@ -31,4 +31,48 @@ std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
 
   return std::make_shared<SharedMemoryUsageTracker>(parent, type, config);
 }
+
+void MemoryUsageTracker::updateInternal(UsageType type, int64_t size) {
+  // Update parent first. If one of the ancestor's limits are exceeded, it
+  // will throw VeloxMemoryCapExceeded exception.
+  if (parent_) {
+    parent_->updateInternal(type, size);
+  }
+
+  auto newPeak = usage(currentUsageInBytes_, type)
+                     .fetch_add(size, std::memory_order_relaxed) +
+      size;
+
+  if (size > 0) {
+    ++usage(numAllocs_, type);
+    usage(cumulativeBytes_, type) += size;
+    ++usage(numAllocs_, type);
+    usage(cumulativeBytes_, type) += size;
+  }
+
+  // We track the peak usage of total memory independent of user and
+  // system memory since freed user memory can be reallocated as system
+  // memory and vice versa.
+  int64_t totalBytes = getCurrentUserBytes() + getCurrentSystemBytes();
+
+  // Enforce the limit. Throw VeloxMemoryCapException exception if the limits
+  // are exceeded.
+  if (size > 0 &&
+      (newPeak > usage(maxMemory_, type) || totalBytes > total(maxMemory_))) {
+    // Exceeded the limit. Fail allocation after reverting changes to
+    // parent and currentUsageInBytes_.
+    if (parent_) {
+      parent_->updateInternal(type, -size);
+    }
+    usage(currentUsageInBytes_, type)
+        .fetch_add(-size, std::memory_order_relaxed);
+    checkNonNegativeSizes("after exceeding cap");
+    VELOX_MEM_CAP_EXCEEDED();
+  }
+
+  maySetMax(type, newPeak);
+  maySetMax(UsageType::kTotalMem, totalBytes);
+  checkNonNegativeSizes("after update");
+}
+
 } // namespace facebook::velox::memory
