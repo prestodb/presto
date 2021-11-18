@@ -256,6 +256,7 @@ TEST_F(BitwiseTest, rightShiftArithmetic) {
   EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(kMax64, kMax64), 0);
   EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(kMax64, 1), kMax64 >> 1);
   EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(kMin64, 1), kMin64 >> 1);
+  EXPECT_EQ(bitwiseRightShiftArithmetic<int64_t>(1, kMin64), 0);
 }
 
 TEST_F(BitwiseTest, leftShift) {

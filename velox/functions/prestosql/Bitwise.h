@@ -137,7 +137,7 @@ FOLLY_ALWAYS_INLINE int64_t preserveSign(T number) {
 template <typename T>
 VELOX_UDF_BEGIN(bitwise_right_shift_arithmetic)
 FOLLY_ALWAYS_INLINE bool call(int64_t& result, T number, T shift) {
-  if ((uint32_t)shift >= 64) {
+  if ((uint64_t)shift >= 64) {
     if (number >= 0) {
       result = 0L;
     } else {
