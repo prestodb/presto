@@ -70,6 +70,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.MATERIALIZED_VIEW;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public class InMemoryHiveMetastore
@@ -173,7 +174,7 @@ public class InMemoryHiveMetastore
     public synchronized void createTable(MetastoreContext metastoreContext, Table table)
     {
         TableType tableType = TableType.valueOf(table.getTableType());
-        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW, MATERIALIZED_VIEW).contains(tableType), "Invalid table type: %s", tableType);
 
         if (tableType == VIRTUAL_VIEW) {
             checkArgument(table.getSd().getLocation() == null, "Storage location for view must be null");
@@ -181,7 +182,7 @@ public class InMemoryHiveMetastore
         else {
             File directory = new File(new Path(table.getSd().getLocation()).toUri());
             checkArgument(directory.exists(), "Table directory does not exist: %s", directory);
-            if (tableType == MANAGED_TABLE) {
+            if (tableType == MANAGED_TABLE || tableType == MATERIALIZED_VIEW) {
                 checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
             }
         }
@@ -217,7 +218,7 @@ public class InMemoryHiveMetastore
         partitions.keySet().removeIf(partitionName -> partitionName.matches(databaseName, tableName));
 
         // remove data
-        if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
+        if (deleteData && (table.getTableType().equals(MANAGED_TABLE.name()) || table.getTableType().equals(MATERIALIZED_VIEW.name()))) {
             for (String location : locations) {
                 if (location != null) {
                     File directory = new File(new Path(location).toUri());

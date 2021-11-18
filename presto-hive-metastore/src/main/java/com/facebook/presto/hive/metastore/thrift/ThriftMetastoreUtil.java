@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Shorts;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -101,7 +100,6 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_KEY;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.fromMetastoreDistinctValuesCount;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
@@ -111,7 +109,6 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -156,15 +153,8 @@ public final class ThriftMetastoreUtil
         result.setTableName(table.getTableName());
         result.setOwner(table.getOwner());
 
-        PrestoTableType tableType = table.getTableType();
-        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW, MATERIALIZED_VIEW).contains(tableType), "Invalid table type: %s", table.getTableType());
-        // TODO: remove the table type change after Hive 3.0 upgrade.
-        // TableType.MATERIALIZED_VIEW is not supported by Hive metastore until Hive 3.0. Use MANAGED_TABLE for now.
-        if (MATERIALIZED_VIEW.equals(tableType)) {
-            tableType = MANAGED_TABLE;
-        }
-        result.setTableType(tableType.name());
-
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW, MATERIALIZED_VIEW).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
+        result.setTableType(table.getTableType().name());
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
@@ -415,21 +405,11 @@ public final class ThriftMetastoreUtil
             throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
 
-        // TODO: remove the table type change after Hive 3.0 update.
-        // Materialized view fetched from Hive Metastore uses TableType.MANAGED_TABLE before Hive 3.0. Cast it back to MATERIALIZED_VIEW here.
-        PrestoTableType tableType = PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER);
-        if (table.getParameters() != null && "true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))) {
-            checkState(
-                    TableType.MANAGED_TABLE.name().equals(table.getTableType()),
-                    "Materialized view %s has incorrect table type %s from Metastore.", table.getTableName(), table.getTableType());
-            tableType = MATERIALIZED_VIEW;
-        }
-
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
                 .setOwner(nullToEmpty(table.getOwner()))
-                .setTableType(tableType)
+                .setTableType(PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER))
                 .setDataColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
