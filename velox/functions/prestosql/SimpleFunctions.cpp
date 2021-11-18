@@ -76,19 +76,30 @@ void registerFunctions() {
   registerFunction<ToUnixtimeFunction, double, Timestamp>(
       {"to_unixtime", "to_unix_timestamp"});
   registerFunction<FromUnixtimeFunction, Timestamp, double>({"from_unixtime"});
+
   registerFunction<YearFunction, int64_t, Timestamp>({"year"});
+  registerFunction<YearFunction, int64_t, Date>({"year"});
   registerFunction<MonthFunction, int64_t, Timestamp>({"month"});
+  registerFunction<MonthFunction, int64_t, Date>({"month"});
   registerFunction<DayFunction, int64_t, Timestamp>({"day", "day_of_month"});
+  registerFunction<DayFunction, int64_t, Date>({"day", "day_of_month"});
   registerFunction<DayOfWeekFunction, int64_t, Timestamp>(
       {"dow", "day_of_week"});
+  registerFunction<DayOfWeekFunction, int64_t, Date>({"dow", "day_of_week"});
   registerFunction<DayOfYearFunction, int64_t, Timestamp>(
       {"doy", "day_of_year"});
+  registerFunction<DayOfYearFunction, int64_t, Date>({"doy", "day_of_year"});
   registerFunction<HourFunction, int64_t, Timestamp>({"hour"});
+  registerFunction<HourFunction, int64_t, Date>({"hour"});
   registerFunction<MinuteFunction, int64_t, Timestamp>({"minute"});
+  registerFunction<MinuteFunction, int64_t, Date>({"minute"});
   registerFunction<SecondFunction, int64_t, Timestamp>({"second"});
+  registerFunction<SecondFunction, int64_t, Date>({"second"});
   registerFunction<MillisecondFunction, int64_t, Timestamp>({"millisecond"});
+  registerFunction<MillisecondFunction, int64_t, Date>({"millisecond"});
   registerFunction<DateTruncFunction, Timestamp, Varchar, Timestamp>(
       {"date_trunc"});
+  registerFunction<DateTruncFunction, Date, Varchar, Date>({"date_trunc"});
   registerFunction<
       ParseDateTimeFunction,
       TimestampWithTimezone,

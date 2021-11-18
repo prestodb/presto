@@ -51,6 +51,7 @@ struct FromUnixtimeFunction {
 };
 
 namespace {
+inline constexpr int64_t kSecondsInDay = 86'400;
 
 FOLLY_ALWAYS_INLINE const date::time_zone* getTimeZoneFromConfig(
     const core::QueryConfig& config) {
@@ -81,6 +82,14 @@ std::tm getDateTime(Timestamp timestamp, const date::time_zone* timeZone) {
   return dateTime;
 }
 
+FOLLY_ALWAYS_INLINE
+std::tm getDateTime(Date date) {
+  int64_t seconds = date.days() * kSecondsInDay;
+  std::tm dateTime;
+  gmtime_r((const time_t*)&seconds, &dateTime);
+  return dateTime;
+}
+
 template <typename T>
 struct InitSessionTimezone {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -105,6 +114,11 @@ struct YearFunction : public InitSessionTimezone<T> {
     result = 1900 + getDateTime(timestamp, this->timeZone_).tm_year;
     return true;
   }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = 1900 + getDateTime(date).tm_year;
+    return true;
+  }
 };
 
 template <typename T>
@@ -117,6 +131,11 @@ struct MonthFunction : public InitSessionTimezone<T> {
     result = 1 + getDateTime(timestamp, this->timeZone_).tm_mon;
     return true;
   }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = 1 + getDateTime(date).tm_mon;
+    return true;
+  }
 };
 
 template <typename T>
@@ -127,6 +146,11 @@ struct DayFunction : public InitSessionTimezone<T> {
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = getDateTime(timestamp, this->timeZone_).tm_mday;
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = getDateTime(date).tm_mday;
     return true;
   }
 };
@@ -142,6 +166,12 @@ struct DayOfWeekFunction : public InitSessionTimezone<T> {
     result = dateTime.tm_wday == 0 ? 7 : dateTime.tm_wday;
     return true;
   }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    std::tm dateTm = getDateTime(date);
+    result = dateTm.tm_wday == 0 ? 7 : dateTm.tm_wday;
+    return true;
+  }
 };
 
 template <typename T>
@@ -152,6 +182,11 @@ struct DayOfYearFunction : public InitSessionTimezone<T> {
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = 1 + getDateTime(timestamp, this->timeZone_).tm_yday;
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = 1 + getDateTime(date).tm_yday;
     return true;
   }
 };
@@ -166,6 +201,11 @@ struct HourFunction : public InitSessionTimezone<T> {
     result = getDateTime(timestamp, this->timeZone_).tm_hour;
     return true;
   }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = getDateTime(date).tm_hour;
+    return true;
+  }
 };
 
 template <typename T>
@@ -176,6 +216,11 @@ struct MinuteFunction : public InitSessionTimezone<T> {
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = getDateTime(timestamp, this->timeZone_).tm_min;
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = getDateTime(date).tm_min;
     return true;
   }
 };
@@ -190,6 +235,11 @@ struct SecondFunction {
     result = getDateTime(timestamp, nullptr).tm_sec;
     return true;
   }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = getDateTime(date).tm_sec;
+    return true;
+  }
 };
 
 template <typename T>
@@ -200,6 +250,14 @@ struct MillisecondFunction {
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = timestamp.getNanos() / kNanosecondsInMilliseconds;
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      const arg_type<Date>& /*date*/) {
+    // Dates do not have millisecond granularity.
+    result = 0;
     return true;
   }
 };
@@ -260,19 +318,18 @@ struct DateTruncFunction {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
-      out_type<Timestamp>& result,
-      const arg_type<Varchar>& unitString,
-      const arg_type<Timestamp>& timestamp) {
-    const auto unit = unit_.has_value()
-        ? unit_.value()
-        : fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value();
-    if (unit == DateTimeUnit::kSecond) {
-      result = Timestamp(timestamp.getSeconds(), 0);
-      return true;
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const arg_type<Varchar>* unitString,
+      const arg_type<Date>* /*date*/) {
+    if (unitString != nullptr) {
+      unit_ = fromDateTimeUnitString(*unitString, false /*throwIfInvalid*/);
     }
+  }
 
-    auto dateTime = getDateTime(timestamp, timeZone_);
+  FOLLY_ALWAYS_INLINE void adjustDateTime(
+      std::tm& dateTime,
+      const DateTimeUnit& unit) {
     switch (unit) {
       case DateTimeUnit::kYear:
         dateTime.tm_mon = 0;
@@ -293,11 +350,51 @@ struct DateTruncFunction {
       default:
         VELOX_UNREACHABLE();
     }
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Timestamp>& result,
+      const arg_type<Varchar>& unitString,
+      const arg_type<Timestamp>& timestamp) {
+    const auto unit = unit_.has_value()
+        ? unit_.value()
+        : fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value();
+    if (unit == DateTimeUnit::kSecond) {
+      result = Timestamp(timestamp.getSeconds(), 0);
+      return true;
+    }
+
+    auto dateTime = getDateTime(timestamp, timeZone_);
+    adjustDateTime(dateTime, unit);
 
     result = Timestamp(timegm(&dateTime), 0);
     if (timeZone_ != nullptr) {
       result.toTimezone(*timeZone_);
     }
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Date>& result,
+      const arg_type<Varchar>& unitString,
+      const arg_type<Date>& date) {
+    const auto unit = unit_.has_value()
+        ? unit_.value()
+        : fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value();
+    if (unit == DateTimeUnit::kSecond || unit == DateTimeUnit::kMinute ||
+        unit == DateTimeUnit::kHour) {
+      VELOX_USER_FAIL("{} is not a valid DATE field", unitString);
+    }
+
+    if (unit == DateTimeUnit::kDay) {
+      result = Date(date.days());
+      return true;
+    }
+
+    auto dateTime = getDateTime(date);
+    adjustDateTime(dateTime, unit);
+
+    result = Date(timegm(&dateTime) / kSecondsInDay);
     return true;
   }
 };

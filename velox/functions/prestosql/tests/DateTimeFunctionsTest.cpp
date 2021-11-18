@@ -16,6 +16,7 @@
 
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -192,6 +193,17 @@ TEST_F(DateTimeFunctionsTest, year) {
   EXPECT_EQ(2001, year(Timestamp(998423705, 321000000)));
 }
 
+TEST_F(DateTimeFunctionsTest, yearDate) {
+  const auto year = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("year(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, year(std::nullopt));
+  EXPECT_EQ(1970, year(Date(0)));
+  EXPECT_EQ(1969, year(Date(-1)));
+  EXPECT_EQ(2020, year(Date(18262)));
+  EXPECT_EQ(1920, year(Date(-18262)));
+}
+
 TEST_F(DateTimeFunctionsTest, month) {
   const auto month = [&](std::optional<Timestamp> date) {
     return evaluateOnce<int64_t>("month(c0)", date);
@@ -213,6 +225,19 @@ TEST_F(DateTimeFunctionsTest, month) {
   EXPECT_EQ(10, month(Timestamp(4000000000, 123000000)));
   EXPECT_EQ(8, month(Timestamp(998474645, 321000000)));
   EXPECT_EQ(8, month(Timestamp(998423705, 321000000)));
+}
+
+TEST_F(DateTimeFunctionsTest, monthDate) {
+  const auto month = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("month(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, month(std::nullopt));
+  EXPECT_EQ(1, month(Date(0)));
+  EXPECT_EQ(12, month(Date(-1)));
+  EXPECT_EQ(11, month(Date(-40)));
+  EXPECT_EQ(2, month(Date(40)));
+  EXPECT_EQ(1, month(Date(18262)));
+  EXPECT_EQ(1, month(Date(-18262)));
 }
 
 TEST_F(DateTimeFunctionsTest, hour) {
@@ -238,6 +263,19 @@ TEST_F(DateTimeFunctionsTest, hour) {
   EXPECT_EQ(8, hour(Timestamp(998423705, 321000000)));
 }
 
+TEST_F(DateTimeFunctionsTest, hourDate) {
+  const auto hour = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("hour(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, hour(std::nullopt));
+  EXPECT_EQ(0, hour(Date(0)));
+  EXPECT_EQ(0, hour(Date(-1)));
+  EXPECT_EQ(0, hour(Date(-40)));
+  EXPECT_EQ(0, hour(Date(40)));
+  EXPECT_EQ(0, hour(Date(18262)));
+  EXPECT_EQ(0, hour(Date(-18262)));
+}
+
 TEST_F(DateTimeFunctionsTest, dayOfMonth) {
   const auto day = [&](std::optional<Timestamp> date) {
     return evaluateOnce<int64_t>("day_of_month(c0)", date);
@@ -259,6 +297,19 @@ TEST_F(DateTimeFunctionsTest, dayOfMonth) {
   EXPECT_EQ(1, day(Timestamp(1633076100, 0)));
   EXPECT_EQ(6, day(Timestamp(1633508100, 0)));
   EXPECT_EQ(31, day(Timestamp(1635668100, 0)));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfMonthDate) {
+  const auto day = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("day_of_month(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(1, day(Date(0)));
+  EXPECT_EQ(31, day(Date(-1)));
+  EXPECT_EQ(22, day(Date(-40)));
+  EXPECT_EQ(10, day(Date(40)));
+  EXPECT_EQ(1, day(Date(18262)));
+  EXPECT_EQ(2, day(Date(-18262)));
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfWeek) {
@@ -290,6 +341,19 @@ TEST_F(DateTimeFunctionsTest, dayOfWeek) {
   EXPECT_EQ(7, day(Timestamp(1633853700, 0)));
 }
 
+TEST_F(DateTimeFunctionsTest, dayOfWeekDate) {
+  const auto day = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("day_of_week(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(4, day(Date(0)));
+  EXPECT_EQ(3, day(Date(-1)));
+  EXPECT_EQ(6, day(Date(-40)));
+  EXPECT_EQ(2, day(Date(40)));
+  EXPECT_EQ(3, day(Date(18262)));
+  EXPECT_EQ(5, day(Date(-18262)));
+}
+
 TEST_F(DateTimeFunctionsTest, dayOfYear) {
   const auto day = [&](std::optional<Timestamp> date) {
     return evaluateOnce<int64_t>("day_of_year(c0)", date);
@@ -311,6 +375,19 @@ TEST_F(DateTimeFunctionsTest, dayOfYear) {
   EXPECT_EQ(274, day(Timestamp(1633076100, 0)));
   EXPECT_EQ(279, day(Timestamp(1633508100, 0)));
   EXPECT_EQ(304, day(Timestamp(1635668100, 0)));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfYearDate) {
+  const auto day = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("day_of_year(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(1, day(Date(0)));
+  EXPECT_EQ(365, day(Date(-1)));
+  EXPECT_EQ(326, day(Date(-40)));
+  EXPECT_EQ(41, day(Date(40)));
+  EXPECT_EQ(1, day(Date(18262)));
+  EXPECT_EQ(2, day(Date(-18262)));
 }
 
 TEST_F(DateTimeFunctionsTest, minute) {
@@ -336,6 +413,19 @@ TEST_F(DateTimeFunctionsTest, minute) {
   EXPECT_EQ(25, minute(Timestamp(998423705, 321000000)));
 }
 
+TEST_F(DateTimeFunctionsTest, minuteDate) {
+  const auto minute = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("minute(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, minute(std::nullopt));
+  EXPECT_EQ(0, minute(Date(0)));
+  EXPECT_EQ(0, minute(Date(-1)));
+  EXPECT_EQ(0, minute(Date(-40)));
+  EXPECT_EQ(0, minute(Date(40)));
+  EXPECT_EQ(0, minute(Date(18262)));
+  EXPECT_EQ(0, minute(Date(-18262)));
+}
+
 TEST_F(DateTimeFunctionsTest, second) {
   const auto second = [&](std::optional<Timestamp> timestamp) {
     return evaluateOnce<int64_t>("second(c0)", timestamp);
@@ -347,6 +437,19 @@ TEST_F(DateTimeFunctionsTest, second) {
   EXPECT_EQ(59, second(Timestamp(-1, 12300000000)));
 }
 
+TEST_F(DateTimeFunctionsTest, secondDate) {
+  const auto second = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("second(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, second(std::nullopt));
+  EXPECT_EQ(0, second(Date(0)));
+  EXPECT_EQ(0, second(Date(-1)));
+  EXPECT_EQ(0, second(Date(-40)));
+  EXPECT_EQ(0, second(Date(40)));
+  EXPECT_EQ(0, second(Date(18262)));
+  EXPECT_EQ(0, second(Date(-18262)));
+}
+
 TEST_F(DateTimeFunctionsTest, millisecond) {
   const auto millisecond = [&](std::optional<Timestamp> timestamp) {
     return evaluateOnce<int64_t>("millisecond(c0)", timestamp);
@@ -356,6 +459,19 @@ TEST_F(DateTimeFunctionsTest, millisecond) {
   EXPECT_EQ(0, millisecond(Timestamp(4000000000, 0)));
   EXPECT_EQ(123, millisecond(Timestamp(-1, 123000000)));
   EXPECT_EQ(12300, millisecond(Timestamp(-1, 12300000000)));
+}
+
+TEST_F(DateTimeFunctionsTest, millisecondDate) {
+  const auto millisecond = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("millisecond(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, millisecond(std::nullopt));
+  EXPECT_EQ(0, millisecond(Date(0)));
+  EXPECT_EQ(0, millisecond(Date(-1)));
+  EXPECT_EQ(0, millisecond(Date(-40)));
+  EXPECT_EQ(0, millisecond(Date(40)));
+  EXPECT_EQ(0, millisecond(Date(18262)));
+  EXPECT_EQ(0, millisecond(Date(-18262)));
 }
 
 TEST_F(DateTimeFunctionsTest, dateTrunc) {
@@ -412,6 +528,38 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
   EXPECT_EQ(
       Timestamp(978287400, 0),
       dateTrunc("year", Timestamp(998'474'645, 321'001'234)));
+}
+
+TEST_F(DateTimeFunctionsTest, dateTruncDate) {
+  const auto dateTrunc = [&](const std::string& unit,
+                             std::optional<Date> date) {
+    return evaluateOnce<Date>(fmt::format("date_trunc('{}', c0)", unit), date);
+  };
+
+  EXPECT_EQ(std::nullopt, dateTrunc("year", std::nullopt));
+
+  EXPECT_EQ(Date(0), dateTrunc("day", Date(0)));
+  EXPECT_EQ(Date(0), dateTrunc("year", Date(0)));
+  EXPECT_EQ(Date(0), dateTrunc("month", Date(0)));
+  EXPECT_THROW(dateTrunc("second", Date(0)), VeloxUserError);
+  EXPECT_THROW(dateTrunc("minute", Date(0)), VeloxUserError);
+  EXPECT_THROW(dateTrunc("hour", Date(0)), VeloxUserError);
+
+  // Date(18297) is 2020-02-04
+  EXPECT_EQ(Date(18297), dateTrunc("day", Date(18297)));
+  EXPECT_EQ(Date(18293), dateTrunc("month", Date(18297)));
+  EXPECT_EQ(Date(18262), dateTrunc("year", Date(18297)));
+  EXPECT_THROW(dateTrunc("second", Date(18297)), VeloxUserError);
+  EXPECT_THROW(dateTrunc("minute", Date(18297)), VeloxUserError);
+  EXPECT_THROW(dateTrunc("hour", Date(18297)), VeloxUserError);
+
+  // Date(-18297) is 1919-11-27
+  EXPECT_EQ(Date(-18297), dateTrunc("day", Date(-18297)));
+  EXPECT_EQ(Date(-18324), dateTrunc("month", Date(-18297)));
+  EXPECT_EQ(Date(-18628), dateTrunc("year", Date(-18297)));
+  EXPECT_THROW(dateTrunc("second", Date(-18297)), VeloxUserError);
+  EXPECT_THROW(dateTrunc("minute", Date(-18297)), VeloxUserError);
+  EXPECT_THROW(dateTrunc("hour", Date(-18297)), VeloxUserError);
 }
 
 TEST_F(DateTimeFunctionsTest, parseDatetime) {
