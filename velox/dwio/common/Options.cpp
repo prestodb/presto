@@ -36,6 +36,8 @@ FileFormat toFileFormat(std::string s) {
     return FileFormat::JSON;
   } else if (s == "parquet") {
     return FileFormat::PARQUET;
+  } else if (s == "alpha") {
+    return FileFormat::ALPHA;
   }
   return FileFormat::UNKNOWN;
 }
@@ -56,6 +58,8 @@ std::string toString(FileFormat fmt) {
       return "json";
     case FileFormat::PARQUET:
       return "parquet";
+    case FileFormat::ALPHA:
+      return "alpha";
     default:
       return "unknown";
   }
