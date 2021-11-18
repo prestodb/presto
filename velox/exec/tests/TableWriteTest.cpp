@@ -211,14 +211,8 @@ TEST_F(TableWriteTest, constantVectors) {
       "SELECT * FROM tmp");
 }
 
-// Generate input data and execute a query to generate an output file. It adds a
-// "WHERE false" filter to ensure no data is output'ed to the file, and checks
-// that no leftover empty files were created.
+// Test TableWriter create empty ORC or not based on the config
 TEST_F(TableWriteTest, writeEmptyFile) {
-  auto inputFiles = makeFilePaths(1);
-  auto vectors = makeVectors(rowType_, inputFiles.size(), 1000);
-  writeToFile(inputFiles.front()->path, kTableWriterTest, vectors.front());
-
   std::string outputFile = "/tmp/velox-TableWriteTest-writeEmptyFile";
   ASSERT_FALSE(fs::exists(outputFile))
       << "output file can't exist in the first place";
@@ -233,5 +227,23 @@ TEST_F(TableWriteTest, writeEmptyFile) {
                           std::make_shared<HiveInsertTableHandle>(outputFile)),
                       "rows")
                   .planNode();
+
+  auto execute = [](const std::shared_ptr<const core::PlanNode>& plan,
+                    std::shared_ptr<core::QueryCtx> queryCtx =
+                        core::QueryCtx::create()) {
+    CursorParameters params;
+    params.planNode = plan;
+    params.queryCtx = queryCtx;
+    readCursor(params, [&](Task* task) { task->noMoreSplits("0"); });
+  };
+
+  execute(plan);
   ASSERT_FALSE(fs::exists(outputFile));
+
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  queryCtx->setConfigOverridesUnsafe(
+      {{core::QueryConfig::kCreateEmptyFiles, "true"}});
+  execute(plan, queryCtx);
+  ASSERT_TRUE(fs::exists(outputFile));
+  fs::remove(outputFile);
 }
