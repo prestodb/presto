@@ -15,7 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
-import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
@@ -53,6 +53,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.ENABLE_DISTRIBUTED_TRACING;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
@@ -111,20 +112,24 @@ public final class HttpRequestSessionContext
     private final String clientInfo;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
+    private final Optional<SessionPropertyManager> sessionPropertyManager;
     private final Optional<Tracer> tracer;
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
-        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER);
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER, Optional.empty());
     }
 
     /**
      * @param servletRequest
      * @param sqlParserOptions
      * @param tracer This passed-in {@link Tracer} will only be used when isTracingEabled() returns true.
+     * @param sessionPropertyManager is used to provide with some default session values. In some scenarios we need
+     * those default values even before session for a query is created. This is how we can get it at this
+     * session context creation stage.
      * @throws WebApplicationException
      */
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, Tracer tracer)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, Tracer tracer, Optional<SessionPropertyManager> sessionPropertyManager)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -190,6 +195,7 @@ public final class HttpRequestSessionContext
         transactionId = parseTransactionId(transactionIdHeader);
 
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         if (isTracingEnabled()) {
             this.tracer = Optional.of(requireNonNull(tracer, "tracer is null"));
         }
@@ -461,10 +467,25 @@ public final class HttpRequestSessionContext
         return tracer;
     }
 
+    /**
+     * This helper method tells if tracing is enabled for this query. We take client provided session property
+     * as highest priority. If client does not provide any session enabling property, we then take the system
+     * default session value for determining if we should trace this query.
+     */
     private boolean isTracingEnabled()
     {
-        return systemProperties.getOrDefault(SystemSessionProperties.ENABLE_DISTRIBUTED_TRACING, "")
-                .equalsIgnoreCase("true");
+        String clientValue = systemProperties.getOrDefault(ENABLE_DISTRIBUTED_TRACING, "");
+
+        // Client session setting overrides everything.
+        if (clientValue.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (clientValue.equalsIgnoreCase("false")) {
+            return false;
+        }
+
+        // Client not set, we then take system default value. If property manager not provided then false.
+        return sessionPropertyManager.map(manager -> manager.decodeSystemPropertyValue(ENABLE_DISTRIBUTED_TRACING, null, Boolean.class)).orElse(false);
     }
 
     private Set<String> parseClientTags(HttpServletRequest servletRequest)
