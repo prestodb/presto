@@ -16,10 +16,11 @@
 #pragma once
 
 #include <gtest/gtest.h>
+
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/tests/QueryAssertions.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/type/Variant.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/VectorMaker.h"

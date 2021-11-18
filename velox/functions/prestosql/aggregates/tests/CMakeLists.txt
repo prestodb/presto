@@ -14,25 +14,25 @@
 
 add_library(velox_aggregates_test_lib AggregationTestBase.cpp)
 
-target_link_libraries(velox_aggregates_test_lib velox_exec_test_lib)
+target_link_libraries(velox_aggregates_test_lib velox_exec_test_util)
 
 add_executable(
   velox_aggregates_test
-        ApproxDistinctTest.cpp
-        ApproxPercentileTest.cpp
-        ArbitraryTest.cpp
-        ArrayAggTest.cpp
-        AverageAggregationTest.cpp
-        BitwiseAggregationTest.cpp
-        BoolAndOrTest.cpp
-        CountAggregationTest.cpp
-        CountIfAggregationTest.cpp
-        MinMaxByAggregationTest.cpp
-        MinMaxTest.cpp
-        SumTest.cpp
-        MapAggTest.cpp
-        ValueListTest.cpp
-        VarianceAggregationTest.cpp)
+  ApproxDistinctTest.cpp
+  ApproxPercentileTest.cpp
+  ArbitraryTest.cpp
+  ArrayAggTest.cpp
+  AverageAggregationTest.cpp
+  BitwiseAggregationTest.cpp
+  BoolAndOrTest.cpp
+  CountAggregationTest.cpp
+  CountIfAggregationTest.cpp
+  MinMaxByAggregationTest.cpp
+  MinMaxTest.cpp
+  SumTest.cpp
+  MapAggTest.cpp
+  ValueListTest.cpp
+  VarianceAggregationTest.cpp)
 
 add_test(
   NAME velox_aggregates_test
@@ -41,7 +41,6 @@ add_test(
 
 target_link_libraries(
   velox_aggregates_test
-  velox_exec_test_lib
   velox_functions_test_lib
   velox_exec
   velox_aggregates

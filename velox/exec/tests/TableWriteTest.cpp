@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "velox/dwio/common/DataSink.h"
-#include "velox/exec/tests/HiveConnectorTestBase.h"
-#include "velox/exec/tests/PlanBuilder.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 
 #if __has_include("filesystem")
 #include <filesystem>

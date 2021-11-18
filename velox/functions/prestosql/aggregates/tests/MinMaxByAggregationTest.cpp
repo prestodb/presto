@@ -15,7 +15,7 @@
  */
 #include <fmt/format.h>
 
-#include "velox/exec/tests/PlanBuilder.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 

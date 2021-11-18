@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/OperatorTestBase.h"
+
+#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include <velox/parse/Expressions.h>
 #include <velox/parse/ExpressionsParser.h>
 #include "velox/common/caching/AsyncDataCache.h"

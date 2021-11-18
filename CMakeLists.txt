@@ -42,6 +42,7 @@ option(VELOX_ENABLE_EXAMPLES
        ON)
 option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
 option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
+option(VELOX_BUILD_TEST_UTILS "Enable Velox test utilities" OFF)
 
 if(${VELOX_BUILD_MINIMAL})
   # Enable and disable components for velox base build
@@ -68,6 +69,7 @@ if(${VELOX_BUILD_TESTING})
   set(VELOX_ENABLE_AGGREGATES ON)
   set(VELOX_ENABLE_HIVE_CONNECTOR ON)
   set(VELOX_ENABLE_SPARK_FUNCTIONS ON)
+  set(VELOX_ENABLE_TEST_UTILS OFF)
 endif()
 
 if(${VELOX_ENABLE_EXAMPLES})

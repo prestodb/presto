@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/QueryAssertions.h"
+
 #include <gtest/gtest.h>
+
 #include "velox/duckdb/conversion/DuckConversion.h"
-#include "velox/exec/tests/Cursor.h"
+#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 using facebook::velox::duckdb::duckdbTimestampToVelox;

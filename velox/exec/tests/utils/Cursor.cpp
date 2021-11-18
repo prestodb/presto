@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/Cursor.h"
+#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec::test {

@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/OperatorTestBase.h"
-#include "velox/exec/tests/PlanBuilder.h"
-#include "velox/exec/tests/QueryAssertions.h"
+#include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;

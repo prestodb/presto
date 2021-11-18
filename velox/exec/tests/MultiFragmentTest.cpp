@@ -21,9 +21,9 @@
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/tests/HiveConnectorTestBase.h"
-#include "velox/exec/tests/OperatorTestBase.h"
-#include "velox/exec/tests/PlanBuilder.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

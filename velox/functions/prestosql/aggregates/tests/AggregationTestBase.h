@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/exec/tests/OperatorTestBase.h"
+#include "velox/exec/tests/utils/OperatorTestBase.h"
 
 namespace facebook::velox::aggregate::test {
 

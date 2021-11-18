@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/exec/tests/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/exec/tests/QueryAssertions.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
+
 namespace facebook::velox::exec::test {
 
 HiveConnectorTestBase::HiveConnectorTestBase() {

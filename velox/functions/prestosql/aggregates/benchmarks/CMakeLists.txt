@@ -15,7 +15,6 @@ add_executable(velox_aggregates_pushdown_benchmarks PushdownBenchmark.cpp)
 
 target_link_libraries(
   velox_aggregates_pushdown_benchmarks
-  velox_exec_test_lib
   velox_aggregates
   velox_hive_connector
   velox_functions_prestosql
@@ -23,4 +22,6 @@ target_link_libraries(
   velox_exec_test_util
   velox_dwio_common_exception
   ${FOLLY_WITH_DEPENDENCIES}
-  ${FOLLY_BENCHMARK})
+  ${FOLLY_BENCHMARK}
+  ${GTEST_BOTH_LIBRARIES}
+  ${GFLAGS_LIBRARIES})

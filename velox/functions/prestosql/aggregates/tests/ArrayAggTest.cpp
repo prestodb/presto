@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
-#include "velox/exec/tests/Cursor.h"
-#include "velox/exec/tests/PlanBuilder.h"
+#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 
 using namespace facebook::velox::exec;

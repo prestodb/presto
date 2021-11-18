@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/PlanBuilder.h"
+
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include <velox/exec/Aggregate.h>
 #include <velox/exec/HashPartitionFunction.h>
 #include "velox/connectors/hive/HiveConnector.h"

@@ -19,7 +19,7 @@ add_executable(
 
 target_link_libraries(
   velox_codegen_benchmark_single_output
-  velox_exec_test_lib
+  velox_exec_test_util
   velox_codegen_utils_resource_path
   velox_codegen_code_generator
   ${FOLLY_BENCHMARK}
@@ -81,7 +81,7 @@ add_compile_definitions(velox_codegen_test GFLAGS_LI="${GFLAGS_INCLUDES}")
 
 target_link_libraries(
   velox_codegen_benchmark
-  velox_exec_test_lib
+  velox_exec_test_util
   velox_codegen_code_generator
   ${FOLLY_BENCHMARK}
   ${FOLLY_WITH_DEPENDENCIES}

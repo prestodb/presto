@@ -16,7 +16,7 @@
 #pragma once
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
-#include "velox/exec/tests/Cursor.h"
+#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/external/duckdb/duckdb.hpp"
 #include "velox/vector/ComplexVector.h"
 

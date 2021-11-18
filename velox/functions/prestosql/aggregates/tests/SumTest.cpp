@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/AggregationHook.h"
-#include "velox/exec/tests/PlanBuilder.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 
 using facebook::velox::exec::test::PlanBuilder;

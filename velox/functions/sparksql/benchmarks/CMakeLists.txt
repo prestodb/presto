@@ -18,7 +18,6 @@ target_link_libraries(
   velox_functions_prestosql
   velox_functions_spark
   velox_expression
-  velox_exec_test_lib
   velox_exec_test_util
   velox_vector_test_lib
   velox_vector_fuzzer

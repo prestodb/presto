@@ -15,9 +15,9 @@
  */
 
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
-#include "velox/exec/tests/Cursor.h"
-#include "velox/exec/tests/HiveConnectorTestBase.h"
-#include "velox/exec/tests/PlanBuilder.h"
+#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/type/tests/FilterBuilder.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 

@@ -18,24 +18,24 @@ endif()
 
 add_library(
   velox_aggregates OBJECT
-        AggregateNames.h
-        ApproxDistinctAggregate.cpp
-        ApproxPercentileAggregate.cpp
-        ArbitraryAggregate.cpp
-        ArrayAggAggregate.cpp
-        AverageAggregate.cpp
-        BitwiseAggregates.cpp
-        BoolAggregates.cpp
-        CountIfAggregate.cpp
-        MapAggAggregate.cpp
-        MinMaxAggregates.cpp
-        MinMaxByAggregates.cpp
-        CountAggregate.cpp
-        SingleValueAccumulator.cpp
-        SumAggregate.cpp
-        SumAggregate.h
-        ValueList.cpp
-        VarianceAggregates.cpp)
+  AggregateNames.h
+  ApproxDistinctAggregate.cpp
+  ApproxPercentileAggregate.cpp
+  ArbitraryAggregate.cpp
+  ArrayAggAggregate.cpp
+  AverageAggregate.cpp
+  BitwiseAggregates.cpp
+  BoolAggregates.cpp
+  CountIfAggregate.cpp
+  MapAggAggregate.cpp
+  MinMaxAggregates.cpp
+  MinMaxByAggregates.cpp
+  CountAggregate.cpp
+  SingleValueAccumulator.cpp
+  SumAggregate.cpp
+  SumAggregate.h
+  ValueList.cpp
+  VarianceAggregates.cpp)
 
 target_link_libraries(velox_aggregates velox_functions_hyperloglog velox_exec
                       ${FOLLY_WITH_DEPENDENCIES})

@@ -19,9 +19,9 @@
 #include <string>
 
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/exec/tests/Cursor.h"
-#include "velox/exec/tests/HiveConnectorTestBase.h"
-#include "velox/exec/tests/PlanBuilder.h"
+#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 
 using namespace facebook::velox::connector::hive;

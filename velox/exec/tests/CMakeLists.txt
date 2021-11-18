@@ -13,23 +13,6 @@
 # limitations under the License.
 add_subdirectory(utils)
 
-add_library(velox_exec_test_lib PlanBuilder.cpp QueryAssertions.cpp Cursor.cpp
-                                OperatorTestBase.cpp HiveConnectorTestBase.cpp)
-
-target_link_libraries(
-  velox_exec_test_lib
-  velox_core
-  duckdb
-  velox_parse_parser
-  velox_vector_test_lib
-  velox_duckdb_conversion
-  velox_dwio_common
-  velox_dwio_type_fbhive
-  velox_dwio_dwrf_reader
-  velox_dwrf_test_utils
-  velox_presto_serializer
-  ${GTEST_BOTH_LIBRARIES})
-
 add_executable(
   velox_exec_test
   CrossJoinTest.cpp
@@ -69,28 +52,21 @@ add_test(
 
 target_link_libraries(
   velox_exec_test
-  velox_exec_test_lib
   velox_functions_test_lib
   velox_exec
-  velox_dwio_dwrf_writer
   velox_dwio_common
   velox_aggregates
   velox_aggregates_test_lib
   velox_functions_lib
   velox_functions_prestosql
   velox_hive_connector
-  velox_core
   velox_type
   velox_serialization
   velox_exec_test_util
   velox_functions_json
   velox_vector
   velox_memory
-  velox_parse_parser
-  velox_dwio_type_fbhive
   velox_dwio_common_exception
-  velox_dwrf_test_utils
-  velox_presto_serializer
   ${Boost_ATOMIC_LIBRARIES}
   ${Boost_CONTEXT_LIBRARIES}
   ${Boost_DATE_TIME_LIBRARIES}
