@@ -123,16 +123,32 @@ class VectorAdapter : public VectorFunction {
 
     unpack<0>(applyContext, true, decodedArgs);
 
-    // Check if the function reuses input strings for the result and add
-    // references to input string buffers to result vector.
+    // Check if the function reuses input strings for the result, and add
+    // references to input string buffers to all result vectors.
     auto reuseStringsFromArg = fn_->reuseStringsFromArg();
     if (reuseStringsFromArg >= 0) {
-      VELOX_CHECK_EQ((*result)->typeKind(), TypeKind::VARCHAR);
       VELOX_CHECK_LT(reuseStringsFromArg, args.size());
       VELOX_CHECK_EQ(args[reuseStringsFromArg]->typeKind(), TypeKind::VARCHAR);
 
-      (*result)->as<FlatVector<StringView>>()->acquireSharedStringBuffers(
-          decodedArgs.at(reuseStringsFromArg)->base());
+      tryAcquireStringBuffer(
+          result->get(), decodedArgs.at(reuseStringsFromArg)->base());
+    }
+  }
+
+  // Acquire string buffer from source if vector is a string flat vector.
+  void tryAcquireStringBuffer(BaseVector* vector, const BaseVector* source)
+      const {
+    if (auto* flatVector = vector->asFlatVector<StringView>()) {
+      flatVector->acquireSharedStringBuffers(source);
+    } else if (auto* arrayVector = vector->as<ArrayVector>()) {
+      tryAcquireStringBuffer(arrayVector->elements().get(), source);
+    } else if (auto* mapVector = vector->as<MapVector>()) {
+      tryAcquireStringBuffer(mapVector->mapKeys().get(), source);
+      tryAcquireStringBuffer(mapVector->mapValues().get(), source);
+    } else if (auto* rowVector = vector->as<RowVector>()) {
+      for (auto& it : rowVector->children()) {
+        tryAcquireStringBuffer(it.get(), source);
+      }
     }
   }
 

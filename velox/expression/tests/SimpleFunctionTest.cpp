@@ -682,4 +682,49 @@ TEST_F(SimpleFunctionTest, mapArrayReader) {
     EXPECT_NEAR(expected->valueAt(i), result->valueAt(i), 0.0000001);
   }
 }
+
+template <typename T>
+struct MyArrayStringReuseFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  bool call(out_type<Array<Varchar>>& out, const arg_type<Varchar>& input) {
+    auto start = input.begin();
+    auto cur = start;
+
+    do {
+      cur = std::find(start, input.end(), ' ');
+      out.append(out_type<Varchar>(StringView(start, cur - start)));
+      start = cur + 1;
+    } while (cur != input.end());
+    return true;
+  }
+};
+
+TEST_F(SimpleFunctionTest, arrayStringReuse) {
+  registerFunction<MyArrayStringReuseFunction, Array<Varchar>, Varchar>(
+      {"my_array_string_reuse_func"});
+
+  std::vector<StringView> inputData = {
+      "my input data that will be tokenized"_sv, "some more tokens"_sv};
+  std::vector<std::vector<StringView>> outputData = {
+      {"my"_sv,
+       "input"_sv,
+       "data"_sv,
+       "that"_sv,
+       "will"_sv,
+       "be"_sv,
+       "tokenized"_sv},
+      {"some"_sv, "more"_sv, "tokens"_sv},
+  };
+
+  auto flatVector = vectorMaker_.flatVector(inputData);
+  auto result = evaluate<ArrayVector>(
+      "my_array_string_reuse_func(c0)", makeRowVector({flatVector}));
+
+  auto expected = vectorMaker_.arrayVector(outputData);
+  assertEqualVectors(expected, result);
+}
+
 } // namespace

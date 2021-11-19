@@ -164,7 +164,9 @@ referencing input strings. To do that they must define a reuse_strings_from_arg
 member variable and initialize it to the index of the argument whose strings
 are being re-used in the result. This will allow the engine to add a reference
 to input string buffers to the result vector and ensure that these buffers will
-not go away prematurely.
+not go away prematurely. The output types can be scalar strings (varchar and
+varbinaries), but also complex types containing strings, such as arrays, maps,
+and rows.
 
 .. code-block:: c++
 
