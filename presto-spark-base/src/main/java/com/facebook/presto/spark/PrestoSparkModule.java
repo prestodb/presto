@@ -127,7 +127,9 @@ import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
+import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.spiller.TempStorageSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.TempStorageStandaloneSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSinkProvider;
 import com.facebook.presto.split.PageSourceManager;
@@ -392,6 +394,7 @@ public class PrestoSparkModule
         binder.bind(SingleStreamSpillerFactory.class).to(TempStorageSingleStreamSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(PartitioningSpillerFactory.class).to(GenericPartitioningSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
+        binder.bind(StandaloneSpillerFactory.class).to(TempStorageStandaloneSpillerFactory.class).in(Scopes.SINGLETON);
 
         // monitoring
         jsonCodecBinder(binder).bindJsonCodec(OperatorInfo.class);
