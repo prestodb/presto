@@ -18,11 +18,26 @@
 
 using namespace facebook::velox;
 
+TEST(Variant, arrayInferType) {
+  EXPECT_EQ(*ARRAY(UNKNOWN()), *variant(TypeKind::ARRAY).inferType());
+  EXPECT_EQ(*ARRAY(UNKNOWN()), *variant::array({}).inferType());
+  EXPECT_EQ(
+      *ARRAY(BIGINT()),
+      *variant::array({variant(TypeKind::BIGINT)}).inferType());
+  EXPECT_EQ(
+      *ARRAY(VARCHAR()),
+      *variant::array({variant(TypeKind::VARCHAR)}).inferType());
+  EXPECT_EQ(
+      *ARRAY(ARRAY(DOUBLE())),
+      *variant::array({variant::array({variant(TypeKind::DOUBLE)})})
+           .inferType());
+}
+
 struct Foo {};
 
 struct Bar {};
 
-TEST(Variant, Opaque) {
+TEST(Variant, opaque) {
   auto foo = std::make_shared<Foo>();
   auto foo2 = std::make_shared<Foo>();
   auto bar = std::make_shared<Bar>();

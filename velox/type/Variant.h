@@ -512,8 +512,13 @@ class variant {
         return ROW(std::move(children));
       }
       case TypeKind::ARRAY: {
-        auto& a = array();
-        auto elementType = a.empty() ? UNKNOWN() : a.at(0).inferType();
+        TypePtr elementType = UNKNOWN();
+        if (!isNull()) {
+          auto& a = array();
+          if (!a.empty()) {
+            elementType = a.at(0).inferType();
+          }
+        }
         return ARRAY(elementType);
       }
       case TypeKind::OPAQUE: {
