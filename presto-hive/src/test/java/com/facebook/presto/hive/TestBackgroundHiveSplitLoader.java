@@ -50,10 +50,15 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -313,6 +318,57 @@ public class TestBackgroundHiveSplitLoader
                 throws IOException
         {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    @Test
+    public void testErrorThrowable()
+            throws Exception
+    {
+        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+
+        Table.Builder builder = Table.builder(table(ImmutableList.of(), Optional.empty()));
+        builder.getStorageBuilder().setStorageFormat(
+                StorageFormat.create(LazySimpleSerDe.class.getName(), TestGetSplitsErrorInputFormat.class.getName(), TestGetSplitsErrorInputFormat.class.getName()));
+        Table table = builder.build();
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                SESSION,
+                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes())),
+                Optional.empty(),
+                Optional.empty(),
+                table,
+                Optional.empty());
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        try {
+            drainSplits(hiveSplitSource);
+            fail("Expected split generation to call getSplits and fail");
+        }
+        catch (PrestoException e) {
+            Throwable cause = Throwables.getRootCause(e);
+            assertTrue(cause instanceof Error);
+            assertEquals(cause.getMessage(), "getSplits called");
+        }
+    }
+
+    @Target(ElementType.TYPE)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface UseFileSplitsFromInputFormat
+    {
+    }
+
+    @UseFileSplitsFromInputFormat
+    public static final class TestGetSplitsErrorInputFormat
+            extends TextInputFormat
+    {
+        @Override
+        public InputSplit[] getSplits(JobConf job, int numSplits)
+                throws IOException
+        {
+            throw new Error("getSplits called");
         }
     }
 
