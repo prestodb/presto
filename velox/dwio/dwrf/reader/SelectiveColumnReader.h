@@ -285,6 +285,10 @@ class SelectiveColumnReader : public ColumnReader {
   template <typename T, typename TVector>
   void upcastScalarValues(RowSet rows);
 
+  // Returns true if compactScalarValues and upcastScalarValues should
+  // move null flags. Checks consistency of nulls-related state.
+  bool shouldMoveNulls(RowSet rows);
+
   void addStringValue(folly::StringPiece value);
 
   // Copies 'value' to buffers owned by 'this' and returns the start of the
