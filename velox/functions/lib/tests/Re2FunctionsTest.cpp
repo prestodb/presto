@@ -634,6 +634,10 @@ TEST_F(Re2FunctionsTest, regexExtractAllNoMatch) {
       {"81jnp58n31BtMdlUsP1hiF4QWSYv411"},
       groupIds0,
       {{{}}});
+
+  // Test empty pattern.
+  testRe2ExtractAll<int32_t>(
+      {"abcdef"}, {""}, {}, {{{"", "", "", "", "", "", ""}}});
 }
 
 TEST_F(Re2FunctionsTest, regexExtractAllBadArgs) {

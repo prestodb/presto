@@ -451,6 +451,9 @@ void re2ExtractAll(
 
     array.emplace_back(subMatch.data(), subMatch.size());
     pos = fullMatch.data() + fullMatch.size() - input.data();
+    if (UNLIKELY(fullMatch.size() == 0)) {
+      ++pos;
+    }
   }
 }
 
