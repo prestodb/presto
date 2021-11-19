@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include <algorithm>
 #if ENABLE_CONCEPTS
 #include <concepts> // @manual
 #endif
 
+#include <iostream>
 #include <queue>
 #include "velox/common/base/Exceptions.h"
 #include "velox/row/UnsafeRow.h"
@@ -67,6 +69,13 @@ class UnsafeRowDataIterator {
    */
   TypePtr type() {
     return type_;
+  }
+
+  virtual std::string toString() {
+    std::stringstream str;
+    str << "Data iterator of type " << type()->toString() << " of size "
+        << size();
+    return str.str();
   }
 
   /**
@@ -124,6 +133,14 @@ struct UnsafeRowPrimitiveIterator : UnsafeRowDataIterator {
    */
   size_t size() override {
     return isNull() ? 0 : 1;
+  }
+
+  std::string toString() override {
+    std::stringstream str;
+    str << "Data iterator of type " << type()->toString() << " of size "
+        << size() << " with data "
+        << (data().has_value() ? data().value() : "NULL");
+    return str.str();
   }
 
  private:
@@ -194,6 +211,14 @@ struct UnsafeRowArrayIterator : UnsafeRowDataIterator {
 
   bool childIsFixedLength() {
     return isFixedLength_;
+  }
+
+  virtual std::string toString() override {
+    std::stringstream str;
+    str << "Data iterator of type " << type()->toString() << " of size "
+        << size() << " hasNext " << hasNext() << " childIsFixedLength "
+        << childIsFixedLength();
+    return str.str();
   }
 
   /**
@@ -391,6 +416,13 @@ struct UnsafeRowStructIterator : UnsafeRowDataIterator {
    */
   bool hasNext() const {
     return idx_ < numElements_;
+  }
+
+  virtual std::string toString() override {
+    std::stringstream str;
+    str << "Data iterator of type " << type()->toString() << " of size "
+        << size() << " hasNext " << hasNext();
+    return str.str();
   }
 
   /**
@@ -878,6 +910,19 @@ struct UnsafeRowDynamicVectorDeserializer {
     // get the array elements
     size_t totalNumElements =
         getNumChildrenElements(dataIterators, numIteratorsToProcess);
+    if (totalNumElements == 0) {
+      VectorPtr emptyVectorPtr;
+
+      return std::make_shared<ArrayVector>(
+          pool,
+          type,
+          nulls,
+          numArrays,
+          offsets,
+          lengths,
+          emptyVectorPtr,
+          nullCount);
+    }
     VectorPtr elements = convertToVectors(
         dataIterators + numIteratorsToProcess, pool, totalNumElements);
 
@@ -1072,11 +1117,24 @@ struct UnsafeRowDynamicVectorDeserializer {
       bool collapsePrimitivesToArray = true) {
     // flatten data
     std::vector<DataIteratorPtr> iterators;
+    // For arrays, we need to apply a small scale BFS at this level
+    // so collecting the queue heads at the top of the final iterator
+    // list
+    std::vector<DataIteratorPtr> topIterators;
     for (const auto& elem : data) {
       auto queue = flattenComplexData(elem, type, collapsePrimitivesToArray);
-      iterators.insert(iterators.end(), queue.begin(), queue.end());
+      if (queue.size() >= 1 && (*queue.begin())->type()->isArray()) {
+        iterators.insert(iterators.end(), queue.begin() + 1, queue.end());
+        topIterators.insert(
+            topIterators.end(), queue.begin(), queue.begin() + 1);
+      } else {
+        iterators.insert(iterators.end(), queue.begin(), queue.end());
+      }
     }
-    // deserialize to vector
+    if (!topIterators.empty()) {
+      iterators.insert(
+          iterators.begin(), topIterators.begin(), topIterators.end());
+    }
     return convertToVectors(iterators.begin(), pool, data.size());
   }
 };

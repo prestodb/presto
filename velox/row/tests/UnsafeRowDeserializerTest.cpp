@@ -16,9 +16,13 @@
 
 #include "velox/row/UnsafeRowDeserializer.h"
 #include <gtest/gtest.h>
+#include <vector>
+#include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/row/UnsafeRowParser.h"
 
 #include "velox/vector/BaseVector.h"
+#include "velox/vector/TypeAliases.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::row;
@@ -854,5 +858,100 @@ Make time for civilization, for civilization wont make time.}");
       "{ [child at 1]: 72340172838076673, null, 11259375, 1234, null, \
 Im a string with 30 characters}");
 }
+
+class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
+ public:
+  UnsafeRowComplexDeserializerTests() {}
+
+  constexpr static int kMaxBuffers = 10;
+
+  velox::RowVectorPtr createInputRow(int32_t batchSize) {
+    VELOX_CHECK(batchSize <= kMaxBuffers);
+    auto intVector =
+        makeFlatVector<int64_t>(batchSize, [](vector_size_t i) { return i; });
+    auto stringVector =
+        makeFlatVector<StringView>(batchSize, [](vector_size_t i) {
+          return StringView("string" + std::to_string(i));
+        });
+    auto intArrayVector = makeArrayVector<int64_t>(
+        batchSize,
+        [](vector_size_t row) { return row % 3; },
+        [](vector_size_t row, vector_size_t index) { return row + index; });
+    auto stringArrayVector = makeArrayVector<StringView>(
+        batchSize,
+        [](vector_size_t row) { return row % 5; },
+        [](vector_size_t row, vector_size_t index) {
+          return StringView("str" + std::to_string(row + index));
+        });
+    return makeRowVector(
+        {intVector, stringVector, intArrayVector, stringArrayVector});
+  }
+
+  static void assertEqualVectors(
+      const VectorPtr& expected,
+      const VectorPtr& actual) {
+    ASSERT_EQ(expected->size(), actual->size());
+    ASSERT_EQ(expected->typeKind(), actual->typeKind());
+    for (auto i = 0; i < expected->size(); i++) {
+      ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
+          << "at " << i << ": expected " << expected->toString(i)
+          << ", but got " << actual->toString(i);
+    }
+  }
+
+  std::unique_ptr<memory::ScopedMemoryPool> pool_ =
+      memory::getDefaultScopedMemoryPool();
+  std::array<char[1024], kMaxBuffers> buffers_{};
+};
+
+TEST_F(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationRowsTests) {
+  std::vector<std::optional<std::string_view>> serializedVec;
+  int32_t batchSize = 10;
+  const auto& inputVector = createInputRow(batchSize);
+  for (size_t i = 0; i < batchSize; ++i) {
+    // Serialize rowVector into bytes.
+    auto rowSize = UnsafeRowDynamicSerializer::serialize(
+        inputVector->type(), inputVector, buffers_[i], /*idx=*/i);
+    ASSERT_TRUE(rowSize.has_value());
+    serializedVec.push_back(std::string_view(buffers_[i], rowSize.value()));
+  }
+  VectorPtr outputVector =
+      UnsafeRowDynamicVectorDeserializer::deserializeComplex(
+          serializedVec, inputVector->type(), pool_.get());
+  assertEqualVectors(inputVector, outputVector);
+}
+
+TEST_F(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationTests) {
+  const auto& inputVector = createInputRow(1);
+  // Serialize rowVector into bytes.
+  auto rowSize = UnsafeRowDynamicSerializer::serialize(
+      inputVector->type(), inputVector, buffers_[0], /*idx=*/0);
+
+  VectorPtr outputVector =
+      UnsafeRowDynamicVectorDeserializer::deserializeComplex(
+          std::string_view(buffers_[0], rowSize.value()),
+          inputVector->type(),
+          pool_.get());
+  assertEqualVectors(inputVector, outputVector);
+}
+
+TEST_F(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationRows2Tests) {
+  const auto& inputVector = createInputRow(2);
+  // Serialize rowVector into bytes.
+  auto rowSize = UnsafeRowDynamicSerializer::serialize(
+      inputVector->type(), inputVector, buffers_[0], /*idx=*/0);
+
+  auto nextRowSize = UnsafeRowDynamicSerializer::serialize(
+      inputVector->type(), inputVector, buffers_[1], /*idx=*/1);
+
+  VectorPtr outputVector =
+      UnsafeRowDynamicVectorDeserializer::deserializeComplex(
+          {std::string_view(buffers_[0], rowSize.value()),
+           std::string_view(buffers_[1], nextRowSize.value())},
+          inputVector->type(),
+          pool_.get());
+  assertEqualVectors(inputVector, outputVector);
+}
+
 } // namespace
 } // namespace facebook::velox::row
