@@ -27,6 +27,7 @@
 #include "velox/exec/HashProbe.h"
 #include "velox/exec/Limit.h"
 #include "velox/exec/Merge.h"
+#include "velox/exec/MergeJoin.h"
 #include "velox/exec/OrderBy.h"
 #include "velox/exec/PartitionedOutput.h"
 #include "velox/exec/TableScan.h"
@@ -99,6 +100,17 @@ OperatorSupplier makeConsumerSupplier(
           std::dynamic_pointer_cast<const core::CrossJoinNode>(planNode)) {
     return [join](int32_t operatorId, DriverCtx* ctx) {
       return std::make_unique<CrossJoinBuild>(operatorId, ctx, join);
+    };
+  }
+
+  if (auto join =
+          std::dynamic_pointer_cast<const core::MergeJoinNode>(planNode)) {
+    return [&](int32_t operatorId, DriverCtx* ctx) {
+      auto source = ctx->task->getMergeJoinSource(planNode->id());
+      auto consumer = [source](RowVectorPtr input, ContinueFuture* future) {
+        return source->enqueue(input, future);
+      };
+      return std::make_unique<CallbackSink>(operatorId, ctx, consumer);
     };
   }
   return nullptr;
@@ -320,6 +332,12 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
       ctx->task->createLocalMergeSources(
           numSources, localMergeOp->outputType(), localMergeOp->mappedMemory());
       operators.push_back(std::move(localMergeOp));
+    } else if (
+        auto mergeJoin =
+            std::dynamic_pointer_cast<const core::MergeJoinNode>(planNode)) {
+      auto mergeJoinOp = std::make_unique<MergeJoin>(id, ctx.get(), mergeJoin);
+      ctx->task->createMergeJoinSource(mergeJoin->id());
+      operators.push_back(std::move(mergeJoinOp));
     } else if (
         auto localPartitionNode =
             std::dynamic_pointer_cast<const core::LocalPartitionNode>(

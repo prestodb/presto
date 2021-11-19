@@ -200,6 +200,11 @@ class Task {
     return localMergeSources_[sourceId];
   }
 
+  void createMergeJoinSource(const core::PlanNodeId& planNodeId);
+
+  std::shared_ptr<MergeJoinSource> getMergeJoinSource(
+      const core::PlanNodeId& planNodeId);
+
   void createLocalExchangeSources(
       const core::PlanNodeId& planNodeId,
       int numPartitions);
@@ -474,6 +479,9 @@ class Task {
   std::vector<std::unique_ptr<velox::memory::MemoryPool>> childPools_;
 
   std::vector<std::shared_ptr<MergeSource>> localMergeSources_;
+
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<MergeJoinSource>>
+      mergeJoinSources_;
 
   struct LocalExchange {
     std::unique_ptr<LocalExchangeMemoryManager> memoryManager;

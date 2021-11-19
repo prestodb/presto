@@ -676,6 +676,25 @@ void Task::createLocalMergeSources(
   }
 }
 
+void Task::createMergeJoinSource(const core::PlanNodeId& planNodeId) {
+  VELOX_CHECK(
+      mergeJoinSources_.find(planNodeId) == mergeJoinSources_.end(),
+      "Merge join sources already exist: {}",
+      planNodeId);
+
+  mergeJoinSources_.insert({planNodeId, std::make_shared<MergeJoinSource>()});
+}
+
+std::shared_ptr<MergeJoinSource> Task::getMergeJoinSource(
+    const core::PlanNodeId& planNodeId) {
+  auto it = mergeJoinSources_.find(planNodeId);
+  VELOX_CHECK(
+      it != mergeJoinSources_.end(),
+      "Merge join source for specified plan node doesn't exist: {}",
+      planNodeId);
+  return it->second;
+}
+
 void Task::createLocalExchangeSources(
     const core::PlanNodeId& planNodeId,
     int numPartitions) {

@@ -114,7 +114,7 @@ UnnestNode::UnnestNode(
   outputType_ = ROW(std::move(names), std::move(types));
 }
 
-HashJoinNode::HashJoinNode(
+AbstractJoinNode::AbstractJoinNode(
     const PlanNodeId& id,
     JoinType joinType,
     const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& leftKeys,

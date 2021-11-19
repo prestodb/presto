@@ -32,8 +32,7 @@ class VeloxPromise : public folly::Promise<T> {
   VeloxPromise(
       folly::futures::detail::EmptyConstruct,
       const std::string& context) noexcept
-      : folly::Promise<T>(folly::futures::detail::EmptyConstruct{}),
-        context_(context) {}
+      : folly::Promise<T>(folly::Promise<T>::makeEmpty()), context_(context) {}
 
   ~VeloxPromise() {
     if (!this->isFulfilled()) {

@@ -34,6 +34,7 @@ add_library(
   LocalPartition.cpp
   LocalPlanner.cpp
   Merge.cpp
+  MergeJoin.cpp
   MergeSource.cpp
   Operator.cpp
   OperatorUtils.cpp

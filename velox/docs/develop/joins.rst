@@ -6,8 +6,12 @@ Velox supports inner, left, right, semi and anti hash joins using either
 partitioned or broadcast distribution strategies. Velox also supports cross
 joins. Full outer joins are not supported yet.
 
-Join Implementation
--------------------
+Velox also supports inner merge join for the case where join inputs are sorted
+on the join keys. Left, right, full, semi and anti merge joins are not
+supported yet.
+
+Hash Join Implementation
+------------------------
 
 Use HashJoinNode plan node to insert a join into a query plan. Specify the join
 type, an equi-clause, e.g. pairs of columns on the left and right side whose
@@ -130,7 +134,7 @@ its table last is responsible for merging it with all the other hash tables
 before making the hash table available over the JoinBridge.
 
 Dynamic Filter Pushdown
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 In some queries the join runs in the same stage as the probe-side table scan.
 This happens if the join build side is broadcasted (when it is small enough) to
@@ -175,7 +179,7 @@ turns the join into a no-op after pushing the filter down.
 Dynamic filter pushdown optimization is enabled for inner and semi joins.
 
 Broadcast Join
---------------
+~~~~~~~~~~~~~~
 
 Broadcast join refers to a specific distributed execution strategy where the
 build side is small enough that it can be copied (broadcasted) to all the join
@@ -190,7 +194,7 @@ broadcasting the results of the plan evaluation. This functionality is enabled
 by setting boolean flag "broadcast" in the PartitionedOutputNode to true.
 
 Anti Joins
-----------
+~~~~~~~~~~
 
 Anti join is used for queries like this:
 
@@ -225,7 +229,7 @@ only if the whole build side is empty, allowing to implement semantic
 safe because that row cannot possibly match anything on these destinations.
 
 Empty Build Side
-----------------
+~~~~~~~~~~~~~~~~
 
 For inner and semi joins, when the build side is empty, Velox implements an
 optimization to finish the join early and return an empty set of results
@@ -233,7 +237,7 @@ without waiting to receive all the probe side input. In this case all upstream
 operators are canceled to avoid unnecessary computation.
 
 Skipping Duplicate Keys
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 When building a hash table for semi or anti join HashBuild operator skips
 entries with duplicate keys as these are not needed. This is achieved by
@@ -242,7 +246,7 @@ optimization reduces memory usage of the hash table in case the build side
 contains duplicate join keys.
 
 Execution Statistics
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 HashBuild operator reports the range and number of distinct values for each join
 key if these are not too large and allow for array-based join or use of
@@ -268,8 +272,29 @@ to HiveConnector.
 
 * dynamicFiltersAccepted - number of dynamic filters received
 
+Merge Join Implementation
+-------------------------
+
+Use MergeJoinNode plan node to insert a merge join into a query plan. Make sure
+both left and right sides of the join produce results sorted on the join keys.
+Specify the join type, an equi-clause, e.g. pairs of columns on the left and
+right side whose values need to match, and an optional filter to apply to join
+results.
+
+To execute a plan with a merge join, Velox creates two separate pipelines. One
+pipeline processes the right side data and puts it into JoinMergeSource. The
+other pipeline processes the data on the left side, joins it with the right
+side data and continues execution as specified by downstream plan nodes.
+MergeJoinNode is translated into MergeJoin operator and a CallbackSink backed
+by JoinMergeSource. MergeJoin operator becomes part of the left-side
+pipeline. CallbackSink is installed at the end of the right-side pipeline.
+
+.. image:: images/merge-join-pipelines.png
+    :width: 800
+    :align: center
+
 Usage Examples
 --------------
 
-Check out velox/exec/tests/HashJoinTest.cpp for examples of how to build and
-execute a plan with a join.
+Check out velox/exec/tests/HashJoinTest.cpp and MergeJoinTest.cpp for examples
+of how to build and execute a plan with a hash or merge join.

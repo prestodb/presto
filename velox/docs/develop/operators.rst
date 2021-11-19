@@ -36,6 +36,7 @@ FilterNode              FilterProject
 ProjectNode             FilterProject
 AggregationNode         HashAggregation
 HashJoinNode            HashProbe and HashBuild
+MergeJoinNode           MergeJoin
 CrossJoinNode           CrossJoinProbe and CrossJoinBuild
 OrderByNode             OrderBy
 TopNNode                TopN
@@ -136,13 +137,21 @@ each measure for each combination of the grouping keys.
    * - ignoreNullKeys
      - A boolean flag indicating whether the aggregation should drop rows with nulls in any of the grouping keys. Used to avoid unnecessary processing for an aggregation followed by an inner join on the grouping keys.
 
-HashJoinNode
-~~~~~~~~~~~~
+HashJoinNode and MergeJoinNode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The join operation combines two separate inputs into a single output, based on a
 join expression. A common subtype of joins is an equality join where the join
 expression is constrained to a list of equality (or equality + null equality)
 conditions between the two inputs of the join.
+
+HashJoinNode represents an implementation that starts by loading all rows from
+the right side of the join into a hash table, then streams left side of the
+join probing the hash table for matching rows and emitting results.
+
+MergeJoinNode represents an implementation that assumes that both inputs are
+sorted on the join keys and streams both join sides looking for matching rows
+and emitting results.
 
 .. list-table::
    :widths: 10 30

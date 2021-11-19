@@ -38,4 +38,37 @@ class MergeSource {
       const std::string& taskId);
 };
 
+/// Coordinates data transfer between single producer and single consumer. Used
+/// to implement merge join.
+class MergeJoinSource {
+ public:
+  /// Called by the consumer to fetch next batch of data.
+  BlockingReason next(ContinueFuture* future, RowVectorPtr* data);
+
+  /// Called by the producer to enqueue more data or signal that no more data
+  /// is coming by passing nullptr for data.
+  BlockingReason enqueue(RowVectorPtr data, ContinueFuture* future);
+
+  /// Called by the consumer to signal that it doesn't need any more data. For
+  /// example, if the merge join ran out of data on the right side.
+  void close();
+
+ private:
+  struct State {
+    bool atEnd;
+    RowVectorPtr data;
+  };
+
+  folly::Synchronized<State> state_;
+
+  // Satisfied when data becomes available or the producer reports that it
+  // finished producing, e.g. state_.data is not nullptr or state_.atEnd is
+  // true.
+  std::optional<VeloxPromise<bool>> consumerPromise_;
+
+  // Satisfied when previously enqueued data has been consumed, e.g. state_.data
+  // is nullptr.
+  std::optional<VeloxPromise<bool>> producerPromise_;
+};
+
 } // namespace facebook::velox::exec

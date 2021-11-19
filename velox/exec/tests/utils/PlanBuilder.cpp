@@ -479,6 +479,38 @@ PlanBuilder& PlanBuilder::hashJoin(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::mergeJoin(
+    const std::vector<ChannelIndex>& leftKeys,
+    const std::vector<ChannelIndex>& rightKeys,
+    const std::shared_ptr<facebook::velox::core::PlanNode>& build,
+    const std::string& filterText,
+    const std::vector<ChannelIndex>& output,
+    core::JoinType joinType) {
+  VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
+
+  auto leftType = planNode_->outputType();
+  auto rightType = build->outputType();
+  auto resultType = concat(leftType, rightType);
+  std::shared_ptr<const core::ITypedExpr> filterExpr;
+  if (!filterText.empty()) {
+    filterExpr = parseExpr(filterText, resultType, pool_);
+  }
+  auto outputType = extract(resultType, output);
+  auto leftKeyFields = fields(leftType, leftKeys);
+  auto rightKeyFields = fields(rightType, rightKeys);
+
+  planNode_ = std::make_shared<core::MergeJoinNode>(
+      nextPlanNodeId(),
+      joinType,
+      leftKeyFields,
+      rightKeyFields,
+      std::move(filterExpr),
+      std::move(planNode_),
+      build,
+      outputType);
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::crossJoin(
     const std::shared_ptr<core::PlanNode>& build,
     const std::vector<ChannelIndex>& output) {

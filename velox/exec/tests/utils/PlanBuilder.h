@@ -189,6 +189,14 @@ class PlanBuilder {
       const std::vector<ChannelIndex>& output,
       core::JoinType joinType = core::JoinType::kInner);
 
+  PlanBuilder& mergeJoin(
+      const std::vector<ChannelIndex>& leftKeys,
+      const std::vector<ChannelIndex>& rightKeys,
+      const std::shared_ptr<core::PlanNode>& build,
+      const std::string& filterText,
+      const std::vector<ChannelIndex>& output,
+      core::JoinType joinType = core::JoinType::kInner);
+
   PlanBuilder& crossJoin(
       const std::shared_ptr<core::PlanNode>& build,
       const std::vector<ChannelIndex>& output);
