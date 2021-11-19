@@ -256,6 +256,73 @@ TEST(FilterTest, bigintValuesUsingHashTable) {
   EXPECT_TRUE(filter->testInt64Range(0, 1, false));
 }
 
+template <typename T, typename Verify>
+void applySimdTestToVector(
+    std::vector<T> numbers,
+    Filter& filter,
+    Verify verify) {
+  int32_t numLanes = 32 / sizeof(T);
+  for (auto i = 0; i + numLanes < numbers.size(); i += numLanes) {
+    if (numLanes == 4) {
+      int64_t lanes[4];
+      // Get keys to look up from the numbers in the filter. Make 0-4 of
+      // these miss by incrementing different lanes depending on the
+      // loop counter.
+      memcpy(lanes, numbers.data() + i, sizeof(lanes));
+
+      for (auto lane = 0; lane < 4; ++lane) {
+        if (i & (1 << (lane + 2))) {
+          ++lanes[lane];
+        }
+      }
+      checkSimd<int64_t>(&filter, reinterpret_cast<__m256i*>(&lanes), verify);
+    } else {
+      VELOX_CHECK_EQ(numLanes, 8, "Must be either 4 or 8 lanes");
+      int32_t lanes[8];
+      // Get keys to look up from the numbers in the filter. Make 0-8 of
+      // these miss by incrementing different lanes depending on the
+      // loop counter.
+      memcpy(lanes, numbers.data() + i, sizeof(lanes));
+
+      for (auto lane = 0; lane < 8; ++lane) {
+        if (i & (1 << (lane + 3))) {
+          ++lanes[lane];
+        }
+      }
+      checkSimd<int32_t>(&filter, reinterpret_cast<__m256si*>(&lanes), verify);
+    }
+  }
+}
+
+TEST(FilterTest, bigintValuesUsingHashTableSimd) {
+  std::vector<int64_t> numbers;
+  // make a worst case filter where every item falls on the same slot.
+  for (auto i = 0; i < 1000; ++i) {
+    numbers.push_back(i * 0x10000);
+  }
+  auto filter = createBigintValues(numbers, false);
+  ASSERT_TRUE(dynamic_cast<BigintValuesUsingHashTable*>(filter.get()));
+  __m256i outOfRange{-100, -20000, 0x10000000, 0x20000000};
+  auto verify = [&](int64_t x) { return filter->testInt64(x); };
+  checkSimd<int64_t>(filter.get(), &outOfRange, verify);
+  applySimdTestToVector(numbers, *filter, verify);
+  // Make a filter with reasonably distributed entries and retry.
+  numbers.clear();
+  for (auto i = 0; i < 1000; ++i) {
+    numbers.push_back(i * 1209);
+  }
+  filter = createBigintValues(numbers, false);
+  ASSERT_TRUE(dynamic_cast<BigintValuesUsingHashTable*>(filter.get()));
+  applySimdTestToVector(numbers, *filter, verify);
+
+  std::vector<int32_t> numbers32(numbers.size());
+  for (auto n : numbers) {
+    numbers32.push_back(n);
+  }
+
+  applySimdTestToVector(numbers32, *filter, verify);
+}
+
 TEST(FilterTest, bigintValuesUsingBitmask) {
   auto filter = createBigintValues({1, 10, 100, 1000}, false);
   ASSERT_TRUE(dynamic_cast<BigintValuesUsingBitmask*>(filter.get()));

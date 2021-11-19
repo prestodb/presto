@@ -120,30 +120,35 @@ BigintValuesUsingHashTable::BigintValuesUsingHashTable(
       min_(min),
       max_(max),
       values_(values) {
+  constexpr int32_t kPaddingElements = 4;
   VELOX_CHECK(min < max, "min must be less than max");
   VELOX_CHECK(values.size() > 1, "values must contain at least 2 entries");
 
   // Size the hash table to be 2+x the entry count, e.g. 10 entries
-  // gets log2 of 50 == 32. The filter is expected to fail often so we
+  // gets 1 << log2 of 50 == 32. The filter is expected to fail often so we
   // wish to increase the chance of hitting empty on first probe.
   auto size = 1u << (uint32_t)std::log2(values.size() * 5);
-  hashTable_.resize(size);
-  for (auto i = 0; i < size; ++i) {
-    hashTable_[i] = kEmptyMarker;
-  }
+  hashTable_.resize(size + kPaddingElements);
+  sizeMask_ = size - 1;
+  std::fill(hashTable_.begin(), hashTable_.end(), kEmptyMarker);
   for (auto value : values) {
     if (value == kEmptyMarker) {
       containsEmptyMarker_ = true;
     } else {
       auto position = ((value * M) & (size - 1));
       for (auto i = position; i < position + size; i++) {
-        uint32_t index = i & (size - 1);
+        uint32_t index = i & sizeMask_;
         if (hashTable_[index] == kEmptyMarker) {
           hashTable_[index] = value;
           break;
         }
       }
     }
+  }
+  // Replicate the last element of hashTable kPaddingEntries times at 'size_' so
+  // that one can load a full vector of elements past the last used index.
+  for (auto i = 0; i < kPaddingElements; ++i) {
+    hashTable_[sizeMask_ + 1 + i] = hashTable_[sizeMask_];
   }
   std::sort(values_.begin(), values_.end());
 }
@@ -155,10 +160,9 @@ bool BigintValuesUsingHashTable::testInt64(int64_t value) const {
   if (value < min_ || value > max_) {
     return false;
   }
-  uint32_t size = hashTable_.size();
-  uint32_t pos = (value * M) & (size - 1);
-  for (auto i = pos; i < pos + size; i++) {
-    int32_t idx = i & (size - 1);
+  uint32_t pos = (value * M) & sizeMask_;
+  for (auto i = pos; i <= pos + sizeMask_; i++) {
+    int32_t idx = i & sizeMask_;
     int64_t l = hashTable_[idx];
     if (l == kEmptyMarker) {
       return false;
@@ -168,6 +172,82 @@ bool BigintValuesUsingHashTable::testInt64(int64_t value) const {
     }
   }
   return false;
+}
+
+__m256i BigintValuesUsingHashTable::test4x64(__m256i x) {
+  using V64 = simd::Vectors<int64_t>;
+  auto rangeMask = V64::compareGt(V64::setAll(min_), x) |
+      V64::compareGt(x, V64::setAll(max_));
+  if (V64::compareResult(rangeMask) == V64::kAllTrue) {
+    return V64::setAll(0);
+  }
+  if (containsEmptyMarker_) {
+    return Filter::test4x64(x);
+  }
+  rangeMask ^= -1;
+  auto indices = x * M & sizeMask_;
+  __m256i data = _mm256_mask_i64gather_epi64(
+      V64::setAll(kEmptyMarker),
+      reinterpret_cast<const long long int*>(hashTable_.data()),
+      indices,
+      rangeMask,
+      8);
+  // The lanes with kEmptyMarker missed, the lanes matching x hit and the other
+  // lanes must check next positions.
+
+  auto result = V64::compareEq(x, data);
+  auto missed = V64::compareEq(data, V64::setAll(kEmptyMarker));
+  uint16_t unresolved = V64::compareBitMask(
+      ~V64::compareResult(result) & ~V64::compareResult(missed));
+  if (!unresolved) {
+    return result;
+  }
+  int64_t indicesArray[4];
+  int64_t valuesArray[4];
+  int64_t resultArray[4];
+  *reinterpret_cast<V64::TV*>(indicesArray) = indices + 1;
+  *reinterpret_cast<V64::TV*>(valuesArray) = x;
+  *reinterpret_cast<V64::TV*>(resultArray) = result;
+  auto allEmpty = V64::setAll(kEmptyMarker);
+  while (unresolved) {
+    auto lane = bits::getAndClearLastSetBit(unresolved);
+    // Loop for each unresolved (not hit and
+    // not empty) until finding hit or empty.
+    int64_t index = indicesArray[lane];
+    int64_t value = valuesArray[lane];
+    auto allValue = V64::setAll(value);
+    for (;;) {
+      auto line = V64::load(hashTable_.data() + index);
+
+      if (V64::compareResult(V64::compareEq(line, allValue))) {
+        resultArray[lane] = -1;
+        break;
+      }
+      if (V64::compareResult(V64::compareEq(line, allEmpty))) {
+        resultArray[lane] = 0;
+        break;
+      }
+      index += 4;
+      if (index > sizeMask_) {
+        index = 0;
+      }
+    }
+  }
+  return V64::load(&resultArray);
+}
+
+__m256si BigintValuesUsingHashTable::test8x32(__m256i x) {
+  // Calls 4x64 twice since the hash table is 64 bits wide in any
+  // case. A 32-bit hash table would be possible but all the use
+  // cases seen are in the 64 bit range.
+  using V32 = simd::Vectors<int32_t>;
+  using V64 = simd::Vectors<int64_t>;
+  auto x8x32 = reinterpret_cast<V32::TV>(x);
+  auto first =
+      V64::compareBitMask(V64::compareResult(test4x64(V32::as4x64<0>(x8x32))));
+  auto second =
+      V64::compareBitMask(V64::compareResult(test4x64(V32::as4x64<1>(x8x32))));
+  return V32::mask(first | (second << 4));
 }
 
 bool BigintValuesUsingHashTable::testInt64Range(
@@ -715,8 +795,8 @@ std::unique_ptr<Filter> BigintValuesUsingHashTable::mergeWith(
         auto max = std::min(max_, range->upper());
 
         if (min <= max) {
-          for (int64_t v : hashTable_) {
-            if (v != kEmptyMarker && range->testInt64(v)) {
+          for (int64_t v : values_) {
+            if (range->testInt64(v)) {
               valuesToKeep.emplace_back(v);
             }
           }
