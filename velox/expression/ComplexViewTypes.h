@@ -72,6 +72,86 @@ class IndexBasedIterator
   T element_;
 };
 
+// Implements an iterator for T::element_t that moves by calling
+// incrementIndex() until it points to the next not-null element. T is expected
+// to have index(), incrementIndex(), value(), and has_value().
+template <typename T>
+class SkipNullsIterator
+    : public std::
+          iterator<std::input_iterator_tag, typename T::element_t, size_t> {
+  using Iterator = SkipNullsIterator<T>;
+  using value_type = typename T::element_t;
+
+ public:
+  SkipNullsIterator<T>(const T& element, vector_size_t lasIndex)
+      : element_(element), endIndex_(lasIndex) {}
+
+  // Given an element, return an iterator to the first not-null element starting
+  // from the element itself.
+  static Iterator initialize(const T& element, vector_size_t endIndex) {
+    auto it = Iterator{element, endIndex};
+
+    // The containier is empty.
+    if (element.index() >= endIndex) {
+      return it;
+    }
+
+    if (element.has_value()) {
+      it.currentValue_ = element.value();
+      return it;
+    }
+
+    it++;
+    return it;
+  }
+
+  const value_type& operator*() const {
+    return currentValue_;
+  }
+
+  const value_type* operator->() const {
+    return &currentValue_;
+  }
+
+  bool operator<(const Iterator& rhs) const {
+    return this->element_.index() < rhs.element_.index();
+  }
+
+  bool operator!=(const Iterator& rhs) const {
+    return element_.index() != rhs.element_.index();
+  }
+
+  bool operator==(const Iterator& rhs) const {
+    return element_.index() == rhs.element_.index();
+  }
+
+  // Implement post increment.
+  Iterator operator++(int) {
+    Iterator old = *this;
+    ++*this;
+    return old;
+  }
+
+  // Implement pre increment.
+  Iterator& operator++() {
+    element_.incrementIndex();
+    while (element_.index() != endIndex_) {
+      if (element_.has_value()) {
+        currentValue_ = element_.value();
+        break;
+      }
+      element_.incrementIndex();
+    }
+    return *this;
+  }
+
+ private:
+  T element_;
+  value_type currentValue_;
+  // First index outside the container.
+  vector_size_t endIndex_;
+};
+
 // This class represents a lazy access wrapper around the T members at a
 // specific index.
 template <typename T>
@@ -316,6 +396,26 @@ class ArrayView {
     return Iterator{Element{reader_, offset_ + size_}};
   }
 
+  struct SkipNullsContainer {
+    using Iterator = SkipNullsIterator<Element>;
+
+    explicit SkipNullsContainer(const ArrayView* array_) : array_(array_) {}
+
+    Iterator begin() {
+      auto endIndex = array_->offset_ + array_->size_;
+      return Iterator::initialize(
+          Element{array_->reader_, array_->offset_}, endIndex);
+    }
+
+    Iterator end() {
+      auto endIndex = array_->offset_ + array_->size_;
+      return Iterator{Element{array_->reader_, endIndex}, endIndex};
+    }
+
+   private:
+    const ArrayView* array_;
+  };
+
   // Returns true if any of the arrayViews in the vector might have null
   // element.
   bool mayHaveNulls() const {
@@ -332,6 +432,10 @@ class ArrayView {
 
   size_t size() const {
     return size_;
+  }
+
+  SkipNullsContainer skipNulls() {
+    return SkipNullsContainer{this};
   }
 
  private:

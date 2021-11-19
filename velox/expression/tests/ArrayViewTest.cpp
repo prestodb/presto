@@ -23,9 +23,19 @@ namespace {
 
 using namespace facebook::velox;
 
+DecodedVector* decode(DecodedVector& decoder, const BaseVector& vector) {
+  SelectivityVector rows(vector.size());
+  decoder.decode(vector, rows);
+  return &decoder;
+}
+
 class ArrayViewTest : public functions::test::FunctionBaseTest {
  protected:
   std::vector<std::vector<std::optional<int64_t>>> arrayDataBigInt = {
+      {},
+      {std::nullopt},
+      {std::nullopt, 1},
+      {std::nullopt, std::nullopt, std::nullopt},
       {0, 1, 2, 4},
       {99, 98},
       {101, std::nullopt},
@@ -37,7 +47,7 @@ TEST_F(ArrayViewTest, intArray) {
   auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
   DecodedVector decoded;
   exec::VectorReader<Array<int64_t>> reader(
-      exec::detail::decode(decoded, *arrayVector.get()));
+      decode(decoded, *arrayVector.get()));
 
   auto testItem = [&](int i, int j, auto item) {
     // Test has_value.
@@ -92,4 +102,25 @@ TEST_F(ArrayViewTest, intArray) {
     ASSERT_EQ(j, arrayDataBigInt[i].size());
   }
 }
+
+TEST_F(ArrayViewTest, notNullContainer) {
+  auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
+  DecodedVector decoded;
+  exec::VectorReader<Array<int64_t>> reader(
+      decode(decoded, *arrayVector.get()));
+
+  for (auto i = 0; i < arrayVector->size(); i++) {
+    auto arrayView = reader[i];
+    int j = 0;
+    for (auto value : arrayView.skipNulls()) {
+      while (j < arrayDataBigInt[i].size() &&
+             arrayDataBigInt[i][j] == std::nullopt) {
+        j++;
+      }
+      ASSERT_EQ(value, arrayDataBigInt[i][j].value());
+      j++;
+    }
+  }
+}
+
 } // namespace
