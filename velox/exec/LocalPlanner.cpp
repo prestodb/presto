@@ -222,18 +222,6 @@ void LocalPlanner::plan(
   }
 }
 
-std::shared_ptr<std::atomic_int64_t> DriverFactory::getAssignUniqueIdCounter(
-    const std::string& planNodeId) {
-  auto it = assignUniqueIdCounters.find(planNodeId);
-  if (it != assignUniqueIdCounters.end()) {
-    return it->second;
-  } else {
-    auto counter = std::make_shared<std::atomic_int64_t>();
-    assignUniqueIdCounters.insert({planNodeId, counter});
-    return counter;
-  }
-}
-
 std::shared_ptr<Driver> DriverFactory::createDriver(
     std::unique_ptr<DriverCtx> ctx,
     std::shared_ptr<ExchangeClient> exchangeClient,
@@ -367,7 +355,7 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
           ctx.get(),
           assignUniqueIdNode,
           assignUniqueIdNode->taskUniqueId(),
-          getAssignUniqueIdCounter(assignUniqueIdNode->id())));
+          assignUniqueIdNode->uniqueIdCounter()));
     } else {
       auto extended = Operator::fromPlanNode(ctx.get(), id, planNode);
       VELOX_CHECK(extended, "Unsupported plan node: {}", planNode->toString());

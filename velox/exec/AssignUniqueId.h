@@ -49,10 +49,12 @@ class AssignUniqueId : public Operator {
   }
 
  private:
-  void generateIdColumn();
+  void generateIdColumn(vector_size_t size);
+
+  void requestRowIds();
 
   const int64_t kRowIdsPerRequest = 1L << 20;
-  const int64_t kMaxRowId = 1L << 32;
+  const int64_t kMaxRowId = 1L << 40;
   const int64_t kTaskUniqueIdLimit = 1L << 24;
 
   int64_t uniqueValueMask_;

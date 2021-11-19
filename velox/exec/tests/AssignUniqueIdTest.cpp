@@ -92,3 +92,24 @@ TEST_F(AssignUniqueIdTest, multiThread) {
     verifyUniqueId(plan, input, 8);
   }
 }
+
+TEST_F(AssignUniqueIdTest, maxRowIdLimit) {
+  auto input = {makeRowVector({makeFlatVector<int32_t>({1, 2, 3})})};
+
+  auto plan = PlanBuilder().values(input).assignUniqueId().planNode();
+  // Increase the counter to kMaxRowId.
+  std::dynamic_pointer_cast<core::AssignUniqueIdNode>(plan)
+      ->uniqueIdCounter()
+      ->fetch_add(1L << 40);
+
+  EXPECT_THROW(verifyUniqueId(plan, input), VeloxRuntimeError);
+}
+
+TEST_F(AssignUniqueIdTest, taskUniqueIdLimit) {
+  auto input = {makeRowVector({makeFlatVector<int32_t>({1, 2, 3})})};
+
+  auto plan =
+      PlanBuilder().values(input).assignUniqueId("unique", 1L << 24).planNode();
+
+  EXPECT_THROW(verifyUniqueId(plan, input), VeloxRuntimeError);
+}

@@ -191,6 +191,7 @@ AssignUniqueIdNode::AssignUniqueIdNode(
   names.emplace_back(idName);
   types.emplace_back(BIGINT());
   outputType_ = ROW(std::move(names), std::move(types));
+  uniqueIdCounter_ = std::make_shared<std::atomic_int64_t>();
 }
 
 } // namespace facebook::velox::core

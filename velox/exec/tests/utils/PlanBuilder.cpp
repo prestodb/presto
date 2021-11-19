@@ -328,9 +328,11 @@ PlanBuilder& PlanBuilder::enforceSingleRow() {
   return *this;
 }
 
-PlanBuilder& PlanBuilder::assignUniqueId() {
+PlanBuilder& PlanBuilder::assignUniqueId(
+    const std::string& idName,
+    const int32_t taskUniqueId) {
   planNode_ = std::make_shared<core::AssignUniqueIdNode>(
-      nextPlanNodeId(), "unique", 1, planNode_);
+      nextPlanNodeId(), idName, taskUniqueId, planNode_);
   return *this;
 }
 

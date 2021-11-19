@@ -1293,10 +1293,15 @@ class AssignUniqueIdNode : public PlanNode {
     return taskUniqueId_;
   }
 
+  const std::shared_ptr<std::atomic_int64_t>& uniqueIdCounter() const {
+    return uniqueIdCounter_;
+  };
+
  private:
   const int32_t taskUniqueId_;
   const std::vector<std::shared_ptr<const PlanNode>> sources_;
   RowTypePtr outputType_;
+  std::shared_ptr<std::atomic_int64_t> uniqueIdCounter_;
 };
 
 } // namespace facebook::velox::core

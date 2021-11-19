@@ -60,38 +60,43 @@ RowVectorPtr AssignUniqueId::getOutput() {
   if (input_ == nullptr) {
     return nullptr;
   }
-  generateIdColumn();
+  generateIdColumn(input_->size());
   auto output = fillOutput(input_->size(), nullptr);
   input_ = nullptr;
   return output;
 }
 
-void AssignUniqueId::generateIdColumn() {
-  auto numInput = input_->size();
+void AssignUniqueId::generateIdColumn(vector_size_t size) {
   auto result = results_[0];
   if (!result || !BaseVector::isReusableFlatVector(result)) {
-    result = BaseVector::create(BIGINT(), numInput, operatorCtx_->pool());
+    result = BaseVector::create(BIGINT(), size, operatorCtx_->pool());
     results_[0] = result;
   } else {
-    result->resize(numInput);
+    result->resize(size);
   }
   auto rawResults =
       result->asUnchecked<FlatVector<int64_t>>()->mutableRawValues();
 
   vector_size_t start = 0;
-  while (start < numInput) {
+  while (start < size) {
     if (rowIdCounter_ >= maxRowIdCounterValue_) {
-      rowIdCounter_ = rowIdPool_->fetch_add(kRowIdsPerRequest);
-      maxRowIdCounterValue_ =
-          std::min({rowIdCounter_ + kRowIdsPerRequest, kMaxRowId});
+      requestRowIds();
     }
 
-    auto end = std::min(numInput, (int32_t)(start + kRowIdsPerRequest));
-
+    auto batchSize =
+        std::min(maxRowIdCounterValue_ - rowIdCounter_ + 1, kRowIdsPerRequest);
+    auto end = (int32_t)std::min((int64_t)size, start + batchSize);
+    VELOX_CHECK_EQ((rowIdCounter_ + end - 1) & uniqueValueMask_, 0);
     std::iota(
         rawResults + start, rawResults + end, uniqueValueMask_ | rowIdCounter_);
     rowIdCounter_ += end;
     start = end;
   }
+}
+
+void AssignUniqueId::requestRowIds() {
+  rowIdCounter_ = rowIdPool_->fetch_add(kRowIdsPerRequest);
+  maxRowIdCounterValue_ =
+      std::min(rowIdCounter_ + kRowIdsPerRequest, kMaxRowId);
 }
 } // namespace facebook::velox::exec
