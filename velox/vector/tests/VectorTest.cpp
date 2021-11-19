@@ -1269,7 +1269,7 @@ TEST_F(VectorTest, constantDictionary) {
   auto flatVector = vectorMaker->flatVector<int32_t>({1, 2, 3, 4});
 
   // Repeat each row twice: 1, 1, 2, 2, 3, 3, 4, 4.
-  auto dictionarySize = flatVector->size() + 2;
+  auto dictionarySize = flatVector->size() * 2;
   auto indices = allocateIndices(dictionarySize, pool_.get());
   auto rawIndices = indices->asMutable<vector_size_t>();
   for (auto i = 0; i < dictionarySize; i++) {
@@ -1293,6 +1293,28 @@ TEST_F(VectorTest, constantDictionary) {
   {
     SelectivityVector rows(dictionarySize, false);
     rows.setValid(3, true);
+    rows.updateBounds();
+    ASSERT_TRUE(dictionaryVector->isConstant(rows));
+  }
+
+  // Test nulls added by DictionaryVector.
+  auto dictNulls = AlignedBuffer::allocate<bool>(
+      dictionarySize, pool_.get(), bits::kNotNull);
+  auto rawNulls = dictNulls->asMutable<uint64_t>();
+  bits::setNull(rawNulls, 0);
+  bits::setNull(rawNulls, 2);
+  dictionaryVector = BaseVector::wrapInDictionary(
+      dictNulls, indices, dictionarySize, flatVector);
+  // Elements 0 and 1 are not equal because the dictionary adds a null at 0.
+  {
+    SelectivityVector rows(2);
+    ASSERT_FALSE(dictionaryVector->isConstant(rows));
+  }
+  // The vector is constant for 0, 2 because both add a null.
+  {
+    SelectivityVector rows(dictionarySize, false);
+    rows.setValid(0, true);
+    rows.setValid(2, true);
     rows.updateBounds();
     ASSERT_TRUE(dictionaryVector->isConstant(rows));
   }

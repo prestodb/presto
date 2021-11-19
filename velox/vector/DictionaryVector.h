@@ -148,8 +148,12 @@ class DictionaryVector : public SimpleVector<T> {
   bool isConstant(const SelectivityVector& rows) const override {
     VELOX_CHECK(rows.hasSelections(), "No selected rows in isConstant()");
     auto firstIdx = getDictionaryIndex(rows.begin());
-    return rows.testSelected(
-        [&](auto row) { return firstIdx == getDictionaryIndex(row); });
+    auto firstNull = BaseVector::isNullAt(rows.begin());
+    return rows.testSelected([&](auto row) {
+      bool isNull = BaseVector::isNullAt(row);
+      return (firstNull && isNull) ||
+          (firstIdx == getDictionaryIndex(row) && !firstNull && !isNull);
+    });
   }
 
   bool isScalar() const override {
