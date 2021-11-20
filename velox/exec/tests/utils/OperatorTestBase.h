@@ -102,6 +102,12 @@ class OperatorTestBase : public testing::Test {
     return vectorMaker_.rowVector(children);
   }
 
+  RowVectorPtr makeRowVector(
+      const std::vector<std::string>& childNames,
+      const std::vector<VectorPtr>& children) {
+    return vectorMaker_.rowVector(childNames, children);
+  }
+
   template <typename T>
   FlatVectorPtr<T> makeFlatVector(
       vector_size_t size,
