@@ -263,20 +263,37 @@ struct MyAsciiAwareFunction {
 
 // In some cases, the user might want to reuse the String buffer from one of
 // the inputs in the output, making the function zero-copy. Some compelling
-// examples are trim (ltrim and rtrim) and substr. One can do that by setting
-// the flag below, which specifies the index of the argument whose strings
-// are being re-used in the output:
+// examples are trim (ltrim and rtrim), substr, and split. One can do that by
+// setting the flag below, which specifies the index of the argument whose
+// strings are being re-used in the output. Valid output types are VARCHAR and
+// ARRAY<VARCHAR>.
+//
+// This example implements a simple split function that tokenizes the input
+// string based on empty spaces (' '), returning an array of strings that reuse
+// the same buffer as the first parameter (zero-copy). Check the "Complex Types"
+// section below for more examples about arrays, maps, rows and other complex
+// types.
 template <typename T>
-struct MyZeroCopyStringFunction {
+struct MySimpleSplitFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  // Results refer to the first input strings parameter.
+  // Results refer to the first input strings parameter buffer.
   static constexpr int32_t reuse_strings_from_arg = 0;
 
+  const char splitChar{' '};
+
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Varchar>& result,
+      out_type<Array<Varchar>>& out,
       const arg_type<Varchar>& input) {
-    result.setNoCopy(input);
+    auto start = input.begin();
+    auto cur = start;
+
+    // This code doesn't copy the string contents.
+    do {
+      cur = std::find(start, input.end(), splitChar);
+      out.append(out_type<Varchar>(StringView(start, cur - start)));
+      start = cur + 1;
+    } while (cur < input.end());
     return true;
   }
 };
@@ -285,8 +302,8 @@ void register6() {
   registerFunction<MyAsciiAwareFunction, Varchar, Varchar>(
       {"my_ascii_aware_func"});
 
-  registerFunction<MyZeroCopyStringFunction, Varchar, Varchar>(
-      {"my_zero_copy_string_func"});
+  registerFunction<MySimpleSplitFunction, Array<Varchar>, Varchar>(
+      {"my_simple_split_func"});
 }
 
 //
@@ -316,7 +333,7 @@ struct MyRegexpMatchFunction {
     // quite expensive to compile it on a per-row basis. In this example we
     // support both modes (const and non-const).
     if (pattern != nullptr) {
-      re_ = std::make_unique<::re2::RE2>(*pattern);
+      re_.emplace(*pattern);
     }
 
     // Optionally, one could also inspect the session configs in `QueryConfig`.
@@ -328,16 +345,13 @@ struct MyRegexpMatchFunction {
       bool& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& pattern) {
-    // In case the pattern is constant and was already initialized, e.g,
-    // `my_regexp_match(col1, "^.*$")`
-    if (re_) {
-      result = RE2::PartialMatch(toStringPiece(input), *re_);
-    }
-    // In case the pattern is not constant, we need to compile it for each row,
-    // e.g, `my_regexp_match(col1, col2)`
-    else {
-      result = RE2::PartialMatch(toStringPiece(input), ::re2::RE2(pattern));
-    }
+    // Check if the pattern is constant and was already initialized, e.g:
+    // >  `my_regexp_match(col1, "^.*$")`
+    // or, if it is not constant, we need to compile it for each row, e.g:
+    // > `my_regexp_match(col1, col2)`
+    result = re_.has_value()
+        ? RE2::PartialMatch(toStringPiece(input), *re_)
+        : RE2::PartialMatch(toStringPiece(input), ::re2::RE2(pattern));
     return true;
   }
 
@@ -346,7 +360,7 @@ struct MyRegexpMatchFunction {
     return re2::StringPiece(input.data(), input.size());
   }
 
-  std::unique_ptr<::re2::RE2> re_;
+  std::optional<::re2::RE2> re_;
 };
 
 void register7() {

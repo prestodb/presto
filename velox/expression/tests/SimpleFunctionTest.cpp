@@ -697,7 +697,7 @@ struct MyArrayStringReuseFunction {
       cur = std::find(start, input.end(), ' ');
       out.append(out_type<Varchar>(StringView(start, cur - start)));
       start = cur + 1;
-    } while (cur != input.end());
+    } while (cur < input.end());
     return true;
   }
 };
