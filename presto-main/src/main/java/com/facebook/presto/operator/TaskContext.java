@@ -459,8 +459,10 @@ public class TaskContext
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int queuedPartitionedDrivers = 0;
+        long queuedPartitionedSplitsWeight = 0;
         int runningDrivers = 0;
         int runningPartitionedDrivers = 0;
+        long runningPartitionedSplitsWeight = 0;
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
@@ -500,8 +502,10 @@ public class TaskContext
             totalDrivers += pipeline.getTotalDrivers();
             queuedDrivers += pipeline.getQueuedDrivers();
             queuedPartitionedDrivers += pipeline.getQueuedPartitionedDrivers();
+            queuedPartitionedSplitsWeight += pipeline.getQueuedPartitionedSplitsWeight();
             runningDrivers += pipeline.getRunningDrivers();
             runningPartitionedDrivers += pipeline.getRunningPartitionedDrivers();
+            runningPartitionedSplitsWeight += pipeline.getRunningPartitionedSplitsWeight();
             blockedDrivers += pipeline.getBlockedDrivers();
             completedDrivers += pipeline.getCompletedDrivers();
 
@@ -579,8 +583,10 @@ public class TaskContext
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
                 runningDrivers,
                 runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory.get(),

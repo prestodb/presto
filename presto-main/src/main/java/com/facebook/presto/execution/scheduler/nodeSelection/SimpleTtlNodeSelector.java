@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
 import com.facebook.presto.spi.ttl.NodeTtl;
@@ -75,8 +76,8 @@ public class SimpleTtlNodeSelector
     private final NodeTaskMap nodeTaskMap;
     private final int minCandidates;
     private final boolean includeCoordinator;
-    private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerTask;
+    private final long maxSplitsWeightPerNode;
+    private final long maxPendingSplitsWeightPerTask;
     private final int maxTasksPerStage;
     private final SimpleNodeSelector simpleNodeSelector;
     private final QueryManager queryManager;
@@ -89,8 +90,8 @@ public class SimpleTtlNodeSelector
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             boolean includeCoordinator,
-            int maxSplitsPerNode,
-            int maxPendingSplitsPerTask,
+            long maxSplitsWeightPerNode,
+            long maxPendingSplitsWeightPerTask,
             int maxTasksPerStage,
             NodeTtlFetcherManager ttlFetcherManager,
             QueryManager queryManager,
@@ -101,8 +102,8 @@ public class SimpleTtlNodeSelector
         this.nodeMap = new AtomicReference<>(requireNonNull(nodeMap, "nodeMap is null"));
         this.minCandidates = minCandidates;
         this.includeCoordinator = includeCoordinator;
-        this.maxSplitsPerNode = maxSplitsPerNode;
-        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
+        this.maxSplitsWeightPerNode = maxSplitsWeightPerNode;
+        this.maxPendingSplitsWeightPerTask = maxPendingSplitsWeightPerTask;
         this.maxTasksPerStage = maxTasksPerStage;
         this.nodeTtlFetcherManager = requireNonNull(ttlFetcherManager, "ttlFetcherManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
@@ -184,15 +185,17 @@ public class SimpleTtlNodeSelector
                 throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
             }
 
+            SplitWeight splitWeight = split.getSplitWeight();
             Optional<InternalNodeInfo> chosenNodeInfo = simpleNodeSelector.chooseLeastBusyNode(
+                    splitWeight,
                     candidateNodes,
-                    assignmentStats::getTotalSplitCount,
+                    assignmentStats::getTotalSplitsWeight,
                     preferredNodeCount,
-                    maxSplitsPerNode,
+                    maxSplitsWeightPerNode,
                     assignmentStats);
             if (!chosenNodeInfo.isPresent()) {
                 chosenNodeInfo = simpleNodeSelector.chooseLeastBusyNode(
-                        candidateNodes, assignmentStats::getQueuedSplitCountForStage, preferredNodeCount, maxPendingSplitsPerTask, assignmentStats);
+                        splitWeight, candidateNodes, assignmentStats::getQueuedSplitsWeightForStage, preferredNodeCount, maxPendingSplitsWeightPerTask, assignmentStats);
             }
 
             if (chosenNodeInfo.isPresent()) {
@@ -205,7 +208,7 @@ public class SimpleTtlNodeSelector
 
                 InternalNode chosenNode = chosenNodeInfo.get().getInternalNode();
                 assignment.put(chosenNode, split);
-                assignmentStats.addAssignedSplit(chosenNode);
+                assignmentStats.addAssignedSplit(chosenNode, splitWeight);
             }
             else {
                 splitWaitingForAnyNode = true;
@@ -213,7 +216,7 @@ public class SimpleTtlNodeSelector
         }
 
         ListenableFuture<?> blocked = splitWaitingForAnyNode ?
-                toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsPerTask)) : immediateFuture(null);
+                toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask)) : immediateFuture(null);
 
         return new SplitPlacementResult(blocked, assignment.build());
     }

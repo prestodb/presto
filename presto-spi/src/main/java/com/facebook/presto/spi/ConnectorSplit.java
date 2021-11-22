@@ -48,4 +48,9 @@ public interface ConnectorSplit
     {
         return OptionalLong.empty();
     }
+
+    default SplitWeight getSplitWeight()
+    {
+        return SplitWeight.standard();
+    }
 }
