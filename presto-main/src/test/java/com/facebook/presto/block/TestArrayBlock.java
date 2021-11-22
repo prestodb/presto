@@ -291,6 +291,7 @@ public class TestArrayBlock
         return size;
     }
 
+    @Test
     public void testCompactBlock()
     {
         Block emptyValueBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
