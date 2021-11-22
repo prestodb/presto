@@ -90,6 +90,16 @@ public class PinotFilterExpressionConverter
                         .collect(Collectors.joining(", "))));
     }
 
+    private PinotExpression handleIsNull(
+            SpecialFormExpression specialForm,
+            boolean isWhitelist,
+            Function<VariableReferenceExpression, Selection> context)
+    {
+        return derived(format("(%s %s)",
+                specialForm.getArguments().get(0).accept(this, context).getDefinition(),
+                isWhitelist ? "IS NULL" : "IS NOT NULL"));
+    }
+
     private PinotExpression handleLogicalBinary(
             String operator,
             CallExpression call,
@@ -371,6 +381,7 @@ public class PinotFilterExpressionConverter
             case SWITCH:
             case WHEN:
             case IS_NULL:
+                return handleIsNull(specialForm, true, context);
             case COALESCE:
             case DEREFERENCE:
             case ROW_CONSTRUCTOR:
