@@ -129,6 +129,8 @@ public final class HiveSessionProperties
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_ENABLED = "dwrf_writer_stripe_cache_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
+    public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
+    public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -617,7 +619,27 @@ public final class HiveSessionProperties
                         DWRF_WRITER_STRIPE_CACHE_SIZE,
                         "Maximum size of DWRF stripe cache to be held in memory",
                         orcFileWriterConfig.getDwrfStripeCacheMaxSize(),
-                        false));
+                        false),
+                booleanProperty(
+                        SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
+                        "Enable estimating split weights based on size in bytes",
+                        hiveClientConfig.isSizeBasedSplitWeightsEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        MINIMUM_ASSIGNED_SPLIT_WEIGHT,
+                        "Minimum assigned split weight when size based split weighting is enabled",
+                        DOUBLE,
+                        Double.class,
+                        hiveClientConfig.getMinimumAssignedSplitWeight(),
+                        false,
+                        value -> {
+                            double doubleValue = ((Number) value).doubleValue();
+                            if (!Double.isFinite(doubleValue) || doubleValue <= 0 || doubleValue > 1) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
+                            }
+                            return doubleValue;
+                        },
+                        value -> value));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1076,5 +1098,15 @@ public final class HiveSessionProperties
     public static DataSize getDwrfWriterStripeCacheeMaxSize(ConnectorSession session)
     {
         return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
+    }
+
+    public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
+    }
+
+    public static double getMinimumAssignedSplitWeight(ConnectorSession session)
+    {
+        return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
     }
 }

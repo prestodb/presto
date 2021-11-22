@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
@@ -153,7 +154,8 @@ public class TestDynamicPruning
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),
