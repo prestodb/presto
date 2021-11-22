@@ -68,7 +68,7 @@ public class TestRollbackTask
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine));
+        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -83,10 +83,9 @@ public class TestRollbackTask
         Session session = sessionBuilder()
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
         RollbackTask rollbackTask = new RollbackTask();
         try {
-            getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine));
+            getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
             fail();
         }
         catch (PrestoException e) {
@@ -107,10 +106,9 @@ public class TestRollbackTask
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
 
         RollbackTask rollbackTask = new RollbackTask();
-        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector, stateMachine));
+        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 

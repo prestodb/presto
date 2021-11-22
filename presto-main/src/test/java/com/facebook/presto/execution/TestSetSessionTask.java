@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.Expression;
@@ -168,9 +167,8 @@ public class TestSetSessionTask
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         String sqlString = format("set %s = 'old_value'", qualifiedPropName);
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executor, metadata);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
         SetSessionTask sessionTask = new SetSessionTask();
-        getFutureValue(sessionTask.execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector, stateMachine));
+        getFutureValue(sessionTask.execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, parameters, stateMachine));
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));
     }

@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Execute;
@@ -62,7 +60,7 @@ public class PrepareTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine queryStateMachine)
+    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine queryStateMachine)
     {
         Statement statement = prepare.getStatement();
         if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {

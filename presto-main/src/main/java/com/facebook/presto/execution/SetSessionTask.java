@@ -20,7 +20,6 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -48,8 +47,9 @@ public class SetSessionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine stateMachine)
     {
+        Session session = stateMachine.getSession();
         QualifiedName propertyName = statement.getName();
         List<String> parts = propertyName.getParts();
         if (parts.size() > 2) {

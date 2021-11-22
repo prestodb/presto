@@ -43,6 +43,7 @@ import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RevokeRolesTask;
 import com.facebook.presto.execution.RevokeTask;
 import com.facebook.presto.execution.RollbackTask;
+import com.facebook.presto.execution.SessionTransactionControlTask;
 import com.facebook.presto.execution.SetRoleTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.StartTransactionTask;
@@ -99,11 +100,11 @@ public class PrestoDataDefBindingHelper
     private PrestoDataDefBindingHelper(){}
 
     private static final Map<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> STATEMENT_TASK_TYPES;
-    private static final Map<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> TRANSACTION_CONTROL_TYPES;
+    private static final Map<Class<? extends Statement>, Class<? extends SessionTransactionControlTask<?>>> TRANSACTION_CONTROL_TYPES;
 
     static {
         ImmutableMap.Builder<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> dataDefBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> transactionDefBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Class<? extends Statement>, Class<? extends SessionTransactionControlTask<?>>> transactionDefBuilder = ImmutableMap.builder();
 
         dataDefBuilder.put(CreateSchema.class, CreateSchemaTask.class);
         dataDefBuilder.put(DropSchema.class, DropSchemaTask.class);
@@ -155,9 +156,9 @@ public class PrestoDataDefBindingHelper
 
     public static void bindTransactionControlDefinitionTasks(Binder binder)
     {
-        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(binder,
+        MapBinder<Class<? extends Statement>, SessionTransactionControlTask<?>> taskBinder = newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {
-                }, new TypeLiteral<DataDefinitionTask<?>>() {
+                }, new TypeLiteral<SessionTransactionControlTask<?>>() {
                 });
 
         TRANSACTION_CONTROL_TYPES.entrySet().stream()

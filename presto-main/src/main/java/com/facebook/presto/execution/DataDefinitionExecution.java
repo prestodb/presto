@@ -66,7 +66,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final List<Expression> parameters;
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
-    private DataDefinitionExecution(
+    protected DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
             String slug,
@@ -87,7 +87,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
     }
-
+    
     @Override
     public String getSlug()
     {
@@ -211,14 +211,7 @@ public class DataDefinitionExecution<T extends Statement>
             }
 
             WarningCollector warningCollector = stateMachine.getWarningCollector();
-            ListenableFuture<?> future;
-            if (task.isSessionControl() || task.isTransactionControl()) {
-                SessionTransactionControlTask sessionTransTask = (SessionTransactionControlTask) task;
-                future = sessionTransTask.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector, stateMachine);
-            }
-            else {
-                future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector);
-            }
+            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector);
 
             Futures.addCallback(future, new FutureCallback<Object>()
             {

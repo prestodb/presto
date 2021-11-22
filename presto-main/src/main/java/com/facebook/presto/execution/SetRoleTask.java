@@ -20,7 +20,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SetRole;
@@ -43,8 +42,9 @@ public class SetRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine stateMachine)
     {
+        Session session = stateMachine.getSession();
         String catalog = createCatalogName(session, statement);
         if (statement.getType() == SetRole.Type.ROLE) {
             accessControl.checkCanSetRole(

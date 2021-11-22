@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Use;
@@ -35,9 +34,7 @@ import static java.util.Locale.ENGLISH;
 public class UseTask
         implements SessionTransactionControlTask<Use>
 {
-    private QueryStateMachine stateMachine;
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
-    private final AtomicReference<String> setSchema = new AtomicReference<>();
 
     @Override
     public String getName()
@@ -46,8 +43,10 @@ public class UseTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine stateMachine)
     {
+        Session session = stateMachine.getSession();
+
         if (!statement.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, statement, "Catalog must be specified when session catalog is not set");
         }

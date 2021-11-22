@@ -100,7 +100,7 @@ public class TestSetRoleTask
         QueryStateMachine stateMachine = createQueryStateMachine(statement, session, false, transactionManager, executor, metadata);
         WarningCollector warningCollector = stateMachine.getWarningCollector();
         SetRoleTask setRoleTask = new SetRoleTask();
-        setRoleTask.execute(setRole, transactionManager, metadata, accessControl, stateMachine.getSession(), ImmutableList.of(), warningCollector, stateMachine);
+        setRoleTask.execute(setRole, transactionManager, metadata, accessControl, ImmutableList.of(), stateMachine);
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertEquals(queryInfo.getSetRoles(), expected);
     }

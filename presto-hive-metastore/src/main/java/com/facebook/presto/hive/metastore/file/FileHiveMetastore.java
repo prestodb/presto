@@ -48,6 +48,7 @@ import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -992,9 +993,10 @@ public class FileHiveMetastore
     public synchronized void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(metastoreContext, databaseName, tableName, grantee);
-        Set<HivePrivilegeInfo> updatedPrivileges = currentPrivileges.stream().filter(currentPrivilege -> !privileges.contains(currentPrivilege)).collect(toSet());
+        Set<HivePrivilegeInfo> updatedPrivilege = Sets.newHashSet(currentPrivileges);
+        updatedPrivilege.removeAll(privileges);
 
-        setTablePrivileges(metastoreContext, grantee, databaseName, tableName, updatedPrivileges);
+        setTablePrivileges(metastoreContext, grantee, databaseName, tableName, updatedPrivilege);
     }
 
     @Override

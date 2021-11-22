@@ -87,6 +87,7 @@ import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.util.PrestoDataDefBindingHelper;
+import com.facebook.presto.util.StatementUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -115,6 +116,7 @@ import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
+import static com.facebook.presto.execution.SessionDefinitionExecution.SessionDefinitionExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
@@ -272,9 +274,15 @@ public class CoordinatorModule
         binder.bind(PartialResultQueryManager.class).in(Scopes.SINGLETON);
 
         // bind data definition statements to DataDefinitionExecutionFactory
-        queryTypes.stream().filter(entry -> entry.getValue() == QueryType.DATA_DEFINITION)
+        queryTypes.stream().filter(entry -> entry.getValue() == QueryType.DATA_DEFINITION && !StatementUtils.isSessionTransactionControlStatement(entry.getKey()))
                 .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+
+        // bind session Control statements to SessionTransactionExecutionFactory
+        queryTypes.stream().filter(entry -> (entry.getValue() == QueryType.DATA_DEFINITION && StatementUtils.isSessionTransactionControlStatement(entry.getKey())))
+                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
+        binder.bind(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+
         // helper class binding data definition tasks and statements
         PrestoDataDefBindingHelper.bindDataDefinitionTasks(binder);
         PrestoDataDefBindingHelper.bindTransactionControlDefinitionTasks(binder);
