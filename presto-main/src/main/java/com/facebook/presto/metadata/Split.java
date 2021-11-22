@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -107,6 +108,11 @@ public final class Split
     public SplitIdentifier getSplitIdentifier()
     {
         return new SplitIdentifier(connectorId, connectorSplit.getSplitIdentifier());
+    }
+
+    public SplitWeight getSplitWeight()
+    {
+        return connectorSplit.getSplitWeight();
     }
 
     @Override

@@ -27,6 +27,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -41,9 +42,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static com.facebook.presto.execution.scheduler.NodeScheduler.canAssignSplitBasedOnWeight;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
@@ -72,8 +74,8 @@ public class SimpleNodeSelector
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
-    private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerTask;
+    private final long maxSplitsWeightPerNode;
+    private final long maxPendingSplitsWeightPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
     private final int maxTasksPerStage;
 
@@ -84,8 +86,8 @@ public class SimpleNodeSelector
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
-            int maxSplitsPerNode,
-            int maxPendingSplitsPerTask,
+            long maxSplitsWeightPerNode,
+            long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             int maxTasksPerStage)
     {
@@ -95,8 +97,8 @@ public class SimpleNodeSelector
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
-        this.maxSplitsPerNode = maxSplitsPerNode;
-        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
+        this.maxSplitsWeightPerNode = maxSplitsWeightPerNode;
+        this.maxPendingSplitsWeightPerTask = maxPendingSplitsWeightPerTask;
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.maxTasksPerStage = maxTasksPerStage;
@@ -181,9 +183,10 @@ public class SimpleNodeSelector
                 throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
             }
 
-            Optional<InternalNodeInfo> chosenNodeInfo = chooseLeastBusyNode(candidateNodes, assignmentStats::getTotalSplitCount, preferredNodeCount, maxSplitsPerNode, assignmentStats);
+            SplitWeight splitWeight = split.getSplitWeight();
+            Optional<InternalNodeInfo> chosenNodeInfo = chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getTotalSplitsWeight, preferredNodeCount, maxSplitsWeightPerNode, assignmentStats);
             if (!chosenNodeInfo.isPresent()) {
-                chosenNodeInfo = chooseLeastBusyNode(candidateNodes, assignmentStats::getQueuedSplitCountForStage, preferredNodeCount, maxPendingSplitsPerTask, assignmentStats);
+                chosenNodeInfo = chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getQueuedSplitsWeightForStage, preferredNodeCount, maxPendingSplitsWeightPerTask, assignmentStats);
             }
 
             if (chosenNodeInfo.isPresent()) {
@@ -196,7 +199,7 @@ public class SimpleNodeSelector
 
                 InternalNode chosenNode = chosenNodeInfo.get().getInternalNode();
                 assignment.put(chosenNode, split);
-                assignmentStats.addAssignedSplit(chosenNode);
+                assignmentStats.addAssignedSplit(chosenNode, splitWeight);
             }
             else {
                 if (split.getNodeSelectionStrategy() != HARD_AFFINITY) {
@@ -211,10 +214,10 @@ public class SimpleNodeSelector
 
         ListenableFuture<?> blocked;
         if (splitWaitingForAnyNode) {
-            blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+            blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
         }
         else {
-            blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+            blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
         }
         return new SplitPlacementResult(blocked, assignment);
     }
@@ -222,12 +225,12 @@ public class SimpleNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
-    protected Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, ToIntFunction<InternalNode> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount, NodeAssignmentStats assignmentStats)
+    protected Optional<InternalNodeInfo> chooseLeastBusyNode(SplitWeight splitWeight, List<InternalNode> candidateNodes, ToLongFunction<InternalNode> splitWeightProvider, OptionalInt preferredNodeCount, long maxSplitsWeight, NodeAssignmentStats assignmentStats)
     {
-        int min = Integer.MAX_VALUE;
+        long minWeight = Long.MAX_VALUE;
         InternalNode chosenNode = null;
         for (int i = 0; i < candidateNodes.size(); i++) {
             InternalNode node = candidateNodes.get(i);
@@ -242,10 +245,11 @@ public class SimpleNodeSelector
             if (assignmentStats.getUnacknowledgedSplitCountForStage(node) >= maxUnacknowledgedSplitsPerTask) {
                 continue;
             }
-            int splitCount = splitCountProvider.applyAsInt(node);
+            long currentWeight = splitWeightProvider.applyAsLong(node);
+            boolean canAssignToNode = canAssignSplitBasedOnWeight(currentWeight, maxSplitsWeight, splitWeight);
 
             // choose the preferred node first as long as they're not busy
-            if (preferredNodeCount.isPresent() && i < preferredNodeCount.getAsInt() && splitCount < maxSplitCount) {
+            if (preferredNodeCount.isPresent() && i < preferredNodeCount.getAsInt() && canAssignToNode) {
                 if (i == 0) {
                     nodeSelectionStats.incrementPrimaryPreferredNodeSelectedCount();
                 }
@@ -255,9 +259,9 @@ public class SimpleNodeSelector
                 return Optional.of(new InternalNodeInfo(node, true));
             }
             // fallback to choosing the least busy nodes
-            if (splitCount < min && splitCount < maxSplitCount) {
+            if (canAssignToNode && currentWeight < minWeight) {
                 chosenNode = node;
-                min = splitCount;
+                minWeight = currentWeight;
             }
         }
         if (chosenNode == null) {
