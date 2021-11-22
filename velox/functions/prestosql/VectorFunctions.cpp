@@ -63,6 +63,7 @@ void registerVectorFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_entries, "map_entries");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_keys, "map_keys");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_values, "map_values");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_zip, "zip");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, "lower");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_split, "split");

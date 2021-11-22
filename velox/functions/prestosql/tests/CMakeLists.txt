@@ -55,7 +55,8 @@ add_executable(
   TransformTest.cpp
   URLFunctionsTest.cpp
   WidthBucketArrayTest.cpp
-  GreatestLeastTest.cpp)
+  GreatestLeastTest.cpp
+  ZipTest.cpp)
 
 add_test(velox_functions_test velox_functions_test)
 
