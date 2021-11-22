@@ -122,6 +122,23 @@ struct YearFunction : public InitSessionTimezone<T> {
 };
 
 template <typename T>
+struct QuarterFunction : public InitSessionTimezone<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getDateTime(timestamp, this->timeZone_).tm_mon / 3 + 1;
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    result = getDateTime(date).tm_mon / 3 + 1;
+    return true;
+  }
+};
+
+template <typename T>
 struct MonthFunction : public InitSessionTimezone<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
@@ -263,7 +280,15 @@ struct MillisecondFunction {
 };
 
 namespace {
-enum class DateTimeUnit { kSecond, kMinute, kHour, kDay, kMonth, kYear };
+enum class DateTimeUnit {
+  kSecond,
+  kMinute,
+  kHour,
+  kDay,
+  kMonth,
+  kQuarter,
+  kYear
+};
 
 inline std::optional<DateTimeUnit> fromDateTimeUnitString(
     const StringView& unitString,
@@ -273,6 +298,7 @@ inline std::optional<DateTimeUnit> fromDateTimeUnitString(
   static const StringView kHour("hour");
   static const StringView kDay("day");
   static const StringView kMonth("month");
+  static const StringView kQuarter("quarter");
   static const StringView kYear("year");
 
   if (unitString == kSecond) {
@@ -290,10 +316,13 @@ inline std::optional<DateTimeUnit> fromDateTimeUnitString(
   if (unitString == kMonth) {
     return DateTimeUnit::kMonth;
   }
+  if (unitString == kQuarter) {
+    return DateTimeUnit::kQuarter;
+  }
   if (unitString == kYear) {
     return DateTimeUnit::kYear;
   }
-  // TODO Add support for "quarter" and "week".
+  // TODO Add support for "week".
   if (throwIfInvalid) {
     VELOX_UNSUPPORTED("Unsupported datetime unit: {}", unitString);
   }
@@ -334,6 +363,9 @@ struct DateTruncFunction {
       case DateTimeUnit::kYear:
         dateTime.tm_mon = 0;
         dateTime.tm_yday = 0;
+        FMT_FALLTHROUGH;
+      case DateTimeUnit::kQuarter:
+        dateTime.tm_mon = dateTime.tm_mon / 3 * 3;
         FMT_FALLTHROUGH;
       case DateTimeUnit::kMonth:
         dateTime.tm_mday = 1;

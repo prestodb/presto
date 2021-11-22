@@ -79,6 +79,8 @@ void registerFunctions() {
 
   registerFunction<YearFunction, int64_t, Timestamp>({"year"});
   registerFunction<YearFunction, int64_t, Date>({"year"});
+  registerFunction<QuarterFunction, int64_t, Timestamp>({"quarter"});
+  registerFunction<QuarterFunction, int64_t, Date>({"quarter"});
   registerFunction<MonthFunction, int64_t, Timestamp>({"month"});
   registerFunction<MonthFunction, int64_t, Date>({"month"});
   registerFunction<DayFunction, int64_t, Timestamp>({"day", "day_of_month"});

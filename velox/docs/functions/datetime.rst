@@ -28,6 +28,7 @@ Unit        Example Truncated Value
 ``hour``    ``2001-08-22 03:00:00.000``
 ``day``     ``2001-08-22 00:00:00.000``
 ``month``   ``2001-08-01 00:00:00.000``
+``quarter`` ``2001-07-01 00:00:00.000``
 ``year``    ``2001-01-01 00:00:00.000``
 =========== ===========================
 
@@ -96,6 +97,10 @@ These functions are supported for TIMESTAMP and DATE values.
 .. function:: month(x) -> bigint
 
     Returns the month of the year from ``x``.
+
+.. function:: quarter(x) -> bigint
+
+    Returns the quarter of the year from ``x``. The value ranges from ``1`` to ``4``.
 
 .. function:: second(x) -> bigint
 
