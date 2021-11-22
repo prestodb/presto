@@ -993,6 +993,8 @@ public class FileHiveMetastore
     public synchronized void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(metastoreContext, databaseName, tableName, grantee);
+
+        //create mutable list to operate on collection
         Set<HivePrivilegeInfo> updatedPrivilege = Sets.newHashSet(currentPrivileges);
         updatedPrivilege.removeAll(privileges);
 
