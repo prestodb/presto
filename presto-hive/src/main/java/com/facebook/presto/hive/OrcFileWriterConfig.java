@@ -21,7 +21,7 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
-import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_STREAM_SIZE;
+import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_COLUMN_SIZE;
 
 @SuppressWarnings("unused")
 public class OrcFileWriterConfig
@@ -39,7 +39,7 @@ public class OrcFileWriterConfig
     private DataSize dictionaryMaxMemory = OrcWriterOptions.DEFAULT_DICTIONARY_MAX_MEMORY;
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
     private DataSize maxCompressionBufferSize = OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
-    private StreamLayoutType streamLayoutType = BY_STREAM_SIZE;
+    private StreamLayoutType streamLayoutType = BY_COLUMN_SIZE;
     private boolean isDwrfStripeCacheEnabled;
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
