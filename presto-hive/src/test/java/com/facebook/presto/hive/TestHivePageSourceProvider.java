@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.spi.SplitWeight;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -71,7 +72,8 @@ public class TestHivePageSourceProvider
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                SplitWeight.standard());
 
         CacheQuota cacheQuota = HivePageSourceProvider.generateCacheQuota(split);
         CacheQuota expectedCacheQuota = new CacheQuota(".", Optional.empty());
@@ -106,7 +108,8 @@ public class TestHivePageSourceProvider
                 new CacheQuotaRequirement(PARTITION, Optional.of(DataSize.succinctDataSize(1, DataSize.Unit.MEGABYTE))),
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                SplitWeight.standard());
 
         cacheQuota = HivePageSourceProvider.generateCacheQuota(split);
         expectedCacheQuota = new CacheQuota(SCHEMA_NAME + "." + TABLE_NAME + "." + PARTITION_NAME, Optional.of(DataSize.succinctDataSize(1, DataSize.Unit.MEGABYTE)));
