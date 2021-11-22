@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -255,7 +256,8 @@ public class TestHivePageSink
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),

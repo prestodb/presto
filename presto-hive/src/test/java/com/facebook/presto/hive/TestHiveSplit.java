@@ -31,6 +31,7 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
@@ -115,7 +116,8 @@ public class TestHiveSplit
                         "test_algo",
                         "test_provider"))),
                 customSplitInfo,
-                redundantColumnDomains);
+                redundantColumnDomains,
+                SplitWeight.fromProportion(2.0)); // some non-standard value
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -140,6 +142,7 @@ public class TestHiveSplit
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
         assertEquals(actual.getCustomSplitInfo(), expected.getCustomSplitInfo());
+        assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()
