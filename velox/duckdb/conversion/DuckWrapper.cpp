@@ -150,7 +150,6 @@ VectorPtr convert(
       // trivially copied.
       if (duckVector.GetType() == LogicalTypeId::HUGEINT ||
           duckVector.GetType() == LogicalTypeId::TIMESTAMP ||
-          duckVector.GetType() == LogicalTypeId::DATE ||
           duckVector.GetType() == LogicalTypeId::VARCHAR) {
         // TODO Figure out how to perform a zero-copy conversion.
         result = BaseVector::create(veloxType, size, pool);
@@ -204,7 +203,6 @@ VectorPtr convert(
       // used values to avoid that.
       if (child.GetType() == LogicalTypeId::HUGEINT ||
           child.GetType() == LogicalTypeId::TIMESTAMP ||
-          child.GetType() == LogicalTypeId::DATE ||
           child.GetType() == LogicalTypeId::VARCHAR) {
         std::vector<uint8_t> validityVector((maxIndex + 7) / 8, 0);
         auto validity_ptr = validityVector.data();
