@@ -65,6 +65,13 @@ class SortOrder {
     return nullsFirst_;
   }
 
+  std::string toString() const {
+    return fmt::format(
+        "{} NULLS {}",
+        (ascending_ ? "ASC" : "DESC"),
+        (nullsFirst_ ? "FIRST" : "LAST"));
+  }
+
  private:
   const bool ascending_;
   const bool nullsFirst_;
@@ -1047,6 +1054,14 @@ class OrderByNode : public PlanNode {
   }
 
  private:
+  void addDetails(std::stringstream& stream) const override {
+    stream << "sort keys: ";
+    for (auto i = 0; i < sortingKeys_.size(); ++i) {
+      stream << "(" << sortingKeys_[i]->toString() << " "
+             << sortingOrders_[i].toString() << "), ";
+    }
+  }
+
   const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> sortingKeys_;
   const std::vector<SortOrder> sortingOrders_;
   const bool isPartial_;
