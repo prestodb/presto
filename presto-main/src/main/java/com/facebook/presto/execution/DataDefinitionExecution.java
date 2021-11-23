@@ -87,7 +87,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
     }
-    
+
     @Override
     public String getSlug()
     {
