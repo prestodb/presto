@@ -47,7 +47,7 @@ public class SingleArrayBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        return blockBuilder.getSizeInBytes() - initialBlockBuilderSize;
+        throw new UnsupportedOperationException("ArrayBlockWriter: Test to see the impact");
     }
 
     @Override

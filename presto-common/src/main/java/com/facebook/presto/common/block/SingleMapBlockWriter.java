@@ -64,7 +64,7 @@ public class SingleMapBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() - initialBlockBuilderSize;
+        throw new UnsupportedOperationException("MapBlockWriter: Test to see the impact");
     }
 
     @Override

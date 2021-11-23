@@ -72,11 +72,7 @@ public class SingleRowBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        long currentBlockBuilderSize = 0;
-        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
-            currentBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
-        }
-        return currentBlockBuilderSize - initialBlockBuilderSize;
+        throw new UnsupportedOperationException("RowBlockWriter: Test to see the impact");
     }
 
     @Override
