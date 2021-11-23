@@ -545,6 +545,7 @@ public final class Session
 
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
     {
+        // Adding some test session comments
         return new SessionBuilder(sessionPropertyManager);
     }
 
