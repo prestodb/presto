@@ -105,8 +105,9 @@ OperatorSupplier makeConsumerSupplier(
 
   if (auto join =
           std::dynamic_pointer_cast<const core::MergeJoinNode>(planNode)) {
-    return [&](int32_t operatorId, DriverCtx* ctx) {
-      auto source = ctx->task->getMergeJoinSource(planNode->id());
+    auto planNodeId = planNode->id();
+    return [planNodeId](int32_t operatorId, DriverCtx* ctx) {
+      auto source = ctx->task->getMergeJoinSource(planNodeId);
       auto consumer = [source](RowVectorPtr input, ContinueFuture* future) {
         return source->enqueue(input, future);
       };

@@ -180,3 +180,25 @@ TEST_F(MergeJoinTest, allRowsMatch) {
 
   testJoin(rightKeys, leftKeys);
 }
+
+TEST_F(MergeJoinTest, aggregationOverJoin) {
+  auto left =
+      makeRowVector({"t_c0"}, {makeFlatVector<int32_t>({1, 2, 3, 4, 5})});
+  auto right = makeRowVector({"u_c0"}, {makeFlatVector<int32_t>({2, 4, 6})});
+
+  auto plan = PlanBuilder()
+                  .values({left})
+                  .mergeJoin(
+                      {0},
+                      {0},
+                      PlanBuilder().values({right}).planNode(),
+                      "",
+                      {0, 1},
+                      core::JoinType::kInner)
+                  .singleAggregation({}, {"count(1)"})
+                  .planNode();
+
+  auto result = readSingleValue(plan);
+  ASSERT_FALSE(result.isNull());
+  ASSERT_EQ(2, result.value<int64_t>());
+}
