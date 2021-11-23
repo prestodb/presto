@@ -58,6 +58,8 @@ class TableScan : public SourceOperator {
  private:
   static constexpr int32_t kDefaultBatchSize = 1024;
 
+  // Adjust batch size according to split information.
+  void setBatchSize();
   const core::PlanNodeId planNodeId_;
   const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
   const std::
@@ -76,5 +78,6 @@ class TableScan : public SourceOperator {
   // Dynamic filters to add to the data source when it gets created.
   std::unordered_map<ChannelIndex, std::shared_ptr<common::Filter>>
       pendingDynamicFilters_;
+  int32_t readBatchSize_{kDefaultBatchSize};
 };
 } // namespace facebook::velox::exec

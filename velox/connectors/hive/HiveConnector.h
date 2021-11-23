@@ -158,6 +158,13 @@ class HiveDataSource : public DataSource {
 
   std::unordered_map<std::string, int64_t> runtimeStats() override;
 
+  int64_t estimatedRowSize() override {
+    if (!rowReader_) {
+      return kUnknownRowSize;
+    }
+    return rowReader_->estimatedRowSize();
+  }
+
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
   // passed. Populates filterEvalCtx_.selectedIndices and selectedBits if only
