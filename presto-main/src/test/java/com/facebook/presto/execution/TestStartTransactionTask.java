@@ -78,7 +78,7 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
         StartTransactionTask startTransactionTask = new StartTransactionTask();
         try {
-            getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
+            getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
             fail();
         }
         catch (PrestoException e) {
@@ -101,7 +101,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
         StartTransactionTask startTransactionTask = new StartTransactionTask();
         try {
-            getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
+            getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
             fail();
         }
         catch (PrestoException e) {
@@ -123,7 +123,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
         StartTransactionTask startTransactionTask = new StartTransactionTask();
-        getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
+        getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -148,8 +148,8 @@ public class TestStartTransactionTask
                 transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
-                emptyList(),
-                stateMachine));
+                stateMachine,
+                emptyList()));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -176,8 +176,8 @@ public class TestStartTransactionTask
                     transactionManager,
                     metadata,
                     new AllowAllAccessControl(),
-                    emptyList(),
-                    stateMachine));
+                    stateMachine,
+                    emptyList()));
             fail();
         }
         catch (SemanticException e) {
@@ -204,8 +204,8 @@ public class TestStartTransactionTask
                     transactionManager,
                     metadata,
                     new AllowAllAccessControl(),
-                    emptyList(),
-                    stateMachine));
+                    stateMachine,
+                    emptyList()));
             fail();
         }
         catch (SemanticException e) {
@@ -239,8 +239,8 @@ public class TestStartTransactionTask
                 transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
-                emptyList(),
-                stateMachine));
+                stateMachine,
+                emptyList()));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 

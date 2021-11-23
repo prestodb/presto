@@ -42,7 +42,7 @@ public class SetRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         String catalog = createCatalogName(session, statement);
@@ -70,11 +70,5 @@ public class SetRoleTask
         }
         stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
         return immediateFuture(null);
-    }
-
-    @Override
-    public boolean isSessionControl()
-    {
-        return true;
     }
 }

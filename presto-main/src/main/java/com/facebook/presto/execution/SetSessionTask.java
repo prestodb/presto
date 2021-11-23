@@ -47,7 +47,7 @@ public class SetSessionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedName propertyName = statement.getName();
@@ -90,11 +90,5 @@ public class SetSessionTask
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
 
         return immediateFuture(null);
-    }
-
-    @Override
-    public boolean isSessionControl()
-    {
-        return true;
     }
 }

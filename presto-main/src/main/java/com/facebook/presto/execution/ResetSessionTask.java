@@ -38,7 +38,7 @@ public class ResetSessionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         List<String> parts = statement.getName().getParts();
         if (parts.size() > 2) {
@@ -60,11 +60,5 @@ public class ResetSessionTask
         stateMachine.addResetSessionProperties(statement.getName().toString());
 
         return immediateFuture(null);
-    }
-
-    @Override
-    public boolean isSessionControl()
-    {
-        return true;
     }
 }

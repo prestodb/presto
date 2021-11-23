@@ -30,6 +30,11 @@ public interface SessionTransactionControlTask<T extends Statement>
         extends DataDefinitionTask<T>
 {
     ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata,
-                                AccessControl accessControl, List<Expression> parameters,
-                                 QueryStateMachine stateMachine);
+                                AccessControl accessControl, QueryStateMachine stateMachine,
+                                List<Expression> parameters);
+
+    default boolean isTransactionControl()
+    {
+        return false;
+    }
 }

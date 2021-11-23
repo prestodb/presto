@@ -43,7 +43,7 @@ public class UseTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine stateMachine)
+    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
 
@@ -62,11 +62,5 @@ public class UseTask
         stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
 
         return immediateFuture(null);
-    }
-
-    @Override
-    public boolean isSessionControl()
-    {
-        return true;
     }
 }

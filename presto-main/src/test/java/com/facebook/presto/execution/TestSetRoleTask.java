@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -98,9 +97,8 @@ public class TestSetRoleTask
                 .setCatalog(CATALOG_NAME)
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine(statement, session, false, transactionManager, executor, metadata);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
         SetRoleTask setRoleTask = new SetRoleTask();
-        setRoleTask.execute(setRole, transactionManager, metadata, accessControl, ImmutableList.of(), stateMachine);
+        setRoleTask.execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of());
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertEquals(queryInfo.getSetRoles(), expected);
     }

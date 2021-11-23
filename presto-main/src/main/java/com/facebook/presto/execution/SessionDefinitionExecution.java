@@ -87,7 +87,7 @@ public class SessionDefinitionExecution<T extends Statement>
             }
 
             WarningCollector warningCollector = stateMachine.getWarningCollector();
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, parameters, stateMachine);
+            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
             Futures.addCallback(future, new FutureCallback<Object>()
             {
                 @Override
@@ -115,14 +115,14 @@ public class SessionDefinitionExecution<T extends Statement>
         private final TransactionManager transactionManager;
         private final Metadata metadata;
         private final AccessControl accessControl;
-        private final Map<Class<? extends Statement>, SessionTransactionControlTask<?>> tasks;
+        private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
 
         @Inject
         public SessionDefinitionExecutionFactory(
                 TransactionManager transactionManager,
                 MetadataManager metadata,
                 AccessControl accessControl,
-                Map<Class<? extends Statement>, SessionTransactionControlTask<?>> tasks)
+                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
         {
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             this.metadata = requireNonNull(metadata, "metadata is null");

@@ -68,7 +68,7 @@ public class TestRollbackTask
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
+        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -85,7 +85,7 @@ public class TestRollbackTask
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
         RollbackTask rollbackTask = new RollbackTask();
         try {
-            getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
+            getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
             fail();
         }
         catch (PrestoException e) {
@@ -108,7 +108,7 @@ public class TestRollbackTask
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
 
         RollbackTask rollbackTask = new RollbackTask();
-        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine));
+        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 

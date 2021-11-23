@@ -34,16 +34,10 @@ public class DeallocateTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, List<Expression> parameters, QueryStateMachine queryStateMachine)
+    public ListenableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine queryStateMachine, List<Expression> parameters)
     {
         String statementName = statement.getName().getValue();
         queryStateMachine.removePreparedStatement(statementName);
         return immediateFuture(null);
-    }
-
-    @Override
-    public boolean isSessionControl()
-    {
-        return true;
     }
 }

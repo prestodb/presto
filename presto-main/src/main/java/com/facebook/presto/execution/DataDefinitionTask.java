@@ -44,14 +44,4 @@ public interface DataDefinitionTask<T extends Statement>
 
         return SqlFormatter.formatSql(statement, Optional.of(parameters));
     }
-
-    default boolean isTransactionControl()
-    {
-        return false;
-    }
-
-    default boolean isSessionControl()
-    {
-        return false;
-    }
 }

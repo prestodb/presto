@@ -168,7 +168,7 @@ public class TestSetSessionTask
         String sqlString = format("set %s = 'old_value'", qualifiedPropName);
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executor, metadata);
         SetSessionTask sessionTask = new SetSessionTask();
-        getFutureValue(sessionTask.execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, parameters, stateMachine));
+        getFutureValue(sessionTask.execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters));
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));
     }

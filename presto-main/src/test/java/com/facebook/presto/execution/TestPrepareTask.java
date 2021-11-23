@@ -102,7 +102,7 @@ public class TestPrepareTask
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, transactionManager, executor, metadata);
         Prepare prepare = new Prepare(identifier(statementName), statement);
         PrepareTask prepareTask = new PrepareTask(new SqlParser());
-        prepareTask.execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), emptyList(), stateMachine);
+        prepareTask.execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getAddedPreparedStatements();
     }
 }
