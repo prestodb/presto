@@ -427,6 +427,48 @@ TEST_F(DateTimeFunctionsTest, dayOfYearDate) {
   EXPECT_EQ(2, day(Date(-18262)));
 }
 
+TEST_F(DateTimeFunctionsTest, yearOfWeek) {
+  const auto yow = [&](std::optional<Timestamp> date) {
+    return evaluateOnce<int64_t>("year_of_week(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, yow(std::nullopt));
+  EXPECT_EQ(1970, yow(Timestamp(0, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(-1, 0)));
+  EXPECT_EQ(1969, yow(Timestamp(-345600, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(-259200, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(31536000, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(31708800, 0)));
+  EXPECT_EQ(1971, yow(Timestamp(31795200, 0)));
+  EXPECT_EQ(2021, yow(Timestamp(1632989700, 0)));
+
+  setQueryTimeZone("Pacific/Apia");
+
+  EXPECT_EQ(std::nullopt, yow(std::nullopt));
+  EXPECT_EQ(1970, yow(Timestamp(0, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(-1, 0)));
+  EXPECT_EQ(1969, yow(Timestamp(-345600, 0)));
+  EXPECT_EQ(1969, yow(Timestamp(-259200, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(31536000, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(31708800, 0)));
+  EXPECT_EQ(1970, yow(Timestamp(31795200, 0)));
+  EXPECT_EQ(2021, yow(Timestamp(1632989700, 0)));
+}
+
+TEST_F(DateTimeFunctionsTest, yearOfWeekDate) {
+  const auto yow = [&](std::optional<Date> date) {
+    return evaluateOnce<int64_t>("year_of_week(c0)", date);
+  };
+  EXPECT_EQ(std::nullopt, yow(std::nullopt));
+  EXPECT_EQ(1970, yow(Date(0)));
+  EXPECT_EQ(1970, yow(Date(-1)));
+  EXPECT_EQ(1969, yow(Date(-4)));
+  EXPECT_EQ(1970, yow(Date(-3)));
+  EXPECT_EQ(1970, yow(Date(365)));
+  EXPECT_EQ(1970, yow(Date(367)));
+  EXPECT_EQ(1971, yow(Date(368)));
+  EXPECT_EQ(2021, yow(Date(18900)));
+}
+
 TEST_F(DateTimeFunctionsTest, minute) {
   const auto minute = [&](std::optional<Timestamp> date) {
     return evaluateOnce<int64_t>("minute(c0)", date);

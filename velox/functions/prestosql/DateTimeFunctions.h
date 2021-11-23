@@ -209,6 +209,46 @@ struct DayOfYearFunction : public InitSessionTimezone<T> {
 };
 
 template <typename T>
+struct YearOfWeekFunction : public InitSessionTimezone<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE int64_t computeYearOfWeek(const std::tm& dateTime) {
+    int isoWeekDay = dateTime.tm_wday == 0 ? 7 : dateTime.tm_wday;
+    // The last few days in December may belong to the next year if they are
+    // in the same week as the next January 1 and this January 1 is a Thursday
+    // or before.
+    if (UNLIKELY(
+            dateTime.tm_mon == 11 && dateTime.tm_mday >= 29 &&
+            dateTime.tm_mday - isoWeekDay >= 31 - 3)) {
+      return 1900 + dateTime.tm_year + 1;
+    }
+    // The first few days in January may belong to the last year if they are
+    // in the same week as January 1 and January 1 is a Friday or after.
+    else if (UNLIKELY(
+                 dateTime.tm_mon == 0 && dateTime.tm_mday <= 3 &&
+                 isoWeekDay - (dateTime.tm_mday - 1) >= 5)) {
+      return 1900 + dateTime.tm_year - 1;
+    } else {
+      return 1900 + dateTime.tm_year;
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    auto dateTime = getDateTime(timestamp, this->timeZone_);
+    result = computeYearOfWeek(dateTime);
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+    auto dateTime = getDateTime(date);
+    result = computeYearOfWeek(dateTime);
+    return true;
+  }
+};
+
+template <typename T>
 struct HourFunction : public InitSessionTimezone<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

@@ -109,3 +109,11 @@ These functions are supported for TIMESTAMP and DATE values.
 .. function:: year(x) -> bigint
 
     Returns the year from ``x``.
+
+.. function:: year_of_week(x) -> bigint
+
+    Returns the year of the ISO week from ``x``.
+
+.. function:: yow(x) -> bigint
+
+    This is an alias for :func:`year_of_week`.

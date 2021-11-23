@@ -91,6 +91,9 @@ void registerFunctions() {
   registerFunction<DayOfYearFunction, int64_t, Timestamp>(
       {"doy", "day_of_year"});
   registerFunction<DayOfYearFunction, int64_t, Date>({"doy", "day_of_year"});
+  registerFunction<YearOfWeekFunction, int64_t, Timestamp>(
+      {"yow", "year_of_week"});
+  registerFunction<YearOfWeekFunction, int64_t, Date>({"yow", "year_of_week"});
   registerFunction<HourFunction, int64_t, Timestamp>({"hour"});
   registerFunction<HourFunction, int64_t, Date>({"hour"});
   registerFunction<MinuteFunction, int64_t, Timestamp>({"minute"});
