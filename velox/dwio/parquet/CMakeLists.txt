@@ -13,4 +13,7 @@
 # limitations under the License.
 
 add_subdirectory(reader)
-add_subdirectory(tests)
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
