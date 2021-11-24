@@ -55,15 +55,17 @@ using exec::SignatureBinder;
 // be fixed before we can enable.
 static std::unordered_set<std::string> kSkipFunctions = {
     "replace",
-    // Fails because like requires 2nd arg to be a constant of type VARCHAR.
-    "like",
     // The pad functions cause the test to OOM. The 2nd arg is only bound by
     // the max value of int32_t, which leads to strings billions of characters
     // long.
     "lpad",
     "rpad",
-    // The empty_approx_set function requires constant argument.
-    "empty_approx_set"};
+    // Fuzzer and the underlying engine are confused about cardinality(HLL)
+    // (since HLL is a user defined type), and end up trying to use cardinality
+    // passing a VARBINARY (since HLL's implementation uses an alias to
+    // VARBINARY).
+    "cardinality",
+};
 
 // Called if at least one of the ptrs has an exception.
 void compareExceptions(
@@ -154,16 +156,29 @@ std::optional<bool> isDeterministic(
   // available signatures and check if any of them bind given the current input
   // arg types. If it binds (if there's a match), we fetch the function and
   // return the isDeterministic bool.
-  if (auto vectorFunctionSignatures =
-          exec::getVectorFunctionSignatures(functionName)) {
-    for (const auto& signature : *vectorFunctionSignatures) {
-      if (exec::SignatureBinder(*signature, argTypes).tryBind()) {
-        if (auto vectorFunction =
-                exec::getVectorFunction(functionName, argTypes, {})) {
-          return vectorFunction->isDeterministic();
+  try {
+    if (auto vectorFunctionSignatures =
+            exec::getVectorFunctionSignatures(functionName)) {
+      for (const auto& signature : *vectorFunctionSignatures) {
+        if (exec::SignatureBinder(*signature, argTypes).tryBind()) {
+          if (auto vectorFunction =
+                  exec::getVectorFunction(functionName, argTypes, {})) {
+            return vectorFunction->isDeterministic();
+          }
         }
       }
     }
+  }
+  // TODO: Some stateful functions can only be built when constant arguments are
+  // passed, making the getVectorFunction() call above to throw. We only have a
+  // few of these functions, so for now we assume they are deterministic so they
+  // are picked for Fuzz testing. Once we make the isDeterministic() flag static
+  // (and hence we won't need to build the function object in here) we can clean
+  // up this code.
+  catch (const std::exception& e) {
+    LOG(WARNING) << "Unable to determine if '" << functionName
+                 << "' is deterministic or not. Assuming it is.";
+    return true;
   }
   return std::nullopt;
 }
@@ -300,6 +315,17 @@ class ExpressionFuzzer {
     for (const auto& it : signatures_) {
       signaturesMap_[it.returnType->kind()].push_back(&it);
     }
+
+    // Register function override (for cases where we want to restrict the types
+    // or parameters we pass to functions).
+    registerFuncOverride(&ExpressionFuzzer::generateLikeArgs, "like");
+    registerFuncOverride(
+        &ExpressionFuzzer::generateEmptyApproxSetArgs, "empty_approx_set");
+  }
+
+  template <typename TFunc>
+  void registerFuncOverride(TFunc func, const std::string& name) {
+    funcArgOverrides_[name] = std::bind(func, this, std::placeholders::_1);
   }
 
  private:
@@ -363,31 +389,58 @@ class ExpressionFuzzer {
         arg, fmt::format("c{}", inputRowTypes_.size() - 1));
   }
 
+  core::TypedExprPtr generateArg(const TypePtr& arg) {
+    size_t argClass = folly::Random::rand32(3, rng_);
+
+    // Toss a coin a choose between a constant, a column reference, or another
+    // expression (function).
+    //
+    // TODO: Add more expression types:
+    // - Conjunctions
+    // - IF/ELSE/SWITCH
+    // - Lambdas
+    // - Try
+    if (argClass == 0) {
+      return generateArgConstant(arg);
+    } else if (argClass == 1) {
+      return generateArgColumn(arg);
+    } else if (argClass == 2) {
+      return generateExpression(arg);
+    } else {
+      VELOX_UNREACHABLE();
+    }
+  }
+
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input) {
-    std::vector<core::TypedExprPtr> outputArgs;
+    std::vector<core::TypedExprPtr> inputExpressions;
+    inputExpressions.reserve(input.args.size());
 
     for (const auto& arg : input.args) {
-      size_t type = folly::Random::rand32(3, rng_);
-
-      // Toss a coin a choose between a constant, a column reference, or another
-      // expression (function).
-      //
-      // TODO: Add more expression types:
-      // - Conjunctions
-      // - IF/ELSE/SWITCH
-      // - Lambdas
-      // - Try
-      if (type == 0) {
-        outputArgs.emplace_back(generateArgConstant(arg));
-      } else if (type == 1) {
-        outputArgs.emplace_back(generateArgColumn(arg));
-      } else if (type == 2) {
-        outputArgs.emplace_back(generateExpression(arg));
-      } else {
-        VELOX_UNREACHABLE();
-      }
+      inputExpressions.emplace_back(generateArg(arg));
     }
-    return outputArgs;
+    return inputExpressions;
+  }
+
+  // Specialization for the "like" function: second and third (optional)
+  // parameters always need to be constant.
+  std::vector<core::TypedExprPtr> generateLikeArgs(
+      const CallableSignature& input) {
+    std::vector<core::TypedExprPtr> inputExpressions = {
+        generateArg(input.args[0]), generateArgConstant(input.args[1])};
+    if (input.args.size() == 3) {
+      inputExpressions.emplace_back(generateArgConstant(input.args[2]));
+    }
+    return inputExpressions;
+  }
+
+  // Specialization for the "empty_approx_set" function: first optional
+  // parameter needs to be constant.
+  std::vector<core::TypedExprPtr> generateEmptyApproxSetArgs(
+      const CallableSignature& input) {
+    if (input.args.empty()) {
+      return {};
+    }
+    return {generateArgConstant(input.args[0])};
   }
 
   core::TypedExprPtr generateExpression(const TypePtr& returnType) {
@@ -405,7 +458,11 @@ class ExpressionFuzzer {
     const auto& chosen = eligible[idx];
 
     // Generate the function args recursively.
-    auto args = generateArgs(*chosen);
+    auto funcIt = funcArgOverrides_.find(chosen->name);
+
+    auto args = funcIt == funcArgOverrides_.end() ? generateArgs(*chosen)
+                                                  : funcIt->second(*chosen);
+
     return std::make_shared<core::CallTypedExpr>(
         chosen->returnType, args, chosen->name);
   }
@@ -533,6 +590,13 @@ class ExpressionFuzzer {
   // Maps a given type to the functions that return that type.
   std::unordered_map<TypeKind, std::vector<const CallableSignature*>>
       signaturesMap_;
+
+  // We allow the arg generation routine to be specialized for particular
+  // functions. This map stores the mapping between function name and the
+  // overridden method.
+  using ArgsOverrideFunc = std::function<std::vector<core::TypedExprPtr>(
+      const CallableSignature& input)>;
+  std::unordered_map<std::string, ArgsOverrideFunc> funcArgOverrides_;
 
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
   std::unique_ptr<memory::MemoryPool> pool_{
