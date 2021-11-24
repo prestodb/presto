@@ -173,6 +173,7 @@
         <module>presto-testng-services</module>
         <module>presto-node-ttl-fetchers</module>
         <module>presto-cluster-ttl-providers</module>
+        <module>presto-google-sheets</module>
     </modules>
 
     <dependencyManagement>
