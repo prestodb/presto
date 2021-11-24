@@ -122,6 +122,7 @@ void TableScan::setBatchSize() {
   }
   if (estimate < 1024) {
     readBatchSize_ = 10000; // No more than 10MB of data per batch.
+    return;
   }
   readBatchSize_ = std::min<int64_t>(100, 10 * kMB / estimate);
 }

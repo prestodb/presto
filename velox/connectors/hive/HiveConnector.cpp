@@ -556,6 +556,22 @@ std::unordered_map<std::string, int64_t> HiveDataSource::runtimeStats() {
   return res;
 }
 
+int64_t HiveDataSource::estimatedRowSize() {
+  if (!rowReader_ || errorInRowSize_) {
+    return kUnknownRowSize;
+  }
+  try {
+    return rowReader_->estimatedRowSize();
+  } catch (const std::exception& e) {
+    // Remember the error and do not try the other splits, they are
+    // likely to be broken the same way.
+    errorInRowSize_ = true;
+    LOG_EVERY_N(WARNING, 1000)
+        << "failed to get row size estimate for " << split_->toString();
+    return kUnknownRowSize;
+  }
+}
+
 HiveConnector::HiveConnector(
     const std::string& id,
     std::shared_ptr<const Config> properties,

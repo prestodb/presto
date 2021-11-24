@@ -158,12 +158,7 @@ class HiveDataSource : public DataSource {
 
   std::unordered_map<std::string, int64_t> runtimeStats() override;
 
-  int64_t estimatedRowSize() override {
-    if (!rowReader_) {
-      return kUnknownRowSize;
-    }
-    return rowReader_->estimatedRowSize();
-  }
+  int64_t estimatedRowSize() override;
 
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
@@ -219,6 +214,7 @@ class HiveDataSource : public DataSource {
   memory::MappedMemory* const FOLLY_NONNULL mappedMemory_;
   const std::string& scanId_;
   folly::Executor* FOLLY_NULLABLE executor_;
+  bool errorInRowSize_{false};
 };
 
 class HiveConnector final : public Connector {
