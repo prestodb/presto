@@ -23,8 +23,23 @@ namespace facebook::velox::parquet {
 
 namespace {
 
+::duckdb::Value makeValue(::duckdb::LogicalType type, int64_t val) {
+  switch (type.id()) {
+    case ::duckdb::LogicalTypeId::INTEGER:
+      return ::duckdb::Value::INTEGER(val);
+    case ::duckdb::LogicalTypeId::BIGINT:
+      return ::duckdb::Value::BIGINT(val);
+    case ::duckdb::LogicalTypeId::DATE:
+      return ::duckdb::Value::DATE(::duckdb::date_t(val));
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported column type for integer filter: {}", type.ToString());
+  }
+}
+
 void toDuckDbFilter(
     uint64_t colIdx,
+    ::duckdb::LogicalType type,
     common::Filter* filter,
     ::duckdb::TableFilterSet& filters) {
   switch (filter->kind()) {
@@ -35,21 +50,21 @@ void toDuckDbFilter(
             colIdx,
             std::make_unique<::duckdb::ConstantFilter>(
                 ::duckdb::ExpressionType::COMPARE_EQUAL,
-                ::duckdb::Value(rangeFilter->lower())));
+                makeValue(type, rangeFilter->lower())));
       } else {
         if (rangeFilter->lower() != std::numeric_limits<int64_t>::min()) {
           filters.PushFilter(
               colIdx,
               std::make_unique<::duckdb::ConstantFilter>(
                   ::duckdb::ExpressionType::COMPARE_GREATERTHANOREQUALTO,
-                  ::duckdb::Value(rangeFilter->lower())));
+                  makeValue(type, rangeFilter->lower())));
         }
         if (rangeFilter->upper() != std::numeric_limits<int64_t>::max()) {
           filters.PushFilter(
               colIdx,
               std::make_unique<::duckdb::ConstantFilter>(
                   ::duckdb::ExpressionType::COMPARE_LESSTHANOREQUALTO,
-                  ::duckdb::Value(rangeFilter->upper())));
+                  makeValue(type, rangeFilter->upper())));
         }
       }
     } break;
@@ -118,7 +133,8 @@ ParquetRowReader::ParquetRowReader(
             colIdx < reader_->names.size(),
             "Unexpected columns name: {}",
             colSpec->fieldName());
-        toDuckDbFilter(colIdx, colSpec->filter(), filters_);
+        toDuckDbFilter(
+            colIdx, reader_->return_types[colIdx], colSpec->filter(), filters_);
       }
     }
   }
