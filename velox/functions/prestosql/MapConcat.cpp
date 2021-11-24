@@ -15,13 +15,19 @@
  */
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox::functions {
 namespace {
 
 // See documentation at https://prestodb.io/docs/current/functions/map.html
+template <bool EmptyForNull>
 class MapConcatFunction : public exec::VectorFunction {
  public:
+  bool isDefaultNullBehavior() const override {
+    return !EmptyForNull;
+  }
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -66,8 +72,12 @@ class MapConcatFunction : public exec::VectorFunction {
     vector_size_t offset = 0;
     rows.applyToSelected([&](vector_size_t row) {
       rawOffsets[row] = offset;
+      // Reuse the last offset and size if null key must create empty map
       for (auto i = 0; i < numArgs; i++) {
         auto decodedArg = decodedArgs.at(i);
+        if (EmptyForNull && decodedArg->isNullAt(row)) {
+          continue; // Treat NULL maps as empty.
+        }
         auto inputMap = decodedArg->base()->as<MapVector>();
         auto index = decodedArg->index(row);
         auto inputOffset = inputMap->offsetAt(index);
@@ -159,6 +169,11 @@ class MapConcatFunction : public exec::VectorFunction {
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_map_concat,
-    MapConcatFunction::signatures(),
-    std::make_unique<MapConcatFunction>());
+    MapConcatFunction</*EmptyForNull=*/false>::signatures(),
+    std::make_unique<MapConcatFunction</*EmptyForNull=*/false>>());
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_map_concat_empty_null,
+    MapConcatFunction</*EmptyForNull=*/true>::signatures(),
+    std::make_unique<MapConcatFunction</*EmptyForNull=*/true>>());
 } // namespace facebook::velox::functions
