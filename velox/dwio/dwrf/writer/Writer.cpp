@@ -20,22 +20,20 @@ namespace facebook::velox::dwrf {
 
 void Writer::write(const VectorPtr& slice) {
   auto& context = getContext();
-  vector_size_t offset = 0;
+  size_t offset = 0;
   // Calculate length increment based on linear projection of micro batch size.
   // Total length is capped later.
-  const vector_size_t lengthIncrement = std::max(
-      1,
-      slice->retainedSize() > 0 ? folly::to<vector_size_t>(std::floor(
+  const size_t lengthIncrement = std::max<size_t>(
+      1UL,
+      slice->retainedSize() > 0 ? folly::to<size_t>(std::floor(
                                       1.0 * context.rawDataSizePerBatch /
                                       slice->retainedSize() * slice->size()))
-                                : slice->size());
+                                : folly::to<size_t>(slice->size()));
   while (offset < slice->size()) {
-    vector_size_t length = lengthIncrement;
+    size_t length = lengthIncrement;
     if (context.isIndexEnabled) {
-      length = std::min(
-          length,
-          folly::to<vector_size_t>(
-              context.indexStride - context.indexRowCount));
+      length =
+          std::min<size_t>(length, context.indexStride - context.indexRowCount);
     }
 
     length = std::min(length, slice->size() - offset);

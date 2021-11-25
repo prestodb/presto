@@ -26,6 +26,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/tests/VectorMaker.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
@@ -662,6 +663,61 @@ TEST(E2EWriterTests, OversizeBatches) {
       /* flushPolicy */ nullptr,
       /* layoutPlannerFactory */ nullptr,
       /* memoryBudget */ std::numeric_limits<int64_t>::max(),
+      false);
+}
+
+TEST(E2EWriterTests, OverflowLengthIncrements) {
+  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
+  auto& pool = scopedPool->getPool();
+
+  HiveTypeParser parser;
+  auto type = parser.parse(
+      "struct<"
+      "struct_val:struct<bigint_val:bigint>"
+      ">");
+  auto config = std::make_shared<Config>();
+  config->set(Config::DISABLE_LOW_MEMORY_MODE, true);
+  config->set(Config::STRIPE_SIZE, 10 * kSizeMB);
+  config->set(
+      Config::RAW_DATA_SIZE_PER_BATCH,
+      folly::to<uint64_t>(500 * 1024UL * 1024UL));
+
+  const size_t size = 1024;
+
+  auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), &pool);
+  auto* nullsPtr = nulls->asMutable<uint64_t>();
+  for (size_t i = 0; i < size; ++i) {
+    // Only the first element is non-null
+    bits::setNull(nullsPtr, i, i != 0);
+  }
+
+  // Bigint column
+  VectorMaker maker{&pool};
+  auto child = maker.flatVector<int64_t>(std::vector<int64_t>{1UL});
+
+  std::vector<VectorPtr> children{child};
+  auto rowVec = std::make_shared<RowVector>(
+      &pool, type->childAt(0), nulls, size, children, /* nullCount */ size - 1);
+
+  // Retained bytes in vector: 192, which is much less than 1024
+  auto vec = std::make_shared<RowVector>(
+      &pool,
+      type,
+      BufferPtr{},
+      size,
+      std::vector<VectorPtr>{rowVec},
+      /* nullCount */ 0);
+
+  E2EWriterTestUtil::testWriter(
+      pool,
+      type,
+      {vec},
+      1,
+      1,
+      config,
+      /*flushPolicy=*/nullptr,
+      /*layoutPlannerFactory=*/nullptr,
+      /*memoryBudget=*/std::numeric_limits<int64_t>::max(),
       false);
 }
 
