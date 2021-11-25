@@ -122,31 +122,6 @@ public class ClickHouseComputePushdown
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, Void context)
-        {
-//            node.getOutputVariables().get(0)
-            return node;
-//            node.getAggregations()
-//            LimitContext limit = context.get();
-//
-//            if (limit != null &&
-//                    node.getAggregations().isEmpty() &&
-//                    node.getOutputVariables().size() == node.getGroupingKeys().size() &&
-//                    node.getOutputVariables().containsAll(node.getGroupingKeys())) {
-//                PlanNode rewrittenSource = context.rewrite(node.getSource());
-//                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputVariables(), Optional.empty());
-//            }
-//            PlanNode rewrittenNode = context.defaultRewrite(node);
-//            if (limit != null) {
-//                // Drop in a LimitNode b/c limits cannot be pushed through aggregations
-//                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.getStep());
-//            }
-////            return rewrittenNode;
-//
-//            return new AggregationNode(idAllocator.getNextId(), newTableScanNode, node.getCount(), node.getStep());
-        }
-
-        @Override
         public PlanNode visitLimit(LimitNode node, Void context)
         {
             TableScanNode oldTableScanNode = null;
