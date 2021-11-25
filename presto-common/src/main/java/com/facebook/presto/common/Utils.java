@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.predicate;
+package com.facebook.presto.common;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.predicate.Primitives;
 import com.facebook.presto.common.type.Type;
 
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
