@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.DiscreteValues;
@@ -23,7 +24,6 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.Ranges;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
