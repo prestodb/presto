@@ -258,6 +258,9 @@ public class PinotFilterExpressionConverter
                 if (specialFormExpression.getForm() == SpecialFormExpression.Form.IN) {
                     return handleIn(specialFormExpression, false, context);
                 }
+                if (specialFormExpression.getForm() == SpecialFormExpression.Form.IS_NULL) {
+                    return handleIsNull(specialFormExpression, false, context);
+                }
             }
         }
 
