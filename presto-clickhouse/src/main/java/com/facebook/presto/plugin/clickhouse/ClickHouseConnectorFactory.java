@@ -13,13 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Throwables.throwIfUnchecked;
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -29,8 +23,13 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
-import com.google.inject.Module;
+
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseConnectorFactory
         implements ConnectorFactory
@@ -70,9 +69,7 @@ public class ClickHouseConnectorFactory
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     },
-                    new ClickHouseModule(catalogName)
-                    );
-
+                    new ClickHouseModule(catalogName));
             Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)

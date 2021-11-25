@@ -13,12 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static java.util.Objects.requireNonNull;
-
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.inject.Binder;
@@ -27,10 +21,16 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import ru.yandex.clickhouse.ClickHouseDriver;
+
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
-import ru.yandex.clickhouse.ClickHouseDriver;
+
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseModule
         implements Module

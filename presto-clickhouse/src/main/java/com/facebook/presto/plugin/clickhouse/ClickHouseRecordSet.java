@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
+
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseRecordSet
         implements RecordSet

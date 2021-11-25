@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
+
 import java.util.Map;
 import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseIdentity
 {

@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
+import ru.yandex.clickhouse.ClickHouseDriver;
 
 import java.sql.Connection;
-import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import ru.yandex.clickhouse.ClickHouseDriver;
+
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class DriverConnectionFactory
         implements ConnectionFactory

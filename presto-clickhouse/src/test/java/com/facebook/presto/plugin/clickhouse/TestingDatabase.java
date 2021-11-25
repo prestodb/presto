@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-
 import com.facebook.presto.spi.ConnectorSession;
+import ru.yandex.clickhouse.ClickHouseDriver;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
-import ru.yandex.clickhouse.ClickHouseDriver;
+
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 final class TestingDatabase
         implements AutoCloseable

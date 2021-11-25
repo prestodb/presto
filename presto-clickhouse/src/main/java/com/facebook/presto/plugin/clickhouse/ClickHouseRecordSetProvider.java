@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -22,8 +20,12 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import java.util.List;
+
 import javax.inject.Inject;
+
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseRecordSetProvider
         implements ConnectorRecordSetProvider

@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 import java.util.Optional;
 
-public final class ClickHouseTypeHandle {
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
+public final class ClickHouseTypeHandle
+{
     private final int jdbcType;
     private final Optional<String> jdbcTypeName;
     private final int columnSize;
@@ -38,7 +39,8 @@ public final class ClickHouseTypeHandle {
             @JsonProperty("columnSize") int columnSize,
             @JsonProperty("decimalDigits") int decimalDigits,
             @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions,
-            @JsonProperty("caseSensitivity") Optional<CaseSensitivity> caseSensitivity) {
+            @JsonProperty("caseSensitivity") Optional<CaseSensitivity> caseSensitivity)
+    {
         this.jdbcType = jdbcType;
         this.jdbcTypeName = requireNonNull(jdbcTypeName, "jdbcTypeName is null");
         this.columnSize = requireNonNull(columnSize, "columnSize is null");
@@ -48,52 +50,62 @@ public final class ClickHouseTypeHandle {
     }
 
     @JsonProperty
-    public int getJdbcType() {
+    public int getJdbcType()
+    {
         return jdbcType;
     }
 
     @JsonProperty
-    public Optional<String> getJdbcTypeName() {
+    public Optional<String> getJdbcTypeName()
+    {
         return jdbcTypeName;
     }
 
     @JsonProperty
-    public int getColumnSize() {
+    public int getColumnSize()
+    {
         return columnSize;
     }
 
     @JsonIgnore
-    public int getRequiredColumnSize() {
+    public int getRequiredColumnSize()
+    {
         return getColumnSize();
     }
 
     @JsonProperty
-    public int getDecimalDigits() {
+    public int getDecimalDigits()
+    {
         return decimalDigits;
     }
 
     @JsonIgnore
-    public int getRequiredDecimalDigits() {
+    public int getRequiredDecimalDigits()
+    {
         return getDecimalDigits();
     }
 
     @JsonProperty
-    public Optional<Integer> getArrayDimensions() {
+    public Optional<Integer> getArrayDimensions()
+    {
         return arrayDimensions;
     }
 
     @JsonProperty
-    public Optional<CaseSensitivity> getCaseSensitivity() {
+    public Optional<CaseSensitivity> getCaseSensitivity()
+    {
         return caseSensitivity;
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions);
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(Object o)
+    {
         if (this == o) {
             return true;
         }
@@ -109,7 +121,8 @@ public final class ClickHouseTypeHandle {
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return toStringHelper(this)
                 .omitNullValues()
                 .add("jdbcType", jdbcType)

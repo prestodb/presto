@@ -13,16 +13,11 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.common.type.Type;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.plugin.clickhouse.BooleanReadFunction;
-import com.facebook.presto.plugin.clickhouse.DoubleReadFunction;
-import com.facebook.presto.plugin.clickhouse.LongReadFunction;
-import com.facebook.presto.plugin.clickhouse.ReadFunction;
-import com.facebook.presto.plugin.clickhouse.SliceReadFunction;
 
 public final class ReadMapping
 {

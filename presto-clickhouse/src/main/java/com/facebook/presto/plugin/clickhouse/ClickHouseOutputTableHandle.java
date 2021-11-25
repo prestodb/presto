@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Objects;
-import javax.annotation.Nullable;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseOutputTableHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle

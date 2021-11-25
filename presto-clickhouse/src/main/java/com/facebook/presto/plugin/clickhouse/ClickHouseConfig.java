@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
-
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import java.util.concurrent.TimeUnit;
+
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ClickHouseConfig
 {

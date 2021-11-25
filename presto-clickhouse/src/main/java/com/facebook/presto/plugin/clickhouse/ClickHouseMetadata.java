@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
-
-
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -41,6 +36,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +44,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseMetadata
         implements ConnectorMetadata
@@ -262,12 +262,12 @@ public class ClickHouseMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        clickHouseClient.createSchema(ClickHouseIdentity.from(session),  schemaName, properties);
+        clickHouseClient.createSchema(ClickHouseIdentity.from(session), schemaName, properties);
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        clickHouseClient.dropSchema(ClickHouseIdentity.from(session),  schemaName);
+        clickHouseClient.dropSchema(ClickHouseIdentity.from(session), schemaName);
     }
 }

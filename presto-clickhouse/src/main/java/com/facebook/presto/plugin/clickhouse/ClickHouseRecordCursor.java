@@ -13,31 +13,26 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.plugin.clickhouse.BooleanReadFunction;
-import com.facebook.presto.plugin.clickhouse.DoubleReadFunction;
-import com.facebook.presto.plugin.clickhouse.LongReadFunction;
-import com.facebook.presto.plugin.clickhouse.ReadFunction;
-import com.facebook.presto.plugin.clickhouse.ReadMapping;
-import com.facebook.presto.plugin.clickhouse.SliceReadFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+
+import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseRecordCursor
         implements RecordCursor

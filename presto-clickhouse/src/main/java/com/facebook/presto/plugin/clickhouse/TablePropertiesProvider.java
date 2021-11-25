@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.clickhouse;
 
 import com.facebook.presto.spi.session.PropertyMetadata;
+
 import java.util.List;
 
 public interface TablePropertiesProvider

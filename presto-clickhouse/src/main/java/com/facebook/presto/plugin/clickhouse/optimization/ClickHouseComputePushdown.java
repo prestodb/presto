@@ -13,13 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse.optimization;
 
-import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
-import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
-import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.plugin.clickhouse.ClickHouseTableHandle;
@@ -30,23 +23,25 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
-import com.facebook.presto.spi.plan.LimitNode.Step;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
-import java.util.HashMap;
+
 import java.util.Optional;
 import java.util.Set;
+
+import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
+import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseComputePushdown
         implements ConnectorPlanOptimizer
@@ -127,23 +122,25 @@ public class ClickHouseComputePushdown
             TableScanNode oldTableScanNode = null;
             if (node.getSource() instanceof TableScanNode) {
                 oldTableScanNode = (TableScanNode) node.getSource();
-            } else if (node.getSource() instanceof FilterNode) {
+            }
+            else if (node.getSource() instanceof FilterNode) {
                 FilterNode oldTableFilterNode = (FilterNode) node.getSource();
                 oldTableScanNode = (TableScanNode) oldTableFilterNode.getSource();
-            } else  {
+            }
+            else {
                 return node;
             }
             //TableScanNode oldTableScanNode = (TableScanNode) node.getSource();
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             ClickHouseTableHandle oldConnectorTable = (ClickHouseTableHandle) oldTableHandle.getConnectorHandle();
 
-            String simpleExpression = " limit "+ node.getCount()+" ";
+            String simpleExpression = " limit " + node.getCount() + " ";
 
             ClickHouseTableLayoutHandle oldTableLayoutHandle = (ClickHouseTableLayoutHandle) oldTableHandle.getLayout().get();
             ClickHouseTableLayoutHandle newTableLayoutHandle = new ClickHouseTableLayoutHandle(
                     oldConnectorTable,
                     oldTableLayoutHandle.getTupleDomain(),
-                    Optional.empty(),Optional.of(simpleExpression));
+                    Optional.empty(), Optional.of(simpleExpression));
 
             TableHandle tableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
-
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.ErrorType;
+
+import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 
 public enum ClickHouseErrorCode
         implements ErrorCodeSupplier

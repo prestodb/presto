@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class ClickHouseConnectorId
 {

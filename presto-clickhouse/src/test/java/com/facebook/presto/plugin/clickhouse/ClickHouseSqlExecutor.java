@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.sql.SqlExecutor;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseSqlExecutor
         implements SqlExecutor

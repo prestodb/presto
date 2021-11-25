@@ -13,18 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.Float.intBitsToFloat;
-import static java.util.Collections.nCopies;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.stream.Collectors.joining;
-import static org.joda.time.DateTimeZone.UTC;
-
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -49,6 +37,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import org.joda.time.DateTimeZone;
+
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -56,10 +46,20 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-import org.joda.time.DateTimeZone;
+
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Float.intBitsToFloat;
+import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.stream.Collectors.joining;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
@@ -148,10 +148,7 @@ public class QueryBuilder
                     .append(Joiner.on(" AND ").join(clauses));
         }
 
-        if(simpleExpression.isPresent()) {
-//            if (simpleExpression.get().containsKey("limit")) {
-//                sql.append(" limit " + simpleExpression.get().get("limit").toString() + " ");
-//            }
+        if (simpleExpression.isPresent()) {
             sql.append(simpleExpression.get());
         }
 

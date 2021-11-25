@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
-
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import java.util.Map;
 import org.testng.annotations.Test;
+
+import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestClickHouseConfig
 {

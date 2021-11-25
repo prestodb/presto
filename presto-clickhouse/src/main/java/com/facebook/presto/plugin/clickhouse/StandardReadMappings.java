@@ -13,6 +13,20 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.CharMatcher;
+import org.joda.time.chrono.ISOChronology;
+
+import java.sql.ResultSet;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.CharType.createCharType;
@@ -41,19 +55,6 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
-
-import com.facebook.presto.common.type.CharType;
-import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.Decimals;
-import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.PrestoException;
-import com.google.common.base.CharMatcher;
-import java.sql.ResultSet;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
-import java.util.Optional;
-import org.joda.time.chrono.ISOChronology;
 
 public final class StandardReadMappings
 {
@@ -147,7 +148,7 @@ public final class StandardReadMappings
         });
     }
 
-    public static Optional<ReadMapping> jdbcTypeToPrestoType(ClickHouseTypeHandle type,boolean mapStringAsVarchar)
+    public static Optional<ReadMapping> jdbcTypeToPrestoType(ClickHouseTypeHandle type, boolean mapStringAsVarchar)
     {
         String jdbcTypeName = type.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + type));

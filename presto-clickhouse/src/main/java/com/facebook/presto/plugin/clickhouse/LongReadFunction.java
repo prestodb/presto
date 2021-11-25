@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import com.facebook.presto.plugin.clickhouse.ReadFunction;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 

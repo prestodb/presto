@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.plugin.clickhouse.optimization;
 
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseExpression
 {

@@ -13,16 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
-import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
-import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
-import static com.facebook.presto.tests.datatype.DataType.integerDataType;
-import static com.facebook.presto.tests.datatype.DataType.realDataType;
-import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
-import static com.facebook.presto.tests.datatype.DataType.tinyintDataType;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -30,14 +20,17 @@ import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
 import com.facebook.presto.tests.datatype.DataSetup;
 import com.facebook.presto.tests.datatype.DataTypeTest;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
+import static com.facebook.presto.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
+import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
+import static com.google.common.base.Verify.verify;
 
 public class TestClickHouseTypeMapping
         extends AbstractTestQueryFramework

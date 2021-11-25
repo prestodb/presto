@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.Objects.requireNonNull;
-
 import javax.inject.Inject;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseMetadataFactory
 {

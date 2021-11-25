@@ -18,14 +18,8 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.plugin.clickhouse.ConnectionFactory;
-import com.facebook.presto.plugin.clickhouse.QueryBuilder;
-import com.facebook.presto.plugin.clickhouse.ReadMapping;
-import com.facebook.presto.plugin.clickhouse.RemoteTableNameCacheKey;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -41,29 +35,25 @@ import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.sql.Driver;
-import java.sql.PreparedStatement;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Properties;
-import java.util.Set;
+
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-import ru.yandex.clickhouse.ClickHouseDriver;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -78,11 +68,8 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.Varchars.isVarcharType;
-
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.clickhouse.StandardReadMappings.jdbcTypeToPrestoType;
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -93,7 +80,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.ResultSetMetaData.columnNullable;
@@ -238,7 +224,7 @@ public class ClickHouseClient
 
     public Optional<ReadMapping> toPrestoType(ConnectorSession session, ClickHouseTypeHandle typeHandle)
     {
-        return jdbcTypeToPrestoType(typeHandle,mapStringAsVarchar);
+        return jdbcTypeToPrestoType(typeHandle, mapStringAsVarchar);
     }
 
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
@@ -389,8 +375,6 @@ public class ClickHouseClient
         name = name.replace("%", escape + "%");
         return name;
     }
-
-
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
     {
@@ -586,8 +570,8 @@ public class ClickHouseClient
                 columnList.add(getColumnDefinitionSql(column, columnName));
             }
 
-            SchemaTableName remoteTableName = new SchemaTableName(remoteSchema,tableName);
-            copyTableSchema(identity, catalog, remoteSchema, schemaTableName,remoteTableName);
+            SchemaTableName remoteTableName = new SchemaTableName(remoteSchema, tableName);
+            copyTableSchema(identity, catalog, remoteSchema, schemaTableName, remoteTableName);
 
             return new ClickHouseOutputTableHandle(
                     connectorId,
@@ -892,12 +876,12 @@ public class ClickHouseClient
         // ClickHouse supports the following two methods to copy schema
         // 1. create table tbl as tbl2
         // 2. create table tbl1 ENGINE=<engine> as select * from tbl2
-        String t_tableName = tableName.getTableName();
-        String t_newTableName = newTableName.getTableName();
+        String oldCreateTableName = tableName.getTableName();
+        String newCreateTableName = newTableName.getTableName();
         String sql = format(
                 "CREATE TABLE %s AS %s ",
-                quoted(null, schemaName, t_newTableName),
-                quoted(null, schemaName, t_tableName));
+                quoted(null, schemaName, newCreateTableName),
+                quoted(null, schemaName, oldCreateTableName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql);
@@ -961,4 +945,3 @@ public class ClickHouseClient
                 .collect(toImmutableMap(schemaName -> schemaName.toLowerCase(ENGLISH), schemaName -> schemaName));
     }
 }
-

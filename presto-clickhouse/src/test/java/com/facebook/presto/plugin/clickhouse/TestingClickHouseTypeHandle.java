@@ -34,9 +34,7 @@ public final class TestingClickHouseTypeHandle
     public static final ClickHouseTypeHandle JDBC_VARCHAR = new ClickHouseTypeHandle(Types.VARCHAR, Optional.of("varchar"), 10, 0, Optional.empty(), Optional.empty());
     public static final ClickHouseTypeHandle JDBC_STRING = new ClickHouseTypeHandle(Types.VARCHAR, Optional.of("String"), 10, 0, Optional.empty(), Optional.empty());
 
-
     public static final ClickHouseTypeHandle JDBC_DATE = new ClickHouseTypeHandle(Types.DATE, Optional.of("date"), 8, 0, Optional.empty(), Optional.empty());
     public static final ClickHouseTypeHandle JDBC_TIME = new ClickHouseTypeHandle(Types.TIME, Optional.of("time"), 4, 0, Optional.empty(), Optional.empty());
     public static final ClickHouseTypeHandle JDBC_TIMESTAMP = new ClickHouseTypeHandle(Types.TIMESTAMP, Optional.of("timestamp"), 8, 0, Optional.empty(), Optional.empty());
 }
-

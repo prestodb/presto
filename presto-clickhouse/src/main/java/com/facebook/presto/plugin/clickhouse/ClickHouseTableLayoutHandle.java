@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.HashMap;
+
 import java.util.Objects;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseTableLayoutHandle
         implements ConnectorTableLayoutHandle
@@ -31,7 +31,7 @@ public class ClickHouseTableLayoutHandle
     private final ClickHouseTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<ClickHouseExpression> additionalPredicate;
-    private Optional<String> simpleExpression = null;
+    private Optional<String> simpleExpression;
 
     @JsonCreator
     public ClickHouseTableLayoutHandle(
@@ -88,7 +88,7 @@ public class ClickHouseTableLayoutHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, tupleDomain, additionalPredicate,simpleExpression);
+        return Objects.hash(table, tupleDomain, additionalPredicate, simpleExpression);
     }
 
     @Override

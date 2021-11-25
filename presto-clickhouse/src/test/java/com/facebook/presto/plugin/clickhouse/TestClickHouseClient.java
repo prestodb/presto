@@ -13,29 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_BIGINT;
-import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_DATE;
-import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_DOUBLE;
-import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_REAL;
-import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_STRING;
-import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_VARCHAR;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.plugin.clickhouse.TestingDatabase.CONNECTOR_ID;
-import static java.util.Collections.emptyMap;
-import static java.util.Locale.ENGLISH;
-import static java.util.UUID.randomUUID;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-
 import com.facebook.presto.common.type.BigintType;
-import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -43,17 +21,33 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-@Test
-public class TestClickHouseClient {
+import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_BIGINT;
+import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_DOUBLE;
+import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_REAL;
+import static com.facebook.presto.plugin.clickhouse.TestingClickHouseTypeHandle.JDBC_VARCHAR;
+import static com.facebook.presto.plugin.clickhouse.TestingDatabase.CONNECTOR_ID;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Locale.ENGLISH;
+import static java.util.UUID.randomUUID;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+
+@Test
+public class TestClickHouseClient
+{
     private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();
 
     private TestingDatabase database;
@@ -62,7 +56,8 @@ public class TestClickHouseClient {
 
     @BeforeClass
     public void setUp()
-            throws Exception {
+            throws Exception
+    {
         database = new TestingDatabase();
         catalogName = database.getConnection().getCatalog();
         clickHouseClient = database.getClickHouseClient();
@@ -70,12 +65,14 @@ public class TestClickHouseClient {
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception {
+            throws Exception
+    {
         database.close();
     }
 
     @Test
-    public void testMetadata() {
+    public void testMetadata()
+    {
         ClickHouseIdentity identity = ClickHouseIdentity.from(session);
         assertTrue(clickHouseClient.getSchemaNames(identity).containsAll(ImmutableSet.of("example", "tpch")));
         assertEquals(clickHouseClient.getTableNames(identity, Optional.of("example")), ImmutableList.of(
@@ -93,8 +90,8 @@ public class TestClickHouseClient {
         assertEquals(table.getSchemaName(), "example");
         assertEquals(table.getTableName(), "numbers");
         assertEquals(table.getSchemaTableName(), schemaTableName);
-        assertEquals(clickHouseClient.getColumns(session, table), ImmutableList.of( //  JDBC_STRING  VARBINARY
-                new ClickHouseColumnHandle(CONNECTOR_ID, "text",JDBC_VARCHAR , createVarcharType(32), true),
+        assertEquals(clickHouseClient.getColumns(session, table), ImmutableList.of(//  JDBC_STRING  VARBINARY
+                new ClickHouseColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, createVarcharType(32), true),
                 new ClickHouseColumnHandle(CONNECTOR_ID, "text_short", JDBC_VARCHAR, createVarcharType(32), true),
                 new ClickHouseColumnHandle(CONNECTOR_ID, "value", JDBC_BIGINT, BIGINT, true)));
     }
@@ -153,5 +150,4 @@ public class TestClickHouseClient {
             clickHouseClient.dropTable(ClickHouseIdentity.from(session), tableHandle);
         }
     }
-
 }

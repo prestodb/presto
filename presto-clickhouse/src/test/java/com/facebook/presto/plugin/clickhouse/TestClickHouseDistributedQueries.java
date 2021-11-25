@@ -13,6 +13,19 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.tpch.TpchTable;
+import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
+
+import java.security.SecureRandom;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -31,18 +44,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
-import java.security.SecureRandom;
-import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
-
 public class TestClickHouseDistributedQueries
             extends AbstractTestDistributedQueries
 {
@@ -50,10 +51,10 @@ public class TestClickHouseDistributedQueries
 
     @Override
     protected QueryRunner createQueryRunner()
-        throws Exception
+            throws Exception
     {
         this.clickhouseServer = new TestingClickHouseServer();
-        return  createClickHouseQueryRunner(clickhouseServer,
+        return createClickHouseQueryRunner(clickhouseServer,
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());
@@ -92,7 +93,6 @@ public class TestClickHouseDistributedQueries
     {
         return false;
     }
-
 
     @Override
     public void testRenameColumn()

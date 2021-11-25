@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
 import com.facebook.presto.spi.ColumnHandle;
@@ -25,10 +22,14 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import java.util.HashMap;
+
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
+
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseSplit
         implements ConnectorSplit
@@ -39,7 +40,7 @@ public class ClickHouseSplit
     private final String tableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<ClickHouseExpression> additionalPredicate;
-    private Optional<String> simpleExpression = null;
+    private Optional<String> simpleExpression;
 
     @JsonCreator
     public ClickHouseSplit(
@@ -49,8 +50,7 @@ public class ClickHouseSplit
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("additionalProperty") Optional<ClickHouseExpression> additionalPredicate,
-            @JsonProperty("simpleExpression") Optional<String> simpleExpression
-            )
+            @JsonProperty("simpleExpression") Optional<String> simpleExpression)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;

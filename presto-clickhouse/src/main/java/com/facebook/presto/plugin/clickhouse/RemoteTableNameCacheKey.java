@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-
-import java.util.Objects;
 
 final class RemoteTableNameCacheKey
 {

@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.plugin.clickhouse.optimization.function;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+
 import java.util.Arrays;
 import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ClickHouseTranslationUtil
 {

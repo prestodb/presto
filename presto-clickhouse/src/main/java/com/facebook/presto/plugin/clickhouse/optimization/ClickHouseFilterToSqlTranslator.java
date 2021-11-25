@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse.optimization;
 
-import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
@@ -48,9 +43,15 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ClickHouseFilterToSqlTranslator
         extends RowExpressionTranslator<ClickHouseExpression, Map<VariableReferenceExpression, ColumnHandle>>

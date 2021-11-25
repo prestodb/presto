@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.plugin.clickhouse.optimization;
 
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.plugin.clickhouse.ClickHouseClient;
 import com.facebook.presto.plugin.clickhouse.optimization.function.OperatorTranslators;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
@@ -25,7 +23,10 @@ import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+
 import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClickHousePlanOptimizerProvider
         implements ConnectorPlanOptimizerProvider

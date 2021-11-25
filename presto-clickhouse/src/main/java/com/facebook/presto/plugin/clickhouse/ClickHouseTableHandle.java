@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import static java.util.Objects.requireNonNull;
-
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
-import java.util.Objects;
+
 import javax.annotation.Nullable;
+
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class ClickHouseTableHandle
         implements ConnectorTableHandle

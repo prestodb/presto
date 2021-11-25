@@ -13,6 +13,29 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
+import io.airlift.slice.Slice;
+import org.joda.time.DateTimeZone;
+
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -33,28 +56,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.joda.time.chrono.ISOChronology.getInstanceUTC;
-
-import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
-import io.airlift.slice.Slice;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.SQLNonTransientException;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.joda.time.DateTimeZone;
 
 public class ClickHousePageSink
         implements ConnectorPageSink
