@@ -383,8 +383,6 @@ public class PinotFilterExpressionConverter
             case NULL_IF:
             case SWITCH:
             case WHEN:
-            case IS_NULL:
-                return handleIsNull(specialForm, true, context);
             case COALESCE:
             case DEREFERENCE:
             case ROW_CONSTRUCTOR:
@@ -399,6 +397,8 @@ public class PinotFilterExpressionConverter
                         specialForm.getArguments().get(0).accept(this, context).getDefinition(),
                         specialForm.getForm().toString(),
                         specialForm.getArguments().get(1).accept(this, context).getDefinition()));
+            case IS_NULL:
+                return handleIsNull(specialForm, true, context);
             default:
                 throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Unexpected special form: " + specialForm);
         }
