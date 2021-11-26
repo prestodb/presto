@@ -374,7 +374,7 @@ public class TestValuesDecoders
         int64BatchReadWithSkipHelper(89, 29, valueCount, int64Plain(pageBytes), expectedValues);
         int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64Plain(pageBytes), expectedValues);
 
-        List<Object> expectedTimestampValues = expectedValues.stream().map(v -> (long) v / 1000L).collect(Collectors.toList());
+        List<Object> expectedTimestampValues = expectedValues.stream().map(v -> (long) v).collect(Collectors.toList());
         int64BatchReadWithSkipHelper(valueCount, 0, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues); // read all values in one batch
         int64BatchReadWithSkipHelper(29, 0, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
         int64BatchReadWithSkipHelper(89, 0, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
@@ -414,7 +414,7 @@ public class TestValuesDecoders
         int64BatchReadWithSkipHelper(89, 29, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
         int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
 
-        List<Object> expectedTimestampValues = expectedValues.stream().map(v -> (long) v / 1000L).collect(Collectors.toList());
+        List<Object> expectedTimestampValues = expectedValues.stream().map(v -> (long) v).collect(Collectors.toList());
         int64BatchReadWithSkipHelper(valueCount, 0, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
         int64BatchReadWithSkipHelper(29, 0, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
         int64BatchReadWithSkipHelper(89, 0, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);

@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
@@ -30,6 +31,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import org.joda.time.chrono.ISOChronology;
 
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
@@ -46,10 +49,11 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.castToTimestamp;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToMillis;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.SliceUtf8.trim;
@@ -65,7 +69,7 @@ public final class TimestampOperators
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long subtract(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
     {
-        return left - right;
+        return microsToMillis(left - right);
     }
 
     @ScalarOperator(EQUAL)
@@ -128,14 +132,14 @@ public final class TimestampOperators
         if (properties.isLegacyTimestamp()) {
             // round down the current timestamp to days
             chronology = getChronology(properties.getTimeZoneKey());
-            long date = chronology.dayOfYear().roundFloor(value);
+            long date = chronology.dayOfYear().roundFloor(microsToMillis(value));
             // date is currently midnight in timezone of the session
             // convert to UTC
             long millis = date + chronology.getZone().getOffset(date);
             return TimeUnit.MILLISECONDS.toDays(millis);
         }
         else {
-            return TimeUnit.MILLISECONDS.toDays(value);
+            return TimeUnit.MILLISECONDS.toDays(microsToMillis(value));
         }
     }
 
@@ -144,10 +148,10 @@ public final class TimestampOperators
     public static long castToTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
         if (properties.isLegacyTimestamp()) {
-            return modulo24Hour(getChronology(properties.getTimeZoneKey()), value);
+            return modulo24Hour(getChronology(properties.getTimeZoneKey()), microsToMillis(value));
         }
         else {
-            return modulo24Hour(value);
+            return modulo24Hour(microsToMillis(value));
         }
     }
 
@@ -156,7 +160,7 @@ public final class TimestampOperators
     public static long castToTimeWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
         if (properties.isLegacyTimestamp()) {
-            int timeMillis = modulo24Hour(getChronology(properties.getTimeZoneKey()), value);
+            int timeMillis = modulo24Hour(getChronology(properties.getTimeZoneKey()), microsToMillis(value));
             return packDateTimeWithZone(timeMillis, properties.getTimeZoneKey());
         }
         else {
@@ -164,7 +168,7 @@ public final class TimestampOperators
 
             // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
             // its UTC representation we need to shift the value by the offset of TZ.
-            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(modulo24Hour(value), false), properties.getTimeZoneKey());
+            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(modulo24Hour(microsToMillis(value)), false), properties.getTimeZoneKey());
         }
     }
 
@@ -173,14 +177,14 @@ public final class TimestampOperators
     public static long castToTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
         if (properties.isLegacyTimestamp()) {
-            return packDateTimeWithZone(value, properties.getTimeZoneKey());
+            return packDateTimeWithZone(microsToMillis(value), properties.getTimeZoneKey());
         }
         else {
             ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
 
             // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
             // its UTC representation we need to shift the value by the offset of TZ.
-            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), properties.getTimeZoneKey());
+            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(microsToMillis(value), false), properties.getTimeZoneKey());
         }
     }
 
@@ -205,7 +209,13 @@ public final class TimestampOperators
         // This accepts value with or without time zone
         if (properties.isLegacyTimestamp()) {
             try {
-                return parseTimestampWithoutTimeZone(properties.getTimeZoneKey(), trim(value).toStringUtf8());
+                TimeZoneKey timeZoneKey = properties.getTimeZoneKey();
+                return castToTimestamp(trim(value).toStringUtf8(), timezone -> {
+                    if (timezone == null) {
+                        return ZoneId.of(timeZoneKey.getId());
+                    }
+                    return ZoneId.of(timezone);
+                });
             }
             catch (IllegalArgumentException e) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
@@ -213,7 +223,7 @@ public final class TimestampOperators
         }
         else {
             try {
-                return parseTimestampWithoutTimeZone(trim(value).toStringUtf8());
+                return castToTimestamp(trim(value).toStringUtf8(), timezone -> ZoneOffset.UTC);
             }
             catch (IllegalArgumentException e) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);

@@ -15,47 +15,78 @@ package com.facebook.presto.common.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToInstant;
+import static java.lang.Math.floorDiv;
 
 public final class SqlTimestamp
 {
     // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
-    public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS";
+    public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSSSSS";
     public static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern(JSON_FORMAT);
 
-    private final long millis;
+    private final long micros;
     private final Optional<TimeZoneKey> sessionTimeZoneKey;
 
+    public static SqlTimestamp ofMicros(long micros)
+    {
+        return new SqlTimestamp(micros, Optional.empty());
+    }
+
+    public static SqlTimestamp ofMicrosLegacy(long micros, TimeZoneKey timeZoneKey)
+    {
+        return new SqlTimestamp(micros, Optional.of(timeZoneKey));
+    }
+
+    @Deprecated
     public SqlTimestamp(long millis)
     {
-        this.millis = millis;
+        this.micros = millis * 1000;
         sessionTimeZoneKey = Optional.empty();
     }
 
     @Deprecated
     public SqlTimestamp(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
-        this.millis = millisUtc;
+        this.micros = millisUtc * 1000;
         this.sessionTimeZoneKey = Optional.of(sessionTimeZoneKey);
     }
 
+    private SqlTimestamp(long micros, Optional<TimeZoneKey> sessionTimeZoneKey)
+    {
+        this.micros = micros;
+        this.sessionTimeZoneKey = sessionTimeZoneKey;
+    }
+
+    @Deprecated
     public long getMillis()
     {
         checkState(!isLegacyTimestamp(), "getMillis() can be called in new timestamp semantics only");
-        return millis;
+        return floorDiv(micros, 1000);
     }
 
     @Deprecated
     public long getMillisUtc()
     {
         checkState(isLegacyTimestamp(), "getMillisUtc() can be called in legacy timestamp semantics only");
-        return millis;
+        return floorDiv(micros, 1000);
+    }
+
+    public long getMicros()
+    {
+        checkState(!isLegacyTimestamp(), "getMicros() can be called in new timestamp semantics only");
+        return micros;
+    }
+
+    public long getMicrosUtc()
+    {
+        checkState(isLegacyTimestamp(), "getMicrosUtc() can be called in legacy timestamp semantics only");
+        return micros;
     }
 
     @Deprecated
@@ -73,7 +104,7 @@ public final class SqlTimestamp
     @Override
     public int hashCode()
     {
-        return Objects.hash(millis, sessionTimeZoneKey);
+        return Objects.hash(micros, sessionTimeZoneKey);
     }
 
     @Override
@@ -86,7 +117,7 @@ public final class SqlTimestamp
             return false;
         }
         SqlTimestamp other = (SqlTimestamp) obj;
-        return Objects.equals(this.millis, other.millis) &&
+        return Objects.equals(this.micros, other.micros) &&
                 Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
     }
 
@@ -95,10 +126,10 @@ public final class SqlTimestamp
     public String toString()
     {
         if (isLegacyTimestamp()) {
-            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(JSON_FORMATTER);
+            return microsToInstant(micros).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(JSON_FORMATTER);
         }
         else {
-            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(UTC_KEY.getId())).format(JSON_FORMATTER);
+            return microsToInstant(micros).atZone(ZoneId.of(UTC_KEY.getId())).format(JSON_FORMATTER);
         }
     }
 

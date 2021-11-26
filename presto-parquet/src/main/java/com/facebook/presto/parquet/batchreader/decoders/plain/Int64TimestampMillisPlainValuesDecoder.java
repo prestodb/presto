@@ -13,30 +13,31 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.plain;
 
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
+import com.facebook.presto.parquet.batchreader.BytesUtils;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMillisValuesDecoder;
 
-import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMicros;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class TimestampPlainValuesDecoder
-        implements TimestampValuesDecoder
+public class Int64TimestampMillisPlainValuesDecoder
+        implements Int64TimestampMillisValuesDecoder
 {
     private final byte[] byteBuffer;
     private final int bufferEnd;
 
     private int bufferOffset;
 
-    public TimestampPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int bufferLength)
+    public Int64TimestampMillisPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
     {
         this.byteBuffer = byteBuffer;
-        this.bufferEnd = bufferOffset + bufferLength;
         this.bufferOffset = bufferOffset;
+        this.bufferEnd = bufferOffset + length;
     }
 
     @Override
     public void readNext(long[] values, int offset, int length)
     {
-        checkArgument(bufferOffset + length * 12 <= bufferEnd, "End of stream: invalid read request");
+        checkArgument(bufferOffset + length * 8 <= bufferEnd, "End of stream: invalid read request");
         checkArgument(length >= 0 && offset >= 0, "invalid read request: offset %s, length", offset, length);
 
         final int endOffset = offset + length;
@@ -44,8 +45,9 @@ public class TimestampPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            values[offset++] = getTimestampMicros(localByteBuffer, localBufferOffset);
-            localBufferOffset += 12;
+            // values[offset++] = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            values[offset++] = millisToMicros(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            localBufferOffset += 8;
         }
 
         bufferOffset = localBufferOffset;
@@ -54,9 +56,8 @@ public class TimestampPlainValuesDecoder
     @Override
     public void skip(int length)
     {
-        checkArgument(bufferOffset + length * 12 <= bufferEnd, "End of stream: invalid read request");
+        checkArgument(bufferOffset + length * 8 <= bufferEnd, "End of stream: invalid read request");
         checkArgument(length >= 0, "invalid length %s", length);
-
-        bufferOffset += length * 12;
+        bufferOffset += length * 8;
     }
 }

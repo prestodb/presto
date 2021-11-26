@@ -141,6 +141,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -1182,7 +1183,7 @@ public class OrcTester
         }
 
         if (type == TIMESTAMP) {
-            return filter.testLong(((SqlTimestamp) value).getMillisUtc());
+            return filter.testLong(millisToMicros(((SqlTimestamp) value).getMillisUtc()));
         }
 
         if (type instanceof DecimalType) {
@@ -1467,7 +1468,7 @@ public class OrcTester
                         MAX_BLOCK_SIZE,
                         false,
                         mapNullKeysEnabled,
-                        false),
+                        true),
                 cacheable,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys),
@@ -1502,7 +1503,7 @@ public class OrcTester
                         MAX_BLOCK_SIZE,
                         false,
                         mapNullKeysEnabled,
-                        false),
+                        true),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys),
@@ -1686,7 +1687,7 @@ public class OrcTester
                         MAX_BLOCK_SIZE,
                         false,
                         mapNullKeysEnabled,
-                        false),
+                        true),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys),
@@ -1755,7 +1756,7 @@ public class OrcTester
             }
             else if (TIMESTAMP.equals(type)) {
                 long millis = ((SqlTimestamp) value).getMillisUtc();
-                type.writeLong(blockBuilder, millis);
+                type.writeLong(blockBuilder, millisToMicros(millis));
             }
             else {
                 String baseType = type.getTypeSignature().getBase();

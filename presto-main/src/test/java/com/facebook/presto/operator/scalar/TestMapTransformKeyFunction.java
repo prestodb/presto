@@ -76,7 +76,7 @@ public class TestMapTransformKeyFunction
 
         assertInvalidFunction("transform_keys(map(ARRAY[ARRAY [1], ARRAY [2]], ARRAY [2, 1]), (k, v) -> array_sort(k || v))", "Duplicate keys ([1, 2]) are not allowed");
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2], ARRAY [null, null]), (k, v) -> DATE '2001-08-22')", "Duplicate keys (2001-08-22) are not allowed");
-        assertInvalidFunction("transform_keys(map(ARRAY[1, 2], ARRAY [null, null]), (k, v) -> TIMESTAMP '2001-08-22 03:04:05.321')", "Duplicate keys (2001-08-22 03:04:05.321) are not allowed");
+        assertInvalidFunction("transform_keys(map(ARRAY[1, 2], ARRAY [null, null]), (k, v) -> TIMESTAMP '2001-08-22 03:04:05.321')", "Duplicate keys (2001-08-22 03:04:05.321000) are not allowed");
     }
 
     @Test

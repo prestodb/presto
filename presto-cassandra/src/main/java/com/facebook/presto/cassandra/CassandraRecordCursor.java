@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 
@@ -103,7 +104,7 @@ public class CassandraRecordCursor
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return currentRow.getTimestamp(i).getTime();
+                return millisToMicros(currentRow.getTimestamp(i).getTime());
             case DATE:
                 return currentRow.getDate(i).getDaysSinceEpoch();
             case FLOAT:

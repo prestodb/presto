@@ -17,7 +17,6 @@ import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class Int64TimestampMicrosPlainValuesDecoder
         implements Int64TimestampMicrosValuesDecoder
@@ -45,7 +44,7 @@ public class Int64TimestampMicrosPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            values[offset++] = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
+            values[offset++] = BytesUtils.getLong(localByteBuffer, localBufferOffset);
             localBufferOffset += 8;
         }
 

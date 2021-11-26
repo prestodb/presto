@@ -19,6 +19,12 @@
             primitiveType: "byte"
         },
         {
+            classNamePrefix: "Int64TimestampMillis",
+            blockType: "LongArrayBlock",
+            valuesDecoder: "Int64TimestampMillisValuesDecoder",
+            primitiveType: "long"
+        },
+        {
             classNamePrefix: "Int64TimestampMicros",
             blockType: "LongArrayBlock",
             valuesDecoder: "Int64TimestampMicrosValuesDecoder",

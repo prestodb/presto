@@ -4864,7 +4864,7 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        SqlTimestamp expected = sqlTimestampOf(2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION);
+                        SqlTimestamp expected = sqlTimestampOf(2011, 5, 6, 7, 8, 9, 123456, timeZone, UTC_KEY, SESSION);
                         assertEquals(row.getField(index), expected);
                     }
                 }

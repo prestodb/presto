@@ -40,7 +40,7 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMicros;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import static java.lang.Float.floatToRawIntBits;
@@ -204,7 +204,7 @@ public class AggregatedParquetPageSource
                 break;
             }
             case INT96: {
-                blockBuilder.writeLong(getTimestampMillis(((Binary) value).getBytes(), 0));
+                blockBuilder.writeLong(getTimestampMicros(((Binary) value).getBytes(), 0));
                 break;
             }
             case FLOAT: {

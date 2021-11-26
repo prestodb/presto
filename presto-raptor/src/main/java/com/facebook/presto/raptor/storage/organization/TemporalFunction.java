@@ -23,6 +23,7 @@ import javax.inject.Inject;
 import java.time.Duration;
 
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToMillis;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -52,7 +53,7 @@ public class TemporalFunction
         }
 
         if (type.equals(TIMESTAMP)) {
-            long millis = TIMESTAMP.getLong(block, position);
+            long millis = microsToMillis(TIMESTAMP.getLong(block, position));
             long local = timeZone.convertUTCToLocal(millis);
             long days = MILLISECONDS.toDays(local);
             return toIntExact(days);

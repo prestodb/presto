@@ -44,6 +44,7 @@ import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithoutTimeZone;
@@ -137,7 +138,7 @@ public final class TimeOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long castToTimestamp(@SqlType(StandardTypes.TIME) long value)
     {
-        return value;
+        return millisToMicros(value);
     }
 
     @ScalarOperator(CAST)

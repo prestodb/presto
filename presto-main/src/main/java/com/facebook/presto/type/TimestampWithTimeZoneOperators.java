@@ -48,6 +48,7 @@ import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
@@ -147,7 +148,7 @@ public final class TimestampWithTimeZoneOperators
             return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
         }
         else {
-            return modulo24Hour(castToTimestamp(properties, value));
+            return modulo24Hour(castTimestampWithTimeZoneToMillis(properties, value));
         }
     }
 
@@ -160,7 +161,7 @@ public final class TimestampWithTimeZoneOperators
             return packDateTimeWithZone(millis, unpackZoneKey(value));
         }
         else {
-            long millis = modulo24Hour(castToTimestamp(properties, value));
+            long millis = modulo24Hour(castTimestampWithTimeZoneToMillis(properties, value));
             ISOChronology localChronology = unpackChronology(value);
 
             // This cast does treat TIME as wall time in given TZ. This means that in order to get
@@ -176,13 +177,7 @@ public final class TimestampWithTimeZoneOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        if (properties.isLegacyTimestamp()) {
-            return unpackMillisUtc(value);
-        }
-        else {
-            ISOChronology chronology = getChronology(unpackZoneKey(value));
-            return chronology.getZone().convertUTCToLocal(unpackMillisUtc(value));
-        }
+        return millisToMicros(castTimestampWithTimeZoneToMillis(properties, value));
     }
 
     @ScalarOperator(CAST)
@@ -261,5 +256,16 @@ public final class TimestampWithTimeZoneOperators
     public static boolean indeterminate(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value, @IsNull boolean isNull)
     {
         return isNull;
+    }
+
+    private static long castTimestampWithTimeZoneToMillis(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    {
+        if (properties.isLegacyTimestamp()) {
+            return unpackMillisUtc(value);
+        }
+        else {
+            ISOChronology chronology = getChronology(unpackZoneKey(value));
+            return chronology.getZone().convertUTCToLocal(unpackMillisUtc(value));
+        }
     }
 }

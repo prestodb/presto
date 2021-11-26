@@ -47,6 +47,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.parseTimestampMicrosLiteral;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.printTimestampMicros;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
@@ -130,6 +132,7 @@ public final class DateTimeUtils
     /**
      * {@link LocalDateTime#getLocalMillis()}
      */
+    @SuppressWarnings("JavadocReference")
     private static final MethodHandle getLocalMillis;
 
     static {
@@ -159,7 +162,7 @@ public final class DateTimeUtils
             return packDateTimeWithZone(dateTime);
         }
         catch (Exception e) {
-            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+            return parseTimestampMicrosLiteral(value, TimeZoneKey.UTC_KEY);
         }
     }
 
@@ -177,7 +180,7 @@ public final class DateTimeUtils
             return packDateTimeWithZone(dateTime);
         }
         catch (RuntimeException e) {
-            return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+            return parseTimestampMicrosLiteral(value, timeZoneKey);
         }
     }
 
@@ -210,7 +213,7 @@ public final class DateTimeUtils
     {
         LocalDateTime localDateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.parseLocalDateTime(value);
         try {
-            return (long) getLocalMillis.invokeExact(localDateTime);
+            return parseTimestampMicrosLiteral(value, TimeZoneKey.UTC_KEY);
         }
         catch (Throwable e) {
             throw new RuntimeException(e);
@@ -238,13 +241,13 @@ public final class DateTimeUtils
 
     public static String printTimestampWithoutTimeZone(long timestamp)
     {
-        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.print(timestamp);
+        return printTimestampMicros(timestamp);
     }
 
     @Deprecated
     public static String printTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, long timestamp)
     {
-        return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
+        return printTimestampMicros(timestamp, timeZoneKey);
     }
 
     public static boolean timestampHasTimeZone(String value)
@@ -256,7 +259,7 @@ public final class DateTimeUtils
             }
             catch (RuntimeException e) {
                 // `.withZoneUTC()` makes `timestampHasTimeZone` return value independent of JVM zone
-                TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withZoneUTC().parseMillis(value);
+                parseTimestampMicrosLiteral(value, TimeZoneKey.UTC_KEY);
                 return false;
             }
         }

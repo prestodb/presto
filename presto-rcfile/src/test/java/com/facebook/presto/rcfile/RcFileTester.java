@@ -130,6 +130,7 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -717,7 +718,7 @@ public class RcFileTester
             }
             else if (TIMESTAMP.equals(type)) {
                 long millis = ((SqlTimestamp) value).getMillisUtc();
-                type.writeLong(blockBuilder, millis);
+                type.writeLong(blockBuilder, millisToMicros(millis));
             }
             else {
                 String baseType = type.getTypeSignature().getBase();

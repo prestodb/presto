@@ -25,7 +25,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -46,6 +45,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToTimestamp;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -154,7 +154,7 @@ public class CassandraPageSink
             values.add(toCassandraDate.apply(type.getLong(block, position)));
         }
         else if (TIMESTAMP.equals(type)) {
-            values.add(new Timestamp(type.getLong(block, position)));
+            values.add(microsToTimestamp(type.getLong(block, position)));
         }
         else if (isVarcharType(type)) {
             values.add(type.getSlice(block, position).toStringUtf8());

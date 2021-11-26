@@ -27,6 +27,8 @@ import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateTimeEncoding.updateMillisUtc;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToMillis;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
@@ -92,14 +94,14 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long timestampPlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return left + right;
+        return millisToMicros(microsToMillis(left) + right);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
     public static long intervalDayToSecondPlusTimestamp(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
     {
-        return left + right;
+        return millisToMicros(left + microsToMillis(right));
     }
 
     @ScalarOperator(ADD)
@@ -165,10 +167,10 @@ public final class DateTimeOperators
     public static long timestampPlusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(left, right);
+            return millisToMicros(getChronology(properties.getTimeZoneKey()).monthOfYear().add(microsToMillis(left), right));
         }
         else {
-            return MONTH_OF_YEAR_UTC.add(left, right);
+            return millisToMicros(MONTH_OF_YEAR_UTC.add(microsToMillis(left), right));
         }
     }
 
@@ -177,10 +179,10 @@ public final class DateTimeOperators
     public static long intervalYearToMonthPlusTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
     {
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(right, left);
+            return millisToMicros(getChronology(properties.getTimeZoneKey()).monthOfYear().add(microsToMillis(right), left));
         }
         else {
-            return MONTH_OF_YEAR_UTC.add(right, left);
+            return millisToMicros(MONTH_OF_YEAR_UTC.add(microsToMillis(right), left));
         }
     }
 
@@ -226,7 +228,7 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIMESTAMP)
     public static long timestampMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return left - right;
+        return left - millisToMicros(right);
     }
 
     @ScalarOperator(SUBTRACT)
@@ -263,10 +265,10 @@ public final class DateTimeOperators
     public static long timestampMinusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(left, -right);
+            return millisToMicros(getChronology(properties.getTimeZoneKey()).monthOfYear().add(microsToMillis(left), -right));
         }
         else {
-            return MONTH_OF_YEAR_UTC.add(left, -right);
+            return millisToMicros(MONTH_OF_YEAR_UTC.add(microsToMillis(left), -right));
         }
     }
 

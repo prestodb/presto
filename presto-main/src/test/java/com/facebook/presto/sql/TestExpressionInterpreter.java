@@ -79,6 +79,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -1621,7 +1622,7 @@ public class TestExpressionInterpreter
             case "bound_time":
                 return new LocalTime(3, 4, 5, 321).toDateTime(new DateTime(0, DateTimeZone.UTC)).getMillis();
             case "bound_timestamp":
-                return new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
+                return millisToMicros(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis());
             case "bound_pattern":
                 return utf8Slice("%el%");
             case "bound_timestamp_with_timezone":

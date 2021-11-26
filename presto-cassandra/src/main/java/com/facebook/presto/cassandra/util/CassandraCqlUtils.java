@@ -97,6 +97,11 @@ public final class CassandraCqlUtils
         return '"' + new String(JsonStringEncoder.getInstance().quoteAsUTF8(string)) + '"';
     }
 
+    public static String quoteTimestampMicrosecond(String timestamp)
+    {
+        return timestamp.length() >= 3 ? (timestamp.substring(0, timestamp.length() - 3)) : timestamp;
+    }
+
     public static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ColumnHandle> columns)
     {
         appendSelectColumns(stringBuilder, columns, true);
@@ -174,6 +179,10 @@ public final class CassandraCqlUtils
             case INET:
                 // remove '/' in the string. e.g. /127.0.0.1
                 return quoteStringLiteral(value.substring(1));
+            case TIMESTAMP:
+                // remove redundant timestamp precision when meeting
+                // non-equality predicates pushdown for Cassandra clustering keys.
+                return quoteTimestampMicrosecond(value);
             default:
                 return value;
         }

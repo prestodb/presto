@@ -71,7 +71,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -90,6 +89,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToTimestamp;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -631,8 +631,7 @@ public class MetastoreUtil
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(days)));
         }
         if (TimestampType.TIMESTAMP.equals(type)) {
-            long millisUtc = type.getLong(block, position);
-            return new Timestamp(millisUtc);
+            return microsToTimestamp(type.getLong(block, position));
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;

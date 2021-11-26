@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.type.TimestampMicrosUtils.instantToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -80,11 +81,9 @@ public class TimestampDecoder
                         value));
             }
 
-            long epochMillis = timestamp.atZone(zoneId)
-                    .toInstant()
-                    .toEpochMilli();
+            long epochMicros = instantToMicros(timestamp.atZone(zoneId).toInstant());
 
-            TIMESTAMP.writeLong(output, epochMillis);
+            TIMESTAMP.writeLong(output, epochMicros);
         }
     }
 }

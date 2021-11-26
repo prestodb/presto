@@ -99,6 +99,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToTimestamp;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
@@ -875,8 +876,8 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            long millisUtc = TimestampType.TIMESTAMP.getLong(block, position);
-            value.setTime(millisUtc);
+            long microsUtc = TimestampType.TIMESTAMP.getLong(block, position);
+            value.set(microsToTimestamp(microsUtc));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

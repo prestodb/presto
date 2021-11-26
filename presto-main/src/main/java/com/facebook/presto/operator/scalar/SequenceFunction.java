@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffDate;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffTimestamp;
@@ -117,7 +118,17 @@ public final class SequenceFunction
             @SqlType(StandardTypes.TIMESTAMP) long stop,
             @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
     {
-        return fixedWidthSequence(start, stop, step, TIMESTAMP);
+        checkValidStep(start, stop, step);
+
+        long stepMicros = millisToMicros(step);
+        int length = toIntExact((stop - start) / stepMicros + 1L);
+        checkMaxEntry(length);
+
+        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(null, length);
+        for (long i = 0, value = start; i < length; ++i, value += stepMicros) {
+            TIMESTAMP.writeLong(blockBuilder, value);
+        }
+        return blockBuilder.build();
     }
 
     @ScalarFunction("sequence")

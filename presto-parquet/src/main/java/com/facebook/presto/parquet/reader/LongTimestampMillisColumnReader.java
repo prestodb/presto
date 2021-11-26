@@ -14,16 +14,18 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import org.apache.parquet.io.api.Binary;
 
-import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMicros;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 
-public class TimestampColumnReader
+public class LongTimestampMillisColumnReader
         extends AbstractColumnReader
 {
-    public TimestampColumnReader(RichColumnDescriptor descriptor)
+    public LongTimestampMillisColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
@@ -32,8 +34,14 @@ public class TimestampColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            type.writeLong(blockBuilder, getTimestampMicros(binary));
+            long utcMillis = valuesReader.readLong();
+            // TODO: specialize the class at creation time
+            if (type instanceof TimestampWithTimeZoneType) {
+                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+            }
+            else {
+                type.writeLong(blockBuilder, millisToMicros(utcMillis));
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
@@ -44,7 +52,7 @@ public class TimestampColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+            valuesReader.readLong();
         }
     }
 }

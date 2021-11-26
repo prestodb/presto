@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
@@ -173,7 +174,7 @@ public class TestHiveUtil
     private static long unixTime(DateTime time, int factionalDigits)
     {
         int factor = (int) Math.pow(10, Math.max(0, 3 - factionalDigits));
-        return (time.getMillis() / factor) * factor;
+        return millisToMicros((time.getMillis() / factor) * factor);
     }
 
     static DateTimeZone nonDefaultTimeZone()
