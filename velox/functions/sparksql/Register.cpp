@@ -98,6 +98,8 @@ void registerFunctions(const std::string& prefix) {
       prefix + "greatest", greatestSignatures(), makeGreatest);
   exec::registerStatefulVectorFunction(
       prefix + "hash", hashSignatures(), makeHash);
+  exec::registerStatefulVectorFunction(
+      prefix + "murmur3hash", hashSignatures(), makeHash);
   exec::registerStatefulVectorFunction(prefix + "in", inSignatures(), makeIn);
 
   // Compare nullsafe functions
