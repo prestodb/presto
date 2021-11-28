@@ -35,6 +35,12 @@ public class HiveMetastoreApiStats
     private final CounterStat metastoreExceptions = new CounterStat();
     private final CounterStat thriftExceptions = new CounterStat();
 
+    public <V> V execute(Callable<V> callable)
+            throws Exception
+    {
+        return wrap(callable).call();
+    }
+
     public <V> Callable<V> wrap(Callable<V> callable)
     {
         return () -> {

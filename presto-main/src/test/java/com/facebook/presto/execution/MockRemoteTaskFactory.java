@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
@@ -77,6 +78,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -215,10 +217,12 @@ public class MockRemoteTaskFactory
                     executor,
                     scheduledExecutor,
                     new DataSize(1, MEGABYTE),
-                    spillSpaceTracker);
+                    spillSpaceTracker,
+                    listJsonCodec(TaskMemoryReservationSummary.class));
             this.taskContext = queryContext.addTaskContext(
                     taskStateMachine,
                     TEST_SESSION,
+                    Optional.of(fragment.getRoot()),
                     true,
                     true,
                     true,

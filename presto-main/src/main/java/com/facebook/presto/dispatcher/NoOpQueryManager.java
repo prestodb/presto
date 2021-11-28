@@ -88,6 +88,12 @@ public class NoOpQueryManager
     }
 
     @Override
+    public int getQueryRetryCount(QueryId queryId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public QueryState getQueryState(QueryId queryId)
             throws NoSuchElementException
     {

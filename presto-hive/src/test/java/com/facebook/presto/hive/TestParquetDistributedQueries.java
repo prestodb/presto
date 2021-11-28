@@ -30,12 +30,8 @@ import static org.testng.Assert.assertEquals;
 public class TestParquetDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    protected TestParquetDistributedQueries()
-    {
-        super(TestParquetDistributedQueries::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Map<String, String> parquetProperties = ImmutableMap.<String, String>builder()

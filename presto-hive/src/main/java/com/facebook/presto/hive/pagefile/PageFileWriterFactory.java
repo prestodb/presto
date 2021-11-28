@@ -120,10 +120,8 @@ public class PageFileWriterFactory
             FileSystem fileSystem,
             Path path)
     {
-        try {
-            DataSink dataSink = dataSinkFactory.createDataSink(session, fileSystem, path);
+        try (DataSink dataSink = dataSinkFactory.createDataSink(session, fileSystem, path)) {
             dataSink.write(ImmutableList.of(createEmptyPageFileFooterOutput()));
-            dataSink.close();
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating empty pagefile", e);

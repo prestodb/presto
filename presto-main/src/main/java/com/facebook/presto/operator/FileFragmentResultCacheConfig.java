@@ -25,6 +25,7 @@ import javax.validation.constraints.Min;
 import java.net.URI;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class FileFragmentResultCacheConfig
@@ -36,6 +37,8 @@ public class FileFragmentResultCacheConfig
     private int maxCachedEntries = 10_000;
     private Duration cacheTtl = new Duration(2, DAYS);
     private DataSize maxInFlightSize = new DataSize(1, GIGABYTE);
+    private DataSize maxSinglePagesSize = new DataSize(500, MEGABYTE);
+    private DataSize maxCacheSize = new DataSize(100, GIGABYTE);
 
     public boolean isCachingEnabled()
     {
@@ -115,6 +118,34 @@ public class FileFragmentResultCacheConfig
     public FileFragmentResultCacheConfig setMaxInFlightSize(DataSize maxInFlightSize)
     {
         this.maxInFlightSize = maxInFlightSize;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getMaxSinglePagesSize()
+    {
+        return maxSinglePagesSize;
+    }
+
+    @Config("fragment-result-cache.max-single-pages-size")
+    @ConfigDescription("Maximum size of pages write to flushed")
+    public FileFragmentResultCacheConfig setMaxSinglePagesSize(DataSize maxSinglePagesSize)
+    {
+        this.maxSinglePagesSize = maxSinglePagesSize;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getMaxCacheSize()
+    {
+        return maxCacheSize;
+    }
+
+    @Config("fragment-result-cache.max-cache-size")
+    @ConfigDescription("Maximum on-disk size of this fragment result cache")
+    public FileFragmentResultCacheConfig setMaxCacheSize(DataSize maxCacheSize)
+    {
+        this.maxCacheSize = maxCacheSize;
         return this;
     }
 }

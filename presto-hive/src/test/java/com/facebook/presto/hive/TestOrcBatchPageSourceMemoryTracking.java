@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -31,6 +32,7 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -87,6 +89,7 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -247,7 +250,12 @@ public class TestOrcBatchPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveClientConfig config = new HiveClientConfig();
         config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        config,
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces
@@ -400,7 +408,7 @@ public class TestOrcBatchPageSourceMemoryTracking
 
             partitionKeys = testColumns.stream()
                     .filter(TestColumn::isPartitionKey)
-                    .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
+                    .map(input -> new HivePartitionKey(input.getName(), Optional.ofNullable((String) input.getWriteValue())))
                     .collect(toList());
 
             table = new TableHandle(
@@ -449,7 +457,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     stats,
                     100,
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource());
+                    StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
@@ -460,6 +468,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
+                    Instant.now().toEpochMilli(),
                     storage,
                     TupleDomain.all(),
                     columns,
@@ -472,7 +481,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     ImmutableList.of(),
                     ImmutableMap.of(),
                     0,
-                    ImmutableMap.of(),
+                    TableToPartitionMapping.empty(),
                     Optional.empty(),
                     false,
                     DEFAULT_HIVE_FILE_CONTEXT,

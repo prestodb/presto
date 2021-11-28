@@ -89,6 +89,7 @@ public class HiveClientConfig
     private HiveCompressionCodec orcCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
+    private boolean createEmptyBucketFiles = true;
     private boolean insertOverwriteImmutablePartitions;
     private boolean failFastOnInsertIntoImmutablePartitionsEnabled = true;
     private int maxPartitionsPerWriter = 100;
@@ -161,7 +162,7 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
-    private boolean shouldCreateEmptyBucketFilesForTemporaryTable = true;
+    private boolean shouldCreateEmptyBucketFilesForTemporaryTable;
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
@@ -187,6 +188,15 @@ public class HiveClientConfig
     private boolean preferManifestToListFiles;
     private boolean manifestVerificationEnabled;
     private boolean undoMetastoreOperationsEnabled = true;
+
+    private boolean optimizedPartitionUpdateSerializationEnabled;
+
+    private Duration partitionLeaseDuration = new Duration(0, TimeUnit.SECONDS);
+
+    private boolean enableLooseMemoryAccounting;
+    private int materializedViewMissingPartitionsThreshold = 100;
+
+    private boolean verboseRuntimeStatsEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -579,6 +589,19 @@ public class HiveClientConfig
     public HiveClientConfig setImmutablePartitions(boolean immutablePartitions)
     {
         this.immutablePartitions = immutablePartitions;
+        return this;
+    }
+
+    public boolean isCreateEmptyBucketFiles()
+    {
+        return createEmptyBucketFiles;
+    }
+
+    @Config("hive.create-empty-bucket-files")
+    @ConfigDescription("Create empty files for buckets that have no data")
+    public HiveClientConfig setCreateEmptyBucketFiles(boolean createEmptyBucketFiles)
+    {
+        this.createEmptyBucketFiles = createEmptyBucketFiles;
         return this;
     }
 
@@ -1593,5 +1616,70 @@ public class HiveClientConfig
     public boolean isUndoMetastoreOperationsEnabled()
     {
         return undoMetastoreOperationsEnabled;
+    }
+
+    @Config("hive.experimental-optimized-partition-update-serialization-enabled")
+    @ConfigDescription("Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression")
+    public HiveClientConfig setOptimizedPartitionUpdateSerializationEnabled(boolean optimizedPartitionUpdateSerializationEnabled)
+    {
+        this.optimizedPartitionUpdateSerializationEnabled = optimizedPartitionUpdateSerializationEnabled;
+        return this;
+    }
+
+    public boolean isOptimizedPartitionUpdateSerializationEnabled()
+    {
+        return optimizedPartitionUpdateSerializationEnabled;
+    }
+
+    @Config("hive.verbose-runtime-stats-enabled")
+    @ConfigDescription("Enable tracking all runtime stats. Note that this may affect query performance")
+    public HiveClientConfig setVerboseRuntimeStatsEnabled(boolean verboseRuntimeStatsEnabled)
+    {
+        this.verboseRuntimeStatsEnabled = verboseRuntimeStatsEnabled;
+        return this;
+    }
+
+    public boolean isVerboseRuntimeStatsEnabled()
+    {
+        return verboseRuntimeStatsEnabled;
+    }
+
+    @Config("hive.partition-lease-duration")
+    @ConfigDescription("Partition lease duration")
+    public HiveClientConfig setPartitionLeaseDuration(Duration partitionLeaseDuration)
+    {
+        this.partitionLeaseDuration = partitionLeaseDuration;
+        return this;
+    }
+
+    public Duration getPartitionLeaseDuration()
+    {
+        return partitionLeaseDuration;
+    }
+
+    public boolean isLooseMemoryAccountingEnabled()
+    {
+        return enableLooseMemoryAccounting;
+    }
+
+    @Config("hive.loose-memory-accounting-enabled")
+    @ConfigDescription("When enabled relaxes memory accounting for queries violating memory limits to run that previously honored memory thresholds.")
+    public HiveClientConfig setLooseMemoryAccountingEnabled(boolean enableLooseMemoryAccounting)
+    {
+        this.enableLooseMemoryAccounting = enableLooseMemoryAccounting;
+        return this;
+    }
+
+    @Config("hive.materialized-view-missing-partitions-threshold")
+    @ConfigDescription("Materialized views with missing partitions more than this threshold falls back to the base tables at read time")
+    public HiveClientConfig setMaterializedViewMissingPartitionsThreshold(int materializedViewMissingPartitionsThreshold)
+    {
+        this.materializedViewMissingPartitionsThreshold = materializedViewMissingPartitionsThreshold;
+        return this;
+    }
+
+    public int getMaterializedViewMissingPartitionsThreshold()
+    {
+        return this.materializedViewMissingPartitionsThreshold;
     }
 }

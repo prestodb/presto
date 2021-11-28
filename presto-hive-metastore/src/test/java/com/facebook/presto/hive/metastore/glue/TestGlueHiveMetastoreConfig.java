@@ -29,13 +29,17 @@ public class TestGlueHiveMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(GlueHiveMetastoreConfig.class)
                 .setGlueRegion(null)
+                .setGlueEndpointUrl(null)
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(5)
+                .setMaxGlueErrorRetries(10)
                 .setDefaultWarehouseDir(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
                 .setGetPartitionThreads(20)
-                .setIamRole(null));
+                .setIamRole(null)
+                .setAwsAccessKey(null)
+                .setAwsSecretKey(null));
     }
 
     @Test
@@ -43,24 +47,32 @@ public class TestGlueHiveMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.glue.region", "us-east-1")
+                .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
+                .put("hive.metastore.glue.max-error-retries", "20")
                 .put("hive.metastore.glue.default-warehouse-dir", "/location")
                 .put("hive.metastore.glue.catalogid", "0123456789")
                 .put("hive.metastore.glue.partitions-segments", "10")
                 .put("hive.metastore.glue.get-partition-threads", "42")
                 .put("hive.metastore.glue.iam-role", "role")
+                .put("hive.metastore.glue.aws-access-key", "ABC")
+                .put("hive.metastore.glue.aws-secret-key", "DEF")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-1")
+                .setGlueEndpointUrl("http://foo.bar")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
+                .setMaxGlueErrorRetries(20)
                 .setDefaultWarehouseDir("/location")
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
                 .setGetPartitionThreads(42)
-                .setIamRole("role");
+                .setIamRole("role")
+                .setAwsAccessKey("ABC")
+                .setAwsSecretKey("DEF");
 
         assertFullMapping(properties, expected);
     }

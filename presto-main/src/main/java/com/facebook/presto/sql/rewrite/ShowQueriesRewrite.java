@@ -36,6 +36,7 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.sql.QueryUtil;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -508,12 +509,11 @@ final class ShowQueriesRewrite
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
-                            return new ColumnDefinition(new Identifier(column.getName()), column.getType().getDisplayName(), column.isNullable(), propertyNodes, Optional.ofNullable(column.getComment()));
+                            return new ColumnDefinition(QueryUtil.quotedIdentifier(column.getName()), column.getType().getDisplayName(), column.isNullable(), propertyNodes, Optional.ofNullable(column.getComment()));
                         })
                         .collect(toImmutableList());
 
@@ -642,7 +642,7 @@ final class ShowQueriesRewrite
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            for (SqlFunction function : metadata.listFunctions(session)) {
+            for (SqlFunction function : metadata.getFunctionAndTypeManager().listFunctions(session, node.getLikePattern(), node.getEscape())) {
                 Signature signature = function.getSignature();
 
                 boolean builtIn = signature.getName().getCatalogSchemaName().equals(DEFAULT_NAMESPACE);

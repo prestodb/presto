@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
@@ -27,9 +28,11 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
 {
-    public TestCassandraDistributed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner);
+        return CassandraQueryRunner.createCassandraQueryRunner();
     }
 
     @Override

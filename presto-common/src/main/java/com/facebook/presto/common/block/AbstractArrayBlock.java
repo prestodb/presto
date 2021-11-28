@@ -26,6 +26,7 @@ import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
+import static com.facebook.presto.common.block.MapBlockBuilder.verify;
 
 public abstract class AbstractArrayBlock
         implements Block
@@ -36,10 +37,13 @@ public abstract class AbstractArrayBlock
 
     public abstract int getOffsetBase();
 
+    /**
+     * @return the underlying valueIsNull array, or null when all values are guaranteed to be non-null
+     */
     @Nullable
     protected abstract boolean[] getValueIsNull();
 
-    int getOffset(int position)
+    final int getOffset(int position)
     {
         return getOffsets()[position + getOffsetBase()];
     }
@@ -51,35 +55,45 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public final Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newValueIsNull = new boolean[length];
-
-        IntArrayList valuesPositions = new IntArrayList();
-        int newPosition = 0;
-        for (int i = offset; i < offset + length; ++i) {
-            int position = positions[i];
+        boolean[] newValueIsNull = mayHaveNull() ? new boolean[length] : null;
+        // First traversal will populate newValueIsNull mask (if present) and
+        // newOffsets to determine the total number of value positions involved
+        for (int i = 0; i < length; i++) {
+            int position = positions[i + offset];
+            newOffsets[i + 1] = newOffsets[i] + (getOffset(position + 1) - getOffset(position));
             if (isNull(position)) {
-                newValueIsNull[newPosition] = true;
-                newOffsets[newPosition + 1] = newOffsets[newPosition];
+                // newValueIsNull will be present unless mayHaveNull() and isNull() implementations are inconsistent
+                newValueIsNull[i] = true;
             }
-            else {
-                int valuesStartOffset = getOffset(position);
-                int valuesEndOffset = getOffset(position + 1);
-                int valuesLength = valuesEndOffset - valuesStartOffset;
+        }
 
-                newOffsets[newPosition + 1] = newOffsets[newPosition] + valuesLength;
+        int totalElements = newOffsets[length];
+        if (totalElements == 0) {
+            // No elements selected, copy a zero-length region from the elements block
+            Block newValues = getRawElementBlock().copyRegion(0, 0);
+            return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
+        }
 
-                for (int elementIndex = valuesStartOffset; elementIndex < valuesEndOffset; elementIndex++) {
-                    valuesPositions.add(elementIndex);
+        // Second traversal will use the newOffsets and total element positions to
+        // populate a correctly sized values position selection array
+        int[] elementPositions = new int[totalElements];
+        int currentOffset = 0;
+        for (int i = 0; i < length; i++) {
+            int elementsLength = newOffsets[i + 1] - newOffsets[i];
+            if (elementsLength > 0) {
+                int valuesStartOffset = getOffset(positions[i + offset]);
+                for (int j = 0; j < elementsLength; j++) {
+                    elementPositions[currentOffset++] = valuesStartOffset + j;
                 }
             }
-            newPosition++;
         }
-        Block newValues = getRawElementBlock().copyPositions(valuesPositions.elements(), 0, valuesPositions.size());
+        verify(currentOffset == elementPositions.length, "unexpected element positions");
+        Block newValues = getRawElementBlock().copyPositions(elementPositions, 0, elementPositions.length);
         return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
     }
 
@@ -209,8 +223,7 @@ public abstract class AbstractArrayBlock
         }
     }
 
-    @Override
-    public Block getSingleValueBlock(int position)
+    protected Block getSingleValueBlockInternal(int position)
     {
         checkReadablePosition(position);
 
@@ -221,7 +234,7 @@ public abstract class AbstractArrayBlock
         return createArrayBlockInternal(
                 0,
                 1,
-                new boolean[] {isNull(position)},
+                isNull(position) ? new boolean[] {true} : null,
                 new int[] {0, valueLength},
                 newValues);
     }
@@ -252,14 +265,6 @@ public abstract class AbstractArrayBlock
         return getValueIsNull() != null;
     }
 
-    @Override
-    public boolean isNull(int position)
-    {
-        checkReadablePosition(position);
-        boolean[] valueIsNull = getValueIsNull();
-        return valueIsNull == null ? false : valueIsNull[position + getOffsetBase()];
-    }
-
     public <T> T apply(ArrayBlockFunction<T> function, int position)
     {
         checkReadablePosition(position);
@@ -269,7 +274,7 @@ public abstract class AbstractArrayBlock
         return function.apply(getRawElementBlock(), startValueOffset, endValueOffset - startValueOffset);
     }
 
-    private void checkReadablePosition(int position)
+    protected final void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");

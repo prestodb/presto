@@ -15,8 +15,8 @@ package com.facebook.presto.spark.classloader_interface;
 
 import java.io.Serializable;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.spark_project.guava.base.Preconditions.checkArgument;
 
 public class PrestoSparkShuffleStats
         implements Serializable
@@ -96,5 +96,12 @@ public class PrestoSparkShuffleStats
     public String toString()
     {
         return "";
+    }
+
+    private static void checkArgument(boolean condition, String message, Object... args)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(format(message, args));
+        }
     }
 }

@@ -42,7 +42,7 @@ public class TestRowType
         RowType row = RowType.from(fields);
         assertEquals(
                 row.getDisplayName(),
-                "row(bool_col boolean, double_col double, array_col array(varchar), map_col map(boolean, double))");
+                "row(\"bool_col\" boolean, \"double_col\" double, \"array_col\" array(varchar), \"map_col\" map(boolean, double))");
     }
 
     @Test
@@ -79,7 +79,7 @@ public class TestRowType
         RowType row = RowType.from(fields);
         assertEquals(
                 row.getDisplayName(),
-                "row(boolean, double_col double, array(varchar), map_col map(boolean, double))");
+                "row(boolean, \"double_col\" double, array(varchar), \"map_col\" map(boolean, double))");
     }
 
     public static void throwUnsupportedOperation()

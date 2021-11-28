@@ -63,10 +63,11 @@ public class TestEnums
     private static final UserDefinedType TEST_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testenum"), new TypeSignature(
             VARCHAR_ENUM,
             TypeSignatureParameter.of(new VarcharEnumMap("test.enum.testenum", ImmutableMap.of(
-            "TEST", "\"}\"",
-            "TEST2", "",
-            "TEST3", " ",
-            "TEST4", ")))\"\"")))));
+                    "TEST", "\"}\"",
+                    "TEST2", "",
+                    "TEST3", " ",
+                    "TEST4", ")))\"\"",
+                    "TEST5", "France")))));
     private static final UserDefinedType TEST_BIGINT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testbigintenum"), new TypeSignature(
             BIGINT_ENUM,
             TypeSignatureParameter.of(new LongEnumMap("test.enum.testbigintenum", ImmutableMap.of(
@@ -78,12 +79,9 @@ public class TestEnums
                     "MKT_BUILDING", "BUILDING",
                     "MKT_FURNITURE", "FURNITURE")))));
 
-    protected TestEnums()
-    {
-        super(TestEnums::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         try {
             Session session = testSessionBuilder().build();
@@ -156,6 +154,7 @@ public class TestEnums
                 "cast(JSON '{\"France\": [0]}' as MAP<test.enum.country,ARRAY<test.enum.mood>>)",
                 ImmutableMap.of("France", singletonList(0L)));
         assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'BigintEnum'");
+        assertQueryFails("SELECT cast(test.enum.country.FRANCE as test.enum.testenum)", ".*Cannot cast test.enum.country.* to test.enum.testenum.*");
     }
 
     @Test

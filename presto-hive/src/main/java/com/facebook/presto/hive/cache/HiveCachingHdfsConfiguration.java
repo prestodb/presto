@@ -20,6 +20,7 @@ import com.facebook.presto.cache.ForCachingFileSystem;
 import com.facebook.presto.hadoop.FileSystemFactory;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
@@ -72,7 +73,7 @@ public class HiveCachingHdfsConfiguration
                         factoryUri,
                         (ExtendedFileSystem) fileSystem,
                         cacheManager,
-                        cacheConfig.isCachingEnabled(),
+                        context.getSession().map(HiveSessionProperties::isCacheEnabled).orElse(cacheConfig.isCachingEnabled()),
                         cacheConfig.getCacheType(),
                         cacheConfig.isValidationEnabled());
             }

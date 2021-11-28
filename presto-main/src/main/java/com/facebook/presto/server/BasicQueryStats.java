@@ -46,10 +46,12 @@ public class BasicQueryStats
     private final DateTime createTime;
     private final DateTime endTime;
 
+    private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
 
+    private final int runningTasks;
     private final int peakRunningTasks;
 
     private final int totalDrivers;
@@ -61,6 +63,7 @@ public class BasicQueryStats
     private final long rawInputPositions;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeTotalMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
@@ -82,9 +85,11 @@ public class BasicQueryStats
     public BasicQueryStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("runningTasks") int runningTasks,
             @JsonProperty("peakRunningTasks") int peakRunningTasks,
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -93,6 +98,7 @@ public class BasicQueryStats
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
@@ -109,10 +115,12 @@ public class BasicQueryStats
         this.createTime = createTime;
         this.endTime = endTime;
 
+        this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTimex is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
 
+        this.runningTasks = runningTasks;
         this.peakRunningTasks = peakRunningTasks;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
@@ -128,6 +136,7 @@ public class BasicQueryStats
         this.rawInputPositions = rawInputPositions;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.userMemoryReservation = userMemoryReservation;
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakUserMemoryReservation = peakUserMemoryReservation;
@@ -149,9 +158,11 @@ public class BasicQueryStats
     {
         this(queryStats.getCreateTime(),
                 queryStats.getEndTime(),
+                queryStats.getWaitingForPrerequisitesTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
+                queryStats.getRunningTasks(),
                 queryStats.getPeakRunningTasks(),
                 queryStats.getTotalDrivers(),
                 queryStats.getQueuedDrivers(),
@@ -160,6 +171,7 @@ public class BasicQueryStats
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
@@ -183,12 +195,15 @@ public class BasicQueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
                 0,
                 0,
                 0,
                 0,
                 0,
                 new DataSize(0, BYTE),
+                0,
                 0,
                 0,
                 new DataSize(0, BYTE),
@@ -377,5 +392,26 @@ public class BasicQueryStats
     public OptionalDouble getProgressPercentage()
     {
         return progressPercentage;
+    }
+
+    @ThriftField(26)
+    @JsonProperty
+    public Duration getWaitingForPrerequisitesTime()
+    {
+        return waitingForPrerequisitesTime;
+    }
+
+    @ThriftField(27)
+    @JsonProperty
+    public double getCumulativeTotalMemory()
+    {
+        return cumulativeTotalMemory;
+    }
+
+    @ThriftField(28)
+    @JsonProperty
+    public int getRunningTasks()
+    {
+        return runningTasks;
     }
 }

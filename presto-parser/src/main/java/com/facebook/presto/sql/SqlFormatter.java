@@ -65,6 +65,7 @@ import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.PrincipalSpecification;
@@ -72,6 +73,7 @@ import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -274,6 +276,10 @@ public final class SqlFormatter
                 process(node.getOrderBy().get(), indent);
             }
 
+            if (node.getOffset().isPresent()) {
+                process(node.getOffset().get(), indent);
+            }
+
             if (node.getLimit().isPresent()) {
                 append(indent, "LIMIT " + node.getLimit().get())
                         .append('\n');
@@ -314,10 +320,22 @@ public final class SqlFormatter
                 process(node.getOrderBy().get(), indent);
             }
 
+            if (node.getOffset().isPresent()) {
+                process(node.getOffset().get(), indent);
+            }
+
             if (node.getLimit().isPresent()) {
                 append(indent, "LIMIT " + node.getLimit().get())
                         .append('\n');
             }
+            return null;
+        }
+
+        @Override
+        protected Void visitOffset(Offset node, Integer indent)
+        {
+            append(indent, "OFFSET " + node.getRowCount() + " ROWS")
+                    .append('\n');
             return null;
         }
 
@@ -678,6 +696,17 @@ public final class SqlFormatter
                 builder.append("IF EXISTS ");
             }
             builder.append(node.getName());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
+        {
+            builder.append("REFRESH MATERIALIZED VIEW ")
+                    .append(formatName(node.getTarget().getName()))
+                    .append(" WHERE ")
+                    .append(formatExpression(node.getWhere(), parameters));
 
             return null;
         }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -27,6 +29,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
@@ -41,12 +44,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.preferPartialAggregation;
+import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
+import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.AUTOMATIC;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -101,7 +107,12 @@ public class PushPartialAggregationThroughExchange
             return Result.ofPlanNode(split(aggregationNode, context));
         }
 
-        if (!decomposable || !preferPartialAggregation(context.getSession())) {
+        PartialAggregationStrategy partialAggregationStrategy = getPartialAggregationStrategy(context.getSession());
+        if (!decomposable ||
+                partialAggregationStrategy == NEVER ||
+                partialAggregationStrategy == AUTOMATIC &&
+                        partialAggregationNotUseful(aggregationNode, exchangeNode, context) &&
+                        aggregationNode.getGroupingKeys().size() == 1) {
             return Result.empty();
         }
 
@@ -263,6 +274,18 @@ public class PushPartialAggregationThroughExchange
                 FINAL,
                 node.getHashVariable(),
                 node.getGroupIdVariable());
+    }
+
+    private boolean partialAggregationNotUseful(AggregationNode aggregationNode, ExchangeNode exchangeNode, Context context)
+    {
+        StatsProvider stats = context.getStatsProvider();
+        PlanNodeStatsEstimate exchangeStats = stats.getStats(exchangeNode);
+        PlanNodeStatsEstimate aggregationStats = stats.getStats(aggregationNode);
+        double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode.getOutputVariables());
+        double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode.getOutputVariables());
+        double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
+
+        return exchangeStats.isConfident() && outputBytes > inputBytes * byteReductionThreshold;
     }
 
     private static boolean isLambda(RowExpression rowExpression)

@@ -14,6 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.NodeVersion;
@@ -36,10 +38,25 @@ import static java.util.Objects.requireNonNull;
 public class InternalNode
         implements Node
 {
+    @ThriftEnum
     public enum NodeStatus
     {
-        ALIVE,
-        DEAD
+        ALIVE(1),
+        DEAD(2),
+        /**/;
+
+        private final int statusCode;
+
+        NodeStatus(int statusCode)
+        {
+            this.statusCode = statusCode;
+        }
+
+        @ThriftEnumValue
+        public int getStatusCode()
+        {
+            return statusCode;
+        }
     }
 
     private final String nodeIdentifier;

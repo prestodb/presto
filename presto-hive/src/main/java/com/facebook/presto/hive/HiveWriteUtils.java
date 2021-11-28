@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.RecordFileWriter.ExtendedRecordWriter;
 import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -40,6 +41,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -106,6 +108,7 @@ import static com.facebook.presto.hive.ParquetRecordWriterUtil.createParquetWrit
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getField;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveDecimal;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
@@ -306,7 +309,7 @@ public final class HiveWriteUtils
         }
 
         checkWritable(
-                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                table.getSchemaTableName(),
                 Optional.empty(),
                 getProtectMode(table),
                 table.getParameters(),
@@ -316,7 +319,7 @@ public final class HiveWriteUtils
     public static void checkPartitionIsWritable(String partitionName, Partition partition)
     {
         checkWritable(
-                new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
+                partition.getSchemaTableName(),
                 Optional.of(partitionName),
                 getProtectMode(partition),
                 partition.getParameters(),
@@ -351,7 +354,8 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Optional<String> location = getDatabase(metastore, schemaName).getLocation();
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session));
+        Optional<String> location = getDatabase(session.getIdentity(), metastoreContext, metastore, schemaName).getLocation();
         if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
@@ -370,9 +374,9 @@ public final class HiveWriteUtils
         return new Path(databasePath, tableName);
     }
 
-    private static Database getDatabase(SemiTransactionalHiveMetastore metastore, String database)
+    private static Database getDatabase(ConnectorIdentity identity, MetastoreContext metastoreContext, SemiTransactionalHiveMetastore metastore, String database)
     {
-        return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
+        return metastore.getDatabase(metastoreContext, database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
 
     public static boolean isS3FileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)

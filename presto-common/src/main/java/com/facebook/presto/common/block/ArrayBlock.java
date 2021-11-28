@@ -43,9 +43,10 @@ public class ArrayBlock
      * Create an array block directly from columnar nulls, values, and offsets into the values.
      * A null array must have no entries.
      */
-    public static Block fromElementBlock(int positionCount, Optional<boolean[]> valueIsNull, int[] arrayOffset, Block values)
+    public static Block fromElementBlock(int positionCount, Optional<boolean[]> valueIsNullOptional, int[] arrayOffset, Block values)
     {
-        validateConstructorArguments(0, positionCount, valueIsNull.orElse(null), arrayOffset, values);
+        boolean[] valueIsNull = valueIsNullOptional.orElse(null);
+        validateConstructorArguments(0, positionCount, valueIsNull, arrayOffset, values);
         // for performance reasons per element checks are only performed on the public construction
         for (int i = 0; i < positionCount; i++) {
             int offset = arrayOffset[i];
@@ -53,11 +54,11 @@ public class ArrayBlock
             if (length < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, arrayOffset[i], i + 1, arrayOffset[i + 1]));
             }
-            if (valueIsNull.isPresent() && valueIsNull.get()[i] && length != 0) {
+            if (valueIsNull != null && valueIsNull[i] && length != 0) {
                 throw new IllegalArgumentException("A null array must have zero entries");
             }
         }
-        return new ArrayBlock(0, positionCount, valueIsNull.orElse(null), arrayOffset, values);
+        return new ArrayBlock(0, positionCount, valueIsNull, arrayOffset, values);
     }
 
     /**
@@ -188,6 +189,19 @@ public class ArrayBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return valueIsNull != null;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return valueIsNull != null && valueIsNull[position + arrayOffset];
+    }
+
+    @Override
     public String toString()
     {
         return format("ArrayBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
@@ -207,5 +221,20 @@ public class ArrayBlock
                 valueIsNull,
                 offsets,
                 loadedValuesBlock);
+    }
+
+    private boolean isSinglePositionBlock(int position)
+    {
+        return position == 0 && positionCount == 1 && offsets.length == 2;
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        if (isSinglePositionBlock(position)) {
+            return this;
+        }
+
+        return getSingleValueBlockInternal(position);
     }
 }

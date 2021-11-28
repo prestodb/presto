@@ -138,7 +138,7 @@ public class SpoolingOutputBuffer
         this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
         this.finalizerService.addFinalizer(this, this::close);
 
-        tempDataOperationContext = new TempDataOperationContext(Optional.empty(), taskId.getQueryId().toString(), Optional.empty(), new Identity("spooling-buffer", Optional.empty()));
+        tempDataOperationContext = new TempDataOperationContext(Optional.empty(), taskId.getQueryId().toString(), Optional.empty(), Optional.empty(), new Identity("spooling-buffer", Optional.empty()));
 
         state.compareAndSet(OPEN, NO_MORE_BUFFERS);
     }

@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.cache.alluxio;
 
-import alluxio.client.quota.CacheQuota;
-import alluxio.client.quota.CacheScope;
+import alluxio.client.file.CacheContext;
+import alluxio.client.file.URIStatus;
 import alluxio.hadoop.LocalCacheFileSystem;
 import alluxio.wire.FileInfo;
 import com.facebook.presto.cache.CachingFileSystem;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -57,10 +56,11 @@ public class AlluxioCachingFileSystem
             throws IOException
     {
         this.localCacheFileSystem = new LocalCacheFileSystem(dataTier, uriStatus -> {
-            // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
+            // CacheContext is the mechanism to pass the hiveFileContext to the source filesystem
             // hiveFileContext is critical to use to open file.
-            checkState(uriStatus instanceof AlluxioURIStatus);
-            HiveFileContext hiveFileContext = ((AlluxioURIStatus) uriStatus).getHiveFileContext();
+            CacheContext cacheContext = uriStatus.getCacheContext();
+            checkState(cacheContext instanceof PrestoCacheContext);
+            HiveFileContext hiveFileContext = ((PrestoCacheContext) cacheContext).getHiveFileContext();
             try {
                 return dataTier.openFile(new Path(uriStatus.getPath()), hiveFileContext);
             }
@@ -81,23 +81,16 @@ public class AlluxioCachingFileSystem
             // FilePath is a unique identifier for a file, however it can be a long string
             // hence using md5 hash of the file path as the identifier in the cache.
             // We don't set fileId because fileId is Alluxio specific
-            FileInfo info = new FileInfo().setFileIdentifier(md5().hashString(path.toString(), UTF_8).toString())
+            FileInfo info = new FileInfo()
+                    .setLastModificationTimeMs(hiveFileContext.getModificationTime())
                     .setPath(path.toString())
                     .setFolder(false)
                     .setLength(hiveFileContext.getFileSize().get());
-            if (cacheQuotaEnabled) {
-                CacheScope scope = CacheScope.create(hiveFileContext.getCacheQuota().getIdentity());
-                info.setCacheScope(scope);
-                if (hiveFileContext.getCacheQuota().getQuota().isPresent()) {
-                    info.setCacheQuota(new CacheQuota(ImmutableMap.of(scope.level(), hiveFileContext.getCacheQuota().getQuota().get().toBytes())));
-                }
-                else {
-                    info.setCacheQuota(CacheQuota.UNLIMITED);
-                }
-            }
-            // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
-            AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(info, hiveFileContext);
-            FSDataInputStream cachingInputStream = localCacheFileSystem.open(alluxioURIStatus, BUFFER_SIZE);
+            String cacheIdentifier = md5().hashString(path.toString(), UTF_8).toString();
+            // CacheContext is the mechanism to pass the cache related context to the source filesystem
+            CacheContext cacheContext = PrestoCacheContext.build(cacheIdentifier, hiveFileContext, cacheQuotaEnabled);
+            URIStatus uriStatus = new URIStatus(info, cacheContext);
+            FSDataInputStream cachingInputStream = localCacheFileSystem.open(uriStatus, BUFFER_SIZE);
             if (cacheValidationEnabled) {
                 return new CacheValidatingInputStream(
                         cachingInputStream, dataTier.openFile(path, hiveFileContext));

@@ -141,7 +141,7 @@ public class NodeTaskMap
         }
 
         @ThreadSafe
-        private class TaskStatsTracker
+        private static class TaskStatsTracker
         {
             private final String counterName;
             private final TaskId taskId;
@@ -195,7 +195,7 @@ public class NodeTaskMap
 
         // tracks stats which are passed as accumulated (cpu time) by calculating delta / duration.
         @ThreadSafe
-        private class AccumulatedTaskStatsTracker
+        private static class AccumulatedTaskStatsTracker
         {
             private final String counterName;
             private final TaskId taskId;

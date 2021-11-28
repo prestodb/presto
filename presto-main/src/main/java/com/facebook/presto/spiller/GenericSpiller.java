@@ -77,6 +77,13 @@ public class GenericSpiller
     }
 
     @Override
+    public void commit()
+    {
+        checkNoSpillInProgress();
+        singleStreamSpillers.stream().forEach(SingleStreamSpiller::commit);
+    }
+
+    @Override
     public void close()
     {
         try {

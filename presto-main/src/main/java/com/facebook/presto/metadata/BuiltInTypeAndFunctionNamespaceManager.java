@@ -77,8 +77,6 @@ import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
-import com.facebook.presto.operator.aggregation.approxmostfrequent.BigintApproximateMostFrequent;
-import com.facebook.presto.operator.aggregation.approxmostfrequent.VarcharApproximateMostFrequent;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
@@ -106,8 +104,10 @@ import com.facebook.presto.operator.scalar.ArrayMaxFunction;
 import com.facebook.presto.operator.scalar.ArrayMinFunction;
 import com.facebook.presto.operator.scalar.ArrayNgramsFunction;
 import com.facebook.presto.operator.scalar.ArrayNoneMatchFunction;
+import com.facebook.presto.operator.scalar.ArrayNormalizeFunction;
 import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayPositionFunction;
+import com.facebook.presto.operator.scalar.ArrayPositionWithIndexFunction;
 import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
@@ -137,6 +137,7 @@ import com.facebook.presto.operator.scalar.MapCardinalityFunction;
 import com.facebook.presto.operator.scalar.MapDistinctFromOperator;
 import com.facebook.presto.operator.scalar.MapEntriesFunction;
 import com.facebook.presto.operator.scalar.MapEqualOperator;
+import com.facebook.presto.operator.scalar.MapFilterFunction;
 import com.facebook.presto.operator.scalar.MapFromEntriesFunction;
 import com.facebook.presto.operator.scalar.MapIndeterminateOperator;
 import com.facebook.presto.operator.scalar.MapKeys;
@@ -162,8 +163,9 @@ import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
-import com.facebook.presto.operator.scalar.sql.ArrayArithmeticFunctions;
+import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
 import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
+import com.facebook.presto.operator.scalar.sql.SimpleSamplingPercent;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.FirstValueFunction;
@@ -222,6 +224,7 @@ import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
 import com.facebook.presto.type.UnknownOperators;
+import com.facebook.presto.type.UuidOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharEnumOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -302,6 +305,7 @@ import static com.facebook.presto.operator.aggregation.RealAverageAggregation.RE
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION;
+import static com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent.APPROXIMATE_MOST_FREQUENT;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetAggregationFunction.SET_AGG;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetUnionFunction.SET_UNION;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
@@ -319,8 +323,6 @@ import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRA
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
@@ -337,7 +339,6 @@ import static com.facebook.presto.operator.scalar.Least.LEAST;
 import static com.facebook.presto.operator.scalar.MapConcatFunction.MAP_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
-import static com.facebook.presto.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
 import static com.facebook.presto.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static com.facebook.presto.operator.scalar.MapToMapCast.MAP_TO_MAP_CAST;
@@ -358,13 +359,15 @@ import static com.facebook.presto.operator.scalar.RowLessThanOrEqualOperator.ROW
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
+import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -428,6 +431,7 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.UuidType.UUID;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -556,6 +560,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(CODE_POINTS);
         addType(IPADDRESS);
         addType(IPPREFIX);
+        addType(UUID);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -631,8 +636,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(ClassificationPrecisionAggregation.class)
                 .aggregates(ClassificationRecallAggregation.class)
                 .aggregates(ClassificationThresholdsAggregation.class)
-                .aggregates(VarcharApproximateMostFrequent.class)
-                .aggregates(BigintApproximateMostFrequent.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
@@ -702,6 +705,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(IpPrefixFunctions.class)
                 .scalars(IpPrefixOperators.class)
                 .scalar(IpPrefixOperators.IpPrefixDistinctFromOperator.class)
+                .scalars(UuidOperators.class)
+                .scalar(UuidOperators.UuidDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
@@ -710,6 +715,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayContains.class)
                 .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
+                .scalar(ArrayPositionWithIndexFunction.class)
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
                 .scalar(JsonOperators.JsonDistinctFromOperator.class)
@@ -751,6 +757,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
                 .scalar(ArrayNoneMatchFunction.class)
+                .scalar(ArrayNormalizeFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
                 .scalar(MapEntriesFunction.class)
@@ -815,8 +822,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(DECIMAL_SUM_AGGREGATION)
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
-                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
+                .functions(MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST)
+                .function(APPROXIMATE_MOST_FREQUENT)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
@@ -831,12 +839,14 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(TDIGEST_AGG, TDIGEST_AGG_WITH_WEIGHT, TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION)
                 .function(MergeTDigestFunction.MERGE)
                 .sqlInvokedScalar(MapNormalizeFunction.class)
-                .sqlInvokedScalars(ArrayArithmeticFunctions.class)
+                .sqlInvokedScalars(ArraySqlFunctions.class)
                 .sqlInvokedScalars(ArrayIntersectFunction.class)
+                .sqlInvokedScalars(SimpleSamplingPercent.class)
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
-                .scalars(VarcharEnumOperators.class);
+                .scalars(VarcharEnumOperators.class)
+                .codegenScalars(MapFilterFunction.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:
@@ -910,8 +920,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
     {
     }
 
+    /**
+     * likePattern / escape is not used for optimization, returning all functions.
+     */
     @Override
-    public Collection<SqlFunction> listFunctions()
+    public Collection<SqlFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
         return functions.list();
     }
@@ -949,7 +962,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     signature.getArgumentTypes(),
                     signature.getReturnType(),
                     signature.getKind(),
-                    BUILTIN,
+                    JAVA,
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }
@@ -965,7 +978,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     sqlFunction.getRoutineCharacteristics().getLanguage(),
                     SQL,
                     function.isDeterministic(),
-                    function.isCalledOnNullInput());
+                    function.isCalledOnNullInput(),
+                    sqlFunction.getVersion());
         }
         else {
             return new FunctionMetadata(
@@ -973,7 +987,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     signature.getArgumentTypes(),
                     signature.getReturnType(),
                     signature.getKind(),
-                    BUILTIN,
+                    JAVA,
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }

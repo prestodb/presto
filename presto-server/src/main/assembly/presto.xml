@@ -65,6 +65,14 @@
             <outputDirectory>plugin/session-property-managers</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-node-ttl-fetchers-${project.version}</directory>
+            <outputDirectory>plugin/ttl-fetchers</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-cluster-ttl-providers-${project.version}</directory>
+            <outputDirectory>plugin/cluster-ttl-providers</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-function-namespace-managers-${project.version}</directory>
             <outputDirectory>plugin/function-namespace-managers</outputDirectory>
         </fileSet>
@@ -129,6 +137,10 @@
             <outputDirectory>plugin/postgresql</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-prometheus-${project.version}</directory>
+            <outputDirectory>plugin/prometheus</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-redshift-${project.version}</directory>
             <outputDirectory>plugin/redshift</outputDirectory>
         </fileSet>
@@ -183,6 +195,10 @@
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-bigquery-${project.version}</directory>
             <outputDirectory>plugin/presto-bigquery</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-iceberg-${project.version}</directory>
+            <outputDirectory>plugin/iceberg</outputDirectory>
         </fileSet>
     </fileSets>
 </assembly>

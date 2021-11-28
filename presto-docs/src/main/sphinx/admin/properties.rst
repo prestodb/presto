@@ -151,6 +151,133 @@ Spilling Properties
 
     This config property can be overridden by the ``spill_enabled`` session property.
 
+``experimental.join-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for joins to
+    avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``join_spill_enabled`` session property.
+
+``experimental.aggregation-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for aggregations to
+    avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``aggregation_spill_enabled`` session property.
+
+``experimental.distinct-aggregation-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``aggregation_spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for distinct
+    aggregations to avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``distinct_aggregation_spill_enabled`` session property.
+
+``experimental.order-by-aggregation-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``aggregation_spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by
+    aggregations to avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``order_by_aggregation_spill_enabled`` session property.
+
+``experimental.window-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for window functions to
+    avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``window_spill_enabled`` session property.
+
+``experimental.order-by-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by to
+    avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``order_by_spill_enabled`` session property.
+
+``experimental.spiller.task-spilling-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``string``
+    * **Allowed values:** ``ORDER_BY_CREATE_TIME``, ``ORDER_BY_REVOCABLE_BYTES``, ``PER_TASK_MEMORY_THRESHOLD``
+    * **Default value:** ``ORDER_BY_CREATE_TIME``
+
+    Determines the strategy to use to choose when to revoke memory and from which tasks.
+
+    ``ORDER_BY_CREATE_TIME`` and ``ORDER_BY_REVOCABLE_BYTES`` will trigger spilling when the memory
+    pool is filled beyond the ``experimental.memory-revoking-threshold`` until the memory pool usage
+    is below ``experimental.memory-revoking-target``. ``ORDER_BY_CREATE_TIME`` will trigger
+    revocation from older tasks first, while ``ORDER_BY_REVOCABLE_BYTES`` will trigger revocation
+    from tasks that are using more revocable memory first.
+
+    ``PER_TASK_MEMORY_THRESHOLD`` will trigger spilling whenever the revocable memory used by a task
+    exceeds ``experimental.spiller.max-revocable-task-memory``.
+
+    .. WARNING::
+        The ``PER_TASK_MEMORY_THRESHOLD`` strategy does not trigger spilling when the memory pool is
+        full, which can prevent the out of memory query killer from kicking in.  This is particularly
+        risky if Presto is running without a reserved memory pool.
+
+``experimental.memory-revoking-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``double``
+    * **Minimum value:** ``0``
+    * **Maximum value:** ``1``
+    * **Default value:** ``0.9``
+
+    Trigger memory revocation when the memory pool is filled above this percentage.
+
+``experimental.memory-revoking-target``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``double``
+    * **Minimum value:** ``0``
+    * **Maximum value:** ``1``
+    * **Default value:** ``0.5``
+
+    When revoking memory, try to revoke enough that the memory pool is filled below the target percentage
+    at the end.
+
+``experimental.query-limit-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    When spill is enabled and ``experimental.spiller.task-spilling-strategy`` is ``ORDER_BY_CREATE_TIME`` or
+    ``ORDER_BY_REVOCABLE_BYTES``, then also spill revocable memory from a query whenever its combined revocable,
+    user, and system memory exceeds ``query_max_total_memory_per_node``. This allows queries to have more
+    consistent performance regardless of the load on the cluster at the cost of less efficient use of available
+    memory.
+
+``experimental.spiller.max-revocable-task-memory``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``data size``
+    * **Default value:** ``500MB``
+
+    If ``experimental.spiller.task-spilling-strategy`` is set to ``PER_TASK_MEMORY_THRESHOLD``,
+    this property defines the threshold at which to trigger spilling for a task.  This property
+    is ignored for any other spilling strategy.
+
 ``experimental.spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -407,6 +534,16 @@ Task Properties
     writing due to compression or other factors). Setting this too high may cause the cluster
     to become overloaded due to excessive resource utilization. This can also be specified on
     a per-query basis using the ``task_writer_count`` session property.
+
+``task.interrupt-runaway-splits-timeout``
+^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``10m``
+
+    Timeout for interrupting split threads blocked without yielding control.
+    Only threads blocked in specific locations are interrupted. Currently this is just threads
+    blocked in the Joni regular expression library.
 
 
 Node Scheduler Properties

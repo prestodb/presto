@@ -496,7 +496,7 @@ public class TestAlluxioCachingFileSystem
     private int readFully(AlluxioCachingFileSystem fileSystem, CacheQuota quota, long position, byte[] buffer, int offset, int length)
             throws Exception
     {
-        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, quota, Optional.empty(), Optional.of((long) DATA_LENGTH)))) {
+        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, quota, Optional.empty(), Optional.of((long) DATA_LENGTH), 0, false))) {
             return stream.read(position, buffer, offset, length);
         }
     }

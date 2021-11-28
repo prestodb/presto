@@ -55,10 +55,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
-import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.parquet.reader.ListColumnReader.calculateCollectionOffsets;

@@ -34,6 +34,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.project.InputPageProjection;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -66,6 +67,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.stats.CpuTimer.CpuDuration;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
@@ -282,9 +284,12 @@ public abstract class AbstractOperatorBenchmark
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 new DataSize(256, MEGABYTE),
-                spillSpaceTracker)
-                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),
+                spillSpaceTracker,
+                listJsonCodec(TaskMemoryReservationSummary.class))
+                .addTaskContext(
+                        new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),
                         session,
+                        Optional.empty(),
                         false,
                         false,
                         false,

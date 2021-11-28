@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputInfo
         implements Mergeable<PartitionedOutputInfo>, OperatorInfo
@@ -79,5 +84,13 @@ public class PartitionedOutputInfo
                 .add("pagesAdded", pagesAdded)
                 .add("outputBufferPeakMemoryUsage", outputBufferPeakMemoryUsage)
                 .toString();
+    }
+
+    public static Supplier<PartitionedOutputInfo> createPartitionedOutputInfoSupplier(AtomicLong rowsAdded, AtomicLong pagesAdded, OutputBuffer outputBuffer)
+    {
+        requireNonNull(rowsAdded, "rowsAdded is null");
+        requireNonNull(pagesAdded, "pagesAdded is null");
+        requireNonNull(outputBuffer, "outputBuffer is null");
+        return () -> new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
     }
 }

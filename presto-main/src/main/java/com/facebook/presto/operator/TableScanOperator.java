@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -151,7 +152,7 @@ public class TableScanOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(splitInfo)));
         }
 
         blocked.set(null);
@@ -252,10 +253,10 @@ public class TableScanOperator
         if (page != null) {
             // assure the page is in memory before handing to another operator
             page = page.getLoadedPage();
-
-            // update operator stats
-            recordInputStats();
         }
+
+        // update operator stats
+        recordInputStats();
 
         // updating system memory usage should happen after page is loaded.
         systemMemoryContext.setBytes(source.getSystemMemoryUsage());
@@ -274,6 +275,7 @@ public class TableScanOperator
         long positionCount = endCompletedPositions - completedPositions;
         operatorContext.recordProcessedInput(inputBytes, positionCount);
         operatorContext.recordRawInputWithTiming(inputBytes, positionCount, endReadTimeNanos - readTimeNanos);
+        operatorContext.updateStats(source.getRuntimeStats());
         completedBytes = endCompletedBytes;
         completedPositions = endCompletedPositions;
         readTimeNanos = endReadTimeNanos;

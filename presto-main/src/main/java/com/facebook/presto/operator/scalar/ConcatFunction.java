@@ -19,9 +19,10 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
@@ -47,14 +48,12 @@ import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
@@ -62,7 +61,6 @@ import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Math.addExact;
 import static java.util.Collections.nCopies;
 
 public final class ConcatFunction
@@ -122,6 +120,51 @@ public final class ConcatFunction
                 methodHandle);
     }
 
+    @UsedByGeneratedCode
+    public static Slice concat(Slice... slices)
+    {
+        int i;
+        for (i = 0; i < slices.length; i++) {
+            if (slices[i].length() > 0) {
+                break;
+            }
+        }
+
+        if (i == slices.length) {
+            return Slices.EMPTY_SLICE;
+        }
+
+        int start = i;
+        Slice firstNonEmpty = slices[i];
+        int length = 0;
+        for (; i < slices.length; i++) {
+            Slice slice = slices[i];
+            if (slice.length() > 0) {
+                length += slice.length();
+                if (length < 0) {
+                    return resultTooLarge();
+                }
+            }
+        }
+
+        if (length == firstNonEmpty.length()) {
+            // return the only non-empty slice
+            return firstNonEmpty;
+        }
+
+        int position = 0;
+        Slice result = Slices.allocate(length);
+        for (i = start; i < slices.length; i++) {
+            Slice slice = slices[i];
+            if (slice.length() > 0) {
+                result.setBytes(position, slice);
+                position += slice.length();
+            }
+        }
+
+        return result;
+    }
+
     private static Class<?> generateConcat(TypeSignature type, int arity)
     {
         checkCondition(arity <= 254, NOT_SUPPORTED, "Too many arguments for string concatenation");
@@ -141,44 +184,16 @@ public final class ConcatFunction
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "concat", type(Slice.class), parameters);
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
-
-        Variable length = scope.declareVariable(int.class, "length");
-        body.append(length.set(constantInt(0)));
-
-        for (int i = 0; i < arity; ++i) {
-            body.append(length.set(generateCheckedAdd(length, parameters.get(i).invoke("length", int.class))));
-        }
-
         Variable result = scope.declareVariable(Slice.class, "result");
-        body.append(result.set(invokeStatic(Slices.class, "allocate", Slice.class, length)));
-
-        Variable position = scope.declareVariable(int.class, "position");
-        body.append(position.set(constantInt(0)));
-
-        for (int i = 0; i < arity; ++i) {
-            body.append(result.invoke("setBytes", void.class, position, parameters.get(i)));
-            body.append(position.set(add(position, parameters.get(i).invoke("length", int.class))));
-        }
-
-        body.getVariable(result)
+        body.append(invokeStatic(ConcatFunction.class, "concat", Slice.class,
+                BytecodeExpressions.newArray(ParameterizedType.type(Slice[].class), parameters)))
                 .retObject();
-
         return defineClass(definition, Object.class, ImmutableMap.of(), new DynamicClassLoader(ConcatFunction.class.getClassLoader()));
     }
 
-    private static BytecodeExpression generateCheckedAdd(BytecodeExpression x, BytecodeExpression y)
-    {
-        return invokeStatic(ConcatFunction.class, "checkedAdd", int.class, x, y);
-    }
-
     @UsedByGeneratedCode
-    public static int checkedAdd(int x, int y)
+    public static Slice resultTooLarge()
     {
-        try {
-            return addExact(x, y);
-        }
-        catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
-        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
     }
 }

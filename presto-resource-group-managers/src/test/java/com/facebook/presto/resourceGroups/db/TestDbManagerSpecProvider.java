@@ -37,7 +37,7 @@ public class TestDbManagerSpecProvider
 
     private static H2DaoProvider setup(String prefix)
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime());
+        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         return new H2DaoProvider(config);
     }
 
@@ -53,8 +53,8 @@ public class TestDbManagerSpecProvider
         String devEnvironment = "dev";
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         // two resource groups are the same except the group for the prod environment has a larger softMemoryLimit
-        dao.insertResourceGroup(1, "prod_global", "10MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, prodEnvironment);
-        dao.insertResourceGroup(2, "dev_global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, devEnvironment);
+        dao.insertResourceGroup(1, "prod_global", "10MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "1h", "1MB", "1h", null, prodEnvironment);
+        dao.insertResourceGroup(2, "dev_global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "1h", "1MB", "1h", null, devEnvironment);
         dao.insertSelector(1, 1, ".*prod_user.*", null, null, null, null);
         dao.insertSelector(2, 2, ".*dev_user.*", null, null, null, null);
 
@@ -82,7 +82,7 @@ public class TestDbManagerSpecProvider
         H2ResourceGroupsDao dao = daoProvider.get();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, null, null, ENVIRONMENT);
 
         final int numberOfUsers = 100;
         List<String> expectedUsers = new ArrayList<>();
@@ -123,9 +123,9 @@ public class TestDbManagerSpecProvider
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, null, ENVIRONMENT);
         try {
-            dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+            dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, null, ENVIRONMENT);
             fail("Expected to fail");
         }
         catch (RuntimeException ex) {
@@ -139,10 +139,10 @@ public class TestDbManagerSpecProvider
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
         try {
-            dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
+            dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
         }
         catch (RuntimeException ex) {
             assertTrue(ex instanceof UnableToExecuteStatementException);
@@ -161,12 +161,12 @@ public class TestDbManagerSpecProvider
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "subTo1-1", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
-        dao.insertResourceGroup(3, "subTo1-2", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
-        dao.insertResourceGroup(4, "subTo2-1", "1MB", 1000, 100, 100, null, null, null, null, null, 2L, ENVIRONMENT);
-        dao.insertResourceGroup(5, "subTo2-2", "1MB", 1000, 100, 100, null, null, null, null, null, 2L, ENVIRONMENT);
-        dao.insertResourceGroup(6, "subTo3", "1MB", 1000, 100, 100, null, null, null, null, null, 3L, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "subTo1-1", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(3, "subTo1-2", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(4, "subTo2-1", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, 2L, ENVIRONMENT);
+        dao.insertResourceGroup(5, "subTo2-2", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, 2L, ENVIRONMENT);
+        dao.insertResourceGroup(6, "subTo3", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, null, 3L, ENVIRONMENT);
         DbManagerSpecProvider dbManagerSpecProvider = new DbManagerSpecProvider(daoProvider.get(), ENVIRONMENT, new ReloadingResourceGroupConfig());
         ManagerSpec managerSpec = dbManagerSpecProvider.getManagerSpec();
         assertEquals(managerSpec.getRootGroups().size(), 1);

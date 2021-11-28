@@ -18,15 +18,19 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
-import static com.facebook.presto.common.block.BlockUtil.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
@@ -260,8 +264,35 @@ public class IntArrayBlock
     public Block appendNull()
     {
         boolean[] newValueIsNull = appendNullToIsNullArray(valueIsNull, arrayOffset, positionCount);
-        int[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
+        int[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1, SMALL, PRESERVE);
 
         return new IntArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IntArrayBlock that = (IntArrayBlock) o;
+        return arrayOffset == that.arrayOffset &&
+                positionCount == that.positionCount &&
+                sizeInBytes == that.sizeInBytes &&
+                retainedSizeInBytes == that.retainedSizeInBytes &&
+                Arrays.equals(valueIsNull, that.valueIsNull) &&
+                Arrays.equals(values, that.values);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = Objects.hash(arrayOffset, positionCount, sizeInBytes, retainedSizeInBytes);
+        result = 31 * result + Arrays.hashCode(valueIsNull);
+        result = 31 * result + Arrays.hashCode(values);
+        return result;
     }
 }

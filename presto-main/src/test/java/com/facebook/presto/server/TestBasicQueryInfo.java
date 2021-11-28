@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
@@ -52,14 +53,18 @@ public class TestBasicQueryInfo
                         URI.create("1"),
                         ImmutableList.of("2", "3"),
                         "SELECT 4",
+                        Optional.empty(),
                         new QueryStats(
                                 DateTime.parse("1991-09-06T05:00-05:30"),
                                 DateTime.parse("1991-09-06T05:01-05:30"),
                                 DateTime.parse("1991-09-06T05:02-05:30"),
                                 DateTime.parse("1991-09-06T06:00-05:30"),
                                 Duration.valueOf("8m"),
+                                Duration.valueOf("5m"),
                                 Duration.valueOf("7m"),
                                 Duration.valueOf("34m"),
+                                Duration.valueOf("5m"),
+                                Duration.valueOf("6m"),
                                 Duration.valueOf("35m"),
                                 Duration.valueOf("44m"),
                                 Duration.valueOf("9m"),
@@ -75,6 +80,7 @@ public class TestBasicQueryInfo
                                 34,
                                 19,
                                 20.0,
+                                43.0,
                                 DataSize.valueOf("21GB"),
                                 DataSize.valueOf("22GB"),
                                 DataSize.valueOf("23GB"),
@@ -109,7 +115,8 @@ public class TestBasicQueryInfo
                                         105,
                                         106,
                                         107)),
-                                ImmutableList.of()),
+                                ImmutableList.of(),
+                                new RuntimeStats()),
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(),
@@ -145,6 +152,7 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getEndTime(), DateTime.parse("1991-09-06T06:00-05:30"));
         assertEquals(basicInfo.getQueryStats().getElapsedTime(), Duration.valueOf("8m"));
         assertEquals(basicInfo.getQueryStats().getExecutionTime(), Duration.valueOf("44m"));
+        assertEquals(basicInfo.getQueryStats().getWaitingForPrerequisitesTime(), Duration.valueOf("5m"));
 
         assertEquals(basicInfo.getQueryStats().getTotalDrivers(), 16);
         assertEquals(basicInfo.getQueryStats().getQueuedDrivers(), 17);

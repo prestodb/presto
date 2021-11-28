@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.stream.InputStreamSources;
 
 import java.io.IOException;
-import java.util.Map;
 
 public interface StreamReader
 {
-    void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
+    void startStripe(Stripe stripe)
             throws IOException;
 
     void startRowGroup(InputStreamSources dataStreamSources)

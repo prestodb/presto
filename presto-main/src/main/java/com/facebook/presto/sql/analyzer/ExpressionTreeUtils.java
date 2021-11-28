@@ -18,14 +18,19 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Row;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 
@@ -126,7 +131,7 @@ public final class ExpressionTreeUtils
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    static Optional<TypeWithName> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
+    public static Optional<TypeWithName> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<QualifiedName> prefix = qualifiedName.getPrefix();
         if (!prefix.isPresent()) {
@@ -147,17 +152,15 @@ public final class ExpressionTreeUtils
         return Optional.empty();
     }
 
-    public static Optional<Object> tryResolveEnumLiteral(DereferenceExpression node, Type nodeType)
+    public static Object resolveEnumLiteral(DereferenceExpression node, Type nodeType)
     {
         QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (!(nodeType instanceof TypeWithName && ((TypeWithName) nodeType).getType() instanceof EnumType) || qualifiedName == null) {
-            return Optional.empty();
-        }
+
         EnumType enumType = (EnumType) ((TypeWithName) nodeType).getType();
         String enumKey = qualifiedName.getSuffix().toUpperCase(ENGLISH);
         checkArgument(enumType.getEnumMap().containsKey(enumKey), format("No key '%s' in enum '%s'", enumKey, nodeType.getDisplayName()));
         Object enumValue = enumType.getEnumMap().get(enumKey);
-        return enumValue instanceof String ? Optional.of(utf8Slice((String) enumValue)) : Optional.of(enumValue);
+        return enumValue instanceof String ? utf8Slice((String) enumValue) : enumValue;
     }
 
     public static FieldId checkAndGetColumnReferenceField(Expression expression, Multimap<NodeRef<Expression>, FieldId> columnReferences)
@@ -166,5 +169,47 @@ public final class ExpressionTreeUtils
         checkState(columnReferences.get(NodeRef.of(expression)).size() == 1, "Multiple field references for expression");
 
         return columnReferences.get(NodeRef.of(expression)).iterator().next();
+    }
+
+    public static boolean isNonNullConstant(Expression expression)
+    {
+        Expression tempExpression = expression;
+        while (tempExpression instanceof Cast) {
+            tempExpression = ((Cast) tempExpression).getExpression();
+        }
+
+        if (tempExpression instanceof NullLiteral) {
+            return false;
+        }
+
+        // now allow for things like ARRAY, ROW(...) where null is OK
+        return isConstant(tempExpression);
+    }
+
+    public static boolean isConstant(Expression expression)
+    {
+        Expression tempExpression = expression;
+        while (tempExpression instanceof Cast) {
+            tempExpression = ((Cast) tempExpression).getExpression();
+        }
+
+        if (tempExpression instanceof Literal || tempExpression instanceof ArrayConstructor) {
+            return true;
+        }
+
+        // ROW an MAP are special so we explicitly do that here.
+        if (tempExpression instanceof Row) {
+            return !(((Row) tempExpression).getItems().stream().filter(x -> !isConstant(expression)).findAny().isPresent());
+        }
+
+        if (tempExpression instanceof FunctionCall) {
+            // Hack to just allow map constructor
+            if (((FunctionCall) tempExpression).getName().getSuffix().equalsIgnoreCase("map")) {
+                return !((FunctionCall) tempExpression).getArguments().stream().filter(x -> !isConstant(expression)).findAny().isPresent();
+            }
+        }
+
+        // Everything else is considered non-const
+        return false;
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.json.Codec;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -35,10 +36,10 @@ import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.hive.util.HudiRealtimeSplitConverter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
@@ -86,7 +87,11 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -123,7 +128,11 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.fileModifiedTimeColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.fileSizeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isFileModifiedTimeColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isFileSizeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -240,8 +249,8 @@ public final class HiveUtil
         }
 
         schema.stringPropertyNames().stream()
-            .filter(schemaFilter)
-            .forEach(name -> jobConf.set(name, schema.getProperty(name)));
+                .filter(schemaFilter)
+                .forEach(name -> jobConf.set(name, schema.getProperty(name)));
 
         // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
         List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
@@ -361,9 +370,9 @@ public final class HiveUtil
     {
         InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), false);
         return Arrays.stream(inputFormat.getClass().getAnnotations())
-            .map(Annotation::annotationType)
-            .map(Class::getSimpleName)
-            .anyMatch(name -> name.equals("UseRecordReaderFromInputFormat"));
+                .map(Annotation::annotationType)
+                .map(Class::getSimpleName)
+                .anyMatch(name -> name.equals("UseRecordReaderFromInputFormat"));
     }
 
     public static long parseHiveDate(String value)
@@ -527,10 +536,15 @@ public final class HiveUtil
                 isCharType(type);
     }
 
+    public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)
+    {
+        return parsePartitionValue(key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
+    }
+
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
-        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value) || isHiveNull(value.getBytes(UTF_8));
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -855,11 +869,6 @@ public final class HiveUtil
         return partitionKey;
     }
 
-    public static SchemaTableName schemaTableName(ConnectorTableHandle tableHandle)
-    {
-        return ((HiveTableHandle) tableHandle).getSchemaTableName();
-    }
-
     public static List<HiveColumnHandle> hiveColumnHandles(Table table)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
@@ -875,6 +884,8 @@ public final class HiveUtil
         if (table.getStorage().getBucketProperty().isPresent()) {
             columns.add(bucketColumnHandle());
         }
+        columns.add(fileSizeColumnHandle());
+        columns.add(fileModifiedTimeColumnHandle());
 
         return columns.build();
     }
@@ -919,20 +930,27 @@ public final class HiveUtil
         return partitionKey ? "partition key" : null;
     }
 
-    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
+    public static Optional<String> getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber, long fileSize, long fileModifiedTime)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
         }
         if (isPathColumnHandle(columnHandle)) {
-            return path.toString();
+            return Optional.of(path.toString());
         }
         if (isBucketColumnHandle(columnHandle)) {
             if (!bucketNumber.isPresent()) {
                 throw new PrestoException(HIVE_TABLE_BUCKETING_IS_IGNORED, "Table bucketing is ignored. The virtual \"$bucket\" column cannot be referenced.");
             }
-            return String.valueOf(bucketNumber.getAsInt());
+            return Optional.of(String.valueOf(bucketNumber.getAsInt()));
         }
+        if (isFileSizeColumnHandle(columnHandle)) {
+            return Optional.of(String.valueOf(fileSize));
+        }
+        if (isFileModifiedTimeColumnHandle(columnHandle)) {
+            return Optional.of(String.valueOf(fileModifiedTime));
+        }
+
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
 
@@ -1167,5 +1185,30 @@ public final class HiveUtil
         }
 
         return typeSignature;
+    }
+
+    public static <T> byte[] serializeZstdCompressed(Codec<T> codec, T instance)
+    {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+                ZstdOutputStreamNoFinalizer zstdOutput = new ZstdOutputStreamNoFinalizer(output)) {
+            codec.writeBytes(zstdOutput, instance);
+            zstdOutput.close();
+            output.close();
+            return output.toByteArray();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static <T> T deserializeZstdCompressed(Codec<T> codec, byte[] bytes)
+    {
+        try (InputStream input = new ByteArrayInputStream(bytes);
+                ZstdInputStreamNoFinalizer zstdInput = new ZstdInputStreamNoFinalizer(input)) {
+            return codec.readBytes(zstdInput);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

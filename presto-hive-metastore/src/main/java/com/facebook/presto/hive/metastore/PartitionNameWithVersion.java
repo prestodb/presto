@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class PartitionNameWithVersion
 {
     private final String partitionName;
-    private final long partitionVersion;
+    private final Optional<Long> partitionVersion;
 
-    public PartitionNameWithVersion(String partitionName, long partitionVersion)
+    public PartitionNameWithVersion(String partitionName, Optional<Long> partitionVersion)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
-        this.partitionVersion = partitionVersion;
+        this.partitionVersion = requireNonNull(partitionVersion, "partitionVersion is null");
     }
 
     public String getPartitionName()
@@ -31,7 +33,7 @@ public class PartitionNameWithVersion
         return partitionName;
     }
 
-    public long getPartitionVersion()
+    public Optional<Long> getPartitionVersion()
     {
         return partitionVersion;
     }

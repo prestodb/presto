@@ -16,10 +16,13 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.TopologyAwareNodeSelector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -27,6 +30,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -53,7 +57,10 @@ import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static com.facebook.presto.SystemSessionProperties.getResourceAwareSchedulingStrategy;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -80,11 +87,31 @@ public class NodeScheduler
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
     private final Duration nodeMapRefreshInterval;
+    private final NodeTtlFetcherManager nodeTtlFetcherManager;
+    private final QueryManager queryManager;
+    private final SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig;
 
     @Inject
-    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSelectionStats nodeSelectionStats, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
+    public NodeScheduler(
+            NetworkTopology networkTopology,
+            InternalNodeManager nodeManager,
+            NodeSelectionStats nodeSelectionStats,
+            NodeSchedulerConfig config,
+            NodeTaskMap nodeTaskMap,
+            NodeTtlFetcherManager nodeTtlFetcherManager,
+            QueryManager queryManager,
+            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig)
     {
-        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, nodeSelectionStats, config, nodeTaskMap, new Duration(5, SECONDS));
+        this(new NetworkLocationCache(networkTopology),
+                networkTopology,
+                nodeManager,
+                nodeSelectionStats,
+                config,
+                nodeTaskMap,
+                new Duration(5, SECONDS),
+                nodeTtlFetcherManager,
+                queryManager,
+                simpleTtlNodeSelectorConfig);
     }
 
     public NodeScheduler(
@@ -94,7 +121,10 @@ public class NodeScheduler
             NodeSelectionStats nodeSelectionStats,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
-            Duration nodeMapRefreshInterval)
+            Duration nodeMapRefreshInterval,
+            NodeTtlFetcherManager nodeTtlFetcherManager,
+            QueryManager queryManager,
+            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig)
     {
         this.networkLocationCache = networkLocationCache;
         this.nodeManager = nodeManager;
@@ -119,6 +149,9 @@ public class NodeScheduler
         }
         topologicalSplitCounters = builder.build();
         this.nodeMapRefreshInterval = requireNonNull(nodeMapRefreshInterval, "nodeMapRefreshInterval is null");
+        this.nodeTtlFetcherManager = requireNonNull(nodeTtlFetcherManager, "nodeTtlFetcherManager is null");
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.simpleTtlNodeSelectorConfig = requireNonNull(simpleTtlNodeSelectorConfig, "simpleTtlNodeSelectorConfig is null");
     }
 
     @PreDestroy
@@ -149,6 +182,7 @@ public class NodeScheduler
                 memoizeWithExpiration(createNodeMapSupplier(connectorId), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId);
 
         int maxUnacknowledgedSplitsPerTask = getMaxUnacknowledgedSplitsPerTask(requireNonNull(session, "session is null"));
+        ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = getResourceAwareSchedulingStrategy(session);
         if (useNetworkTopology) {
             return new TopologyAwareNodeSelector(
                     nodeManager,
@@ -164,9 +198,36 @@ public class NodeScheduler
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
-        else {
-            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, maxTasksPerStage);
+
+        SimpleNodeSelector simpleNodeSelector = new SimpleNodeSelector(
+                nodeManager,
+                nodeSelectionStats,
+                nodeTaskMap,
+                includeCoordinator,
+                nodeMap,
+                minCandidates,
+                maxSplitsPerNode,
+                maxPendingSplitsPerTask,
+                maxUnacknowledgedSplitsPerTask,
+                maxTasksPerStage);
+
+        if (resourceAwareSchedulingStrategy == TTL) {
+            return new SimpleTtlNodeSelector(
+                    simpleNodeSelector,
+                    simpleTtlNodeSelectorConfig,
+                    nodeTaskMap,
+                    nodeMap,
+                    minCandidates,
+                    includeCoordinator,
+                    maxSplitsPerNode,
+                    maxPendingSplitsPerTask,
+                    maxTasksPerStage,
+                    nodeTtlFetcherManager,
+                    queryManager,
+                    session);
         }
+
+        return simpleNodeSelector;
     }
 
     private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId)
@@ -180,11 +241,11 @@ public class NodeScheduler
             Set<InternalNode> activeNodes;
             Set<InternalNode> allNodes;
             if (connectorId != null) {
-                activeNodes = nodeManager.getActiveConnectorNodes(connectorId);
-                allNodes = nodeManager.getAllConnectorNodes(connectorId);
+                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
+                allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
             }
             else {
-                activeNodes = nodeManager.getNodes(ACTIVE);
+                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
                 allNodes = activeNodes;
             }
 

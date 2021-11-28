@@ -15,13 +15,13 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -61,6 +61,8 @@ public class TimestampColumnWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
     private static final int MILLIS_PER_SECOND = 1000;
     private static final int MILLIS_TO_NANOS_TRAILING_ZEROS = 5;
+    // Timestamp is encoded as Seconds (Long) and Nanos (Integer)
+    private static final long TIMESTAMP_RAW_SIZE = Long.BYTES + Integer.BYTES;
 
     private final int column;
     private final Type type;
@@ -80,27 +82,27 @@ public class TimestampColumnWriter
 
     private boolean closed;
 
-    public TimestampColumnWriter(int column, Type type, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, DateTimeZone hiveStorageTimeZone, MetadataWriter metadataWriter)
+    public TimestampColumnWriter(int column, Type type, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, DateTimeZone hiveStorageTimeZone, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        requireNonNull(compressionParameters, "compression is null");
+        requireNonNull(columnWriterOptions, "compression is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
-        this.compressed = compressionParameters.getKind() != NONE;
+        this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         if (orcEncoding == DWRF) {
             this.columnEncoding = new ColumnEncoding(DIRECT, 0);
-            this.secondsStream = new LongOutputStreamV1(compressionParameters, dwrfEncryptor, true, DATA);
-            this.nanosStream = new LongOutputStreamV1(compressionParameters, dwrfEncryptor, false, SECONDARY);
+            this.secondsStream = new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, true, DATA);
+            this.nanosStream = new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, false, SECONDARY);
         }
         else {
             this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-            this.secondsStream = new LongOutputStreamV2(compressionParameters, true, DATA);
-            this.nanosStream = new LongOutputStreamV2(compressionParameters, false, SECONDARY);
+            this.secondsStream = new LongOutputStreamV2(columnWriterOptions, true, DATA);
+            this.nanosStream = new LongOutputStreamV2(columnWriterOptions, false, SECONDARY);
         }
-        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
     }
 
@@ -119,7 +121,7 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -130,6 +132,7 @@ public class TimestampColumnWriter
         }
 
         // record values
+        int blockNonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 long value = type.getLong(block, position);
@@ -161,16 +164,19 @@ public class TimestampColumnWriter
 
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);
-                nonNullValueCount++;
+                blockNonNullValueCount++;
             }
         }
+
+        nonNullValueCount += blockNonNullValueCount;
+        return (block.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + blockNonNullValueCount * TIMESTAMP_RAW_SIZE;
     }
 
     @Override
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;

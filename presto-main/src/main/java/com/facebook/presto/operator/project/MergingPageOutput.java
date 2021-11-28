@@ -18,6 +18,7 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -31,8 +32,10 @@ import java.util.Optional;
 import java.util.Queue;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -57,15 +60,18 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class MergingPageOutput
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MergingPageOutput.class).instanceSize();
+    @VisibleForTesting
+    static final int INSTANCE_SIZE = ClassLayout.parseClass(MergingPageOutput.class).instanceSize();
     private static final int MAX_MIN_PAGE_SIZE = 1024 * 1024;
 
     private final List<Type> types;
-    private final PageBuilder pageBuilder;
+    @Nullable
+    private final PageBuilder pageBuilder; // when null, only page position counts are output
     private final Queue<Page> outputQueue = new LinkedList<>();
 
     private final long minPageSizeInBytes;
     private final int minRowCount;
+    private int pendingPositionCount;
 
     @Nullable
     private Iterator<Optional<Page>> currentInput;
@@ -79,14 +85,19 @@ public class MergingPageOutput
     public MergingPageOutput(Iterable<? extends Type> types, long minPageSizeInBytes, int minRowCount, int maxPageSizeInBytes)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        checkArgument(minPageSizeInBytes >= 0, "minPageSizeInBytes must be greater or equal than zero");
         checkArgument(minRowCount >= 0, "minRowCount must be greater or equal than zero");
+        checkArgument(minRowCount <= MAX_BATCH_SIZE, "minRowCount must be less than or equal to %s", MAX_BATCH_SIZE);
         checkArgument(maxPageSizeInBytes > 0, "maxPageSizeInBytes must be greater than zero");
         checkArgument(maxPageSizeInBytes >= minPageSizeInBytes, "maxPageSizeInBytes must be greater or equal than minPageSizeInBytes");
         checkArgument(minPageSizeInBytes <= MAX_MIN_PAGE_SIZE, "minPageSizeInBytes must be less or equal than %d", MAX_MIN_PAGE_SIZE);
         this.minPageSizeInBytes = minPageSizeInBytes;
         this.minRowCount = minRowCount;
-        pageBuilder = PageBuilder.withMaxPageSize(maxPageSizeInBytes, this.types);
+        if (this.types.isEmpty()) {
+            pageBuilder = null; // position count only mode
+        }
+        else {
+            pageBuilder = PageBuilder.withMaxPageSize(maxPageSizeInBytes, this.types);
+        }
     }
 
     public boolean needsInput()
@@ -105,6 +116,10 @@ public class MergingPageOutput
     @Nullable
     public Page getOutput()
     {
+        if (isPositionCountOnly()) {
+            return producePositionCountOnlyOutput();
+        }
+
         if (!outputQueue.isEmpty()) {
             return outputQueue.poll();
         }
@@ -142,15 +157,75 @@ public class MergingPageOutput
 
     public boolean isFinished()
     {
-        return finishing && currentInput == null && outputQueue.isEmpty() && pageBuilder.isEmpty();
+        return finishing && currentInput == null && outputQueue.isEmpty() && pendingPositionCount == 0 && (isPositionCountOnly() || pageBuilder.isEmpty());
+    }
+
+    private boolean isPositionCountOnly()
+    {
+        return pageBuilder == null;
+    }
+
+    /**
+     * Specialized implementation of {@link MergingPageOutput#getOutput()} that:
+     * 1. Doesn't use the {@link MergingPageOutput#pageBuilder} because we can accumulate small pages in an integer field
+     * 2. Can arbitrarily reorder output pages with no columns and therefore does not need to flush small accumulated input
+     *    values when a sufficiently large page is encountered
+     * 3. Will periodically flush accumulated positionCounts once a combined sum of {@link PageProcessor#MAX_BATCH_SIZE} is
+     *    reached, this avoids creating pages with huge position counts that might harm downstream operators
+     * 4. As a consequence of the above, will always produce either 0 or 1 output pages, which means it doesn't need or use {@link MergingPageOutput#outputQueue}
+     */
+    @Nullable
+    private Page producePositionCountOnlyOutput()
+    {
+        while (currentInput != null) {
+            if (!currentInput.hasNext()) {
+                currentInput = null;
+                break;
+            }
+
+            Optional<Page> next = currentInput.next();
+            if (next.isPresent()) {
+                Page nextPage = next.get();
+                if (nextPage.getPositionCount() >= MAX_BATCH_SIZE) {
+                    // Return pages exceeding the target size directly without accumulating
+                    return nextPage;
+                }
+                // Accumulate pending positions for small pages
+                pendingPositionCount += nextPage.getPositionCount();
+                if (nextPage.getPositionCount() >= minRowCount || pendingPositionCount >= MAX_BATCH_SIZE) {
+                    // Produce a combined positionCount output when individual pages meet the minRowCount
+                    // or when accumulated pending positions has reached our output size limit
+                    int outputPositions = min(pendingPositionCount, MAX_BATCH_SIZE);
+                    pendingPositionCount -= outputPositions;
+                    return new Page(outputPositions);
+                }
+            }
+            else {
+                break; // yield triggered
+            }
+        }
+
+        if (currentInput == null && finishing && pendingPositionCount > 0) {
+            // Flush the remaining output positions
+            Page result = new Page(pendingPositionCount);
+            pendingPositionCount = 0;
+            return result;
+        }
+
+        return null;
     }
 
     private void process(Page page)
     {
         requireNonNull(page, "page is null");
 
+        int inputPositions = page.getPositionCount();
+        if (inputPositions == 0) {
+            return;
+        }
+
         // avoid memory copying for pages that are big enough
-        if (page.getSizeInBytes() >= minPageSizeInBytes || page.getPositionCount() >= minRowCount) {
+        if (page.getSizeInBytes() >= minPageSizeInBytes || inputPositions >= minRowCount) {
             flush();
             outputQueue.add(page);
             return;
@@ -161,6 +236,7 @@ public class MergingPageOutput
 
     private void buffer(Page page)
     {
+        checkArgument(!isPositionCountOnly(), "position count only pages should not be buffered");
         pageBuilder.declarePositions(page.getPositionCount());
         for (int channel = 0; channel < types.size(); channel++) {
             Type type = types.get(channel);
@@ -177,7 +253,7 @@ public class MergingPageOutput
 
     private void flush()
     {
-        if (!pageBuilder.isEmpty()) {
+        if (!isPositionCountOnly() && !pageBuilder.isEmpty()) {
             Page output = pageBuilder.build();
             pageBuilder.reset();
             outputQueue.add(output);
@@ -186,8 +262,10 @@ public class MergingPageOutput
 
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE;
-        retainedSizeInBytes += pageBuilder.getRetainedSizeInBytes();
+        if (isPositionCountOnly()) {
+            return INSTANCE_SIZE; // position count only does not use the pageBuilder or outputQueue
+        }
+        long retainedSizeInBytes = INSTANCE_SIZE + pageBuilder.getRetainedSizeInBytes();
         for (Page page : outputQueue) {
             retainedSizeInBytes += page.getRetainedSizeInBytes();
         }

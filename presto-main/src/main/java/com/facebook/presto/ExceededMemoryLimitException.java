@@ -17,9 +17,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.units.DataSize;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_REVOCABLE_MEMORY_LIMIT;
+import static com.facebook.presto.util.HeapDumper.dumpHeap;
 import static java.lang.String.format;
 
 public class ExceededMemoryLimitException
@@ -30,13 +33,18 @@ public class ExceededMemoryLimitException
         return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed user memory limit of %s", maxMemory));
     }
 
-    public static ExceededMemoryLimitException exceededGlobalTotalLimit(DataSize maxMemory)
+    public static ExceededMemoryLimitException exceededGlobalTotalLimit(DataSize maxMemory, String limitSource)
     {
-        return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed total memory limit of %s", maxMemory));
+        return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed total memory limit of %s defined at the %s", maxMemory, limitSource));
     }
 
-    public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
+    public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(
+            DataSize maxMemory,
+            String additionalFailureInfo,
+            boolean heapDumpOnExceededMemoryLimitEnabled,
+            Optional<String> heapDumpFilePath)
     {
+        performHeapDumpIfEnabled(heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
                 format("Query exceeded per-node user memory limit of %s [%s]", maxMemory, additionalFailureInfo));
     }
@@ -47,17 +55,36 @@ public class ExceededMemoryLimitException
                 format("Query exceeded per-node broadcast memory limit of %s [%s]", maxMemory, additionalFailureInfo));
     }
 
-    public static ExceededMemoryLimitException exceededLocalTotalMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
+    public static ExceededMemoryLimitException exceededLocalTotalMemoryLimit(
+            DataSize maxMemory,
+            String additionalFailureInfo,
+            boolean heapDumpOnExceededMemoryLimitEnabled,
+            Optional<String> heapDumpFilePath)
     {
+        performHeapDumpIfEnabled(heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
                 format("Query exceeded per-node total memory limit of %s [%s]", maxMemory, additionalFailureInfo));
     }
 
-    public static ExceededMemoryLimitException exceededLocalRevocableMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
+    public static ExceededMemoryLimitException exceededLocalRevocableMemoryLimit(
+            DataSize maxMemory,
+            String additionalFailureInfo,
+            boolean heapDumpOnExceededMemoryLimitEnabled,
+            Optional<String> heapDumpFilePath)
     {
+        performHeapDumpIfEnabled(heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         return new ExceededMemoryLimitException(
                 EXCEEDED_REVOCABLE_MEMORY_LIMIT,
                 format("Query exceeded per-node revocable memory limit of %s [%s]", maxMemory, additionalFailureInfo));
+    }
+
+    // Heap dump is done synchronously to ensure that we capture the current state of the heap
+    // This is intended to be used for debugging purposes only
+    private static void performHeapDumpIfEnabled(boolean heapDumpOnExceededMemoryLimitEnabled, Optional<String> heapDumpFilePath)
+    {
+        if (heapDumpOnExceededMemoryLimitEnabled && heapDumpFilePath.isPresent()) {
+            dumpHeap(heapDumpFilePath.get());
+        }
     }
 
     private ExceededMemoryLimitException(StandardErrorCode errorCode, String message)

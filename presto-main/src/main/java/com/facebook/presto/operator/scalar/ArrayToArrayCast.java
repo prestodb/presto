@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
@@ -29,10 +30,10 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
 import com.facebook.presto.sql.gen.ArrayMapBytecodeExpression;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
-import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -47,8 +48,8 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
@@ -77,7 +78,7 @@ public class ArrayToArrayCast
         Type toType = boundVariables.getTypeVariable("T");
 
         FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
-        BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
+        JavaScalarFunctionImplementation function = functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle);
         Class<?> castOperatorClass = generateArrayCast(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(functionHandle), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", SqlFunctionProperties.class, Block.class);
         return new BuiltInScalarFunctionImplementation(
@@ -88,7 +89,7 @@ public class ArrayToArrayCast
                 methodHandle);
     }
 
-    private static Class<?> generateArrayCast(TypeManager typeManager, FunctionMetadata elementCastFunctionMetadata, BuiltInScalarFunctionImplementation elementCast)
+    private static Class<?> generateArrayCast(TypeManager typeManager, FunctionMetadata elementCastFunctionMetadata, JavaScalarFunctionImplementation elementCast)
     {
         CallSiteBinder binder = new CallSiteBinder();
 

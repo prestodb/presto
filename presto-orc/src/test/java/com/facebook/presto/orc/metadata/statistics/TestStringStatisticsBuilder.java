@@ -322,17 +322,13 @@ public class TestStringStatisticsBuilder
 
     private static ColumnStatistics stringColumnStatistics(Slice minimum, Slice maximum)
     {
-        return new ColumnStatistics(
+        if (minimum == null && maximum == null) {
+            return new ColumnStatistics(100L, null);
+        }
+        return new StringColumnStatistics(
                 100L,
-                100,
                 null,
-                null,
-                null,
-                minimum == null && maximum == null ? null : new StringStatistics(minimum, maximum, 100),
-                null,
-                null,
-                null,
-                null);
+                new StringStatistics(minimum, maximum, 100));
     }
 
     private void assertStringStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)

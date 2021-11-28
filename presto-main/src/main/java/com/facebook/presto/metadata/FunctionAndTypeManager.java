@@ -30,7 +30,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -38,8 +37,10 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -163,7 +164,7 @@ public class FunctionAndTypeManager
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties);
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
 
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
@@ -245,18 +246,27 @@ public class FunctionAndTypeManager
         builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
-    public List<SqlFunction> listFunctions(Session session)
+    /**
+     * likePattern / escape is an opportunistic optimization push down to function namespace managers.
+     * Not all function namespace managers can handle it, thus the returned function list could
+     * include functions that doesn't comply with the pattern specified. Specifically, all session
+     * functions and builtin functions will always be included in the returned set. So proper handling
+     * is still needed in `ShowQueriesRewrite`.
+     */
+    public List<SqlFunction> listFunctions(Session session, Optional<String> likePattern, Optional<String> escape)
     {
-        ImmutableList.Builder<SqlFunction> lb = new ImmutableList.Builder<>();
-        lb.addAll(listBuiltInFunctions());
+        ImmutableList.Builder<SqlFunction> functions = new ImmutableList.Builder<>();
         if (!isListBuiltInFunctionsOnly(session)) {
-            lb.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
-            lb.addAll(functionNamespaceManagers.values().stream()
-                    .flatMap(manager -> manager.listFunctions().stream())
+            functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
+            functions.addAll(functionNamespaceManagers.values().stream()
+                    .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
                     .collect(toImmutableList()));
         }
+        else {
+            functions.addAll(listBuiltInFunctions());
+        }
 
-        return lb.build().stream()
+        return functions.build().stream()
                 .filter(function -> function.getVisibility() == PUBLIC ||
                         (function.getVisibility() == EXPERIMENTAL && isExperimentalFunctionsEnabled(session)))
                 .collect(toImmutableList());
@@ -264,7 +274,7 @@ public class FunctionAndTypeManager
 
     public Collection<SqlFunction> listBuiltInFunctions()
     {
-        return builtInTypeAndFunctionNamespaceManager.listFunctions();
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty());
     }
 
     public Collection<? extends SqlFunction> getFunctions(Session session, QualifiedObjectName functionName)
@@ -429,9 +439,13 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
     }
 
-    public BuiltInScalarFunctionImplementation getBuiltInScalarFunctionImplementation(FunctionHandle functionHandle)
+    public JavaScalarFunctionImplementation getJavaScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return (BuiltInScalarFunctionImplementation) builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        ScalarFunctionImplementation implementation = getScalarFunctionImplementation(functionHandle);
+        checkArgument(
+                implementation instanceof JavaScalarFunctionImplementation,
+                format("Implementation of function %s is not a JavaScalarFunctionImplementation", getFunctionMetadata(functionHandle).getName()));
+        return (JavaScalarFunctionImplementation) implementation;
     }
 
     @VisibleForTesting
@@ -441,7 +455,7 @@ public class FunctionAndTypeManager
                 .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
-        return builtInTypeAndFunctionNamespaceManager.listFunctions().stream()
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty()).stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }
@@ -512,6 +526,11 @@ public class FunctionAndTypeManager
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
                 .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
+
+        if (functionNamespaceManager.canResolveFunction()) {
+            return functionNamespaceManager.resolveFunction(transactionHandle, functionName, parameterTypes.stream().map(TypeSignatureProvider::getTypeSignature).collect(toImmutableList()));
+        }
+
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);

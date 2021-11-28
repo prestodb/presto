@@ -61,7 +61,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static java.lang.Double.isNaN;
-import static java.lang.Double.sum;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -96,6 +95,7 @@ public class TDigest
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TDigest.class).instanceSize();
     private static final double MAX_COMPRESSION_FACTOR = 1_000;
     private static final double sizeFudge = 30;
+    private static final double EPSILON = 0.001;
 
     private double min = Double.POSITIVE_INFINITY;
     private double max = Double.NEGATIVE_INFINITY;
@@ -197,7 +197,7 @@ public class TDigest
         add(x, 1);
     }
 
-    public void add(double x, long w)
+    public void add(double x, double w)
     {
         checkArgument(!isNaN(x), "Cannot add NaN to t-digest");
         checkArgument(w > 0L, "weight must be > 0");
@@ -334,7 +334,7 @@ public class TDigest
             sumWeights += weight[i];
         }
 
-        checkArgument(sumWeights == totalWeight, "Sum must equal the total weight, but sum:%s != totalWeight:%s", sumWeights, totalWeight);
+        checkArgument(Math.abs(sumWeights - totalWeight) < EPSILON, "Sum must equal the total weight, but sum:%s != totalWeight:%s", sumWeights, totalWeight);
         if (runBackwards) {
             reverse(mean, 0, activeCentroids);
             reverse(weight, 0, activeCentroids);
@@ -593,7 +593,7 @@ public class TDigest
                     @Override
                     public Centroid next()
                     {
-                        Centroid rc = new Centroid(mean[i], (int) weight[i]);
+                        Centroid rc = new Centroid(mean[i], weight[i]);
                         i++;
                         return rc;
                     }

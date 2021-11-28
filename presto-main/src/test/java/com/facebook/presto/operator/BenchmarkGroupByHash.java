@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.LongBigArray;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -79,7 +80,13 @@ public class BenchmarkGroupByHash
     public Object groupByHashPreCompute(BenchmarkData data)
     {
         GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(data.isGroupByUsesEqual()), NOOP);
-        data.getPages().forEach(p -> groupByHash.getGroupIds(p).process());
+        for (Page page : data.getPages()) {
+            Work<?> work = groupByHash.addPage(page);
+            boolean finished;
+            do {
+                finished = work.process();
+            } while (!finished);
+        }
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
@@ -97,10 +104,32 @@ public class BenchmarkGroupByHash
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
+    public List<Page> benchmarkHashPosition(BenchmarkData data)
+    {
+        InterpretedHashGenerator hashGenerator = new InterpretedHashGenerator(data.getTypes(), data.getChannels());
+        ImmutableList.Builder<Page> results = ImmutableList.builderWithExpectedSize(data.getPages().size());
+        for (Page page : data.getPages()) {
+            long[] hashes = new long[page.getPositionCount()];
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                hashes[position] = hashGenerator.hashPosition(position, page);
+            }
+            results.add(page.appendColumn(new LongArrayBlock(page.getPositionCount(), Optional.empty(), hashes)));
+        }
+        return results.build();
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
         GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(data.isGroupByUsesEqual()), NOOP);
-        data.getPages().forEach(p -> groupByHash.addPage(p).process());
+        for (Page page : data.getPages()) {
+            Work<?> work = groupByHash.addPage(page);
+            boolean finished;
+            do {
+                finished = work.process();
+            } while (!finished);
+        }
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
@@ -121,7 +150,13 @@ public class BenchmarkGroupByHash
     public Object bigintGroupByHash(SingleChannelBenchmarkData data)
     {
         GroupByHash groupByHash = new BigintGroupByHash(0, data.getHashEnabled(), EXPECTED_SIZE, NOOP);
-        data.getPages().forEach(p -> groupByHash.addPage(p).process());
+        for (Page page : data.getPages()) {
+            Work<?> work = groupByHash.addPage(page);
+            boolean finished;
+            do {
+                finished = work.process();
+            } while (!finished);
+        }
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());

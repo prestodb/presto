@@ -28,12 +28,6 @@ public class TestCanonicalizeExpressionRewriter
     }
 
     @Test
-    public void testRewriteIfExpression()
-    {
-        assertRewritten("IF(x = 0, 0, 1)", "CASE WHEN x = 0 THEN 0 ELSE 1 END");
-    }
-
-    @Test
     public void testRewriteCurrentTime()
     {
         assertRewritten("CURRENT_TIME", "\"current_time\"()");

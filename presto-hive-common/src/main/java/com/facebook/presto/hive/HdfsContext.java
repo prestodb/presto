@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -32,6 +33,8 @@ public class HdfsContext
     // true if the table already exist in the metastore, false if the table is about to be created in the current transaction
     private final Optional<Boolean> isNewTable;
     private final Optional<String> clientInfo;
+    private final Optional<Set<String>> clientTags;
+    private final Optional<ConnectorSession> session;
 
     /**
      *  Table information is expected to be provided when accessing a storage.
@@ -46,8 +49,10 @@ public class HdfsContext
         this.schemaName = Optional.empty();
         this.tableName = Optional.empty();
         this.clientInfo = Optional.empty();
+        this.clientTags = Optional.empty();
         this.tablePath = Optional.empty();
         this.isNewTable = Optional.empty();
+        this.session = Optional.empty();
     }
 
     /**
@@ -109,13 +114,14 @@ public class HdfsContext
             Optional<String> tablePath,
             Optional<Boolean> isNewTable)
     {
-        requireNonNull(session, "session is null");
+        this.session = Optional.of(requireNonNull(session, "session is null"));
         this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
         this.source = requireNonNull(session.getSource(), "session.getSource() is null");
         this.queryId = Optional.of(session.getQueryId());
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.clientInfo = session.getClientInfo();
+        this.clientTags = Optional.of(session.getClientTags());
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.isNewTable = requireNonNull(isNewTable, "isNewTable is null");
     }
@@ -160,6 +166,16 @@ public class HdfsContext
         return clientInfo;
     }
 
+    public Optional<Set<String>> getClientTags()
+    {
+        return clientTags;
+    }
+
+    public Optional<ConnectorSession> getSession()
+    {
+        return session;
+    }
+
     @Override
     public String toString()
     {
@@ -173,6 +189,8 @@ public class HdfsContext
                 .add("tablePath", tablePath.orElse(null))
                 .add("isNewTable", isNewTable.orElse(null))
                 .add("clientInfo", clientInfo.orElse(null))
+                .add("clientTags", clientTags.orElse(null))
+                .add("session", session.orElse(null))
                 .toString();
     }
 }

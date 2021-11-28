@@ -38,9 +38,9 @@ public class ArrayBlockBuilder
     private int positionCount;
 
     @Nullable
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
+    private final int initialEntryCount;
     private boolean initialized;
-    private int initialEntryCount;
 
     private int[] offsets = new int[1];
     private boolean[] valueIsNull = new boolean[0];
@@ -135,10 +135,24 @@ public class ArrayBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getValueIsNull()
     {
-        return valueIsNull;
+        return hasNullValue ? valueIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return hasNullValue && valueIsNull[position];
     }
 
     @Override
@@ -160,6 +174,12 @@ public class ArrayBlockBuilder
 
         closeEntry();
         return this;
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        return getSingleValueBlockInternal(position);
     }
 
     @Override

@@ -43,7 +43,9 @@ public class TestMetastoreClientConfig
                 .setRecordingDuration(new Duration(0, TimeUnit.MINUTES))
                 .setReplay(false)
                 .setPartitionVersioningEnabled(false)
-                .setMetastoreCacheScope(MetastoreCacheScope.ALL));
+                .setMetastoreCacheScope(MetastoreCacheScope.ALL)
+                .setMetastoreImpersonationEnabled(false)
+                .setPartitionCacheValidationPercentage(0));
     }
 
     @Test
@@ -64,6 +66,8 @@ public class TestMetastoreClientConfig
                 .put("hive.replay-metastore-recording", "true")
                 .put("hive.partition-versioning-enabled", "true")
                 .put("hive.metastore-cache-scope", "PARTITION")
+                .put("hive.metastore-impersonation-enabled", "true")
+                .put("hive.partition-cache-validation-percentage", "60.0")
                 .build();
 
         MetastoreClientConfig expected = new MetastoreClientConfig()
@@ -80,7 +84,9 @@ public class TestMetastoreClientConfig
                 .setRecordingDuration(new Duration(42, TimeUnit.SECONDS))
                 .setReplay(true)
                 .setPartitionVersioningEnabled(true)
-                .setMetastoreCacheScope(MetastoreCacheScope.PARTITION);
+                .setMetastoreCacheScope(MetastoreCacheScope.PARTITION)
+                .setMetastoreImpersonationEnabled(true)
+                .setPartitionCacheValidationPercentage(60.0);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

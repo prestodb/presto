@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.252-SNAPSHOT</version>
+        <version>0.267-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tpcds</artifactId>
@@ -80,6 +80,12 @@
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-testng-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
         </dependency>
@@ -87,13 +93,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
-            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 

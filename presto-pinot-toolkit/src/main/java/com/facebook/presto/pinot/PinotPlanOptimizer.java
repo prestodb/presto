@@ -81,11 +81,7 @@ public class PinotPlanOptimizer
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator)
     {
-        Map<TableScanNode, Void> scanNodes = maxSubplan.accept(new TableFindingVisitor(), null);
-        TableScanNode pinotTableScanNode = getOnlyPinotTable(scanNodes)
-                .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR,
-                        "Expected to find the pinot table handle for the scan node"));
-        return maxSubplan.accept(new Visitor(pinotTableScanNode, session, idAllocator), null);
+        return maxSubplan.accept(new Visitor(session, idAllocator), null);
     }
 
     private static Optional<PinotTableHandle> getPinotTableHandle(TableScanNode tableScanNode)
@@ -143,24 +139,23 @@ public class PinotPlanOptimizer
 
     // Single use visitor that needs the pinot table handle
     private class Visitor
-            extends PlanVisitor<PlanNode, Void>
+            extends PlanVisitor<PlanNode, TableScanNode>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final ConnectorSession session;
-        private final TableScanNode tableScanNode;
         private final IdentityHashMap<FilterNode, Void> filtersSplitUp = new IdentityHashMap<>();
 
-        public Visitor(TableScanNode tableScanNode, ConnectorSession session, PlanNodeIdAllocator idAllocator)
+        public Visitor(ConnectorSession session, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.idAllocator = idAllocator;
-            this.tableScanNode = tableScanNode;
-            // Just making sure that the table exists
-            getPinotTableHandle(this.tableScanNode).get().getTableName();
         }
 
-        private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan)
+        private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan, TableScanNode tableScanNode)
         {
+            if (tableScanNode == null) {
+                return Optional.empty();
+            }
             Optional<PinotQueryGenerator.PinotQueryGeneratorResult> pinotQuery = pinotQueryGenerator.generate(plan, session);
             if (!pinotQuery.isPresent()) {
                 return Optional.empty();
@@ -168,7 +163,7 @@ public class PinotPlanOptimizer
             PinotTableHandle pinotTableHandle = getPinotTableHandle(tableScanNode).orElseThrow(() -> new PinotException(PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Expected to find a pinot table handle"));
             PinotQueryGeneratorContext context = pinotQuery.get().getContext();
             TableHandle oldTableHandle = tableScanNode.getTable();
-            LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = context.getAssignments();
+            LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = context.getAssignments(pinotQuery.get().getGeneratedPinotQuery().getFormat() == PinotQueryGenerator.PinotQueryFormat.SQL);
             boolean isQueryShort = pinotQuery.get().getGeneratedPinotQuery().isQueryShort();
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
@@ -192,16 +187,20 @@ public class PinotPlanOptimizer
         }
 
         @Override
-        public PlanNode visitPlan(PlanNode node, Void context)
+        public PlanNode visitPlan(PlanNode node, TableScanNode context)
         {
-            Optional<PlanNode> pushedDownPlan = tryCreatingNewScanNode(node);
+            Map<TableScanNode, Void> scanNodes = node.accept(new TableFindingVisitor(), null);
+            final TableScanNode tableScanNode = (scanNodes.size() == 1) ? getOnlyPinotTable(scanNodes)
+                    .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR,
+                        "Expected to find the pinot table handle for the scan node")) : null;
+            Optional<PlanNode> pushedDownPlan = tryCreatingNewScanNode(node, tableScanNode);
             return pushedDownPlan.orElseGet(() -> replaceChildren(
                     node,
-                    node.getSources().stream().map(source -> source.accept(this, null)).collect(toImmutableList())));
+                    node.getSources().stream().map(source -> source.accept(this, tableScanNode)).collect(toImmutableList())));
         }
 
         @Override
-        public PlanNode visitFilter(FilterNode node, Void context)
+        public PlanNode visitFilter(FilterNode node, TableScanNode context)
         {
             if (filtersSplitUp.containsKey(node)) {
                 return this.visitPlan(node, context);

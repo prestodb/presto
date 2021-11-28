@@ -58,8 +58,10 @@ import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkPartitioner;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSerializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
@@ -81,6 +83,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -88,6 +91,9 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.storage.StorageCapabilities;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -104,12 +110,14 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.spark.Partitioner;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.rdd.ShuffledRDD;
 import org.apache.spark.util.CollectionAccumulator;
 import org.joda.time.DateTime;
 import scala.Option;
@@ -132,8 +140,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
@@ -156,6 +166,7 @@ import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.SparkErrorCode.UNSUPPORTED_STORAGE_TYPE;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
@@ -167,7 +178,10 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.storage.StorageCapabilities.REMOTELY_ACCESSIBLE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -215,12 +229,14 @@ public class PrestoSparkQueryExecutionFactory
     private final PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final WarningCollectorFactory warningCollectorFactory;
+    private final PartitioningProviderManager partitioningProviderManager;
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
     private final TempStorageManager tempStorageManager;
     private final String storageBasedBroadcastJoinStorage;
     private final NodeMemoryConfig nodeMemoryConfig;
+    private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -245,11 +261,13 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory,
             SessionPropertyDefaults sessionPropertyDefaults,
             WarningCollectorFactory warningCollectorFactory,
+            PartitioningProviderManager partitioningProviderManager,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             TempStorageManager tempStorageManager,
             PrestoSparkConfig prestoSparkConfig,
-            NodeMemoryConfig nodeMemoryConfig)
+            NodeMemoryConfig nodeMemoryConfig,
+            Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -272,11 +290,13 @@ public class PrestoSparkQueryExecutionFactory
         this.prestoSparkTaskExecutorFactory = requireNonNull(prestoSparkTaskExecutorFactory, "prestoSparkTaskExecutorFactory is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
+        this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.storageBasedBroadcastJoinStorage = requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getStorageBasedBroadcastJoinStorage();
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
+        this.waitTimeMetrics = ImmutableSet.copyOf(requireNonNull(waitTimeMetrics, "waitTimeMetrics is null"));
     }
 
     @Override
@@ -326,7 +346,7 @@ public class PrestoSparkQueryExecutionFactory
             sql = new String(sqlFileBytes, UTF_8);
         }
 
-        log.info("Query: {}", sql);
+        log.info("Query: %s", sql);
 
         QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
 
@@ -342,37 +362,36 @@ public class PrestoSparkQueryExecutionFactory
                 authenticatorProviders);
 
         Session session = sessionSupplier.createSession(queryId, sessionContext);
-
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
         WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
 
-        TransactionId transactionId = transactionManager.beginTransaction(true);
-        session = session.beginTransactionId(transactionId, transactionManager, accessControl);
-
-        // including queueing time
-        Duration queryMaxRunTime = getQueryMaxRunTime(session);
-        // excluding queueing time
-        Duration queryMaxExecutionTime = getQueryMaxExecutionTime(session);
-        // pick a smaller one as we are not tracking queueing for Presto on Spark
-        Duration queryTimeout = queryMaxRunTime.compareTo(queryMaxExecutionTime) < 0 ? queryMaxRunTime : queryMaxExecutionTime;
-
-        long queryCompletionDeadline = System.currentTimeMillis() + queryTimeout.toMillis();
-
-        queryMonitor.queryCreatedEvent(
-                new BasicQueryInfo(createQueryInfo(
-                        session,
-                        sql,
-                        PLANNING,
-                        Optional.empty(),
-                        sparkQueueName,
-                        Optional.empty(),
-                        queryStateTimer,
-                        Optional.empty(),
-                        warningCollector)));
-
         PlanAndMore planAndMore = null;
         try {
+            TransactionId transactionId = transactionManager.beginTransaction(true);
+            session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+
+            queryMonitor.queryCreatedEvent(
+                    new BasicQueryInfo(createQueryInfo(
+                            session,
+                            sql,
+                            PLANNING,
+                            Optional.empty(),
+                            sparkQueueName,
+                            Optional.empty(),
+                            queryStateTimer,
+                            Optional.empty(),
+                            warningCollector)));
+
+            // including queueing time
+            Duration queryMaxRunTime = getQueryMaxRunTime(session);
+            // excluding queueing time
+            Duration queryMaxExecutionTime = getQueryMaxExecutionTime(session);
+            // pick a smaller one as we are not tracking queueing for Presto on Spark
+            Duration queryTimeout = queryMaxRunTime.compareTo(queryMaxExecutionTime) < 0 ? queryMaxRunTime : queryMaxExecutionTime;
+
+            long queryCompletionDeadline = System.currentTimeMillis() + queryTimeout.toMillis();
+
             settingsRequirements.verify(sparkContext, session);
 
             queryStateTimer.beginAnalyzing();
@@ -381,6 +400,7 @@ public class PrestoSparkQueryExecutionFactory
             planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
             SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector);
             log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionAndTypeManager(), session, true));
+            fragmentedPlan = configureOutputPartitioning(session, fragmentedPlan);
             TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
 
             JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
@@ -420,7 +440,8 @@ public class PrestoSparkQueryExecutionFactory
                     queryStatusInfoOutputLocation,
                     queryDataOutputLocation,
                     tempStorage,
-                    nodeMemoryConfig);
+                    nodeMemoryConfig,
+                    waitTimeMetrics);
         }
         catch (Throwable executionFailure) {
             queryStateTimer.beginFinishing();
@@ -472,6 +493,61 @@ public class PrestoSparkQueryExecutionFactory
         }
     }
 
+    private SubPlan configureOutputPartitioning(Session session, SubPlan subPlan)
+    {
+        PlanFragment fragment = subPlan.getFragment();
+        if (!fragment.getPartitioningScheme().getBucketToPartition().isPresent()) {
+            PartitioningHandle partitioningHandle = fragment.getPartitioningScheme().getPartitioning().getHandle();
+            Optional<int[]> bucketToPartition = getBucketToPartition(session, partitioningHandle);
+            if (bucketToPartition.isPresent()) {
+                fragment = fragment.withBucketToPartition(bucketToPartition);
+            }
+        }
+        return new SubPlan(
+                fragment,
+                subPlan.getChildren().stream()
+                        .map(child -> configureOutputPartitioning(session, child))
+                        .collect(toImmutableList()));
+    }
+
+    private Optional<int[]> getBucketToPartition(Session session, PartitioningHandle partitioningHandle)
+    {
+        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+            int hashPartitionCount = getHashPartitionCount(session);
+            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
+        }
+        //  FIXED_ARBITRARY_DISTRIBUTION is used for UNION ALL
+        //  UNION ALL inputs could be source inputs or shuffle inputs
+        if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+            // given modular hash function, partition count could be arbitrary size
+            // simply reuse hash_partition_count for convenience
+            // it can also be set by a separate session property if needed
+            int partitionCount = getHashPartitionCount(session);
+            return Optional.of(IntStream.range(0, partitionCount).toArray());
+        }
+        if (partitioningHandle.getConnectorId().isPresent()) {
+            int connectorPartitionCount = getPartitionCount(session, partitioningHandle);
+            return Optional.of(IntStream.range(0, connectorPartitionCount).toArray());
+        }
+        return Optional.empty();
+    }
+
+    private int getPartitionCount(Session session, PartitioningHandle partitioning)
+    {
+        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning);
+        return partitioningProvider.getBucketCount(
+                partitioning.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioning.getConnectorHandle());
+    }
+
+    private ConnectorNodePartitioningProvider getPartitioningProvider(PartitioningHandle partitioning)
+    {
+        ConnectorId connectorId = partitioning.getConnectorId()
+                .orElseThrow(() -> new IllegalArgumentException("Unexpected partitioning: " + partitioning));
+        return partitioningProviderManager.getPartitioningProvider(connectorId);
+    }
+
     private TableWriteInfo getTableWriteInfo(Session session, SubPlan plan)
     {
         StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
@@ -494,6 +570,9 @@ public class PrestoSparkQueryExecutionFactory
         }
         else if (writerTarget instanceof ExecutionWriterTarget.InsertHandle) {
             connectorId = ((ExecutionWriterTarget.InsertHandle) writerTarget).getHandle().getConnectorId();
+        }
+        else if (writerTarget instanceof ExecutionWriterTarget.RefreshMaterializedViewHandle) {
+            connectorId = ((ExecutionWriterTarget.RefreshMaterializedViewHandle) writerTarget).getHandle().getConnectorId();
         }
         else {
             throw new IllegalArgumentException("unexpected writer target type: " + writerTarget.getClass());
@@ -568,7 +647,8 @@ public class PrestoSparkQueryExecutionFactory
                 succinctBytes(peakTotalMemoryReservationInBytes),
                 succinctBytes(peakTaskUserMemoryInBytes),
                 succinctBytes(peakTaskTotalMemoryInBytes),
-                succinctBytes(peakNodeTotalMemoryInBytes));
+                succinctBytes(peakNodeTotalMemoryInBytes),
+                session.getRuntimeStats());
 
         return new QueryInfo(
                 session.getQueryId(),
@@ -579,6 +659,7 @@ public class PrestoSparkQueryExecutionFactory
                 URI.create("http://fake.invalid/query/" + session.getQueryId()),
                 planAndMore.map(PlanAndMore::getFieldNames).orElse(ImmutableList.of()),
                 query,
+                Optional.empty(),
                 queryStats,
                 Optional.empty(),
                 Optional.empty(),
@@ -662,6 +743,7 @@ public class PrestoSparkQueryExecutionFactory
         // nullify stage stats to keep the object slim
         stats = new StatementStats(
                 stats.getState(),
+                stats.isWaitingForPrerequisites(),
                 stats.isQueued(),
                 stats.isScheduled(),
                 stats.getNodes(),
@@ -671,6 +753,7 @@ public class PrestoSparkQueryExecutionFactory
                 stats.getCompletedSplits(),
                 stats.getCpuTimeMillis(),
                 stats.getWallTimeMillis(),
+                stats.getWaitingForPrerequisitesTimeMillis(),
                 stats.getQueuedTimeMillis(),
                 stats.getElapsedTimeMillis(),
                 stats.getProcessedRows(),
@@ -679,6 +762,7 @@ public class PrestoSparkQueryExecutionFactory
                 stats.getPeakTotalMemoryBytes(),
                 stats.getPeakTaskTotalMemoryBytes(),
                 stats.getSpilledBytes(),
+                null,
                 null);
 
         return new PrestoSparkQueryStatusInfo(
@@ -725,6 +809,7 @@ public class PrestoSparkQueryExecutionFactory
                 errorCode.getCode(),
                 errorCode.getName(),
                 errorCode.getType().toString(),
+                errorCode.isRetriable(),
                 executionFailureInfo.getErrorLocation(),
                 executionFailureInfo.toFailureInfo());
     }
@@ -765,6 +850,7 @@ public class PrestoSparkQueryExecutionFactory
         private final long queryCompletionDeadline;
         private final TempStorage tempStorage;
         private final NodeMemoryConfig nodeMemoryConfig;
+        private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -795,7 +881,8 @@ public class PrestoSparkQueryExecutionFactory
                 Optional<String> queryStatusInfoOutputLocation,
                 Optional<String> queryDataOutputLocation,
                 TempStorage tempStorage,
-                NodeMemoryConfig nodeMemoryConfig)
+                NodeMemoryConfig nodeMemoryConfig,
+                Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -827,6 +914,7 @@ public class PrestoSparkQueryExecutionFactory
             this.queryDataOutputLocation = requireNonNull(queryDataOutputLocation, "queryDataOutputLocation is null");
             this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
             this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
+            this.waitTimeMetrics = requireNonNull(waitTimeMetrics, "waitTimeMetrics is null");
         }
 
         @Override
@@ -901,7 +989,7 @@ public class PrestoSparkQueryExecutionFactory
             processShuffleStats();
 
             ConnectorSession connectorSession = session.toConnectorSession();
-            List<Type> types = fragmentedPlan.getFragment().getTypes();
+            List<Type> types = getOutputTypes();
             ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
             for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : rddResults) {
                 Page page = pagesSerde.deserialize(toSerializedPage(tuple._2));
@@ -974,19 +1062,51 @@ public class PrestoSparkQueryExecutionFactory
                 Map<String, JavaFutureAction<List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>>>> inputFutures = inputRdds.entrySet().stream()
                         .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().getRdd().collectAsync()));
 
-                waitForActionsCompletionWithTimeout(inputFutures.values(), computeNextTimeout(queryCompletionDeadline), MILLISECONDS);
+                waitForActionsCompletionWithTimeout(inputFutures.values(), computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics);
 
-                Map<String, List<PrestoSparkSerializedPage>> inputs = inputFutures.entrySet().stream()
-                        .collect(toImmutableMap(
-                                Map.Entry::getKey,
-                                entry -> getUnchecked(entry.getValue()).stream().map(Tuple2::_2).collect(toImmutableList())));
+                // release memory retained by the RDDs (splits and dependencies)
+                inputRdds = null;
+
+                ImmutableMap.Builder<String, List<PrestoSparkSerializedPage>> inputs = ImmutableMap.builder();
+                long totalNumberOfPagesReceived = 0;
+                long totalCompressedSizeInBytes = 0;
+                long totalUncompressedSizeInBytes = 0;
+                for (Map.Entry<String, JavaFutureAction<List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>>>> inputFuture : inputFutures.entrySet()) {
+                    // Use a mutable list to allow memory release on per page basis
+                    List<PrestoSparkSerializedPage> pages = new ArrayList<>();
+                    List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> tuples = getUnchecked(inputFuture.getValue());
+                    long currentFragmentOutputCompressedSizeInBytes = 0;
+                    long currentFragmentOutputUncompressedSizeInBytes = 0;
+                    for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : tuples) {
+                        PrestoSparkSerializedPage page = tuple._2;
+                        currentFragmentOutputCompressedSizeInBytes += page.getSize();
+                        currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
+                        pages.add(page);
+                    }
+                    log.info(
+                            "Received %s pages from fragment %s. Compressed size: %s. Uncompressed size: %s.",
+                            pages.size(),
+                            inputFuture.getKey(),
+                            DataSize.succinctBytes(currentFragmentOutputCompressedSizeInBytes),
+                            DataSize.succinctBytes(currentFragmentOutputUncompressedSizeInBytes));
+                    totalNumberOfPagesReceived += pages.size();
+                    totalCompressedSizeInBytes += currentFragmentOutputCompressedSizeInBytes;
+                    totalUncompressedSizeInBytes += currentFragmentOutputUncompressedSizeInBytes;
+                    inputs.put(inputFuture.getKey(), pages);
+                }
+
+                log.info(
+                        "Received %s pages in total. Compressed size: %s. Uncompressed size: %s.",
+                        totalNumberOfPagesReceived,
+                        DataSize.succinctBytes(totalCompressedSizeInBytes),
+                        DataSize.succinctBytes(totalUncompressedSizeInBytes));
 
                 IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = taskExecutorFactory.create(
                         0,
                         0,
                         serializedTaskDescriptor,
                         emptyScalaIterator(),
-                        new PrestoSparkTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs),
+                        new PrestoSparkTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs.build()),
                         taskInfoCollector,
                         shuffleStatsCollector,
                         PrestoSparkSerializedPage.class);
@@ -994,7 +1114,7 @@ public class PrestoSparkQueryExecutionFactory
             }
 
             RddAndMore<PrestoSparkSerializedPage> rootRdd = createRdd(root, PrestoSparkSerializedPage.class);
-            return rootRdd.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS);
+            return rootRdd.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics);
         }
 
         private <T extends PrestoSparkTaskOutput> RddAndMore<T> createRdd(SubPlan subPlan, Class<T> outputType)
@@ -1019,6 +1139,7 @@ public class PrestoSparkQueryExecutionFactory
                                 session.getSource(),
                                 session.getQueryId().getId(),
                                 session.getClientInfo(),
+                                Optional.of(session.getClientTags()),
                                 session.getIdentity());
 
                         broadcastDependency = new PrestoSparkStorageBasedBroadcastDependency(
@@ -1026,14 +1147,16 @@ public class PrestoSparkQueryExecutionFactory
                                 maxBroadcastMemory,
                                 queryCompletionDeadline,
                                 tempStorage,
-                                tempDataOperationContext);
+                                tempDataOperationContext,
+                                waitTimeMetrics);
                     }
                     else {
                         RddAndMore<PrestoSparkSerializedPage> childRdd = createRdd(child, PrestoSparkSerializedPage.class);
                         broadcastDependency = new PrestoSparkMemoryBasedBroadcastDependency(
                                 childRdd,
                                 maxBroadcastMemory,
-                                queryCompletionDeadline);
+                                queryCompletionDeadline,
+                                waitTimeMetrics);
                     }
 
                     broadcastInputs.put(childFragment.getId(), broadcastDependency.executeBroadcast(sparkContext));
@@ -1041,7 +1164,7 @@ public class PrestoSparkQueryExecutionFactory
                 }
                 else {
                     RddAndMore<PrestoSparkMutableRow> childRdd = createRdd(child, PrestoSparkMutableRow.class);
-                    rddInputs.put(childFragment.getId(), childRdd.getRdd());
+                    rddInputs.put(childFragment.getId(), partitionBy(childRdd.getRdd(), child.getFragment().getPartitioningScheme()));
                     broadcastDependencies.addAll(childRdd.getBroadcastDependencies());
                 }
             }
@@ -1057,6 +1180,40 @@ public class PrestoSparkQueryExecutionFactory
                     tableWriteInfo,
                     outputType);
             return new RddAndMore<>(rdd, broadcastDependencies.build());
+        }
+
+        private static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(
+                JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> rdd,
+                PartitioningScheme partitioningScheme)
+        {
+            Partitioner partitioner = createPartitioner(partitioningScheme);
+            JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> javaPairRdd = rdd.partitionBy(partitioner);
+            ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow> shuffledRdd = (ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow>) javaPairRdd.rdd();
+            shuffledRdd.setSerializer(new PrestoSparkShuffleSerializer());
+            return JavaPairRDD.fromRDD(
+                    shuffledRdd,
+                    classTag(MutablePartitionId.class),
+                    classTag(PrestoSparkMutableRow.class));
+        }
+
+        private static Partitioner createPartitioner(PartitioningScheme partitioningScheme)
+        {
+            PartitioningHandle partitioning = partitioningScheme.getPartitioning().getHandle();
+            if (partitioning.equals(SINGLE_DISTRIBUTION)) {
+                return new PrestoSparkPartitioner(1);
+            }
+            if (partitioning.equals(FIXED_HASH_DISTRIBUTION)
+                    || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)
+                    || partitioning.getConnectorId().isPresent()) {
+                int[] bucketToPartition = partitioningScheme.getBucketToPartition().orElseThrow(
+                        () -> new IllegalArgumentException("bucketToPartition is expected to be assigned at this point"));
+                checkArgument(bucketToPartition.length > 0, "bucketToPartition is expected to be non empty");
+                int numberOfPartitions = IntStream.of(bucketToPartition)
+                        .max()
+                        .getAsInt() + 1;
+                return new PrestoSparkPartitioner(numberOfPartitions);
+            }
+            throw new IllegalArgumentException("Unexpected partitioning: " + partitioning);
         }
 
         private void validateStorageCapabilities(TempStorage tempStorage)
@@ -1170,7 +1327,7 @@ public class PrestoSparkQueryExecutionFactory
         }
     }
 
-    private static <T> void waitForActionsCompletionWithTimeout(Collection<JavaFutureAction<T>> actions, long timeout, TimeUnit timeUnit)
+    private static <T> void waitForActionsCompletionWithTimeout(Collection<JavaFutureAction<T>> actions, long timeout, TimeUnit timeUnit, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
             throws SparkException, TimeoutException
     {
         long deadline = System.currentTimeMillis() + timeUnit.toMillis(timeout);
@@ -1181,7 +1338,7 @@ public class PrestoSparkQueryExecutionFactory
                 if (nextTimeoutInMillis <= 0) {
                     throw new TimeoutException();
                 }
-                getActionResultWithTimeout(action, nextTimeoutInMillis, MILLISECONDS);
+                getActionResultWithTimeout(action, nextTimeoutInMillis, MILLISECONDS, waitTimeMetrics);
             }
         }
         finally {

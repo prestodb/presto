@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestRepartitionQueries
         extends AbstractTestRepartitionQueries
 {
-    public TestRepartitionQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunnerBuilder.builder()
                 .setSingleExtraProperty("experimental.optimized-repartitioning", "true")
-                .build());
+                .build();
     }
 }

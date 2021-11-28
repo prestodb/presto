@@ -15,15 +15,18 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +53,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.ENABLE_DISTRIBUTED_TRACING;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
@@ -75,6 +79,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class HttpRequestSessionContext
         implements SessionContext
@@ -107,7 +112,24 @@ public final class HttpRequestSessionContext
     private final String clientInfo;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
+    private final Optional<SessionPropertyManager> sessionPropertyManager;
+    private final Optional<Tracer> tracer;
+
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
+    {
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER, Optional.empty());
+    }
+
+    /**
+     * @param servletRequest
+     * @param sqlParserOptions
+     * @param tracer This passed-in {@link Tracer} will only be used when isTracingEabled() returns true.
+     * @param sessionPropertyManager is used to provide with some default session values. In some scenarios we need
+     * those default values even before session for a query is created. This is how we can get it at this
+     * session context creation stage.
+     * @throws WebApplicationException
+     */
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, Tracer tracer, Optional<SessionPropertyManager> sessionPropertyManager)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -173,9 +195,16 @@ public final class HttpRequestSessionContext
         transactionId = parseTransactionId(transactionIdHeader);
 
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        if (isTracingEnabled()) {
+            this.tracer = Optional.of(requireNonNull(tracer, "tracer is null"));
+        }
+        else {
+            this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
+        }
     }
 
-    private static List<String> splitSessionHeader(Enumeration<String> headers)
+    public static List<String> splitSessionHeader(Enumeration<String> headers)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return Collections.list(headers).stream()
@@ -432,13 +461,40 @@ public final class HttpRequestSessionContext
         return traceToken;
     }
 
+    @Override
+    public Optional<Tracer> getTracer()
+    {
+        return tracer;
+    }
+
+    /**
+     * This helper method tells if tracing is enabled for this query. We take client provided session property
+     * as highest priority. If client does not provide any session enabling property, we then take the system
+     * default session value for determining if we should trace this query.
+     */
+    private boolean isTracingEnabled()
+    {
+        String clientValue = systemProperties.getOrDefault(ENABLE_DISTRIBUTED_TRACING, "");
+
+        // Client session setting overrides everything.
+        if (clientValue.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (clientValue.equalsIgnoreCase("false")) {
+            return false;
+        }
+
+        // Client not set, we then take system default value. If property manager not provided then false.
+        return sessionPropertyManager.map(manager -> manager.decodeSystemPropertyValue(ENABLE_DISTRIBUTED_TRACING, null, Boolean.class)).orElse(false);
+    }
+
     private Set<String> parseClientTags(HttpServletRequest servletRequest)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
     }
 
-    private ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
+    public static ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
     {
         ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
         for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_RESOURCE_ESTIMATE))) {

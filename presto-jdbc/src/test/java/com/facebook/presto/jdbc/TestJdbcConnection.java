@@ -32,8 +32,12 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -42,6 +46,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -53,11 +58,18 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestJdbcConnection
 {
     private TestingPrestoServer server;
+
+    @DataProvider(name = "customHeaderWithSpecialCharacter")
+    public static Object[][] customHeaderWithSpecialCharacter()
+    {
+        return new Object[][] {{"test.com:1234"}, {"test@test.com"}};
+    }
 
     @BeforeClass
     public void setupServer()
@@ -71,7 +83,7 @@ public class TestJdbcConnection
         server.installPlugin(new HiveHadoop2Plugin());
         server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
+                .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toFile().toURI().toString())
                 .put("hive.security", "sql-standard")
                 .build());
 
@@ -217,6 +229,22 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testHttpProtocols()
+            throws SQLException
+    {
+        String extra = "protocols=http11";
+        try (Connection connection = createConnection(extra)) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+        }
+
+        // deduplication
+        extra = "protocols=http11,http11";
+        try (Connection connection = createConnection(extra)) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+        }
+    }
+
+    @Test
     public void testExtraCredentials()
             throws SQLException
     {
@@ -230,6 +258,32 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testCustomHeaders()
+            throws SQLException, UnsupportedEncodingException
+    {
+        Map<String, String> customHeadersMap = ImmutableMap.of("testHeaderKey", "testHeaderValue");
+        String customHeaders = "testHeaderKey:testHeaderValue";
+        String encodedCustomHeaders = URLEncoder.encode(customHeaders, StandardCharsets.UTF_8.toString());
+        Connection connection = createConnection("customHeaders=" + encodedCustomHeaders);
+        assertTrue(connection instanceof PrestoConnection);
+        PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+        assertEquals(prestoConnection.getCustomHeaders(), customHeadersMap);
+    }
+
+    @Test(dataProvider = "customHeaderWithSpecialCharacter")
+    public void testCustomHeadersWithSpecialCharacters(String testHeaderValue)
+            throws SQLException, UnsupportedEncodingException
+    {
+        Map<String, String> customHeadersMap = ImmutableMap.of("testHeaderKey", URLEncoder.encode(testHeaderValue, StandardCharsets.UTF_8.toString()));
+        String customHeaders = "testHeaderKey:" + URLEncoder.encode(testHeaderValue, StandardCharsets.UTF_8.toString()) + "";
+        String encodedCustomHeaders = URLEncoder.encode(customHeaders, StandardCharsets.UTF_8.toString());
+        Connection connection = createConnection("customHeaders=" + encodedCustomHeaders);
+        assertTrue(connection instanceof PrestoConnection);
+        PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+        assertEquals(prestoConnection.getCustomHeaders(), customHeadersMap);
+    }
+
+    @Test
     public void testQueryInterceptors()
             throws SQLException
     {
@@ -238,6 +292,18 @@ public class TestJdbcConnection
             List<QueryInterceptor> queryInterceptorInstances = connection.getQueryInterceptorInstances();
             assertEquals(queryInterceptorInstances.size(), 1);
             assertEquals(queryInterceptorInstances.get(0).getClass().getName(), TestNoopQueryInterceptor.class.getName());
+        }
+    }
+
+    @Test
+    public void testConnectionProperties()
+            throws SQLException
+    {
+        String extra = "extraCredentials=test.token.foo:bar;test.token.abc:xyz";
+        try (PrestoConnection connection = createConnection(extra).unwrap(PrestoConnection.class)) {
+            Properties connectionProperties = connection.getConnectionProperties();
+            assertTrue(connectionProperties.size() > 0);
+            assertNotNull(connectionProperties.getProperty("extraCredentials"));
         }
     }
 

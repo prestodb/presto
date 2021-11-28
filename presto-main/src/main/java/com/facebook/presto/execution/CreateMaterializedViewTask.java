@@ -43,6 +43,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.sql.MaterializedViewUtils.computeMaterializedViewToBaseTableColumnMappings;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
@@ -133,7 +134,8 @@ public class CreateMaterializedViewTask
                 viewName.getObjectName(),
                 baseTables,
                 Optional.of(session.getUser()),
-                analysis.getOriginalColumnMapping(statement.getQuery()));
+                computeMaterializedViewToBaseTableColumnMappings(analysis),
+                Optional.empty());
         try {
             metadata.createMaterializedView(session, viewName.getCatalogName(), viewMetadata, viewDefinition, statement.isNotExists());
         }

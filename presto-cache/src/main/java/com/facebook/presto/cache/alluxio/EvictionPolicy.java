@@ -15,7 +15,7 @@ package com.facebook.presto.cache.alluxio;
 
 public enum EvictionPolicy
 {
-    FIFO("alluxio.client.file.cache.evictor.FIFOEvictor"),
+    FIFO("alluxio.client.file.cache.evictor.FIFOCacheEvictor"),
     LFU("alluxio.client.file.cache.evictor.LFUCacheEvictor"),
     LRU("alluxio.client.file.cache.evictor.LRUCacheEvictor"),
     UNEVICTABLE("alluxio.client.file.cache.evictor.UnevictableCacheEvictor"),

@@ -19,12 +19,12 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closer;
+import com.google.common.io.BaseEncoding;
 import io.airlift.tpch.TpchTable;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -38,6 +38,7 @@ import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.create
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.elasticsearch.client.Requests.indexAliasesRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
@@ -46,36 +47,21 @@ import static org.elasticsearch.client.Requests.refreshRequest;
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedElasticsearchNode embeddedElasticsearchNode;
+    private EmbeddedElasticsearchNode embeddedElasticsearchNode;
 
-    private QueryRunner queryRunner;
-
-    public TestElasticsearchIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(createEmbeddedElasticsearchNode());
-    }
-
-    public TestElasticsearchIntegrationSmokeTest(EmbeddedElasticsearchNode embeddedElasticsearchNode)
-    {
-        super(() -> createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables()));
-        this.embeddedElasticsearchNode = embeddedElasticsearchNode;
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
+        embeddedElasticsearchNode = createEmbeddedElasticsearchNode();
+        return createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
             throws IOException
     {
-        try (Closer closer = Closer.create()) {
-            closer.register(queryRunner);
-            closer.register(embeddedElasticsearchNode);
-        }
-        queryRunner = null;
+        embeddedElasticsearchNode.close();
     }
 
     @Test
@@ -143,15 +129,15 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
-                        "   clerk varchar,\n" +
-                        "   comment varchar,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderdate timestamp,\n" +
-                        "   orderkey bigint,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   shippriority bigint,\n" +
-                        "   totalprice real\n" +
+                        "   \"clerk\" varchar,\n" +
+                        "   \"comment\" varchar,\n" +
+                        "   \"custkey\" bigint,\n" +
+                        "   \"orderdate\" timestamp,\n" +
+                        "   \"orderkey\" bigint,\n" +
+                        "   \"orderpriority\" varchar,\n" +
+                        "   \"orderstatus\" varchar,\n" +
+                        "   \"shippriority\" bigint,\n" +
+                        "   \"totalprice\" real\n" +
                         ")");
     }
 
@@ -311,6 +297,87 @@ public class TestElasticsearchIntegrationSmokeTest
         assertQuery(
                 "SELECT name, fields.fielda FROM emptyobject",
                 "VALUES ('stringfield', 32)");
+    }
+
+    @Test
+    public void testNullPredicate()
+    {
+        String indexName = "null_predicate1";
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc",
+                        "null_keyword", "type=keyword",
+                        "custkey", "type=keyword")
+                .get();
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("null_keyword", 32)
+                .put("custkey", 1301)
+                .build());
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword IS NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword = '10' OR null_keyword IS NULL");
+
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+
+        // not null filter
+        // filtered column is selected
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword IS NOT NULL", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301, 32)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301)");
+
+        indexName = "null_predicate2";
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc",
+                        "null_keyword", "type=keyword",
+                        "custkey", "type=keyword")
+                .get();
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("custkey", 1301)
+                .build());
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        // not null filter
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword IS NOT NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword = '10' OR null_keyword IS NOT NULL");
+
+        // filtered column is selected
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword IS NULL", "VALUES (1301, NULL)");
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("null_keyword", 32)
+                .put("custkey", 1302)
+                .build());
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL), (1302, 32)");
+        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301), (1302)");
     }
 
     @Test
@@ -841,5 +908,33 @@ public class TestElasticsearchIntegrationSmokeTest
                 .prepareIndex(indexName, "doc")
                 .setSource(document)
                 .get();
+    }
+
+    @Test
+    public void testPassthroughQuery()
+    {
+        @Language("JSON")
+        String query = "{\n" +
+                "    \"size\": 0,\n" +
+                "    \"aggs\" : {\n" +
+                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
+                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
+                "    }\n" +
+                "}";
+
+        assertQuery(
+                format("WITH data(r) AS (" +
+                        "   SELECT CAST(result AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   FROM \"orders$query:%s\") " +
+                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                        "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
+                "VALUES (60000, 449872500)");
+
+        assertQueryFails(
+                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
+                "Elasticsearch query for 'orders' is not base32-encoded correctly");
+        assertQueryFails(
+                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
+                "Elasticsearch query for 'orders' is not valid JSON");
     }
 }

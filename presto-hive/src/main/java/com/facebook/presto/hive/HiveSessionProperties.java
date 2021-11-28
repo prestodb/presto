@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -33,6 +35,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.METASTORE_HEADERS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -70,6 +73,7 @@ public final class HiveSessionProperties
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     public static final String RESPECT_TABLE_FORMAT = "respect_table_format";
+    private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
@@ -91,7 +95,7 @@ public final class HiveSessionProperties
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     public static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
-    private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
+    public static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
@@ -117,6 +121,14 @@ public final class HiveSessionProperties
     public static final String PREFER_MANIFESTS_TO_LIST_FILES = "prefer_manifests_to_list_files";
     public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
+    public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
+    public static final String PARTITION_LEASE_DURATION = "partition_lease_duration";
+    public static final String CACHE_ENABLED = "cache_enabled";
+    public static final String ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING = "enable_loose_memory_based_accounting";
+    public static final String MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD = "materialized_view_missing_partitions_threshold";
+    public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
+    private static final String DWRF_WRITER_STRIPE_CACHE_ENABLED = "dwrf_writer_stripe_cache_enabled";
+    private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -139,7 +151,7 @@ public final class HiveSessionProperties
     }
 
     @Inject
-    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig)
+    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig, CacheConfig cacheConfig)
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
@@ -299,6 +311,11 @@ public final class HiveSessionProperties
                         RESPECT_TABLE_FORMAT,
                         "Write new partitions using table format rather than default storage format",
                         hiveClientConfig.isRespectTableFormat(),
+                        false),
+                booleanProperty(
+                        CREATE_EMPTY_BUCKET_FILES,
+                        "Create empty files for buckets that have no data",
+                        hiveClientConfig.isCreateEmptyBucketFiles(),
                         false),
                 booleanProperty(
                         PARQUET_USE_COLUMN_NAME,
@@ -551,7 +568,56 @@ public final class HiveSessionProperties
                         NEW_PARTITION_USER_SUPPLIED_PARAMETER,
                         "\"user_supplied\" parameter added to all newly created partitions",
                         null,
-                        true));
+                        true),
+                booleanProperty(
+                        OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED,
+                        "Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression",
+                        hiveClientConfig.isOptimizedPartitionUpdateSerializationEnabled(),
+                        true),
+                new PropertyMetadata<>(
+                        PARTITION_LEASE_DURATION,
+                        "Partition lease duration in seconds, 0 means disabled",
+                        VARCHAR,
+                        Duration.class,
+                        hiveClientConfig.getPartitionLeaseDuration(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                booleanProperty(
+                        CACHE_ENABLED,
+                        "Enable cache for hive",
+                        cacheConfig.isCachingEnabled(),
+                        false),
+                booleanProperty(
+                        VERBOSE_RUNTIME_STATS_ENABLED,
+                        "Enable tracking all runtime stats. Note that this may affect query performance.",
+                        hiveClientConfig.isVerboseRuntimeStatsEnabled(),
+                        false),
+                booleanProperty(
+                        ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING,
+                        "Enable loose memory accounting to avoid OOMing existing queries",
+                        hiveClientConfig.isLooseMemoryAccountingEnabled(),
+                        false),
+                integerProperty(
+                        MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD,
+                        "Materialized views with missing partitions more than this threshold falls back to the base tables at read time",
+                        hiveClientConfig.getMaterializedViewMissingPartitionsThreshold(),
+                        true),
+                stringProperty(
+                        METASTORE_HEADERS,
+                        "The headers that will be sent in the calls to Metastore",
+                        null,
+                        false),
+                booleanProperty(
+                        DWRF_WRITER_STRIPE_CACHE_ENABLED,
+                        "Write stripe cache for the DWRF files.",
+                        orcFileWriterConfig.isDwrfStripeCacheEnabled(),
+                        false),
+                dataSizeSessionProperty(
+                        DWRF_WRITER_STRIPE_CACHE_SIZE,
+                        "Maximum size of DWRF stripe cache to be held in memory",
+                        orcFileWriterConfig.getDwrfStripeCacheMaxSize(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -704,6 +770,11 @@ public final class HiveSessionProperties
     public static boolean isRespectTableFormat(ConnectorSession session)
     {
         return session.getProperty(RESPECT_TABLE_FORMAT, Boolean.class);
+    }
+
+    public static boolean isCreateEmptyBucketFiles(ConnectorSession session)
+    {
+        return session.getProperty(CREATE_EMPTY_BUCKET_FILES, Boolean.class);
     }
 
     public static boolean isUseParquetColumnNames(ConnectorSession session)
@@ -965,5 +1036,45 @@ public final class HiveSessionProperties
     public static Optional<String> getNewPartitionUserSuppliedParameter(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(NEW_PARTITION_USER_SUPPLIED_PARAMETER, String.class));
+    }
+
+    public static boolean isOptimizedPartitionUpdateSerializationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, Boolean.class);
+    }
+
+    public static Duration getLeaseDuration(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_LEASE_DURATION, Duration.class);
+    }
+
+    public static boolean isCacheEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CACHE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isExecutionBasedMemoryAccountingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING, Boolean.class);
+    }
+
+    public static int getMaterializedViewMissingPartitionsThreshold(ConnectorSession session)
+    {
+        return session.getProperty(MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.class);
+    }
+
+    public static boolean isVerboseRuntimeStatsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isDwrfWriterStripeCacheEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DWRF_WRITER_STRIPE_CACHE_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getDwrfWriterStripeCacheeMaxSize(ConnectorSession session)
+    {
+        return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
     }
 }

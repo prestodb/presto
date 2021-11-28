@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
@@ -45,7 +46,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);
@@ -102,14 +103,18 @@ public class TestQueryStateInfo
                 URI.create("1"),
                 ImmutableList.of("2", "3"),
                 query,
+                Optional.empty(),
                 new QueryStats(
                         DateTime.parse("1991-09-06T05:00-05:30"),
                         DateTime.parse("1991-09-06T05:01-05:30"),
                         DateTime.parse("1991-09-06T05:02-05:30"),
                         DateTime.parse("1991-09-06T06:00-05:30"),
                         Duration.valueOf("8m"),
+                        Duration.valueOf("5m"),
                         Duration.valueOf("7m"),
                         Duration.valueOf("34m"),
+                        Duration.valueOf("5m"),
+                        Duration.valueOf("6m"),
                         Duration.valueOf("35m"),
                         Duration.valueOf("44m"),
                         Duration.valueOf("9m"),
@@ -125,6 +130,7 @@ public class TestQueryStateInfo
                         34,
                         19,
                         20.0,
+                        43.0,
                         DataSize.valueOf("21GB"),
                         DataSize.valueOf("22GB"),
                         DataSize.valueOf("23GB"),
@@ -151,7 +157,8 @@ public class TestQueryStateInfo
                         DataSize.valueOf("35GB"),
                         DataSize.valueOf("36GB"),
                         ImmutableList.of(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        new RuntimeStats()),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),

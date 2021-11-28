@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.oracle;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
 import com.facebook.presto.tests.datatype.DataSetup;
@@ -41,6 +42,7 @@ public class TestOracleTypes
         extends AbstractTestQueryFramework
 {
     private final TestingOracleServer oracleServer;
+    private final QueryRunner queryRunner;
 
     @Test
     public void test()
@@ -50,9 +52,17 @@ public class TestOracleTypes
     }
 
     private TestOracleTypes(TestingOracleServer oracleServer)
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(oracleServer));
+        this.queryRunner = createOracleQueryRunner(oracleServer);
         this.oracleServer = oracleServer;
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return queryRunner;
     }
 
     @AfterClass(alwaysRun = true)

@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.ResultWithQueryId;
@@ -35,7 +36,6 @@ import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
@@ -43,9 +43,11 @@ import static org.testng.Assert.assertEquals;
 public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         extends AbstractTestJoinQueries
 {
-    public TestHiveDistributedJoinQueriesWithDynamicFiltering()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override

@@ -171,6 +171,12 @@ public class ResourceGroupInfo
         return numRunningQueries;
     }
 
+    /**
+     * @deprecated This field is not very useful to expose as part of resource endpoint.
+     * In case of multi coordinator set up, it requires adding additional complexity and
+     * overhead to existing system to expose this field  with accurate value.
+     */
+    @Deprecated
     @JsonProperty
     public int getNumEligibleSubGroups()
     {

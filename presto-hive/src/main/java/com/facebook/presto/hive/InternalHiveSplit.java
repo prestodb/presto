@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +48,7 @@ public class InternalHiveSplit
     private final byte[] relativeUri;
     private final long end;
     private final long fileSize;
+    private final long fileModifiedTime;
 
     // encode the hive blocks as an array of longs and list of list of addresses to save memory
     //if all blockAddress lists are empty, store only the empty list
@@ -76,6 +76,7 @@ public class InternalHiveSplit
             long start,
             long end,
             long fileSize,
+            long fileModifiedTime,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
@@ -90,6 +91,7 @@ public class InternalHiveSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "end must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(fileModifiedTime >= 0, "fileModifiedTime must be positive");
         requireNonNull(relativeUri, "relativeUri is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
@@ -102,6 +104,7 @@ public class InternalHiveSplit
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
+        this.fileModifiedTime = fileModifiedTime;
         this.readBucketNumber = readBucketNumber.orElse(-1);
         this.tableBucketNumber = tableBucketNumber.orElse(-1);
         this.splittable = splittable;
@@ -147,6 +150,11 @@ public class InternalHiveSplit
         return fileSize;
     }
 
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
+    }
+
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
@@ -182,9 +190,9 @@ public class InternalHiveSplit
         return nodeSelectionStrategy;
     }
 
-    public Map<Integer, Column> getPartitionSchemaDifference()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return partitionInfo.getPartitionSchemaDifference();
+        return partitionInfo.getTableToPartitionMapping();
     }
 
     public Optional<BucketConversion> getBucketConversion()

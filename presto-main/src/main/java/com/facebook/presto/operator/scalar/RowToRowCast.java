@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
@@ -33,8 +34,8 @@ import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
-import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
@@ -55,8 +56,8 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -141,7 +142,7 @@ public class RowToRowCast
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
             FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromTypes.get(i).getTypeSignature(), toTypes.get(i).getTypeSignature());
-            BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
+            JavaScalarFunctionImplementation function = functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {
                 body.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());

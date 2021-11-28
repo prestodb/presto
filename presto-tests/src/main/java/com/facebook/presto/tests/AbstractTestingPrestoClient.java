@@ -171,7 +171,8 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout,
                 true,
-                serializedSessionFunctions);
+                serializedSessionFunctions,
+                ImmutableMap.of());
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

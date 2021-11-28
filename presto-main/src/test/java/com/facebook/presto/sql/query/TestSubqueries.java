@@ -86,16 +86,16 @@ public class TestSubqueries
     }
 
     @Test
-    public void testUnsupportedSubqueriesWithCoercions()
+    public void testSubqueriesWithCoercions()
     {
         // coercion from subquery symbol type to correlation type
-        assertions.assertFails(
-                "select (select count(*) from (values 1) t(a) where t.a=t2.b limit 1) from (values 1.0) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertions.assertQuery(
+                "select (select count(*) from (values 1) t(a) where t.a=t2.b ) from (values 1.0) t2(b)",
+                "VALUES BIGINT '1'");
         // coercion from t.a (null) to integer
-        assertions.assertFails(
+        assertions.assertQuery(
                 "select EXISTS(select 1 from (values (null, null)) t(a, b) where t.a=t2.b GROUP BY t.b) from (values 1, 2) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "VALUES FALSE, FALSE");
     }
 
     @Test
@@ -118,15 +118,41 @@ public class TestSubqueries
                 "select EXISTS(select 1 from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 false);
-        // TransformCorrelatedScalarAggregationToJoin does not fire since limit is above aggregation node
+        assertions.assertQuery(
+                "select (select count(*) from (values 1, 1, 3) t(a) where t.a=t2.b group by a limit 1) from (values 1.0) t2(b)",
+                "VALUES BIGINT '2'");
         assertions.assertFails(
-                "select (select count(*) from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1) t2(b)",
+                "SELECT (SELECT count(*) FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertExistsRewrittenToAggregationBelowJoin(
                 "SELECT EXISTS(SELECT 1 FROM (values ('x', 1)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
                         "FROM (values 1) t(cid)",
                 "VALUES true",
                 false);
+        // Test decorrelated subexpression with ArithmeticBinaryExpression
+        assertions.assertQuery(
+                "select (select count(*) from (values 1, 1, 3) t(a) where t.a = t2.a + t2.b group by a limit 1) from (values (1.0, 1.0),(1.0,2.0)) t2(a,b)",
+                "VALUES BIGINT '1', null");
+        // Test decorrelated subexpression with ArithmeticUnaryExpression
+        assertions.assertQuery(
+                "select (select count(*) from (values 1, 2, 3,4,5) t(a) where t.a = t2.a + (-t2.b) + 1 group by a limit 1) from (values (1.0, 1.0),(1.0, 2.0),(1.0, 2.0)) t2(a,b)",
+                "VALUES BIGINT '1', null, null");
+        // Test decorrelated subexpression with NotExpression
+        assertions.assertQuery(
+                "select count(*) from (values 1, 1, 3) t(a) where t.a not in (select t2.a from (values (1.0, 1.0),(1.0, 2.0)) t2(a,b) where t2.a + t2.b = t.a) group by a order by t.a asc limit 1",
+                "VALUES BIGINT '2'");
+        assertions.assertQuery(
+                "select count(*) from (values 1, 1, 3) t(a) where t.a not in (select t2.a from (values (1.0, 1.0),(1.0, 2.0)) t2(a,b) where t2.a + t2.b = t.a ) group by a order by t.a desc limit 1",
+                "VALUES BIGINT '1'");
+        assertions.assertQuery(
+                "select (select count(*) from (values 1, 2, 3) t(a) where t.a not in (select t2.a from (values 1.0, 3.0) t2(a) where t2.a = t.a))",
+                "VALUES BIGINT '1'");
+        assertions.assertQuery(
+                "select (select count(*) from (values (1,1), (1,2), (1,3)) t1(a,b) where t1.a + t2.a = t1.b + t2.b group by t1.a limit 1) from (values (1.0, 1.0)) t2(a,b)",
+                "VALUES BIGINT '1'");
+        assertions.assertQuery(
+                "select (select count(*) from (values (1,1), (2,2), (3,3)) t1(a,b) where t1.a = t2.a + t2.b group by t1.a limit 1) from (values (1.0, 1.0)) t2(a,b)",
+                "VALUES BIGINT '1'");
     }
 
     @Test

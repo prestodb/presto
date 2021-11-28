@@ -131,6 +131,7 @@ Property Name                                      Description
                                                    to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                   Hive metastore client keytab location.
+``hive.metastore-impersonation-enabled``           Enable metastore end-user impersonation.
 ================================================== ============================================================
 
 ``hive.metastore.authentication.type``

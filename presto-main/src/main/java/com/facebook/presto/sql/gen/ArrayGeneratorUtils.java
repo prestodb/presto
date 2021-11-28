@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 
 import java.util.function.Function;
 
@@ -29,7 +30,7 @@ public final class ArrayGeneratorUtils
     {
     }
 
-    public static ArrayMapBytecodeExpression map(Scope scope, CachedInstanceBinder cachedInstanceBinder, Type fromElementType, Type toElementType, Variable array, String elementFunctionName, BuiltInScalarFunctionImplementation elementFunction)
+    public static ArrayMapBytecodeExpression map(Scope scope, CachedInstanceBinder cachedInstanceBinder, Type fromElementType, Type toElementType, Variable array, String elementFunctionName, JavaScalarFunctionImplementation elementFunction)
     {
         return map(
                 scope,

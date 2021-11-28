@@ -118,6 +118,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.decimalMapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.Iterables.filter;
@@ -834,6 +835,9 @@ public abstract class AbstractTestHiveFileFormats
             this.writeValue = writeValue;
             this.expectedValue = expectedValue;
             this.partitionKey = partitionKey;
+            if (partitionKey) {
+                checkArgument(writeValue == null || writeValue instanceof String, "writeValue must either be null or a String value for partition keys");
+            }
         }
 
         public String getName()
@@ -854,6 +858,12 @@ public abstract class AbstractTestHiveFileFormats
         public Object getWriteValue()
         {
             return writeValue;
+        }
+
+        public HivePartitionKey toHivePartitionKey()
+        {
+            checkState(partitionKey, "%s is not a partition key", this);
+            return new HivePartitionKey(name, HIVE_DEFAULT_DYNAMIC_PARTITION.equals(writeValue) ? Optional.empty() : Optional.ofNullable((String) writeValue));
         }
 
         public Object getExpectedValue()

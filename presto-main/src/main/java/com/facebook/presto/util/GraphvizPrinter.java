@@ -635,7 +635,9 @@ public final class GraphvizPrinter
             return label
                     .replace("<", "\\<")
                     .replace(">", "\\>")
-                    .replace("\"", "\\\"");
+                    .replace("\"", "\\\"")
+                    .replace("{", "\\{")
+                    .replace("}", "\\}");
         }
     }
 

@@ -29,7 +29,10 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
@@ -59,6 +62,11 @@ public final class TypeUtils
     public static boolean isApproximateNumericType(Type type)
     {
         return type.equals(DOUBLE) || type.equals(REAL);
+    }
+
+    public static boolean isEnumType(Type type)
+    {
+        return type instanceof EnumType || type instanceof TypeWithName && ((TypeWithName) type).getType() instanceof EnumType;
     }
 
     /**
@@ -127,6 +135,20 @@ public final class TypeUtils
             return NULL_HASH_CODE;
         }
         return type.hash(block, position);
+    }
+
+    public static boolean isFloatingPointNaN(Type type, Object value)
+    {
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
+
+        if (type == DOUBLE) {
+            return Double.isNaN((double) value);
+        }
+        if (type == REAL) {
+            return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
+        }
+        return false;
     }
 
     static void checkElementNotNull(boolean isNull, String errorMsg)

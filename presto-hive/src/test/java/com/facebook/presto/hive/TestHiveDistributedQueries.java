@@ -17,6 +17,7 @@ import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventList
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -24,7 +25,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -35,9 +35,11 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestHiveDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override

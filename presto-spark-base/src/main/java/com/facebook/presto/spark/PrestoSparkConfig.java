@@ -17,6 +17,8 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -36,6 +38,8 @@ public class PrestoSparkConfig
     private String storageBasedBroadcastJoinStorage = "local";
     private DataSize sparkBroadcastJoinMaxMemoryOverride;
     private boolean smileSerializationEnabled = true;
+    private int splitAssignmentBatchSize = 1_000_000;
+    private double memoryRevokingThreshold;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -176,6 +180,33 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setSmileSerializationEnabled(boolean smileSerializationEnabled)
     {
         this.smileSerializationEnabled = smileSerializationEnabled;
+        return this;
+    }
+
+    public int getSplitAssignmentBatchSize()
+    {
+        return splitAssignmentBatchSize;
+    }
+
+    @Config("spark.split-assignment-batch-size")
+    public PrestoSparkConfig setSplitAssignmentBatchSize(int splitAssignmentBatchSize)
+    {
+        this.splitAssignmentBatchSize = splitAssignmentBatchSize;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingThreshold()
+    {
+        return memoryRevokingThreshold;
+    }
+
+    @Config("spark.memory-revoking-threshold")
+    @ConfigDescription("Revoke memory when memory pool is filled over threshold")
+    public PrestoSparkConfig setMemoryRevokingThreshold(double memoryRevokingThreshold)
+    {
+        this.memoryRevokingThreshold = memoryRevokingThreshold;
         return this;
     }
 }

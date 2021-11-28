@@ -42,7 +42,7 @@ public class TestAlluxioCacheConfig
                 .setMetricsCollectionEnabled(true)
                 .setMetricsDomain("com.facebook.alluxio")
                 .setTimeoutDuration(new Duration(60, SECONDS))
-                .setTimeoutEnabled(false)
+                .setTimeoutEnabled(true)
                 .setTimeoutThreads(64)
                 .setCacheQuotaEnabled(false));
     }
@@ -60,7 +60,7 @@ public class TestAlluxioCacheConfig
                 .put("cache.alluxio.metrics-domain", "test.alluxio")
                 .put("cache.alluxio.metrics-enabled", "false")
                 .put("cache.alluxio.timeout-duration", "120s")
-                .put("cache.alluxio.timeout-enabled", "true")
+                .put("cache.alluxio.timeout-enabled", "false")
                 .put("cache.alluxio.timeout-threads", "512")
                 .put("cache.alluxio.quota-enabled", "true")
                 .build();
@@ -75,7 +75,7 @@ public class TestAlluxioCacheConfig
                 .setJmxClass("test.TestJmxSink")
                 .setConfigValidationEnabled(true)
                 .setTimeoutDuration(new Duration(120, SECONDS))
-                .setTimeoutEnabled(true)
+                .setTimeoutEnabled(false)
                 .setTimeoutThreads(512)
                 .setCacheQuotaEnabled(true);
 

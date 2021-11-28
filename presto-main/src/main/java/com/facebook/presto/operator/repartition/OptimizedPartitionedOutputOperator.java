@@ -65,12 +65,13 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
-import static com.facebook.presto.array.Arrays.ExpansionFactor.MEDIUM;
-import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
-import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.MEDIUM;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -120,7 +121,7 @@ public class OptimizedPartitionedOutputOperator
                 maxMemory,
                 operatorContext);
 
-        operatorContext.setInfoSupplier(this::getInfo);
+        operatorContext.setInfoSupplier(pagePartitioner.getPartitionedOutputInfoSupplier());
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
         this.systemMemoryContext.setBytes(pagePartitioner.getRetainedSizeInBytes());
     }
@@ -129,11 +130,6 @@ public class OptimizedPartitionedOutputOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    public PartitionedOutputInfo getInfo()
-    {
-        return pagePartitioner.getInfo();
     }
 
     @Override
@@ -187,6 +183,12 @@ public class OptimizedPartitionedOutputOperator
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
     }
 
     /**
@@ -389,7 +391,7 @@ public class OptimizedPartitionedOutputOperator
         private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
         private final PagesSerde serde;
         private final boolean replicatesAnyRow;
-        private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
+        private final int nullChannel; // when >= 0, send the position to every partition if this channel is null
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
 
@@ -442,7 +444,7 @@ public class OptimizedPartitionedOutputOperator
             }
 
             this.replicatesAnyRow = replicatesAnyRow;
-            this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
+            this.nullChannel = requireNonNull(nullChannel, "nullChannel is null").orElse(-1);
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
 
@@ -477,15 +479,19 @@ public class OptimizedPartitionedOutputOperator
             return outputBuffer.isFull();
         }
 
-        public PartitionedOutputInfo getInfo()
+        public Supplier<PartitionedOutputInfo> getPartitionedOutputInfoSupplier()
         {
-            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
+            // Must be a separate static method to avoid embedding references to "this" in the supplier
+            return PartitionedOutputInfo.createPartitionedOutputInfoSupplier(rowsAdded, pagesAdded, outputBuffer);
         }
 
         public void partitionPage(Page page)
         {
             // Populate positions to copy for each destination partition.
             int positionCount = page.getPositionCount();
+            if (positionCount == 0) {
+                return;
+            }
 
             // We initialize the size of the positions array in each partitionBuffers to be at most the incoming page's positionCount, or roughly two times of positionCount
             // divided by the number of partitions. This is because the latter could be greater than the positionCount when the number of partitions is 1 or positionCount is 1.
@@ -494,20 +500,37 @@ public class OptimizedPartitionedOutputOperator
                 partitionBuffers[i].resetPositions(initialPositionCountForEachBuffer);
             }
 
-            Block nullBlock = nullChannel.isPresent() ? page.getBlock(nullChannel.getAsInt()) : null;
-            Page partitionFunctionArgs = getPartitionFunctionArguments(page);
-
-            for (int position = 0; position < positionCount; position++) {
-                boolean shouldReplicate = (replicatesAnyRow && !hasAnyRowBeenReplicated) ||
-                        nullBlock != null && nullBlock.isNull(position);
-
-                if (shouldReplicate) {
-                    for (int i = 0; i < partitionBuffers.length; i++) {
-                        partitionBuffers[i].addPosition(position);
-                    }
-                    hasAnyRowBeenReplicated = true;
+            int position;
+            // Handle "any row" replication outside of the inner loop processing
+            if (replicatesAnyRow && !hasAnyRowBeenReplicated) {
+                for (int i = 0; i < partitionBuffers.length; i++) {
+                    partitionBuffers[i].addPosition(0);
                 }
-                else {
+                hasAnyRowBeenReplicated = true;
+                position = 1;
+            }
+            else {
+                position = 0;
+            }
+
+            Page partitionFunctionArgs = getPartitionFunctionArguments(page);
+            // Skip null block checks if mayHaveNull reports that no positions will be null
+            if (nullChannel >= 0 && page.getBlock(nullChannel).mayHaveNull()) {
+                Block nullBlock = page.getBlock(nullChannel);
+                for (; position < positionCount; position++) {
+                    if (nullBlock.isNull(position)) {
+                        for (int i = 0; i < partitionBuffers.length; i++) {
+                            partitionBuffers[i].addPosition(position);
+                        }
+                    }
+                    else {
+                        int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
+                        partitionBuffers[partition].addPosition(position);
+                    }
+                }
+            }
+            else {
+                for (; position < positionCount; position++) {
                     int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
                     partitionBuffers[partition].addPosition(position);
                 }

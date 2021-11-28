@@ -17,6 +17,7 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.event.client.EventModule;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
@@ -106,6 +107,7 @@ public class HiveConnectorFactory
                     new EventModule(),
                     new MBeanModule(),
                     new JsonModule(),
+                    new SmileModule(),
                     new HiveClientModule(catalogName),
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),

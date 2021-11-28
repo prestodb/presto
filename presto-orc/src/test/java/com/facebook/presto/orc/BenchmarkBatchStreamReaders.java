@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.SqlDecimal;
@@ -212,7 +213,8 @@ public class BenchmarkBatchStreamReaders
                     OrcReaderTestingUtils.createDefaultTestConfig(),
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,

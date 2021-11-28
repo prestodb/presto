@@ -4,6 +4,10 @@ Presto is a distributed SQL query engine for big data.
 
 See the [User Manual](https://prestodb.github.io/docs/current/) for deployment instructions and end user documentation.
 
+## 2021 Elections
+
+Elections are now open for all TSC seats.  [Please see here for more details](https://github.com/prestodb/tsc/blob/master/README.md#2021-elections), including how to submit your nomination.
+
 ## Requirements
 
 * Mac OS X or Linux
@@ -39,7 +43,7 @@ Presto comes with sample configuration that should work out-of-the-box for devel
 
 * Main Class: `com.facebook.presto.server.PrestoServer`
 * VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
-* Working directory: `$MODULE_DIR$`
+* Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends your version of IntelliJ)
 * Use classpath of module: `presto-main`
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
@@ -84,6 +88,10 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Avoid using the ternary operator except for trivial expressions.
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
 * When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
+
+## Building the Documentation
+
+To learn how to build the docs, see the [docs README](presto-docs/README.md).
 
 ## Building the Web UI
 

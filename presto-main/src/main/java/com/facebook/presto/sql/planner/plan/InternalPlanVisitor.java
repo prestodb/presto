@@ -65,6 +65,11 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitOffset(OffsetNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitSort(SortNode node, C context)
     {
         return visitPlan(node, context);

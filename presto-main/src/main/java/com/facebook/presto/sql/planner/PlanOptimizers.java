@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
@@ -75,10 +76,12 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownDereferences;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOffset;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughUnion;
+import com.facebook.presto.sql.planner.iterative.rule.PushOffsetThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExchange;
@@ -94,6 +97,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarAp
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilter;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
@@ -117,6 +121,7 @@ import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewrit
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
+import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
@@ -165,7 +170,8 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            PartitioningProviderManager partitioningProviderManager)
     {
         this(metadata,
                 sqlParser,
@@ -178,7 +184,8 @@ public class PlanOptimizers
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 costComparator,
-                taskCountEstimator);
+                taskCountEstimator,
+                partitioningProviderManager);
     }
 
     @PostConstruct
@@ -207,7 +214,8 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            PartitioningProviderManager partitioningProviderManager)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -275,6 +283,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
+                                .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
                                 .addAll(new DesugarLambdaExpression().rules())
                                 .addAll(new DesugarAtTimeZone(metadata, sqlParser).rules())
                                 .addAll(new DesugarCurrentUser().rules())
@@ -302,6 +311,8 @@ public class PlanOptimizers
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
+                                        new PushOffsetThroughProject(),
+                                        new PushLimitThroughOffset(),
                                         new PushLimitThroughProject(),
                                         new MergeLimits(),
                                         new MergeLimitWithSort(),
@@ -320,6 +331,13 @@ public class PlanOptimizers
                                         new PruneOrderByInAggregation(metadata.getFunctionAndTypeManager()),
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new ImplementBernoulliSampleAsFilter(),
+                                new ImplementOffset())),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
@@ -332,11 +350,6 @@ public class PlanOptimizers
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
                 inlineProjections,
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        new InlineSqlFunctions(metadata, sqlParser).rules()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -388,7 +401,13 @@ public class PlanOptimizers
         // After this point, all planNodes should not contain OriginalExpression
 
         builder.add(
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RewriteAggregationIfToFilter(metadata.getFunctionAndTypeManager()))),
                 predicatePushDown,
+                new KeyBasedSampler(metadata, sqlParser),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -448,7 +467,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new PushDownDereferences(metadata).rules())
                                 .build()),
-                    new PruneUnreferencedOutputs());
+                new PruneUnreferencedOutputs());
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
@@ -540,7 +559,7 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser)));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager)));
         }
 
         //noinspection UnusedAssignment

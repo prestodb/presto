@@ -26,18 +26,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -49,8 +46,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
@@ -337,8 +332,7 @@ public class PipelineContext
         int completedDrivers = this.completedDrivers.get();
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
         int totalSplits = this.totalSplits.get();
-        PipelineStatus pipelineStatus = getPipelineStatus(driverContexts.iterator(), totalSplits, completedDrivers, partitioned);
-
+        PipelineStatusBuilder pipelineStatusBuilder = new PipelineStatusBuilder(totalSplits, completedDrivers, partitioned);
         int totalDrivers = completedDrivers + driverContexts.size();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -361,12 +355,23 @@ public class PipelineContext
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.get();
 
-        List<DriverStats> drivers = new ArrayList<>();
+        ImmutableSet.Builder<BlockedReason> blockedReasons = ImmutableSet.builder();
+        boolean hasUnfinishedDrivers = false;
+        boolean unfinishedDriversFullyBlocked = true;
 
-        Multimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
+        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
+        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
+        ImmutableList.Builder<DriverStats> drivers = ImmutableList.builderWithExpectedSize(driverContexts.size());
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
+            pipelineStatusBuilder.accumulate(driverStats);
+            if (driverStats.getStartTime() != null && driverStats.getEndTime() == null) {
+                // driver has started running, but not yet completed
+                hasUnfinishedDrivers = true;
+                unfinishedDriversFullyBlocked &= driverStats.isFullyBlocked();
+                blockedReasons.addAll(driverStats.getBlockedReasons());
+            }
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
             elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -377,9 +382,8 @@ public class PipelineContext
 
             totalAllocation += driverStats.getTotalAllocation().toBytes();
 
-            List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), OperatorContext::getOperatorStats));
-            for (OperatorStats operator : operators) {
-                runningOperators.put(operator.getOperatorId(), operator);
+            for (OperatorStats operatorStats : driverStats.getOperatorStats()) {
+                runningOperators.put(operatorStats.getOperatorId(), operatorStats);
             }
 
             rawInputDataSize += driverStats.getRawInputDataSize().toBytes();
@@ -395,26 +399,27 @@ public class PipelineContext
         }
 
         // merge the running operator stats into the operator summary
-        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
-        for (Entry<Integer, OperatorStats> entry : runningOperators.entries()) {
-            OperatorStats current = operatorSummaries.get(entry.getKey());
-            if (current == null) {
-                current = entry.getValue();
+        for (Integer operatorId : runningOperators.keySet()) {
+            List<OperatorStats> runningStats = runningOperators.get(operatorId);
+            if (runningStats.isEmpty()) {
+                continue;
+            }
+            OperatorStats current = operatorSummaries.get(operatorId);
+            OperatorStats combined;
+            if (current != null) {
+                combined = current.add(runningStats);
             }
             else {
-                current = current.add(entry.getValue());
+                combined = runningStats.get(0);
+                if (runningStats.size() > 1) {
+                    combined = combined.add(runningStats.subList(1, runningStats.size()));
+                }
             }
-            operatorSummaries.put(entry.getKey(), current);
+            operatorSummaries.put(operatorId, combined);
         }
 
-        Set<DriverStats> runningDriverStats = drivers.stream()
-                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
-                .collect(toImmutableSet());
-        ImmutableSet<BlockedReason> blockedReasons = runningDriverStats.stream()
-                .flatMap(driver -> driver.getBlockedReasons().stream())
-                .collect(toImmutableSet());
-
-        boolean fullyBlocked = !runningDriverStats.isEmpty() && runningDriverStats.stream().allMatch(DriverStats::isFullyBlocked);
+        PipelineStatus pipelineStatus = pipelineStatusBuilder.build();
+        boolean fullyBlocked = hasUnfinishedDrivers && unfinishedDriversFullyBlocked;
 
         return new PipelineStats(
                 pipelineId,
@@ -445,7 +450,7 @@ public class PipelineContext
                 totalCpuTime,
                 totalBlockedTime,
                 fullyBlocked,
-                blockedReasons,
+                blockedReasons.build(),
 
                 totalAllocation,
 
@@ -461,7 +466,7 @@ public class PipelineContext
                 physicalWrittenDataSize,
 
                 ImmutableList.copyOf(operatorSummaries.values()),
-                drivers);
+                drivers.build());
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
@@ -484,8 +489,27 @@ public class PipelineContext
 
     private static PipelineStatus getPipelineStatus(Iterator<DriverContext> driverContextsIterator, int totalSplits, int completedDrivers, boolean partitioned)
     {
-        int runningDrivers = 0;
-        int blockedDrivers = 0;
+        PipelineStatusBuilder builder = new PipelineStatusBuilder(totalSplits, completedDrivers, partitioned);
+        while (driverContextsIterator.hasNext()) {
+            builder.accumulate(driverContextsIterator.next());
+        }
+        return builder.build();
+    }
+
+    /**
+     * Allows building a {@link PipelineStatus} either from a series of {@link DriverContext} instances or
+     * {@link DriverStats} instances. In {@link PipelineContext#getPipelineStats()} where {@link DriverStats}
+     * instances are already created as a state snapshot of {@link DriverContext}, using those instead of
+     * re-checking the fields on {@link DriverContext} is cheaper since it avoids extra volatile reads and
+     * reduces the opportunities to read inconsistent values
+     */
+    private static final class PipelineStatusBuilder
+    {
+        private final int totalSplits;
+        private final int completedDrivers;
+        private final boolean partitioned;
+        private int runningDrivers;
+        private int blockedDrivers;
         // When a split for a partitioned pipeline is delivered to a worker,
         // conceptually, the worker would have an additional driver.
         // The queuedDrivers field in PipelineStatus is supposed to represent this.
@@ -493,9 +517,17 @@ public class PipelineContext
         //
         // physically queued drivers: actual number of instantiated drivers whose execution hasn't started
         // conceptually queued drivers: includes assigned splits that haven't been turned into a driver
-        int physicallyQueuedDrivers = 0;
-        while (driverContextsIterator.hasNext()) {
-            DriverContext driverContext = driverContextsIterator.next();
+        private int physicallyQueuedDrivers;
+
+        private PipelineStatusBuilder(int totalSplits, int completedDrivers, boolean partitioned)
+        {
+            this.totalSplits = totalSplits;
+            this.partitioned = partitioned;
+            this.completedDrivers = completedDrivers;
+        }
+
+        public void accumulate(DriverContext driverContext)
+        {
             if (!driverContext.isExecutionStarted()) {
                 physicallyQueuedDrivers++;
             }
@@ -507,18 +539,34 @@ public class PipelineContext
             }
         }
 
-        int queuedDrivers;
-        if (partitioned) {
-            queuedDrivers = totalSplits - runningDrivers - blockedDrivers - completedDrivers;
-            if (queuedDrivers < 0) {
-                // It is possible to observe negative here because inputs to the above expression was not taken in a snapshot.
-                queuedDrivers = 0;
+        public void accumulate(DriverStats driverStats)
+        {
+            if (driverStats.getStartTime() == null) {
+                // driver has not started running
+                physicallyQueuedDrivers++;
+            }
+            else if (driverStats.isFullyBlocked()) {
+                blockedDrivers++;
+            }
+            else {
+                runningDrivers++;
             }
         }
-        else {
-            queuedDrivers = physicallyQueuedDrivers;
-        }
 
-        return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, partitioned ? queuedDrivers : 0, partitioned ? runningDrivers : 0);
+        public PipelineStatus build()
+        {
+            int queuedDrivers;
+            if (partitioned) {
+                queuedDrivers = totalSplits - runningDrivers - blockedDrivers - completedDrivers;
+                if (queuedDrivers < 0) {
+                    // It is possible to observe negative here because inputs to passed into the constructor are not taken in a snapshot
+                    queuedDrivers = 0;
+                }
+            }
+            else {
+                queuedDrivers = physicallyQueuedDrivers;
+            }
+            return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, partitioned ? queuedDrivers : 0, partitioned ? runningDrivers : 0);
+        }
     }
 }

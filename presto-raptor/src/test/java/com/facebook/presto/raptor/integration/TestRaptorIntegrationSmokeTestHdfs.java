@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.integration;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -21,9 +22,11 @@ import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunn
 public class TestRaptorIntegrationSmokeTestHdfs
         extends TestRaptorIntegrationSmokeTest
 {
-    public TestRaptorIntegrationSmokeTestHdfs()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, true, ImmutableMap.of()));
+        return createRaptorQueryRunner(ImmutableMap.of(), true, true, true, ImmutableMap.of());
     }
 
     @Test

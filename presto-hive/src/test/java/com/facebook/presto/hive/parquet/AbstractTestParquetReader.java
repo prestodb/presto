@@ -40,9 +40,11 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.parquet.format.Statistics;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
+import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -77,6 +79,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.RowType.field;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -85,7 +88,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.hive.parquet.ParquetTester.insertNullEvery;
 import static com.facebook.presto.hive.parquet.ParquetTester.testSingleRead;
-import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetColumnPresto;
+import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
@@ -118,6 +121,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestParquetReader
@@ -794,6 +799,15 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000), BOOLEAN);
+    }
+
+    @Test
+    public void testSmallIntSequence()
+            throws Exception
+    {
+        List<Short> values = Stream.of(1, 2, 3, 4, 5)
+                .map(value -> value.shortValue()).collect(Collectors.toList());
+        tester.testRoundTrip(javaShortObjectInspector, limit(cycle(values), 30_000), SMALLINT);
     }
 
     @Test
@@ -1550,6 +1564,16 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testNullableNullCount()
+    {
+        PrimitiveType primitiveType = new PrimitiveType(OPTIONAL, BINARY, "testColumn");
+        Statistics statistics = new Statistics();
+        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), -1);
+        statistics.setNull_count(10);
+        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), 10);
+    }
+
+    @Test
     public void testArrayMaxReadBytes()
             throws Exception
     {
@@ -1585,7 +1609,7 @@ public abstract class AbstractTestParquetReader
 
             List<String> columnNames = singletonList("column1");
             List<Type> columnTypes = singletonList(INTEGER);
-            writeParquetColumnPresto(tempFile.getFile(),
+            writeParquetFileFromPresto(tempFile.getFile(),
                     columnTypes,
                     columnNames,
                     readValues,
@@ -1905,7 +1929,7 @@ public abstract class AbstractTestParquetReader
         return timestamp;
     }
 
-    private static SqlTimestamp intToSqlTimestamp(Integer input)
+    protected static SqlTimestamp intToSqlTimestamp(Integer input)
     {
         if (input == null) {
             return null;

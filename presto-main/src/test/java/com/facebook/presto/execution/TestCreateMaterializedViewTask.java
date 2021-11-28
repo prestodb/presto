@@ -15,6 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.AbstractMockMetadata;
@@ -278,6 +280,12 @@ public class TestCreateMaterializedViewTask
         public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
         {
             return Optional.empty();
+        }
+
+        @Override
+        public BlockEncodingSerde getBlockEncodingSerde()
+        {
+            return new TestingBlockEncodingSerde();
         }
 
         @Override

@@ -94,9 +94,9 @@ public class TestJdbcClient
         assertEquals(table.getTableName(), "NUMBERS");
         assertEquals(table.getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true),
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true),
-                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true)));
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
     }
 
     @Test
@@ -106,8 +106,8 @@ public class TestJdbcClient
         JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR, true),
-                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", JDBC_BIGINT, BIGINT, true)));
+                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
     }
 
     @Test
@@ -117,10 +117,10 @@ public class TestJdbcClient
         JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE, true),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE, true),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL4", JDBC_REAL, REAL, true)));
+                new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT, true, Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE, true, Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE, true, Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL4", JDBC_REAL, REAL, true, Optional.empty())));
     }
 
     @Test
@@ -141,17 +141,18 @@ public class TestJdbcClient
         try {
             assertEquals(tableHandle.getTableName(), tableName);
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNC", JDBC_BIGINT, BigintType.BIGINT, false),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DateType.DATE, false)));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNC", JDBC_BIGINT, BigintType.BIGINT, false, Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DateType.DATE, false, Optional.empty())));
         }
         finally {
             jdbcClient.dropTable(JdbcIdentity.from(session), tableHandle);
         }
     }
 
-    @Test
+    // disabled due to https://github.com/prestodb/presto/issues/16081
+    @Test(enabled = false)
     public void testAlterColumns()
     {
         String tableName = randomUUID().toString().toUpperCase(ENGLISH);
@@ -166,16 +167,16 @@ public class TestJdbcClient
         try {
             assertEquals(tableHandle.getTableName(), tableName);
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true)));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty())));
 
             jdbcClient.addColumn(JdbcIdentity.from(session), tableHandle, new ColumnMetadata("columnB", DoubleType.DOUBLE, null, null, false));
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE, true)));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE, true, Optional.empty())));
 
-            jdbcClient.dropColumn(JdbcIdentity.from(session), tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true));
+            jdbcClient.dropColumn(JdbcIdentity.from(session), tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()));
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true)));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty())));
         }
         finally {
             jdbcClient.dropTable(JdbcIdentity.from(session), tableHandle);

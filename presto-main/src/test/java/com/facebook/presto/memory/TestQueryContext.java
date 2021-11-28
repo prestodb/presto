@@ -21,6 +21,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -32,10 +33,13 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -86,7 +90,8 @@ public class TestQueryContext
                     localQueryRunner.getExecutor(),
                     localQueryRunner.getScheduler(),
                     new DataSize(0, BYTE),
-                    new SpillSpaceTracker(new DataSize(0, BYTE)));
+                    new SpillSpaceTracker(new DataSize(0, BYTE)),
+                    listJsonCodec(TaskMemoryReservationSummary.class));
 
             // Use memory
             queryContext.getQueryMemoryContext().initializeLocalMemoryContexts("test");
@@ -122,7 +127,8 @@ public class TestQueryContext
                     localQueryRunner.getExecutor(),
                     localQueryRunner.getScheduler(),
                     new DataSize(0, BYTE),
-                    new SpillSpaceTracker(new DataSize(0, BYTE)));
+                    new SpillSpaceTracker(new DataSize(0, BYTE)),
+                    listJsonCodec(TaskMemoryReservationSummary.class));
 
             queryContext.getQueryMemoryContext().initializeLocalMemoryContexts("test");
             LocalMemoryContext systemMemoryContext = queryContext.getQueryMemoryContext().localSystemMemoryContext();
@@ -140,7 +146,15 @@ public class TestQueryContext
         QueryId queryId = new QueryId("query");
         QueryContext queryContext = createQueryContext(queryId, generalPool);
         TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("queryid.0.0.0"), TEST_EXECUTOR);
-        TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false);
+        TaskContext taskContext = queryContext.addTaskContext(
+                taskStateMachine,
+                TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT.getRoot()),
+                false,
+                false,
+                false,
+                false,
+                false);
         DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), "test");
 
@@ -178,6 +192,7 @@ public class TestQueryContext
                 TEST_EXECUTOR,
                 TEST_EXECUTOR,
                 new DataSize(0, BYTE),
-                new SpillSpaceTracker(new DataSize(0, BYTE)));
+                new SpillSpaceTracker(new DataSize(0, BYTE)),
+                listJsonCodec(TaskMemoryReservationSummary.class));
     }
 }

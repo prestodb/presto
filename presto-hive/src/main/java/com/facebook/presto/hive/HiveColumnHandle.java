@@ -52,6 +52,16 @@ public class HiveColumnHandle
     public static final HiveType BUCKET_HIVE_TYPE = HIVE_INT;
     public static final TypeSignature BUCKET_TYPE_SIGNATURE = BUCKET_HIVE_TYPE.getTypeSignature();
 
+    public static final int FILE_SIZE_COLUMN_INDEX = -15;
+    public static final String FILE_SIZE_COLUMN_NAME = "$file_size";
+    public static final HiveType FILE_SIZE_TYPE = HIVE_LONG;
+    public static final TypeSignature FILE_SIZE_TYPE_SIGNATURE = FILE_SIZE_TYPE.getTypeSignature();
+
+    public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -14;
+    public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
+    public static final HiveType FILE_MODIFIED_TIME_TYPE = HIVE_LONG;
+    public static final TypeSignature FILE_MODIFIED_TIME_TYPE_SIGNATURE = FILE_MODIFIED_TIME_TYPE.getTypeSignature();
+
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
     // Ids <= this can be used for distinguishing between different prefilled columns.
@@ -243,6 +253,16 @@ public class HiveColumnHandle
         return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
+    public static HiveColumnHandle fileSizeColumnHandle()
+    {
+        return new HiveColumnHandle(FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, FILE_SIZE_TYPE_SIGNATURE, FILE_SIZE_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
+    }
+
+    public static HiveColumnHandle fileModifiedTimeColumnHandle()
+    {
+        return new HiveColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_TYPE_SIGNATURE, FILE_MODIFIED_TIME_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
+    }
+
     public static boolean isPathColumnHandle(HiveColumnHandle column)
     {
         return column.getHiveColumnIndex() == PATH_COLUMN_INDEX;
@@ -265,5 +285,15 @@ public class HiveColumnHandle
     public static boolean isPushedDownSubfield(HiveColumnHandle column)
     {
         return column.getColumnType() == SYNTHESIZED && column.getRequiredSubfields().size() == 1;
+    }
+
+    public static boolean isFileSizeColumnHandle(HiveColumnHandle column)
+    {
+        return column.getHiveColumnIndex() == FILE_SIZE_COLUMN_INDEX;
+    }
+
+    public static boolean isFileModifiedTimeColumnHandle(HiveColumnHandle column)
+    {
+        return column.getHiveColumnIndex() == FILE_MODIFIED_TIME_COLUMN_INDEX;
     }
 }

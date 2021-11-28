@@ -18,6 +18,8 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -26,6 +28,8 @@ import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class DruidConfig
 {
@@ -38,6 +42,8 @@ public class DruidConfig
     private String basicAuthenticationUsername;
     private String basicAuthenticationPassword;
     private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
+    private boolean caseInsensitiveNameMatching;
+    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
     public enum DruidAuthenticationType
     {
@@ -192,6 +198,32 @@ public class DruidConfig
     public DruidConfig setIngestionStoragePath(String ingestionStoragePath)
     {
         this.ingestionStoragePath = ingestionStoragePath;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("druid.case-insensitive-name-matching")
+    public DruidConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getCaseInsensitiveNameMatchingCacheTtl()
+    {
+        return caseInsensitiveNameMatchingCacheTtl;
+    }
+
+    @Config("druid.case-insensitive-name-matching.cache-ttl")
+    public DruidConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
+    {
+        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
         return this;
     }
 }

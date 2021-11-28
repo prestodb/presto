@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
@@ -23,11 +25,11 @@ import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.base.CaseFormat;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
@@ -287,9 +289,17 @@ public final class AggregationUtils
     }
 
     // used by aggregation compiler
+    @UsedByGeneratedCode
     @SuppressWarnings("UnusedDeclaration")
-    public static Function<Integer, Block> pageBlockGetter(final Page page)
+    public static Block extractMaskBlock(int maskChannel, Page page)
     {
-        return page::getBlock;
+        if (maskChannel < 0) {
+            return null;
+        }
+        Block maskBlock = page.getBlock(maskChannel);
+        if (page.getPositionCount() > 0 && maskBlock instanceof RunLengthEncodedBlock && CompilerOperations.testMask(maskBlock, 0)) {
+            return null; // filter out RLE true blocks to bypass unnecessary mask checks
+        }
+        return maskBlock;
     }
 }

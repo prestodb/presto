@@ -101,6 +101,7 @@ public class TestOrcSelectiveStreamReaders
                         ImmutableMap.of(),
                         OrcTester.OrcReaderSettings.builder().build().getRequiredSubfields(),
                         ImmutableMap.of(),
+                        ImmutableMap.of(),
                         includedColumns,
                         outputColumns,
                         false,

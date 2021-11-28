@@ -18,7 +18,6 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.JsonResponseWrapper;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.util.concurrent.FutureCallback;
 
 import java.net.URI;
@@ -58,14 +57,9 @@ public class SimpleHttpResponseHandler<T>
                 callback.failed(new ServiceUnavailableException(uri));
             }
             else {
+                // Something is broken in the server or the client, so fail immediately (includes 500 errors)
                 Exception cause = response.getException();
-                String responseErrorCode = response.getHeader("X-Presto-Error-Code");
-                if (responseErrorCode != null) {
-                    StandardErrorCode code = StandardErrorCode.valueOf(responseErrorCode);
-                    cause = new PrestoException(code, createErrorMessage(response));
-                }
-                else if (cause == null) {
-                    // Something is broken in the server or the client, so fail immediately (includes 500 errors)
+                if (cause == null) {
                     if (response.getStatusCode() == OK.code()) {
                         cause = new PrestoException(errorCode, format("Expected response from %s is empty", uri));
                     }

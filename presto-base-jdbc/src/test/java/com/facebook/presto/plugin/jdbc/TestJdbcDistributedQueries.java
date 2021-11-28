@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
 
@@ -21,9 +22,11 @@ import static com.facebook.presto.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRun
 public class TestJdbcDistributedQueries
         extends AbstractTestQueries
 {
-    public TestJdbcDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createJdbcQueryRunner(TpchTable.getTables()));
+        return createJdbcQueryRunner(TpchTable.getTables());
     }
 
     @Override

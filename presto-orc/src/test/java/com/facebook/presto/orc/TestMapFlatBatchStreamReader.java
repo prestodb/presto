@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -49,10 +50,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL_EXCEPT_FIRST;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.NONE;
@@ -129,6 +134,15 @@ public class TestMapFlatBatchStreamReader
         runTest("test_flat_map/flat_map_int_with_null.dwrf",
                 IntegerType.INTEGER,
                 ExpectedValuesBuilder.get(Function.identity()).setNullValuesFrequency(SOME));
+    }
+
+    @Test
+    public void testIntegerWithSharedDictionary()
+            throws Exception
+    {
+        runTest("test_flat_map/flat_map_dict_share_simple.dwrf",
+                INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setNumRows(2048));
     }
 
     @Test
@@ -269,6 +283,17 @@ public class TestMapFlatBatchStreamReader
                 IntegerType.INTEGER,
                 MAP_TYPE,
                 ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToMap).setNullValuesFrequency(SOME));
+    }
+
+    @Test
+    public void testMapWithSharedDictionary()
+            throws Exception
+    {
+        runTest(
+                "test_flat_map/flat_map_dict_share_nested.dwrf",
+                BIGINT,
+                mapType(VARCHAR, INTEGER),
+                ExpectedValuesBuilder.get(x -> (long) x, TestMapFlatBatchStreamReader::intToIntMap).setNumRows(2048));
     }
 
     @Test
@@ -428,7 +453,8 @@ public class TestMapFlatBatchStreamReader
                 OrcReaderTestingUtils.createDefaultTestConfig(),
                 false,
                 NO_ENCRYPTION,
-                DwrfKeyProvider.EMPTY);
+                DwrfKeyProvider.EMPTY,
+                new RuntimeStats());
         Type mapType = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
@@ -457,7 +483,7 @@ public class TestMapFlatBatchStreamReader
                     Block block = recordReader.readBlock(0);
 
                     for (int position = 0; position < block.getPositionCount(); position++) {
-                        assertEquals(mapType.getObjectValue(SESSION.getSqlFunctionProperties(), block, position), expectedValuesIterator.next());
+                        assertEquals(mapType.getObjectValue(SESSION.getSqlFunctionProperties(), block, position), expectedValuesIterator.next(), String.format("row mismatch at processed rows %d, position %d", rowsProcessed, position));
                     }
                 }
 
@@ -492,6 +518,11 @@ public class TestMapFlatBatchStreamReader
         return ImmutableMap.of(Integer.toString(i * 3), (float) (i * 3), Integer.toString(i * 3 + 1), (float) (i * 3 + 1), Integer.toString(i * 3 + 2), (float) (i * 3 + 2));
     }
 
+    private static Map<String, Integer> intToIntMap(int i)
+    {
+        return ImmutableMap.of(Integer.toString(i * 3), i * 3, Integer.toString(i * 3 + 1), i * 3 + 1, Integer.toString(i * 3 + 2), i * 3 + 2);
+    }
+
     static class ExpectedValuesBuilder<K, V>
     {
         enum Frequency
@@ -509,6 +540,7 @@ public class TestMapFlatBatchStreamReader
         private Frequency emptyMapsFrequency = NONE;
         private boolean mixedEncodings;
         private boolean missingSequences;
+        private int numRows = NUM_ROWS;
 
         private ExpectedValuesBuilder(Function<Integer, K> keyConverter, Function<Integer, V> valueConverter)
         {
@@ -561,13 +593,19 @@ public class TestMapFlatBatchStreamReader
             return this;
         }
 
+        public ExpectedValuesBuilder<K, V> setNumRows(int numRows)
+        {
+            this.numRows = numRows;
+            return this;
+        }
+
         public List<Map<K, V>> build()
         {
-            List<Map<K, V>> result = new ArrayList<>(NUM_ROWS);
+            List<Map<K, V>> result = new ArrayList<>(numRows);
 
-            for (int i = 0; i < NUM_ROWS; ++i) {
+            for (int i = 0; i < numRows; ++i) {
                 if (passesFrequencyCheck(nullRowsFrequency, i)) {
-                    result.add((Map<K, V>) null);
+                    result.add(null);
                 }
                 else if (passesFrequencyCheck(emptyMapsFrequency, i)) {
                     result.add(Collections.emptyMap());

@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.hive.orc.lazy.OrcLazyObject;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -891,6 +892,7 @@ public class OrcTester
                 filterFunctions,
                 filterFunctionInputMapping,
                 requiredSubfields,
+                ImmutableMap.of(),
                 intermediateEncryptionKeys,
                 includedColumns,
                 outputColumns,
@@ -1458,7 +1460,6 @@ public class OrcTester
                 orcEncoding,
                 orcFileTailSource,
                 stripeMetadataSource,
-                Optional.empty(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(
                         new DataSize(1, MEGABYTE),
@@ -1469,7 +1470,8 @@ public class OrcTester
                         false),
                 cacheable,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
-                DwrfKeyProvider.of(intermediateEncryptionKeys));
+                DwrfKeyProvider.of(intermediateEncryptionKeys),
+                new RuntimeStats());
 
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
@@ -1503,7 +1505,8 @@ public class OrcTester
                         false),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
-                DwrfKeyProvider.of(intermediateEncryptionKeys));
+                DwrfKeyProvider.of(intermediateEncryptionKeys),
+                new RuntimeStats());
         return orcReader;
     }
 
@@ -1516,7 +1519,7 @@ public class OrcTester
     public static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, WriterStats stats)
             throws Exception
     {
-        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, new OrcWriterOptions(), stats);
+        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, OrcWriterOptions.builder().build(), stats);
 
         Block[] blocks = new Block[types.size()];
         for (int i = 0; i < types.size(); i++) {
@@ -1541,9 +1544,15 @@ public class OrcTester
     public static List<StripeFooter> getStripes(File inputFile, OrcEncoding encoding)
             throws IOException
     {
+        return getFileMetadata(inputFile, encoding).getStripeFooters();
+    }
+    public static FileMetadata getFileMetadata(File inputFile, OrcEncoding encoding)
+            throws IOException
+    {
         boolean zstdJniDecompressionEnabled = true;
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(inputFile, dataSize, dataSize, dataSize, true);
+        RuntimeStats runtimeStats = new RuntimeStats();
         OrcReader reader = new OrcReader(
                 orcDataSource,
                 encoding,
@@ -1557,7 +1566,8 @@ public class OrcTester
                         zstdJniDecompressionEnabled),
                 false,
                 NO_ENCRYPTION,
-                DwrfKeyProvider.EMPTY);
+                DwrfKeyProvider.EMPTY,
+                runtimeStats);
 
         Footer footer = reader.getFooter();
         Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), reader.getCompressionKind(), reader.getBufferSize(), zstdJniDecompressionEnabled);
@@ -1575,11 +1585,11 @@ public class OrcTester
                     Optional.empty(),
                     new TestingHiveOrcAggregatedMemoryContext(),
                     tailBuffer.length)) {
-                StripeFooter stripeFooter = encoding.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
+                StripeFooter stripeFooter = encoding.createMetadataReader(runtimeStats).readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
                 stripes.add(stripeFooter);
             }
         }
-        return stripes.build();
+        return new FileMetadata(footer, stripes.build());
     }
 
     public static OrcWriter createOrcWriter(File outputFile, OrcEncoding encoding, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, OrcWriterOptions writerOptions, WriterStats stats)
@@ -1638,6 +1648,7 @@ public class OrcTester
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of(0, type),
                 ImmutableList.of(0),
                 mapNullKeysEnabled,
@@ -1654,6 +1665,7 @@ public class OrcTester
             List<FilterFunction> filterFunctions,
             Map<Integer, Integer> filterFunctionInputMapping,
             Map<Integer, List<Subfield>> requiredSubfields,
+            Map<Integer, Object> constantValues,
             Map<Integer, Slice> intermediateEncryptionKeys,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
@@ -1677,7 +1689,8 @@ public class OrcTester
                         false),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
-                DwrfKeyProvider.of(intermediateEncryptionKeys));
+                DwrfKeyProvider.of(intermediateEncryptionKeys),
+                new RuntimeStats());
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
 
@@ -1688,7 +1701,7 @@ public class OrcTester
                 filterFunctions,
                 filterFunctionInputMapping,
                 requiredSubfields,
-                ImmutableMap.of(),
+                constantValues,
                 ImmutableMap.of(),
                 predicate,
                 0,
@@ -2421,5 +2434,27 @@ public class OrcTester
             typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(filedName, false)), fieldType.getTypeSignature())));
         }
         return FUNCTION_AND_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+    }
+
+    public static class FileMetadata
+    {
+        Footer footer;
+        List<StripeFooter> stripeFooters;
+
+        public FileMetadata(Footer footer, List<StripeFooter> stripeFooters)
+        {
+            this.footer = requireNonNull(footer, "footer is null");
+            this.stripeFooters = requireNonNull(stripeFooters, "stripeFooters is null");
+        }
+
+        public Footer getFooter()
+        {
+            return footer;
+        }
+
+        public List<StripeFooter> getStripeFooters()
+        {
+            return stripeFooters;
+        }
     }
 }

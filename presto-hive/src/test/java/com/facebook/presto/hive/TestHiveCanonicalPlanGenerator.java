@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
@@ -56,7 +55,6 @@ public class TestHiveCanonicalPlanGenerator
 
     public TestHiveCanonicalPlanGenerator()
     {
-        super(() -> createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM)));
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
         this.objectMapper = new JsonObjectMapperProvider().get()
@@ -65,6 +63,13 @@ public class TestHiveCanonicalPlanGenerator
                         .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
                         .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)))
                 .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM));
     }
 
     @Test

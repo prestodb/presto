@@ -32,6 +32,7 @@ import com.facebook.presto.hive.HiveTableLayoutHandle;
 import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
@@ -84,6 +85,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -261,7 +263,7 @@ public class HiveFilterPushdown
         RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(

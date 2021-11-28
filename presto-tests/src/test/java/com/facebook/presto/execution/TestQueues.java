@@ -140,7 +140,7 @@ public class TestQueues
         waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 120_000, enabled = false)
     public void testExceedSoftLimits()
             throws Exception
     {
@@ -328,7 +328,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 60_000)
     public void testQueuedQueryInteraction()
             throws Exception
     {

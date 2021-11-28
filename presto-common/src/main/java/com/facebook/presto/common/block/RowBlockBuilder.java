@@ -43,6 +43,7 @@ public class RowBlockBuilder
     private int positionCount;
     private int[] fieldBlockOffsets;
     private boolean[] rowIsNull;
+    private boolean hasNullRow;
     private final BlockBuilder[] fieldBlockBuilders;
 
     private boolean currentEntryOpened;
@@ -95,10 +96,24 @@ public class RowBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getRowIsNull()
     {
-        return rowIsNull;
+        return hasNullRow ? rowIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullRow;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return hasNullRow && rowIsNull[position];
     }
 
     @Override
@@ -205,6 +220,7 @@ public class RowBlockBuilder
             fieldBlockOffsets[positionCount + 1] = fieldBlockOffsets[positionCount] + 1;
         }
         rowIsNull[positionCount] = isNull;
+        hasNullRow |= isNull;
         positionCount++;
 
         for (int i = 0; i < numFields; i++) {
@@ -228,7 +244,7 @@ public class RowBlockBuilder
         for (int i = 0; i < numFields; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, fieldBlockOffsets, fieldBlocks);
     }
 
     @Override

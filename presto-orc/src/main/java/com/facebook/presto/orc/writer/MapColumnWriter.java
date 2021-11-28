@@ -15,13 +15,13 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarMap;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -71,18 +71,18 @@ public class MapColumnWriter
 
     private boolean closed;
 
-    public MapColumnWriter(int column, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, ColumnWriter keyWriter, ColumnWriter valueWriter, MetadataWriter metadataWriter)
+    public MapColumnWriter(int column, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, ColumnWriter keyWriter, ColumnWriter valueWriter, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        requireNonNull(compressionParameters, "compressionParameters is null");
+        requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.column = column;
-        this.compressed = compressionParameters.getKind() != NONE;
+        this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
         this.keyWriter = requireNonNull(keyWriter, "keyWriter is null");
         this.valueWriter = requireNonNull(valueWriter, "valueWriter is null");
-        this.lengthStream = createLengthOutputStream(compressionParameters, dwrfEncryptor, orcEncoding);
-        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
+        this.lengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
     }
 
     @Override
@@ -117,33 +117,37 @@ public class MapColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
         ColumnarMap columnarMap = toColumnarMap(block);
-        writeColumnarMap(columnarMap);
+        return writeColumnarMap(columnarMap);
     }
 
-    private void writeColumnarMap(ColumnarMap columnarMap)
+    private long writeColumnarMap(ColumnarMap columnarMap)
     {
         // write nulls and lengths
+        int blockNonNullValueCount = 0;
         for (int position = 0; position < columnarMap.getPositionCount(); position++) {
             boolean present = !columnarMap.isNull(position);
             presentStream.writeBoolean(present);
             if (present) {
-                nonNullValueCount++;
+                blockNonNullValueCount++;
                 lengthStream.writeLong(columnarMap.getEntryCount(position));
             }
         }
 
         // write keys and value
         Block keysBlock = columnarMap.getKeysBlock();
+        long childRawSize = 0;
         if (keysBlock.getPositionCount() > 0) {
-            keyWriter.writeBlock(keysBlock);
-            valueWriter.writeBlock(columnarMap.getValuesBlock());
+            childRawSize += keyWriter.writeBlock(keysBlock);
+            childRawSize += valueWriter.writeBlock(columnarMap.getValuesBlock());
         }
+        nonNullValueCount += blockNonNullValueCount;
+        return (columnarMap.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
     }
 
     @Override
@@ -151,7 +155,7 @@ public class MapColumnWriter
     {
         checkState(!closed);
 
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;

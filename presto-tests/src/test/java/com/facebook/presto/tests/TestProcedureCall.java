@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.testing.ProcedureTester;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -42,9 +43,11 @@ public class TestProcedureCall
     private ProcedureTester tester;
     private Session session;
 
-    public TestProcedureCall()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
     }
 
     @BeforeClass

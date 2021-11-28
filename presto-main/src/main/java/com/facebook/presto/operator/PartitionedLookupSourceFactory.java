@@ -216,7 +216,7 @@ public final class PartitionedLookupSourceFactory
 
         lock.writeLock().lock();
         try {
-            if (destroyed.isDone()) {
+            if (partitionsNoLongerNeeded.isDone()) {
                 spilledLookupSourceHandle.dispose();
                 return;
             }
@@ -306,13 +306,24 @@ public final class PartitionedLookupSourceFactory
         try {
             if (!spillingInfo.hasSpilled()) {
                 finishedProbeOperators++;
+                if (lookupJoinsCount.isPresent()) {
+                    checkState(finishedProbeOperators <= lookupJoinsCount.getAsInt(), "%s probe operators finished out of %s declared", finishedProbeOperators, lookupJoinsCount.getAsInt());
+                    if (finishedProbeOperators == lookupJoinsCount.getAsInt()) {
+                        // We can dispose partitions now since right outer is not supported with spill and lookupJoinsCount should be absent
+                        freePartitions();
+                    }
+                }
+
                 return immediateFuture(new PartitionedConsumption<>(
                         1,
                         emptyList(),
                         i -> {
                             throw new UnsupportedOperationException();
                         },
-                        i -> {}));
+                        i -> {},
+                        i -> {
+                            throw new UnsupportedOperationException();
+                        }));
             }
 
             int operatorsCount = lookupJoinsCount
@@ -326,14 +337,15 @@ public final class PartitionedLookupSourceFactory
 
             finishedProbeOperators++;
             if (finishedProbeOperators == operatorsCount) {
-                // We can dispose partitions now since as right outer is not supported with spill
+                // We can dispose partitions now since right outer is not supported with spill
                 freePartitions();
                 verify(!partitionedConsumption.isDone());
                 partitionedConsumption.set(new PartitionedConsumption<>(
                         partitionedConsumptionParticipants.getAsInt(),
                         spilledPartitions.keySet(),
                         this::loadSpilledLookupSource,
-                        this::disposeSpilledLookupSource));
+                        this::disposeSpilledLookupSource,
+                        this::spilledLookupSourceDisposed));
             }
 
             return partitionedConsumption;
@@ -351,6 +363,11 @@ public final class PartitionedLookupSourceFactory
     private void disposeSpilledLookupSource(int partitionNumber)
     {
         getSpilledLookupSourceHandle(partitionNumber).dispose();
+    }
+
+    private SettableFuture<?> spilledLookupSourceDisposed(int partitionNumber)
+    {
+        return getSpilledLookupSourceHandle(partitionNumber).getDisposeCompleted();
     }
 
     private SpilledLookupSourceHandle getSpilledLookupSourceHandle(int partitionNumber)

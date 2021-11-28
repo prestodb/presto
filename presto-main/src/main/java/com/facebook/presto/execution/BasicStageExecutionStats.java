@@ -42,7 +42,8 @@ public class BasicStageExecutionStats
             new DataSize(0, BYTE),
             0,
 
-            0,
+            0.0,
+            0.0,
             new DataSize(0, BYTE),
             new DataSize(0, BYTE),
 
@@ -63,7 +64,8 @@ public class BasicStageExecutionStats
     private final int completedDrivers;
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
-    private final long cumulativeUserMemory;
+    private final double cumulativeUserMemory;
+    private final double cumulativeTotalMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final Duration totalCpuTime;
@@ -84,7 +86,8 @@ public class BasicStageExecutionStats
             DataSize rawInputDataSize,
             long rawInputPositions,
 
-            long cumulativeUserMemory,
+            double cumulativeUserMemory,
+            double cumulativeTotalMemory,
             DataSize userMemoryReservation,
             DataSize totalMemoryReservation,
 
@@ -106,6 +109,7 @@ public class BasicStageExecutionStats
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -151,9 +155,14 @@ public class BasicStageExecutionStats
         return rawInputPositions;
     }
 
-    public long getCumulativeUserMemory()
+    public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
+    }
+
+    public double getCumulativeTotalMemory()
+    {
+        return cumulativeTotalMemory;
     }
 
     public DataSize getUserMemoryReservation()
@@ -203,7 +212,8 @@ public class BasicStageExecutionStats
         int runningDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
+        double cumulativeTotalMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
@@ -227,6 +237,7 @@ public class BasicStageExecutionStats
             completedDrivers += stageStats.getCompletedDrivers();
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
+            cumulativeTotalMemory += stageStats.getCumulativeTotalMemory();
             userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
 
@@ -261,6 +272,7 @@ public class BasicStageExecutionStats
                 rawInputPositions,
 
                 cumulativeUserMemory,
+                cumulativeTotalMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
 

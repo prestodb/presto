@@ -47,15 +47,15 @@ public class TestPostgreSqlIntegrationSmokeTest
     public TestPostgreSqlIntegrationSmokeTest()
             throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
+        this.postgreSqlServer = new TestingPostgreSqlServer("testuser", "tpch");
+        execute("CREATE EXTENSION file_fdw");
     }
 
-    public TestPostgreSqlIntegrationSmokeTest(TestingPostgreSqlServer postgreSqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        super(() -> PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS));
-        this.postgreSqlServer = postgreSqlServer;
-        execute("CREATE EXTENSION file_fdw");
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
@@ -209,28 +209,40 @@ public class TestPostgreSqlIntegrationSmokeTest
     @Test
     public void testInsertIntoNotNullColumn()
     {
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
+        String createTableFormat = "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
+                "   %s date,\n" +
+                "   %s date NOT NULL\n" +
+                ")";
+        @Language("SQL") String createTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                "column_a",
+                "column_b");
+        @Language("SQL") String expectedShowCreateTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                "\"column_a\"",
+                "\"column_b\"");
         assertUpdate(createTableSql);
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
+        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), expectedShowCreateTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_a) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_b");
         assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
 
         assertUpdate("ALTER TABLE test_insert_not_null ADD COLUMN column_c BIGINT NOT NULL");
 
-        createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL,\n" +
-                        "   column_c bigint NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
+        createTableFormat = "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
+                "   %s date,\n" +
+                "   %s date NOT NULL,\n" +
+                "   %s bigint NOT NULL\n" +
+                ")";
+        expectedShowCreateTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                "\"column_a\"",
+                "\"column_b\"",
+                "\"column_c\"");
+        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), expectedShowCreateTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_b) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_c");
         assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
@@ -242,6 +254,20 @@ public class TestPostgreSqlIntegrationSmokeTest
                 "VALUES (NULL, CAST('2012-12-31' AS DATE), 1), (CAST('2013-01-01' AS DATE), CAST('2013-01-02' AS DATE), 2)");
 
         assertUpdate("DROP TABLE test_insert_not_null");
+    }
+
+    @Test
+    public void testColumnComment()
+            throws Exception
+    {
+        execute("create table tpch.test_column_comment (column_a char(3), column_b int, column_c int)");
+        execute("comment on column tpch.test_column_comment.column_a is 'first field'");
+        execute("comment on column tpch.test_column_comment.column_b is ''");
+        assertQuery(
+                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
+                "VALUES ('column_a', 'first field'), ('column_b', null), ('column_c', null)");
+
+        assertUpdate("DROP TABLE test_column_comment");
     }
 
     private AutoCloseable withSchema(String schema)

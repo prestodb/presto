@@ -27,6 +27,7 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -524,6 +525,7 @@ public class TestHiveSplitSource
                     0,
                     fileSize.toBytes(),
                     fileSize.toBytes(),
+                    Instant.now().toEpochMilli(),
                     ImmutableList.of(new InternalHiveBlock(fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
                     bucketNumber,
@@ -542,7 +544,7 @@ public class TestHiveSplitSource
                             ImmutableList.of(),
                             "partition-name",
                             id,
-                            ImmutableMap.of(),
+                            TableToPartitionMapping.empty(),
                             Optional.empty(),
                             ImmutableSet.of()),
                     Optional.empty(),

@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
@@ -41,7 +42,9 @@ public interface MetadataReader
             Optional<OrcDecompressor> decompressor)
             throws IOException;
 
-    StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId,
+            List<OrcType> types,
+            InputStream inputStream)
             throws IOException;
 
     List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)

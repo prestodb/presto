@@ -59,13 +59,14 @@ public class TestMySqlIntegrationSmokeTest
     public TestMySqlIntegrationSmokeTest()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch", "test_database"), MY_SQL_OPTIONS));
+        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch", "test_database"), MY_SQL_OPTIONS);
     }
 
-    public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
-        this.mysqlServer = mysqlServer;
+        return createMySqlQueryRunner(mysqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
@@ -202,28 +203,46 @@ public class TestMySqlIntegrationSmokeTest
     @Test
     public void testInsertIntoNotNullColumn()
     {
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
+        String createTableFormat = "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
+                "   %s date,\n" +
+                "   %s date NOT NULL\n" +
+                ")";
+        @Language("SQL") String createTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                "column_a",
+                "column_b");
+        @Language("SQL") String expectedCreateTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                "\"column_a\"",
+                "\"column_b\"");
         assertUpdate(createTableSql);
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
+        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), expectedCreateTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_a) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_b");
         assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
 
         assertUpdate("ALTER TABLE test_insert_not_null ADD COLUMN column_c BIGINT NOT NULL");
 
-        createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL,\n" +
-                        "   column_c bigint NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
+        createTableFormat = "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
+                "   %s date,\n" +
+                "   %s date NOT NULL,\n" +
+                "   %s bigint NOT NULL\n" +
+                ")";
+        createTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                "column_a",
+                "column_b",
+                "column_c");
+        expectedCreateTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                "\"column_a\"",
+                "\"column_b\"",
+                "\"column_c\"");
+        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), expectedCreateTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_b) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_c");
         assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
@@ -235,6 +254,18 @@ public class TestMySqlIntegrationSmokeTest
                 "VALUES (NULL, CAST('2012-12-31' AS DATE), 1), (CAST('2013-01-01' AS DATE), CAST('2013-01-02' AS DATE), 2)");
 
         assertUpdate("DROP TABLE test_insert_not_null");
+    }
+
+    @Test
+    public void testColumnComment()
+            throws Exception
+    {
+        execute("create table tpch.test_column_comment (column_a char(3) comment 'first field', column_b int comment '', column_c int)");
+        assertQuery(
+                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
+                "VALUES ('column_a', 'first field'), ('column_b', null), ('column_c', null)");
+
+        assertUpdate("DROP TABLE test_column_comment");
     }
 
     private void execute(String sql)

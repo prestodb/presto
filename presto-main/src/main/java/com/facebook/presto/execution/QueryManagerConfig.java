@@ -31,6 +31,7 @@ import javax.validation.constraints.NotNull;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.PETABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "query.max-pending-splits-per-node",
@@ -58,6 +59,8 @@ public class QueryManagerConfig
     private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
     private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
     private int maxTotalRunningTaskCountToNotExecuteNewQuery = Integer.MAX_VALUE;
+    private double concurrencyThresholdToEnableResourceGroupRefresh = 1.0;
+    private Duration resourceGroupRunTimeInfoRefreshInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -78,8 +81,14 @@ public class QueryManagerConfig
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
     private int requiredCoordinators = 1;
     private Duration requiredCoordinatorsMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private int requiredResourceManagers = 1;
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
+
+    private int perQueryRetryLimit;
+    private Duration perQueryRetryMaxExecutionTime = new Duration(5, MINUTES);
+    private int globalQueryRetryFailureLimit = 150;
+    private Duration globalQueryRetryFailureWindow = new Duration(5, MINUTES);
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -303,6 +312,32 @@ public class QueryManagerConfig
         return this;
     }
 
+    public Double getConcurrencyThresholdToEnableResourceGroupRefresh()
+    {
+        return concurrencyThresholdToEnableResourceGroupRefresh;
+    }
+
+    @Config("concurrency-threshold-to-enable-resource-group-refresh")
+    @ConfigDescription("Resource group concurrency threshold precentage, once crossed new queries won't run till updated resource group info comes from resource manager")
+    public QueryManagerConfig setConcurrencyThresholdToEnableResourceGroupRefresh(double concurrencyThresholdToEnableResourceGroupRefresh)
+    {
+        this.concurrencyThresholdToEnableResourceGroupRefresh = concurrencyThresholdToEnableResourceGroupRefresh;
+        return this;
+    }
+
+    public Duration getResourceGroupRunTimeInfoRefreshInterval()
+    {
+        return resourceGroupRunTimeInfoRefreshInterval;
+    }
+
+    @Config("resource-group-runtimeinfo-refresh-interval")
+    @ConfigDescription("How frequently to poll the resource manager for resource group updates")
+    public QueryManagerConfig setResourceGroupRunTimeInfoRefreshInterval(Duration resourceGroupRunTimeInfoRefreshInterval)
+    {
+        this.resourceGroupRunTimeInfoRefreshInterval = resourceGroupRunTimeInfoRefreshInterval;
+        return this;
+    }
+
     @MinDuration("5s")
     @NotNull
     public Duration getClientTimeout()
@@ -491,6 +526,21 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Min(1)
+    public int getRequiredResourceManagers()
+    {
+        return requiredResourceManagers;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-resource-managers")
+    @ConfigDescription("Minimum number of active resource managers before coordinator becomes available to take traffic")
+    public QueryManagerConfig setRequiredResourceManagers(int requiredResourceManagers)
+    {
+        this.requiredResourceManagers = requiredResourceManagers;
+        return this;
+    }
+
     @NotNull
     public Duration getRequiredCoordinatorsMaxWait()
     {
@@ -517,6 +567,58 @@ public class QueryManagerConfig
     public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
     {
         this.querySubmissionMaxThreads = querySubmissionMaxThreads;
+        return this;
+    }
+
+    public int getPerQueryRetryLimit()
+    {
+        return perQueryRetryLimit;
+    }
+
+    @Config("per-query-retry-limit")
+    @ConfigDescription("Per-query retry limit due to communication failures")
+    public QueryManagerConfig setPerQueryRetryLimit(int perQueryRetryLimit)
+    {
+        this.perQueryRetryLimit = perQueryRetryLimit;
+        return this;
+    }
+
+    public Duration getPerQueryRetryMaxExecutionTime()
+    {
+        return perQueryRetryMaxExecutionTime;
+    }
+
+    @Config("per-query-retry-max-execution-time")
+    @ConfigDescription("max per-query execution time limit allowed for retry")
+    public QueryManagerConfig setPerQueryRetryMaxExecutionTime(Duration perQueryRetryMaxExecutionTime)
+    {
+        this.perQueryRetryMaxExecutionTime = perQueryRetryMaxExecutionTime;
+        return this;
+    }
+
+    public int getGlobalQueryRetryFailureLimit()
+    {
+        return globalQueryRetryFailureLimit;
+    }
+
+    @Config("global-query-retry-failure-limit")
+    @ConfigDescription("A circuit breaker to stop query retry if the number of communication failures have gone over a limit")
+    public QueryManagerConfig setGlobalQueryRetryFailureLimit(int globalQueryRetryFailureLimit)
+    {
+        this.globalQueryRetryFailureLimit = globalQueryRetryFailureLimit;
+        return this;
+    }
+
+    public Duration getGlobalQueryRetryFailureWindow()
+    {
+        return globalQueryRetryFailureWindow;
+    }
+
+    @Config("global-query-retry-failure-window")
+    @ConfigDescription("A circuit breaker profiling window to stop query retry if the number of communication failures have gone over a limit")
+    public QueryManagerConfig setGlobalQueryRetryFailureWindow(Duration globalQueryRetryFailureWindow)
+    {
+        this.globalQueryRetryFailureWindow = globalQueryRetryFailureWindow;
         return this;
     }
 

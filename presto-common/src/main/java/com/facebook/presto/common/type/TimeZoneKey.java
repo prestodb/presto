@@ -301,7 +301,6 @@ public final class TimeZoneKey
                 zoneId.equals("z") ||
                 zoneId.equals("ut") ||
                 zoneId.equals("uct") ||
-                zoneId.equals("ut") ||
                 zoneId.equals("gmt") ||
                 zoneId.equals("gmt0") ||
                 zoneId.equals("greenwich") ||

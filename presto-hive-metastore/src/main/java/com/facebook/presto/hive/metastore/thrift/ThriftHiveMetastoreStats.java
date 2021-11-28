@@ -26,6 +26,8 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats getFields = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getTableColumnStatistics = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionColumnStatistics = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats updateTableColumnStatistics = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats updatePartitionColumnStatistics = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNames = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNamesPs = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartition = new HiveMetastoreApiStats();
@@ -103,6 +105,20 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getGetPartitionColumnStatistics()
     {
         return getPartitionColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getUpdateTableColumnStatistics()
+    {
+        return updateTableColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getUpdatePartitionColumnStatistics()
+    {
+        return updatePartitionColumnStatistics;
     }
 
     @Managed

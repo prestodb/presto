@@ -31,6 +31,8 @@ import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -48,6 +50,10 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
+import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
+import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -124,7 +130,10 @@ public class PrestoServer
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule(),
-                new TempStorageModule());
+                new TempStorageModule(),
+                new QueryPrerequisitesManagerModule(),
+                new NodeTtlFetcherManagerModule(),
+                new ClusterTtlProviderManagerModule());
 
         modules.addAll(getAdditionalModules());
 
@@ -135,7 +144,11 @@ public class PrestoServer
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
+
+            if (!serverConfig.isResourceManager()) {
+                injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            }
 
             // TODO: remove this huge hack
             updateConnectorIds(
@@ -152,10 +165,15 @@ public class PrestoServer
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
-            injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            if (!serverConfig.isResourceManager()) {
+                injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            }
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
             injector.getInstance(TempStorageManager.class).loadTempStorages();
+            injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
+            injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
+            injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
 
             injector.getInstance(Announcer.class).start();
 

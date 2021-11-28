@@ -21,6 +21,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import scala.Tuple2;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -43,12 +44,12 @@ public class RddAndMore<T extends PrestoSparkTaskOutput>
         this.broadcastDependencies = ImmutableList.copyOf(requireNonNull(broadcastDependencies, "broadcastDependencies is null"));
     }
 
-    public List<Tuple2<MutablePartitionId, T>> collectAndDestroyDependenciesWithTimeout(long timeout, TimeUnit timeUnit)
+    public List<Tuple2<MutablePartitionId, T>> collectAndDestroyDependenciesWithTimeout(long timeout, TimeUnit timeUnit, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
             throws SparkException, TimeoutException
     {
         checkState(!collected, "already collected");
         collected = true;
-        List<Tuple2<MutablePartitionId, T>> result = getActionResultWithTimeout(rdd.collectAsync(), timeout, timeUnit);
+        List<Tuple2<MutablePartitionId, T>> result = getActionResultWithTimeout(rdd.collectAsync(), timeout, timeUnit, waitTimeMetrics);
         broadcastDependencies.forEach(PrestoSparkBroadcastDependency::destroy);
         return result;
     }

@@ -270,56 +270,51 @@ public class TupleDomainParquetPredicate
 
         int dictionarySize = dictionaryPage.get().getDictionarySize();
         if (type.equals(BIGINT) && columnDescriptor.getType() == PrimitiveTypeName.INT64) {
-            List<Domain> domains = new ArrayList<>();
+            List<Long> values = new ArrayList<>(dictionarySize);
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(type, dictionary.decodeToLong(i)));
+                values.add(dictionary.decodeToLong(i));
             }
-            domains.add(Domain.onlyNull(type));
-            return Domain.union(domains);
+            return Domain.create(ValueSet.copyOf(type, values), true);
         }
 
         if ((type.equals(BIGINT) || type.equals(DATE)) && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
-            List<Domain> domains = new ArrayList<>();
+            List<Long> values = new ArrayList<>(dictionarySize);
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(type, (long) dictionary.decodeToInt(i)));
+                values.add((long) dictionary.decodeToInt(i));
             }
-            domains.add(Domain.onlyNull(type));
-            return Domain.union(domains);
+            return Domain.create(ValueSet.copyOf(type, values), true);
         }
 
         if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.DOUBLE) {
-            List<Domain> domains = new ArrayList<>();
+            List<Double> values = new ArrayList<>(dictionarySize);
             for (int i = 0; i < dictionarySize; i++) {
                 double value = dictionary.decodeToDouble(i);
                 if (Double.isNaN(value)) {
                     return Domain.all(type);
                 }
-                domains.add(Domain.singleValue(type, value));
+                values.add(value);
             }
-            domains.add(Domain.onlyNull(type));
-            return Domain.union(domains);
+            return Domain.create(ValueSet.copyOf(type, values), true);
         }
 
         if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.FLOAT) {
-            List<Domain> domains = new ArrayList<>();
+            List<Double> values = new ArrayList<>(dictionarySize);
             for (int i = 0; i < dictionarySize; i++) {
                 float value = dictionary.decodeToFloat(i);
                 if (Float.isNaN(value)) {
                     return Domain.all(type);
                 }
-                domains.add(Domain.singleValue(type, (double) value));
+                values.add((double) value);
             }
-            domains.add(Domain.onlyNull(type));
-            return Domain.union(domains);
+            return Domain.create(ValueSet.copyOf(type, values), true);
         }
 
         if (isVarcharType(type) && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
-            List<Domain> domains = new ArrayList<>();
+            List<Slice> values = new ArrayList<>(dictionarySize);
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(type, Slices.wrappedBuffer(dictionary.decodeToBinary(i).getBytes())));
+                values.add(Slices.wrappedBuffer(dictionary.decodeToBinary(i).getBytes()));
             }
-            domains.add(Domain.onlyNull(type));
-            return Domain.union(domains);
+            return Domain.create(ValueSet.copyOf(type, values), true);
         }
 
         return Domain.all(type);

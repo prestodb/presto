@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.integration;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIndexedQueries;
 import com.google.common.collect.ImmutableMap;
 
@@ -23,14 +24,16 @@ import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner
 public class TestThriftDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    public TestThriftDistributedQueriesIndexed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createThriftQueryRunner(
+        return createThriftQueryRunner(
                 2,
                 2,
                 true,
                 // set spill path so we can enable spill by session property
-                ImmutableMap.of("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())));
+                ImmutableMap.of("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString()));
     }
 
     @Override

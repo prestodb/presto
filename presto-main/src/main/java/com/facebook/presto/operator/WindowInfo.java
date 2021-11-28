@@ -25,11 +25,17 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.concat;
 
 public class WindowInfo
         implements Mergeable<WindowInfo>, OperatorInfo
 {
+    private static final WindowInfo EMPTY_INFO = new WindowInfo(ImmutableList.of());
+
+    public static WindowInfo emptyInfo()
+    {
+        return EMPTY_INFO;
+    }
+
     private final List<DriverWindowInfo> windowInfos;
 
     @JsonCreator
@@ -47,7 +53,18 @@ public class WindowInfo
     @Override
     public WindowInfo mergeWith(WindowInfo other)
     {
-        return new WindowInfo(ImmutableList.copyOf(concat(this.windowInfos, other.windowInfos)));
+        int otherSize = other.windowInfos.size();
+        if (otherSize == 0) {
+            return this;
+        }
+        int thisSize = windowInfos.size();
+        if (thisSize == 0) {
+            return other;
+        }
+        return new WindowInfo(ImmutableList.<DriverWindowInfo>builderWithExpectedSize(thisSize + otherSize)
+                .addAll(windowInfos)
+                .addAll(other.windowInfos)
+                .build());
     }
 
     static class DriverWindowInfoBuilder

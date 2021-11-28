@@ -358,7 +358,7 @@ public class PinotQueryGeneratorContext
                 throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Broker non aggregate queries have to have a limit");
             }
             else {
-                queryLimit = limit.orElseGet(pinotConfig::getLimitLargeForSegment);
+                queryLimit = limit.orElse(PinotSessionProperties.getLimitLargerForSegment(session));
             }
             limitKeyWord = "LIMIT";
         }
@@ -383,7 +383,7 @@ public class PinotQueryGeneratorContext
             limitClause = " " + limitKeyWord + " " + queryLimit;
         }
         String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
-        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments();
+        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(false);
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
         return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.PQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
     }
@@ -443,7 +443,7 @@ public class PinotQueryGeneratorContext
                 throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Broker non aggregate queries have to have a limit");
             }
             else {
-                queryLimit = limit.orElseGet(pinotConfig::getLimitLargeForSegment);
+                queryLimit = limit.orElse(PinotSessionProperties.getLimitLargerForSegment(session));
             }
         }
         else if (hasGroupBy()) {
@@ -459,7 +459,9 @@ public class PinotQueryGeneratorContext
             limitClause = " LIMIT " + queryLimit;
         }
         String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
-        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, ImmutableList.of(), groupByColumns.size(), filter.isPresent(), isQueryShort);
+        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(true);
+        List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
+        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
     }
 
     private List<Integer> getIndicesMappingFromPinotSchemaToPrestoSchema(String query, Map<VariableReferenceExpression, PinotColumnHandle> assignments)
@@ -486,11 +488,21 @@ public class PinotQueryGeneratorContext
             expressionsInPinotOrder.put(outputColumn, outputColumnDefinition);
         }
 
-        checkSupported(
-                assignments.size() == expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
-                "Expected returned expressions %s to match selections %s",
-                Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
-                Joiner.on(",").withKeyValueSeparator("=").join(assignments));
+        if (useSqlSyntax) {
+            checkSupported(
+                    assignments.size() <= expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
+                    "Expected returned expressions %s is a superset of selections %s",
+                    Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
+                    Joiner.on(",").withKeyValueSeparator("=").join(assignments));
+        }
+        else {
+            checkSupported(
+                    assignments.size() == expressionsInPinotOrder.keySet().stream()
+                        .filter(key -> !hiddenColumnSet.contains(key)).count(),
+                    "Expected returned expressions %s to match selections %s",
+                    Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
+                    Joiner.on(",").withKeyValueSeparator("=").join(assignments));
+        }
 
         Map<VariableReferenceExpression, Integer> assignmentToIndex = new HashMap<>();
         Iterator<Map.Entry<VariableReferenceExpression, PinotColumnHandle>> assignmentsIterator = assignments.entrySet().iterator();
@@ -512,25 +524,32 @@ public class PinotQueryGeneratorContext
                 index = assignmentToIndex.get(expression.getKey());
             }
             if (index == null) {
-                throw new PinotException(
-                        PINOT_UNSUPPORTED_EXPRESSION, Optional.of(query),
-                        format(
-                                "Expected to find a Pinot column handle for the expression %s, but we have %s",
-                                expression,
-                                Joiner.on(",").withKeyValueSeparator(":").join(assignmentToIndex)));
+                if (useSqlSyntax) {
+                    index = -1; // negative output index means to skip this value returned by pinot at query time
+                }
+                else {
+                    throw new PinotException(
+                            PINOT_UNSUPPORTED_EXPRESSION, Optional.of(query),
+                            format(
+                                    "Expected to find a Pinot column handle for the expression %s, but we have %s",
+                                    expression,
+                                    Joiner.on(",").withKeyValueSeparator(":").join(assignmentToIndex)));
+                }
             }
             outputIndices.add(index);
         }
         return outputIndices.build();
     }
 
-    public LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> getAssignments()
+    public LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> getAssignments(boolean isSqlSyntax)
     {
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> result = new LinkedHashMap<>();
-        LinkedHashSet<VariableReferenceExpression> pqlOutputFields = new LinkedHashSet<>();
-        pqlOutputFields.addAll(groupByColumns);
-        pqlOutputFields.addAll(outputs.stream().filter(variable -> !hiddenColumnSet.contains(variable)).collect(Collectors.toList()));
-        pqlOutputFields.stream().forEach(variable -> {
+        LinkedHashSet<VariableReferenceExpression> outputFields = new LinkedHashSet<>();
+        if (!isSqlSyntax) {
+            outputFields.addAll(groupByColumns);
+        }
+        outputFields.addAll(outputs.stream().filter(variable -> !hiddenColumnSet.contains(variable)).collect(Collectors.toList()));
+        outputFields.stream().forEach(variable -> {
             Selection selection = selections.get(variable);
             PinotColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new PinotColumnHandle(selection.getDefinition(), variable.getType(), PinotColumnHandle.PinotColumnType.REGULAR) : new PinotColumnHandle(variable, PinotColumnHandle.PinotColumnType.DERIVED);
             result.put(variable, handle);

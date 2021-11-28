@@ -14,8 +14,10 @@ from different data sources.
     connector/cassandra
     connector/druid
     connector/elasticsearch
+    connector/gsheets
     connector/hive
     connector/hive-security
+    connector/iceberg
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
@@ -27,6 +29,7 @@ from different data sources.
     connector/oracle
     connector/pinot
     connector/postgresql
+    connector/prometheus
     connector/redis
     connector/redshift
     connector/sqlserver

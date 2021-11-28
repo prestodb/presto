@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -32,17 +31,16 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
+import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator.VarArgMethodHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
@@ -59,8 +57,7 @@ public final class MapConcatFunction
     private static final String FUNCTION_NAME = "map_concat";
     private static final String DESCRIPTION = "Concatenates given maps";
 
-    private static final MethodHandle USER_STATE_FACTORY = methodHandle(MapConcatFunction.class, "createMapState", MapType.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConcatFunction.class, "mapConcat", MapType.class, Object.class, Block[].class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConcatFunction.class, "mapConcat", MapType.class, Block[].class);
 
     private MapConcatFunction()
     {
@@ -105,28 +102,20 @@ public final class MapConcatFunction
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(valueType.getTypeSignature())));
 
-        MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
+        VarArgMethodHandle varArgMethodHandle = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
                 arity,
-                METHOD_HANDLE.bindTo(mapType),
-                USER_STATE_FACTORY.bindTo(mapType));
+                METHOD_HANDLE.bindTo(mapType));
 
         return new BuiltInScalarFunctionImplementation(
                 false,
                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandleAndConstructor.getMethodHandle(),
-                Optional.of(methodHandleAndConstructor.getConstructor()));
+                varArgMethodHandle.getMethodHandle());
     }
 
     @UsedByGeneratedCode
-    public static Object createMapState(MapType mapType)
-    {
-        return new PageBuilder(ImmutableList.of(mapType));
-    }
-
-    @UsedByGeneratedCode
-    public static Block mapConcat(MapType mapType, Object state, Block[] maps)
+    public static Block mapConcat(MapType mapType, Block[] maps)
     {
         int entries = 0;
         int lastMapIndex = maps.length - 1;
@@ -147,7 +136,6 @@ public final class MapConcatFunction
 
         // We need to divide the entries by 2 because the maps array is SingleMapBlocks and it had the positionCount twice as large as a normal Block
         OptimizedTypedSet typedSet = new OptimizedTypedSet(keyType, maps.length, entries / 2);
-
         for (int i = lastMapIndex; i >= firstMapIndex; i--) {
             SingleMapBlock singleMapBlock = (SingleMapBlock) maps[i];
             Block keyBlock = singleMapBlock.getKeyBlock();
@@ -155,12 +143,7 @@ public final class MapConcatFunction
         }
 
         List<SelectedPositions> selectedPositionsList = typedSet.getPositionsForBlocks();
-
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, selectedPositionsList.size());
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 
         for (int i = lastMapIndex; i >= firstMapIndex; i--) {
@@ -178,7 +161,6 @@ public final class MapConcatFunction
         }
 
         mapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
         return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 }

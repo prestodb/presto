@@ -76,6 +76,7 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +103,7 @@ import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -251,6 +253,10 @@ public class LogicalPlanner
         else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             return createExplainAnalyzePlan(analysis, (Explain) statement);
         }
+        else if (statement instanceof RefreshMaterializedView) {
+            checkState(analysis.getRefreshMaterializedViewAnalysis().isPresent(), "RefreshMaterializedView analysis is missing");
+            return createRefreshMaterializedViewPlan(analysis, (RefreshMaterializedView) statement);
+        }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
         }
@@ -343,11 +349,36 @@ public class LogicalPlanner
                 statisticsMetadata);
     }
 
+    private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis, RefreshMaterializedView refreshMaterializedViewStatement)
+    {
+        Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedViewAnalysis().get();
+
+        TableHandle tableHandle = viewAnalysis.getTarget();
+        List<ColumnHandle> columnHandles = viewAnalysis.getColumns();
+        WriterTarget target = new RefreshMaterializedViewReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
+
+        return buildInternalInsertPlan(tableHandle, columnHandles, viewAnalysis.getQuery(), analysis, target);
+    }
+
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
     {
-        Analysis.Insert insert = analysis.getInsert().get();
+        Analysis.Insert insertAnalysis = analysis.getInsert().get();
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
+        TableHandle tableHandle = insertAnalysis.getTarget();
+        List<ColumnHandle> columnHandles = insertAnalysis.getColumns();
+        WriterTarget target = new InsertReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
+
+        return buildInternalInsertPlan(tableHandle, columnHandles, insertStatement.getQuery(), analysis, target);
+    }
+
+    private RelationPlan buildInternalInsertPlan(
+            TableHandle tableHandle,
+            List<ColumnHandle> columnHandles,
+            Query query,
+            Analysis analysis,
+            WriterTarget target)
+    {
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
         List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
@@ -356,16 +387,16 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
+        RelationPlan plan = createRelationPlan(analysis, query);
 
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;
             }
             VariableReferenceExpression output = variableAllocator.newVariable(column.getName(), column.getType());
-            int index = insert.getColumns().indexOf(columns.get(column.getName()));
+            int index = columnHandles.indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
                 assignments.put(output, castToRowExpression(cast));
@@ -393,16 +424,16 @@ public class LogicalPlanner
 
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputVariables());
 
-        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
-        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForInsert(session, insert.getTarget());
+        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, tableHandle);
+        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForInsert(session, tableHandle);
 
-        String catalogName = insert.getTarget().getConnectorId().getCatalogName();
+        String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget(), metadata.getTableMetadata(session, insert.getTarget()).getTable()),
+                target,
                 visibleTableColumnNames,
                 visibleTableColumns,
                 newTableLayout,
