@@ -58,7 +58,6 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
-import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -397,10 +396,10 @@ public class IcebergNativeMetadata
                 .toArray(Type[]::new);
 
         AppendFiles appendFiles = transaction.newFastAppend();
-        FileIO io = transaction.table().io();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(io.newInputFile(task.getPath()))
+                    .withPath(task.getPath())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 
