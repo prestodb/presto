@@ -45,6 +45,7 @@ public class PinotConfig
     // There is a perf penalty of having a large topN since the structures are allocated to this size
     // So size this judiciously
     public static final int DEFAULT_TOPN_LARGE = 10_000;
+    public static final int DEFAULT_PROXY_GRPC_PORT = 8124;
 
     private static final Duration DEFAULT_IDLE_TIMEOUT = new Duration(5, TimeUnit.MINUTES);
     private static final Duration DEFAULT_CONNECTION_TIMEOUT = new Duration(1, TimeUnit.MINUTES);
@@ -99,6 +100,10 @@ public class PinotConfig
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
     private boolean pushdownTopNBrokerQueries;
+    private boolean useProxyGrpcEndpoint;
+    private String proxyGrpcHost;
+    private int proxyGrpcPort = DEFAULT_PROXY_GRPC_PORT;
+    private boolean useProxyForBrokerRequest;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -518,6 +523,54 @@ public class PinotConfig
     public PinotConfig setStreamingServerGrpcMaxInboundMessageBytes(int streamingServerGrpcMaxInboundMessageBytes)
     {
         this.streamingServerGrpcMaxInboundMessageBytes = streamingServerGrpcMaxInboundMessageBytes;
+        return this;
+    }
+
+    public boolean isUseProxyForBrokerRequest()
+    {
+        return this.useProxyForBrokerRequest;
+    }
+
+    @Config("pinot.use-proxy-for-broker-request")
+    public PinotConfig setUseProxyForBrokerRequest(boolean useProxyForBrokerRequest)
+    {
+        this.useProxyForBrokerRequest = useProxyForBrokerRequest;
+        return this;
+    }
+
+    public boolean isUseProxyGrpcEndpoint()
+    {
+        return this.useProxyGrpcEndpoint;
+    }
+
+    @Config("pinot.use-proxy-grpc-endpoint")
+    public PinotConfig setUseProxyGrpcEndpoint(boolean useProxyGrpcEndpoint)
+    {
+        this.useProxyGrpcEndpoint = useProxyGrpcEndpoint;
+        return this;
+    }
+
+    public String getProxyGrpcHost()
+    {
+        return proxyGrpcHost;
+    }
+
+    @Config("pinot.proxy-grpc-host")
+    public PinotConfig setProxyGrpcHost(String proxyGrpcHost)
+    {
+        this.proxyGrpcHost = proxyGrpcHost;
+        return this;
+    }
+
+    public int getProxyGrpcPort()
+    {
+        return proxyGrpcPort;
+    }
+
+    @Config("pinot.proxy-grpc-port")
+    public PinotConfig setProxyGrpcPort(int proxyGrpcPort)
+    {
+        this.proxyGrpcPort = proxyGrpcPort;
         return this;
     }
 }
