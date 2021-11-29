@@ -183,7 +183,7 @@ public class QueuedStatementResource
         SessionContext sessionContext = new HttpRequestSessionContext(
                 servletRequest,
                 sqlParserOptions,
-                tracerProvider.getNewTracer(),
+                tracerProvider,
                 Optional.of(sessionPropertyManager));
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);
