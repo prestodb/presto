@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -117,19 +118,19 @@ public final class HttpRequestSessionContext
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
-        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER, Optional.empty());
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty());
     }
 
     /**
      * @param servletRequest
      * @param sqlParserOptions
-     * @param tracer This passed-in {@link Tracer} will only be used when isTracingEabled() returns true.
+     * @param tracerProvider This passed-in {@link TracerProvider} will only be used when isTracingEabled() returns true.
      * @param sessionPropertyManager is used to provide with some default session values. In some scenarios we need
      * those default values even before session for a query is created. This is how we can get it at this
      * session context creation stage.
      * @throws WebApplicationException
      */
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, Tracer tracer, Optional<SessionPropertyManager> sessionPropertyManager)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -197,7 +198,7 @@ public final class HttpRequestSessionContext
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         if (isTracingEnabled()) {
-            this.tracer = Optional.of(requireNonNull(tracer, "tracer is null"));
+            this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(), "tracer is null"));
         }
         else {
             this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
