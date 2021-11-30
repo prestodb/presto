@@ -32,23 +32,28 @@ must be a reference. Function arguments must be const references. The C++
 types of the arguments must match Velox types as specified in the following
 mapping:
 
-==========  ==============
-Velox Type  C++ Type
-==========  ==============
-BOOLEAN     bool
-TINYINT     int8_t
-SMALLINT    int16_t
-INTEGER     int32_t
-BIGINT      int64_t
-REAL        float
-DOUBLE      double
-VARCHAR     StringView
-VARBINARY   StringView
-TIMESTAMP   Timestamp
-ARRAY       ArrayValReader
-MAP         SlowMapVal
-ROW         RowReader
-==========  ==============
+==========  ==============================  =============================
+Velox Type  C++ Argument Type               C++ Result Type
+==========  ==============================  =============================
+BOOLEAN     bool                            bool
+TINYINT     int8_t                          int8_t
+SMALLINT    int16_t                         int16_t
+INTEGER     int32_t                         int32_t
+BIGINT      int64_t                         int64_t
+REAL        float                           float
+DOUBLE      double                          double
+VARCHAR     StringView                      out_type<Varchar>
+VARBINARY   StringView                      out_type<Varbinary>
+TIMESTAMP   Timestamp                       Timestamp
+ARRAY       arg_type<Array<E>>              out_type<Array<E>>
+MAP         arg_type<Map<K,V>>              out_type<Map<K, V>>
+ROW         arg_type<Row<T1, T2, T3,...>>   out_type<Row<T1, T2, T3,...>>
+==========  ==============================  =============================
+
+arg_type and out_type templates are defined by the VELOX_UDF_BEGIN macro. These
+types provide interfaces similar to std::string, std::vector, std::unordered_map
+and std::tuple. The underlying implementations are optimized to read and write
+from and to the columnar representation without extra copying.
 
 Note: Do not pay too much attention to complex type mappings at the moment.
 They are included here for completeness, but require a whole separate
@@ -336,9 +341,8 @@ Some of the defining features of these functions are:
 
 - take vectors as inputs and produce vectors as a result;
 - have access to vector encodings and metadata;
-- can be defined for generic input types;
-- allow for implementing lambda functions;
-- allow for pre-processing constant inputs and reusing the results across multiple batches, e.g. compile constant regular expressions once per query or thread of execution.
+- can be defined for generic input types, e.g. generic arrays, maps and structs;
+- allow for implementing :doc:`lambda functions <lambda-functions>`;
 
 Vector function interface allows for many optimizations that are not available
 to simple functions. These optimizations often leverage different vector
@@ -350,7 +354,6 @@ examples,
 - :func:`cardinality` function takes advantage of the ArrayVector and MapVector representations and simply returns the “sizes” buffer of the input vector.
 - :func:`is_null` function copies the “nulls” buffer of the input vector, flips the bits in bulk and returns the result.
 - :func:`element_at` function and subscript operator for arrays and maps use dictionary encoding to represent a subset of the input “elements” or “values” vector without copying.
-- :func:`substr` function can avoid copying strings by returning StringViews that point to the string buffers in the input vector.
 
 To define a vector function, make a subclass of f4d::exec::VectorFunction and
 implement the “apply” method.
@@ -441,7 +444,15 @@ case, the function must override isDeterministic method to return false.
     }
 
 Note that DecodedVector can be used to get a flat vector-like interface to any
-vector.
+vector. A helper class exec::DecodedArgs can be used to decode multiple arguments.
+
+.. code-block:: c++
+
+    exec::DecodedArgs decodedArgs(rows, args, context);
+
+    auto firstArg = decodedArgs.at(0);
+    auto secondArg = decodedArgs.at(1);
+
 
 Result vector
 ^^^^^^^^^^^^^
