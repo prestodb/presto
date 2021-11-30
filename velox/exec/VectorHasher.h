@@ -65,21 +65,6 @@ class UniqueValue {
     data_ = data;
   }
 
-  static bool typeKindSupportsValueIds(TypeKind kind) {
-    switch (kind) {
-      case TypeKind::BOOLEAN:
-      case TypeKind::TINYINT:
-      case TypeKind::SMALLINT:
-      case TypeKind::INTEGER:
-      case TypeKind::BIGINT:
-      case TypeKind::VARCHAR:
-      case TypeKind::VARBINARY:
-        return true;
-      default:
-        return false;
-    }
-  }
-
  private:
   uint64_t data_;
   uint32_t size_;
