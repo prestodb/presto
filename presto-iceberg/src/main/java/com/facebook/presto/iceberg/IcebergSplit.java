@@ -105,6 +105,7 @@ public class IcebergSplit
     {
         return nodeSelectionStrategy;
     }
+
     @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
