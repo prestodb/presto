@@ -81,6 +81,8 @@ corresponding to null entries are undefined.
 BaseVector::wrapInDictionary() is a convenience method that makes a dictionary
 vector from a nulls buffer, an indices buffer and a base vector.
 
+.. _decoded-vector:
+
 DecodedVector
 -------------
 

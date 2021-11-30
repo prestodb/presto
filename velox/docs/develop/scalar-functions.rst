@@ -443,7 +443,7 @@ case, the function must override isDeterministic method to return false.
       return false;
     }
 
-Note that DecodedVector can be used to get a flat vector-like interface to any
+Note that :ref:`decoded-vector` can be used to get a flat vector-like interface to any
 vector. A helper class exec::DecodedArgs can be used to decode multiple arguments.
 
 .. code-block:: c++
