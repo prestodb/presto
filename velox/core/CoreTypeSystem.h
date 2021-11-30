@@ -322,10 +322,13 @@ class SlowMapVal : public IMapVal<KEY, VAL> {};
 template <typename KEY, typename VAL>
 class SlowMapWriter : public IMapVal<KEY, VAL> {
  public:
-  SlowMapWriter& operator=(const IMapVal<KEY, VAL>& rh) {
+  // Allow map-like object to be assigned to a map writer. This should change
+  // once we implement writer proxies.
+  template <template <typename, typename> typename T>
+  SlowMapWriter& operator=(const T<KEY, VAL>& rh) {
     IMapVal<KEY, VAL>::clear();
     for (const auto& it : rh) {
-      IMapVal<KEY, VAL>::emplace(it.first, std::optional<VAL>(it.second));
+      IMapVal<KEY, VAL>::emplace(it.first, it.second);
     }
     return *this;
   }

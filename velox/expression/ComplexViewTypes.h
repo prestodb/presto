@@ -193,7 +193,7 @@ class VectorOptionalValueAccessor final {
  public:
   using element_t = typename T::exec_in_t;
 
-  operator bool() const {
+  explicit operator bool() const {
     return has_value();
   }
 
@@ -430,7 +430,7 @@ class ArrayView {
     return (*this)[index];
   }
 
-  size_t size() const {
+  vector_size_t size() const {
     return size_;
   }
 
@@ -525,37 +525,20 @@ class MapView {
     return Element{keyReader_, valueReader_, index + offset_};
   }
 
-  size_t size() const {
+  vector_size_t size() const {
     return size_;
   }
 
   Iterator find(const key_element_t& key) const {
-    auto it = begin();
-    while (it != end()) {
-      if (it->first == key) {
-        break;
-      }
-      it++;
-    }
-    return it;
+    return std::find_if(begin(), end(), [&key](const auto& current) {
+      return current.first == key;
+    });
   }
 
   ValueAccessor at(const key_element_t& key) const {
     auto it = find(key);
     VELOX_USER_CHECK(it != end(), "accessed key is not found in the map");
     return it->second;
-  }
-
-  // Cast to SlowMapVal<K,V> used to allow this to be written to current writer.
-  // This should change once we implement writer proxies.
-  operator core::SlowMapVal<K, V>() const {
-    core::SlowMapVal<K, V> map;
-    for (const auto& entry : map) {
-      // Note: This does not handle nested maps, but since it's just workaround
-      // its ok for now.
-      map.appendNullable(entry.first) = entry.second;
-    }
-    return map;
   }
 
  private:
