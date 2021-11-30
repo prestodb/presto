@@ -15,10 +15,8 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
-import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -28,7 +26,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -37,17 +34,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestIcebergSmoke
+public abstract class TestIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createIcebergQueryRunner(ImmutableMap.of());
-    }
 
     @Test
     public void testTimestamp()

@@ -25,6 +25,7 @@ import org.apache.iceberg.FileFormat;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static com.facebook.presto.iceberg.CatalogType.MEMORY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -40,6 +41,11 @@ public final class IcebergQueryRunner
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties) throws Exception
     {
         return createIcebergQueryRunner(extraProperties, ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createNativeIcebergQueryRunner(Map<String, String> extraProperties) throws Exception
+    {
+        return createNativeIcebergQueryRunner(extraProperties, MEMORY);
     }
 
     public static DistributedQueryRunner createNativeIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType) throws Exception

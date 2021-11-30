@@ -13,53 +13,24 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.function.Function;
 
-import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static org.testng.Assert.assertEquals;
 
-public class TestIcebergSystemTables
+public abstract class TestIcebergSystemTables
         extends AbstractTestQueryFramework
 {
     private static final int DEFAULT_PRECISION = 5;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setCatalog(ICEBERG_CATALOG)
-                .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-
-        Path catalogDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve("catalog");
-
-        queryRunner.installPlugin(new IcebergPlugin());
-        Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
-                .build();
-
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
-
-        return queryRunner;
-    }
 
     @BeforeClass
     public void setUp()
