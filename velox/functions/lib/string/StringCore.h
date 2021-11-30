@@ -283,8 +283,9 @@ inline static size_t replace(
     return findNthInstanceByteIndex(inputString, replaced, 1, readPosition);
   };
 
-  auto writeUnchanged = [&](size_t size) {
-    if (size == 0) {
+  auto writeUnchanged = [&](ssize_t size) {
+    assert(size >= 0 && "Probable math error?");
+    if (size <= 0) {
       return;
     }
 
@@ -341,12 +342,13 @@ inline static size_t replace(
 
   while (readPosition < inputString.size()) {
     // Find next token to replace
-    size_t position = findNextReplaced();
+    auto position = findNextReplaced();
 
     if (position == -1) {
       break;
     }
-    size_t unchangedSize = position - readPosition;
+    assert(position >= 0 && "invalid position found");
+    auto unchangedSize = position - readPosition;
     writeUnchanged(unchangedSize);
     writeReplacement();
   }
