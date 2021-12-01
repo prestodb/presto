@@ -222,7 +222,7 @@ public class ParquetReader
         }
         for (int i = 0; i < fields.size(); i++) {
             if (blocks[i] == null) {
-                blocks[i] = RunLengthEncodedBlock.create(field.getType(), null, columnChunk.getBlock().getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(field.getType().getTypeParameters().get(i), null, columnChunk.getBlock().getPositionCount());
             }
         }
         BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
