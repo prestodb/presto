@@ -24,74 +24,6 @@
 
 namespace facebook::velox {
 
-// TODO: Deprecate this after all uses are deprecated.
-// This is not used in VELOX and should be avoided.
-// Represents the result of decoding a vector into base data, nulls
-// and indices for base data/nulls. This is meant to be lightweight
-// copyable and does not own memory.
-template <typename T>
-class DecodeResult {
- public:
-  DecodeResult(
-      const BaseVector* base,
-      const T* values,
-      const uint64_t* nulls,
-      const vector_size_t* indices,
-      const vector_size_t* nullIndices,
-      bool mayHaveNulls)
-      : base_(base),
-        values_(values),
-        nulls_(nulls),
-        indices_(indices),
-        nullIndices_(nullIndices),
-        mayHaveNulls_(mayHaveNulls) {}
-
-  bool isNullAt(vector_size_t index) const {
-    if (!mayHaveNulls_) {
-      return false;
-    }
-    if (!nullIndices_) {
-      return bits::isBitNull(nulls_, index);
-    }
-    vector_size_t innerIndex = nullIndices_[index];
-    return bits::isBitNull(nulls_, innerIndex);
-  }
-
-  const T& operator[](vector_size_t index) const {
-    return values_[decodedIndex(index)];
-  }
-
-  bool mayHaveNulls() const {
-    return mayHaveNulls_;
-  }
-
-  inline vector_size_t decodedIndex(vector_size_t index) const {
-    return indices_[index];
-  }
-
-  const BaseVector* base() const {
-    return base_;
-  }
-
- private:
-  const BaseVector* base_;
-  const T* values_;
-  const uint64_t* nulls_;
-  const vector_size_t* indices_;
-  const vector_size_t* nullIndices_;
-  bool mayHaveNulls_;
-  // Needed for returning a reference to a boolean value. Booleans in
-  // vectors are bits that are not individually addressable.
-  mutable bool boolHolder_;
-};
-
-template <>
-inline const bool& DecodeResult<bool>::operator[](vector_size_t idx) const {
-  boolHolder_ = bits::isBitSet(
-      reinterpret_cast<const uint64_t*>(values_), decodedIndex(idx));
-  return boolHolder_;
-}
-
 // Canonicalizes an arbitrary vector to its base array (or vector, if
 // complex type) and a list of indices into this, so that the indices
 // cover the positions in a SelectivityVector. Nulls are represented
@@ -132,12 +64,6 @@ class DecodedVector {
       const BaseVector& vector,
       const SelectivityVector& rows,
       int32_t numLevels);
-
-  template <typename T>
-  inline DecodeResult<T> as() {
-    return DecodeResult<T>(
-        base(), data<T>(), nulls(), indices(), nullIndices(), mayHaveNulls_);
-  }
 
   template <typename T>
   const T* data() const {
