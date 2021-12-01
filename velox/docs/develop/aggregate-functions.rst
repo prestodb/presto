@@ -82,7 +82,7 @@ Aggregate functions can be classified by the type of their accumulators into thr
     * :func:`approx_distinct`
 
 Fixed-width part of the accumulator is stored in the row. Variable-width
-part (if exists) is allocated using HashStringAllocator and a pointer is
+part (if exists) is allocated using :doc:`HashStringAllocator <arena>` and a pointer is
 stored in the fixed-width part.
 
 A row is a contiguous byte buffer. Given N aggregates, first N / 8 bytes
@@ -443,12 +443,12 @@ Documentation
 
 Finally, document the new function by adding an entry to velox/docs/functions/aggregate.rst
 
-You can see the documentation for all functions at https://fburl.com/velox-doc and read about how documentation is generated at https://github.com/facebookexternal/velox/tree/master/velox/docs#velox-documentation
+You can see the documentation for all functions at :doc:`../functions/aggregate` and read about how documentation is generated at https://github.com/facebookincubator/velox/tree/main/velox/docs#velox-documentation
 
 Accumulator
 -----------
 
-Variable-width accumulators need to use HashStringAllocator to allocate memory. An instance of the allocator is available in the base class: *f4d::exec::Aggregate::allocator_*.
+Variable-width accumulators need to use :doc:`HashStringAllocator <arena>` to allocate memory. An instance of the allocator is available in the base class: *f4d::exec::Aggregate::allocator_*.
 
 Sometimes you’ll need to create a custom accumulator. Sometimes one of the existing accumulators would do the jobs.
 
@@ -473,7 +473,7 @@ Memory allocated from the HashStringAllocator needs to be released in the destro
 End-to-End Testing
 ------------------
 
-To confirm that aggregate function works end to end as part of query, update testAggregations() test in TestHiveQueries.java in presto_cpp repo to add a query that uses the new function.
+To confirm that aggregate function works end to end as part of query, update testAggregations() test in TestHiveAggregationQueries.java in presto_cpp repo to add a query that uses the new function.
 
 .. code-block:: java
 
