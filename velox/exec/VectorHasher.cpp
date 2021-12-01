@@ -571,11 +571,10 @@ uint64_t VectorHasher::enableValueRange(uint64_t multiplier, int64_t reserve) {
   } else {
     max_ += reserve;
   }
-  rangeMaxChars_ = max_ ? (64 - __builtin_clzll(max_)) / 8 : 0;
   isRange_ = true;
-  uint64_t result;
   // No overflow because max range is under 63 bits.
   rangeSize_ = (max_ - min_) + 2;
+  uint64_t result;
   if (__builtin_mul_overflow(multiplier_, rangeSize_, &result)) {
     return kRangeTooLarge;
   }

@@ -933,7 +933,7 @@ uint64_t HashTable<ignoreNullKeys>::setHasherMode(
         : hashers[i]->enableValueIds(
               multiplier,
               addReserve(distinctSizes[i], kind) - distinctSizes[i]);
-    VELOX_CHECK(multiplier != VectorHasher::kRangeTooLarge);
+    VELOX_CHECK_NE(multiplier, VectorHasher::kRangeTooLarge);
   }
   return multiplier;
 }

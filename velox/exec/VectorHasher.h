@@ -267,8 +267,9 @@ class VectorHasher {
   static constexpr uint32_t kStringASRangeMaxSize = 7;
   static constexpr uint32_t kStringBufferUnitSize = 1024;
   static constexpr uint64_t kMaxDistinctStringsBytes = 1 << 20;
-  // stop counting distinct values after this many and revert to regular hash.
+  // Stop counting distinct values after this many and revert to regular hash.
   static constexpr int32_t kMaxDistinct = 100'000;
+
   // Maps a binary string of up to 7 bytes to int64_t. Each size maps
   // to a different numeric range, so leading zeros are considered.
   static inline int64_t stringAsNumber(const char* data, int32_t size) {
@@ -471,17 +472,15 @@ class VectorHasher {
   // array/normalized key mapping fails.
   uint32_t rangeSize_ = 0;
 
-  // Multiply int mapping by this before adding it to array index/normalized ey.
+  // Multiply int mapping by this before adding it to array index/normalized
+  // key.
   uint64_t multiplier_ = 1;
 
-  // true if the mapping is simply value - min_.
+  // True if the mapping is simply value - min_.
   bool isRange_ = false;
 
   // True if 'min_' and 'max_' are initialized.
   bool hasRange_ = false;
-
-  // Maximum character size of a string that can fit the range.
-  uint32_t rangeMaxChars_ = 0;
 
   // True when range or distinct mapping is not possible or practical.
   bool rangeOverflow_ = false;
