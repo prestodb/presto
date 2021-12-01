@@ -199,13 +199,13 @@ public final class ExpressionTreeUtils
 
         // ROW an MAP are special so we explicitly do that here.
         if (tempExpression instanceof Row) {
-            return !(((Row) tempExpression).getItems().stream().filter(x -> !isConstant(expression)).findAny().isPresent());
+            return (((Row) tempExpression).getItems().stream().allMatch(ExpressionTreeUtils::isConstant));
         }
 
         if (tempExpression instanceof FunctionCall) {
             // Hack to just allow map constructor
             if (((FunctionCall) tempExpression).getName().getSuffix().equalsIgnoreCase("map")) {
-                return !((FunctionCall) tempExpression).getArguments().stream().filter(x -> !isConstant(expression)).findAny().isPresent();
+                return ((FunctionCall) tempExpression).getArguments().stream().allMatch(ExpressionTreeUtils::isConstant);
             }
         }
 
