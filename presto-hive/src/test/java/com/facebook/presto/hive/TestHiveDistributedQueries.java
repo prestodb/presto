@@ -75,5 +75,10 @@ public class TestHiveDistributedQueries
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
+    @Test
+    public void testEmptyRowFieldNames() {
+        assertQuery("SELECT zip(array[1,2,3], array[10, 20])", "SELECT array[row(1, 10), row(2, 20), row(3, null)]");
+    }
+
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }

@@ -38,6 +38,7 @@ import com.facebook.presto.type.SqlIntervalDayTime;
 import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,6 +50,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -248,11 +250,10 @@ public class TestingPrestoClient
                             e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
         }
         else if (type instanceof RowType) {
-            Map<String, Object> data = (Map<String, Object>) value;
+            LinkedHashMap<String, Object> data = (LinkedHashMap<String, Object>) value;
             RowType rowType = (RowType) type;
-
-            return rowType.getFields().stream()
-                    .map(field -> convertToRowValue(field.getType(), data.get(field.getName().get())))
+            return Streams.zip(data.entrySet().stream(), rowType.getFields().stream(),
+                    (entry, field) -> convertToRowValue(field.getType(), entry.getValue()))
                     .collect(toList());
         }
         else if (type instanceof DecimalType) {
