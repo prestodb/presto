@@ -89,32 +89,12 @@ TEST_F(IsNotNullTest, somePositions) {
       size,
       [](vector_size_t row) { return row; },
       vectorMaker_.nullEvery(2, 1));
-  auto result = BaseVector::create(BOOLEAN(), size, execCtx_.pool());
-  auto flatResult = std::dynamic_pointer_cast<FlatVector<bool>>(result);
-  for (int i = 0; i < size; i++) {
-    flatResult->set(i, true);
-  }
 
-  // select odd rows 1, 3, 5,...
-  SelectivityVector oddRows(size);
-  for (int i = 0; i < size; i++) {
-    oddRows.setValid(i, i % 2 == 1);
-  }
+  auto isOdd = [](int i) { return i % 2; };
 
-  flatResult = evaluate<FlatVector<bool>>(
-      "isnotnull(c0)", makeRowVector({oddNulls}), oddRows, result);
-  for (int i = 0; i < size; i += 2) {
-    EXPECT_EQ(flatResult->valueAt(i), i % 2 == 0) << "at " << i;
-  }
-
-  // select even rows 0, 2, 4...
-  SelectivityVector evenRows(size);
+  auto result =
+      evaluate<SimpleVector<bool>>("isnotnull(c0)", makeRowVector({oddNulls}));
   for (int i = 0; i < size; i++) {
-    evenRows.setValid(i, i % 2 == 0);
-  }
-  flatResult = evaluate<FlatVector<bool>>(
-      "isnotnull(c0)", makeRowVector({oddNulls}), evenRows, result);
-  for (int i = 0; i < size; ++i) {
-    EXPECT_TRUE(flatResult->valueAt(i)) << "at " << i;
+    EXPECT_EQ(result->valueAt(i), !isOdd(i)) << "at " << i;
   }
 }
