@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/VectorHasher.h"
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Portability.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/exec/HashStringAllocator.h"
@@ -280,6 +281,43 @@ bool VectorHasher::makeValueIdsDecoded(
     result[row] = multiplier_ == 1 ? id : result[row] + multiplier_ * id;
   });
   return success;
+}
+
+template <>
+bool VectorHasher::makeValueIdsDecoded<bool, true>(
+    const SelectivityVector& rows,
+    uint64_t* result) {
+  auto indices = decoded_.indices();
+  auto values = decoded_.values<uint64_t>();
+
+  rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {
+    if (decoded_.isNullAt(row)) {
+      if (multiplier_ == 1) {
+        result[row] = 0;
+      }
+      return;
+    }
+
+    bool value = bits::isBitSet(values, indices[row]);
+    auto id = valueId(value);
+    result[row] = multiplier_ == 1 ? id : result[row] + multiplier_ * id;
+  });
+  return true;
+}
+
+template <>
+bool VectorHasher::makeValueIdsDecoded<bool, false>(
+    const SelectivityVector& rows,
+    uint64_t* result) {
+  auto indices = decoded_.indices();
+  auto values = decoded_.values<uint64_t>();
+
+  rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {
+    bool value = bits::isBitSet(values, indices[row]);
+    auto id = valueId(value);
+    result[row] = multiplier_ == 1 ? id : result[row] + multiplier_ * id;
+  });
+  return true;
 }
 
 bool VectorHasher::computeValueIds(

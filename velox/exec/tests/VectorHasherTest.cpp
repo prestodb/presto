@@ -15,6 +15,7 @@
  */
 #include "velox/exec/VectorHasher.h"
 #include <gtest/gtest.h>
+#include "velox/type/Type.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 using namespace facebook::velox;
@@ -525,6 +526,21 @@ TEST_F(VectorHasherTest, computeValueIdsSmallint) {
 TEST_F(VectorHasherTest, computeValueIdsTinyint) {
   testComputeValueIds<int8_t>(false);
   testComputeValueIds<int8_t>(true);
+}
+
+TEST_F(VectorHasherTest, computeValueIdsBoolDictionary) {
+  vector_size_t size = 1'000;
+  auto vector =
+      makeDictionary(size, vectorMaker_->flatVector<bool>(11, [](auto row) {
+        return row % 2 == 0;
+      }));
+
+  SelectivityVector allRows(size);
+  auto hasher = exec::VectorHasher::create(BOOLEAN(), 0);
+  raw_vector<uint64_t> result(size);
+  std::fill(result.begin(), result.end(), 0);
+  auto ok = hasher->computeValueIds(*vector, allRows, result);
+  ASSERT_TRUE(ok);
 }
 
 TEST_F(VectorHasherTest, computeValueIdsStrings) {

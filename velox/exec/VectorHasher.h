@@ -607,6 +607,16 @@ bool VectorHasher::makeValueIdsFlatWithNulls<bool>(
     const SelectivityVector& rows,
     uint64_t* result);
 
+template <>
+bool VectorHasher::makeValueIdsDecoded<bool, true>(
+    const SelectivityVector& rows,
+    uint64_t* result);
+
+template <>
+bool VectorHasher::makeValueIdsDecoded<bool, false>(
+    const SelectivityVector& rows,
+    uint64_t* result);
+
 } // namespace facebook::velox::exec
 
 #include "velox/exec/VectorHasher-inl.h"
