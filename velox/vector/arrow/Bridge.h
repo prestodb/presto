@@ -114,9 +114,24 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema);
 ///   auto vector = arrow::importToArrow(arrowSchema, arrowArray, pool);
 ///   ... // ensure buffers in arrowArray remain alive while vector is used.
 ///
-VectorPtr importFromArrow(
+VectorPtr importFromArrowAsViewer(
     const ArrowSchema& arrowSchema,
     const ArrowArray& arrowArray,
+    memory::MemoryPool* pool);
+
+/// Import an ArrowArray and ArrowSchema into a Velox vector, acquiring
+/// ownership over the input data.
+///
+/// Similar to importFromArrowAsViewer but the ownership of arrowSchema and
+/// arrowArray will be taken over. Specifically, the returned Vector will own a
+/// copy of arrowSchema and arrowArray. The inputs arrowSchema and arrowArray
+/// will be marked as released by setting their release callback to nullptr
+/// (https://arrow.apache.org/docs/format/CDataInterface.html). Afterwards, the
+/// returned Vector will be responsible for calling the release callbacks when
+/// destructed.
+VectorPtr importFromArrowAsOwner(
+    ArrowSchema& arrowSchema,
+    ArrowArray& arrowArray,
     memory::MemoryPool* pool);
 
 } // namespace facebook::velox

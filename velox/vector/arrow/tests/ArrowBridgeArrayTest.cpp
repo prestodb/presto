@@ -24,7 +24,8 @@
 namespace {
 
 using namespace facebook::velox;
-static void mockRelease(ArrowSchema*) {}
+void mockSchemaRelease(ArrowSchema*) {}
+void mockArrayRelease(ArrowArray*) {}
 
 class ArrowBridgeArrayExportTest : public testing::Test {
  protected:
@@ -81,7 +82,26 @@ class ArrowBridgeArrayExportTest : public testing::Test {
         .n_children = 0,
         .children = nullptr,
         .dictionary = nullptr,
-        .release = mockRelease,
+        .release = mockSchemaRelease,
+        .private_data = nullptr,
+    };
+  }
+
+  ArrowArray makeArrowArray(
+      const void** buffers,
+      int64_t nBuffers,
+      int64_t length,
+      int64_t nullCount) {
+    return ArrowArray{
+        .length = length,
+        .null_count = nullCount,
+        .offset = 0,
+        .n_buffers = nBuffers,
+        .n_children = 0,
+        .buffers = buffers,
+        .children = nullptr,
+        .dictionary = nullptr,
+        .release = mockArrayRelease,
         .private_data = nullptr,
     };
   }
@@ -251,6 +271,13 @@ TEST_F(ArrowBridgeArrayExportTest, unsupported) {
 
 class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
  protected:
+  // Used by this base test class to import Arrow data and create Velox Vector.
+  // Derived test classes should call the import function under test.
+  virtual VectorPtr importFromArrow(
+      ArrowSchema& arrowSchema,
+      ArrowArray& arrowArray,
+      memory::MemoryPool* pool) = 0;
+
   // Takes a vector with input data, generates an input ArrowArray and Velox
   // Vector (using vector maker). Then converts ArrowArray into Velox vector and
   // assert that both Velox vectors are semantically the same.
@@ -285,18 +312,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     buffers[0] = (nullCount == 0) ? nullptr : (const void*)rawNulls;
     buffers[1] = (length == 0) ? nullptr : (const void*)rawValues;
 
-    ArrowArray arrowArray{
-        .length = length,
-        .null_count = nullCount,
-        .offset = 0,
-        .n_buffers = 2,
-        .n_children = 0,
-        .buffers = buffers,
-        .children = nullptr,
-        .dictionary = nullptr,
-        .release = nullptr,
-        .private_data = nullptr,
-    };
+    ArrowArray arrowArray = makeArrowArray(buffers, 2, length, nullCount);
     auto arrowSchema = makeArrowSchema(format);
     auto output = importFromArrow(arrowSchema, arrowArray, pool_.get());
 
@@ -317,102 +333,192 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     }
   }
 
+  void testImportScalar() {
+    testArrowImport<bool>("b", {});
+    testArrowImport<bool>("b", {true});
+    testArrowImport<bool>("b", {false});
+    testArrowImport<bool>("b", {true, false, true});
+    testArrowImport<bool>("b", {true, std::nullopt, true});
+
+    testArrowImport<int8_t>("c", {});
+    testArrowImport<int8_t>("c", {101});
+    testArrowImport<int8_t>("c", {5, 4, 3, 1, 2});
+    testArrowImport<int8_t>("c", {8, std::nullopt, std::nullopt});
+    testArrowImport<int8_t>("c", {std::nullopt, std::nullopt});
+
+    testArrowImport<int16_t>("s", {5, 4, 3, 1, 2});
+    testArrowImport<int32_t>("i", {5, 4, 3, 1, 2});
+
+    testArrowImport<int64_t>("l", {});
+    testArrowImport<int64_t>("l", {std::nullopt});
+    testArrowImport<int64_t>("l", {-99, 4, 318321631, 1211, -12});
+    testArrowImport<int64_t>("l", {std::nullopt, 12345678, std::nullopt});
+    testArrowImport<int64_t>("l", {std::nullopt, std::nullopt});
+
+    testArrowImport<double>("g", {});
+    testArrowImport<double>("g", {std::nullopt});
+    testArrowImport<double>("g", {-99.9, 4.3, 31.1, 129.11, -12});
+    testArrowImport<float>("f", {-99.9, 4.3, 31.1, 129.11, -12});
+
+    // VARCHAR and VARBINARY not supported for now.
+    EXPECT_THROW(
+        testArrowImport<std::string>("u", {"hello world"}),
+        std::invalid_argument);
+    EXPECT_THROW(
+        testArrowImport<std::string>("z", {"hello world"}),
+        std::invalid_argument);
+  }
+
+  void testImportFailures() {
+    ArrowSchema arrowSchema;
+    ArrowArray arrowArray;
+
+    const int32_t values[] = {1, 2, 3, 4};
+    const void* buffers[] = {nullptr, values};
+
+    // Unsupported:
+
+    // Children not yet supported.
+    arrowSchema = makeArrowSchema("i");
+    arrowArray = makeArrowArray(buffers, 2, 4, 0);
+    arrowArray.n_children = 1;
+    EXPECT_THROW(
+        importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
+
+    // Offset not yet supported.
+    arrowSchema = makeArrowSchema("i");
+    arrowArray = makeArrowArray(buffers, 2, 4, 0);
+    arrowArray.offset = 1;
+    EXPECT_THROW(
+        importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
+
+    // Broken input.
+
+    // Null release callback indicates a released structure and should be
+    // error-ed out
+    arrowSchema = makeArrowSchema("i");
+    arrowArray = makeArrowArray(buffers, 2, 4, 0);
+    arrowSchema.release = nullptr;
+    EXPECT_THROW(
+        importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
+
+    arrowSchema = makeArrowSchema("i");
+    arrowArray = makeArrowArray(buffers, 2, 4, 0);
+    arrowArray.release = nullptr;
+    EXPECT_THROW(
+        importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
+
+    // Expect two buffers.
+    arrowSchema = makeArrowSchema("i");
+    arrowArray = makeArrowArray(buffers, 2, 4, 0);
+    arrowArray.n_buffers = 1;
+    EXPECT_THROW(
+        importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
+
+    // Can't have nulls without null buffer.
+    arrowSchema = makeArrowSchema("i");
+    arrowArray = makeArrowArray(buffers, 2, 4, 1);
+    arrowArray.null_count = 1;
+    EXPECT_THROW(
+        importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
+
+    // Non-existing type.
+    arrowSchema = makeArrowSchema("a");
+    arrowArray = makeArrowArray(buffers, 2, 4, 0);
+    EXPECT_THROW(
+        importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
+
+    // Ensure the baseline works.
+    arrowSchema = makeArrowSchema("i");
+    arrowArray = makeArrowArray(buffers, 2, 4, 0);
+    EXPECT_NO_THROW(importFromArrow(arrowSchema, arrowArray, pool_.get()));
+  }
+
   std::unique_ptr<memory::ScopedMemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
 };
 
-TEST_F(ArrowBridgeArrayImportTest, scalar) {
-  testArrowImport<bool>("b", {});
-  testArrowImport<bool>("b", {true});
-  testArrowImport<bool>("b", {false});
-  testArrowImport<bool>("b", {true, false, true});
-  testArrowImport<bool>("b", {true, std::nullopt, true});
+class ArrowBridgeArrayImportAsViewerTest : public ArrowBridgeArrayImportTest {
+  VectorPtr importFromArrow(
+      ArrowSchema& arrowSchema,
+      ArrowArray& arrowArray,
+      memory::MemoryPool* pool) override {
+    return facebook::velox::importFromArrowAsViewer(
+        arrowSchema, arrowArray, pool);
+  }
+};
 
-  testArrowImport<int8_t>("c", {});
-  testArrowImport<int8_t>("c", {101});
-  testArrowImport<int8_t>("c", {5, 4, 3, 1, 2});
-  testArrowImport<int8_t>("c", {8, std::nullopt, std::nullopt});
-  testArrowImport<int8_t>("c", {std::nullopt, std::nullopt});
-
-  testArrowImport<int16_t>("s", {5, 4, 3, 1, 2});
-  testArrowImport<int32_t>("i", {5, 4, 3, 1, 2});
-
-  testArrowImport<int64_t>("l", {});
-  testArrowImport<int64_t>("l", {std::nullopt});
-  testArrowImport<int64_t>("l", {-99, 4, 318321631, 1211, -12});
-  testArrowImport<int64_t>("l", {std::nullopt, 12345678, std::nullopt});
-  testArrowImport<int64_t>("l", {std::nullopt, std::nullopt});
-
-  testArrowImport<double>("g", {});
-  testArrowImport<double>("g", {std::nullopt});
-  testArrowImport<double>("g", {-99.9, 4.3, 31.1, 129.11, -12});
-  testArrowImport<float>("f", {-99.9, 4.3, 31.1, 129.11, -12});
-
-  // VARCHAR and VARBINARY not supported for now.
-  EXPECT_THROW(
-      testArrowImport<std::string>("u", {"hello world"}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testArrowImport<std::string>("z", {"hello world"}),
-      std::invalid_argument);
+TEST_F(ArrowBridgeArrayImportAsViewerTest, scalar) {
+  testImportScalar();
 }
 
-TEST_F(ArrowBridgeArrayImportTest, failures) {
-  auto arrowSchema = makeArrowSchema("i");
+TEST_F(ArrowBridgeArrayImportAsViewerTest, failures) {
+  testImportFailures();
+}
 
-  const void* buffers[2];
+class ArrowBridgeArrayImportAsOwnerTest
+    : public ArrowBridgeArrayImportAsViewerTest {
+  VectorPtr importFromArrow(
+      ArrowSchema& arrowSchema,
+      ArrowArray& arrowArray,
+      memory::MemoryPool* pool) override {
+    return facebook::velox::importFromArrowAsOwner(
+        arrowSchema, arrowArray, pool);
+  }
+};
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, scalar) {
+  testImportScalar();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, failures) {
+  testImportFailures();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, inputsMarkedReleased) {
   const int32_t values[] = {1, 2, 3, 4};
-  buffers[0] = nullptr;
-  buffers[1] = values;
+  const void* buffers[] = {nullptr, values};
 
-  ArrowArray arrowArray{
-      .length = 4,
-      .null_count = 0,
-      .offset = 0,
-      .n_buffers = 2,
-      .n_children = 0,
-      .buffers = buffers,
-      .children = nullptr,
-      .dictionary = nullptr,
-      .release = nullptr,
-      .private_data = nullptr,
-  };
+  ArrowSchema arrowSchema = makeArrowSchema("i");
+  ArrowArray arrowArray = makeArrowArray(buffers, 2, 4, 0);
 
-  // Unsupported:
+  auto _ = importFromArrowAsOwner(arrowSchema, arrowArray, pool_.get());
 
-  // Children not yet supported.
-  arrowArray.n_children = 1;
-  EXPECT_THROW(
-      importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
-  arrowArray.n_children = 0;
+  EXPECT_EQ(arrowSchema.release, nullptr);
+  EXPECT_EQ(arrowArray.release, nullptr);
+}
 
-  // Offset not yet supported.
-  arrowArray.offset = 1;
-  EXPECT_THROW(
-      importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
-  arrowArray.offset = 0;
+struct TestReleaseCalled {
+  static bool schemaReleaseCalled;
+  static bool arrayReleaseCalled;
+  static void releaseSchema(ArrowSchema*) {
+    schemaReleaseCalled = true;
+  }
+  static void releaseArray(ArrowArray*) {
+    arrayReleaseCalled = true;
+  }
+};
+bool TestReleaseCalled::schemaReleaseCalled = false;
+bool TestReleaseCalled::arrayReleaseCalled = false;
 
-  // Broken input.
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, releaseCalled) {
+  const int32_t values[] = {1, 2, 3, 4};
+  const void* buffers[] = {nullptr, values};
 
-  // Expect two buffers.
-  arrowArray.n_buffers = 1;
-  EXPECT_THROW(
-      importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
-  arrowArray.n_buffers = 2;
+  ArrowSchema arrowSchema = makeArrowSchema("i");
+  ArrowArray arrowArray = makeArrowArray(buffers, 2, 4, 0);
 
-  // Can't have nulls without null buffer.
-  arrowArray.null_count = 1;
-  EXPECT_THROW(
-      importFromArrow(arrowSchema, arrowArray, pool_.get()), VeloxUserError);
-  arrowArray.null_count = 0;
+  TestReleaseCalled::schemaReleaseCalled = false;
+  TestReleaseCalled::arrayReleaseCalled = false;
+  arrowSchema.release = TestReleaseCalled::releaseSchema;
+  arrowArray.release = TestReleaseCalled::releaseArray;
 
-  // Non-existing type.
-  EXPECT_THROW(
-      importFromArrow(makeArrowSchema("a"), arrowArray, pool_.get()),
-      VeloxUserError);
+  // Create a Velox Vector from Arrow and then destruct it to trigger the
+  // release callback calling
+  { auto _ = importFromArrowAsOwner(arrowSchema, arrowArray, pool_.get()); }
 
-  // Ensure the baseline works.
-  EXPECT_NO_THROW(importFromArrow(arrowSchema, arrowArray, pool_.get()));
+  EXPECT_TRUE(TestReleaseCalled::schemaReleaseCalled);
+  EXPECT_TRUE(TestReleaseCalled::arrayReleaseCalled);
 }
 
 } // namespace

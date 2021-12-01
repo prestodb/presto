@@ -390,23 +390,53 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
 }
 
 namespace {
+// Optionally, holds shared_ptrs pointing to the ArrowArray object that
+// holds the buffer and the ArrowSchema object that describes the ArrowArray,
+// which will be released to signal that we will no longer hold on to the data
+// and the shared_ptr deleters should run the release procedures if no one
+// else is referencing the objects.
 struct BufferViewReleaser {
+  BufferViewReleaser() : BufferViewReleaser(nullptr, nullptr) {}
+  BufferViewReleaser(
+      std::shared_ptr<ArrowSchema> arrowSchema,
+      std::shared_ptr<ArrowArray> arrowArray)
+      : schemaReleaser_(std::move(arrowSchema)),
+        arrayReleaser_(std::move(arrowArray)) {}
+
   void addRef() const {}
   void release() const {}
+
+ private:
+  const std::shared_ptr<ArrowSchema> schemaReleaser_;
+  const std::shared_ptr<ArrowArray> arrayReleaser_;
 };
 
 // Wraps a naked pointer using a Velox buffer view, without copying it. Adding a
 // dummy releaser as the buffer lifetime is fully controled by the client of the
 // API.
-BufferPtr wrapInBufferView(const void* buffer, size_t length) {
-  static const BufferViewReleaser kDummy;
+BufferPtr wrapInBufferViewAsViewer(const void* buffer, size_t length) {
+  static const BufferViewReleaser kViewerReleaser;
   return BufferView<BufferViewReleaser>::create(
-      static_cast<const uint8_t*>(buffer), length, kDummy);
+      static_cast<const uint8_t*>(buffer), length, kViewerReleaser);
+}
+
+// Wraps a naked pointer using a Velox buffer view, without copying it. This
+// buffer view uses shared_ptr to manage reference counting and releasing for
+// the ArrowSchema object and the ArrowArray object
+BufferPtr wrapInBufferViewAsOwner(
+    const void* buffer,
+    size_t length,
+    std::shared_ptr<ArrowSchema> schemaReleaser,
+    std::shared_ptr<ArrowArray> arrayReleaser) {
+  return BufferView<BufferViewReleaser>::create(
+      static_cast<const uint8_t*>(buffer),
+      length,
+      {std::move(schemaReleaser), std::move(arrayReleaser)});
 }
 
 // Dispatch based on the type.
 template <TypeKind kind>
-VectorPtr importFromArrowImpl(
+VectorPtr createFlatVector(
     memory::MemoryPool* pool,
     const TypePtr& type,
     BufferPtr nulls,
@@ -425,12 +455,17 @@ VectorPtr importFromArrowImpl(
       std::nullopt,
       nullCount == -1 ? std::nullopt : std::optional<int64_t>(nullCount));
 }
-} // namespace
 
-VectorPtr importFromArrow(
+using WrapInBufferViewFunc =
+    std::function<BufferPtr(const void* buffer, size_t length)>;
+
+VectorPtr importFromArrowImpl(
     const ArrowSchema& arrowSchema,
     const ArrowArray& arrowArray,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    WrapInBufferViewFunc wrapInBufferView) {
+  VELOX_USER_CHECK_NOT_NULL(arrowSchema.release, "arrowSchema was released.");
+  VELOX_USER_CHECK_NOT_NULL(arrowArray.release, "arrowArray was released.");
   VELOX_USER_CHECK_NULL(
       arrowArray.dictionary,
       "Dictionary encoded arrowArrays not supported yet.");
@@ -476,7 +511,7 @@ VectorPtr importFromArrow(
       arrowArray.buffers[1], arrowArray.length * type->cppSizeInBytes());
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      importFromArrowImpl,
+      createFlatVector,
       type->kind(),
       pool,
       type,
@@ -484,6 +519,57 @@ VectorPtr importFromArrow(
       arrowArray.length,
       values,
       arrowArray.null_count);
+}
+} // namespace
+
+VectorPtr importFromArrowAsViewer(
+    const ArrowSchema& arrowSchema,
+    const ArrowArray& arrowArray,
+    memory::MemoryPool* pool) {
+  return importFromArrowImpl(
+      arrowSchema, arrowArray, pool, wrapInBufferViewAsViewer);
+}
+
+VectorPtr importFromArrowAsOwner(
+    ArrowSchema& arrowSchema,
+    ArrowArray& arrowArray,
+    memory::MemoryPool* pool) {
+  // This Vector will take over the ownership of `arrowSchema` and `arrowArray`
+  // by marking them as released and becoming responsible for calling the
+  // release callbacks when use count reaches zero. These ArrowSchema object and
+  // ArrowArray object will be co-owned by both the BufferVieweReleaser of the
+  // nulls buffer and values buffer.
+  std::shared_ptr<ArrowSchema> schemaReleaser(
+      new ArrowSchema(arrowSchema), [](ArrowSchema* toDelete) {
+        if (toDelete != nullptr) {
+          if (toDelete->release != nullptr) {
+            toDelete->release(toDelete);
+          }
+          delete toDelete;
+        }
+      });
+  std::shared_ptr<ArrowArray> arrayReleaser(
+      new ArrowArray(arrowArray), [](ArrowArray* toDelete) {
+        if (toDelete != nullptr) {
+          if (toDelete->release != nullptr) {
+            toDelete->release(toDelete);
+          }
+          delete toDelete;
+        }
+      });
+  VectorPtr imported = importFromArrowImpl(
+      arrowSchema,
+      arrowArray,
+      pool,
+      [&schemaReleaser, &arrayReleaser](const void* buffer, size_t length) {
+        return wrapInBufferViewAsOwner(
+            buffer, length, schemaReleaser, arrayReleaser);
+      });
+
+  arrowSchema.release = nullptr;
+  arrowArray.release = nullptr;
+
+  return imported;
 }
 
 } // namespace facebook::velox
