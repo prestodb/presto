@@ -799,6 +799,8 @@ public abstract class AbstractTestQueries
                         "FROM (VALUES (1, ARRAY['a']), (1, ARRAY['b']), (1, ARRAY['c']), (2, ARRAY['d']), (2, ARRAY['e']), (3, ARRAY['f'])) AS t(x, y) " +
                         "GROUP BY x",
                 "VALUES (1, 'abcx'), (2, 'dex'), (3, 'fx')");
+
+        assertQuery("SELECT REDUCE_AGG((x,y), (0,0), (x, y)->(x[1],y[1]), (x,y)->(x[1],y[1]))[1] from (select 1 x, 2 y)", "select 0");
     }
 
     @Test
