@@ -18,8 +18,37 @@
 namespace facebook::velox::core {
 
 namespace {
-const std::vector<std::shared_ptr<const PlanNode>> EMPTY_SOURCES;
+const std::vector<std::shared_ptr<const PlanNode>> kEmptySources;
+
+std::shared_ptr<RowType> getAggregationOutputType(
+    const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+        groupingKeys,
+    const std::vector<std::string>& aggregateNames,
+    const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates) {
+  VELOX_CHECK_EQ(
+      aggregateNames.size(),
+      aggregates.size(),
+      "Number of aggregate names must be equal to number of aggregates");
+
+  std::vector<std::string> names;
+  std::vector<std::shared_ptr<const Type>> types;
+
+  for (auto& key : groupingKeys) {
+    auto field =
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(key);
+    VELOX_CHECK(field, "Grouping key must be a field reference");
+    names.push_back(field->name());
+    types.push_back(field->type());
+  }
+
+  for (int32_t i = 0; i < aggregateNames.size(); i++) {
+    names.push_back(aggregateNames[i]);
+    types.push_back(aggregates[i]->type());
+  }
+
+  return std::make_shared<RowType>(std::move(names), std::move(types));
 }
+} // namespace
 
 AggregationNode::AggregationNode(
     const PlanNodeId& id,
@@ -40,7 +69,10 @@ AggregationNode::AggregationNode(
       aggregateMasks_(aggregateMasks),
       ignoreNullKeys_(ignoreNullKeys),
       sources_{source},
-      outputType_(getOutputType(groupingKeys_, aggregateNames_, aggregates_)) {
+      outputType_(getAggregationOutputType(
+          groupingKeys_,
+          aggregateNames_,
+          aggregates_)) {
   // Empty grouping keys are used in global aggregation:
   //    SELECT sum(c) FROM t
   // Empty aggregates are used in distinct:
@@ -52,17 +84,17 @@ AggregationNode::AggregationNode(
 
 const std::vector<std::shared_ptr<const PlanNode>>& ValuesNode::sources()
     const {
-  return EMPTY_SOURCES;
+  return kEmptySources;
 }
 
 const std::vector<std::shared_ptr<const PlanNode>>& TableScanNode::sources()
     const {
-  return EMPTY_SOURCES;
+  return kEmptySources;
 }
 
 const std::vector<std::shared_ptr<const PlanNode>>& ExchangeNode::sources()
     const {
-  return EMPTY_SOURCES;
+  return kEmptySources;
 }
 
 UnnestNode::UnnestNode(

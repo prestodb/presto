@@ -466,35 +466,6 @@ class AggregationNode : public PlanNode {
   }
 
  private:
-  static std::shared_ptr<RowType> getOutputType(
-      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
-          groupingKeys,
-      const std::vector<std::string>& aggregateNames,
-      const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates) {
-    VELOX_CHECK_EQ(
-        aggregateNames.size(),
-        aggregates.size(),
-        "Number of aggregate names must be equal to number of aggregates");
-
-    std::vector<std::string> names;
-    std::vector<std::shared_ptr<const Type>> types;
-
-    for (auto& key : groupingKeys) {
-      auto field =
-          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(key);
-      VELOX_CHECK(field, "Grouping key must be a field reference");
-      names.push_back(field->name());
-      types.push_back(field->type());
-    }
-
-    for (int32_t i = 0; i < aggregateNames.size(); i++) {
-      names.push_back(aggregateNames[i]);
-      types.push_back(aggregates[i]->type());
-    }
-
-    return std::make_shared<RowType>(std::move(names), std::move(types));
-  }
-
   const Step step_;
   const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> groupingKeys_;
   const std::vector<std::string> aggregateNames_;
