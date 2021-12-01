@@ -591,6 +591,47 @@ class TestingPauser : public Operator {
 
 std::mutex TestingPauser ::pauseMutex_;
 
+namespace {
+
+class PauserNodeFactory : public Operator::PlanNodeTranslator {
+ public:
+  PauserNodeFactory(
+      uint32_t maxDrivers,
+      int32_t& sequence,
+      DriverTest* testInstance)
+      : maxDrivers_{maxDrivers},
+        sequence_{sequence},
+        testInstance_{testInstance} {}
+
+  std::unique_ptr<Operator> translate(
+      DriverCtx* ctx,
+      int32_t id,
+      const std::shared_ptr<const core::PlanNode>& node) override {
+    if (auto pauser =
+            std::dynamic_pointer_cast<const TestingPauserNode>(node)) {
+      return std::make_unique<TestingPauser>(
+          ctx, id, pauser, testInstance_, ++sequence_);
+    }
+    return nullptr;
+  }
+
+  std::optional<uint32_t> maxDrivers(
+      const std::shared_ptr<const core::PlanNode>& node) override {
+    if (auto pauser =
+            std::dynamic_pointer_cast<const TestingPauserNode>(node)) {
+      return maxDrivers_;
+    }
+    return std::nullopt;
+  }
+
+ private:
+  uint32_t maxDrivers_;
+  int32_t& sequence_;
+  DriverTest* testInstance_;
+};
+
+} // namespace
+
 TEST_F(DriverTest, pauserNode) {
   constexpr int32_t kNumTasks = 20;
   constexpr int32_t kThreadsPerTask = 5;
@@ -602,18 +643,8 @@ TEST_F(DriverTest, pauserNode) {
   // all its Tasks in the test instance to create inter-Task pauses.
   static DriverTest* testInstance;
   testInstance = this;
-  Operator::registerOperator(
-      [&](DriverCtx* ctx,
-          int32_t id,
-          const std::shared_ptr<const core::PlanNode>& node)
-          -> std::unique_ptr<TestingPauser> {
-        if (auto pauser =
-                std::dynamic_pointer_cast<const TestingPauserNode>(node)) {
-          return std::make_unique<TestingPauser>(
-              ctx, id, pauser, testInstance, ++sequence);
-        }
-        return nullptr;
-      });
+  Operator::registerOperator(std::make_unique<PauserNodeFactory>(
+      kThreadsPerTask, sequence, testInstance));
 
   std::vector<int32_t> counters;
   counters.reserve(kNumTasks);
@@ -631,7 +662,9 @@ TEST_F(DriverTest, pauserNode) {
         [](int64_t num) { return num % 10 > 0; },
         &hits,
         true);
-    params[i].maxDrivers = kThreadsPerTask;
+    params[i].maxDrivers =
+        kThreadsPerTask * 2; // a number larger than kThreadsPerTask
+    params[i].numResultDrivers = kThreadsPerTask;
   }
   std::vector<std::thread> threads;
   threads.reserve(kNumTasks);

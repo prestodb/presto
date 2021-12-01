@@ -25,8 +25,9 @@ namespace facebook::velox::exec {
 OperatorCtx::OperatorCtx(DriverCtx* driverCtx)
     : driverCtx_(driverCtx), pool_(driverCtx_->addOperatorPool()) {}
 
-std::vector<Operator::PlanNodeTranslator>& Operator::translators() {
-  static std::vector<PlanNodeTranslator> translators;
+std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
+Operator::translators() {
+  static std::vector<std::unique_ptr<PlanNodeTranslator>> translators;
   return translators;
 }
 
@@ -36,12 +37,23 @@ std::unique_ptr<Operator> Operator::fromPlanNode(
     int32_t id,
     const std::shared_ptr<const core::PlanNode>& planNode) {
   for (auto& translator : translators()) {
-    auto op = translator(ctx, id, planNode);
+    auto op = translator->translate(ctx, id, planNode);
     if (op) {
       return op;
     }
   }
   return nullptr;
+}
+
+std::optional<uint32_t> Operator::maxDrivers(
+    const std::shared_ptr<const core::PlanNode>& planNode) {
+  for (auto& translator : translators()) {
+    auto current = translator->maxDrivers(planNode);
+    if (current) {
+      return current;
+    }
+  }
+  return std::nullopt;
 }
 
 memory::MappedMemory* OperatorCtx::mappedMemory() const {

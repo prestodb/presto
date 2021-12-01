@@ -146,6 +146,7 @@ void plan(
 
 uint32_t maxDrivers(
     const std::vector<std::shared_ptr<const core::PlanNode>>& planNodes) {
+  uint32_t count = std::numeric_limits<uint32_t>::max();
   for (auto& node : planNodes) {
     if (auto aggregation =
             std::dynamic_pointer_cast<const core::AggregationNode>(node)) {
@@ -154,54 +155,65 @@ uint32_t maxDrivers(
         // final aggregations must run single-threaded
         return 1;
       }
-    }
-    if (auto topN = std::dynamic_pointer_cast<const core::TopNNode>(node)) {
+    } else if (
+        auto topN = std::dynamic_pointer_cast<const core::TopNNode>(node)) {
       if (!topN->isPartial()) {
         // final topN must run single-threaded
         return 1;
       }
-    }
-    if (auto values = std::dynamic_pointer_cast<const core::ValuesNode>(node)) {
+    } else if (
+        auto values = std::dynamic_pointer_cast<const core::ValuesNode>(node)) {
       // values node must run single-threaded, unless in test context
       if (!values->isParallelizable()) {
         return 1;
       }
-    }
-    if (auto limit = std::dynamic_pointer_cast<const core::LimitNode>(node)) {
+    } else if (
+        auto limit = std::dynamic_pointer_cast<const core::LimitNode>(node)) {
       // final limit must run single-threaded
       if (!limit->isPartial()) {
         return 1;
       }
-    }
-    if (auto orderBy =
+    } else if (
+        auto orderBy =
             std::dynamic_pointer_cast<const core::OrderByNode>(node)) {
       // final orderby must run single-threaded
       if (!orderBy->isPartial()) {
         return 1;
       }
-    }
-    if (auto localMerge =
+    } else if (
+        auto localMerge =
             std::dynamic_pointer_cast<const core::LocalMergeNode>(node)) {
       // Local merge must run single-threaded.
       return 1;
-    }
-
-    if (auto mergeExchange =
+    } else if (
+        auto mergeExchange =
             std::dynamic_pointer_cast<const core::MergeExchangeNode>(node)) {
       // MergeExchange must run single-threaded.
       return 1;
-    }
-
-    if (auto tableWrite =
+    } else if (
+        auto tableWrite =
             std::dynamic_pointer_cast<const core::TableWriteNode>(node)) {
       if (!tableWrite->insertTableHandle()
                ->connectorInsertTableHandle()
                ->supportsMultiThreading()) {
         return 1;
       }
+    } else {
+      auto result = Operator::maxDrivers(node);
+      if (result) {
+        VELOX_CHECK_GT(
+            *result,
+            0,
+            "maxDrivers must be greater than 0. Plan node: {}",
+            node->toString())
+        if (*result == 1) {
+          return 1;
+        }
+        count = std::min(*result, count);
+      }
     }
   }
-  return std::numeric_limits<uint32_t>::max();
+  return count;
 }
 } // namespace detail
 
