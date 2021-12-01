@@ -15,7 +15,9 @@
  */
 #include "velox/functions/prestosql/SimpleFunctions.h"
 
+#include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/prestosql/ArrayFunctions.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
 #include "velox/functions/prestosql/Hash.h"
 #include "velox/functions/prestosql/HyperLogLogFunctions.h"
@@ -135,6 +137,17 @@ void registerFunctions() {
   registerArithmeticFunctions();
   registerCheckedArithmeticFunctions();
   registerComparisonFunctions();
+
+  registerArrayMinMaxFunctions<int8_t>();
+  registerArrayMinMaxFunctions<int16_t>();
+  registerArrayMinMaxFunctions<int32_t>();
+  registerArrayMinMaxFunctions<int64_t>();
+  registerArrayMinMaxFunctions<float>();
+  registerArrayMinMaxFunctions<double>();
+  registerArrayMinMaxFunctions<bool>();
+  registerArrayMinMaxFunctions<Varchar>();
+  registerArrayMinMaxFunctions<Timestamp>();
+  registerArrayMinMaxFunctions<Date>();
 }
 
 } // namespace facebook::velox::functions
