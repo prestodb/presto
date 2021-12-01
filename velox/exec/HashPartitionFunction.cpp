@@ -39,7 +39,7 @@ void HashPartitionFunction::partition(
 
   hashes_.resize(size);
   for (auto i = 0; i < keyChannels_.size(); ++i) {
-    hashers_[i]->hash(*input.childAt(keyChannels_[i]), rows_, i > 0, &hashes_);
+    hashers_[i]->hash(*input.childAt(keyChannels_[i]), rows_, i > 0, hashes_);
   }
 
   partitions.resize(size);

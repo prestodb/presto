@@ -71,12 +71,12 @@ void benchmarkComputeValueIds(bool withNulls) {
 
   raw_vector<uint64_t> hashes(size);
   SelectivityVector rows(size);
-  hasher.computeValueIds(*values, rows, &hashes);
+  hasher.computeValueIds(*values, rows, hashes);
   hasher.enableValueRange(1, 0);
   suspender.dismiss();
 
   for (int i = 0; i < 10'000; i++) {
-    bool ok = hasher.computeValueIds(*values, rows, &hashes);
+    bool ok = hasher.computeValueIds(*values, rows, hashes);
     folly::doNotOptimizeAway(ok);
   }
 }
@@ -149,7 +149,7 @@ void benchmarkComputeValueIdsForStrings(bool flattenDictionaries) {
   for (int i = 0; i < 4; i++) {
     auto hasher = hashers[i].get();
     raw_vector<uint64_t> result(size);
-    auto ok = hasher->computeValueIds(*vectors[i], allRows, &result);
+    auto ok = hasher->computeValueIds(*vectors[i], allRows, result);
     folly::doNotOptimizeAway(ok);
 
     multiplier = hasher->enableValueIds(multiplier, 0);
@@ -161,7 +161,7 @@ void benchmarkComputeValueIdsForStrings(bool flattenDictionaries) {
     for (int j = 0; j < 4; j++) {
       auto hasher = hashers[j].get();
       auto vector = vectors[j];
-      bool ok = hasher->computeValueIds(*vector, allRows, &result);
+      bool ok = hasher->computeValueIds(*vector, allRows, result);
       folly::doNotOptimizeAway(ok);
     }
   }

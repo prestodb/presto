@@ -368,7 +368,8 @@ class HashTable : public BaseHashTable {
   // Computes hash numbers of the appropriate hash mode for 'groups',
   // stores these in 'hashes' and inserts the groups using
   // insertForJoin or insertForGroupBy.
-  bool insertBatch(char** groups, uint64_t* hashes, int32_t numGroups);
+  bool
+  insertBatch(char** groups, int32_t numGroups, raw_vector<uint64_t>& hashes);
 
   // Inserts 'numGroups' entries into 'this'. 'groups' point to
   // contents in a RowContainer owned by 'this'. 'hashes' are te hash

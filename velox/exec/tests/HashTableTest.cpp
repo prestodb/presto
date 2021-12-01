@@ -156,11 +156,11 @@ class HashTableTest : public testing::Test {
     for (int32_t i = 0; i < hashers.size(); ++i) {
       auto key = input.childAt(hashers[i]->channel());
       if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(*key, activeRows, &lookup.hashes)) {
+        if (!hashers[i]->computeValueIds(*key, activeRows, lookup.hashes)) {
           rehash = true;
         }
       } else {
-        hashers[i]->hash(*key, activeRows, i > 0, &lookup.hashes);
+        hashers[i]->hash(*key, activeRows, i > 0, lookup.hashes);
       }
     }
     std::iota(lookup.rows.begin(), lookup.rows.end(), 0);
@@ -230,7 +230,7 @@ class HashTableTest : public testing::Test {
           if (table->hashMode() != BaseHashTable::HashMode::kHash) {
             auto hasher = table->hashers()[i].get();
             if (hasher->mayUseValueIds()) {
-              hasher->computeValueIds(*batch->childAt(i), insertedRows, &dummy);
+              hasher->computeValueIds(*batch->childAt(i), insertedRows, dummy);
             }
           }
         }
@@ -336,9 +336,8 @@ class HashTableTest : public testing::Test {
     int32_t numHashed = 0;
     int32_t numProbed = 0;
     int32_t numHit = 0;
-    DecodedVector decoded;
-    raw_vector<uint64_t> scratch;
     auto& hashers = topTable_->hashers();
+    VectorHasher::ScratchMemory scratchMemory;
     for (auto batchIndex = 0; batchIndex < batches_.size(); ++batchIndex) {
       auto batch = batches_[batchIndex];
       lookup->reset(batch->size());
@@ -349,10 +348,10 @@ class HashTableTest : public testing::Test {
         for (auto i = 0; i < hashers.size(); ++i) {
           auto key = batch->childAt(i);
           if (mode != BaseHashTable::HashMode::kHash) {
-            decoded.decode(*key, rows);
-            hashers[i]->lookupValueIds(decoded, rows, scratch, &lookup->hashes);
+            hashers[i]->lookupValueIds(
+                *key, rows, scratchMemory, lookup->hashes);
           } else {
-            hashers[i]->hash(*key, rows, i > 0, &lookup->hashes);
+            hashers[i]->hash(*key, rows, i > 0, lookup->hashes);
           }
         }
       }

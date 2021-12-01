@@ -150,6 +150,12 @@ AbstractJoinNode::AbstractJoinNode(
         "Build side join key not found in build side output: {}",
         key->name());
   }
+  for (auto i = 0; i < leftKeys_.size(); ++i) {
+    VELOX_CHECK_EQ(
+        leftKeys_[i]->type()->kind(),
+        rightKeys_[i]->type()->kind(),
+        "Join key types on the probe and build sides must match");
+  }
   for (auto i = 0; i < outputType_->size(); ++i) {
     auto name = outputType_->nameOf(i);
     if (leftType->containsChild(name)) {

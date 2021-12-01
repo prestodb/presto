@@ -132,11 +132,11 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
     for (int32_t i = 0; i < hashers.size(); ++i) {
       auto key = input->loadedChildAt(hashers[i]->channel());
       if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(*key, activeRows_, &lookup_->hashes)) {
+        if (!hashers[i]->computeValueIds(*key, activeRows_, lookup_->hashes)) {
           rehash = true;
         }
       } else {
-        hashers[i]->hash(*key, activeRows_, i > 0, &lookup_->hashes);
+        hashers[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
       }
     }
     lookup_->rows.clear();
@@ -149,11 +149,11 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
     for (int32_t i = 0; i < hashers.size(); ++i) {
       auto key = input->loadedChildAt(hashers[i]->channel());
       if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(*key, activeRows_, &lookup_->hashes)) {
+        if (!hashers[i]->computeValueIds(*key, activeRows_, lookup_->hashes)) {
           rehash = true;
         }
       } else {
-        hashers[i]->hash(*key, activeRows_, i > 0, &lookup_->hashes);
+        hashers[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
       }
     }
     std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);

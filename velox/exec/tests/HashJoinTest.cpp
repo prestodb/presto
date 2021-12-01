@@ -689,7 +689,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
   {
     auto op = PlanBuilder(10)
                   .tableScan(probeType)
-                  .project({"c0 + 1", "c1"})
+                  .project({"cast(c0 + 1 as integer)", "c1"})
                   .hashJoin({0}, {0}, buildSide, "", {1})
                   .project({"p1 + 1"})
                   .planNode();

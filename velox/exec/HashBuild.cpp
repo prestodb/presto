@@ -147,7 +147,7 @@ void HashBuild::addInput(RowVectorPtr input) {
     // TODO: Load only for active rows, except if right/full outer join.
     if (analyzeKeys_) {
       hasher->computeValueIds(
-          *input->loadedChildAt(hasher->channel()), activeRows_, &hashes_);
+          *input->loadedChildAt(hasher->channel()), activeRows_, hashes_);
       analyzeKeys_ = hasher->mayUseValueIds();
     } else {
       hasher->decode(*input->loadedChildAt(hasher->channel()), activeRows_);

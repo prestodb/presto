@@ -140,11 +140,7 @@ class HashProbe : public Operator {
   // same pipeline.
   std::shared_ptr<BaseHashTable> table_;
 
-  // Decodes probe keys when 'table_' is in normalized key  or array hash mode.
-  DecodedVector valueIdDecoder_;
-
-  // Temporary for de-duplicating value ids for dictionary inputs.
-  raw_vector<uint64_t> deduppedHashes_;
+  VectorHasher::ScratchMemory scratchMemory_;
 
   // Rows to apply 'filter_' to.
   SelectivityVector filterRows_;

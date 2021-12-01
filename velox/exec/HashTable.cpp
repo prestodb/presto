@@ -577,43 +577,25 @@ void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
   }
 }
 
-template <TypeKind Kind>
-bool valueIdRowsColumn(
-    bool ignoreNullKeys,
-    VectorHasher* hasher,
-    char** groups,
-    int32_t numGroups,
-    RowColumn column,
-    uint64_t* hashes) {
-  using T = typename TypeTraits<Kind>::NativeType;
-  return hasher->computeValueIdForRows<T>(
-      groups,
-      numGroups,
-      column.offset(),
-      column.nullByte(),
-      ignoreNullKeys ? 0 : column.nullMask(),
-      hashes);
-}
-
 template <bool ignoreNullKeys>
 bool HashTable<ignoreNullKeys>::insertBatch(
     char** groups,
-    uint64_t* hashes,
-    int32_t numGroups) {
+    int32_t numGroups,
+    raw_vector<uint64_t>& hashes) {
   for (int32_t i = 0; i < hashers_.size(); ++i) {
     auto& hasher = hashers_[i];
     if (hashMode_ == HashMode::kHash) {
-      rows_->hash(i, folly::Range<char**>(groups, numGroups), i > 0, hashes);
+      rows_->hash(
+          i, folly::Range<char**>(groups, numGroups), i > 0, hashes.data());
     } else {
       // Array or normalized key.
-      if (!VALUE_ID_TYPE_DISPATCH(
-              valueIdRowsColumn,
-              hasher->typeKind(),
-              ignoreNullKeys,
-              hasher.get(),
+      auto column = rows_->columnAt(i);
+      if (!hasher->computeValueIdsForRows(
               groups,
               numGroups,
-              rows_->columnAt(i),
+              column.offset(),
+              column.nullByte(),
+              ignoreNullKeys ? 0 : column.nullMask(),
               hashes)) {
         // Must reconsider 'hashMode_' and start over.
         return false;
@@ -621,9 +603,9 @@ bool HashTable<ignoreNullKeys>::insertBatch(
     }
   }
   if (isJoinBuild_) {
-    insertForJoin(groups, hashes, numGroups);
+    insertForJoin(groups, hashes.data(), numGroups);
   } else {
-    insertForGroupBy(groups, hashes, numGroups);
+    insertForGroupBy(groups, hashes.data(), numGroups);
   }
   return true;
 }
@@ -781,7 +763,8 @@ template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::rehash() {
   constexpr int32_t kHashBatchSize = 1024;
   // @lint-ignore CLANGTIDY
-  uint64_t hashes[kHashBatchSize];
+  raw_vector<uint64_t> hashes;
+  hashes.resize(kHashBatchSize);
   char* groups[kHashBatchSize];
   // A join build can have multiple payload tables. Loop over 'this'
   // and the possible other tables and put all the data in the table
@@ -793,7 +776,7 @@ void HashTable<ignoreNullKeys>::rehash() {
       numGroups = (i == 0 ? this : otherTables_[i - 1].get())
                       ->rows()
                       ->listRows(&iterator, kHashBatchSize, groups);
-      if (!insertBatch(groups, hashes, numGroups)) {
+      if (!insertBatch(groups, numGroups, hashes)) {
         VELOX_CHECK(hashMode_ != HashMode::kHash);
         setHashMode(HashMode::kHash, 0);
         return;
@@ -827,19 +810,6 @@ void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
   }
 }
 
-template <TypeKind Kind>
-void analyzeHasher(
-    VectorHasher* hasher,
-    char** groups,
-    int32_t numGroups,
-    int32_t offset,
-    int32_t nullOffset,
-    uint8_t nullMask) {
-  using T = typename TypeTraits<Kind>::NativeType;
-
-  hasher->analyze<T>(groups, numGroups, offset, nullOffset, nullMask);
-}
-
 template <bool ignoreNullKeys>
 bool HashTable<ignoreNullKeys>::analyze() {
   constexpr int32_t kHashBatchSize = 1024;
@@ -865,12 +835,8 @@ bool HashTable<ignoreNullKeys>::analyze() {
           rangeSize == VectorHasher::kRangeTooLarge) {
         return false;
       }
-      auto kind = hasher->typeKind();
       RowColumn column = rows_->columnAt(i);
-      VALUE_ID_TYPE_DISPATCH(
-          analyzeHasher,
-          kind,
-          hasher.get(),
+      hasher->analyze(
           groups,
           numGroups,
           column.offset(),
@@ -1180,7 +1146,7 @@ int32_t HashTable<ignoreNullKeys>::listNotProbedRows(
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::erase(folly::Range<char**> rows) {
   auto numRows = rows.size();
-  std::vector<uint64_t> hashes;
+  raw_vector<uint64_t> hashes;
   hashes.resize(numRows);
 
   for (int32_t i = 0; i < hashers_.size(); ++i) {
@@ -1188,15 +1154,14 @@ void HashTable<ignoreNullKeys>::erase(folly::Range<char**> rows) {
     if (hashMode_ == HashMode::kHash) {
       rows_->hash(i, rows, i > 0, hashes.data());
     } else {
-      if (!VALUE_ID_TYPE_DISPATCH(
-              valueIdRowsColumn,
-              hasher->typeKind(),
-              ignoreNullKeys,
-              hasher.get(),
+      auto column = rows_->columnAt(i);
+      if (!hasher->computeValueIdsForRows(
               rows.data(),
               numRows,
-              rows_->columnAt(i),
-              hashes.data())) {
+              column.offset(),
+              column.nullByte(),
+              ignoreNullKeys ? 0 : column.nullMask(),
+              hashes)) {
         VELOX_FAIL("Value ids in erase must exist for all keys");
       }
     }

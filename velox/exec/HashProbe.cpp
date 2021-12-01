@@ -262,15 +262,14 @@ void HashProbe::addInput(RowVectorPtr input) {
         dynamicFilterBuilder->addInput(activeRows_.countSelected());
       }
 
-      valueIdDecoder_.decode(*key, activeRows_);
       buildHashers[i]->lookupValueIds(
-          valueIdDecoder_, activeRows_, deduppedHashes_, &lookup_->hashes);
+          *key, activeRows_, scratchMemory_, lookup_->hashes);
 
       if (dynamicFilterBuilder) {
         dynamicFilterBuilder->addOutput(activeRows_.countSelected());
       }
     } else {
-      hashers_[i]->hash(*key, activeRows_, i > 0, &lookup_->hashes);
+      hashers_[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
     }
   }
   lookup_->rows.clear();
