@@ -136,6 +136,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(60) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(61) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(61) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(62) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(62) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(63) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(63) td:nth-child(5) {background-color: #6BA81E;}
@@ -144,10 +145,13 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(64) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(64) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(65) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(65) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(66) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(66) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(66) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(67) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(67) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(67) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(68) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(69) td:nth-child(3) {background-color: #6BA81E;}
     </style>
@@ -220,14 +224,15 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     :func:`chr`                               :func:`hour`                              :func:`pow`                               st_isempty                                :func:`width_bucket`                          :func:`stddev_samp`
     classify                                  :func:`infinity`                          :func:`power`                             st_isring                                 wilson_interval_lower                         :func:`sum`
     :func:`codepoint`                         intersection_cardinality                  quantile_at_value                         st_issimple                               wilson_interval_upper                         :func:`var_pop`
-    color                                     inverse_beta_cdf                          quarter                                   st_isvalid                                word_stem                                     :func:`var_samp`
+    color                                     inverse_beta_cdf                          :func:`quarter`                           st_isvalid                                word_stem                                     :func:`var_samp`
     combinations                              inverse_binomial_cdf                      :func:`radians`                           st_length                                 :func:`xxhash64`                              :func:`variance`
     :func:`concat`                            inverse_cauchy_cdf                        :func:`rand`                              st_linefromtext                           :func:`year`
-    :func:`contains`                          inverse_chi_squared_cdf                   random                                    st_linestring                             year_of_week
-    :func:`cos`                               inverse_normal_cdf                        :func:`reduce`                            st_multipoint                             yow
-    :func:`cosh`                              inverse_poisson_cdf                       :func:`regexp_extract`                    st_numgeometries                          zip
+    :func:`contains`                          inverse_chi_squared_cdf                   random                                    st_linestring                             :func:`year_of_week`
+    :func:`cos`                               inverse_normal_cdf                        :func:`reduce`                            st_multipoint                             :func:`yow`
+    :func:`cosh`                              inverse_poisson_cdf                       :func:`regexp_extract`                    st_numgeometries                          :func:`zip`
     cosine_similarity                         inverse_weibull_cdf                       :func:`regexp_extract_all`                st_numinteriorring                        zip_with
     crc32                                     ip_prefix                                 :func:`regexp_like`                       st_numpoints
     current_date                              ip_subnet_max                             regexp_replace                            st_overlaps
     current_time                              ip_subnet_min                             regexp_split                              st_point
     ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================
+
