@@ -269,7 +269,7 @@ char* HashTable<ignoreNullKeys>::insertEntry(
 
 template <bool ignoreNullKeys>
 bool HashTable<ignoreNullKeys>::compareKeys(
-    char* group,
+    const char* group,
     HashLookup& lookup,
     vector_size_t row) {
   int32_t numKeys = lookup.hashers.size();
@@ -342,7 +342,7 @@ namespace {
 // A normalized key is spread evenly over 64 bits. This mixes the bits
 // so that they affect the low 'bits', which are actually used for
 // indexing the hash table.
-static inline uint64_t mixNormalizedKey(uint64_t k, uint8_t bits) {
+inline uint64_t mixNormalizedKey(uint64_t k, uint8_t bits) {
   constexpr uint64_t prime1 = 0xc6a4a7935bd1e995UL; // M from Murmurhash.
   constexpr uint64_t prime2 = 527729;
   constexpr uint64_t prime3 = 28047;
@@ -813,7 +813,6 @@ void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
 template <bool ignoreNullKeys>
 bool HashTable<ignoreNullKeys>::analyze() {
   constexpr int32_t kHashBatchSize = 1024;
-  uint64_t hashes[kHashBatchSize];
   // @lint-ignore CLANGTIDY
   char* groups[kHashBatchSize];
   RowContainerIterator iterator;
@@ -850,7 +849,7 @@ bool HashTable<ignoreNullKeys>::analyze() {
 namespace {
 // Multiplies a * b and produces uint64_t max to denote overflow. If
 // either a or b is overflow, preserves overflow.
-static inline uint64_t safeMul(uint64_t a, uint64_t b) {
+inline uint64_t safeMul(uint64_t a, uint64_t b) {
   constexpr uint64_t kMax = std::numeric_limits<uint64_t>::max();
   if (a == kMax || b == kMax) {
     return kMax;
@@ -959,18 +958,12 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
     if (distinctSizes[i] == VectorHasher::kRangeTooLarge &&
         rangeSizes[i] != VectorHasher::kRangeTooLarge) {
       useRange[i] = true;
-      bestWithReserve =
-          safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
     } else if (
-        rangeSizes[i] == VectorHasher::kRangeTooLarge ||
-        rangeSizes[i] > distinctSizes[i] * 20) {
-      bestWithReserve =
-          safeMul(bestWithReserve, addReserve(distinctSizes[i], kind));
-    } else {
+        rangeSizes[i] != VectorHasher::kRangeTooLarge &&
+        rangeSizes[i] <= distinctSizes[i] * 20) {
       useRange[i] = true;
-      bestWithReserve =
-          safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
     }
+    bestWithReserve = safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
   }
 
   if (bestWithReserve < kArrayHashMaxSize) {
@@ -1196,7 +1189,7 @@ void HashTable<ignoreNullKeys>::eraseWithHashes(
           table_,
           sizeMask_,
           0,
-          [&](char* group, int32_t row) { return rows[row] == group; },
+          [&](const char* group, int32_t row) { return rows[row] == group; },
           [&](int32_t /*index*/, int32_t /*row*/) { return nullptr; },
           false);
     }

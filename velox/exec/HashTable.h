@@ -385,8 +385,11 @@ class HashTable : public BaseHashTable {
   void insertForGroupBy(char** groups, uint64_t* hashes, int32_t numGroups);
 
   char* insertEntry(HashLookup& lookup, int32_t index, vector_size_t row);
-  bool compareKeys(char* group, HashLookup& lookup, vector_size_t row);
+
+  bool compareKeys(const char* group, HashLookup& lookup, vector_size_t row);
+
   bool compareKeys(const char* group, const char* inserted);
+
   template <bool isJoin>
   void fullProbe(HashLookup& lookup, ProbeState& state, bool extraCheck);
 

@@ -79,7 +79,6 @@ class GroupingSet {
   // kConstantChannel.
   const std::vector<std::vector<VectorPtr>> constantLists_;
   const bool ignoreNullKeys_;
-  DriverCtx* const driverCtx_;
   memory::MappedMemory* const mappedMemory_;
 
   std::vector<bool> mayPushdown_;
