@@ -139,6 +139,8 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDFWidthBucket;
 import org.apache.hadoop.hive.ql.udf.generic.UDFCurrentDB;
 import org.apache.hadoop.hive.ql.udf.xml.GenericUDFXPath;
 
+import java.util.Set;
+
 public final class FunctionRegistry
 {
     private FunctionRegistry() {}
@@ -281,5 +283,10 @@ public final class FunctionRegistry
     public static FunctionInfo getFunctionInfo(String functionName) throws SemanticException
     {
         return system.getFunctionInfo(functionName);
+    }
+
+    public static Set<String> getCurrentFunctionNames()
+    {
+        return system.getCurrentFunctionNames();
     }
 }
