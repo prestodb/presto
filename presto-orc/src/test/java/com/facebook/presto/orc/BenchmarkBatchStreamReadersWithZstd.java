@@ -198,7 +198,7 @@ public class BenchmarkBatchStreamReadersWithZstd
                 case "decimal(30,10)":
                     return new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), LONG_DECIMAL_TYPE.getPrecision(), LONG_DECIMAL_TYPE.getScale());
                 case "timestamp":
-                    return new SqlTimestamp((random.nextLong()), UTC_KEY);
+                    return new SqlTimestamp((random.nextLong()), UTC_KEY, MILLISECONDS);
                 case "real":
                     return random.nextFloat();
                 case "double":

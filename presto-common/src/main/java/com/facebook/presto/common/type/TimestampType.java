@@ -16,7 +16,12 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 //
 // A timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
@@ -25,11 +30,25 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 public final class TimestampType
         extends AbstractLongType
 {
-    public static final TimestampType TIMESTAMP = new TimestampType();
+    private final TimeUnit precision;
+    public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
+    public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
 
-    private TimestampType()
+    private static String getType(TimeUnit precision)
     {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP));
+        if (precision == MICROSECONDS) {
+            return StandardTypes.TIMESTAMP_MICROSECONDS;
+        }
+        else if (precision == MILLISECONDS) {
+            return StandardTypes.TIMESTAMP;
+        }
+        throw new IllegalArgumentException("Unsupported precision " + precision);
+    }
+
+    private TimestampType(TimeUnit precision)
+    {
+        super(parseTypeSignature(getType(precision)));
+        this.precision = precision;
     }
 
     @Override
@@ -40,10 +59,10 @@ public final class TimestampType
         }
 
         if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey());
+            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), precision);
         }
         else {
-            return new SqlTimestamp(block.getLong(position));
+            return new SqlTimestamp(block.getLong(position), precision);
         }
     }
 
@@ -51,12 +70,18 @@ public final class TimestampType
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
-        return other == TIMESTAMP;
+        if (precision == MICROSECONDS) {
+            return other == TIMESTAMP_MICROSECONDS;
+        }
+        else if (precision == MILLISECONDS) {
+            return other == TIMESTAMP;
+        }
+        throw new UnsupportedOperationException("Unsupported precision " + precision);
     }
 
     @Override
     public int hashCode()
     {
-        return getClass().hashCode();
+        return Objects.hash(getClass(), precision);
     }
 }
