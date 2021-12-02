@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsRequest;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsResponse;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -25,14 +25,14 @@ import static java.util.Objects.requireNonNull;
 
 public class ReadRowsHelper
 {
-    private BigQueryStorageClient client;
-    private ReadRowsRequest.Builder request;
+    private BigQueryReadClient client;
+    private final String streamName;
     private int maxReadRowsRetries;
 
-    public ReadRowsHelper(BigQueryStorageClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries)
+    public ReadRowsHelper(BigQueryReadClient client, String streamName, int maxReadRowsRetries)
     {
         this.client = requireNonNull(client, "client cannot be null");
-        this.request = requireNonNull(request, "client cannot be null");
+        this.streamName = requireNonNull(streamName, "streamName cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
@@ -40,25 +40,24 @@ public class ReadRowsHelper
     public Iterator<ReadRowsResponse> readRows()
     {
         List<ReadRowsResponse> readRowResponses = new ArrayList<>();
-        long readRowsCount = 0;
+        long nextOffset = 0;
         int retries = 0;
-        Iterator<ReadRowsResponse> serverResponses = fetchResponses(request);
+        Iterator<ReadRowsResponse> serverResponses = fetchResponses(0);
         while (serverResponses.hasNext()) {
             try {
                 ReadRowsResponse response = serverResponses.next();
-                readRowsCount += response.getRowCount();
+                nextOffset += response.getRowCount();
                 readRowResponses.add(response);
             }
             catch (RuntimeException e) {
                 // if relevant, retry the read, from the last read position
                 if (BigQueryUtil.isRetryable(e) && retries < maxReadRowsRetries) {
-                    request.getReadPositionBuilder().setOffset(readRowsCount);
-                    serverResponses = fetchResponses(request);
+                    serverResponses = fetchResponses(nextOffset);
                     retries++;
                 }
                 else {
                     // to safely close the client
-                    try (BigQueryStorageClient ignored = client) {
+                    try (BigQueryReadClient ignored = client) {
                         throw e;
                     }
                 }
@@ -68,10 +67,13 @@ public class ReadRowsHelper
     }
 
     // for testing
-    protected Iterator<ReadRowsResponse> fetchResponses(ReadRowsRequest.Builder readRowsRequest)
+    protected Iterator<ReadRowsResponse> fetchResponses(long offset)
     {
         return client.readRowsCallable()
-                .call(readRowsRequest.build())
+                .call(ReadRowsRequest.newBuilder()
+                        .setReadStream(streamName)
+                        .setOffset(offset)
+                        .build())
                 .iterator();
     }
 }

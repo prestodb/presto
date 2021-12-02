@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.common.collect.ImmutableList;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -29,43 +29,40 @@ import static org.mockito.Mockito.mock;
 public class TestReadRowsHelper
 {
     // it is not used, we just need the reference
-    BigQueryStorageClient client = mock(BigQueryStorageClient.class);
-    private Storage.ReadRowsRequest.Builder request = Storage.ReadRowsRequest.newBuilder().setReadPosition(
-            Storage.StreamPosition.newBuilder().setStream(
-                    Storage.Stream.newBuilder().setName("test")));
+    BigQueryReadClient client = mock(BigQueryReadClient.class);
 
     @Test
     void testNoFailures()
     {
         MockResponsesBatch batch1 = new MockResponsesBatch();
-        batch1.addResponse(Storage.ReadRowsResponse.newBuilder().setRowCount(10).build());
-        batch1.addResponse(Storage.ReadRowsResponse.newBuilder().setRowCount(11).build());
+        batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(10).build());
+        batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(11).build());
 
         // so we can run multiple tests
-        ImmutableList<Storage.ReadRowsResponse> responses = ImmutableList.copyOf(
-                new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1))
+        ImmutableList<ReadRowsResponse> responses = ImmutableList.copyOf(
+                new MockReadRowsHelper(client, "test", 3, ImmutableList.of(batch1))
                         .readRows());
 
         assertThat(responses.size()).isEqualTo(2);
-        assertThat(responses.stream().mapToLong(Storage.ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
+        assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
     }
 
     @Test
     void testRetryOfSingleFailure()
     {
         MockResponsesBatch batch1 = new MockResponsesBatch();
-        batch1.addResponse(Storage.ReadRowsResponse.newBuilder().setRowCount(10).build());
+        batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(10).build());
         batch1.addException(new StatusRuntimeException(Status.INTERNAL.withDescription(
                 "Received unexpected EOS on DATA frame from server.")));
         MockResponsesBatch batch2 = new MockResponsesBatch();
-        batch2.addResponse(Storage.ReadRowsResponse.newBuilder().setRowCount(11).build());
+        batch2.addResponse(ReadRowsResponse.newBuilder().setRowCount(11).build());
 
-        ImmutableList<Storage.ReadRowsResponse> responses = ImmutableList.copyOf(
-                new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1, batch2))
+        ImmutableList<ReadRowsResponse> responses = ImmutableList.copyOf(
+                new MockReadRowsHelper(client, "test", 3, ImmutableList.of(batch1, batch2))
                         .readRows());
 
         assertThat(responses.size()).isEqualTo(2);
-        assertThat(responses.stream().mapToLong(Storage.ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
+        assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
     }
 
     private static final class MockReadRowsHelper
@@ -73,14 +70,14 @@ public class TestReadRowsHelper
     {
         Iterator<MockResponsesBatch> responses;
 
-        MockReadRowsHelper(BigQueryStorageClient client, Storage.ReadRowsRequest.Builder request, int maxReadRowsRetries, Iterable<MockResponsesBatch> responses)
+        MockReadRowsHelper(BigQueryReadClient client, String stream, int maxReadRowsRetries, Iterable<MockResponsesBatch> responses)
         {
-            super(client, request, maxReadRowsRetries);
+            super(client, stream, maxReadRowsRetries);
             this.responses = responses.iterator();
         }
 
         @Override
-        protected Iterator<Storage.ReadRowsResponse> fetchResponses(Storage.ReadRowsRequest.Builder readRowsRequest)
+        protected Iterator<ReadRowsResponse> fetchResponses(long offset)
         {
             return responses.next();
         }

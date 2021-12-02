@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
+import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
@@ -34,7 +35,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +47,7 @@ public class BigQuerySplitManager
     private static final Logger log = Logger.get(BigQuerySplitManager.class);
 
     private final BigQueryClient bigQueryClient;
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final OptionalInt parallelism;
     private final ReadSessionCreatorConfig readSessionCreatorConfig;
     private final NodeManager nodeManager;
@@ -56,13 +56,13 @@ public class BigQuerySplitManager
     public BigQuerySplitManager(
             BigQueryConfig config,
             BigQueryClient bigQueryClient,
-            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            BigQueryReadClientFactory bigQueryReadClientFactory,
             NodeManager nodeManager)
     {
         requireNonNull(config, "config cannot be null");
 
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient cannot be null");
-        this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory cannot be null");
+        this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryStorageClientFactory cannot be null");
         this.parallelism = config.getParallelism();
         this.readSessionCreatorConfig = config.createReadSessionCreatorConfig();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
@@ -99,7 +99,7 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
-        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryStorageClientFactory)
+        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryReadClientFactory)
                 .create(tableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
