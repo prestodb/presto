@@ -122,7 +122,7 @@ class MapFunction : public exec::VectorFunction {
 
     if constexpr (!AllowDuplicateKeys) {
       // Check for duplicate keys
-      mapVector->canonicalize();
+      MapVector::canonicalize(mapVector);
 
       auto offsets = mapVector->rawOffsets();
       auto sizes = mapVector->rawSizes();

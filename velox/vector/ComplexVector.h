@@ -512,8 +512,17 @@ class MapVector : public BaseVector {
   std::string toString(vector_size_t index) const override;
 
   // Sorts all maps smallest key first. This enables linear time
-  // comparison and log time lookup.
-  void canonicalize(bool useStableSort = false) const;
+  // comparison and log time lookup.  This may only be done if there
+  // are no other references to 'map'. Checks that 'map' is uniquely
+  // referenced. This is guaranteed after construction or when
+  // retrieving values from aggregation or join row containers.
+  static void canonicalize(
+      const std::shared_ptr<MapVector>& map,
+      bool useStableSort = false);
+
+  // Returns indices into the map at 'index' such
+  // that keys[indices[i]] < keys[indices[i + 1]].
+  std::vector<vector_size_t> sortedKeyIndices(vector_size_t index) const;
 
   void ensureWritable(const SelectivityVector& rows) override;
 
@@ -530,11 +539,9 @@ class MapVector : public BaseVector {
   const vector_size_t* rawOffsets_;
   BufferPtr sizes_;
   const vector_size_t* rawSizes_;
-  // Canonicalization, which is logically const may set the 'keys'_, 'values'_,
-  // 'sortedKeys_'.
-  mutable VectorPtr keys_;
-  mutable VectorPtr values_;
-  mutable bool sortedKeys_ = false;
+  VectorPtr keys_;
+  VectorPtr values_;
+  bool sortedKeys_ = false;
 };
 
 using RowVectorPtr = std::shared_ptr<RowVector>;

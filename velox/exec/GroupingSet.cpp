@@ -325,7 +325,7 @@ bool GroupingSet::getOutput(
   }
   for (int32_t i = 0; i < aggregates_.size(); ++i) {
     aggregates_[i]->finalize(groups, numGroups);
-    auto aggregateVector = result->childAt(i + totalKeys);
+    auto& aggregateVector = result->childAt(i + totalKeys);
     if (isPartial) {
       aggregates_[i]->extractAccumulators(groups, numGroups, &aggregateVector);
     } else {

@@ -625,6 +625,11 @@ TEST_F(BitUtilTest, scatterBits) {
   }
 }
 
+TEST_F(BitUtilTest, hashMix) {
+  EXPECT_NE(bits::hashMix(123, 321), bits::hashMix(321, 123));
+  EXPECT_EQ(
+      bits::commutativeHashMix(123, 321), bits::commutativeHashMix(321, 123));
+}
 } // namespace bits
 } // namespace velox
 } // namespace facebook

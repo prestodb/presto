@@ -107,6 +107,23 @@ void writeNulls(
   }
 }
 
+void writeNulls(
+    const BaseVector& values,
+    folly::Range<const vector_size_t*> indices,
+    ByteStream& out) {
+  auto size = indices.size();
+  for (auto i = 0; i < size; i += 64) {
+    uint64_t flags = 0;
+    auto end = i + 64 < size ? 64 : size - i;
+    for (auto bit = 0; bit < end; ++bit) {
+      if (values.isNullAt(indices[i + bit])) {
+        bits::setBit(&flags, bit, true);
+      }
+    }
+    out.appendOne<uint64_t>(flags);
+  }
+}
+
 void serializeArray(
     BaseVector& elements,
     vector_size_t offset,
@@ -117,6 +134,19 @@ void serializeArray(
   for (auto i = 0; i < size; ++i) {
     if (!elements.isNullAt(i + offset)) {
       serializeSwitch(elements, i + offset, out);
+    }
+  }
+}
+
+void serializeArray(
+    BaseVector& elements,
+    folly::Range<const vector_size_t*> indices,
+    ByteStream& out) {
+  out.appendOne<int32_t>(indices.size());
+  writeNulls(elements, indices, out);
+  for (auto i : indices) {
+    if (!elements.isNullAt(i)) {
+      serializeSwitch(elements, i, out);
     }
   }
 }
@@ -142,11 +172,11 @@ void serializeOne<TypeKind::MAP>(
     ByteStream& out) {
   auto map = vector.wrappedVector()->asUnchecked<MapVector>();
   auto wrappedIndex = vector.wrappedIndex(index);
-  map->canonicalize();
-  auto offset = map->offsetAt(wrappedIndex);
   auto size = map->sizeAt(wrappedIndex);
-  serializeArray(*map->mapKeys(), offset, size, out);
-  serializeArray(*map->mapValues(), offset, size, out);
+  auto offset = map->offsetAt(wrappedIndex);
+  auto indices = map->sortedKeyIndices(wrappedIndex);
+  serializeArray(*map->mapKeys(), indices, out);
+  serializeArray(*map->mapValues(), indices, out);
 }
 
 void serializeSwitch(
@@ -429,6 +459,39 @@ int32_t compareArrays(
   return flags.ascending ? (leftSize - rightSize) : (rightSize - leftSize);
 }
 
+int32_t compareArrayIndices(
+    ByteStream& left,
+    BaseVector& elements,
+    folly::Range<const vector_size_t*> rightIndices,
+    CompareFlags flags) {
+  int32_t leftSize = left.read<int32_t>();
+  int32_t rightSize = rightIndices.size();
+  if (leftSize != rightSize && flags.equalsOnly) {
+    return flags.ascending ? 1 : -1;
+  }
+  auto compareSize = std::min(leftSize, rightSize);
+  auto leftNulls = readNulls(left, leftSize);
+  auto wrappedElements = elements.wrappedVector();
+  for (auto i = 0; i < compareSize; ++i) {
+    auto elementIndex = elements.wrappedIndex(rightIndices[i]);
+    bool leftNull = bits::isBitSet(leftNulls.data(), i);
+    bool rightNull = wrappedElements->isNullAt(elementIndex);
+    if (leftNull) {
+      if (rightNull) {
+        continue;
+      }
+      return flags.nullsFirst ? -1 : 1;
+    } else if (rightNull) {
+      return flags.nullsFirst ? 1 : -1;
+    }
+    int result = compareSwitch(left, *wrappedElements, elementIndex, flags);
+    if (result) {
+      return result;
+    }
+  }
+  return flags.ascending ? (leftSize - rightSize) : (rightSize - leftSize);
+}
+
 template <>
 int compare<TypeKind::ARRAY>(
     ByteStream& left,
@@ -455,13 +518,14 @@ int compare<TypeKind::MAP>(
   auto map = right.wrappedVector()->asUnchecked<MapVector>();
   VELOX_CHECK(map->encoding() == VectorEncoding::Simple::MAP);
   auto wrappedIndex = right.wrappedIndex(index);
-  auto offset = map->offsetAt(wrappedIndex);
   auto size = map->sizeAt(wrappedIndex);
-  auto result = compareArrays(left, *map->mapKeys(), offset, size, flags);
+  std::vector<vector_size_t> indices(size);
+  auto rightIndices = map->sortedKeyIndices(wrappedIndex);
+  auto result = compareArrayIndices(left, *map->mapKeys(), rightIndices, flags);
   if (result) {
     return result;
   }
-  return compareArrays(left, *map->mapValues(), offset, size, flags);
+  return compareArrayIndices(left, *map->mapValues(), rightIndices, flags);
 }
 
 int32_t compareSwitch(
@@ -664,7 +728,7 @@ uint64_t hashArray(ByteStream& in, uint64_t hash, const Type* elementType) {
     } else {
       value = hashSwitch(in, elementType);
     }
-    hash = bits::hashMix(hash, value);
+    hash = bits::commutativeHashMix(hash, value);
   }
   return hash;
 }

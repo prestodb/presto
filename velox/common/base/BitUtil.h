@@ -660,6 +660,20 @@ inline uint64_t hashMix(const uint64_t upper, const uint64_t lower) noexcept {
   return b;
 }
 
+// Order-independent way to reduce multiple 64 bit hashes into a
+// single hash. Copied from folly/hash/Hash.h because this is not
+// defined in some versions of folly.
+#if defined(FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER("unsigned-integer-overflow")
+#endif
+inline uint64_t commutativeHashMix(
+    const uint64_t upper,
+    const uint64_t lower) noexcept {
+  // Commutative accumulator taken from this paper:
+  // https://www.preprints.org/manuscript/201710.0192/v1/download
+  return 3860031 + (upper + lower) * 2779 + (upper * lower * 2);
+}
+
 inline uint64_t loadPartialWord(const uint8_t* data, int32_t size) {
   // Must be declared volatile, else gcc misses aliasing in optimized mode.
   volatile uint64_t result = 0;

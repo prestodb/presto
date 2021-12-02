@@ -81,7 +81,12 @@ class MapAggAggregate : public exec::Aggregate {
       offset += mapSize;
     }
 
-    *result = removeDuplicates(std::dynamic_pointer_cast<MapVector>(*result));
+    // canonicalize requires a singly referenced MapVector. std::move
+    // inside the cast does not clear *result, so we clear this
+    // manually.
+    auto mapVectorPtr = std::static_pointer_cast<MapVector>(std::move(*result));
+    *result = nullptr;
+    *result = removeDuplicates(mapVectorPtr);
   }
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
@@ -185,8 +190,8 @@ class MapAggAggregate : public exec::Aggregate {
     return size;
   }
 
-  VectorPtr removeDuplicates(MapVectorPtr mapVector) const {
-    mapVector->canonicalize();
+  VectorPtr removeDuplicates(MapVectorPtr& mapVector) const {
+    MapVector::canonicalize(mapVector);
 
     auto offsets = mapVector->rawOffsets();
     auto sizes = mapVector->rawSizes();

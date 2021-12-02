@@ -321,6 +321,26 @@ int compareArrays(
   }
   return leftRange.size - rightRange.size;
 }
+
+int compareArrays(
+    const BaseVector& left,
+    const BaseVector& right,
+    folly::Range<const vector_size_t*> leftRange,
+    folly::Range<const vector_size_t*> rightRange,
+    CompareFlags flags) {
+  if (flags.equalsOnly && leftRange.size() != rightRange.size()) {
+    // return early if not caring about collation order.
+    return 1;
+  }
+  auto compareSize = std::min(leftRange.size(), rightRange.size());
+  for (auto i = 0; i < compareSize; ++i) {
+    auto result = left.compare(&right, leftRange[i], rightRange[i], flags);
+    if (result) {
+      return result;
+    }
+  }
+  return leftRange.size() - rightRange.size();
+}
 } // namespace
 
 int32_t ArrayVector::compare(
@@ -375,7 +395,7 @@ uint64_t hashArray(
     vector_size_t size) {
   for (auto i = 0; i < size; ++i) {
     auto elementHash = elements.hashValueAt(offset + i);
-    hash = bits::hashMix(hash, elementHash);
+    hash = bits::commutativeHashMix(hash, elementHash);
   }
   return hash;
 }
@@ -604,8 +624,6 @@ int32_t MapVector::compare(
       BaseVector::toString(),
       otherValue->BaseVector::toString());
   auto otherMap = otherValue->as<MapVector>();
-  canonicalize();
-  otherMap->canonicalize();
 
   if (keys_->typeKind() != otherMap->keys_->typeKind() ||
       values_->typeKind() != otherMap->values_->typeKind()) {
@@ -615,25 +633,15 @@ int32_t MapVector::compare(
         BaseVector::toString(),
         otherMap->BaseVector::toString());
   }
-  auto result = compareArrays(
-      *keys_,
-      *otherMap->keys_,
-      IndexRange{rawOffsets_[index], rawSizes_[index]},
-      IndexRange{
-          otherMap->rawOffsets_[wrappedOtherIndex],
-          otherMap->rawSizes_[wrappedOtherIndex]},
-      flags);
+  auto leftIndices = sortedKeyIndices(index);
+  auto rightIndices = otherMap->sortedKeyIndices(wrappedOtherIndex);
+  auto result =
+      compareArrays(*keys_, *otherMap->keys_, leftIndices, rightIndices, flags);
   if (result) {
     return result;
   }
   return compareArrays(
-      *values_,
-      *otherMap->values_,
-      IndexRange{rawOffsets_[index], rawSizes_[index]},
-      IndexRange{
-          otherMap->rawOffsets_[wrappedOtherIndex],
-          otherMap->rawSizes_[wrappedOtherIndex]},
-      flags);
+      *values_, *otherMap->values_, leftIndices, rightIndices, flags);
 }
 
 uint64_t MapVector::hashValueAt(vector_size_t index) const {
@@ -642,7 +650,7 @@ uint64_t MapVector::hashValueAt(vector_size_t index) const {
   }
   auto offset = rawOffsets_[index];
   auto size = rawSizes_[index];
-  // hashMix is commutative, thus we do not canonicalize first.
+  // We use a commutative hash mix, thus we do not sort first.
   return hashArray(
       hashArray(BaseVector::kNullHash, *keys_, offset, size),
       *values_,
@@ -738,44 +746,67 @@ bool MapVector::isSorted(vector_size_t index) const {
   return true;
 }
 
-void MapVector::canonicalize(bool useStableSort) const {
-  if (sortedKeys_) {
+// static
+void MapVector::canonicalize(
+    const std::shared_ptr<MapVector>& map,
+    bool useStableSort) {
+  if (map->sortedKeys_) {
     return;
   }
+  // This is not safe if 'this' is referenced from other
+  // threads. The keys and values do not have to be uniquely owned
+  // since they are not mutated but rather transposed, which is
+  // non-destructive.
+  VELOX_CHECK(map.unique());
   BufferPtr indices;
   folly::Range<vector_size_t*> indicesRange;
-  for (auto i = 0; i < BaseVector::length_; ++i) {
-    if (isSorted(i)) {
+  for (auto i = 0; i < map->BaseVector::length_; ++i) {
+    if (map->isSorted(i)) {
       continue;
     }
     if (!indices) {
-      indices = elementIndices();
+      indices = map->elementIndices();
       indicesRange = folly::Range<vector_size_t*>(
-          indices->asMutable<vector_size_t>(), keys_->size());
+          indices->asMutable<vector_size_t>(), map->keys_->size());
     }
-    auto offset = rawOffsets_[i];
-    auto size = rawSizes_[i];
+    auto offset = map->rawOffsets_[i];
+    auto size = map->rawSizes_[i];
     if (useStableSort) {
       std::stable_sort(
           indicesRange.begin() + offset,
           indicesRange.begin() + offset + size,
           [&](vector_size_t left, vector_size_t right) {
-            return keys_->compare(keys_.get(), left, right) < 0;
+            return map->keys_->compare(map->keys_.get(), left, right) < 0;
           });
     } else {
       std::sort(
           indicesRange.begin() + offset,
           indicesRange.begin() + offset + size,
           [&](vector_size_t left, vector_size_t right) {
-            return keys_->compare(keys_.get(), left, right) < 0;
+            return map->keys_->compare(map->keys_.get(), left, right) < 0;
           });
     }
   }
   if (indices) {
-    keys_ = BaseVector::transpose(indices, std::move(keys_));
-    values_ = BaseVector::transpose(indices, std::move(values_));
+    map->keys_ = BaseVector::transpose(indices, std::move(map->keys_));
+    map->values_ = BaseVector::transpose(indices, std::move(map->values_));
   }
-  sortedKeys_ = true;
+  map->sortedKeys_ = true;
+}
+
+std::vector<vector_size_t> MapVector::sortedKeyIndices(
+    vector_size_t index) const {
+  std::vector<vector_size_t> indices(rawSizes_[index]);
+  std::iota(indices.begin(), indices.end(), rawOffsets_[index]);
+  if (!sortedKeys_) {
+    std::sort(
+        indices.begin(),
+        indices.end(),
+        [&](vector_size_t left, vector_size_t right) {
+          return keys_->compare(keys_.get(), left, right) < 0;
+        });
+  }
+  return indices;
 }
 
 BufferPtr MapVector::elementIndices() const {

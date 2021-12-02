@@ -161,6 +161,10 @@ class Aggregate {
   // @param groups Pointers to the start of the group rows.
   // @param numGroups Number of groups to extract results from.
   // @param result The result vector to store the results in.
+  //
+  // 'result' and its parts are expected to be singly referenced. If
+  // other threads or operators hold references that they would use
+  // after 'result' has been updated by this, effects will b unpredictable.
   virtual void
   extractValues(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 
@@ -168,6 +172,8 @@ class Aggregate {
   // @param groups Pointers to the start of the group rows.
   // @param numGroups Number of groups to extract results from.
   // @param result The result vector to store the results in.
+  //
+  // See comment on 'result' in extractValues().
   virtual void
   extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 
