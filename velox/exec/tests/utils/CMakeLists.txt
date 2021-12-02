@@ -36,5 +36,4 @@ target_link_libraries(
   velox_dwio_dwrf_reader
   velox_dwio_dwrf_writer
   velox_dwrf_test_utils
-  velox_presto_serializer
-  velox_functions_prestosql)
+  velox_presto_serializer)

@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/RegisterComparisons.h"
+
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Comparisons.h"
 

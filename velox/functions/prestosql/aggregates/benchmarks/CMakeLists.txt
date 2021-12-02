@@ -17,9 +17,9 @@ target_link_libraries(
   velox_aggregates_pushdown_benchmarks
   velox_aggregates
   velox_hive_connector
+  velox_functions_prestosql
   velox_functions_lib
   velox_exec_test_util
-  velox_functions_prestosql
   velox_dwio_common_exception
   ${FOLLY_WITH_DEPENDENCIES}
   ${FOLLY_BENCHMARK}

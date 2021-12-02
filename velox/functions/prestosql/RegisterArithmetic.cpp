@@ -13,16 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/RegisterArithmetic.h"
+
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Arithmetic.h"
 #include "velox/functions/prestosql/Bitwise.h"
-#include "velox/functions/prestosql/Rand.h"
 
 namespace facebook::velox::functions {
-
 namespace {
-void registerSimpleFunctions() {
+template <template <class> class T>
+void registerBitwiseBinaryIntegral(const std::vector<std::string>& aliases) {
+  registerFunction<T<int8_t>, int64_t, int8_t, int8_t>(aliases);
+  registerFunction<T<int16_t>, int64_t, int16_t, int16_t>(aliases);
+  registerFunction<T<int32_t>, int64_t, int32_t, int32_t>(aliases);
+  registerFunction<T<int64_t>, int64_t, int64_t, int64_t>(aliases);
+}
+
+template <template <class> class T>
+void registerBitwiseUnaryIntegral(const std::vector<std::string>& aliases) {
+  registerFunction<T<int8_t>, int64_t, int8_t>(aliases);
+  registerFunction<T<int16_t>, int64_t, int16_t>(aliases);
+  registerFunction<T<int32_t>, int64_t, int32_t>(aliases);
+  registerFunction<T<int64_t>, int64_t, int64_t>(aliases);
+}
+
+} // namespace
+
+void registerArithmeticFunctions() {
   registerBinaryFloatingPoint<PlusFunction>({"plus"});
   registerBinaryFloatingPoint<MinusFunction>({"minus"});
   registerBinaryFloatingPoint<MultiplyFunction>({"multiply"});
@@ -71,21 +88,28 @@ void registerSimpleFunctions() {
   registerFunction<udf_cbrt, double, double>({"cbrt"});
   registerFunction<udf_width_bucket, int64_t, double, double, double, int64_t>(
       {"width_bucket"});
-
+  registerBitwiseBinaryIntegral<udf_bitwise_and>({});
+  registerBitwiseUnaryIntegral<udf_bitwise_not>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_or>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_xor>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_arithmetic_shift_right>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_left_shift>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_right_shift>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_right_shift_arithmetic>({});
+  registerFunction<
+      udf_bitwise_logical_shift_right,
+      int64_t,
+      int64_t,
+      int64_t,
+      int64_t>({});
+  registerFunction<udf_bitwise_shift_left, int64_t, int64_t, int64_t, int64_t>(
+      {});
   registerUnaryNumeric<udf_sign>({});
   registerFunction<udf_infinity, double>({});
   registerFunction<udf_is_finite, bool, double>({});
   registerFunction<udf_is_infinite, bool, double>({});
   registerFunction<udf_is_nan, bool, double>({});
   registerFunction<udf_nan, double>({});
-  registerFunction<RandFunction, double>({"rand"});
-
-} // namespace
-} // namespace
-
-void registerArithmeticFunctions() {
-  registerSimpleFunctions();
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_not, "not");
 }
 
 } // namespace facebook::velox::functions

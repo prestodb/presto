@@ -13,12 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::functions::test;
+
+namespace facebook::velox::functions {
+void registerMapAllowingDuplicates() {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_allow_duplicates, "map2");
+}
+}; // namespace facebook::velox::functions
 
 class MapTest : public FunctionBaseTest {};
 
@@ -106,8 +111,7 @@ TEST_F(MapTest, duplicateKeys) {
     ASSERT_EQ(e.message(), "Duplicate map keys are not allowed");
   }
   // Trying the map version with allowing duplicates
-  facebook::velox::functions::prestosql::registerMapAllowingDuplicates(
-      std::string("map2"));
+  facebook::velox::functions::registerMapAllowingDuplicates();
   try {
     evaluate<MapVector>("map2(c0, c1)", makeRowVector({keys, values}));
   } catch (const VeloxUserError& e) {

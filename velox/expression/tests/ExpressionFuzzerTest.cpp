@@ -23,7 +23,8 @@
 
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/functions/FunctionRegistry.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 
 /// ExpressionFuzzerTest is an test/executable that leverages ExpressionFuzzer
 /// and VectorFuzzer to automatically generate and execute expression tests. It
@@ -114,7 +115,8 @@ int main(int argc, char** argv) {
   // experience, and initialize glog and gflags.
   folly::init(&argc, &argv);
 
-  functions::prestosql::registerAllFunctions();
+  functions::registerFunctions();
+  functions::registerVectorFunctions();
 
   test::expressionFuzzer(
       filterSignatures(getFunctionSignatures(), FLAGS_only),

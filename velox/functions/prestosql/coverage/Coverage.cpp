@@ -19,7 +19,8 @@
 #include <iostream>
 #include "velox/exec/Aggregate.h"
 #include "velox/functions/FunctionRegistry.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 
 DEFINE_bool(all, false, "Generate coverage map for all Presto functions");
 DEFINE_bool(
@@ -411,7 +412,8 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   // Register all simple and vector scalar functions.
-  functions::prestosql::registerAllFunctions();
+  functions::registerFunctions();
+  functions::registerVectorFunctions();
 
   if (FLAGS_all) {
     printCoverageMapForAll();

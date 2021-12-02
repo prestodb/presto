@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/functions/Macros.h"
-#include "velox/functions/UDFOutputString.h"
 #include "velox/functions/prestosql/json/JsonExtractor.h"
 
 namespace facebook::velox::functions {

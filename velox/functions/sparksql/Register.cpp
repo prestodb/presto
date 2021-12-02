@@ -38,7 +38,7 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   // Higher order functions.
   VELOX_REGISTER_VECTOR_FUNCTION(udf_transform, prefix + "transform");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_reduce, prefix + "aggregate");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_filter, prefix + "filter");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_filter, prefix + "filter");
   // Complex types.
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, prefix + "array");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, prefix + "array_contains");

@@ -13,12 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/VectorFunction.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::functions::test;
+
+namespace facebook::velox::functions {
+void registerMapConcastEmptyNullKeys() {
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_map_concat_empty_null, "map_concat_empty_nulls");
+}
+}; // namespace facebook::velox::functions
 
 class MapConcatTest : public FunctionBaseTest {
  protected:
@@ -104,6 +110,7 @@ TEST_F(MapConcatTest, basic) {
 }
 
 TEST_F(MapConcatTest, nullKeys) {
+  facebook::velox::functions::registerMapConcastEmptyNullKeys();
   vector_size_t size = 1'000;
 
   std::map<std::string, int32_t> a = {{"a1", 1}, {"a2", 2}, {"a3", 3}};

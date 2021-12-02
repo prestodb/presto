@@ -16,10 +16,9 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 #include "velox/functions/Macros.h"
-#include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/functions/prestosql/benchmarks/ArrayMinMaxBasic.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -140,7 +139,7 @@ VELOX_DECLARE_VECTOR_FUNCTION(
 class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   ArrayMinMaxBenchmark() : FunctionBenchmarkBase() {
-    functions::prestosql::registerArrayFunctions();
+    functions::registerVectorFunctions();
     VELOX_REGISTER_VECTOR_FUNCTION(udf_array_min_basic, "array_min_basic");
 
     registerFunction<ArrayMinSimpleFunction, int32_t, Array<int32_t>>(

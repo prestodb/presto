@@ -13,19 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "velox/functions/lib/RegistrationHelpers.h"
-#include "velox/functions/prestosql/CheckedArithmetic.h"
+#pragma once
 
 namespace facebook::velox::functions {
-
-void registerCheckedArithmeticFunctions() {
-  registerBinaryIntegral<CheckedPlusFunction>({"plus"});
-  registerBinaryIntegral<CheckedMinusFunction>({"minus"});
-  registerBinaryIntegral<CheckedMultiplyFunction>({"multiply"});
-  registerBinaryIntegral<CheckedModulusFunction>({"modulus"});
-  registerBinaryIntegral<CheckedDivideFunction>({"divide"});
-  registerUnaryIntegral<udf_checked_negate>({"negate"});
+void registerCheckedArithmeticFunctions();
 }
-
-} // namespace facebook::velox::functions

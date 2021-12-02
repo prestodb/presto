@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(
-  velox_functions_spark
+  velox_functions_spark OBJECT
   ArraySort.cpp
   CompareFunctionsNullSafe.cpp
   Hash.cpp
@@ -27,7 +27,7 @@ add_library(
   Subscript.cpp)
 
 target_link_libraries(velox_functions_spark velox_functions_lib
-                      velox_functions_prestosql_impl Folly::folly)
+                      velox_functions_prestosql Folly::folly)
 
 set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
                                                    high_memory_pool)

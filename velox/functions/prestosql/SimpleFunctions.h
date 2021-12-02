@@ -13,21 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/HyperLogLogFunctions.h"
+#pragma once
 
 namespace facebook::velox::functions {
 
-void registerHyperLogFunctions() {
-  registerType(
-      "hyperloglog", [](auto /*childTypes*/) { return HYPERLOGLOG(); });
+// Register all scalar functions.
+void registerFunctions();
 
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
-  registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
-}
 } // namespace facebook::velox::functions

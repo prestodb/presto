@@ -25,7 +25,7 @@
 #include "velox/experimental/codegen/CodegenCompiledExpressionTransform.h"
 #include "velox/experimental/codegen/CompiledExpressionAnalysis.h"
 #include "velox/experimental/codegen/tests/CodegenTestBase.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 
@@ -51,7 +51,8 @@ auto parseTypedExprs(
 class GenerateAstTest : public CodegenTestBase {
  protected:
   void SetUp() override {
-    functions::prestosql::registerAllFunctions();
+    functions::registerFunctions();
+    facebook::velox::exec::test::registerVectorFunctions();
 
     registerVeloxArithmeticUDFs(udfManager_);
     useBuiltInForArithmetic_ = false;

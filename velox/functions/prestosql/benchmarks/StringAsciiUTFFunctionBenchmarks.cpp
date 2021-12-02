@@ -17,7 +17,8 @@
 #include <folly/init/Init.h>
 #include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -29,7 +30,8 @@ class StringAsciiUTFFunctionBenchmark
     : public functions::test::FunctionBenchmarkBase {
  public:
   StringAsciiUTFFunctionBenchmark() : FunctionBenchmarkBase() {
-    functions::prestosql::registerStringFunctions();
+    functions::registerFunctions();
+    functions::registerVectorFunctions();
   }
 
   void runUpperLower(const std::string& fnName, bool utf) {

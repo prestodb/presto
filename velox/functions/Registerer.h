@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/core/FunctionRegistry.h"
-#include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorFunctionBindings.h"
 
 namespace facebook::velox {

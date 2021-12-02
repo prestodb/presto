@@ -26,13 +26,12 @@
 #include "velox/experimental/codegen/compiler_utils/tests/definitions.h"
 #include "velox/experimental/codegen/utils/resources/ResourcePath.h"
 #include "velox/experimental/codegen/vector_function/StringTypes.h"
-#include "velox/expression/Expr.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/SimpleFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Type.h"
-#include "velox/vector/ConstantVector.h"
 
 namespace facebook::velox::codegen {
 namespace expressions::test {
@@ -499,7 +498,8 @@ class ExpressionCodegenTestBase : public testing::Test {
         udfManager, useBuiltInForArithmetic, false);
 
     // Register velox functions since parsing expression depends on them
-    functions::prestosql::registerArithmeticFunctions();
+    functions::registerFunctions();
+    functions::registerVectorFunctions();
 
     // Register type resolver with the SQL parser.
     exec::test::registerTypeResolver();
