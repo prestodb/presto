@@ -39,6 +39,9 @@ class CrossJoinProbe : public Operator {
   void close() override;
 
  private:
+  /// Maximum number of rows in the output batch.
+  const uint32_t outputBatchSize_;
+
   std::vector<IdentityProjection> buildProjections_;
 
   std::optional<std::vector<VectorPtr>> buildData_;

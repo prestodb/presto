@@ -31,14 +31,15 @@ HashAggregation::HashAggregation(
           aggregationNode->step() == core::AggregationNode::Step::kPartial
               ? "PartialAggregation"
               : "Aggregation"),
+      outputBatchSize_{
+          driverCtx->execCtx->queryCtx()->config().preferredOutputBatchSize()},
+      maxPartialAggregationMemoryUsage_(
+          driverCtx->execCtx->queryCtx()
+              ->config()
+              .maxPartialAggregationMemoryUsage()),
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
       isDistinct_(aggregationNode->aggregates().empty()),
-      isGlobal_(aggregationNode->groupingKeys().empty()),
-      maxPartialAggregationMemoryUsage_(
-          operatorCtx_->task()
-              ->queryCtx()
-              ->config()
-              .maxPartialAggregationMemoryUsage()) {
+      isGlobal_(aggregationNode->groupingKeys().empty()) {
   auto inputType = aggregationNode->sources()[0]->outputType();
 
   auto numHashers = aggregationNode->groupingKeys().size();
@@ -170,7 +171,7 @@ RowVectorPtr HashAggregation::getOutput() {
     return output;
   }
 
-  auto batchSize = isGlobal_ ? 1 : kOutputBatchSize;
+  auto batchSize = isGlobal_ ? 1 : outputBatchSize_;
 
   // TODO Figure out how to re-use 'result' safely.
   auto result = std::static_pointer_cast<RowVector>(

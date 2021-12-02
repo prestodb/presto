@@ -27,7 +27,9 @@ CrossJoinProbe::CrossJoinProbe(
           joinNode->outputType(),
           operatorId,
           joinNode->id(),
-          "CrossJoinProbe") {
+          "CrossJoinProbe"),
+      outputBatchSize_{
+          driverCtx->execCtx->queryCtx()->config().preferredOutputBatchSize()} {
   bool isIdentityProjection = true;
 
   auto probeType = joinNode->sources()[0]->outputType();
@@ -95,15 +97,13 @@ RowVectorPtr CrossJoinProbe::getOutput() {
 
   const auto inputSize = input_->size();
 
-  // TODO Use query-level configuration property.
-  static const vector_size_t kOutputBatchSize = 1'000;
-
   auto buildSize = buildData_.value()[buildIndex_]->size();
   vector_size_t probeCnt;
-  if (buildSize > kOutputBatchSize) {
+  if (buildSize > outputBatchSize_) {
     probeCnt = 1;
   } else {
-    probeCnt = std::min(kOutputBatchSize / buildSize, inputSize - probeRow_);
+    probeCnt = std::min(
+        (vector_size_t)outputBatchSize_ / buildSize, inputSize - probeRow_);
   }
 
   auto size = probeCnt * buildSize;

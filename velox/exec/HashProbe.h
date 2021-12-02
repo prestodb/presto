@@ -47,9 +47,6 @@ class HashProbe : public Operator {
   void close() override {}
 
  private:
-  // TODO: Define batch size as bytes based on RowContainer row sizes.
-  static constexpr int32_t kOutputBatchSize = 1'000;
-
   // Sets up 'filter_' and related members.
   void initializeFilter(
       const std::shared_ptr<const core::ITypedExpr>& filter,
@@ -72,6 +69,9 @@ class HashProbe : public Operator {
   // Applies 'filter_' to 'outputRows_' and updates 'outputRows_' and
   // 'rowNumberMapping_'. Returns the number of passing rows.
   vector_size_t evalFilter(vector_size_t numRows);
+
+  // TODO: Define batch size as bytes based on RowContainer row sizes.
+  const uint32_t outputBatchSize_;
 
   const core::JoinType joinType_;
 
