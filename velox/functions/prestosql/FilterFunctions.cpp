@@ -233,7 +233,7 @@ class MapFilterFunction : public FilterFunctionBase {
 } // namespace
 
 VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_filter,
+    udf_array_filter,
     ArrayFilterFunction::signatures(),
     std::make_unique<ArrayFilterFunction>());
 

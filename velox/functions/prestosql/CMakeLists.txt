@@ -15,7 +15,7 @@ add_subdirectory(json)
 add_subdirectory(hyperloglog)
 
 add_library(
-  velox_functions_prestosql OBJECT
+  velox_functions_prestosql_impl OBJECT
   ArrayConstructor.cpp
   ArrayContains.cpp
   ArrayDistinct.cpp
@@ -24,7 +24,6 @@ add_library(
   ArrayMinMax.cpp
   Cardinality.cpp
   Coalesce.cpp
-  SimpleFunctions.cpp
   ElementAt.cpp
   FilterFunctions.cpp
   FromUnixTime.cpp
@@ -36,9 +35,6 @@ add_library(
   MapKeysAndValues.cpp
   Not.cpp
   Reduce.cpp
-  RegisterArithmetic.cpp
-  RegisterCheckedArithmetic.cpp
-  RegisterComparisons.cpp
   Reverse.cpp
   RowFunction.cpp
   Slice.cpp
@@ -49,12 +45,11 @@ add_library(
   Transform.cpp
   URLFunctions.cpp
   VectorArithmetic.cpp
-  VectorFunctions.cpp
   WidthBucketArray.cpp
   Zip.cpp)
 
 target_link_libraries(
-  velox_functions_prestosql
+  velox_functions_prestosql_impl
   velox_functions_json
   velox_functions_hyperloglog
   velox_functions_lib
@@ -62,8 +57,8 @@ target_link_libraries(
   md5
   velox_type_tz)
 
-set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
-                                                       high_memory_pool)
+set_property(TARGET velox_functions_prestosql_impl PROPERTY JOB_POOL_COMPILE
+                                                            high_memory_pool)
 
 if(${VELOX_ENABLE_AGGREGATES})
   add_subdirectory(aggregates)
@@ -74,3 +69,5 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(benchmarks)
   add_subdirectory(coverage)
 endif()
+
+add_subdirectory(registration)

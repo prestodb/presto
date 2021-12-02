@@ -20,8 +20,8 @@
 #include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/functions/Udf.h"
-#include "velox/functions/prestosql/SimpleFunctions.h"
-#include "velox/functions/prestosql/VectorFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/vector/tests/VectorMaker.h"
@@ -102,8 +102,7 @@ struct TestData {
 class ExprTest : public testing::Test {
  protected:
   void SetUp() override {
-    functions::registerFunctions();
-    functions::registerVectorFunctions();
+    functions::prestosql::registerAllFunctions();
     exec::test::registerTypeResolver();
 
     testDataType_ =

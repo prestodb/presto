@@ -18,7 +18,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/RegisterArithmetic.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -57,7 +57,7 @@ struct WidthBucketFunction {
 class WidthBucketBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   WidthBucketBenchmark() : FunctionBenchmarkBase() {
-    functions::registerArithmeticFunctions();
+    functions::prestosql::registerArithmeticFunctions();
 
     registerFunction<
         WidthBucketFunction,

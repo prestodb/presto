@@ -30,8 +30,7 @@
 #include "velox/experimental/codegen/CodegenLogger.h"
 #include "velox/experimental/codegen/code_generator/ExprCodeGenerator.h"
 #include "velox/experimental/codegen/utils/resources/ResourcePath.h"
-#include "velox/functions/prestosql/SimpleFunctions.h"
-#include "velox/functions/prestosql/VectorFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/type/Type.h"
@@ -108,8 +107,7 @@ class CodegenTestCore {
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 
     exec::test::registerTypeResolver();
-    functions::registerFunctions();
-    functions::registerVectorFunctions();
+    functions::prestosql::registerAllFunctions();
   }
 
   /// Creates a plan node given filter and a list of projection

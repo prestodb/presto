@@ -21,7 +21,7 @@ target_link_libraries(
   velox_parse_parser
   velox_exec_test_util
   velox_functions_lib
-  velox_functions_prestosql
+  velox_functions_prestosql_impl
   ${FOLLY_WITH_DEPENDENCIES}
   ${GTEST_BOTH_LIBRARIES}
   ${GFLAGS_LIBRARIES}
