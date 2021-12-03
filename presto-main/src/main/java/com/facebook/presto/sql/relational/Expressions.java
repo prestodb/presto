@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -41,14 +43,33 @@ public final class Expressions
     {
     }
 
+    private static Optional<SourceLocation> getFirstSourceLocation(List<RowExpression> expressions)
+    {
+        return expressions.stream()
+                .filter(x -> x.getSourceLocation().isPresent())
+                .map(x -> x.getSourceLocation())
+                .findFirst()
+                .orElse(Optional.empty());
+    }
+
     public static ConstantExpression constant(Object value, Type type)
     {
-        return new ConstantExpression(value, type);
+        return constant(Optional.empty(), value, type);
+    }
+
+    public static ConstantExpression constant(Optional<SourceLocation> sourceLocation, Object value, Type type)
+    {
+        return new ConstantExpression(sourceLocation, value, type);
     }
 
     public static ConstantExpression constantNull(Type type)
     {
-        return new ConstantExpression(null, type);
+        return constantNull(Optional.empty(), type);
+    }
+
+    public static ConstantExpression constantNull(Optional<SourceLocation> sourceLocation, Type type)
+    {
+        return new ConstantExpression(sourceLocation, null, type);
     }
 
     public static boolean isNull(RowExpression expression)
@@ -58,12 +79,27 @@ public final class Expressions
 
     public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
+        return call(displayName, functionHandle, returnType, Arrays.asList(arguments));
+    }
+
+    public static CallExpression call(Optional<SourceLocation> sourceLocation, String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
+    {
         return new CallExpression(displayName, functionHandle, returnType, Arrays.asList(arguments));
     }
 
     public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
     {
-        return new CallExpression(displayName, functionHandle, returnType, arguments);
+        return new CallExpression(
+                getFirstSourceLocation(arguments),
+                displayName,
+                functionHandle,
+                returnType,
+                arguments);
+    }
+
+    public static CallExpression call(Optional<SourceLocation> sourceLocation, String displayName, FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
+    {
+        return new CallExpression(sourceLocation, displayName, functionHandle, returnType, arguments);
     }
 
     public static CallExpression call(FunctionAndTypeManager functionAndTypeManager, String name, Type returnType, RowExpression... arguments)
@@ -77,19 +113,34 @@ public final class Expressions
         return call(name, functionHandle, returnType, arguments);
     }
 
+    public static InputReferenceExpression field(Optional<SourceLocation> sourceLocation, int field, Type type)
+    {
+        return new InputReferenceExpression(sourceLocation, field, type);
+    }
+
     public static InputReferenceExpression field(int field, Type type)
     {
-        return new InputReferenceExpression(field, type);
+        return new InputReferenceExpression(Optional.empty(), field, type);
     }
 
     public static SpecialFormExpression specialForm(Form form, Type returnType, RowExpression... arguments)
     {
-        return new SpecialFormExpression(form, returnType, arguments);
+        return specialForm(form, returnType, ImmutableList.copyOf(arguments));
+    }
+
+    public static SpecialFormExpression specialForm(Optional<SourceLocation> sourceLocation, Form form, Type returnType, RowExpression... arguments)
+    {
+        return specialForm(sourceLocation, form, returnType, ImmutableList.copyOf(arguments));
     }
 
     public static SpecialFormExpression specialForm(Form form, Type returnType, List<RowExpression> arguments)
     {
-        return new SpecialFormExpression(form, returnType, arguments);
+        return specialForm(getFirstSourceLocation(arguments), form, returnType, arguments);
+    }
+
+    public static SpecialFormExpression specialForm(Optional<SourceLocation> sourceLocation, Form form, Type returnType, List<RowExpression> arguments)
+    {
+        return new SpecialFormExpression(sourceLocation, form, returnType, arguments);
     }
 
     public static Set<RowExpression> uniqueSubExpressions(RowExpression expression)
@@ -165,6 +216,11 @@ public final class Expressions
 
     public static VariableReferenceExpression variable(String name, Type type)
     {
-        return new VariableReferenceExpression(name, type);
+        return variable(Optional.empty(), name, type);
+    }
+
+    public static VariableReferenceExpression variable(Optional<SourceLocation> sourceLocation, String name, Type type)
+    {
+        return new VariableReferenceExpression(sourceLocation, name, type);
     }
 }

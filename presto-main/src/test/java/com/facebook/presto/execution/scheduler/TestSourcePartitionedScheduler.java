@@ -482,7 +482,7 @@ public class TestSourcePartitionedScheduler
 
     private static SubPlan createPlan()
     {
-        VariableReferenceExpression variable = new VariableReferenceExpression("column", VARCHAR);
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "column", VARCHAR);
 
         // table scan with splitCount splits
         TableScanNode tableScan = new TableScanNode(

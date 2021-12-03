@@ -568,7 +568,7 @@ public class BenchmarkDecimalOperators
         protected void addSymbol(String name, Type type)
         {
             symbolTypes.put(name, type);
-            sourceLayout.put(new VariableReferenceExpression(name, type), types.size());
+            sourceLayout.put(new VariableReferenceExpression(Optional.empty(), name, type), types.size());
             types.add(type);
         }
 

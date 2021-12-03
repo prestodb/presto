@@ -51,17 +51,17 @@ public class TestSemiJoinStatsRule
         })
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), stats)
-                        .addVariableStatistics(new VariableReferenceExpression("b", BIGINT), stats)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), stats)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "b", BIGINT), stats)
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), stats)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "c", BIGINT), stats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)
-                        .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(stats))
-                        .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(stats))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), assertion -> assertion.isEqualTo(stats))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "b", BIGINT), assertion -> assertion.isEqualTo(stats))
                         .variableStatsUnknown("c")
                         .variableStatsUnknown("sjo"));
     }

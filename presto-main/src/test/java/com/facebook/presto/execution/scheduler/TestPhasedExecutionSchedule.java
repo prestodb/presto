@@ -188,7 +188,7 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
-        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "column", BIGINT);
         PlanNode tableScan = new TableScanNode(
                 new PlanNodeId(name),
                 new TableHandle(
@@ -245,7 +245,7 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createTableScanPlanFragment(String name)
     {
-        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "column", BIGINT);
         PlanNode planNode = new TableScanNode(
                 new PlanNodeId(name),
                 new TableHandle(

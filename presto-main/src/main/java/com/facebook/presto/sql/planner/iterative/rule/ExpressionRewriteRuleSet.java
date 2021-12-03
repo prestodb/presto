@@ -158,7 +158,9 @@ public class ExpressionRewriteRuleSet
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 Aggregation rewritten = new Aggregation(
-                        new CallExpression(aggregation.getCall().getDisplayName(),
+                        new CallExpression(
+                                aggregation.getCall().getSourceLocation(),
+                                aggregation.getCall().getDisplayName(),
                                 aggregation.getCall().getFunctionHandle(),
                                 aggregation.getCall().getType(),
                                 aggregation.getCall().getArguments()

@@ -871,7 +871,7 @@ public class TestLogicalPlanner
                 countOfMatchingNodes(
                         plan,
                         node -> node instanceof AggregationNode
-                                && ((AggregationNode) node).getGroupingKeys().contains(new VariableReferenceExpression("unique", BIGINT))
+                                && ((AggregationNode) node).getGroupingKeys().contains(new VariableReferenceExpression(Optional.empty(), "unique", BIGINT))
                                 && ((AggregationNode) node).isStreamable()),
                 1);
 

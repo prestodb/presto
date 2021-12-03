@@ -134,10 +134,11 @@ public class BenchmarkTransformKey
             projectionsBuilder.add(call(name, functionHandle, mapType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
+                            Optional.empty(),
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
                             call(ADD.name(), add, elementType, ImmutableList.of(
-                                    new VariableReferenceExpression("x", elementType),
+                                    new VariableReferenceExpression(Optional.empty(), "x", elementType),
                                     constant(increment, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 

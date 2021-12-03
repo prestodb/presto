@@ -20,12 +20,12 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -72,7 +72,7 @@ public class MarkDistinctMatcher
             return NO_MATCH;
         }
 
-        return match(markerSymbol.toString(), new SymbolReference(markDistinctNode.getMarkerVariable().getName()));
+        return match(markerSymbol.toString(), createSymbolReference(markDistinctNode.getMarkerVariable()));
     }
 
     @Override

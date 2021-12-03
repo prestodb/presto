@@ -138,7 +138,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     private WindowNode.Function newWindowNodeFunction(List<Symbol> symbols)
     {
         return new WindowNode.Function(
-                call("avg", functionHandle, BIGINT, symbols.stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), BIGINT)).collect(Collectors.toList())),
+                call("avg", functionHandle, BIGINT, symbols.stream().map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol.getName(), BIGINT)).collect(Collectors.toList())),
                 frame,
                 false);
     }

@@ -1584,7 +1584,7 @@ public class TestExpressionInterpreter
             Symbol symbol = new Symbol(variable.getName());
             Object value = symbolConstant(symbol);
             if (value == null) {
-                return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
+                return new VariableReferenceExpression(Optional.empty(), symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
             }
             return value;
         });

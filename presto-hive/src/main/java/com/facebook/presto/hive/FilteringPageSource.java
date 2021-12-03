@@ -38,6 +38,7 @@ import io.airlift.slice.Slice;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -114,8 +115,8 @@ public class FilteringPageSource
         Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columnMappings.stream()
                 .map(HivePageSourceProvider.ColumnMapping::getHiveColumnHandle)
                 .collect(toImmutableMap(
-                        columnHandle -> new VariableReferenceExpression(columnHandle.getName(), columnHandle.getHiveType().getType(typeManager)),
-                        columnHandle -> new InputReferenceExpression(columnHandle.getHiveColumnIndex(), columnHandle.getHiveType().getType(typeManager))));
+                        columnHandle -> new VariableReferenceExpression(Optional.empty(), columnHandle.getName(), columnHandle.getHiveType().getType(typeManager)),
+                        columnHandle -> new InputReferenceExpression(Optional.empty(), columnHandle.getHiveColumnIndex(), columnHandle.getHiveType().getType(typeManager))));
 
         RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(remainingPredicate, OPTIMIZED, session);
         if (TRUE_CONSTANT.equals(optimizedRemainingPredicate)) {
