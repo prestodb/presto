@@ -170,7 +170,8 @@ public class TestDistributedQueuesDb
         waitForQueryState(queryRunner, 0, firstDashboardQuery, RUNNING);
     }
 
-    @Test(timeOut = 1_000)
+    //Disabling flaky test
+    @Test(timeOut = 1_000, enabled = false)
     public void testDistributedQueue_burstTraffic()
             throws Exception
     {
