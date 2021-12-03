@@ -131,6 +131,18 @@ Approximate Aggregate Functions
 Statistical Aggregate Functions
 -------------------------------
 
+.. function:: corr(y, x) -> double
+
+    Returns correlation coefficient of input values.
+
+.. function:: covar_pop(y, x) -> double
+
+    Returns the population covariance of input values.
+
+.. function:: covar_samp(y, x) -> double
+
+    Returns the sample covariance of input values.
+
 .. function:: stddev(x) -> double
 
     This is an alias for stddev_samp().

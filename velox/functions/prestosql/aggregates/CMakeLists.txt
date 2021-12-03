@@ -27,6 +27,7 @@ add_library(
   BitwiseAggregates.cpp
   BoolAggregates.cpp
   CountIfAggregate.cpp
+  CovarianceAggregates.cpp
   MapAggAggregate.cpp
   MinMaxAggregates.cpp
   MinMaxByAggregates.cpp

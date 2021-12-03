@@ -27,6 +27,7 @@ add_executable(
   BoolAndOrTest.cpp
   CountAggregationTest.cpp
   CountIfAggregationTest.cpp
+  CovarianceAggregationTest.cpp
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp
   SumTest.cpp
