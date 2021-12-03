@@ -14,5 +14,6 @@ This guide is intended for Velox contributors and developers of Velox-based appl
     develop/expression-evaluation
     develop/dictionary-encoding
     develop/arena
+    develop/aggregations
     develop/joins
     develop/operators
