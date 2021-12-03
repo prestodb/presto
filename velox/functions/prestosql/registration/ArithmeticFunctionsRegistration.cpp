@@ -78,7 +78,7 @@ void registerSimpleFunctions() {
   registerFunction<udf_is_infinite, bool, double>({});
   registerFunction<udf_is_nan, bool, double>({});
   registerFunction<udf_nan, double>({});
-  registerFunction<RandFunction, double>({"rand"});
+  registerFunction<RandFunction, double>({"rand", "random"});
 
 } // namespace
 } // namespace

@@ -4,10 +4,10 @@ all_match
 any_match
 array_average
 array_distinct
-array_dupes
+array_duplicates
 array_except
 array_frequency
-array_has_dupes
+array_has_duplicates
 array_intersect
 array_join
 array_max
@@ -22,11 +22,6 @@ arrays_overlap
 asin
 atan
 atan2
-atlas_action_is_classic_xdata
-atlas_action_xdata_category
-atlas_action_xdata_metric
-atlas_action_xdata_parse
-atlas_search_xdata_parse
 bar
 beta_cdf
 bing_tile
