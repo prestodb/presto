@@ -19,7 +19,7 @@
 #include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/SimpleFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -89,7 +89,7 @@ class HourFunction : public exec::VectorFunction {
 class DateTimeBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   DateTimeBenchmark() : FunctionBenchmarkBase() {
-    functions::registerFunctions();
+    functions::prestosql::registerDateTimeFunctions();
     registerVectorFunction(
         "hour_vector",
         HourFunction::signatures(),

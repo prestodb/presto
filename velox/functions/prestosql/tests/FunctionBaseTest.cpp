@@ -15,14 +15,12 @@
  */
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/exec/tests/utils/FunctionUtils.h"
-#include "velox/functions/prestosql/SimpleFunctions.h"
-#include "velox/functions/prestosql/VectorFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 namespace facebook::velox::functions::test {
 void FunctionBaseTest::SetUpTestCase() {
   exec::test::registerTypeResolver();
-  functions::registerFunctions();
-  functions::registerVectorFunctions();
+  functions::prestosql::registerAllFunctions();
 }
 
 BufferPtr FunctionBaseTest::makeOddIndices(vector_size_t size) {

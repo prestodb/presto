@@ -16,8 +16,9 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 #include "velox/functions/Macros.h"
+#include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/VectorFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -59,7 +60,8 @@ VELOX_UDF_END();
 class ArrayContainsBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   ArrayContainsBenchmark() : FunctionBenchmarkBase() {
-    functions::registerVectorFunctions();
+    functions::prestosql::registerArrayFunctions();
+    functions::prestosql::registerGeneralFunctions();
 
     registerFunction<
         udf_contains<int32_t>,

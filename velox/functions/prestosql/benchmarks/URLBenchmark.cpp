@@ -20,7 +20,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/SimpleFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -164,8 +164,9 @@ struct FollyUrlExtractParameterFunction {
 class UrlBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   UrlBenchmark() : FunctionBenchmarkBase() {
-    functions::registerFunctions();
+    functions::prestosql::registerURLFunctions();
 
+    // Register folly based implementations.
     registerFunction<FollyUrlExtractFragmentFunction, Varchar, Varchar>(
         {"folly_url_extract_fragment"});
     registerFunction<FollyUrlExtractHostFunction, Varchar, Varchar>(

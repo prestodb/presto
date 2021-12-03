@@ -22,8 +22,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/tests/utils/FunctionUtils.h"
-#include "velox/functions/prestosql/SimpleFunctions.h"
-#include "velox/functions/prestosql/VectorFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 namespace facebook::velox::exec::test {
@@ -64,8 +63,7 @@ void OperatorTestBase::SetUp() {
 }
 
 void OperatorTestBase::SetUpTestCase() {
-  functions::registerFunctions();
-  functions::registerVectorFunctions();
+  functions::prestosql::registerAllFunctions();
 }
 
 std::shared_ptr<Task> OperatorTestBase::assertQuery(

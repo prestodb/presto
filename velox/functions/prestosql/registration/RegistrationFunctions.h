@@ -14,12 +14,34 @@
  * limitations under the License.
  */
 #pragma once
+#include <string>
 
-#include "velox/functions/Registerer.h"
+namespace facebook::velox::functions::prestosql {
+void registerArithmeticFunctions();
 
-namespace facebook::velox::functions {
+void registerCheckedArithmeticFunctions();
 
-// Register all vectorized functions.
-void registerVectorFunctions();
+void registerComparisonFunctions();
 
-} // namespace facebook::velox::functions
+void registerArrayFunctions();
+
+void registerMapFunctions();
+
+void registerJsonFunctions();
+
+void registerHyperLogFunctions();
+
+void registerGeneralFunctions();
+
+void registerDateTimeFunctions();
+
+void registerURLFunctions();
+
+void registerStringFunctions();
+
+void registerBitwiseFunctions();
+
+void registerAllFunctions();
+
+void registerMapAllowingDuplicates(const std::string& name);
+} // namespace facebook::velox::functions::prestosql

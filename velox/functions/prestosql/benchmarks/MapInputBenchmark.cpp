@@ -16,9 +16,11 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 #include "velox/expression/EvalCtx.h"
+#include "velox/expression/VectorFunction.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/VectorFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -226,7 +228,8 @@ struct NestedMapSumValuesAndKeysSimple {
 class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   MapInputBenchmark() : FunctionBenchmarkBase() {
-    functions::registerVectorFunctions();
+    functions::prestosql::registerMapFunctions();
+    functions::prestosql::registerArrayFunctions();
 
     registerFunction<MapSumValuesAndKeysSimple, int64_t, Map<int64_t, int64_t>>(
         {"map_sum_simple"});
