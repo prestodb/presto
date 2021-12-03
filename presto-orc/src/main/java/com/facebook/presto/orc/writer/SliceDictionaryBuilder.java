@@ -99,20 +99,6 @@ public class SliceDictionaryBuilder
         segmentedSliceBuilder.reset();
     }
 
-    public int putIfAbsent(Block block, int position)
-    {
-        requireNonNull(block, "block must not be null");
-        int slicePosition;
-        long hashPosition = getHashPositionOfElement(block, position);
-        if (slicePositionByHash.get(hashPosition) != EMPTY_SLOT) {
-            slicePosition = slicePositionByHash.get(hashPosition);
-        }
-        else {
-            slicePosition = addNewElement(hashPosition, block, position);
-        }
-        return slicePosition;
-    }
-
     public int getEntryCount()
     {
         return segmentedSliceBuilder.getPositionCount();
@@ -121,8 +107,9 @@ public class SliceDictionaryBuilder
     /**
      * Get slot position of element at {@code position} of {@code block}
      */
-    private long getHashPositionOfElement(Block block, int position)
+    public int putIfAbsent(Block block, int position)
     {
+        requireNonNull(block, "block must not be null");
         checkArgument(!block.isNull(position), "position is null");
         int length = block.getSliceLength(position);
         long hashPosition = getMaskedHash(block.hash(position, 0, length));
@@ -130,11 +117,11 @@ public class SliceDictionaryBuilder
             int slicePosition = this.slicePositionByHash.get(hashPosition);
             if (slicePosition == EMPTY_SLOT) {
                 // Doesn't have this element
-                return hashPosition;
+                return addNewElement(hashPosition, block, position);
             }
             if (segmentedSliceBuilder.equals(slicePosition, block, position, length)) {
                 // Already has this element
-                return hashPosition;
+                return slicePosition;
             }
 
             hashPosition = getMaskedHash(hashPosition + 1);
