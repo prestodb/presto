@@ -506,7 +506,7 @@ public class PushDownDereferences
         public RowExpression rewriteSpecialForm(SpecialFormExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
             if (expressions.containsKey(node)) {
-                return new VariableReferenceExpression(expressions.get(node).getName(), node.getType());
+                return new VariableReferenceExpression(node.getSourceLocation(), expressions.get(node).getName(), node.getType());
             }
             return treeRewriter.defaultRewrite(node, context);
         }

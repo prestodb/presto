@@ -47,6 +47,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -228,7 +229,7 @@ public class TestInlineSqlFunctions
                 session,
                 metadata,
                 new PlanVariableAllocator(variableTypes.entrySet().stream()
-                        .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
+                        .map(entry -> new VariableReferenceExpression(Optional.empty(), entry.getKey(), entry.getValue()))
                         .collect(toImmutableList())),
                 expressionTypes);
         inlinedExpression = ExpressionUtils.rewriteIdentifiersToSymbolReferences(inlinedExpression);

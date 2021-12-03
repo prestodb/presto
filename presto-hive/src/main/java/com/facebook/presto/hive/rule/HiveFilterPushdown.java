@@ -368,7 +368,7 @@ public class HiveFilterPushdown
             BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = tableScan.getAssignments().entrySet().stream()
                     .collect(toImmutableBiMap(
                             Map.Entry::getKey,
-                            entry -> new VariableReferenceExpression(getColumnName(session, hiveMetadata, handle.getConnectorHandle(), entry.getValue()), entry.getKey().getType())));
+                            entry -> new VariableReferenceExpression(Optional.empty(), getColumnName(session, hiveMetadata, handle.getConnectorHandle(), entry.getValue()), entry.getKey().getType())));
 
             RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
             // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node

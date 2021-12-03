@@ -182,17 +182,17 @@ public final class FunctionAssertions
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
     private static final Map<VariableReferenceExpression, Integer> INPUT_MAPPING = ImmutableMap.<VariableReferenceExpression, Integer>builder()
-            .put(new VariableReferenceExpression("bound_long", BIGINT), 0)
-            .put(new VariableReferenceExpression("bound_string", VARCHAR), 1)
-            .put(new VariableReferenceExpression("bound_double", DOUBLE), 2)
-            .put(new VariableReferenceExpression("bound_boolean", BOOLEAN), 3)
-            .put(new VariableReferenceExpression("bound_timestamp", BIGINT), 4)
-            .put(new VariableReferenceExpression("bound_pattern", VARCHAR), 5)
-            .put(new VariableReferenceExpression("bound_null_string", VARCHAR), 6)
-            .put(new VariableReferenceExpression("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE), 7)
-            .put(new VariableReferenceExpression("bound_binary_literal", VARBINARY), 8)
-            .put(new VariableReferenceExpression("bound_integer", INTEGER), 9)
-            .put(new VariableReferenceExpression("bound_row", TEST_ROW_TYPE), 10)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_long", BIGINT), 0)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_string", VARCHAR), 1)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_double", DOUBLE), 2)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_boolean", BOOLEAN), 3)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_timestamp", BIGINT), 4)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_pattern", VARCHAR), 5)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_null_string", VARCHAR), 6)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE), 7)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_binary_literal", VARBINARY), 8)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_integer", INTEGER), 9)
+            .put(new VariableReferenceExpression(Optional.empty(), "bound_row", TEST_ROW_TYPE), 10)
             .build();
 
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.fromVariables(INPUT_MAPPING.keySet());
@@ -881,7 +881,7 @@ public final class FunctionAssertions
         Object result = evaluator.evaluate(variable -> {
             Symbol symbol = new Symbol(variable.getName());
             int position = 0;
-            int channel = INPUT_MAPPING.get(new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference())));
+            int channel = INPUT_MAPPING.get(new VariableReferenceExpression(Optional.empty(), symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference())));
             Type type = SYMBOL_TYPES.get(symbol.toSymbolReference());
 
             Block block = SOURCE_PAGE.getBlock(channel);

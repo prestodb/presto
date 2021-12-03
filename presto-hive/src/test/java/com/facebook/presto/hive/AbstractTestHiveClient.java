@@ -2190,7 +2190,7 @@ public abstract class AbstractTestHiveClient
             NullableValue singleBucket = NullableValue.of(INTEGER, 6L);
             ConnectorTableLayoutHandle layoutHandle;
             if (HiveSessionProperties.isPushdownFilterEnabled(session)) {
-                TupleDomain<VariableReferenceExpression> bucketDomain = TupleDomain.fromFixedValues(ImmutableMap.of(new VariableReferenceExpression(BUCKET_COLUMN_NAME, BIGINT), singleBucket));
+                TupleDomain<VariableReferenceExpression> bucketDomain = TupleDomain.fromFixedValues(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), BUCKET_COLUMN_NAME, BIGINT), singleBucket));
 
                 RowExpression predicate = ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(bucketDomain);
                 layoutHandle = pushdownFilter(

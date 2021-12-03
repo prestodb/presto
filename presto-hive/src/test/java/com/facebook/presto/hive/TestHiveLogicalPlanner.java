@@ -274,7 +274,7 @@ public class TestHiveLogicalPlanner
                                 functionAndTypeManager.lookupFunction("mod", fromTypes(BIGINT, BIGINT)),
                                 BIGINT,
                                 ImmutableList.of(
-                                        new VariableReferenceExpression("orderkey", BIGINT),
+                                        new VariableReferenceExpression(Optional.empty(), "orderkey", BIGINT),
                                         constant(2))),
                         constant(1)));
 

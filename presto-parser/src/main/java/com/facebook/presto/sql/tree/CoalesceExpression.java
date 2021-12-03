@@ -35,6 +35,14 @@ public class CoalesceExpression
                 .build());
     }
 
+    public CoalesceExpression(Optional<NodeLocation> location, Expression first, Expression second, Expression... additional)
+    {
+        this(location, ImmutableList.<Expression>builder()
+                .add(first, second)
+                .add(additional)
+                .build());
+    }
+
     public CoalesceExpression(List<Expression> operands)
     {
         this(Optional.empty(), operands);
@@ -45,7 +53,7 @@ public class CoalesceExpression
         this(Optional.of(location), operands);
     }
 
-    private CoalesceExpression(Optional<NodeLocation> location, List<Expression> operands)
+    public CoalesceExpression(Optional<NodeLocation> location, List<Expression> operands)
     {
         super(location);
         requireNonNull(operands, "operands is null");

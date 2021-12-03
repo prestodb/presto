@@ -105,7 +105,7 @@ public final class TaskTestUtils
 
     public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
 
-    public static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression("column", BIGINT);
+    public static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression(Optional.empty(), "column", BIGINT);
 
     public static final PlanFragment PLAN_FRAGMENT = createPlanFragment();
 

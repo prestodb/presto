@@ -40,7 +40,7 @@ class AliasPresent
     public Optional<VariableReferenceExpression> getAssignedVariable(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         return symbolAliases.getOptional(alias)
-                .map(alias -> new VariableReferenceExpression(alias.getName(), UNKNOWN));
+                .map(alias -> new VariableReferenceExpression(Optional.empty(), alias.getName(), UNKNOWN));
     }
 
     @Override
