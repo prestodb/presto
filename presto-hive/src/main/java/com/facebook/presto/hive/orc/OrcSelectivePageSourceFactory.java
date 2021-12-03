@@ -374,8 +374,8 @@ public class OrcSelectivePageSourceFactory
             // use column types from the current table schema; these types might be different from this partition's schema
             Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columnNames.keySet().stream()
                     .collect(toImmutableMap(
-                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
-                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
+                            hiveColumnIndex -> new VariableReferenceExpression(Optional.empty(), columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
+                            hiveColumnIndex -> new InputReferenceExpression(Optional.empty(), inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
 
             Optional<BucketAdapter> bucketAdapter = bucketAdaptation.map(adaptation -> new BucketAdapter(
                     Arrays.stream(adaptation.getBucketColumnIndices())

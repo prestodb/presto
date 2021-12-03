@@ -78,7 +78,6 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -101,6 +100,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
@@ -219,7 +220,7 @@ public class LogicalPlanner
     {
         if (statement instanceof CreateTableAsSelect && analysis.isCreateTableAsSelectNoOp()) {
             checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
-            VariableReferenceExpression variable = variableAllocator.newVariable("rows", BIGINT);
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(statement), "rows", BIGINT);
             PlanNode source = new ValuesNode(
                     idAllocator.getNextId(),
                     ImmutableList.of(variable),
@@ -283,7 +284,7 @@ public class LogicalPlanner
         ImmutableMap.Builder<String, VariableReferenceExpression> columnNameToVariable = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(column.getName(), column.getType());
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(analyzeStatement), column.getName(), column.getType());
             tableScanOutputsBuilder.add(variable);
             variableToColumnHandle.put(variable, columnHandles.get(column.getName()));
             columnNameToVariable.put(column.getName(), variable);
@@ -310,7 +311,7 @@ public class LogicalPlanner
                         Optional.empty(),
                         Optional.empty()),
                 targetTable,
-                variableAllocator.newVariable("rows", BIGINT),
+                variableAllocator.newVariable(getSourceLocation(analyzeStatement), "rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
         return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputVariables());
@@ -395,7 +396,7 @@ public class LogicalPlanner
             if (column.isHidden()) {
                 continue;
             }
-            VariableReferenceExpression output = variableAllocator.newVariable(column.getName(), column.getType());
+            VariableReferenceExpression output = variableAllocator.newVariable(getSourceLocation(query), column.getName(), column.getType());
             int index = columnHandles.indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
@@ -407,10 +408,10 @@ public class LogicalPlanner
                 Type queryType = input.getType();
 
                 if (queryType.equals(tableType) || metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
-                    assignments.put(output, castToRowExpression(new SymbolReference(input.getName())));
+                    assignments.put(output, castToRowExpression(createSymbolReference(input)));
                 }
                 else {
-                    Expression cast = new Cast(new SymbolReference(input.getName()), tableType.getTypeSignature().toString());
+                    Expression cast = new Cast(createSymbolReference(input), tableType.getTypeSignature().toString());
                     assignments.put(output, castToRowExpression(cast));
                 }
             }
@@ -418,7 +419,7 @@ public class LogicalPlanner
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
         List<Field> fields = visibleTableColumns.stream()
-                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                .map(column -> Field.newUnqualified(query.getLocation(), column.getName(), column.getType()))
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 

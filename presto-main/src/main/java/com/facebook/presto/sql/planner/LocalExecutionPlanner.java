@@ -298,6 +298,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -1870,7 +1871,7 @@ public class LocalExecutionPlanner
             PlanNode buildNode = node.getRight();
             Set<SymbolReference> buildSymbols = getSymbolReferences(buildNode.getOutputVariables());
 
-            if (probeSymbols.contains(new SymbolReference(firstVariable.getName())) && buildSymbols.contains(new SymbolReference(secondVariable.getName()))) {
+            if (probeSymbols.contains(createSymbolReference(firstVariable)) && buildSymbols.contains(new SymbolReference(secondVariable.getName()))) {
                 return Optional.of(createSpatialLookupJoin(
                         node,
                         probeNode,
@@ -1882,7 +1883,7 @@ public class LocalExecutionPlanner
                         filterExpression,
                         context));
             }
-            else if (probeSymbols.contains(new SymbolReference(secondVariable.getName())) && buildSymbols.contains(new SymbolReference(firstVariable.getName()))) {
+            else if (probeSymbols.contains(createSymbolReference(secondVariable)) && buildSymbols.contains(new SymbolReference(firstVariable.getName()))) {
                 return Optional.of(createSpatialLookupJoin(
                         node,
                         probeNode,
@@ -1986,7 +1987,7 @@ public class LocalExecutionPlanner
 
         private Set<SymbolReference> getSymbolReferences(Collection<VariableReferenceExpression> variables)
         {
-            return variables.stream().map(VariableReferenceExpression::getName).map(SymbolReference::new).collect(toImmutableSet());
+            return variables.stream().map(x -> createSymbolReference(x)).collect(toImmutableSet());
         }
 
         private PhysicalOperation createNestedLoopJoin(JoinNode node, LocalExecutionPlanContext context)

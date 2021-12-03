@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.unmodifiableList;
@@ -37,14 +39,30 @@ public final class CallExpression
     private final Type returnType;
     private final List<RowExpression> arguments;
 
+    public CallExpression(
+            // The name here should only be used for display (toString)
+            String displayName,
+            FunctionHandle functionHandle,
+            Type returnType,
+            List<RowExpression> arguments)
+    {
+        this(arguments.stream()
+                .filter(x -> x.getSourceLocation().isPresent())
+                .map(x -> x.getSourceLocation())
+                .findFirst().orElse(Optional.empty()),
+                displayName, functionHandle, returnType, arguments);
+    }
+
     @JsonCreator
     public CallExpression(
+            @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             // The name here should only be used for display (toString)
             @JsonProperty("displayName") String displayName,
             @JsonProperty("functionHandle") FunctionHandle functionHandle,
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("arguments") List<RowExpression> arguments)
     {
+        super(sourceLocation);
         this.displayName = requireNonNull(displayName, "displayName is null");
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
         this.returnType = requireNonNull(returnType, "returnType is null");

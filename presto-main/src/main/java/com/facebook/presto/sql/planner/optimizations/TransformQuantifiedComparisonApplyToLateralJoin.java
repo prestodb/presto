@@ -45,7 +45,6 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -58,6 +57,8 @@ import java.util.function.Function;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -132,12 +133,12 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Type outputColumnType = outputColumn.getType();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
-            VariableReferenceExpression minValue = variableAllocator.newVariable("min", outputColumnType);
-            VariableReferenceExpression maxValue = variableAllocator.newVariable("max", outputColumnType);
-            VariableReferenceExpression countAllValue = variableAllocator.newVariable("count_all", BigintType.BIGINT);
-            VariableReferenceExpression countNonNullValue = variableAllocator.newVariable("count_non_null", BigintType.BIGINT);
+            VariableReferenceExpression minValue = variableAllocator.newVariable(outputColumn.getSourceLocation(), "min", outputColumnType);
+            VariableReferenceExpression maxValue = variableAllocator.newVariable(outputColumn.getSourceLocation(), "max", outputColumnType);
+            VariableReferenceExpression countAllValue = variableAllocator.newVariable(outputColumn.getSourceLocation(), "count_all", BigintType.BIGINT);
+            VariableReferenceExpression countNonNullValue = variableAllocator.newVariable(outputColumn.getSourceLocation(), "count_non_null", BigintType.BIGINT);
 
-            List<RowExpression> outputColumnReferences = ImmutableList.of(castToRowExpression(toSymbolReference(outputColumn)));
+            List<RowExpression> outputColumnReferences = ImmutableList.of(castToRowExpression(createSymbolReference(outputColumn)));
 
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
@@ -145,6 +146,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableMap.of(
                             minValue, new Aggregation(
                                     new CallExpression(
+                                            getSourceLocation(quantifiedComparison),
                                             "min",
                                             functionResolution.minFunction(outputColumnType),
                                             outputColumnType,
@@ -155,6 +157,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     Optional.empty()),
                             maxValue, new Aggregation(
                                     new CallExpression(
+                                            getSourceLocation(quantifiedComparison),
                                             "max",
                                             functionResolution.maxFunction(outputColumnType),
                                             outputColumnType,
@@ -165,6 +168,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     Optional.empty()),
                             countAllValue, new Aggregation(
                                     new CallExpression(
+                                            getSourceLocation(quantifiedComparison),
                                             "count",
                                             functionResolution.countFunction(),
                                             BIGINT,
@@ -175,6 +179,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new CallExpression(
+                                            getSourceLocation(quantifiedComparison),
                                             "count",
                                             functionResolution.countFunction(outputColumnType),
                                             BIGINT,
@@ -222,7 +227,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
             return new SimpleCaseExpression(
-                    toSymbolReference(countAllValue),
+                    createSymbolReference(countAllValue),
                     ImmutableList.of(new WhenClause(
                             new GenericLiteral("bigint", "0"),
                             emptySetResult)),
@@ -231,7 +236,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                             new SearchedCaseExpression(
                                     ImmutableList.of(
                                             new WhenClause(
-                                                    new ComparisonExpression(NOT_EQUAL, toSymbolReference(countAllValue), toSymbolReference(countNonNullValue)),
+                                                    new ComparisonExpression(NOT_EQUAL, createSymbolReference(countAllValue), createSymbolReference(countNonNullValue)),
                                                     new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()))),
                                     Optional.of(emptySetResult))))));
         }
@@ -241,8 +246,8 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
-                        new ComparisonExpression(EQUAL, toSymbolReference(minValue), toSymbolReference(maxValue)),
-                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), toSymbolReference(maxValue)));
+                        new ComparisonExpression(EQUAL, createSymbolReference(minValue), createSymbolReference(maxValue)),
+                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), createSymbolReference(maxValue)));
             }
 
             if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getOperator())) {
@@ -251,7 +256,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
                 VariableReferenceExpression boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), toSymbolReference(boundValue));
+                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), createSymbolReference(boundValue));
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
@@ -294,11 +299,6 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     idAllocator.getNextId(),
                     input,
                     assignments);
-        }
-
-        private SymbolReference toSymbolReference(VariableReferenceExpression variable)
-        {
-            return new SymbolReference(variable.getName());
         }
     }
 }

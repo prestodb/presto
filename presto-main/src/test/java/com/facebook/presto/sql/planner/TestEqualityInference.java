@@ -430,7 +430,7 @@ public class TestEqualityInference
     private static Predicate<VariableReferenceExpression> matchesVariables(Collection<String> variables)
     {
         final Set<VariableReferenceExpression> symbolSet = variables.stream()
-                .map(name -> new VariableReferenceExpression(name, BIGINT))
+                .map(name -> new VariableReferenceExpression(Optional.empty(), name, BIGINT))
                 .collect(toImmutableSet());
 
         return Predicates.in(symbolSet);

@@ -46,7 +46,7 @@ public class TestPinotPlanOptimizerSql
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         PlanNode originalPlan = distinctLimit(
                 planBuilder,
-                ImmutableList.of(new VariableReferenceExpression("regionid", BIGINT)),
+                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "regionid", BIGINT)),
                 50L,
                 tableScan(planBuilder, pinotTable, regionId));
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
@@ -64,8 +64,8 @@ public class TestPinotPlanOptimizerSql
         originalPlan = distinctLimit(
                 planBuilder,
                 ImmutableList.of(
-                        new VariableReferenceExpression("regionid", BIGINT),
-                        new VariableReferenceExpression("city", VARCHAR)),
+                        new VariableReferenceExpression(Optional.empty(), "regionid", BIGINT),
+                        new VariableReferenceExpression(Optional.empty(), "city", VARCHAR)),
                 50L,
                 tableScan(planBuilder, pinotTable, regionId, city));
         optimized = getOptimizedPlan(planBuilder, originalPlan);

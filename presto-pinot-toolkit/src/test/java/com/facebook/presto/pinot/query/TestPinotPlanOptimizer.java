@@ -296,7 +296,7 @@ public class TestPinotPlanOptimizer
 
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         PlanNode limit = limit(planBuilder, 50L, tableScan(planBuilder, pinotTable, regionId, city, fare, secondsSinceEpoch));
-        PlanNode originalPlan = planBuilder.aggregation(builder -> builder.source(limit).globalGrouping().addAggregation(new VariableReferenceExpression("count", BIGINT), getRowExpression("count(*)", defaultSessionHolder)));
+        PlanNode originalPlan = planBuilder.aggregation(builder -> builder.source(limit).globalGrouping().addAggregation(new VariableReferenceExpression(Optional.empty(), "count", BIGINT), getRowExpression("count(*)", defaultSessionHolder)));
 
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
 
@@ -316,7 +316,7 @@ public class TestPinotPlanOptimizer
     public void testDistinctCountInSubQueryPushdown()
     {
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
-        Map<VariableReferenceExpression, PinotColumnHandle> leftColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression("regionid", regionId.getDataType()), regionId);
+        Map<VariableReferenceExpression, PinotColumnHandle> leftColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "regionid", regionId.getDataType()), regionId);
         PlanNode leftJustScan = tableScan(planBuilder, pinotTable, leftColumnHandleMap);
         PlanNode leftMarkDistinct = markDistinct(planBuilder, variable("regionid$distinct"), ImmutableList.of(variable("regionid")), leftJustScan);
         PlanNode leftAggregation = planBuilder.aggregation(aggBuilder -> aggBuilder.source(leftMarkDistinct).addAggregation(planBuilder.variable("count(regionid)"), getRowExpression("count(regionid)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct"))).globalGrouping());
@@ -331,7 +331,7 @@ public class TestPinotPlanOptimizer
                         useSqlSyntax()),
                 typeProvider);
 
-        Map<VariableReferenceExpression, PinotColumnHandle> rightColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression("regionid_33", regionId.getDataType()), regionId);
+        Map<VariableReferenceExpression, PinotColumnHandle> rightColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "regionid_33", regionId.getDataType()), regionId);
         PlanNode rightJustScan = tableScan(planBuilder, pinotTable, rightColumnHandleMap);
         PlanNode rightMarkDistinct = markDistinct(planBuilder, variable("regionid$distinct_62"), ImmutableList.of(variable("regionid")), rightJustScan);
         PlanNode rightAggregation = planBuilder.aggregation(aggBuilder -> aggBuilder.source(rightMarkDistinct).addAggregation(planBuilder.variable("count(regionid_33)"), getRowExpression("count(regionid_33)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct_62"))).globalGrouping());
@@ -352,12 +352,12 @@ public class TestPinotPlanOptimizer
     public void testSetOperationQueryWithSubQueriesPushdown()
     {
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
-        Map<VariableReferenceExpression, PinotColumnHandle> leftColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression("regionid", regionId.getDataType()), regionId);
+        Map<VariableReferenceExpression, PinotColumnHandle> leftColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "regionid", regionId.getDataType()), regionId);
         PlanNode leftJustScan = tableScan(planBuilder, pinotTable, leftColumnHandleMap);
         PlanNode leftMarkDistinct = markDistinct(planBuilder, variable("regionid$distinct"), ImmutableList.of(variable("regionid")), leftJustScan);
         PlanNode leftAggregation = planBuilder.aggregation(aggBuilder -> aggBuilder.source(leftMarkDistinct).addAggregation(planBuilder.variable("count(regionid)"), getRowExpression("count(regionid)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct"))).globalGrouping());
 
-        Map<VariableReferenceExpression, PinotColumnHandle> rightColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression("regionid_33", regionId.getDataType()), regionId);
+        Map<VariableReferenceExpression, PinotColumnHandle> rightColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "regionid_33", regionId.getDataType()), regionId);
         PlanNode rightJustScan = tableScan(planBuilder, pinotTable, rightColumnHandleMap);
         PlanNode rightMarkDistinct = markDistinct(planBuilder, variable("regionid$distinct_62"), ImmutableList.of(variable("regionid")), rightJustScan);
         PlanNode rightAggregation = planBuilder.aggregation(aggBuilder -> aggBuilder.source(rightMarkDistinct).addAggregation(planBuilder.variable("count(regionid_33)"), getRowExpression("count(regionid_33)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct_62"))).globalGrouping());

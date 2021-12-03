@@ -25,6 +25,8 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 
 public class TestVerifyOnlyOneOutputNode
@@ -58,7 +60,7 @@ public class TestVerifyOnlyOneOutputNode
                                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
-                                ), new VariableReferenceExpression("a", BIGINT),
+                                ), new VariableReferenceExpression(Optional.empty(), "a", BIGINT),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
