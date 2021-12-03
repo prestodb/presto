@@ -129,6 +129,7 @@ public final class HiveSessionProperties
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_ENABLED = "dwrf_writer_stripe_cache_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
+    private static final String HUDI_PREFER_METADATA_TO_LIST_FILES = "hudi_prefer_metadata_to_list_files";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -617,6 +618,11 @@ public final class HiveSessionProperties
                         DWRF_WRITER_STRIPE_CACHE_SIZE,
                         "Maximum size of DWRF stripe cache to be held in memory",
                         orcFileWriterConfig.getDwrfStripeCacheMaxSize(),
+                        false),
+                booleanProperty(
+                        HUDI_PREFER_METADATA_TO_LIST_FILES,
+                        "For Hudi tables prefer to fetch the list of files from its metadata",
+                        hiveClientConfig.isHudiPreferMetadataToListFiles(),
                         false));
     }
 
@@ -1076,5 +1082,10 @@ public final class HiveSessionProperties
     public static DataSize getDwrfWriterStripeCacheeMaxSize(ConnectorSession session)
     {
         return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
+    }
+
+    public static boolean isHudiPreferMetadataToListFiles(ConnectorSession session)
+    {
+        return session.getProperty(HUDI_PREFER_METADATA_TO_LIST_FILES, Boolean.class);
     }
 }

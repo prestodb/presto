@@ -197,6 +197,7 @@ public class HiveClientConfig
     private int materializedViewMissingPartitionsThreshold = 100;
 
     private boolean verboseRuntimeStatsEnabled;
+    private boolean hudiPreferMetadataToListFiles;
 
     public int getMaxInitialSplits()
     {
@@ -1681,5 +1682,18 @@ public class HiveClientConfig
     public int getMaterializedViewMissingPartitionsThreshold()
     {
         return this.materializedViewMissingPartitionsThreshold;
+    }
+
+    @Config("hive.hudi-prefer-metadata-to-list-files")
+    @ConfigDescription("For Hudi tables prefer to fetch the list of file names and sizes from metadata rather than storage")
+    public HiveClientConfig setHudiPreferMetadataToListFiles(boolean hudiPreferMetadataToListFiles)
+    {
+        this.hudiPreferMetadataToListFiles = hudiPreferMetadataToListFiles;
+        return this;
+    }
+
+    public boolean isHudiPreferMetadataToListFiles()
+    {
+        return this.hudiPreferMetadataToListFiles;
     }
 }

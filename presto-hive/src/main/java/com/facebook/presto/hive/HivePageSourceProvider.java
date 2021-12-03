@@ -71,6 +71,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
+import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
@@ -408,42 +409,44 @@ public class HivePageSourceProvider
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
 
-        for (HiveBatchPageSourceFactory pageSourceFactory : pageSourceFactories) {
-            Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
-                    configuration,
-                    session,
-                    path,
-                    start,
-                    length,
-                    fileSize,
-                    storage,
-                    tableName,
-                    tableParameters,
-                    toColumnHandles(regularAndInterimColumnMappings, true),
-                    effectivePredicate,
-                    hiveStorageTimeZone,
-                    hiveFileContext,
-                    encryptionInformation);
-            if (pageSource.isPresent()) {
-                HivePageSource hivePageSource = new HivePageSource(
-                        columnMappings,
-                        bucketAdaptation,
+        if (!shouldUseRecordReaderFromInputFormat(configuration, storage, customSplitInfo)) {
+            for (HiveBatchPageSourceFactory pageSourceFactory : pageSourceFactories) {
+                Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
+                        configuration,
+                        session,
+                        path,
+                        start,
+                        length,
+                        fileSize,
+                        storage,
+                        tableName,
+                        tableParameters,
+                        toColumnHandles(regularAndInterimColumnMappings, true),
+                        effectivePredicate,
                         hiveStorageTimeZone,
-                        typeManager,
-                        pageSource.get());
-
-                if (isPushdownFilterEnabled) {
-                    return Optional.of(new FilteringPageSource(
+                        hiveFileContext,
+                        encryptionInformation);
+                if (pageSource.isPresent()) {
+                    HivePageSource hivePageSource = new HivePageSource(
                             columnMappings,
-                            effectivePredicate,
-                            remainingPredicate,
+                            bucketAdaptation,
+                            hiveStorageTimeZone,
                             typeManager,
-                            rowExpressionService,
-                            session,
-                            outputIndices,
-                            hivePageSource));
+                            pageSource.get());
+
+                    if (isPushdownFilterEnabled) {
+                        return Optional.of(new FilteringPageSource(
+                                columnMappings,
+                                effectivePredicate,
+                                remainingPredicate,
+                                typeManager,
+                                rowExpressionService,
+                                session,
+                                outputIndices,
+                                hivePageSource));
+                    }
+                    return Optional.of(hivePageSource);
                 }
-                return Optional.of(hivePageSource);
             }
         }
 

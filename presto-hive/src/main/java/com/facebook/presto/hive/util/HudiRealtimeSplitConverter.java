@@ -34,9 +34,9 @@ public class HudiRealtimeSplitConverter
         implements CustomSplitConverter
 {
     public static final String CUSTOM_SPLIT_CLASS_KEY = "custom_split_class";
-    private static final String HUDI_DELTA_FILEPATHS_KEY = "hudi_delta_filepaths";
-    private static final String HUDI_BASEPATH_KEY = "hudi_basepath";
-    private static final String HUDI_MAX_COMMIT_TIME_KEY = "hudi_max_commit_time";
+    public static final String HUDI_DELTA_FILEPATHS_KEY = "hudi_delta_filepaths";
+    public static final String HUDI_BASEPATH_KEY = "hudi_basepath";
+    public static final String HUDI_MAX_COMMIT_TIME_KEY = "hudi_max_commit_time";
 
     @Override
     public Optional<Map<String, String>> extractCustomSplitInfo(FileSplit split)
