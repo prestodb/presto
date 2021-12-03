@@ -22,6 +22,7 @@
 #include "velox/vector/SelectivityVector.h"
 #include "velox/vector/SimpleVector.h"
 
+#include <folly/Synchronized.h>
 namespace facebook::velox::exec {
 
 class Expr;

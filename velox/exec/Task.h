@@ -79,6 +79,8 @@ class JoinBridge;
 class HashJoinBridge;
 class CrossJoinBridge;
 
+using ContinuePromise = VeloxPromise<bool>;
+
 class Task {
  public:
   Task(
@@ -311,7 +313,7 @@ class Task {
   std::shared_ptr<CrossJoinBridge> getCrossJoinBridge(
       const core::PlanNodeId& planNodeId);
 
-  // Sets the CancelPool of the QueryCtx to a terminate requested
+  // Sets this to a terminate requested
   // state and frees all resources of Drivers that are not presently
   // on thread. Unblocks all waiting Drivers, e.g. Drivers waiting for
   // free space in outgoing buffers or new splits. Sets the state to
@@ -369,13 +371,90 @@ class Task {
     return pool_.get();
   }
 
-  const core::CancelPoolPtr& cancelPool() const {
-    return cancelPool_;
-  }
-
   // Returns the Driver running on the current thread or nullptr if the current
   // thread is not running a Driver of 'this'.
   Driver* FOLLY_NULLABLE thisDriver() const;
+
+  // Returns kNone if no pause or terminate is requested. The thread count is
+  // incremented if kNone is returned. If something else is returned the
+  // calling thread should unwind and return itself to its pool.
+  StopReason enter(ThreadState& state);
+
+  // Sets the state to terminated. Returns kAlreadyOnThread if the
+  // Driver is running. In this case, the Driver will free resources
+  // and the caller should not do anything. Returns kTerminate if the
+  // Driver was not on thread. When this happens, the Driver is on the
+  // caller thread wit isTerminated set and the caller is responsible
+  // for freeing resources.
+  StopReason enterForTerminate(ThreadState& state);
+
+  // Marks that the Driver is not on thread. If no more Drivers in the
+  // CancelPool are on thread, this realizes any finishFutures. The
+  // Driver may go off thread because of hasBlockingFuture or pause
+  // requested or terminate requested. The return value indicates the
+  // reason. If kTerminate is returned, the isTerminated flag is set.
+  StopReason leave(ThreadState& state);
+
+  // Enters a suspended section where the caller stays on thread but
+  // is not accounted as being on the thread.  Returns kNone if no
+  // terminate is requested. The thread count is decremented if kNone
+  // is returned. If thread count goes to zero, waiting promises are
+  // realized. If kNone is not returned the calling thread should
+  // unwind and return itself to its pool.
+  StopReason enterSuspended(ThreadState& state);
+
+  StopReason leaveSuspended(ThreadState& state);
+  // Returns a stop reason without synchronization. If the stop reason
+  // is yield, then atomically decrements the count of threads that
+  // are to yield.
+  StopReason shouldStop() {
+    if (terminateRequested_) {
+      return StopReason::kTerminate;
+    }
+    if (pauseRequested_) {
+      return StopReason::kPause;
+    }
+    if (toYield_) {
+      std::lock_guard<std::mutex> l(mutex_);
+      return shouldStopLocked();
+    }
+    return StopReason::kNone;
+  }
+
+  void requestPause(bool pause) {
+    std::lock_guard<std::mutex> l(mutex_);
+    requestPauseLocked(pause);
+  }
+
+  void requestPauseLocked(bool pause) {
+    pauseRequested_ = pause;
+  }
+
+  void requestTerminate() {
+    std::lock_guard<std::mutex> l(mutex_);
+    terminateRequested_ = true;
+  }
+
+  void requestYield() {
+    std::lock_guard<std::mutex> l(mutex_);
+    toYield_ = numThreads_;
+  }
+
+  // Once 'pauseRequested_' is set, it will not be cleared until
+  // task::resume(). It is therefore OK to read it without a mutex
+  // from a thread that this flag concerns.
+  bool pauseRequested() const {
+    return pauseRequested_;
+  }
+
+  // Returns a future that is completed when all threads have acknowledged
+  // terminate or pause. If the future is realized there is no running activity
+  // on behalf of threads that have entered 'this'.
+  folly::SemiFuture<bool> finishFuture();
+
+  std::mutex& mutex() {
+    return mutex_;
+  }
 
  private:
   struct BarrierState {
@@ -413,7 +492,7 @@ class Task {
     SplitsState& operator=(SplitsState const&) = delete;
   };
 
-  void driverClosed();
+  void driverClosedLocked();
 
   std::shared_ptr<ExchangeClient> addExchangeClient();
 
@@ -428,7 +507,9 @@ class Task {
       int32_t splitGroupId,
       std::unordered_map<int32_t, GroupSplitsInfo>::iterator it);
 
-  void addSplitLocked(SplitsState& splitsState, exec::Split&& split);
+  std::unique_ptr<ContinuePromise> addSplitLocked(
+      SplitsState& splitsState,
+      exec::Split&& split);
 
   const std::string taskId_;
   std::shared_ptr<const core::PlanNode> planNode_;
@@ -491,8 +572,40 @@ class Task {
   /// Map of local exchanges keyed on LocalPartition plan node ID.
   std::unordered_map<core::PlanNodeId, LocalExchange> localExchanges_;
 
-  core::CancelPoolPtr cancelPool_{std::make_shared<core::CancelPool>()};
   std::weak_ptr<PartitionedOutputBufferManager> bufferManager_;
+
+  void finished() {
+    for (auto& promise : finishPromises_) {
+      promise.setValue(true);
+    }
+    finishPromises_.clear();
+  }
+
+  StopReason shouldStopLocked() {
+    if (terminateRequested_) {
+      return StopReason::kTerminate;
+    }
+    if (pauseRequested_) {
+      return StopReason::kPause;
+    }
+    if (toYield_) {
+      --toYield_;
+      return StopReason::kYield;
+    }
+    return StopReason::kNone;
+  }
+
+  // Thread counts and cancellation -related state.
+  //
+  // Some of the below are declared atomic for tsan because they are
+  // sometimes tested outside of 'mutex_' for a value of 0/false,
+  // which is safe to access without acquiring 'nutex_'.Thread counts
+  // and promises are guarded by 'mutex_'
+  std::atomic<bool> pauseRequested_{false};
+  std::atomic<bool> terminateRequested_{false};
+  std::atomic<int32_t> toYield_ = 0;
+  int32_t numThreads_ = 0;
+  std::vector<VeloxPromise<bool>> finishPromises_;
 };
 
 } // namespace facebook::velox::exec

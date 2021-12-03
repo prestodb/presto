@@ -16,6 +16,9 @@
 #pragma once
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/futures/Future.h>
+#include <folly/portability/SysSyscall.h>
+
+#include "velox/common/future/VeloxPromise.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
@@ -27,6 +30,93 @@ class ExchangeClient;
 class Operator;
 struct OperatorStats;
 class Task;
+
+enum class StopReason {
+  // Keep running.
+  kNone,
+  // Go off thread and do not schedule more activity.
+  kPause,
+  // Stop and free all. This is returned once and the thread that gets
+  // this value is responsible for freeing the state associated with
+  // the thread. Other threads will get kAlreadyTerminated after the
+  // first thread has received kTerminate.
+  kTerminate,
+  kAlreadyTerminated,
+  // Go off thread and then enqueue to the back of the runnable queue.
+  kYield,
+  // Must wait for external events.
+  kBlock,
+  // No more data to produce.
+  kAtEnd,
+  kAlreadyOnThread
+};
+
+// Represents a Driver's state. This is used for cancellation, forcing
+// release of and for waiting for memory. The fields are serialized on
+// the mutex of the Driver's Task.
+//
+// The Driver goes through the following states:
+// Not on thread. It is created and has not started. All flags are false.
+//
+// Enqueued - The Driver is added to an executor but does not yet have a thread.
+// isEnqueued is true. Next states are terminated or on thread.
+//
+// On thread - 'thread' is set to the thread that is running the Driver. Next
+// states are blocked, terminated, suspended, enqueued.
+//
+//  Blocked - The Driver is not on thread and is waiting for an external event.
+//  Next states are terminated, enqueud.
+//
+// Suspended - The Driver is on thread, 'thread' and 'isSuspended' are set. The
+// thread does not manipulate the Driver's state and is suspended as in waiting
+// for memory or out of process IO. This is different from Blocked in that here
+// we keep the stack so that when the wait is over the control stack is not
+// lost. Next states are on thread or terminated.
+//
+//  Terminated - 'isTerminated' is set. The Driver cannot run after this and
+// the state is final.
+//
+// CancelPool  allows terminating or pausing a set of Drivers. The Task API
+// allows starting or resuming Drivers. When terminate is requested the request
+// is successful when all Drivers are off thread, blocked or suspended. When
+// pause is requested, we have success when all Drivers are either enqueued,
+// suspended, off thread or blocked.
+struct ThreadState {
+  // The thread currently running this.
+  std::atomic<std::thread::id> thread{};
+  // The tid of 'thread'. Allows finding the thread in a debugger.
+  std::atomic<int32_t> tid{0};
+  // True if queued on an executor but not on thread.
+  std::atomic<bool> isEnqueued{false};
+  // True if being terminated or already terminated.
+  std::atomic<bool> isTerminated{false};
+  // True if there is a future outstanding that will schedule this on an
+  // executor thread when some promise is realized.
+  bool hasBlockingFuture{false};
+  // True if on thread but in a section waiting for RPC or memory
+  // strategy decision. The thread is not supposed to access its
+  // memory, which a third party can revoke while the thread is in
+  // this state.
+  bool isSuspended{false};
+
+  bool isOnThread() const {
+    return thread != std::thread::id();
+  }
+
+  void setThread() {
+    thread = std::this_thread::get_id();
+#if !defined(__APPLE__)
+    // This is a debugging feature disabled on the Mac since syscall
+    // is deprecated on that platform.
+    tid = syscall(FOLLY_SYS_gettid);
+#endif
+  }
+
+  void clearThread() {
+    thread = std::thread::id(); // no thread.
+    tid = 0;
+  }
+};
 
 enum class BlockingReason {
   kNotBlocked,
@@ -122,18 +212,14 @@ class Driver {
 
   std::string label() const;
 
-  core::ThreadState& state() {
+  ThreadState& state() {
     return state_;
-  }
-
-  core::CancelPool* FOLLY_NONNULL cancelPool() const {
-    return cancelPool_.get();
   }
 
   // Frees the resources associated with this if this is
   // off-thread. Returns true if resources are freed. If this is on
   // thread, returns false. In this case the Driver's thread will see
-  // that the CancelPool is set to terminate and will free the
+  // that the Task is set to terminate and will free the
   // resources on the thread.
   bool terminate();
 
@@ -164,10 +250,14 @@ class Driver {
     return ctx_.get();
   }
 
+  std::shared_ptr<Task> task() const {
+    return task_;
+  }
+
  private:
   void enqueueInternal();
 
-  core::StopReason runInternal(
+  StopReason runInternal(
       std::shared_ptr<Driver>& self,
       std::shared_ptr<BlockingState>* FOLLY_NONNULL blockingState);
 
@@ -179,10 +269,9 @@ class Driver {
 
   std::unique_ptr<DriverCtx> ctx_;
   std::shared_ptr<Task> task_;
-  core::CancelPoolPtr cancelPool_;
 
-  // Set via 'cancelPool_' and serialized by 'cancelPool_'s mutex.
-  core::ThreadState state_;
+  // Set via Task_ and serialized by 'task_'s mutex.
+  ThreadState state_;
 
   // Timer used to track down the time we are sitting in the driver queue.
   size_t queueTimeStartMicros_{0};
@@ -282,7 +371,7 @@ struct DriverFactory {
 };
 
 // Begins and ends a section where a thread is running but not
-// counted in its CancelPool. Using this, a Driver thread can for
+// counted in its Task. Using this, a Driver thread can for
 // example stop its own Task. For arbitrating memory overbooking,
 // the contending threads go suspended and each in turn enters a
 // global critical section. When running the arbitration strategy, a

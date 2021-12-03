@@ -472,14 +472,14 @@ struct CacheStats {
 
 class ClockTimer {
  public:
-  explicit ClockTimer(uint64_t& total)
+  explicit ClockTimer(std::atomic<uint64_t>& total)
       : total_(&total), start_(folly::hardware_timestamp()) {}
   ~ClockTimer() {
     *total_ += folly::hardware_timestamp() - start_;
   }
 
  private:
-  uint64_t* FOLLY_NONNULL total_;
+  std::atomic<uint64_t>* FOLLY_NONNULL total_;
   uint64_t start_;
 };
 
@@ -564,7 +564,7 @@ class CacheShard {
   uint64_t sumEvictScore_{};
   // Tracker of time spent in allocating/freeing MappedMemory space
   // for backing cached data.
-  uint64_t allocClocks_;
+  std::atomic<uint64_t> allocClocks_;
 };
 
 class AsyncDataCache : public memory::MappedMemory,

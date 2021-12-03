@@ -102,7 +102,7 @@ bool TaskQueue::hasNext() {
   return !queue_.empty();
 }
 
-int32_t TaskCursor::serial_;
+std::atomic<int32_t> TaskCursor::serial_;
 
 TaskCursor::TaskCursor(const CursorParameters& params)
     : maxDrivers_{params.maxDrivers} {

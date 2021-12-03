@@ -185,15 +185,15 @@ class DriverTest : public OperatorTestBase {
           LOG(INFO) << "Task::toString() while probably blocked: "
                     << tasks_[0]->toString();
         } else if (operation == ResultOperation::kCancel) {
-          cursor->cancelPool()->requestTerminate();
+          cursor->task()->requestTerminate();
         } else if (operation == ResultOperation::kTerminate) {
           cursor->task()->terminate(kAborted);
         } else if (operation == ResultOperation::kYield) {
-          cursor->cancelPool()->requestYield();
+          cursor->task()->requestYield();
         } else if (operation == ResultOperation::kPause) {
-          cursor->cancelPool()->requestPause(true);
+          cursor->task()->requestPause(true);
           auto& executor = folly::QueuedImmediateExecutor::instance();
-          auto future = cursor->cancelPool()->finishFuture().via(&executor);
+          auto future = cursor->task()->finishFuture().via(&executor);
           future.wait();
           paused = true;
         }
@@ -235,24 +235,31 @@ class DriverTest : public OperatorTestBase {
     std::lock_guard<std::mutex> l(wakeupMutex_);
     if (!wakeupInitialized_) {
       wakeupInitialized_ = true;
-      wakeupThread_ = std::thread([&]() {
+      wakeupThread_ = std::thread([this]() {
         int32_t counter = 0;
         for (;;) {
-          if (wakeupCancelled_) {
-            return;
+          {
+            std::lock_guard<std::mutex> l2(wakeupMutex_);
+            if (wakeupCancelled_) {
+              return;
+            }
           }
           // Wait a small interval and realize a small number of queued
           // promises, if any.
           auto units = 1 + (++counter % 5);
+
           // NOLINT
           std::this_thread::sleep_for(std::chrono::milliseconds(units));
-          auto count = 1 + (++counter % 4);
-          for (auto i = 0; i < count; ++i) {
-            if (wakeupPromises_.empty()) {
-              break;
+          {
+            std::lock_guard<std::mutex> l2(wakeupMutex_);
+            auto count = 1 + (++counter % 4);
+            for (auto i = 0; i < count; ++i) {
+              if (wakeupPromises_.empty()) {
+                break;
+              }
+              wakeupPromises_.front().setValue(true);
+              wakeupPromises_.pop_front();
             }
-            wakeupPromises_.front().setValue(true);
-            wakeupPromises_.pop_front();
           }
         }
       });
@@ -296,7 +303,7 @@ class DriverTest : public OperatorTestBase {
   std::deque<folly::Promise<bool>> wakeupPromises_;
   bool wakeupInitialized_{false};
   // Set to true when it is time to exit 'wakeupThread_'.
-  bool wakeupCancelled_{false};
+  std::atomic<bool> wakeupCancelled_{false};
 
   std::shared_ptr<const RowType> rowType_;
   std::mutex mutex_;
@@ -353,7 +360,7 @@ TEST_F(DriverTest, cancel) {
   }
   EXPECT_GE(numRead, 1'000'000);
   auto& executor = folly::QueuedImmediateExecutor::instance();
-  auto future = tasks_[0]->cancelPool()->finishFuture().via(&executor);
+  auto future = tasks_[0]->finishFuture().via(&executor);
   future.wait();
   EXPECT_TRUE(stateFutures_.at(0).isReady());
   EXPECT_EQ(tasks_[0]->numDrivers(), 0);
@@ -400,7 +407,7 @@ TEST_F(DriverTest, slow) {
   // are updated some tens of instructions after this. Determinism
   // requires a barrier.
   auto& executor = folly::QueuedImmediateExecutor::instance();
-  auto future = tasks_[0]->cancelPool()->finishFuture().via(&executor);
+  auto future = tasks_[0]->finishFuture().via(&executor);
   future.wait();
   // Note that the driver count drops after the last thread stops and
   // realizes the future.
@@ -542,10 +549,9 @@ class TestingPauser : public Operator {
           if (!task) {
             continue;
           }
-          auto cancelPool = task->cancelPool();
-          cancelPool->requestPause(true);
+          task->requestPause(true);
           auto& executor = folly::QueuedImmediateExecutor::instance();
-          auto future = cancelPool->finishFuture().via(&executor);
+          auto future = task->finishFuture().via(&executor);
           future.wait();
           sleep(2);
           Task::resume(task);
@@ -597,7 +603,7 @@ class PauserNodeFactory : public Operator::PlanNodeTranslator {
  public:
   PauserNodeFactory(
       uint32_t maxDrivers,
-      int32_t& sequence,
+      std::atomic<int32_t>& sequence,
       DriverTest* testInstance)
       : maxDrivers_{maxDrivers},
         sequence_{sequence},
@@ -626,7 +632,7 @@ class PauserNodeFactory : public Operator::PlanNodeTranslator {
 
  private:
   uint32_t maxDrivers_;
-  int32_t& sequence_;
+  std::atomic<int32_t>& sequence_;
   DriverTest* testInstance_;
 };
 
@@ -637,7 +643,7 @@ TEST_F(DriverTest, pauserNode) {
   constexpr int32_t kThreadsPerTask = 5;
   // Run with a fraction of the testing threads fitting in the executor.
   Driver::testingJoinAndReinitializeExecutor(20);
-  static int32_t sequence = 0;
+  static std::atomic<int32_t> sequence{0};
   // Use a static variable to pass the test instance to the create
   // function of the testing operator. The testing operator registers
   // all its Tasks in the test instance to create inter-Task pauses.

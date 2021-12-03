@@ -119,17 +119,23 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
       .thenValue([state](bool /* unused */) {
         state->operator_->recordBlockingTime(state->sinceMicros_);
         auto driver = state->driver_;
+        auto task = driver->task();
+        if (!task) {
+          //'driver' is already removed from its task. No Just drop remaining
+          // references.
+          return;
+        }
         {
-          std::lock_guard<std::mutex> l(*driver->cancelPool()->mutex());
+          std::lock_guard<std::mutex> l(task->mutex());
           VELOX_CHECK(!driver->state().isSuspended);
           VELOX_CHECK(driver->state().hasBlockingFuture);
           driver->state().hasBlockingFuture = false;
-          if (driver->cancelPool()->pauseRequested()) {
+          if (task->pauseRequested()) {
             // The thread will be enqueued at resume.
             return;
           }
+          Driver::enqueue(state->driver_);
         }
-        Driver::enqueue(state->driver_);
       })
       .thenError(
           folly::tag_t<std::exception>{}, [state](std::exception const& e) {
@@ -142,30 +148,30 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
 
 namespace {
 
-// Ensures that the thread is removed from a CancelPool on exit.
-class CancelPoolGuard {
+// Ensures that the thread is removed from its Task's thread count on exit.
+class CancelGuard {
  public:
-  CancelPoolGuard(
-      core::CancelPool* cancelPool,
-      core::ThreadState* state,
-      std::function<void(core::StopReason)> onTerminate)
-      : cancelPool_(cancelPool), state_(state), onTerminate_(onTerminate) {}
+  CancelGuard(
+      Task* task,
+      ThreadState* state,
+      std::function<void(StopReason)> onTerminate)
+      : task_(task), state_(state), onTerminate_(onTerminate) {}
 
   void notThrown() {
     isThrow_ = false;
   }
 
-  ~CancelPoolGuard() {
+  ~CancelGuard() {
     bool onTerminateCalled = false;
     if (isThrow_) {
       // Runtime error. Driver is on thread, hence safe.
       state_->isTerminated = true;
-      onTerminate_(core::StopReason::kNone);
+      onTerminate_(StopReason::kNone);
       onTerminateCalled = true;
     }
-    auto reason = cancelPool_->leave(*state_);
-    if (reason == core::StopReason::kTerminate) {
-      // Terminate requested via cancelPool. The Driver is not on
+    auto reason = task_->leave(*state_);
+    if (reason == StopReason::kTerminate) {
+      // Terminate requested via Task. The Driver is not on
       // thread but 'terminated_' is set, hence no other threads will
       // enter. onTerminateCalled will be true if both runtime error and
       // terminate requested via CancelPool.
@@ -176,9 +182,9 @@ class CancelPoolGuard {
   }
 
  private:
-  core::CancelPool* cancelPool_;
-  core::ThreadState* state_;
-  std::function<void(core::StopReason reason)> onTerminate_;
+  Task* task_;
+  ThreadState* state_;
+  std::function<void(StopReason reason)> onTerminate_;
   bool isThrow_ = true;
 };
 } // namespace
@@ -191,9 +197,6 @@ static std::unique_ptr<folly::CPUThreadPoolExecutor>& getExecutor() {
 // static
 folly::CPUThreadPoolExecutor* Driver::executor(int32_t threads) {
   static std::mutex mutex;
-  if (getExecutor().get()) {
-    return getExecutor().get();
-  }
   std::lock_guard<std::mutex> l(mutex);
   if (!getExecutor().get()) {
     auto numThreads = threads > 0 ? threads : FLAGS_velox_num_query_threads;
@@ -216,7 +219,7 @@ void Driver::testingJoinAndReinitializeExecutor(int32_t threads) {
 
 // static
 void Driver::enqueue(std::shared_ptr<Driver> driver) {
-  // This is expected to be called inside the Driver's CancelPool mutex.
+  // This is expected to be called inside the Driver's Tasks's mutex.
   driver->enqueueInternal();
   auto& task = driver->task_;
   auto executor = task ? task->queryCtx()->executor() : nullptr;
@@ -231,7 +234,6 @@ Driver::Driver(
     std::vector<std::unique_ptr<Operator>>&& operators)
     : ctx_(std::move(ctx)),
       task_(ctx_->task),
-      cancelPool_(ctx_->task->cancelPool()),
       operators_(std::move(operators)) {
   curOpIndex_ = operators_.size() - 1;
   // Operators need access to their Driver for adaptation.
@@ -307,7 +309,7 @@ void Driver::enqueueInternal() {
   queueTimeStartMicros_ = getCurrentTimeMicro();
 }
 
-core::StopReason Driver::runInternal(
+StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>* blockingState) {
   // Update the next operator's queueTime.
@@ -316,11 +318,14 @@ core::StopReason Driver::runInternal(
         "queuedWallNanos",
         (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000);
   }
-
-  auto stop = cancelPool_->enter(state_);
-  if (stop != core::StopReason::kNone) {
-    if (stop == core::StopReason::kTerminate) {
-      task_->setError(std::make_exception_ptr(VeloxRuntimeError(
+  // Get 'task_' into a local because this could be unhooked from it on another
+  // thread.
+  auto task = task_;
+  auto stop = !task ? StopReason::kTerminate : task->enter(state_);
+  if (stop != StopReason::kNone) {
+    if (stop == StopReason::kTerminate) {
+      // ctx_ still has a reference to the Task.
+      ctx_->task->setError(std::make_exception_ptr(VeloxRuntimeError(
           __FILE__,
           __LINE__,
           __FUNCTION__,
@@ -334,22 +339,24 @@ core::StopReason Driver::runInternal(
     return stop;
   }
 
-  CancelPoolGuard guard(
-      cancelPool_.get(), &state_, [this](core::StopReason reason) {
-        auto task = task_.get();
-        if (task && reason == core::StopReason::kTerminate) {
-          task_->setError(std::make_exception_ptr(VeloxRuntimeError(
-              __FILE__,
-              __LINE__,
-              __FUNCTION__,
-              "",
-              "Cancelled",
-              error_source::kErrorSourceRuntime,
-              error_code::kInvalidState,
-              false)));
-        }
-        close();
-      });
+  CancelGuard guard(task_.get(), &state_, [this](StopReason reason) {
+    // Copy 'task_' to a local to protect against other threads
+    // unhooking 'this' from 'task_'. 'task_' will in this way stay
+    // live so that error state can be set etc.
+    auto taskPtrCopy = task_;
+    if (taskPtrCopy && reason == StopReason::kTerminate) {
+      taskPtrCopy->setError(std::make_exception_ptr(VeloxRuntimeError(
+          __FILE__,
+          __LINE__,
+          __FUNCTION__,
+          "",
+          "Cancelled",
+          error_source::kErrorSourceRuntime,
+          error_code::kInvalidState,
+          false)));
+    }
+    close();
+  });
 
   // Ensure we remove the writer we might have set when we exit this function in
   // any way.
@@ -362,8 +369,8 @@ core::StopReason Driver::runInternal(
 
     for (;;) {
       for (int32_t i = numOperators - 1; i >= 0; --i) {
-        stop = cancelPool_->shouldStop();
-        if (stop != core::StopReason::kNone) {
+        stop = task_->shouldStop();
+        if (stop != StopReason::kNone) {
           guard.notThrown();
           return stop;
         }
@@ -382,7 +389,7 @@ core::StopReason Driver::runInternal(
           *blockingState = std::make_shared<BlockingState>(
               self, std::move(future), op, blockingReason_);
           guard.notThrown();
-          return core::StopReason::kBlock;
+          return StopReason::kBlock;
         }
         Operator* nextOp = nullptr;
         if (i < operators_.size() - 1) {
@@ -392,7 +399,7 @@ core::StopReason Driver::runInternal(
             *blockingState = std::make_shared<BlockingState>(
                 self, std::move(future), nextOp, blockingReason_);
             guard.notThrown();
-            return core::StopReason::kBlock;
+            return StopReason::kBlock;
           }
           if (nextOp->needsInput()) {
             uint64_t resultBytes = 0;
@@ -417,8 +424,8 @@ core::StopReason Driver::runInternal(
               i += 2;
               continue;
             } else {
-              stop = cancelPool_->shouldStop();
-              if (stop != core::StopReason::kNone) {
+              stop = task_->shouldStop();
+              if (stop != StopReason::kNone) {
                 guard.notThrown();
                 return stop;
               }
@@ -433,7 +440,7 @@ core::StopReason Driver::runInternal(
                 *blockingState = std::make_shared<BlockingState>(
                     self, std::move(future), op, blockingReason_);
                 guard.notThrown();
-                return core::StopReason::kBlock;
+                return StopReason::kBlock;
               }
               if (op->isFinishing()) {
                 if (!nextOp->isFinishing()) {
@@ -461,7 +468,7 @@ core::StopReason Driver::runInternal(
           if (op->isFinishing()) {
             guard.notThrown();
             close();
-            return core::StopReason::kAtEnd;
+            return StopReason::kAtEnd;
           }
           CpuWallTimer timer(op->stats().finishTiming);
           op->finish();
@@ -472,11 +479,11 @@ core::StopReason Driver::runInternal(
   } catch (velox::VeloxException& e) {
     task_->setError(std::current_exception());
     // The CancelPoolGuard will close 'self' and remove from task_.
-    return core::StopReason::kAlreadyTerminated;
+    return StopReason::kAlreadyTerminated;
   } catch (std::exception& e) {
     task_->setError(std::current_exception());
-    // The CancelPoolGuard will close 'self' and remove from task_.
-    return core::StopReason::kAlreadyTerminated;
+    // The CancelGuard will close 'self' and remove from task_.
+    return StopReason::kAlreadyTerminated;
   }
 }
 
@@ -485,22 +492,22 @@ void Driver::run(std::shared_ptr<Driver> self) {
   std::shared_ptr<BlockingState> blockingState;
   auto reason = self->runInternal(self, &blockingState);
   switch (reason) {
-    case core::StopReason::kBlock:
-      // Set the resume action outside of the CancelPool so that, if the
+    case StopReason::kBlock:
+      // Set the resume action outside of the Task so that, if the
       // future is already realized we do not have a second thread
       // entering the same Driver.
       BlockingState::setResume(blockingState);
       return;
 
-    case core::StopReason::kYield:
+    case StopReason::kYield:
       // Go to the end of the queue.
       enqueue(self);
       return;
 
-    case core::StopReason::kPause:
-    case core::StopReason::kTerminate:
-    case core::StopReason::kAlreadyTerminated:
-    case core::StopReason::kAtEnd:
+    case StopReason::kPause:
+    case StopReason::kTerminate:
+    case StopReason::kAlreadyTerminated:
+    case StopReason::kAtEnd:
       return;
     default:
       VELOX_CHECK(false, "Unhandled stop reason");
@@ -543,8 +550,8 @@ void Driver::close() {
 }
 
 bool Driver::terminate() {
-  auto stop = cancelPool_->enterForTerminate(state_);
-  if (stop == core::StopReason::kTerminate) {
+  auto stop = task_->enterForTerminate(state_);
+  if (stop == StopReason::kTerminate) {
     close();
     return true;
   }
@@ -645,15 +652,13 @@ std::string Driver::toString() {
 }
 SuspendedSection::SuspendedSection(Driver* FOLLY_NONNULL driver)
     : driver_(driver) {
-  if (driver->cancelPool()->enterSuspended(driver->state()) !=
-      core::StopReason::kNone) {
+  if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
     VELOX_FAIL("Terminate detected when entering suspended section");
   }
 }
 
 SuspendedSection::~SuspendedSection() {
-  if (driver_->cancelPool()->leaveSuspended(driver_->state()) !=
-      core::StopReason::kNone) {
+  if (driver_->task()->leaveSuspended(driver_->state()) != StopReason::kNone) {
     VELOX_FAIL("Terminate detected when leaving suspended section");
   }
 }

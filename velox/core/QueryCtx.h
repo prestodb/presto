@@ -18,7 +18,6 @@
 #include <folly/Executor.h>
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/core/CancelPool.h"
 #include "velox/core/Context.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/vector/DecodedVector.h"
@@ -134,7 +133,6 @@ class QueryCtx : public Context {
 
   static constexpr const char* kQueryRootMemoryPool = "query_root";
 
-  CancelPoolPtr cancelPool_;
   std::unique_ptr<memory::MemoryPool> pool_;
   memory::MappedMemory* mappedMemory_;
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
