@@ -33,7 +33,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropViewTask
-        implements DataDefinitionTask<DropView>
+        implements DDLDefinitionTask<DropView>
 {
     @Override
     public String getName()

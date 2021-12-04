@@ -44,7 +44,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CreateTypeTask
-        implements DataDefinitionTask<CreateType>
+        implements DDLDefinitionTask<CreateType>
 {
     private final SqlParser sqlParser;
 

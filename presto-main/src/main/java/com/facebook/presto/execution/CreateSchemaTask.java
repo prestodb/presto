@@ -37,7 +37,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class CreateSchemaTask
-        implements DataDefinitionTask<CreateSchema>
+        implements DDLDefinitionTask<CreateSchema>
 {
     @Override
     public String getName()

@@ -34,7 +34,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropSchemaTask
-        implements DataDefinitionTask<DropSchema>
+        implements DDLDefinitionTask<DropSchema>
 {
     @Override
     public String getName()

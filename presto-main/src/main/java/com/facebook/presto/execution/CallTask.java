@@ -62,7 +62,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public class CallTask
-        implements DataDefinitionTask<Call>
+        implements DDLDefinitionTask<Call>
 {
     @Override
     public String getName()

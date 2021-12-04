@@ -32,9 +32,4 @@ public interface SessionTransactionControlTask<T extends Statement>
     ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata,
                                 AccessControl accessControl, QueryStateMachine stateMachine,
                                 List<Expression> parameters);
-
-    default boolean isTransactionControl()
-    {
-        return false;
-    }
 }

@@ -37,7 +37,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_E
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RenameTableTask
-        implements DataDefinitionTask<RenameTable>
+        implements DDLDefinitionTask<RenameTable>
 {
     @Override
     public String getName()

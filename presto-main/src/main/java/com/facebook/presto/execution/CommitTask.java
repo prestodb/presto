@@ -48,10 +48,4 @@ public class CommitTask
         stateMachine.clearTransactionId();
         return transactionManager.asyncCommit(transactionId);
     }
-
-    @Override
-    public boolean isTransactionControl()
-    {
-        return true;
-    }
 }

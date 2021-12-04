@@ -39,7 +39,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RevokeRolesTask
-        implements DataDefinitionTask<RevokeRoles>
+        implements DDLDefinitionTask<RevokeRoles>
 {
     @Override
     public String getName()

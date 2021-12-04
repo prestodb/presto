@@ -64,7 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class CreateTableTask
-        implements DataDefinitionTask<CreateTable>
+        implements DDLDefinitionTask<CreateTable>
 {
     @Override
     public String getName()

@@ -50,7 +50,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class AddColumnTask
-        implements DataDefinitionTask<AddColumn>
+        implements DDLDefinitionTask<AddColumn>
 {
     @Override
     public String getName()

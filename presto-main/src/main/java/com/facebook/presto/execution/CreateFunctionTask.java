@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.RoutineBody;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.inject.Inject;
@@ -59,7 +60,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CreateFunctionTask
-        implements DataDefinitionTask<CreateFunction>
+        implements DDLDefinitionTask<CreateFunction>
 {
     private final SqlParser sqlParser;
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
@@ -172,6 +173,7 @@ public class CreateFunctionTask
         }
     }
 
+    @VisibleForTesting
     public Map<SqlFunctionId, SqlInvokedFunction> getAddedSessionFunctions()
     {
         return addedSessionFunctions;

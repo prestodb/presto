@@ -38,7 +38,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class DropColumnTask
-        implements DataDefinitionTask<DropColumn>
+        implements DDLDefinitionTask<DropColumn>
 {
     @Override
     public String getName()

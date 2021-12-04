@@ -37,7 +37,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class CreateRoleTask
-        implements DataDefinitionTask<CreateRole>
+        implements DDLDefinitionTask<CreateRole>
 {
     @Override
     public String getName()

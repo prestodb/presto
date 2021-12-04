@@ -26,6 +26,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -45,10 +46,9 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class DropFunctionTask
-        implements DataDefinitionTask<DropFunction>
+        implements DDLDefinitionTask<DropFunction>
 {
     private final SqlParser sqlParser;
-    private QueryStateMachine stateMachine;
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
 
     @Inject
@@ -107,6 +107,7 @@ public class DropFunctionTask
         }
     }
 
+    @VisibleForTesting
     public Set<SqlFunctionId> getRemovedSessionFunctions()
     {
         return removedSessionFunctions;

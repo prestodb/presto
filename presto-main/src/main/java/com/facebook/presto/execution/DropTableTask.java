@@ -35,7 +35,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropTableTask
-        implements DataDefinitionTask<DropTable>
+        implements DDLDefinitionTask<DropTable>
 {
     @Override
     public String getName()

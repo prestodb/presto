@@ -15,7 +15,7 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.DDLDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.metadata.Metadata;
@@ -41,7 +41,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
 {
     private static final Logger log = Logger.get(PrestoSparkDataDefinitionExecution.class);
 
-    private final DataDefinitionTask<T> task;
+    private final DDLDefinitionTask<T> task;
     private final T statement;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
@@ -51,7 +51,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
     private final WarningCollector warningCollector;
 
     public PrestoSparkDataDefinitionExecution(
-            DataDefinitionTask<T> task,
+            DDLDefinitionTask<T> task,
             T statement,
             TransactionManager transactionManager,
             AccessControl accessControl,

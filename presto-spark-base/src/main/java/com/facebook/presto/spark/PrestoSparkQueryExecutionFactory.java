@@ -25,6 +25,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.execution.DDLDefinitionTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -408,7 +409,7 @@ public class PrestoSparkQueryExecutionFactory
             Optional<QueryType> queryType = StatementUtils.getQueryType(preparedQuery.getStatement().getClass());
             if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION)) {
                 queryStateTimer.endAnalysis();
-                DataDefinitionTask<?> task = (DataDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
+                DDLDefinitionTask<?> task = (DDLDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
                 return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector);
             }
             else {

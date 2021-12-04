@@ -33,7 +33,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIA
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropMaterializedViewTask
-        implements DataDefinitionTask<DropMaterializedView>
+        implements DDLDefinitionTask<DropMaterializedView>
 {
     @Override
     public String getName()

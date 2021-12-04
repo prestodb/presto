@@ -39,7 +39,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class GrantRolesTask
-        implements DataDefinitionTask<GrantRoles>
+        implements DDLDefinitionTask<GrantRoles>
 {
     @Override
     public String getName()

@@ -47,7 +47,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask
-        implements DataDefinitionTask<CreateView>
+        implements DDLDefinitionTask<CreateView>
 {
     private final JsonCodec<ViewDefinition> codec;
     private final SqlParser sqlParser;

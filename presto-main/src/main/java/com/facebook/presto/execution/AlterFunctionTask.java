@@ -39,7 +39,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class AlterFunctionTask
-        implements DataDefinitionTask<AlterFunction>
+        implements DDLDefinitionTask<AlterFunction>
 {
     private final SqlParser sqlParser;
 

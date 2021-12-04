@@ -40,7 +40,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask
-        implements DataDefinitionTask<RenameColumn>
+        implements DDLDefinitionTask<RenameColumn>
 {
     @Override
     public String getName()

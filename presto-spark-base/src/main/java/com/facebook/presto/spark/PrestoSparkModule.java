@@ -406,7 +406,7 @@ public class PrestoSparkModule
         binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         //Support DDL statements. Helper class binds DDL statements to DataDefinitionTasks
-        PrestoDataDefBindingHelper.bindDataDefinitionTasks(binder);
+        PrestoDataDefBindingHelper.bindDDLDefinitionTasks(binder);
 
         // TODO: Decouple node specific system tables
         binder.bind(QueryManager.class).to(PrestoSparkQueryManager.class).in(Scopes.SINGLETON);

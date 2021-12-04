@@ -33,7 +33,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RenameSchemaTask
-        implements DataDefinitionTask<RenameSchema>
+        implements DDLDefinitionTask<RenameSchema>
 {
     @Override
     public String getName()

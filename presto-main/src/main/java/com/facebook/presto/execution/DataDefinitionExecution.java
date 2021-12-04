@@ -14,45 +14,32 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
-import javax.annotation.Nullable;
-import javax.inject.Inject;
-
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-public class DataDefinitionExecution<T extends Statement>
+public abstract class DataDefinitionExecution<T extends Statement>
         implements QueryExecution
 {
     private final DataDefinitionTask<T> task;
@@ -201,40 +188,6 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void start()
-    {
-        try {
-            // transition to running
-            if (!stateMachine.transitionToRunning()) {
-                // query already running or finished
-                return;
-            }
-
-            WarningCollector warningCollector = stateMachine.getWarningCollector();
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector);
-
-            Futures.addCallback(future, new FutureCallback<Object>()
-            {
-                @Override
-                public void onSuccess(@Nullable Object result)
-                {
-                    stateMachine.transitionToFinishing();
-                }
-
-                @Override
-                public void onFailure(Throwable throwable)
-                {
-                    fail(throwable);
-                }
-            }, directExecutor());
-        }
-        catch (Throwable e) {
-            fail(e);
-            throwIfInstanceOf(e, Error.class);
-        }
-    }
-
-    @Override
     public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
         // DDL does not have an output
@@ -322,54 +275,5 @@ public class DataDefinitionExecution<T extends Statement>
     public List<Expression> getParameters()
     {
         return parameters;
-    }
-
-    public static class DataDefinitionExecutionFactory
-            implements QueryExecutionFactory<DataDefinitionExecution<?>>
-    {
-        private final TransactionManager transactionManager;
-        private final Metadata metadata;
-        private final AccessControl accessControl;
-        private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
-
-        @Inject
-        public DataDefinitionExecutionFactory(
-                TransactionManager transactionManager,
-                MetadataManager metadata,
-                AccessControl accessControl,
-                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
-        {
-            this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.tasks = requireNonNull(tasks, "tasks is null");
-        }
-
-        @Override
-        public DataDefinitionExecution<?> createQueryExecution(
-                PreparedQuery preparedQuery,
-                QueryStateMachine stateMachine,
-                String slug,
-                int retryCount,
-                WarningCollector warningCollector,
-                Optional<QueryType> queryType)
-        {
-            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, retryCount);
-        }
-
-        private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
-                T statement,
-                List<Expression> parameters,
-                QueryStateMachine stateMachine,
-                String slug,
-                int retryCount)
-        {
-            @SuppressWarnings("unchecked")
-            DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
-            checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
-
-            stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
-        }
     }
 }

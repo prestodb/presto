@@ -32,7 +32,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class DropRoleTask
-        implements DataDefinitionTask<DropRole>
+        implements DDLDefinitionTask<DropRole>
 {
     @Override
     public String getName()

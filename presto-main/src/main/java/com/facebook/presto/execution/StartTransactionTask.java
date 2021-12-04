@@ -71,12 +71,6 @@ public class StartTransactionTask
         return immediateFuture(null);
     }
 
-    @Override
-    public boolean isTransactionControl()
-    {
-        return true;
-    }
-
     private static Optional<IsolationLevel> extractIsolationLevel(StartTransaction startTransaction)
     {
         if (startTransaction.getTransactionModes().stream()

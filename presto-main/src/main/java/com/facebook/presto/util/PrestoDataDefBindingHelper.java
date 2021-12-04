@@ -143,7 +143,7 @@ public class PrestoDataDefBindingHelper
         TRANSACTION_CONTROL_TYPES = transactionDefBuilder.build();
     }
 
-    public static void bindDataDefinitionTasks(Binder binder)
+    public static void bindDDLDefinitionTasks(Binder binder)
     {
         MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});

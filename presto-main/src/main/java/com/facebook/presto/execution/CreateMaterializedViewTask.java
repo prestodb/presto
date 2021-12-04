@@ -54,7 +54,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class CreateMaterializedViewTask
-        implements DataDefinitionTask<CreateMaterializedView>
+        implements DDLDefinitionTask<CreateMaterializedView>
 {
     private final SqlParser sqlParser;
 

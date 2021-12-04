@@ -50,10 +50,4 @@ public class RollbackTask
         transactionManager.asyncAbort(transactionId);
         return immediateFuture(null);
     }
-
-    @Override
-    public boolean isTransactionControl()
-    {
-        return true;
-    }
 }
