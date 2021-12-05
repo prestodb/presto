@@ -120,7 +120,7 @@ public class ClickHouseClient
     @Inject
     public ClickHouseClient(ClickHouseConnectorId connectorId, ClickHouseConfig config, ConnectionFactory connectionFactory)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is  null").toString();
         this.identifierQuote = "\"";
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
 

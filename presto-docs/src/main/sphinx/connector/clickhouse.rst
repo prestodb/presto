@@ -69,7 +69,7 @@ run ``SHOW SCHEMAS``  to see the available ClickHouse databases::
 
     SHOW SCHEMAS FROM clickhouse;
 
-If you have a ClickHouse database named ``tpch`` , run ``SHOW TABLES`` to view the
+If you have a ClickHouse database named ``tpch``, run ``SHOW TABLES`` to view the
 tables in this database::
 
     SHOW TABLES FROM clickhouse.tpch;
