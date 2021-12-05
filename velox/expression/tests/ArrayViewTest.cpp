@@ -17,6 +17,7 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 namespace {
@@ -121,6 +122,134 @@ TEST_F(ArrayViewTest, notNullContainer) {
       j++;
     }
   }
+}
+
+TEST_F(ArrayViewTest, arrowOperatorForOptional) {
+  std::vector<std::vector<StringView>> data = {
+      {""_sv, "a"_sv, "aa"_sv, "aaa"_sv},
+      {""_sv, "b"_sv, "bb"_sv},
+      {""_sv, "c"_sv},
+  };
+  auto arrayVector = makeArrayVector(data);
+  DecodedVector decoded;
+  exec::VectorReader<Array<Varchar>> reader(
+      decode(decoded, *arrayVector.get()));
+
+  auto arrayView = reader[0];
+  auto totalSize = 0;
+  for (const auto& string : arrayView) {
+    totalSize += string->size();
+  }
+  ASSERT_EQ(totalSize, 6);
+}
+
+TEST_F(ArrayViewTest, itIncrementSafe) {
+  auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
+  DecodedVector decoded;
+  exec::VectorReader<Array<int64_t>> reader(
+      decode(decoded, *arrayVector.get()));
+
+  {
+    // Test that it++ does not invalidate references for ArrayView::Iterator
+    // obtained by *.
+    auto arrayViewIt = reader[4].begin();
+    const auto& optionalValRef = *arrayViewIt;
+    auto valBefore = optionalValRef;
+    arrayViewIt++;
+    auto valAfter = optionalValRef;
+    EXPECT_EQ(valBefore, valAfter);
+    EXPECT_EQ(valBefore, std::optional<int64_t>{0});
+  }
+
+  {
+    // Test that it++ does not invalidate references for ArrayView::Iterator
+    // obtained by throw ->.
+    auto arrayViewIt = reader[4].begin();
+    const auto& valueRef = arrayViewIt->value();
+    auto valBefore = valueRef;
+    arrayViewIt++;
+    auto valAfter = valueRef;
+    EXPECT_EQ(valBefore, valAfter);
+    EXPECT_EQ(valBefore, 0);
+  };
+
+  {
+    // Test that it++ does not invalidate references for
+    // ArrayView::SkipNullContainer::Iterator.
+    auto skipNullsIt = reader[4].skipNulls().begin();
+    const auto& notNullRef = *skipNullsIt;
+    auto valBefore = notNullRef;
+    skipNullsIt++;
+    auto valAfter = notNullRef;
+    EXPECT_EQ(valBefore, valAfter);
+    EXPECT_EQ(valBefore, 0);
+  }
+}
+
+// Function that takes an array of arrays as input.
+template <typename T>
+struct NestedArrayF {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<Array<Array<int64_t>>>& input) {
+    out = 0;
+    for (const auto& inner : input) {
+      if (inner) {
+        for (const auto& v : inner.value()) {
+          if (v) {
+            out += v.value();
+          }
+        }
+      }
+    }
+
+    // Test operator -> in ArrayView.
+    int64_t outTest = 0;
+    for (auto it = input.begin(); it < input.end(); it++) {
+      for (auto it2 = it->value().begin(); it2 < it->value().end(); it2++) {
+        outTest += it2->value();
+      }
+    }
+
+    // Test operator -> in OptionalValueAccessor.
+    int64_t outTest2 = 0;
+    for (auto it = input.begin(); it < input.end(); it++) {
+      auto optionalOfArrayView = *it;
+      for (auto it2 = optionalOfArrayView->begin();
+           it2 < optionalOfArrayView->end();
+           it2++) {
+        outTest2 += it2->value();
+      }
+    }
+
+    EXPECT_EQ(outTest, out);
+    EXPECT_EQ(outTest2, out);
+
+    return true;
+  }
+};
+
+TEST_F(ArrayViewTest, nestedArray) {
+  registerFunction<NestedArrayF, int64_t, Array<Array<int64_t>>>({"func"});
+  std::vector<std::vector<int64_t>> arrayData = {
+      {0, 1, 2, 4},
+      {99, 98},
+      {101, 42},
+      {10001, 12345676},
+  };
+
+  size_t rows = arrayData.size();
+  auto arrayVector = makeArrayVector(arrayData);
+  auto result = evaluate<FlatVector<int64_t>>(
+      "func(array_constructor(c0, c0))", makeRowVector({arrayVector}));
+
+  auto expected = makeFlatVector<int64_t>(rows, [&](auto row) {
+    return 2 * std::accumulate(arrayData[row].begin(), arrayData[row].end(), 0);
+  });
+
+  assertEqualVectors(expected, result);
 }
 
 } // namespace
