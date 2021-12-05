@@ -65,7 +65,7 @@ Querying ClickHouse
 -------------------
 
 The ClickHouse connector provides a schema for every ClickHouse *database*.
-run ``SHOW SCHEMAS``  to see the available ClickHouse databases::
+run ``SHOW SCHEMAS`` to see the available ClickHouse databases::
 
     SHOW SCHEMAS FROM clickhouse;
 
