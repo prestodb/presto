@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -33,13 +32,13 @@ public class TestingPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
         return new TestingPageSink();
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
         return new TestingPageSink();
     }

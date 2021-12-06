@@ -24,7 +24,6 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -58,13 +57,13 @@ public class IcebergPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
         return createPageSink(session, (IcebergWritableTableHandle) outputTableHandle);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
         return createPageSink(session, (IcebergWritableTableHandle) insertTableHandle);
     }

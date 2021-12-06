@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
@@ -46,14 +45,14 @@ public class DruidPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
         DruidIngestionTableHandle tableHandle = (DruidIngestionTableHandle) outputTableHandle;
         return new DruidPageSink(druidConfig, druidClient, tableHandle, druidPageWriter);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
         DruidIngestionTableHandle tableHandle = (DruidIngestionTableHandle) insertTableHandle;
         return new DruidPageSink(druidConfig, druidClient, tableHandle, druidPageWriter);

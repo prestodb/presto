@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -54,13 +53,13 @@ public class KafkaPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
         throw new UnsupportedOperationException("Table creation is not supported by the kafka connector");
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
         requireNonNull(insertTableHandle, "tableHandle is null");
         KafkaTableHandle handle = (KafkaTableHandle) insertTableHandle;

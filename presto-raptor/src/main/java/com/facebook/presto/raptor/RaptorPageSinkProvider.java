@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
@@ -53,7 +52,7 @@ public class RaptorPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         checkArgument(!pageSinkContext.isCommitRequired(), "Raptor connector does not support page sink commit");
 
@@ -76,7 +75,7 @@ public class RaptorPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         checkArgument(!pageSinkContext.isCommitRequired(), "Raptor connector does not support page sink commit");
 

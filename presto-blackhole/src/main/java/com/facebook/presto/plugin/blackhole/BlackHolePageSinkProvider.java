@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,7 +35,7 @@ public class BlackHolePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
         checkArgument(!pageSinkContext.isCommitRequired(), "Black hole connector does not support page sink commit");
         BlackHoleOutputTableHandle handle = (BlackHoleOutputTableHandle) outputTableHandle;
@@ -44,7 +43,7 @@ public class BlackHolePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
         checkArgument(!pageSinkContext.isCommitRequired(), "Black hole connector does not support page sink commit");
         BlackHoleInsertTableHandle handle = (BlackHoleInsertTableHandle) insertTableHandle;

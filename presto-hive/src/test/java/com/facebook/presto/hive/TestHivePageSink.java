@@ -322,7 +322,7 @@ public class TestHivePageSink
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()),
                 stats,
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
-        return provider.createPageSink(transaction, getSession(config), handle, TEST_HIVE_PAGE_SINK_CONTEXT);
+        return provider.createPageSink(getSession(config), handle, TEST_HIVE_PAGE_SINK_CONTEXT);
     }
 
     private static TestingConnectorSession getSession(HiveClientConfig config)

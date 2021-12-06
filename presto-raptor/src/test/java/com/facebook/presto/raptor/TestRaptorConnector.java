@@ -247,7 +247,7 @@ public class TestRaptorConnector
         ConnectorTransactionHandle txn1 = connector.beginTransaction(READ_COMMITTED, false);
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(txn1), "test");
         ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(txn1).beginInsert(session, handle1);
-        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle, PageSinkContext.defaultContext());
+        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(session, insertTableHandle, PageSinkContext.defaultContext());
 
         Object timestamp1 = null;
         Object timestamp2 = null;

@@ -51,7 +51,7 @@ public class PageSinkManager
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle(), pageSinkContext);
+        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle(), pageSinkContext);
     }
 
     @Override
@@ -59,7 +59,7 @@ public class PageSinkManager
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle(), pageSinkContext);
+        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle(), pageSinkContext);
     }
 
     private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)

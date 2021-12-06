@@ -412,7 +412,7 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
             // write the records
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, TEST_HIVE_PAGE_SINK_CONTEXT);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(session, outputHandle, TEST_HIVE_PAGE_SINK_CONTEXT);
             sink.appendPage(data.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 

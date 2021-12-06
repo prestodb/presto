@@ -31,7 +31,6 @@ import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -123,7 +122,7 @@ public class HivePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
         Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
@@ -132,7 +131,7 @@ public class HivePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
