@@ -830,7 +830,7 @@ std::unique_ptr<Filter> BigintValuesUsingHashTable::mergeWith(
   }
 
   std::vector<int64_t> valuesToKeep;
-  valuesToKeep.reserve(max - min + 1);
+  valuesToKeep.reserve(values_.size());
   if (containsEmptyMarker_ && other->testInt64(kEmptyMarker)) {
     valuesToKeep.emplace_back(kEmptyMarker);
   }
