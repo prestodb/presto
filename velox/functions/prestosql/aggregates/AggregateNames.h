@@ -33,6 +33,7 @@ const char* const kCount = "count";
 const char* const kCountIf = "count_if";
 const char* const kCovarPop = "covar_pop";
 const char* const kCovarSamp = "covar_samp";
+const char* const kEvery = "every";
 const char* const kMapAgg = "map_agg";
 const char* const kMax = "max";
 const char* const kMaxBy = "max_by";

@@ -199,6 +199,10 @@ bool registerBoolAggregate(const std::string& name) {
 
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
     registerBoolAggregate<BoolAndAggregate>(kBoolAnd);
+
+static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
+    registerBoolAggregate<BoolAndAggregate>(kEvery);
+
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
     registerBoolAggregate<BoolOrAggregate>(kBoolOr);
 

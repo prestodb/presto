@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/test_utils/GTestUtils.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 
 using facebook::velox::exec::test::PlanBuilder;
@@ -23,122 +23,100 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class BoolAndOrTest : public AggregationTestBase {};
+struct TestParams {
+  std::string veloxName;
+  std::string duckDbName;
 
-TEST_F(BoolAndOrTest, boolOr) {
+  std::string toString() const {
+    return veloxName;
+  }
+};
+
+class BoolAndOrTest : public virtual AggregationTestBase,
+                      public testing::WithParamInterface<TestParams> {};
+
+TEST_P(BoolAndOrTest, basic) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), BOOLEAN()});
   auto vectors = makeVectors(rowType, 1000, 10);
   createDuckDbTable(vectors);
 
+  const auto veloxName = GetParam().veloxName;
+  const auto duckDbName = GetParam().duckDbName;
+
+  const auto partialAgg = fmt::format("{}(c1)", veloxName);
+  const auto finalAgg = fmt::format("{}(a0)", veloxName);
+
   // Global partial aggregation.
   auto agg = PlanBuilder()
                  .values(vectors)
-                 .partialAggregation({}, {"bool_or(c1)"})
+                 .partialAggregation({}, {partialAgg})
                  .planNode();
-  assertQuery(agg, "SELECT bit_or(c1::TINYINT) FROM tmp");
+  assertQuery(agg, fmt::format("SELECT {}(c1::TINYINT) FROM tmp", duckDbName));
 
   // Global final aggregation.
   agg = PlanBuilder()
             .values(vectors)
-            .partialAggregation({}, {"bool_or(c1)"})
-            .finalAggregation({}, {"bool_or(a0)"})
+            .partialAggregation({}, {partialAgg})
+            .finalAggregation({}, {finalAgg})
             .planNode();
-  assertQuery(agg, "SELECT bit_or(c1::TINYINT) FROM tmp");
+  assertQuery(agg, fmt::format("SELECT {}(c1::TINYINT) FROM tmp", duckDbName));
 
   // Group by partial aggregation.
   agg = PlanBuilder()
             .values(vectors)
             .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"bool_or(c1)"})
+            .partialAggregation({0}, {partialAgg})
             .planNode();
-  assertQuery(agg, "SELECT c0 % 10, bit_or(c1::TINYINT) FROM tmp GROUP BY 1");
+  assertQuery(
+      agg,
+      fmt::format(
+          "SELECT c0 % 10, {}(c1::TINYINT) FROM tmp GROUP BY 1", duckDbName));
 
   // Group by final aggregation.
   agg = PlanBuilder()
             .values(vectors)
             .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"bool_or(c1)"})
-            .finalAggregation({0}, {"bool_or(a0)"})
+            .partialAggregation({0}, {partialAgg})
+            .finalAggregation({0}, {finalAgg})
             .planNode();
-  assertQuery(agg, "SELECT c0 % 10, bit_or(c1::TINYINT) FROM tmp GROUP BY 1");
+  assertQuery(
+      agg,
+      fmt::format(
+          "SELECT c0 % 10, {}(c1::TINYINT) FROM tmp GROUP BY 1", duckDbName));
 
   // encodings: use filter to wrap aggregation inputs in a dictionary.
   agg = PlanBuilder()
             .values(vectors)
             .filter("c0 % 2 = 0")
             .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
-            .partialAggregation({0}, {"bool_and(c1)"})
+            .partialAggregation({0}, {partialAgg})
             .planNode();
 
   assertQuery(
       agg,
-      "SELECT c0 % 11, bit_and(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
+      fmt::format(
+          "SELECT c0 % 11, {}(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1",
+          duckDbName));
 
   agg = PlanBuilder()
             .values(vectors)
             .filter("c0 % 2 = 0")
-            .partialAggregation({}, {"bool_and(c1)"})
+            .partialAggregation({}, {partialAgg})
             .planNode();
-  assertQuery(agg, "SELECT bit_and(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0");
-}
-
-TEST_F(BoolAndOrTest, boolAnd) {
-  auto rowType = ROW({"c0", "c1"}, {BIGINT(), BOOLEAN()});
-  auto vectors = makeVectors(rowType, 1000, 10);
-  createDuckDbTable(vectors);
-
-  // Global partial aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"bool_and(c1)"})
-                 .planNode();
-  assertQuery(agg, "SELECT bit_and(c1::TINYINT) FROM tmp");
-
-  // Global final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({}, {"bool_and(c1)"})
-            .finalAggregation({}, {"bool_and(a0)"})
-            .planNode();
-  assertQuery(agg, "SELECT bit_and(c1::TINYINT) FROM tmp");
-
-  // Group by partial aggregation.
-
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"bool_and(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, bit_and(c1::TINYINT) FROM tmp GROUP BY 1");
-
-  // Group by final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"bool_and(c1)"})
-            .finalAggregation({0}, {"bool_and(a0)"})
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, bit_and(c1::TINYINT) FROM tmp GROUP BY 1");
-
-  // encodings: use filter to wrap aggregation inputs in a dictionary.
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
-            .partialAggregation({0}, {"bool_and(c1)"})
-            .planNode();
-
   assertQuery(
       agg,
-      "SELECT c0 % 11, bit_and(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
-
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .partialAggregation({}, {"bool_and(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT bit_and(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0");
+      fmt::format(
+          "SELECT {}(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0", duckDbName));
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    BoolAndOrTest,
+    BoolAndOrTest,
+    testing::Values(
+        TestParams{"bool_and", "bit_and"},
+        TestParams{"every", "bit_and"},
+        TestParams{"bool_or", "bit_or"}),
+    [](auto p) { return p.param.toString(); });
 
 } // namespace
 } // namespace facebook::velox::aggregate::test
