@@ -14,7 +14,6 @@ from different data sources.
     connector/cassandra
     connector/druid
     connector/elasticsearch
-    connector/gsheets
     connector/hive
     connector/hive-security
     connector/iceberg
