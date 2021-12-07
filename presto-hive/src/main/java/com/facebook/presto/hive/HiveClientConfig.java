@@ -202,6 +202,8 @@ public class HiveClientConfig
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
 
+    private boolean userDefinedTypeEncodingEnabled;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -317,6 +319,18 @@ public class HiveClientConfig
     public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
     {
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        return this;
+    }
+
+    public boolean isUserDefinedTypeEncodingEnabled()
+    {
+        return userDefinedTypeEncodingEnabled;
+    }
+
+    @Config("hive.user-defined-type-encoding-enabled")
+    public HiveClientConfig setUserDefinedTypeEncodingEnabled(boolean userDefinedTypeEncodingEnabled)
+    {
+        this.userDefinedTypeEncodingEnabled = userDefinedTypeEncodingEnabled;
         return this;
     }
 

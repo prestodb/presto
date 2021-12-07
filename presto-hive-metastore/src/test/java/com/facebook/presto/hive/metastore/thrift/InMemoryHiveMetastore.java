@@ -15,9 +15,11 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.HiveColumnConverter;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
@@ -90,6 +92,7 @@ public class InMemoryHiveMetastore
     @GuardedBy("this")
     private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
+    private final ColumnConverter columnConverter = new HiveColumnConverter();
     private final File baseDirectory;
 
     public InMemoryHiveMetastore(File baseDirectory)
@@ -310,7 +313,7 @@ public class InMemoryHiveMetastore
     public synchronized void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
-            Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
+            Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition(), columnConverter);
             if (partition.getParameters() == null) {
                 partition.setParameters(ImmutableMap.of());
             }
@@ -330,7 +333,7 @@ public class InMemoryHiveMetastore
     @Override
     public synchronized void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
-        Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
+        Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition(), columnConverter);
         if (partition.getParameters() == null) {
             partition.setParameters(ImmutableMap.of());
         }

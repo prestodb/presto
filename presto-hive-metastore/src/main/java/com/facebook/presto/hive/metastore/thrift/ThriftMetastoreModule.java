@@ -14,11 +14,13 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnConverter;
 import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.inject.Binder;
@@ -44,6 +46,7 @@ public class ThriftMetastoreModule
     {
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
+        binder.bind(ColumnConverter.class).to(HiveColumnConverter.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
 
         binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
