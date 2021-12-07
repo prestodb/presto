@@ -54,7 +54,7 @@ public class SliceDictionaryColumnWriter
 
     private final ByteArrayOutputStream dictionaryDataStream;
     private final LongOutputStream dictionaryLengthStream;
-    private final SliceDictionaryBuilder dictionary = new SliceDictionaryBuilder(10_000);
+    private final SliceDictionaryBuilder dictionary = new SliceDictionaryBuilder(1_024);
     private final int stringStatisticsLimitInBytes;
     private final boolean sortDictionaryKeys;
 

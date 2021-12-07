@@ -71,8 +71,9 @@ public class SegmentedSliceBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SegmentedSliceBlockBuilder.class).instanceSize();
 
-    private final DynamicSliceOutput openSliceOutput;
+    private final int expectedBytes;
 
+    private DynamicSliceOutput openSliceOutput;
     private int openSegmentIndex;
     private int openSegmentOffset;
     private int[][] offsets;
@@ -86,12 +87,15 @@ public class SegmentedSliceBlockBuilder
         offsets = new int[initialSize][];
         closedSlices = new Slice[initialSize];
         offsets[0] = new int[SEGMENT_SIZE + 1];
+        this.expectedBytes = expectedBytes;
         openSliceOutput = new DynamicSliceOutput(expectedBytes);
     }
 
     public void reset()
     {
-        openSliceOutput.reset();
+        // DynamicSliceOutput.reset() does not shrink memory, when dictionary is converted
+        // to direct, DynamicSliceOutput needs to give up memory to reduce the memory pressure.
+        openSliceOutput = new DynamicSliceOutput(expectedBytes);
 
         Arrays.fill(closedSlices, null);
         closedSlicesRetainedSize = 0;
@@ -375,9 +379,9 @@ public class SegmentedSliceBlockBuilder
     // Sizes and Initial Segments are tuned for the SliceDictionaryBuilder use case.
     static class Segments
     {
-        public static final int INITIAL_SEGMENTS = 64;
+        public static final int INITIAL_SEGMENTS = 32;
 
-        public static final int SEGMENT_SHIFT = 14;
+        public static final int SEGMENT_SHIFT = 10;
 
         /**
          * Size of a single segment of a BigArray
