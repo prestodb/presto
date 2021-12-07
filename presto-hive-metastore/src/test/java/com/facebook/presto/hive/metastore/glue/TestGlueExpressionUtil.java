@@ -35,7 +35,7 @@ public class TestGlueExpressionUtil
 
     private static Column getColumn(String name, String type)
     {
-        return new Column(name, HiveType.valueOf(type), Optional.empty());
+        return new Column(name, HiveType.valueOf(type), Optional.empty(), Optional.empty());
     }
 
     @Test

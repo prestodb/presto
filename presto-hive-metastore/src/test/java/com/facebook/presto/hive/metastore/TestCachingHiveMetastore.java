@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.MockHiveMetastore;
 import com.facebook.presto.hive.PartitionMutator;
@@ -71,10 +72,11 @@ public class TestCachingHiveMetastore
         mockClient = new MockHiveMetastoreClient();
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
-        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, new MetastoreClientConfig());
+        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
+        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, new MetastoreClientConfig(), hiveColumnConverter);
         PartitionMutator hivePartitionMutator = new HivePartitionMutator();
         metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator),
+                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator, hiveColumnConverter),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),
@@ -211,8 +213,9 @@ public class TestCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
+                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator, hiveColumnConverter),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),
@@ -257,8 +260,9 @@ public class TestCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
+        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, partitionMutator),
+                new BridgingHiveMetastore(mockHiveMetastore, partitionMutator, hiveColumnConverter),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),
@@ -291,8 +295,9 @@ public class TestCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         CachingHiveMetastore partitionCacheVerificationEnabledMetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
+                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator, hiveColumnConverter),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),

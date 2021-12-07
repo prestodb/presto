@@ -56,8 +56,8 @@ public class TestHivePartitionManager
     private static final String TABLE_NAME = "table";
     private static final String USER_NAME = "user";
     private static final String LOCATION = "somewhere/over/the/rainbow";
-    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty());
-    private static final Column BUCKET_COLUMN = new Column("c1", HIVE_INT, Optional.empty());
+    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
+    private static final Column BUCKET_COLUMN = new Column("c1", HIVE_INT, Optional.empty(), Optional.empty());
     private static final Table TABLE = new Table(
             SCHEMA_NAME,
             TABLE_NAME,

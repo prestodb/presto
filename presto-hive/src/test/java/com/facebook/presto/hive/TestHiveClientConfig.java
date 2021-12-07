@@ -159,6 +159,7 @@ public class TestHiveClientConfig
                 .setLooseMemoryAccountingEnabled(false)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05)
+                .setUserDefinedTypeEncodingEnabled(false)
                 .setUseRecordPageSourceForCustomSplit(true));
     }
 
@@ -278,6 +279,7 @@ public class TestHiveClientConfig
                 .put("hive.verbose-runtime-stats-enabled", "true")
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
                 .put("hive.size-based-split-weights-enabled", "false")
+                .put("hive.user-defined-type-encoding-enabled", "true")
                 .put("hive.minimum-assigned-split-weight", "1.0")
                 .put("hive.use-record-page-source-for-custom-split", "false")
                 .build();
@@ -396,6 +398,7 @@ public class TestHiveClientConfig
                 .setLooseMemoryAccountingEnabled(true)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0)
+                .setUserDefinedTypeEncodingEnabled(true)
                 .setUseRecordPageSourceForCustomSplit(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);

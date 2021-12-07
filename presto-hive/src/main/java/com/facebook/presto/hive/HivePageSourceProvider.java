@@ -558,7 +558,7 @@ public class HivePageSourceProvider
                     tableToPartitionMapping.getPartitionSchemaDifference(),
                     tableToPartitionMapping.getTableToPartitionColumns());
             List<Column> partitionKeyColumns = partitionKeyColumnHandles.stream()
-                    .map(handle -> new Column(handle.getName(), handle.getHiveType(), handle.getComment()))
+                    .map(handle -> Column.partitionColumn(handle.getName(), handle.getHiveType(), handle.getComment()))
                     .collect(toImmutableList());
 
             Properties schema = getHiveSchema(

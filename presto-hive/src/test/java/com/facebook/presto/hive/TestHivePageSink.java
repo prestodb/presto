@@ -268,7 +268,7 @@ public class TestHivePageSink
                         "path",
                         ImmutableList.of(),
                         getColumnHandles().stream()
-                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))
+                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty(), Optional.empty()))
                                 .collect(toImmutableList()),
                         ImmutableMap.of(),
                         TupleDomain.all(),

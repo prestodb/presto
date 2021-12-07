@@ -108,7 +108,7 @@ public class TestBackgroundHiveSplitLoader
             locatedFileStatus(FILTERED_PATH, 0L));
 
     private static final List<Column> PARTITION_COLUMNS = ImmutableList.of(
-            new Column("partitionColumn", HIVE_INT, Optional.empty()));
+            new Column("partitionColumn", HIVE_INT, Optional.empty(), Optional.empty()));
     private static final List<HiveColumnHandle> BUCKET_COLUMN_HANDLES = ImmutableList.of(
             new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
@@ -609,7 +609,7 @@ public class TestBackgroundHiveSplitLoader
                 .setOwner("testOwner")
                 .setTableName("test_table")
                 .setTableType(MANAGED_TABLE)
-                .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty(), Optional.empty())))
                 .setParameters(ImmutableMap.of())
                 .setPartitionColumns(partitionColumns)
                 .build();
