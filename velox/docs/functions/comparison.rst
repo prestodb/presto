@@ -2,12 +2,40 @@
 Comparison Functions
 =====================================
 
+Like most other Presto functions, these functions return null if any argument
+is null. These functions support all scalar input types. All arguments must be
+of the same type.
+
+.. function:: eq(x, y) -> boolean
+
+    Returns true if x is equal to y.
+
+.. function:: gt(x, y) -> boolean
+
+    Returns true if x is greater than y.
+
+.. function:: gte(x, y) -> boolean
+
+    Returns true if x is greater than or equal to y.
+
+.. function:: lt(x, y) -> boolean
+
+    Returns true if x is less than y.
+
+.. function:: lte(x, y) -> boolean
+
+    Returns true if x is less than or equal to y.
+
+.. function:: neq(x, y) -> boolean
+
+    Returns true if x is not equal to y.
+
 GREATEST and LEAST
------------------
-These functions are not in the SQL standard, but are a common extension.
-Like most other functions in Presto, they return null if any argument is null.
-Note that in some other databases, such as PostgreSQL, they only return null
-if all arguments are null.
+------------------
+
+Like most other Presto functions, these functions return null if any argument
+is null.
+
 The following types are supported: DOUBLE, BIGINT, VARCHAR, TIMESTAMP, DATE
 
 .. function:: least(value1, value2, ..., valueN) -> [same as input]
