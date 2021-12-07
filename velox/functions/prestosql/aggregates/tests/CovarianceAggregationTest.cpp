@@ -31,10 +31,13 @@ class CovarianceAggregationTest
     auto sql = fmt::format(
         "SELECT c0, round({}(c1, c2), 2) FROM tmp GROUP BY 1", aggName);
 
+    // DOUBLE inputs produce DOUBLE results. REAL inputs produce REAL results.
+    auto finalResultType = data->childAt(1)->type();
+
     auto op = PlanBuilder()
                   .values({data})
                   .partialAggregation({0}, {partialAgg})
-                  .finalAggregation({0}, {finalAgg})
+                  .finalAggregation({0}, {finalAgg}, {finalResultType})
                   .project({"c0", "round(a0, cast(2 as integer))"})
                   .planNode();
 
@@ -42,7 +45,7 @@ class CovarianceAggregationTest
 
     op = PlanBuilder()
              .values({data})
-             .singleAggregation({0}, {partialAgg})
+             .singleAggregation({0}, {partialAgg}, {finalResultType})
              .project({"c0", "round(a0, cast(2 as integer))"})
              .planNode();
 
@@ -54,10 +57,13 @@ class CovarianceAggregationTest
     auto finalAgg = fmt::format("{}(a0)", aggName);
     auto sql = fmt::format("SELECT round({}(c1, c2), 2) FROM tmp", aggName);
 
+    // DOUBLE inputs produce DOUBLE results. REAL inputs produce REAL results.
+    auto finalResultType = data->childAt(1)->type();
+
     auto op = PlanBuilder()
                   .values({data})
                   .partialAggregation({}, {partialAgg})
-                  .finalAggregation({}, {finalAgg})
+                  .finalAggregation({}, {finalAgg}, {finalResultType})
                   .project({"round(a0, cast(2 as integer))"})
                   .planNode();
 
@@ -65,7 +71,7 @@ class CovarianceAggregationTest
 
     op = PlanBuilder()
              .values({data})
-             .singleAggregation({}, {partialAgg})
+             .singleAggregation({}, {partialAgg}, {finalResultType})
              .project({"round(a0, cast(2 as integer))"})
              .planNode();
 
@@ -73,7 +79,7 @@ class CovarianceAggregationTest
   }
 };
 
-TEST_P(CovarianceAggregationTest, noNulls) {
+TEST_P(CovarianceAggregationTest, doubleNoNulls) {
   vector_size_t size = 1'000;
   auto data = makeRowVector({
       makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
@@ -88,13 +94,45 @@ TEST_P(CovarianceAggregationTest, noNulls) {
   testGroupBy(aggName, data);
 }
 
-TEST_P(CovarianceAggregationTest, someNulls) {
+TEST_P(CovarianceAggregationTest, doubleSomeNulls) {
   vector_size_t size = 1'000;
   auto data = makeRowVector({
       makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
       makeFlatVector<double>(
           size, [](auto row) { return row * 0.1; }, nullEvery(11)),
       makeFlatVector<double>(
+          size, [](auto row) { return row * 0.2; }, nullEvery(17)),
+  });
+
+  createDuckDbTable({data});
+
+  auto aggName = GetParam();
+  testGlobalAgg(aggName, data);
+  testGroupBy(aggName, data);
+}
+
+TEST_P(CovarianceAggregationTest, floatNoNulls) {
+  vector_size_t size = 1'000;
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
+      makeFlatVector<float>(size, [](auto row) { return row * 0.1; }),
+      makeFlatVector<float>(size, [](auto row) { return row * 0.2; }),
+  });
+
+  createDuckDbTable({data});
+
+  auto aggName = GetParam();
+  testGlobalAgg(aggName, data);
+  testGroupBy(aggName, data);
+}
+
+TEST_P(CovarianceAggregationTest, floatSomeNulls) {
+  vector_size_t size = 1'000;
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
+      makeFlatVector<float>(
+          size, [](auto row) { return row * 0.1; }, nullEvery(11)),
+      makeFlatVector<float>(
           size, [](auto row) { return row * 0.2; }, nullEvery(17)),
   });
 

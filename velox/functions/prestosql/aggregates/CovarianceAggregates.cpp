@@ -281,7 +281,9 @@ class CorrIntermediateResult : public CovarIntermediateResult {
   double* m2Y_;
 };
 
+// @tparam T Type of the raw input and final result. Can be double or float.
 template <
+    typename T,
     typename TAccumulator,
     typename TIntermediateInput,
     typename TIntermediateResult,
@@ -319,7 +321,7 @@ class CovarianceAggregate : public exec::Aggregate {
       auto* group = groups[row];
       exec::Aggregate::clearNull(group);
       accumulator(group)->update(
-          decodedX_.valueAt<double>(row), decodedY_.valueAt<double>(row));
+          decodedX_.valueAt<T>(row), decodedY_.valueAt<T>(row));
     });
   }
 
@@ -359,8 +361,7 @@ class CovarianceAggregate : public exec::Aggregate {
       if (decodedX_.isNullAt(row) || decodedY_.isNullAt(row)) {
         return;
       }
-      accumulator->update(
-          decodedX_.valueAt<double>(row), decodedY_.valueAt<double>(row));
+      accumulator->update(decodedX_.valueAt<T>(row), decodedY_.valueAt<T>(row));
     });
   }
 
@@ -390,12 +391,12 @@ class CovarianceAggregate : public exec::Aggregate {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    auto vector = (*result)->as<FlatVector<double>>();
+    auto vector = (*result)->as<FlatVector<T>>();
     VELOX_CHECK(vector);
     vector->resize(numGroups);
     uint64_t* rawNulls = getRawNulls(vector);
 
-    double* rawValues = vector->mutableRawValues();
+    T* rawValues = vector->mutableRawValues();
     for (auto i = 0; i < numGroups; ++i) {
       char* group = groups[i];
       if (isNull(group)) {
@@ -404,7 +405,7 @@ class CovarianceAggregate : public exec::Aggregate {
         auto* accumulator = this->accumulator(group);
         if (TResultAccessor::hasResult(*accumulator)) {
           clearNull(rawNulls, i);
-          rawValues[i] = TResultAccessor::result(*accumulator);
+          rawValues[i] = (T)TResultAccessor::result(*accumulator);
         } else {
           vector->setNull(i, true);
         }
@@ -452,19 +453,37 @@ bool registerCovarianceAggregate(const std::string& name) {
       name,
       [name](
           core::AggregationNode::Step step,
-          const std::vector<TypePtr>& /* argTypes */,
-          const TypePtr& /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
-        TypePtr resultType;
-        if (exec::isPartialOutput(step)) {
-          resultType = TIntermediateResult::resultType();
-        } else {
-          resultType = DOUBLE();
+          const std::vector<TypePtr>& argTypes,
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
+        // TODO Add support for declaring function signature statically, so that
+        // tests could resolve intermediate and final types without needing to
+        // create an instance of the function.
+        auto resolvedResultType = exec::isPartialOutput(step)
+            ? TIntermediateResult::resultType()
+            : resultType;
+        auto rawInputType = exec::isRawInput(step)
+            ? argTypes[0]
+            : (exec::isPartialOutput(step) ? DOUBLE() : resultType);
+        switch (rawInputType->kind()) {
+          case TypeKind::DOUBLE:
+            return std::make_unique<CovarianceAggregate<
+                double,
+                TAccumulator,
+                TIntermediateInput,
+                TIntermediateResult,
+                TResultAccessor>>(resolvedResultType);
+          case TypeKind::REAL:
+            return std::make_unique<CovarianceAggregate<
+                float,
+                TAccumulator,
+                TIntermediateInput,
+                TIntermediateResult,
+                TResultAccessor>>(resolvedResultType);
+          default:
+            VELOX_UNSUPPORTED(
+                "Unsupported raw input type: {}. Expected DOUBLE or REAL.",
+                rawInputType->toString())
         }
-        return std::make_unique<CovarianceAggregate<
-            TAccumulator,
-            TIntermediateInput,
-            TIntermediateResult,
-            TResultAccessor>>(resultType);
       });
   return true;
 }
