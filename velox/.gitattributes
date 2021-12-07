@@ -1,0 +1,12 @@
+external/**                 -diff -merge
+external/**                 linguist-vendored=true
+external/date/*             -diff -merge
+external/date/*             linguist-vendored=true
+external/duckdb/**          -diff -merge
+external/duckdb/**          linguist-vendored=true
+external/duckdb/tpch/**     -diff -merge
+external/duckdb/tpch/**     linguist-vendored=true
+external/md5/*              -diff -merge
+external/md5/*              linguist-vendored=true
+external/utf8proc/*         -diff -merge
+external/utf8proc/*         linguist-vendored=true
