@@ -67,6 +67,9 @@ import static java.util.Objects.requireNonNull;
 public class DictionaryCompressionOptimizer
 {
     private static final double DICTIONARY_MIN_COMPRESSION_RATIO = 1.25;
+    private static final int TWO_BYTES_VARINT_MIN = 1 << 7;
+    private static final int THREE_BYTES_VARINT_MIN = 1 << 14;
+    private static final int FOUR_BYTES_VARINT_MIN = 1 << 21;
 
     static final DataSize DIRECT_COLUMN_SIZE_RANGE = new DataSize(4, MEGABYTE);
 
@@ -398,14 +401,14 @@ public class DictionaryCompressionOptimizer
 
     public static int estimateIndexBytesPerValue(int dictionaryEntries)
     {
-        // assume basic byte packing
-        if (dictionaryEntries <= 256) {
+        // Dictionary indexes are var-int encoded in ORC.
+        if (dictionaryEntries < TWO_BYTES_VARINT_MIN) {
             return 1;
         }
-        if (dictionaryEntries <= 65_536) {
+        if (dictionaryEntries < THREE_BYTES_VARINT_MIN) {
             return 2;
         }
-        if (dictionaryEntries <= 16_777_216) {
+        if (dictionaryEntries < FOUR_BYTES_VARINT_MIN) {
             return 3;
         }
         return 4;
