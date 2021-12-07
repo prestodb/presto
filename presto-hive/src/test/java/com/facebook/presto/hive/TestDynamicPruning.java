@@ -71,8 +71,8 @@ public class TestDynamicPruning
 {
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
-    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty());
-    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty());
+    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty(), Optional.empty());
+    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
     private static final HiveColumnHandle PARTITION_HIVE_COLUMN_HANDLE = new HiveColumnHandle(
             "ds",
             HIVE_STRING,
@@ -124,7 +124,7 @@ public class TestDynamicPruning
     private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, HiveClientConfig config, SplitContext splitContext, MetastoreClientConfig metastoreClientConfig, File outputFile)
     {
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), Optional.of("2020-09-09")));
-        Map<Integer, Column> partitionSchemaDifference = ImmutableMap.of(1, new Column("ds", HIVE_STRING, Optional.empty()));
+        Map<Integer, Column> partitionSchemaDifference = ImmutableMap.of(1, new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty()));
         HiveSplit split = new HiveSplit(
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -166,7 +166,7 @@ public class TestDynamicPruning
                         "path",
                         ImmutableList.of(PARTITION_HIVE_COLUMN_HANDLE),
                         getColumnHandles().stream()
-                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))
+                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty(), Optional.empty()))
                                 .collect(toImmutableList()),
                         ImmutableMap.of(),
                         TupleDomain.all(),

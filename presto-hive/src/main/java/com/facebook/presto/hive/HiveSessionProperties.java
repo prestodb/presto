@@ -36,6 +36,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingParti
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.METASTORE_HEADERS;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.USER_DEFINED_TYPE_ENCODING_ENABLED;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -610,6 +611,11 @@ public final class HiveSessionProperties
                         METASTORE_HEADERS,
                         "The headers that will be sent in the calls to Metastore",
                         null,
+                        false),
+                booleanProperty(
+                        USER_DEFINED_TYPE_ENCODING_ENABLED,
+                        "Enable user defined type",
+                        hiveClientConfig.isUserDefinedTypeEncodingEnabled(),
                         false),
                 booleanProperty(
                         DWRF_WRITER_STRIPE_CACHE_ENABLED,
