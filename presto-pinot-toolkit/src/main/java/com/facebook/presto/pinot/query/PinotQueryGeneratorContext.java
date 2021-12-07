@@ -425,9 +425,19 @@ public class PinotQueryGeneratorContext
         int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
         boolean isQueryShort = (hasAggregation() || hasGroupBy()) || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
         boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
-        String expressions = outputs.stream()
+        String groupByExpressions = groupByColumns.stream()
+                .map(x -> selections.get(x).getDefinition())
+                .collect(Collectors.joining(", "));
+        String selectExpressions = outputs.stream()
+                .filter(o -> !groupByColumns.contains(o))
                 .map(o -> selections.get(o).getDefinition())
                 .collect(Collectors.joining(", "));
+        String expressions = (groupByExpressions.isEmpty()) ?
+                selectExpressions :
+                (selectExpressions.isEmpty()) ?
+                        groupByExpressions :
+                        groupByExpressions + ", " + selectExpressions;
+
         String tableName = from.orElseThrow(() -> new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Table name not encountered yet"));
 
         // Rules for limit:
