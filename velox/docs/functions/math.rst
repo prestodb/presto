@@ -23,6 +23,14 @@ Mathematical Functions
     Returns ``low`` if ``x`` is less than ``low``. Returns ``high`` if ``x`` is greater than ``high``.
     Returns ``x`` otherwise.
 
+.. function:: divide(x, y) -> [same as x]
+
+    Returns the results of dividing x by y. The types of x and y must be the same.
+    The result of dividing by zero depends on the input types. For integral types,
+    division by zero results in an error. For floating point types,  division by
+    zero returns positive infinity if x is greater than zero, negative infinity if
+    x if less than zero and NaN if x is equal to zero.
+
 .. function:: exp(x) -> double
 
     Returns Euler's number raised to the power of ``x``.
@@ -43,9 +51,24 @@ Mathematical Functions
 
     Returns the base 10 logarithm of ``x``.
 
+.. function:: minus(x, y) -> [same as x]
+
+    Returns the result of subtracting y from x. The types of x and y must be the same.
+    For integral types, overflow results in an error.
+
 .. function:: mod(n, m) -> [same as n]
 
     Returns the modulus (remainder) of ``n`` divided by ``m``.
+
+.. function:: multiply(x, y) -> [same as x]
+
+    Returns the result of multiplying x by y. The types of x and y must be the same.
+    For integral types, overflow results in an error.
+
+.. function:: plus(x, y) -> [same as x]
+
+    Returns the result of adding x to y. The types of x and y must be the same.
+    For integral types, overflow results in an error.
 
 .. function:: pow(x, p) -> double
 
