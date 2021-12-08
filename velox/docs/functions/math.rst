@@ -65,6 +65,10 @@ Mathematical Functions
     Returns the result of multiplying x by y. The types of x and y must be the same.
     For integral types, overflow results in an error.
 
+.. function:: negate(x) -> [same as x]
+
+    Returns the additive inverse of x, e.g. the number that, when added to x, yields zero.
+
 .. function:: plus(x, y) -> [same as x]
 
     Returns the result of adding x to y. The types of x and y must be the same.
