@@ -16,6 +16,8 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/SelectivityVector.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -270,4 +272,42 @@ TEST_F(ArrayContainsTest, row) {
   testContains(5, "green", {false, true, false, false});
   testContains(1, "purple", {false, std::nullopt, false, false});
 }
+
+TEST_F(ArrayContainsTest, preDefinedResults) {
+  auto arrayVector = makeArrayVector<int64_t>(
+      {{1, 2, 3, 4}, {3, 4, 5}, {}, {5, 6, 7, 8, 9}, {7}, {10, 9, 8, 7}});
+
+  auto testContains = [&](std::optional<int64_t> search,
+                          const std::vector<std::optional<bool>>& expected) {
+    VectorPtr result = makeFlatVector<bool>(6);
+    SelectivityVector rows(6);
+    rows.resize(6);
+
+    evaluate<SimpleVector<bool>>(
+        "contains(c0, c1)",
+        makeRowVector({
+            arrayVector,
+            makeConstant(search, arrayVector->size()),
+        }),
+        rows,
+        result);
+
+    assertEqualVectors(makeNullableFlatVector<bool>(expected), result);
+  };
+
+  testContains(1, {true, false, false, false, false, false});
+  testContains(3, {true, true, false, false, false, false});
+  testContains(5, {false, true, false, true, false, false});
+  testContains(7, {false, false, false, true, true, true});
+  testContains(-2, {false, false, false, false, false, false});
+  testContains(
+      std::nullopt,
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+}
+
 } // namespace

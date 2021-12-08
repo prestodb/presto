@@ -412,8 +412,10 @@ class FunctionBaseTest : public testing::Test {
         {makeTypedExpr(expression, rowType)}, &execCtx_);
 
     facebook::velox::exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-    std::vector<VectorPtr> results{result};
+    std::vector<VectorPtr> results{std::move(result)};
     exprSet.eval(rows, &evalCtx, &results);
+    result = results[0];
+
     return std::dynamic_pointer_cast<T>(results[0]);
   }
 
