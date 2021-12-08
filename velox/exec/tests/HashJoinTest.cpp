@@ -206,6 +206,60 @@ TEST_F(HashJoinTest, filter) {
       "((t_k0 % 100) + (u_k0 % 100)) % 40 < 20");
 }
 
+TEST_F(HashJoinTest, joinSidesDifferentSchema) {
+  // In this join, the tables have different schema. LHS table t has schema
+  // {INTEGER, VARCHAR, INTEGER}. RHS table u has schema {INTEGER, REAL,
+  // INTEGER}. The filter predicate uses
+  // a column from the right table  before the left and the corresponding
+  // columns at the same channel number(1) have different types. This has been
+  // a source of crashes in the join logic.
+
+  size_t batchSize = 100;
+
+  std::vector<std::string> stringVector = {"aaa", "bbb", "ccc", "ddd", "eee"};
+  auto leftVectors = makeRowVector({
+      makeFlatVector<int32_t>(batchSize, [](auto row) { return row; }),
+      makeFlatVector<StringView>(
+          batchSize,
+          [&](auto row) {
+            return StringView(stringVector[row % stringVector.size()]);
+          }),
+      makeFlatVector<int32_t>(batchSize, [](auto row) { return row; }),
+  });
+  auto rightVectors = makeRowVector({
+      makeFlatVector<int32_t>(batchSize, [](auto row) { return row; }),
+      makeFlatVector<double>(batchSize, [](auto row) { return row * 5.0; }),
+      makeFlatVector<int32_t>(batchSize, [](auto row) { return row; }),
+  });
+  createDuckDbTable("t", {leftVectors});
+  createDuckDbTable("u", {rightVectors});
+
+  std::string referenceQuery =
+      "SELECT t.c0 * t.c2/2 FROM "
+      "  t, u "
+      "  WHERE t.c0 = u.c0 AND "
+      "  u.c2 > 10 AND ltrim(t.c1) = 'a%'";
+  // In this hash join the 2 tables have a common key which is the
+  // first channel in both tables.
+  auto planNode =
+      PlanBuilder()
+          .values({leftVectors})
+          .project({"c0", "c1", "c2"}, {"t_c0", "t_c1", "t_c2"})
+          .hashJoin(
+              {0},
+              {0},
+              PlanBuilder()
+                  .values({rightVectors})
+                  .project({"c0", "c1", "c2"}, {"u_c0", "u_c1", "u_c2"})
+                  .planNode(),
+              "u_c2 > 10 AND ltrim(t_c1) = 'a%'",
+              {0, 2})
+          .project({"t_c0 * t_c2/2"})
+          .planNode();
+
+  ::assertQuery(planNode, referenceQuery, duckDbQueryRunner_);
+}
+
 TEST_F(HashJoinTest, memory) {
   // Measures memory allocation in a 1:n hash join followed by
   // projection and aggregation. We expect vectors to be mostly
