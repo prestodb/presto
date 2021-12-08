@@ -56,7 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
@@ -358,7 +358,7 @@ public class TestDictionaryColumnWriter
 
         long ignoredRowGroupBytes = ignoredRowGroupWriter.getRowGroupRetainedSizeInBytes();
         long withRowGroupBytes = withRowGroupWriter.getRowGroupRetainedSizeInBytes();
-        long expectedDictionaryIndexSize = (numBlocks * numEntries * SIZE_OF_INT);
+        long expectedDictionaryIndexSize = (numBlocks * numEntries * SIZE_OF_BYTE);
 
         String message = String.format("Ignored bytes %s With bytes %s", ignoredRowGroupBytes, withRowGroupBytes);
         assertTrue(ignoredRowGroupBytes + expectedDictionaryIndexSize <= withRowGroupBytes, message);
