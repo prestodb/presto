@@ -123,6 +123,10 @@ public abstract class DictionaryColumnWriter
 
     protected abstract boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes);
 
+    protected abstract boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, short[] dictionaryIndexes, int maxDirectBytes);
+
+    protected abstract boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, byte[] dictionaryIndexes, int maxDirectBytes);
+
     protected abstract ColumnEncoding getDictionaryColumnEncoding();
 
     protected abstract BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes);
@@ -136,6 +140,20 @@ public abstract class DictionaryColumnWriter
      * @return new mappings to be used for indexes, if no new mappings, Optional.empty.
      */
     protected abstract Optional<int[]> writeDictionary();
+
+    protected abstract void writePresentAndDataStreams(
+            int rowGroupValueCount,
+            byte[] rowGroupIndexes,
+            Optional<int[]> originalDictionaryToSortedIndex,
+            PresentOutputStream presentStream,
+            LongOutputStream dataStream);
+
+    protected abstract void writePresentAndDataStreams(
+            int rowGroupValueCount,
+            short[] rowGroupIndexes,
+            Optional<int[]> originalDictionaryToSortedIndex,
+            PresentOutputStream presentStream,
+            LongOutputStream dataStream);
 
     protected abstract void writePresentAndDataStreams(
             int rowGroupValueCount,
@@ -197,7 +215,24 @@ public abstract class DictionaryColumnWriter
         for (DictionaryRowGroup rowGroup : rowGroups) {
             directWriter.beginRowGroup();
             // todo we should be able to pass the stats down to avoid recalculating min and max
-            boolean success = tryConvertRowGroupToDirect(rowGroup.getValueCount(), rowGroup.getDictionaryIndexes(), maxDirectBytes);
+
+            boolean success;
+            int[] integerIndexes = rowGroup.getIntegerIndexes();
+            if (integerIndexes != null) {
+                success = tryConvertRowGroupToDirect(rowGroup.getValueCount(), integerIndexes, maxDirectBytes);
+            }
+            else {
+                short[] shortIndexes = rowGroup.getShortIndexes();
+                if (shortIndexes != null) {
+                    success = tryConvertRowGroupToDirect(rowGroup.getValueCount(), shortIndexes, maxDirectBytes);
+                }
+                else {
+                    byte[] byteIndexes = rowGroup.getByteIndexes();
+                    checkState(byteIndexes != null, "All 3 indexes are empty in dictionary");
+                    success = tryConvertRowGroupToDirect(rowGroup.getValueCount(), byteIndexes, maxDirectBytes);
+                }
+            }
+
             directWriter.finishRowGroup();
 
             if (!success) {
@@ -287,7 +322,7 @@ public abstract class DictionaryColumnWriter
         }
 
         ColumnStatistics statistics = createColumnStatistics();
-        DictionaryRowGroup rowGroup = new DictionaryRowGroup(rowGroupIndexes, rowGroupValueCount, statistics);
+        DictionaryRowGroup rowGroup = new DictionaryRowGroup(getDictionaryEntries() - 1, rowGroupIndexes, rowGroupValueCount, statistics);
         rowGroups.add(rowGroup);
         if (columnWriterOptions.isIgnoreDictionaryRowGroupSizes()) {
             rowGroupRetainedSizeInBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
@@ -337,12 +372,37 @@ public abstract class DictionaryColumnWriter
             dataStream.recordCheckpoint();
         }
         for (DictionaryRowGroup rowGroup : rowGroups) {
-            writePresentAndDataStreams(
-                    rowGroup.getValueCount(),
-                    rowGroup.getDictionaryIndexes(),
-                    originalDictionaryToSortedIndex,
-                    presentStream,
-                    dataStream);
+            int[] integerIndexes = rowGroup.getIntegerIndexes();
+
+            if (integerIndexes != null) {
+                writePresentAndDataStreams(
+                        rowGroup.getValueCount(),
+                        integerIndexes,
+                        originalDictionaryToSortedIndex,
+                        presentStream,
+                        dataStream);
+            }
+            else {
+                short[] shortIndexes = rowGroup.getShortIndexes();
+                if (shortIndexes != null) {
+                    writePresentAndDataStreams(
+                            rowGroup.getValueCount(),
+                            shortIndexes,
+                            originalDictionaryToSortedIndex,
+                            presentStream,
+                            dataStream);
+                }
+                else {
+                    byte[] byteIndexes = rowGroup.getByteIndexes();
+                    checkState(byteIndexes != null, "All 3 indexes are empty in dictionary");
+                    writePresentAndDataStreams(
+                            rowGroup.getValueCount(),
+                            byteIndexes,
+                            originalDictionaryToSortedIndex,
+                            presentStream,
+                            dataStream);
+                }
+            }
             presentStream.recordCheckpoint();
             dataStream.recordCheckpoint();
         }
@@ -465,27 +525,63 @@ public abstract class DictionaryColumnWriter
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryRowGroup.class).instanceSize();
 
-        private final int[] dictionaryIndexes;
+        private final byte[] byteIndexes;
+        private final short[] shortIndexes;
+        private final int[] intIndexes;
         private final ColumnStatistics columnStatistics;
+        private final int valueCount;
 
-        public DictionaryRowGroup(int[] dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
+        public DictionaryRowGroup(int maxIndex, int[] dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
         {
             requireNonNull(dictionaryIndexes, "dictionaryIndexes is null");
             checkArgument(valueCount >= 0, "valueCount is negative");
             requireNonNull(columnStatistics, "columnStatistics is null");
 
-            this.dictionaryIndexes = Arrays.copyOf(dictionaryIndexes, valueCount);
+            if (maxIndex <= Byte.MAX_VALUE) {
+                this.byteIndexes = new byte[valueCount];
+                this.shortIndexes = null;
+                this.intIndexes = null;
+
+                for (int i = 0; i < valueCount; i++) {
+                    byteIndexes[i] = (byte) dictionaryIndexes[i];
+                }
+            }
+            else if (maxIndex <= Short.MAX_VALUE) {
+                this.shortIndexes = new short[valueCount];
+                this.byteIndexes = null;
+                this.intIndexes = null;
+
+                for (int i = 0; i < valueCount; i++) {
+                    shortIndexes[i] = (short) dictionaryIndexes[i];
+                }
+            }
+            else {
+                this.intIndexes = Arrays.copyOf(dictionaryIndexes, valueCount);
+                this.byteIndexes = null;
+                this.shortIndexes = null;
+            }
             this.columnStatistics = columnStatistics;
+            this.valueCount = valueCount;
         }
 
-        public int[] getDictionaryIndexes()
+        public byte[] getByteIndexes()
         {
-            return dictionaryIndexes;
+            return byteIndexes;
+        }
+
+        public short[] getShortIndexes()
+        {
+            return shortIndexes;
+        }
+
+        public int[] getIntegerIndexes()
+        {
+            return intIndexes;
         }
 
         public int getValueCount()
         {
-            return dictionaryIndexes.length;
+            return valueCount;
         }
 
         public ColumnStatistics getColumnStatistics()
@@ -496,7 +592,9 @@ public abstract class DictionaryColumnWriter
         public long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE +
-                    sizeOf(dictionaryIndexes) +
+                    sizeOf(byteIndexes) +
+                    sizeOf(shortIndexes) +
+                    sizeOf(intIndexes) +
                     columnStatistics.getRetainedSizeInBytes();
         }
     }

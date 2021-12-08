@@ -107,26 +107,95 @@ public class LongDictionaryColumnWriter
         return directColumnWriter;
     }
 
+    private void resizeDirectArrays(int count)
+    {
+        directValues = ensureCapacity(directValues, count);
+        directNulls = ensureCapacity(directNulls, count);
+    }
+
     @Override
     protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
-        if (dictionaryIndexCount > 0) {
-            directValues = ensureCapacity(directValues, dictionaryIndexCount);
-            directNulls = ensureCapacity(directNulls, dictionaryIndexCount);
-            for (int i = 0; i < dictionaryIndexCount; i++) {
-                if (dictionaryIndexes[i] != NULL_INDEX) {
-                    directValues[i] = dictionary.getValue(dictionaryIndexes[i]);
-                    directNulls[i] = false;
-                }
-                else {
-                    directNulls[i] = true;
-                }
-            }
-
-            LongArrayBlock longArrayBlock = new LongArrayBlock(dictionaryIndexCount, Optional.of(directNulls), directValues);
-            directColumnWriter.writeBlock(longArrayBlock);
+        if (dictionaryIndexCount == 0) {
+            return true;
         }
+
+        resizeDirectArrays(dictionaryIndexCount);
+        convertIntToDirect(dictionaryIndexCount, dictionaryIndexes);
+
+        return writeDirect(dictionaryIndexCount, maxDirectBytes);
+    }
+
+    @Override
+    protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, short[] dictionaryIndexes, int maxDirectBytes)
+    {
+        if (dictionaryIndexCount == 0) {
+            return true;
+        }
+
+        resizeDirectArrays(dictionaryIndexCount);
+        convertShortToDirect(dictionaryIndexCount, dictionaryIndexes);
+
+        return writeDirect(dictionaryIndexCount, maxDirectBytes);
+    }
+
+    @Override
+    protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, byte[] dictionaryIndexes, int maxDirectBytes)
+    {
+        if (dictionaryIndexCount == 0) {
+            return true;
+        }
+
+        resizeDirectArrays(dictionaryIndexCount);
+        convertByteToDirect(dictionaryIndexCount, dictionaryIndexes);
+
+        return writeDirect(dictionaryIndexCount, maxDirectBytes);
+    }
+
+    private boolean writeDirect(int dictionaryIndexCount, int maxDirectBytes)
+    {
+        LongArrayBlock longArrayBlock = new LongArrayBlock(dictionaryIndexCount, Optional.of(directNulls), directValues);
+        directColumnWriter.writeBlock(longArrayBlock);
         return directColumnWriter.getBufferedBytes() <= maxDirectBytes;
+    }
+
+    private void convertIntToDirect(int dictionaryIndexCount, int[] dictionaryIndexes)
+    {
+        for (int i = 0; i < dictionaryIndexCount; i++) {
+            if (dictionaryIndexes[i] != NULL_INDEX) {
+                directValues[i] = dictionary.getValue(dictionaryIndexes[i]);
+                directNulls[i] = false;
+            }
+            else {
+                directNulls[i] = true;
+            }
+        }
+    }
+
+    private void convertShortToDirect(int dictionaryIndexCount, short[] dictionaryIndexes)
+    {
+        for (int i = 0; i < dictionaryIndexCount; i++) {
+            if (dictionaryIndexes[i] != NULL_INDEX) {
+                directValues[i] = dictionary.getValue(dictionaryIndexes[i]);
+                directNulls[i] = false;
+            }
+            else {
+                directNulls[i] = true;
+            }
+        }
+    }
+
+    private void convertByteToDirect(int dictionaryIndexCount, byte[] dictionaryIndexes)
+    {
+        for (int i = 0; i < dictionaryIndexCount; i++) {
+            if (dictionaryIndexes[i] != NULL_INDEX) {
+                directValues[i] = dictionary.getValue(dictionaryIndexes[i]);
+                directNulls[i] = false;
+            }
+            else {
+                directNulls[i] = true;
+            }
+        }
     }
 
     @Override
@@ -187,6 +256,46 @@ public class LongDictionaryColumnWriter
     protected void writePresentAndDataStreams(
             int rowGroupValueCount,
             int[] rowGroupIndexes,
+            Optional<int[]> originalDictionaryToSortedIndex,
+            PresentOutputStream presentStream,
+            LongOutputStream dataStream)
+    {
+        checkArgument(!originalDictionaryToSortedIndex.isPresent(), "Unsupported originalDictionaryToSortedIndex");
+        for (int position = 0; position < rowGroupValueCount; position++) {
+            presentStream.writeBoolean(rowGroupIndexes[position] != NULL_INDEX);
+        }
+        for (int position = 0; position < rowGroupValueCount; position++) {
+            int index = rowGroupIndexes[position];
+            if (index != NULL_INDEX) {
+                dataStream.writeLong(index);
+            }
+        }
+    }
+
+    @Override
+    protected void writePresentAndDataStreams(
+            int rowGroupValueCount,
+            short[] rowGroupIndexes,
+            Optional<int[]> originalDictionaryToSortedIndex,
+            PresentOutputStream presentStream,
+            LongOutputStream dataStream)
+    {
+        checkArgument(!originalDictionaryToSortedIndex.isPresent(), "Unsupported originalDictionaryToSortedIndex");
+        for (int position = 0; position < rowGroupValueCount; position++) {
+            presentStream.writeBoolean(rowGroupIndexes[position] != NULL_INDEX);
+        }
+        for (int position = 0; position < rowGroupValueCount; position++) {
+            int index = rowGroupIndexes[position];
+            if (index != NULL_INDEX) {
+                dataStream.writeLong(index);
+            }
+        }
+    }
+
+    @Override
+    protected void writePresentAndDataStreams(
+            int rowGroupValueCount,
+            byte[] rowGroupIndexes,
             Optional<int[]> originalDictionaryToSortedIndex,
             PresentOutputStream presentStream,
             LongOutputStream dataStream)
