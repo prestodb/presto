@@ -2,46 +2,55 @@
 Comparison Functions
 =====================================
 
-Like most other Presto functions, these functions return null if any argument
-is null. These functions support all scalar input types. All arguments must be
-of the same type.
+.. function:: between(x, min, max) -> boolean
+
+    Returns true if x is within the specified [min, max] range
+    inclusive. Supports TINYINT, SMALLINT, INTEGER, BIGINT, DOUBLE,
+    REAL, VARCHAR, DATE types. The types of all arguments must be
+    the same.
 
 .. function:: eq(x, y) -> boolean
 
-    Returns true if x is equal to y.
-
-.. function:: gt(x, y) -> boolean
-
-    Returns true if x is greater than y.
-
-.. function:: gte(x, y) -> boolean
-
-    Returns true if x is greater than or equal to y.
-
-.. function:: lt(x, y) -> boolean
-
-    Returns true if x is less than y.
-
-.. function:: lte(x, y) -> boolean
-
-    Returns true if x is less than or equal to y.
-
-.. function:: neq(x, y) -> boolean
-
-    Returns true if x is not equal to y.
-
-GREATEST and LEAST
-------------------
-
-Like most other Presto functions, these functions return null if any argument
-is null.
-
-The following types are supported: DOUBLE, BIGINT, VARCHAR, TIMESTAMP, DATE
-
-.. function:: least(value1, value2, ..., valueN) -> [same as input]
-
-    Returns the smallest of the provided values.
+    Returns true if x is equal to y. Supports all scalar types. The
+    types of x and y must be the same.
 
 .. function:: greatest(value1, value2, ..., valueN) -> [same as input]
 
-    Returns the largest of the provided values.
+    Returns the largest of the provided values. Supports DOUBLE, BIGINT,
+    VARCHAR, TIMESTAMP, DATE input types. The types of all arguments must
+    be the same.
+
+.. function:: gt(x, y) -> boolean
+
+    Returns true if x is greater than y. Supports all scalar types. The
+    types of x and y must be the same.
+
+.. function:: gte(x, y) -> boolean
+
+    Returns true if x is greater than or equal to y. Supports all scalar
+    types. The types of x and y must be the same.
+
+.. function:: is_null(x) -> boolean
+
+    Returns true is x is a null. Supports all types.
+
+.. function:: least(value1, value2, ..., valueN) -> [same as input]
+
+    Returns the smallest of the provided values. Supports DOUBLE, BIGINT,
+    VARCHAR, TIMESTAMP, DATE input types. The types of all arguments must
+    be the same.
+
+.. function:: lt(x, y) -> boolean
+
+    Returns true if x is less than y. Supports all scalar types. The types
+    of x and y must be the same.
+
+.. function:: lte(x, y) -> boolean
+
+    Returns true if x is less than or equal to y. Supports all scalar types.
+    The types of x and y must be the same.
+
+.. function:: neq(x, y) -> boolean
+
+    Returns true if x is not equal to y. Supports all scalar types. The types
+    of x and y must be the same.
