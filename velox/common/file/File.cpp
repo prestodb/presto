@@ -48,7 +48,7 @@ std::string InMemoryReadFile::pread(uint64_t offset, uint64_t length) const {
 
 uint64_t InMemoryReadFile::preadv(
     uint64_t offset,
-    const std::vector<folly::Range<char*>>& buffers) {
+    const std::vector<folly::Range<char*>>& buffers) const {
   uint64_t numRead = 0;
   if (offset >= file_.size()) {
     return 0;
@@ -77,18 +77,19 @@ LocalReadFile::LocalReadFile(std::string_view path) {
   buf[path.size()] = 0;
   memcpy(buf.get(), path.data(), path.size());
   fd_ = open(buf.get(), O_RDONLY);
-  if (fd_ < 0) {
-    throw std::runtime_error("open failure in LocalReadFile constructor.");
-  }
+  VELOX_CHECK_GE(fd_, 0, "open failure in LocalReadFile constructor, {}.", fd_);
 }
 
 void LocalReadFile::preadInternal(uint64_t offset, uint64_t length, char* pos)
     const {
   bytesRead_ += length;
   auto bytesRead = ::pread(fd_, pos, length, offset);
-  if (bytesRead != length) {
-    throw std::runtime_error("fread failure in LocalReadFile::PReadInternal.");
-  }
+  VELOX_CHECK_EQ(
+      bytesRead,
+      length,
+      "fread failure in LocalReadFile::PReadInternal, {} vs {}.",
+      bytesRead,
+      length);
 }
 
 std::string_view
@@ -114,7 +115,7 @@ std::string LocalReadFile::pread(uint64_t offset, uint64_t length) const {
 
 uint64_t LocalReadFile::preadv(
     uint64_t offset,
-    const std::vector<folly::Range<char*>>& buffers) {
+    const std::vector<folly::Range<char*>>& buffers) const {
   static char droppedBytes[8 * 1024];
   std::vector<struct iovec> iovecs;
   iovecs.reserve(buffers.size());
@@ -138,9 +139,7 @@ uint64_t LocalReadFile::size() const {
     return size_;
   }
   const off_t rc = lseek(fd_, 0, SEEK_END);
-  if (rc < 0) {
-    throw std::runtime_error("fseek failure in LocalReadFile::size.");
-  }
+  VELOX_CHECK_GE(rc, 0, "fseek failure in LocalReadFile::size, {}.", rc);
   size_ = rc;
   return size_;
 }
@@ -159,38 +158,45 @@ LocalWriteFile::LocalWriteFile(std::string_view path) {
   memcpy(buf.get(), path.data(), path.size());
   {
     FILE* exists = fopen(buf.get(), "rb");
-    if (exists != nullptr) {
-      throw std::runtime_error(fmt::format(
-          "Failure in LocalWriteFile: path '{}' already exists.", path));
-    }
+    VELOX_CHECK(
+        !exists, "Failure in LocalWriteFile: path '{}' already exists.", path);
   }
   file_ = fopen(buf.get(), "ab");
-  if (file_ == nullptr) {
-    throw std::runtime_error("fread failure in LocalWriteFile constructor.");
-  }
+  VELOX_CHECK(file_, "fread failure in LocalWriteFile constructor, {}.", path);
 }
 
 LocalWriteFile::~LocalWriteFile() {
-  if (file_) {
-    const int fclose_ret = fclose(file_);
-    if (fclose_ret != 0) {
-      // We cannot throw an exception from the destructor. Warn instead.
-      LOG(WARNING) << "fclose failure in LocalWriteFile destructor";
-    }
+  try {
+    close();
+  } catch (const std::exception& ex) {
+    // We cannot throw an exception from the destructor. Warn instead.
+    LOG(WARNING) << "fclose failure in LocalWriteFile destructor: "
+                 << ex.what();
   }
 }
 
 void LocalWriteFile::append(std::string_view data) {
+  VELOX_CHECK(!closed_, "file is closed");
   const uint64_t bytes_written = fwrite(data.data(), 1, data.size(), file_);
-  if (bytes_written != data.size()) {
-    throw std::runtime_error("fwrite failure in LocalWriteFile::append.");
-  }
+  VELOX_CHECK_EQ(
+      bytes_written,
+      data.size(),
+      "fwrite failure in LocalWriteFile::append, {} vs {}.",
+      bytes_written,
+      data.size());
 }
 
 void LocalWriteFile::flush() {
+  VELOX_CHECK(!closed_, "file is closed");
   auto ret = fflush(file_);
-  if (ret != 0) {
-    throw std::runtime_error("fflush failed in LocalWriteFile::flush.");
+  VELOX_CHECK_EQ(ret, 0, "fflush failed in LocalWriteFile::flush.");
+}
+
+void LocalWriteFile::close() {
+  if (!closed_) {
+    auto ret = fclose(file_);
+    VELOX_CHECK_EQ(ret, 0, "fwrite failure in LocalWriteFile::close.");
+    closed_ = true;
   }
 }
 

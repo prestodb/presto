@@ -525,7 +525,7 @@ TEST_P(TableScanTest, fileNotFound) {
 
   auto cursor = std::make_unique<TaskCursor>(params);
   cursor->task()->addSplit("0", makeHiveSplit("file:/path/to/nowhere.orc"));
-  EXPECT_THROW(cursor->moveNext(), std::runtime_error);
+  EXPECT_THROW(cursor->moveNext(), VeloxRuntimeError);
 }
 
 // A valid ORC file (containing headers) but no data.

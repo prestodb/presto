@@ -44,7 +44,7 @@ namespace facebook::velox {
 // A read-only file.
 class ReadFile {
  public:
-  virtual ~ReadFile() {}
+  virtual ~ReadFile() = default;
 
   // Returns data at [offset, offset + length). Illegal to pass
   // offset + length > size(). The returned string view will remain valid for at
@@ -66,7 +66,7 @@ class ReadFile {
   // buffer with nullptr data will cause its size worth of bytes to be skipped.
   virtual uint64_t preadv(
       uint64_t /*offset*/,
-      const std::vector<folly::Range<char*>>& /*buffers*/) {
+      const std::vector<folly::Range<char*>>& /*buffers*/) const {
     VELOX_NYI("preadv not supported");
   }
 
@@ -75,7 +75,7 @@ class ReadFile {
   // if the implementation is in fact asynchronous.
   virtual folly::SemiFuture<uint64_t> preadvAsync(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) {
+      const std::vector<folly::Range<char*>>& buffers) const {
     try {
       return folly::SemiFuture<uint64_t>(preadv(offset, buffers));
     } catch (const std::exception& e) {
@@ -105,6 +105,7 @@ class ReadFile {
   virtual uint64_t bytesRead() const {
     return bytesRead_;
   }
+
   virtual void resetBytesRead() {
     bytesRead_ = 0;
   }
@@ -114,12 +115,10 @@ class ReadFile {
 };
 
 // A write-only file. Nothing written to the file should be read back until it
-// is destroyed.
+// is closed.
 class WriteFile {
  public:
-  // Any cleanup (disk flush, etc.) will be done here. There is no explicit
-  // Close function.
-  virtual ~WriteFile() {}
+  virtual ~WriteFile() = default;
 
   // Appends data to the end of the file.
   virtual void append(std::string_view data) = 0;
@@ -127,6 +126,9 @@ class WriteFile {
   // Flushes any local buffers, i.e. ensures the backing medium received
   // all data that has been appended.
   virtual void flush() = 0;
+
+  // Close the file. Any cleanup (disk flush, etc.) will be done here.
+  virtual void close() = 0;
 
   // Current file size, i.e. the sum of all previous Appends.
   virtual uint64_t size() const = 0;
@@ -154,7 +156,7 @@ class InMemoryReadFile final : public ReadFile {
   std::string pread(uint64_t offset, uint64_t length) const final;
   uint64_t preadv(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) final;
+      const std::vector<folly::Range<char*>>& buffers) const final;
   uint64_t size() const final {
     return file_.size();
   }
@@ -182,6 +184,7 @@ class InMemoryWriteFile final : public WriteFile {
 
   void append(std::string_view data) final;
   void flush() final {}
+  void close() final {}
   uint64_t size() const final;
 
  private:
@@ -204,7 +207,7 @@ class LocalReadFile final : public ReadFile {
   uint64_t size() const final;
   uint64_t preadv(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) final;
+      const std::vector<folly::Range<char*>>& buffers) const final;
   uint64_t memoryUsage() const final;
   bool shouldCoalesce() const final {
     return false;
@@ -225,11 +228,13 @@ class LocalWriteFile final : public WriteFile {
 
   void append(std::string_view data) final;
   void flush() final;
+  void close() final;
   uint64_t size() const final;
 
  private:
   FILE* file_;
   mutable long size_;
+  bool closed_{false};
 };
 
 } // namespace facebook::velox
