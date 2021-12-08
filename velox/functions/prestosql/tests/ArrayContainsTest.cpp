@@ -310,4 +310,42 @@ TEST_F(ArrayContainsTest, preDefinedResults) {
        std::nullopt});
 }
 
+TEST_F(ArrayContainsTest, preAllocatedNulls) {
+  auto arrayVector = makeArrayVector<int64_t>(
+      {{1, 2, 3, 4}, {3, 4, 5}, {}, {5, 6, 7, 8, 9}, {7}, {10, 9, 8, 7}});
+
+  auto testContains = [&](std::optional<int64_t> search,
+                          const std::vector<std::optional<bool>>& expected) {
+    VectorPtr result = makeFlatVector<bool>(6);
+    SelectivityVector rows(6);
+    rows.resize(6);
+    result->setNull(0, true);
+
+    evaluate<SimpleVector<bool>>(
+        "contains(c0, c1)",
+        makeRowVector({
+            arrayVector,
+            makeConstant(search, arrayVector->size()),
+        }),
+        rows,
+        result);
+
+    assertEqualVectors(makeNullableFlatVector<bool>(expected), result);
+  };
+
+  testContains(1, {true, false, false, false, false, false});
+  testContains(3, {true, true, false, false, false, false});
+  testContains(5, {false, true, false, true, false, false});
+  testContains(7, {false, false, false, true, true, true});
+  testContains(-2, {false, false, false, false, false, false});
+  testContains(
+      std::nullopt,
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+}
+
 } // namespace

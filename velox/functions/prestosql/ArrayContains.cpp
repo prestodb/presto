@@ -28,8 +28,6 @@ void applyTyped(
     FlatVector<bool>& flatResult) {
   using T = typename TypeTraits<kind>::NativeType;
 
-  auto rawResult = flatResult.mutableRawValues<uint64_t>();
-
   auto baseArray = arrayDecoded.base()->as<ArrayVector>();
   auto rawSizes = baseArray->rawSizes();
   auto rawOffsets = baseArray->rawOffsets();
@@ -48,12 +46,12 @@ void applyTyped(
 
       for (auto i = 0; i < size; i++) {
         if (rawElements[offset + i] == search) {
-          bits::setBit(rawResult, row, true);
+          flatResult.set(row, true);
           return;
         }
       }
 
-      bits::setBit(rawResult, row, false);
+      flatResult.set(row, false);
     });
   } else {
     rows.applyToSelected([&](auto row) {
@@ -68,7 +66,7 @@ void applyTyped(
         if (elementsDecoded.isNullAt(offset + i)) {
           foundNull = true;
         } else if (elementsDecoded.valueAt<T>(offset + i) == search) {
-          bits::setBit(rawResult, row, true);
+          flatResult.set(row, true);
           return;
         }
       }
@@ -76,7 +74,7 @@ void applyTyped(
       if (foundNull) {
         flatResult.setNull(row, true);
       } else {
-        bits::setBit(rawResult, row, false);
+        flatResult.set(row, false);
       }
     });
   }
@@ -88,8 +86,6 @@ void applyComplexType(
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
     FlatVector<bool>& flatResult) {
-  auto rawResult = flatResult.mutableRawValues<uint64_t>();
-
   auto baseArray = arrayDecoded.base()->as<ArrayVector>();
   auto rawSizes = baseArray->rawSizes();
   auto rawOffsets = baseArray->rawOffsets();
@@ -112,7 +108,7 @@ void applyComplexType(
         foundNull = true;
       } else if (elementsBase->equalValueAt(
                      searchBase, offset + i, searchIndex)) {
-        bits::setBit(rawResult, row, true);
+        flatResult.set(row, true);
         return;
       }
     }
@@ -120,7 +116,7 @@ void applyComplexType(
     if (foundNull) {
       flatResult.setNull(row, true);
     } else {
-      bits::setBit(rawResult, row, false);
+      flatResult.set(row, false);
     }
   });
 }
