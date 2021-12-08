@@ -61,6 +61,7 @@ public class TestGlueToPrestoConverter
         testPartition = getGlueTestPartition(testDb.getName(), testTbl.getName(), ImmutableList.of("val1"));
     }
 
+    
     @Test
     public void testConvertDatabase()
     {
