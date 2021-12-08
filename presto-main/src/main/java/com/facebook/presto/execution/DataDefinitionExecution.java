@@ -25,16 +25,22 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -42,19 +48,18 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public abstract class DataDefinitionExecution<T extends Statement>
         implements QueryExecution
 {
-    private final DataDefinitionTask<T> task;
-    private final T statement;
+    protected final T statement;
+    protected final TransactionManager transactionManager;
+    protected final Metadata metadata;
+    protected final AccessControl accessControl;
+    protected final QueryStateMachine stateMachine;
+    protected final List<Expression> parameters;
+
     private final String slug;
     private final int retryCount;
-    private final TransactionManager transactionManager;
-    private final Metadata metadata;
-    private final AccessControl accessControl;
-    private final QueryStateMachine stateMachine;
-    private final List<Expression> parameters;
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
     protected DataDefinitionExecution(
-            DataDefinitionTask<T> task,
             T statement,
             String slug,
             int retryCount,
@@ -64,15 +69,14 @@ public abstract class DataDefinitionExecution<T extends Statement>
             QueryStateMachine stateMachine,
             List<Expression> parameters)
     {
-        this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
-        this.slug = requireNonNull(slug, "slug is null");
-        this.retryCount = retryCount;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
+        this.slug = requireNonNull(slug, "slug is null");
+        this.retryCount = retryCount;
     }
 
     @Override
@@ -188,6 +192,38 @@ public abstract class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void start()
+    {
+        try {
+            // transition to running
+            if (!stateMachine.transitionToRunning()) {
+                // query already running or finished
+                return;
+            }
+            ListenableFuture<?> future = executeTask();
+
+            Futures.addCallback(future, new FutureCallback<Object>()
+            {
+                @Override
+                public void onSuccess(@Nullable Object result)
+                {
+                    stateMachine.transitionToFinishing();
+                }
+
+                @Override
+                public void onFailure(Throwable throwable)
+                {
+                    fail(throwable);
+                }
+            }, directExecutor());
+        }
+        catch (Throwable e) {
+            fail(e);
+            throwIfInstanceOf(e, Error.class);
+        }
+    }
+
+    @Override
     public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
         // DDL does not have an output
@@ -276,4 +312,6 @@ public abstract class DataDefinitionExecution<T extends Statement>
     {
         return parameters;
     }
+
+    protected abstract ListenableFuture<?> executeTask();
 }

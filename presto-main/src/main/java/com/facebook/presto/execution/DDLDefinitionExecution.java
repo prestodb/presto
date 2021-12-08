@@ -18,40 +18,24 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class DDLDefinitionExecution<T extends Statement>
         extends DataDefinitionExecution<T>
 {
     private final DDLDefinitionTask<T> task;
-    private final T statement;
-    private final String slug;
-    private final int retryCount;
-    private final TransactionManager transactionManager;
-    private final Metadata metadata;
-    private final AccessControl accessControl;
-    private final QueryStateMachine stateMachine;
-    private final List<Expression> parameters;
-    private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
     private DDLDefinitionExecution(
             DDLDefinitionTask<T> task,
@@ -64,50 +48,14 @@ public class DDLDefinitionExecution<T extends Statement>
             QueryStateMachine stateMachine,
             List<Expression> parameters)
     {
-        super(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
+        super(statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
         this.task = requireNonNull(task, "task is null");
-        this.statement = requireNonNull(statement, "statement is null");
-        this.slug = requireNonNull(slug, "slug is null");
-        this.retryCount = retryCount;
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
-        this.parameters = parameters;
     }
 
     @Override
-    public void start()
+    protected ListenableFuture<?> executeTask()
     {
-        try {
-            // transition to running
-            if (!stateMachine.transitionToRunning()) {
-                // query already running or finished
-                return;
-            }
-
-            WarningCollector warningCollector = stateMachine.getWarningCollector();
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector);
-
-            Futures.addCallback(future, new FutureCallback<Object>()
-            {
-                @Override
-                public void onSuccess(@Nullable Object result)
-                {
-                    stateMachine.transitionToFinishing();
-                }
-
-                @Override
-                public void onFailure(Throwable throwable)
-                {
-                    fail(throwable);
-                }
-            }, directExecutor());
-        }
-        catch (Throwable e) {
-            fail(e);
-            throwIfInstanceOf(e, Error.class);
-        }
+        return task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, stateMachine.getWarningCollector());
     }
 
     public static class DDLDefinitionExecutionFactory
