@@ -14,6 +14,7 @@ Presto Functions
     functions/map
     functions/regexp
     functions/binary
+    functions/json
     functions/url
     functions/aggregate
     functions/hyperloglog
