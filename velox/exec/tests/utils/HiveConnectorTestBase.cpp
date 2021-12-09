@@ -154,6 +154,8 @@ HiveConnectorTestBase::makeHiveSplits(
 std::shared_ptr<connector::hive::HiveConnectorSplit>
 HiveConnectorTestBase::makeHiveConnectorSplit(
     const std::string& filePath,
+    const std::unordered_map<std::string, std::optional<std::string>>&
+        partitionKeys,
     uint64_t start,
     uint64_t length) {
   return std::make_shared<connector::hive::HiveConnectorSplit>(
@@ -161,7 +163,8 @@ HiveConnectorTestBase::makeHiveConnectorSplit(
       "file:" + filePath,
       dwio::common::FileFormat::ORC,
       start,
-      length);
+      length,
+      partitionKeys);
 }
 
 exec::Split HiveConnectorTestBase::makeHiveSplit(

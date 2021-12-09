@@ -226,6 +226,27 @@ TEST_P(TableScanTest, columnAliases) {
   assertQuery(op, {filePath}, "SELECT c0 FROM tmp WHERE c0 % 2 = 1");
 }
 
+TEST_P(TableScanTest, partitionKeyAlias) {
+  auto vectors = makeVectors(1, 1'000);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+  createDuckDbTable(vectors);
+
+  ColumnHandleMap assignments = {
+      {"a", regularColumn("c0", BIGINT())},
+      {"ds_alias", partitionKey("ds", VARCHAR())}};
+
+  auto split = makeHiveConnectorSplit(filePath->path, {{"ds", "2021-12-02"}});
+
+  auto outputType = ROW({"a", "ds_alias"}, {BIGINT(), VARCHAR()});
+  auto op = PlanBuilder()
+                .tableScan(
+                    outputType, makeTableHandle(SubfieldFilters{}), assignments)
+                .planNode();
+
+  assertQuery(op, split, "SELECT c0, '2021-12-02' FROM tmp");
+}
+
 TEST_P(TableScanTest, columnPruning) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();

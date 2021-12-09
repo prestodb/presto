@@ -165,29 +165,32 @@ HiveDataSource::HiveDataSource(
       mappedMemory_(mappedMemory),
       scanId_(scanId),
       executor_(executor) {
+  // Column handled keyed on the column alias, the name used in the query.
+  std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
+      columnHandleMap;
   for (const auto& entry : columnHandles) {
     auto handle = std::dynamic_pointer_cast<HiveColumnHandle>(entry.second);
     VELOX_CHECK(
         handle != nullptr,
         "ColumnHandle must be an instance of HiveColumnHandle for {}",
         entry.first);
-    columnHandles_.emplace(entry.first, handle);
+    columnHandleMap.emplace(entry.first, handle);
+
+    if (handle->columnType() == HiveColumnHandle::ColumnType::kPartitionKey) {
+      partitionKeys_.emplace(handle->name(), handle);
+    }
   }
-  regularColumns_.reserve(outputType->size());
 
   std::vector<std::string> columnNames;
   columnNames.reserve(outputType->size());
   for (auto& name : outputType->names()) {
-    auto it = columnHandles_.find(name);
+    auto it = columnHandleMap.find(name);
     VELOX_CHECK(
-        it != columnHandles_.end(),
+        it != columnHandleMap.end(),
         "ColumnHandle is missing for output column {}",
         name);
 
     columnNames.emplace_back(it->second->name());
-    if (it->second->columnType() == HiveColumnHandle::ColumnType::kRegular) {
-      regularColumns_.emplace_back(it->second->name());
-    }
   }
 
   auto hiveTableHandle =
@@ -564,9 +567,9 @@ void HiveDataSource::setPartitionValue(
     common::ScanSpec* spec,
     const std::string& partitionKey,
     const std::optional<std::string>& value) const {
-  auto it = columnHandles_.find(partitionKey);
+  auto it = partitionKeys_.find(partitionKey);
   VELOX_CHECK(
-      it != columnHandles_.end(),
+      it != partitionKeys_.end(),
       "ColumnHandle is missing for partition key {}",
       partitionKey);
   auto constValue = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(

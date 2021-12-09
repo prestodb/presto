@@ -81,6 +81,16 @@ class HiveConnectorTestBase : public OperatorTestBase {
   makeHiveConnectorSplit(
       const std::string& filePath,
       uint64_t start = 0,
+      uint64_t length = std::numeric_limits<uint64_t>::max()) {
+    return makeHiveConnectorSplit(filePath, {}, 0, length);
+  }
+
+  static std::shared_ptr<connector::hive::HiveConnectorSplit>
+  makeHiveConnectorSplit(
+      const std::string& filePath,
+      const std::unordered_map<std::string, std::optional<std::string>>&
+          partitionKeys,
+      uint64_t start = 0,
       uint64_t length = std::numeric_limits<uint64_t>::max());
 
   static exec::Split makeHiveSplit(
