@@ -183,4 +183,16 @@ std::shared_ptr<FunctionSignature> FunctionSignatureBuilder::build() {
       variableArity_);
 }
 
+std::shared_ptr<AggregateFunctionSignature>
+AggregateFunctionSignatureBuilder::build() {
+  VELOX_CHECK(returnType_.has_value());
+  VELOX_CHECK(intermediateType_.has_value());
+  return std::make_shared<AggregateFunctionSignature>(
+      std::move(typeVariableConstants_),
+      returnType_.value(),
+      intermediateType_.value(),
+      std::move(argumentTypes_),
+      variableArity_);
+}
+
 } // namespace facebook::velox::exec

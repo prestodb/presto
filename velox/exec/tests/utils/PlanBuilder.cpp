@@ -18,6 +18,7 @@
 #include <velox/exec/Aggregate.h>
 #include <velox/exec/HashPartitionFunction.h>
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/expression/SignatureBinder.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 
@@ -171,6 +172,24 @@ TypePtr nameToType() {
   return CppToType<T>::create();
 }
 
+TypePtr resolveAggregateType(
+    const std::string& aggregateName,
+    core::AggregationNode::Step step,
+    const std::vector<TypePtr>& rawInputTypes) {
+  if (auto signatures = exec::getAggregateFunctionSignatures(aggregateName)) {
+    for (const auto& signature : signatures.value()) {
+      exec::SignatureBinder binder(*signature, rawInputTypes);
+      if (binder.tryBind()) {
+        return binder.tryResolveType(
+            exec::isPartialOutput(step) ? signature->intermediateType()
+                                        : signature->returnType());
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 class AggregateTypeResolver {
  public:
   explicit AggregateTypeResolver(core::AggregationNode::Step step)
@@ -203,6 +222,15 @@ class AggregateTypeResolver {
     }
 
     auto functionName = expr->getFunctionName();
+
+    // Use raw input types (if available) to resolve intermediate and final
+    // result types.
+    if (exec::isRawInput(step_)) {
+      if (auto type = resolveAggregateType(functionName, step_, types)) {
+        return type;
+      }
+    }
+
     auto aggregate =
         exec::Aggregate::create(functionName, step_, types, UNKNOWN());
     if (aggregate) {
@@ -217,6 +245,63 @@ class AggregateTypeResolver {
 };
 
 } // namespace
+
+PlanBuilder& PlanBuilder::finalAggregation() {
+  // Current plan node must be a partial aggregation.
+  auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
+  VELOX_CHECK_NOT_NULL(
+      aggNode, "Current plan node must be a partial aggregation.");
+
+  VELOX_CHECK(exec::isRawInput(aggNode->step()));
+  VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
+
+  auto step = core::AggregationNode::Step::kFinal;
+
+  // Create final aggregation using same grouping keys and same aggregate
+  // function names.
+  const auto& aggregates = aggNode->aggregates();
+  const auto& groupingKeys = aggNode->groupingKeys();
+
+  auto numAggregates = aggregates.size();
+  auto numGroupingKeys = groupingKeys.size();
+
+  auto names = makeNames("a", numAggregates);
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> masks(
+      numAggregates);
+
+  std::vector<std::shared_ptr<const core::CallTypedExpr>> finalAggregates;
+  finalAggregates.reserve(numAggregates);
+  for (auto i = 0; i < numAggregates; i++) {
+    // Resolve final aggregation result type using raw input types for the
+    // partial aggregation.
+    auto name = aggregates[i]->name();
+    auto rawInputs = aggregates[i]->inputs();
+
+    std::vector<TypePtr> rawInputTypes;
+    for (auto& rawInput : rawInputs) {
+      rawInputTypes.push_back(rawInput->type());
+    }
+
+    auto type = resolveAggregateType(name, step, rawInputTypes);
+    VELOX_CHECK_NOT_NULL(
+        type, "Failed to resolve result type for aggregate function {}", name);
+    std::vector<std::shared_ptr<const core::ITypedExpr>> inputs = {
+        field(numGroupingKeys + i)};
+    finalAggregates.emplace_back(
+        std::make_shared<core::CallTypedExpr>(type, std::move(inputs), name));
+  }
+
+  planNode_ = std::make_shared<core::AggregationNode>(
+      nextPlanNodeId(),
+      step,
+      groupingKeys,
+      names,
+      finalAggregates,
+      masks,
+      aggNode->ignoreNullKeys(),
+      planNode_);
+  return *this;
+}
 
 PlanBuilder& PlanBuilder::aggregation(
     const std::vector<ChannelIndex>& groupingKeys,

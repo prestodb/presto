@@ -102,6 +102,29 @@ class FunctionSignature {
   const bool variableArity_;
 };
 
+class AggregateFunctionSignature : public FunctionSignature {
+ public:
+  AggregateFunctionSignature(
+      std::vector<TypeVariableConstraint> typeVariableConstants,
+      TypeSignature returnType,
+      TypeSignature intermediateType,
+      std::vector<TypeSignature> argumentTypes,
+      bool variableArity)
+      : FunctionSignature(
+            std::move(typeVariableConstants),
+            std::move(returnType),
+            std::move(argumentTypes),
+            variableArity),
+        intermediateType_{std::move(intermediateType)} {}
+
+  const TypeSignature& intermediateType() const {
+    return intermediateType_;
+  }
+
+ private:
+  const TypeSignature intermediateType_;
+};
+
 /// Parses a string into TypeSignature. The format of the string is type name,
 /// optionally followed by type parameters enclosed in parenthesis.
 /// Examples:
@@ -158,6 +181,54 @@ class FunctionSignatureBuilder {
  private:
   std::vector<TypeVariableConstraint> typeVariableConstants_;
   std::optional<TypeSignature> returnType_;
+  std::vector<TypeSignature> argumentTypes_;
+  bool variableArity_{false};
+};
+
+/// Convenience class for creating AggregageFunctionSignature instances.
+/// Example of usage:
+///
+///     - signature of covar_samp aggregate function: (double, double) -> double
+///
+///     exec::AggregateFunctionSignatureBuilder()
+///                .returnType("double")
+///                .intermediateType("row(double,bigint,double,double)")
+///                .argumentType("double")
+///                .argumentType("double")
+///                .build()
+class AggregateFunctionSignatureBuilder {
+ public:
+  AggregateFunctionSignatureBuilder& typeVariable(std::string name) {
+    typeVariableConstants_.emplace_back(name);
+    return *this;
+  }
+
+  AggregateFunctionSignatureBuilder& returnType(const std::string& type) {
+    returnType_.emplace(parseTypeSignature(type));
+    return *this;
+  }
+
+  AggregateFunctionSignatureBuilder& argumentType(const std::string& type) {
+    argumentTypes_.emplace_back(parseTypeSignature(type));
+    return *this;
+  }
+
+  AggregateFunctionSignatureBuilder& intermediateType(const std::string& type) {
+    intermediateType_.emplace(parseTypeSignature(type));
+    return *this;
+  }
+
+  AggregateFunctionSignatureBuilder& variableArity() {
+    variableArity_ = true;
+    return *this;
+  }
+
+  std::shared_ptr<AggregateFunctionSignature> build();
+
+ private:
+  std::vector<TypeVariableConstraint> typeVariableConstants_;
+  std::optional<TypeSignature> returnType_;
+  std::optional<TypeSignature> intermediateType_;
   std::vector<TypeSignature> argumentTypes_;
   bool variableArity_{false};
 };

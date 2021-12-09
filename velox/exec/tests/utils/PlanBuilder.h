@@ -80,6 +80,10 @@ class PlanBuilder {
         resultTypes);
   }
 
+  /// Add final aggregation plan node to match the current partial aggregation
+  /// node. Should be called directly after partialAggregation() method.
+  PlanBuilder& finalAggregation();
+
   // @param resultTypes Optional list of result types for the aggregates. Use it
   // to specify the result types for aggregates which cannot infer result type
   // solely from the types of the intermediate results.

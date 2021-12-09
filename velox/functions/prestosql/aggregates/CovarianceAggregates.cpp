@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
@@ -159,10 +160,8 @@ class CovarIntermediateResult {
         meanY_{mutableRawValues<double>(rowVector, indices.meanY)},
         c2_{mutableRawValues<double>(rowVector, indices.c2)} {}
 
-  static RowTypePtr resultType() {
-    return ROW(
-        {"c2", "count", "meanX", "meanY"},
-        {DOUBLE(), BIGINT(), DOUBLE(), DOUBLE()});
+  static std::string type() {
+    return "row(double,bigint,double,double)";
   }
 
   void set(vector_size_t row, const CovarAccumulator& accumulator) {
@@ -264,10 +263,8 @@ class CorrIntermediateResult : public CovarIntermediateResult {
         m2X_{mutableRawValues<double>(rowVector, kCorrIndices.m2X)},
         m2Y_{mutableRawValues<double>(rowVector, kCorrIndices.m2Y)} {}
 
-  static RowTypePtr resultType() {
-    return ROW(
-        {"c2", "count", "m2X", "m2Y", "meanX", "meanY"},
-        {DOUBLE(), BIGINT(), DOUBLE(), DOUBLE(), DOUBLE(), DOUBLE()});
+  static std::string type() {
+    return "row(double,bigint,double,double,double,double)";
   }
 
   void set(vector_size_t row, const CorrAccumulator& accumulator) {
@@ -449,18 +446,29 @@ template <
     typename TIntermediateResult,
     typename TResultAccessor>
 bool registerCovarianceAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures = {
+      // (double, double) -> double
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("double")
+          .intermediateType(TIntermediateResult::type())
+          .argumentType("double")
+          .argumentType("double")
+          .build(),
+      // (real, real) -> real
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("real")
+          .intermediateType(TIntermediateResult::type())
+          .argumentType("real")
+          .argumentType("real")
+          .build(),
+  };
+
+  return exec::registerAggregateFunction(
       name,
-      [name](
-          core::AggregationNode::Step step,
-          const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
-        // TODO Add support for declaring function signature statically, so that
-        // tests could resolve intermediate and final types without needing to
-        // create an instance of the function.
-        auto resolvedResultType = exec::isPartialOutput(step)
-            ? TIntermediateResult::resultType()
-            : resultType;
+      std::move(signatures),
+      [](core::AggregationNode::Step step,
+         const std::vector<TypePtr>& argTypes,
+         const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         auto rawInputType = exec::isRawInput(step)
             ? argTypes[0]
             : (exec::isPartialOutput(step) ? DOUBLE() : resultType);
@@ -471,21 +479,20 @@ bool registerCovarianceAggregate(const std::string& name) {
                 TAccumulator,
                 TIntermediateInput,
                 TIntermediateResult,
-                TResultAccessor>>(resolvedResultType);
+                TResultAccessor>>(resultType);
           case TypeKind::REAL:
             return std::make_unique<CovarianceAggregate<
                 float,
                 TAccumulator,
                 TIntermediateInput,
                 TIntermediateResult,
-                TResultAccessor>>(resolvedResultType);
+                TResultAccessor>>(resultType);
           default:
             VELOX_UNSUPPORTED(
                 "Unsupported raw input type: {}. Expected DOUBLE or REAL.",
                 rawInputType->toString())
         }
       });
-  return true;
 }
 
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =

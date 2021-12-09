@@ -27,17 +27,13 @@ class CovarianceAggregationTest
  protected:
   void testGroupBy(const std::string& aggName, const RowVectorPtr& data) {
     auto partialAgg = fmt::format("{}(c1, c2)", aggName);
-    auto finalAgg = fmt::format("{}(a0)", aggName);
     auto sql = fmt::format(
         "SELECT c0, round({}(c1, c2), 2) FROM tmp GROUP BY 1", aggName);
-
-    // DOUBLE inputs produce DOUBLE results. REAL inputs produce REAL results.
-    auto finalResultType = data->childAt(1)->type();
 
     auto op = PlanBuilder()
                   .values({data})
                   .partialAggregation({0}, {partialAgg})
-                  .finalAggregation({0}, {finalAgg}, {finalResultType})
+                  .finalAggregation()
                   .project({"c0", "round(a0, cast(2 as integer))"})
                   .planNode();
 
@@ -45,7 +41,7 @@ class CovarianceAggregationTest
 
     op = PlanBuilder()
              .values({data})
-             .singleAggregation({0}, {partialAgg}, {finalResultType})
+             .singleAggregation({0}, {partialAgg})
              .project({"c0", "round(a0, cast(2 as integer))"})
              .planNode();
 
@@ -54,16 +50,12 @@ class CovarianceAggregationTest
 
   void testGlobalAgg(const std::string& aggName, const RowVectorPtr& data) {
     auto partialAgg = fmt::format("{}(c1, c2)", aggName);
-    auto finalAgg = fmt::format("{}(a0)", aggName);
     auto sql = fmt::format("SELECT round({}(c1, c2), 2) FROM tmp", aggName);
-
-    // DOUBLE inputs produce DOUBLE results. REAL inputs produce REAL results.
-    auto finalResultType = data->childAt(1)->type();
 
     auto op = PlanBuilder()
                   .values({data})
                   .partialAggregation({}, {partialAgg})
-                  .finalAggregation({}, {finalAgg}, {finalResultType})
+                  .finalAggregation()
                   .project({"round(a0, cast(2 as integer))"})
                   .planNode();
 
@@ -71,7 +63,7 @@ class CovarianceAggregationTest
 
     op = PlanBuilder()
              .values({data})
-             .singleAggregation({}, {partialAgg}, {finalResultType})
+             .singleAggregation({}, {partialAgg})
              .project({"round(a0, cast(2 as integer))"})
              .planNode();
 

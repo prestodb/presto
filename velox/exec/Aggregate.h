@@ -21,6 +21,7 @@
 
 namespace facebook::velox::exec {
 
+class AggregateFunctionSignature;
 class HashStringAllocator;
 
 // Returns true if aggregation receives raw (unprocessed) input, e.g. partial
@@ -276,6 +277,9 @@ class Aggregate {
   std::vector<vector_size_t> pushdownCustomIndices_;
 };
 
+/// This registry is deprecated. Use registerAggregateFunction() instead.
+/// TODO Migrate all aggregate functions to the new registry and delete this
+/// one.
 using AggregateFunctionRegistry = Registry<
     std::string,
     std::unique_ptr<Aggregate>(
@@ -284,4 +288,20 @@ using AggregateFunctionRegistry = Registry<
         const TypePtr& resultType)>;
 
 AggregateFunctionRegistry& AggregateFunctions();
+
+using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
+    core::AggregationNode::Step step,
+    const std::vector<TypePtr>& argTypes,
+    const TypePtr& resultType)>;
+
+/// Register an aggregate function with the specified name and signatures.
+bool registerAggregateFunction(
+    const std::string& name,
+    std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
+    AggregateFunctionFactory factory);
+
+/// Returns signatures of the aggregate function with the specified name.
+/// Returns empty std::optional if function with that name is not found.
+std::optional<std::vector<std::shared_ptr<AggregateFunctionSignature>>>
+getAggregateFunctionSignatures(const std::string& name);
 } // namespace facebook::velox::exec
