@@ -31,6 +31,7 @@ import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
@@ -44,7 +45,7 @@ public class HiveFileIterator
     private final ListDirectoryOperation listDirectoryOperation;
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
-    private final PathFilter pathFilter;
+    private final Optional<PathFilter> pathFilter;
 
     private Iterator<HiveFileInfo> remoteIterator = Collections.emptyIterator();
 
@@ -53,7 +54,7 @@ public class HiveFileIterator
             ListDirectoryOperation listDirectoryOperation,
             NamenodeStats namenodeStats,
             NestedDirectoryPolicy nestedDirectoryPolicy,
-            PathFilter pathFilter)
+            Optional<PathFilter> pathFilter)
     {
         paths.addLast(requireNonNull(path, "path is null"));
         this.listDirectoryOperation = requireNonNull(listDirectoryOperation, "listDirectoryOperation is null");
@@ -97,10 +98,14 @@ public class HiveFileIterator
         }
     }
 
-    private Iterator<HiveFileInfo> getLocatedFileStatusRemoteIterator(Path path, PathFilter pathFilter)
+    private Iterator<HiveFileInfo> getLocatedFileStatusRemoteIterator(Path path, Optional<PathFilter> pathFilter)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
-            return Iterators.filter(new FileStatusIterator(path, listDirectoryOperation, namenodeStats), input -> pathFilter.accept(input.getPath()));
+            FileStatusIterator statusIterator = new FileStatusIterator(path, listDirectoryOperation, namenodeStats);
+            if (!pathFilter.isPresent()) {
+                return statusIterator;
+            }
+            return Iterators.filter(new FileStatusIterator(path, listDirectoryOperation, namenodeStats), input -> pathFilter.get().accept(input.getPath()));
         }
     }
 
