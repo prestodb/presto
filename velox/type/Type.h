@@ -1258,10 +1258,31 @@ std::shared_ptr<const Type> createType<TypeKind::OPAQUE>(
 
 #undef VELOX_SCALAR_ACCESSOR
 
+template <typename UNDERLYING_TYPE>
+struct Variadic {
+  using underlying_type = UNDERLYING_TYPE;
+
+ private:
+  Variadic() {}
+};
+
+template <typename>
+struct isVariadicType : public std::false_type {};
+
+template <typename T>
+struct isVariadicType<Variadic<T>> : public std::true_type {};
+
 template <typename KEY, typename VALUE>
 struct Map {
   using key_type = KEY;
   using value_type = VALUE;
+
+  static_assert(
+      !isVariadicType<key_type>::value,
+      "Map keys cannot be Variadic");
+  static_assert(
+      !isVariadicType<value_type>::value,
+      "Map values cannot be Variadic");
 
  private:
   Map() {}
@@ -1271,6 +1292,10 @@ template <typename ELEMENT>
 struct Array {
   using element_type = ELEMENT;
 
+  static_assert(
+      !isVariadicType<element_type>::value,
+      "Array elements cannot be Variadic");
+
  private:
   Array() {}
 };
@@ -1279,6 +1304,10 @@ template <typename... T>
 struct Row {
   template <size_t idx>
   using type_at = typename std::tuple_element<idx, std::tuple<T...>>::type;
+
+  static_assert(
+      std::conjunction<std::bool_constant<!isVariadicType<T>::value>...>::value,
+      "Struct fields cannot be Variadic");
 
  private:
   Row() {}

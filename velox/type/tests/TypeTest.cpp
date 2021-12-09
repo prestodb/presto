@@ -540,3 +540,11 @@ TEST(Type, unknown) {
   auto unknownArray = ARRAY(UNKNOWN());
   EXPECT_TRUE(unknownArray->containsUnknown());
 }
+
+TEST(Type, isVariadicType) {
+  EXPECT_TRUE(isVariadicType<Variadic<int64_t>>::value);
+  EXPECT_TRUE(isVariadicType<Variadic<Array<float>>>::value);
+  EXPECT_FALSE(isVariadicType<velox::StringView>::value);
+  EXPECT_FALSE(isVariadicType<bool>::value);
+  EXPECT_FALSE((isVariadicType<Map<int8_t, Date>>::value));
+}
