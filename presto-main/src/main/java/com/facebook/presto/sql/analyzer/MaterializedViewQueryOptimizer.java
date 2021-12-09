@@ -437,7 +437,7 @@ public class MaterializedViewQueryOptimizer
                 accessControl,
                 sqlParser,
                 scope,
-                new Analysis(null, ImmutableList.of(), false),
+                new Analysis(null, ImmutableMap.of(), false),
                 expression,
                 WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(

@@ -5028,6 +5028,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteUsingWithWithClause()
+    {
+        String query = "WITH src AS (SELECT * FROM (VALUES (1, 4),(2, 5), (3, 6)) AS t(id1, id2) WHERE id2 = ?)" +
+                " SELECT * from src WHERE id1 between ? and ?";
+
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING 6, 0, 10",
+                "VALUES (3, 6)");
+    }
+
+    @Test
     public void testExecuteNoSuchQuery()
     {
         assertQueryFails("EXECUTE my_query", "Prepared statement not found: my_query");

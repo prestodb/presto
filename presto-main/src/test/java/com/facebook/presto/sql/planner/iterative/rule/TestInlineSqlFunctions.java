@@ -223,7 +223,7 @@ public class TestInlineSqlFunctions
                 tester.getSqlParser(),
                 viewOf(variableTypes),
                 inputSqlExpression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
         Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(
                 inputSqlExpression,

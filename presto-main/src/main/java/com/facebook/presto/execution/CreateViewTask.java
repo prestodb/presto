@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -111,7 +112,7 @@ public class CreateViewTask
 
     private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), warningCollector);
         return analyzer.analyze(statement);
     }
 }

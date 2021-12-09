@@ -141,7 +141,7 @@ public class TestCommonSubExpressionRewritter
                 new SqlParser(),
                 TYPES,
                 expression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(
                 expression,

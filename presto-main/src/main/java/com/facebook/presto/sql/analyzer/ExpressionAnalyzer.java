@@ -174,7 +174,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -206,7 +206,7 @@ public class ExpressionAnalyzer
     private final Optional<TransactionId> transactionId;
     private final Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions;
     private final SqlFunctionProperties sqlFunctionProperties;
-    private final List<Expression> parameters;
+    private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
 
     private ExpressionAnalyzer(
@@ -216,7 +216,7 @@ public class ExpressionAnalyzer
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -226,7 +226,7 @@ public class ExpressionAnalyzer
         this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
         this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-        this.parameters = requireNonNull(parameters, "parameters is null");
+        this.parameters = requireNonNull(parameters, "parameterMap is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
@@ -1043,7 +1043,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node, "invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
             }
 
-            Type resultType = process(parameters.get(node.getPosition()), context);
+            Type resultType = process(parameters.get(NodeRef.of(node)), context);
             return setExpressionType(node, resultType);
         }
 
@@ -1550,7 +1550,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Expression expression,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector)
     {
         return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, warningCollector, false);
@@ -1562,7 +1562,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Expression expression,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1575,7 +1575,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Iterable<Expression> expressions,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1588,7 +1588,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Iterable<Expression> expressions,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1663,7 +1663,7 @@ public class ExpressionAnalyzer
                 Optional.empty(),
                 sqlFunctionProperties,
                 TypeProvider.copyOf(argumentTypes),
-                emptyList(),
+                emptyMap(),
                 node -> new SemanticException(NOT_SUPPORTED, node, "SQL function does not support subquery"),
                 WarningCollector.NOOP,
                 false);
@@ -1710,7 +1710,7 @@ public class ExpressionAnalyzer
                 analysis.isDescribe());
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
@@ -1722,7 +1722,7 @@ public class ExpressionAnalyzer
                 false);
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
     {
         return createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
@@ -1737,7 +1737,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createWithoutSubqueries(
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             SemanticErrorCode errorCode,
             String message,
             WarningCollector warningCollector,
@@ -1757,7 +1757,7 @@ public class ExpressionAnalyzer
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
             boolean isDescribe)
@@ -1780,7 +1780,7 @@ public class ExpressionAnalyzer
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
             boolean isDescribe)

@@ -49,7 +49,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
@@ -72,7 +72,7 @@ import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -356,7 +356,7 @@ public class ScalarStatsCalculator
         protected VariableStatsEstimate visitLiteral(Literal node, Void context)
         {
             Object value = evaluate(metadata, session.toConnectorSession(), node);
-            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of(), WarningCollector.NOOP).analyze(node, Scope.create());
+            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableMap.of(), WarningCollector.NOOP).analyze(node, Scope.create());
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
@@ -398,7 +398,7 @@ public class ScalarStatsCalculator
                     metadata.getFunctionAndTypeManager(),
                     session,
                     types,
-                    emptyList(),
+                    emptyMap(),
                     node -> new IllegalStateException("Unexpected node: %s" + node),
                     WarningCollector.NOOP,
                     false);
