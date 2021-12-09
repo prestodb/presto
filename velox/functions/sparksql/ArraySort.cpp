@@ -32,11 +32,11 @@
 namespace facebook::velox::functions::sparksql {
 namespace {
 
-template <TypeKind kind>
+template <template <typename> class Cmp, TypeKind kind>
 void applyTyped(
     const SelectivityVector& rows,
     const ArrayVector* inputArray,
-    bool sortDescending,
+    bool nullsFirst,
     exec::EvalCtx* context,
     VectorPtr result) {
   using T = typename TypeTraits<kind>::NativeType;
@@ -47,7 +47,7 @@ void applyTyped(
       toElementRows(elementsVector->size(), rows, inputArray);
   exec::LocalDecodedVector inputElements(context, *elementsVector, elementRows);
 
-  // Initialize elements vectors for result
+  // Initialize elements vectors for result.
   ArrayVector* resultArray = result->as<ArrayVector>();
   auto resultElements = resultArray->elements();
   resultElements->resize(inputArray->elements()->size());
@@ -66,19 +66,8 @@ void applyTyped(
     for (int j = 0; j < size; ++j) {
       *(rowValues + j) = inputElements->valueAt<T>(j + inputOffset);
     }
-    if (sortDescending) {
-      // Move nulls to end of array
-      vector_size_t numNulls = 0;
-      for (vector_size_t i = size - 1; i >= 0; --i) {
-        if (inputElements->isNullAt(i + inputOffset)) {
-          std::swap(*(rowValues + i), *(rowValues + size - numNulls - 1));
-          resultElements->setNull(resultOffset + size - numNulls - 1, true);
-          ++numNulls;
-        }
-      }
-      std::sort(rowValues, rowValues + size - numNulls, Greater<T>());
-    } else {
-      // Move nulls to beginning of array
+    if (nullsFirst) {
+      // Move nulls to beginning of array.
       vector_size_t numNulls = 0;
       for (vector_size_t i = 0; i < size; ++i) {
         if (inputElements->isNullAt(i + inputOffset)) {
@@ -87,90 +76,111 @@ void applyTyped(
           ++numNulls;
         }
       }
-      std::sort(rowValues + numNulls, rowValues + size, Less<T>());
+      std::sort(rowValues + numNulls, rowValues + size, Cmp<T>());
+    } else {
+      // Move nulls to end of array.
+      vector_size_t numNulls = 0;
+      for (vector_size_t i = size - 1; i >= 0; --i) {
+        if (inputElements->isNullAt(i + inputOffset)) {
+          std::swap(*(rowValues + i), *(rowValues + size - numNulls - 1));
+          resultElements->setNull(resultOffset + size - numNulls - 1, true);
+          ++numNulls;
+        }
+      }
+      std::sort(rowValues, rowValues + size - numNulls, Cmp<T>());
     }
     resultOffset += size;
   };
 
   rows.applyToSelected(processRow);
 }
-
-class ArraySort : public exec::VectorFunction {
-  /// This class implements array_sort function. Takes an array as input
-  /// and sorts it in ascending order as per following sematics
-  /// NULL < -Inf < Inf < NaN
-  /// If optional second parameter is set to true, then the elements will
-  /// sorted in descending order instead.
-  ///
-  /// Signature:
-  ///   array_sort(array(T)) -> array(T)
-  ///   array_sort(array(T), boolean) -> array(T)
-  ///
-  /// NOTE: Supports all scalar types except BOOLEAN, VARCHAR and VARBINARY.
-
- public:
-  explicit ArraySort(bool sortDescending) : sortDescending_(sortDescending) {}
-
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    const ArrayVector* inputArray = args[0]->as<ArrayVector>();
-
-    // initialize result ArrayVector
-    VectorPtr resultArray = BaseVector::create(
-        inputArray->type(), inputArray->size(), context->pool());
-    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-        applyTyped,
-        inputArray->elements()->typeKind(),
-        rows,
-        inputArray,
-        sortDescending_,
-        context,
-        resultArray);
-    context->moveOrCopyResult(resultArray, rows, result);
-  }
-
- private:
-  bool sortDescending_;
-};
 } // namespace
 
+template <template <typename> class Cmp>
+void ArraySort<Cmp>::apply(
+    const SelectivityVector& rows,
+    std::vector<VectorPtr>& args,
+    const TypePtr& /*outputType*/,
+    exec::EvalCtx* context,
+    VectorPtr* result) const {
+  const ArrayVector* inputArray = args[0]->as<ArrayVector>();
+
+  // Initialize result ArrayVector.
+  VectorPtr resultArray = BaseVector::create(
+      inputArray->type(), inputArray->size(), context->pool());
+  VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(
+      applyTyped,
+      Cmp,
+      inputArray->elements()->typeKind(),
+      rows,
+      inputArray,
+      nullsFirst_,
+      context,
+      resultArray);
+  context->moveOrCopyResult(resultArray, rows, result);
+}
+
+// Signature: array_sort(array(T)) -> array(T)
 std::vector<std::shared_ptr<exec::FunctionSignature>> arraySortSignatures() {
-  return {// array(T) -> array(T)
-          exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .argumentType("array(T)")
-              .returnType("array(T)")
-              .build(),
-          // array(T, boolean) -> array(T)
-          exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .argumentType("array(T)")
-              .argumentType("boolean")
-              .returnType("array(T)")
-              .build()};
+  return {
+      exec::FunctionSignatureBuilder()
+          .typeVariable("T")
+          .argumentType("array(T)")
+          .returnType("array(T)")
+          .build(),
+  };
 }
 
 std::shared_ptr<exec::VectorFunction> makeArraySort(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  VELOX_CHECK_EQ(inputArgs.size(), 1);
+  // Nulls are considered largest.
+  return std::make_shared<ArraySort<Less>>(/*nullsFirst=*/false);
+}
+
+// Signatures:
+//   sort_array(array(T)) -> array(T)
+//   sort_array(array(T), boolean) -> array(T)
+std::vector<std::shared_ptr<exec::FunctionSignature>> sortArraySignatures() {
+  return {
+      exec::FunctionSignatureBuilder()
+          .typeVariable("T")
+          .argumentType("array(T)")
+          .returnType("array(T)")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .typeVariable("T")
+          .argumentType("array(T)")
+          .argumentType("boolean")
+          .returnType("array(T)")
+          .build(),
+  };
+}
+
+std::shared_ptr<exec::VectorFunction> makeSortArray(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   VELOX_CHECK(
       inputArgs.size() == 1 || inputArgs.size() == 2,
       "Invalid number of arguments {}, expected 1 or 2",
       inputArgs.size());
-  bool sortDescending = false;
-  // Read optional sort descending flag.
+  bool ascending = true;
+  // Read optional sort ascending flag.
   if (inputArgs.size() == 2) {
     BaseVector* boolVector = inputArgs[1].constantValue.get();
     if (!boolVector || !boolVector->isConstantEncoding()) {
       VELOX_USER_FAIL(
           "{} requires a constant bool as the second argument.", name);
     }
-    sortDescending = boolVector->as<ConstantVector<bool>>()->valueAt(0);
+    ascending = boolVector->as<ConstantVector<bool>>()->valueAt(0);
   }
-  return std::make_shared<ArraySort>(sortDescending);
+  // Nulls are considered smallest.
+  bool nullsFirst = ascending;
+  if (ascending) {
+    return std::make_shared<ArraySort<Less>>(nullsFirst);
+  } else {
+    return std::make_shared<ArraySort<Greater>>(nullsFirst);
+  }
 }
 } // namespace facebook::velox::functions::sparksql

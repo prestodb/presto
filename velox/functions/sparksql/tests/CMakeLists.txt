@@ -15,11 +15,13 @@
 add_executable(
   velox_functions_spark_test
   ArithmeticTest.cpp
+  ArraySortTest.cpp
   CompareNullSafeTests.cpp
   HashTest.cpp
   InTest.cpp
   LeastGreatestTest.cpp
   RegexFunctionsTest.cpp
+  SortArrayTest.cpp
   SplitFunctionsTest.cpp
   StringTest.cpp
   SubscriptTest.cpp)

@@ -21,6 +21,7 @@
 #include "velox/functions/prestosql/JsonExtractScalar.h"
 #include "velox/functions/prestosql/Rand.h"
 #include "velox/functions/prestosql/StringFunctions.h"
+#include "velox/functions/sparksql/ArraySort.h"
 #include "velox/functions/sparksql/CompareFunctionsNullSafe.h"
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/In.h"
@@ -124,6 +125,12 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<udf_ends_with, bool, Varchar, Varchar>(
       {prefix + "endswith"});
   registerFunction<udf_contains, bool, Varchar, Varchar>({prefix + "contains"});
+
+  // Register array sort functions.
+  exec::registerStatefulVectorFunction(
+      prefix + "array_sort", arraySortSignatures(), makeArraySort);
+  exec::registerStatefulVectorFunction(
+      prefix + "sort_array", sortArraySignatures(), makeSortArray);
 }
 
 } // namespace sparksql
