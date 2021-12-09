@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -50,6 +51,7 @@ public class Analyzer
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
+    private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
 
     public Analyzer(Session session,
@@ -58,6 +60,7 @@ public class Analyzer
             AccessControl accessControl,
             Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
         this.session = requireNonNull(session, "session is null");
@@ -66,6 +69,7 @@ public class Analyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
         this.parameters = parameters;
+        this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
@@ -83,8 +87,8 @@ public class Analyzer
 
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl, warningCollector);
-        Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement());

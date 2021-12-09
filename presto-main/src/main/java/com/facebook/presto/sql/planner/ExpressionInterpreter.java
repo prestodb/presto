@@ -154,7 +154,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -193,7 +193,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, List<Expression> parameters)
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters)
     {
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
@@ -219,7 +219,7 @@ public class ExpressionInterpreter
             Metadata metadata,
             Session session,
             Set<NodeRef<Expression>> columnReferences,
-            List<Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         requireNonNull(columnReferences, "columnReferences is null");
 
@@ -957,7 +957,7 @@ public class ExpressionInterpreter
                         function,
                         metadata,
                         session,
-                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
+                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyMap(), WarningCollector.NOOP),
                         optimize);
                 result = functionInterpreter.visitor.process(function, context);
                 if (result instanceof FunctionCall) {

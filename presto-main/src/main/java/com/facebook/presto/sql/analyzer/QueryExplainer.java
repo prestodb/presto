@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizLogicalPlan;
@@ -112,7 +113,7 @@ public class QueryExplainer
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector);
         return analyzer.analyze(statement);
     }
 

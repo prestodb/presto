@@ -69,6 +69,7 @@ import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -624,9 +625,9 @@ class AggregationAnalyzer
             if (analysis.isDescribe()) {
                 return true;
             }
-            List<Expression> parameters = analysis.getParameters();
+            Map<NodeRef<Parameter>, Expression> parameters = analysis.getParameters();
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
-            return process(parameters.get(node.getPosition()), context);
+            return process(parameters.get(NodeRef.of(node)), context);
         }
 
         public Boolean visitGroupingOperation(GroupingOperation node, Void context)
