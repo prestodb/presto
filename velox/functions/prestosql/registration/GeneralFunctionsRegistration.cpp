@@ -27,10 +27,7 @@ void registerGeneralFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_in, "in");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_cardinality, "cardinality");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_filter, "filter");
-  // TODO Fix Koski parser and clean this up.
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "ROW");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "concatRow");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "concatrow");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "row_constructor");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_least, "least");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, "greatest");

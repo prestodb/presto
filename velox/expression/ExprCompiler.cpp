@@ -327,8 +327,8 @@ ExprPtr compileExpression(
   auto inputTypes = getTypes(compiledInputs);
 
   if (auto concat = dynamic_cast<const core::ConcatTypedExpr*>(expr.get())) {
-    auto vectorFunction = getVectorFunction("ROW", inputTypes, {});
-    VELOX_CHECK(vectorFunction, "Vector function ROW is missing");
+    auto vectorFunction = getVectorFunction("row_constructor", inputTypes, {});
+    VELOX_CHECK(vectorFunction, "Vector function row_constructor is missing");
     result = std::make_shared<Expr>(
         resultType, std::move(compiledInputs), vectorFunction, "row");
   } else if (auto cast = dynamic_cast<const core::CastTypedExpr*>(expr.get())) {

@@ -134,7 +134,7 @@ CodegenASTNode ExprCodeGenerator::convertVeloxExpressionToCodegenAST(
   if (auto callExpr =
           std::dynamic_pointer_cast<const core::CallTypedExpr>(node)) {
     // Make row expression
-    if (callExpr->name() == "concatRow") {
+    if (callExpr->name() == "row_constructor") {
       return std::make_shared<codegen::MakeRowExpression>(
           node->type(), codegenInputs);
     }

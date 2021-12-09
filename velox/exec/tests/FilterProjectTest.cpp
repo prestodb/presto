@@ -230,7 +230,7 @@ TEST_F(FilterProjectTest, dereference) {
   auto plan = PlanBuilder()
                   .values(vectors)
                   .project(
-                      std::vector<std::string>{"concatRow(c1, c2)"},
+                      std::vector<std::string>{"row_constructor(c1, c2)"},
                       std::vector<std::string>{"c1_c2"})
                   .project(std::vector<std::string>{"c1_c2.c1", "c1_c2.c2"})
                   .planNode();
@@ -239,7 +239,7 @@ TEST_F(FilterProjectTest, dereference) {
   plan = PlanBuilder()
              .values(vectors)
              .project(
-                 std::vector<std::string>{"concatRow(c1, c2)"},
+                 std::vector<std::string>{"row_constructor(c1, c2)"},
                  std::vector<std::string>{"c1_c2"})
              .filter("c1_c2.c1 % 10 = 5")
              .project(std::vector<std::string>{"c1_c2.c1", "c1_c2.c2"})

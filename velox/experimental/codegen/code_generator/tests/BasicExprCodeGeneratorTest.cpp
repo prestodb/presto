@@ -42,14 +42,14 @@ TEST_F(CodegenBasicExprTest, testInputRef) {
   evaluateAndCompare<
       RowTypeTrait<TypeKind::BIGINT, TypeKind::DOUBLE>,
       RowTypeTrait<TypeKind::BIGINT, TypeKind::DOUBLE>>(
-      "concatRow(C0, C1)",
+      "row_constructor(C0, C1)",
       {{1, 1.2}, {2, 1.3}, {3, 1.4}},
       {{1, 1.2}, {2, 1.3}, {3, 1.4}});
 
   evaluateAndCompare<
       RowTypeTrait<TypeKind::BIGINT, TypeKind::DOUBLE>,
       RowTypeTrait<TypeKind::BIGINT, TypeKind::DOUBLE, TypeKind::BIGINT>>(
-      "concatRow(C0, C1, C0)",
+      "row_constructor(C0, C1, C0)",
       {{std::nullopt, 1.2}, {2, 1.3}, {3, 1.4}},
       {{std::nullopt, 1.2, std::nullopt}, {2, 1.3, 2}, {3, 1.4, 3}});
 }

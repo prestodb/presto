@@ -205,7 +205,7 @@ TEST_F(ArithmeticFunctionsTest, complexExpression) {
     evaluateAndCompare<
         RowTypeTrait<TypeKind::BIGINT, TypeKind::BIGINT, TypeKind::BIGINT>,
         RowTypeTrait<TypeKind::BIGINT, TypeKind::BIGINT, TypeKind::BIGINT>>(
-        "concatRow(C0+C2, C0*C1, C2-C1+10)",
+        "row_constructor(C0+C2, C0*C1, C2-C1+10)",
         {{1, 2, 3}, {2, 3, 4}, {3, 5, std::nullopt}},
         {{4, 2, 11}, {6, 6, 11}, {std::nullopt, 15, std::nullopt}});
   };

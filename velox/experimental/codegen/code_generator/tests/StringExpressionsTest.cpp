@@ -41,7 +41,7 @@ TEST_F(StringExprTest, ifString) {
   evaluateAndCompare<
       RowTypeTrait<TypeKind::VARCHAR, TypeKind::VARCHAR>,
       RowTypeTrait<TypeKind::VARCHAR, TypeKind::VARCHAR>>(
-      "concatRow(C0,C1)",
+      "row_constructor(C0,C1)",
       {{StringView("one"), StringView("two")},
        {StringView("one"), StringView("two")},
        {StringView("one"), StringView("two")}});

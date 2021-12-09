@@ -54,7 +54,7 @@ std::shared_ptr<const Type> resolveType(
   }
 
   // TODO Replace with struct_pack
-  if (expr->getFunctionName() == "concatrow") {
+  if (expr->getFunctionName() == "row_constructor") {
     auto numInput = inputs.size();
     std::vector<TypePtr> types(numInput);
     std::vector<std::string> names(numInput);

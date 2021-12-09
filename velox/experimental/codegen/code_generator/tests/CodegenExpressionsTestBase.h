@@ -559,7 +559,7 @@ class ExpressionCodegenTestBase : public testing::Test {
 
     if (auto callExpr =
             std::dynamic_pointer_cast<const core::CallTypedExpr>(typedExpr)) {
-      if (callExpr->name() == "concatrow") {
+      if (callExpr->name() == "row_constructor") {
         std::vector<std::string> names;
         for (auto i = 0; i < typedExpr->inputs().size(); i++) {
           names.push_back(fmt::format("c{}", names.size()));

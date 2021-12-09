@@ -255,8 +255,7 @@ void printCoverageMap(
 /// Returns alphabetically sorted list of scalar functions available in Velox.
 std::vector<std::string> getSortedScalarNames() {
   // Do not print "internal" functions.
-  static const std::unordered_set<std::string> kBlockList = {
-      "ROW", "concatRow", "concatrow"};
+  static const std::unordered_set<std::string> kBlockList = {"row_constructor"};
 
   auto functions = getFunctionSignatures();
 
