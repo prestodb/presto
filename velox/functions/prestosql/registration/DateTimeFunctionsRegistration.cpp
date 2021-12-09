@@ -22,8 +22,7 @@ namespace facebook::velox::functions {
 namespace {
 void registerSimpleFunctions() {
   // Date time functions.
-  registerFunction<ToUnixtimeFunction, double, Timestamp>(
-      {"to_unixtime", "to_unix_timestamp"});
+  registerFunction<ToUnixtimeFunction, double, Timestamp>({"to_unixtime"});
   registerFunction<FromUnixtimeFunction, Timestamp, double>({"from_unixtime"});
 
   registerFunction<YearFunction, int64_t, Timestamp>({"year"});
