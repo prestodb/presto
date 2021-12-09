@@ -23,10 +23,6 @@ import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Function;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -44,7 +40,6 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hudi.hadoop.HoodieROTablePathFilter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -85,6 +80,7 @@ import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.fromProperties;
 import static com.google.common.collect.Streams.stream;
@@ -110,7 +106,6 @@ public class StoragePartitionLoader
     private final ConnectorSession session;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators;
     private final boolean schedulerUsesHostAddresses;
-    private final LoadingCache<Configuration, HoodieROTablePathFilter> hoodiePathFilterLoadingCache;
     private final boolean partialAggregationsPushedDown;
 
     public StoragePartitionLoader(
@@ -132,15 +127,21 @@ public class StoragePartitionLoader
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
-        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
         this.fileIterators = requireNonNull(fileIterators, "fileIterators is null");
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
-        this.hoodiePathFilterLoadingCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build(CacheLoader.from((Function<Configuration, HoodieROTablePathFilter>) HoodieROTablePathFilter::new));
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+
+        Optional<DirectoryLister> directoryListerOverride = Optional.empty();
+        if (!isNullOrEmpty(table.getStorage().getLocation())) {
+            Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, new Path(table.getStorage().getLocation()));
+            InputFormat<?, ?> inputFormat = getInputFormat(configuration, table.getStorage().getStorageFormat().getInputFormat(), false);
+            if (isHudiParquetInputFormat(inputFormat)) {
+                directoryListerOverride = Optional.of(new HudiDirectoryLister(configuration, session, table));
+            }
+        }
+        this.directoryLister = directoryListerOverride.orElseGet(() -> requireNonNull(directoryLister, "directoryLister is null"));
     }
 
     @Override
@@ -247,7 +248,7 @@ public class StoragePartitionLoader
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
 
-        if (shouldUseFileSplitsFromInputFormat(inputFormat, configuration, table.getStorage().getLocation())) {
+        if (shouldUseFileSplitsFromInputFormat(inputFormat, directoryLister)) {
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
@@ -259,7 +260,7 @@ public class StoragePartitionLoader
 
             return addSplitsToSource(splits, splitFactory, hiveSplitSource, stopped);
         }
-        PathFilter pathFilter = isHudiParquetInputFormat(inputFormat) ? hoodiePathFilterLoadingCache.getUnchecked(configuration) : path1 -> true;
+        PathFilter pathFilter = path1 -> true;
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // Partial aggregation pushdown works at the granularity of individual files
         // therefore we must not split files when either is enabled.

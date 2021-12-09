@@ -133,6 +133,7 @@ public final class HiveSessionProperties
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT = "use_record_page_source_for_custom_split";
+    private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -651,6 +652,11 @@ public final class HiveSessionProperties
                         USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT,
                         "Use record page source for custom split",
                         hiveClientConfig.isUseRecordPageSourceForCustomSplit(),
+                        false),
+                booleanProperty(
+                        HUDI_METADATA_ENABLED,
+                        "For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage",
+                        hiveClientConfig.isHudiMetadataEnabled(),
                         false));
     }
 
@@ -1125,5 +1131,10 @@ public final class HiveSessionProperties
     public static boolean isUseRecordPageSourceForCustomSplit(ConnectorSession session)
     {
         return session.getProperty(USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT, Boolean.class);
+    }
+
+    public static boolean isHudiMetadataEnabled(ConnectorSession session)
+    {
+        return session.getProperty(HUDI_METADATA_ENABLED, Boolean.class);
     }
 }

@@ -49,12 +49,7 @@
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
-            <artifactId>hudi-common</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.hudi</groupId>
-            <artifactId>hudi-hadoop-mr</artifactId>
+            <artifactId>hudi-presto-bundle</artifactId>
         </dependency>
 
         <dependency>
@@ -411,6 +406,9 @@
                     <ignoredClassPatterns>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
+                        <!-- TODO: Remove this once shaded in hudi-presto-bundle -->
+                        <ignoredClassPattern>org.apache.htrace.*</ignoredClassPattern>
+                        <ignoredClassPattern>org.apache.parquet.avro.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
