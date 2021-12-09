@@ -241,6 +241,7 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
@@ -1012,7 +1013,7 @@ public class LocalQueryRunner
                 costCalculator,
                 dataDefinitionTask,
                 distributedPlanChecker);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(wrappedStatement instanceof Explain, session, optimizers, singleNodePlanChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
 

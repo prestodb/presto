@@ -79,7 +79,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -469,7 +469,7 @@ public final class ExpressionDomainTranslator
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
-            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
+            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP);
         }
 
         private static ExtractionResult createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, String column, Type type, @Nullable Object value, boolean complement)
@@ -735,7 +735,7 @@ public final class ExpressionDomainTranslator
 
     private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP);
         return expressionTypes.get(NodeRef.of(expression));
     }
 

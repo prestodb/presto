@@ -717,7 +717,7 @@ class RelationPlanner
             }
         }, row);
         expression = Coercer.addCoercions(expression, analysis);
-        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
+        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), expression);
         return castToRowExpression(expression);
     }
 
@@ -740,7 +740,7 @@ class RelationPlanner
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
             Expression rewritten = Coercer.addCoercions(expression, analysis);
-            rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), rewritten);
+            rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), rewritten);
             values.add(castToRowExpression(rewritten));
             VariableReferenceExpression input = variableAllocator.newVariable(rewritten, type);
             argumentVariables.add(new VariableReferenceExpression(getSourceLocation(rewritten), input.getName(), type));

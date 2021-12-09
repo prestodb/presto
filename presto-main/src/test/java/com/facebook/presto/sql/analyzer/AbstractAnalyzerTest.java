@@ -86,6 +86,7 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static org.testng.Assert.fail;
 
 public class AbstractAnalyzerTest
@@ -429,6 +430,7 @@ public class AbstractAnalyzerTest
                 new AllowAllAccessControl(),
                 Optional.empty(),
                 emptyList(),
+                emptyMap(),
                 warningCollector);
     }
 
