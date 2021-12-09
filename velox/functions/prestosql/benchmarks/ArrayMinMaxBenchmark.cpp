@@ -132,6 +132,39 @@ struct ArrayMinSimpleFunctionIterator {
   }
 };
 
+// Returns the minimum value in an array ignoring nulls.
+// The point of this is to exercise SkipNullsIterator.
+template <typename T>
+struct ArrayMinSimpleFunctionSkipNullIterator {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(
+      TInput& out,
+      const arg_type<Array<TInput>>& array) {
+    const auto size = array.size();
+    if (size == 0) {
+      return false; // NULL
+    }
+
+    bool hasValue = false;
+    auto min = INT32_MAX;
+    for (const auto& item : array.skipNulls()) {
+      hasValue = true;
+      if (item < min) {
+        min = item;
+      }
+    }
+
+    if (!hasValue) {
+      return false;
+    }
+
+    out = min;
+    return true;
+  }
+};
+
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_array_min_basic,
     functions::signatures(),
@@ -147,6 +180,10 @@ class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
         {"array_min_simple"});
     registerFunction<ArrayMinSimpleFunctionIterator, int32_t, Array<int32_t>>(
         {"array_min_simple_iterator"});
+    registerFunction<
+        ArrayMinSimpleFunctionSkipNullIterator,
+        int32_t,
+        Array<int32_t>>({"array_min_simple_skip_null_iterator"});
   }
 
   RowVectorPtr makeData() {
@@ -210,6 +247,11 @@ BENCHMARK_RELATIVE(vectorMinIntegerNoFastPath) {
 BENCHMARK_RELATIVE(simpleMinIntegerIterator) {
   ArrayMinMaxBenchmark benchmark;
   benchmark.runInteger("array_min_simple_iterator");
+}
+
+BENCHMARK_RELATIVE(simpleMinIntegerSkipNullIterator) {
+  ArrayMinMaxBenchmark benchmark;
+  benchmark.runInteger("array_min_simple_skip_null_iterator");
 }
 
 BENCHMARK_RELATIVE(simpleMinInteger) {
