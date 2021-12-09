@@ -821,7 +821,7 @@ BufferPtr MapVector::elementIndices() const {
 
 std::string MapVector::toString(vector_size_t index) const {
   if (isNullAt(index)) {
-    return "<null>";
+    return "null";
   }
   auto size = rawSizes_[index];
   if (size == 0) {

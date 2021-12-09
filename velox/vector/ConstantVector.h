@@ -309,7 +309,7 @@ class ConstantVector final : public SimpleVector<T> {
       return SimpleVector<T>::toString(index);
     }
 
-    return valueVector_->toString(index);
+    return valueVector_->toString(index_);
   }
 
  private:
