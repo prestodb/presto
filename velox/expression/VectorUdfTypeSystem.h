@@ -103,7 +103,7 @@ struct VectorWriter {
   }
 
   void ensureSize(size_t size) {
-    if (size != vector_->size()) {
+    if (size > vector_->size()) {
       vector_->resize(size);
       init(*vector_);
     }
@@ -205,7 +205,7 @@ struct VectorWriter<Map<K, V>> {
   }
 
   void ensureSize(size_t size) {
-    if (size != vector_->size()) {
+    if (size > vector_->size()) {
       vector_->resize(size);
       init(*vector_);
     }
@@ -382,7 +382,7 @@ struct VectorWriter<Array<V>> {
 
   void ensureSize(size_t size) {
     // todo(youknowjack): optimize the excessive ensureSize calls
-    if (size != vector_->size()) {
+    if (size > vector_->size()) {
       vector_->resize(size);
       init(*vector_);
     }
@@ -505,7 +505,9 @@ struct VectorWriter<Row<T...>> {
 
   void init(vector_t& vector) {
     vector_ = &vector;
+    // Ensure that children vectors are at least of same size as top row vector.
     initVectorWritersInternal<0, T...>();
+    resizeVectorWritersInternal<0>(vector_->size());
   }
 
   exec_out_t& current() {
@@ -518,10 +520,9 @@ struct VectorWriter<Row<T...>> {
   }
 
   void ensureSize(size_t size) {
-    if (size != vector_->size()) {
+    if (size > vector_->size()) {
       vector_->resize(size);
-      resizeVectorWritersInternal<0>(size);
-      init(*vector_);
+      resizeVectorWritersInternal<0>(vector_->size());
     }
   }
 
@@ -770,9 +771,8 @@ struct VectorWriter<
   }
 
   void ensureSize(size_t size) {
-    if (size != vector_->size()) {
+    if (size > vector_->size()) {
       vector_->resize(size);
-      init(*vector_);
     }
   }
 
@@ -828,9 +828,8 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
   }
 
   void ensureSize(size_t size) {
-    if (size != vector_->size()) {
+    if (size > vector_->size()) {
       vector_->resize(size);
-      init(*vector_);
     }
   }
 
@@ -881,9 +880,8 @@ struct VectorWriter<std::shared_ptr<T>> {
   }
 
   void ensureSize(size_t size) {
-    if (size != vector_->size()) {
+    if (size > vector_->size()) {
       vector_->resize(size);
-      init(*vector_);
     }
   }
 
