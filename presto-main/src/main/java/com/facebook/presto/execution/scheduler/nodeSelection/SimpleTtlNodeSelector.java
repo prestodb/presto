@@ -32,6 +32,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
 import com.facebook.presto.spi.ttl.NodeTtl;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMultimap;
@@ -61,7 +62,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
-import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -224,11 +225,12 @@ public class SimpleTtlNodeSelector
         return simpleNodeSelector.computeAssignments(splits, existingTasks, bucketNodeMap);
     }
 
-    private boolean isTtlEnough(ConfidenceBasedTtlInfo ttlInfo, Duration estimatedExecutionTime)
+    @VisibleForTesting
+    public static boolean isTtlEnough(ConfidenceBasedTtlInfo ttlInfo, Duration estimatedExecutionTime)
     {
         Instant expiryTime = ttlInfo.getExpiryInstant();
-        long timeRemaining = MILLIS.between(Instant.now(), expiryTime);
-        return new Duration(Math.max(timeRemaining, 0), TimeUnit.MILLISECONDS).compareTo(estimatedExecutionTime) >= 0;
+        long timeRemainingInSeconds = SECONDS.between(Instant.now(), expiryTime);
+        return new Duration(Math.max(timeRemainingInSeconds, 0), TimeUnit.SECONDS).compareTo(estimatedExecutionTime) >= 0;
     }
 
     private Duration getEstimatedExecutionTimeRemaining()
@@ -257,7 +259,7 @@ public class SimpleTtlNodeSelector
                 // nodes may sporadically disappear from the nodeMap if the announcement is delayed
                 .filter(Objects::nonNull)
                 .filter(node -> ttlInfo.get(node).isPresent())
-                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTime))
+                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), getEstimatedExecutionTimeRemaining()))
                 .collect(toList());
 
         int alreadySelectedNodeCount = existingEligibleNodes.size();
