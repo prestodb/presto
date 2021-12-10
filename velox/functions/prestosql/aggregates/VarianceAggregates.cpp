@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
@@ -459,22 +460,27 @@ void checkSumCountRowType(
 
 template <template <typename TInput> class TClass>
 bool registerVarianceAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  std::vector<std::string> inputTypes = {
+      "smallint", "integer", "bigint", "real", "double"};
+  for (const auto& inputType : inputTypes) {
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType("double")
+                             .intermediateType("row(bigint,double,double)")
+                             .argumentType(inputType)
+                             .build());
+  }
+
+  return exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_LE(
             argTypes.size(), 1, "{} takes at most one argument", name);
         auto inputType = argTypes[0];
-        TypePtr resultType;
-        if (exec::isPartialOutput(step)) {
-          resultType =
-              ROW({"count", "mean", "m2"}, {BIGINT(), DOUBLE(), DOUBLE()});
-        } else {
-          resultType = DOUBLE();
-        }
         if (exec::isRawInput(step)) {
           switch (inputType->kind()) {
             case TypeKind::SMALLINT:
@@ -489,10 +495,9 @@ bool registerVarianceAggregate(const std::string& name) {
               return std::make_unique<TClass<double>>(resultType);
             default:
               VELOX_FAIL(
-                  "Unknown input type for {} aggregation {}",
+                  "Unknown input type for {} aggregation: {}",
                   name,
-                  inputType->kindName());
-              return nullptr;
+                  inputType->toString());
           }
         } else {
           checkSumCountRowType(
@@ -502,7 +507,6 @@ bool registerVarianceAggregate(const std::string& name) {
           return std::make_unique<TClass<int64_t>>(resultType);
         }
       });
-  return true;
 }
 
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =

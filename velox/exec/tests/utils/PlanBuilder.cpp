@@ -246,36 +246,29 @@ class AggregateTypeResolver {
 
 } // namespace
 
-PlanBuilder& PlanBuilder::finalAggregation() {
-  // Current plan node must be a partial aggregation.
-  auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
-  VELOX_CHECK_NOT_NULL(
-      aggNode, "Current plan node must be a partial aggregation.");
+std::shared_ptr<core::PlanNode>
+PlanBuilder::createIntermediateOrFinalAggregation(
+    core::AggregationNode::Step step,
+    const core::AggregationNode* partialAggNode) {
+  // Create intermediate or final aggregation using same grouping keys and same
+  // aggregate function names.
+  const auto& partialAggregates = partialAggNode->aggregates();
+  const auto& groupingKeys = partialAggNode->groupingKeys();
 
-  VELOX_CHECK(exec::isRawInput(aggNode->step()));
-  VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
-
-  auto step = core::AggregationNode::Step::kFinal;
-
-  // Create final aggregation using same grouping keys and same aggregate
-  // function names.
-  const auto& aggregates = aggNode->aggregates();
-  const auto& groupingKeys = aggNode->groupingKeys();
-
-  auto numAggregates = aggregates.size();
+  auto numAggregates = partialAggregates.size();
   auto numGroupingKeys = groupingKeys.size();
 
   auto names = makeNames("a", numAggregates);
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> masks(
       numAggregates);
 
-  std::vector<std::shared_ptr<const core::CallTypedExpr>> finalAggregates;
-  finalAggregates.reserve(numAggregates);
+  std::vector<std::shared_ptr<const core::CallTypedExpr>> aggregates;
+  aggregates.reserve(numAggregates);
   for (auto i = 0; i < numAggregates; i++) {
-    // Resolve final aggregation result type using raw input types for the
-    // partial aggregation.
-    auto name = aggregates[i]->name();
-    auto rawInputs = aggregates[i]->inputs();
+    // Resolve final or intermediate aggregation result type using raw input
+    // types for the partial aggregation.
+    auto name = partialAggregates[i]->name();
+    auto rawInputs = partialAggregates[i]->inputs();
 
     std::vector<TypePtr> rawInputTypes;
     for (auto& rawInput : rawInputs) {
@@ -287,19 +280,58 @@ PlanBuilder& PlanBuilder::finalAggregation() {
         type, "Failed to resolve result type for aggregate function {}", name);
     std::vector<std::shared_ptr<const core::ITypedExpr>> inputs = {
         field(numGroupingKeys + i)};
-    finalAggregates.emplace_back(
+    aggregates.emplace_back(
         std::make_shared<core::CallTypedExpr>(type, std::move(inputs), name));
   }
 
-  planNode_ = std::make_shared<core::AggregationNode>(
+  return std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       groupingKeys,
       names,
-      finalAggregates,
+      aggregates,
       masks,
-      aggNode->ignoreNullKeys(),
+      partialAggNode->ignoreNullKeys(),
       planNode_);
+}
+
+PlanBuilder& PlanBuilder::intermediateAggregation() {
+  // Current plan node must be a partial aggregation.
+  auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
+  VELOX_CHECK_NOT_NULL(
+      aggNode, "Current plan node must be a partial aggregation.");
+
+  VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
+  VELOX_CHECK(exec::isRawInput(aggNode->step()));
+
+  auto step = core::AggregationNode::Step::kIntermediate;
+
+  planNode_ = createIntermediateOrFinalAggregation(step, aggNode);
+  return *this;
+}
+
+PlanBuilder& PlanBuilder::finalAggregation() {
+  // Current plan node must be a partial or intermediate aggregation.
+  const auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
+  VELOX_CHECK_NOT_NULL(
+      aggNode,
+      "Current plan node must be a partial or intermediate aggregation.");
+
+  VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
+  if (!exec::isRawInput(aggNode->step())) {
+    // Check the source node.
+    aggNode =
+        dynamic_cast<const core::AggregationNode*>(aggNode->sources()[0].get());
+    VELOX_CHECK_NOT_NULL(
+        aggNode,
+        "Plan node before current plan node must be a partial aggregation.");
+    VELOX_CHECK(exec::isRawInput(aggNode->step()));
+    VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
+  }
+
+  auto step = core::AggregationNode::Step::kFinal;
+
+  planNode_ = createIntermediateOrFinalAggregation(step, aggNode);
   return *this;
 }
 
