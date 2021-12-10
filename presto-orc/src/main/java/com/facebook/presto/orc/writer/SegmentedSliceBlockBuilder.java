@@ -25,6 +25,7 @@ import io.airlift.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.INITIAL_SEGMENTS;
@@ -147,13 +148,19 @@ public class SegmentedSliceBlockBuilder
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size is variable based on the per element length
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         throw new UnsupportedOperationException("getRegionSizeInBytes is not supported by SegmentedSliceBlockBuilder");
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
         throw new UnsupportedOperationException("getPositionsSizeInBytes is not supported by SegmentedSliceBlockBuilder");
     }

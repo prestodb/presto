@@ -22,11 +22,13 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToOffsetsArray;
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.common.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
@@ -123,23 +125,34 @@ public class VariableWidthBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size is variable based on the per element length
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         return offsets[arrayOffset + position + length] - offsets[arrayOffset + position] + ((Integer.BYTES + Byte.BYTES) * (long) length);
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
-        long sizeInBytes = 0;
-        int usedPositionCount = 0;
+        checkValidPositions(positions, positionCount);
+        if (usedPositionCount == 0) {
+            return 0;
+        }
+        if (usedPositionCount == positionCount) {
+            return getSizeInBytes();
+        }
+        int sizeInBytes = 0;
         for (int i = 0; i < positions.length; ++i) {
             if (positions[i]) {
-                usedPositionCount++;
-                sizeInBytes += offsets[arrayOffset + i + 1] - offsets[arrayOffset + i];
+                sizeInBytes += (offsets[arrayOffset + i + 1] - offsets[arrayOffset + i]);
             }
         }
-        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount;
+        return sizeInBytes + ((Integer.BYTES + Byte.BYTES) * (long) usedPositionCount);
     }
 
     @Override

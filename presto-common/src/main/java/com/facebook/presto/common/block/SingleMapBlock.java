@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.AbstractMapBlock.HASH_MULTIPLIER;
@@ -59,6 +60,12 @@ public class SingleMapBlock
         return mapBlock.getRawKeyBlock().getRegionSizeInBytes(offset / 2, positionCount / 2) +
                 mapBlock.getRawValueBlock().getRegionSizeInBytes(offset / 2, positionCount / 2) +
                 sizeOfIntArray(positionCount / 2 * HASH_MULTIPLIER);
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override

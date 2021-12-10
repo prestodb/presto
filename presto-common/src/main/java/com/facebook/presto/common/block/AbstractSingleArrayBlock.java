@@ -203,7 +203,7 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
         throw new UnsupportedOperationException();
     }
