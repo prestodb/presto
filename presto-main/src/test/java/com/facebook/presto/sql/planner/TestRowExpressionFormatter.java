@@ -169,7 +169,7 @@ public class TestRowExpressionFormatter
 
         // block
         constantExpression = constant(new LongArrayBlockBuilder(null, 4).writeLong(1L).writeLong(2).build(), new ArrayType(BIGINT));
-        assertEquals(format(constantExpression), "[Block: position count: 2; size: 96 bytes]");
+        assertEquals(format(constantExpression), "[Block: position count: 2; size: 88 bytes]");
     }
 
     @Test

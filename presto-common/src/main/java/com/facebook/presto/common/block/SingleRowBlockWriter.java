@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
@@ -80,6 +81,12 @@ public class SingleRowBlockWriter
             size += (builder.getSizeInBytes() - builder.getRegionSizeInBytes(0, rowIndex));
         }
         return size;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override

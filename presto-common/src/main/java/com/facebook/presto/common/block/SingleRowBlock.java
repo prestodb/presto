@@ -16,6 +16,7 @@ package com.facebook.presto.common.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.ensureBlocksAreLoaded;
@@ -59,6 +60,12 @@ public class SingleRowBlock
             sizeInBytes += getRawFieldBlock(i).getRegionSizeInBytes(rowIndex, 1);
         }
         return sizeInBytes;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override

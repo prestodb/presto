@@ -19,6 +19,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
@@ -81,6 +84,12 @@ public class RunLengthEncodedBlock
     public long getSizeInBytes()
     {
         return value.getSizeInBytes();
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size does not increase with each row
     }
 
     @Override
@@ -160,7 +169,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(@Nullable boolean[] positions, int usedPositionCount)
     {
         return value.getSizeInBytes();
     }
