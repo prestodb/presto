@@ -29,7 +29,8 @@ public class TestTracingConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(TracingConfig.class)
                 .setTracerType("noop")
-                .setEnableDistributedTracing(false));
+                .setEnableDistributedTracing(false)
+                .setDistributedTracingMode(TracingConfig.DistributedTracingMode.NO_TRACE.name()));
     }
 
     @Test
@@ -38,11 +39,13 @@ public class TestTracingConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("tracing.tracer-type", "simple")
                 .put("tracing.enable-distributed-tracing", "true")
+                .put("tracing.distributed-tracing-mode", "always_trace")
                 .build();
 
         TracingConfig expected = new TracingConfig()
                 .setTracerType("simple")
-                .setEnableDistributedTracing(true);
+                .setEnableDistributedTracing(true)
+                .setDistributedTracingMode(TracingConfig.DistributedTracingMode.ALWAYS_TRACE.name());
         assertFullMapping(properties, expected);
     }
 }

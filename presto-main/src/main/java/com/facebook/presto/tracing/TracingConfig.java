@@ -14,6 +14,9 @@
 package com.facebook.presto.tracing;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.spi.PrestoException;
+
+import static com.facebook.presto.spi.StandardErrorCode.DISTRIBUTED_TRACING_ERROR;
 
 public class TracingConfig
 {
@@ -23,7 +26,15 @@ public class TracingConfig
         public static final String SIMPLE = "simple";
     }
 
+    public enum DistributedTracingMode
+    {
+        NO_TRACE,
+        ALWAYS_TRACE,
+        SAMPLE_BASED
+    }
+
     private String tracerType = TracerType.NOOP;
+    private DistributedTracingMode tracingMode = DistributedTracingMode.NO_TRACE;
     private boolean enableDistributedTracing;
 
     public String getTracerType()
@@ -47,6 +58,23 @@ public class TracingConfig
     public TracingConfig setEnableDistributedTracing(boolean enableDistributedTracing)
     {
         this.enableDistributedTracing = enableDistributedTracing;
+        return this;
+    }
+
+    public DistributedTracingMode getDistributedTracingMode()
+    {
+        return tracingMode;
+    }
+
+    @Config("tracing.distributed-tracing-mode")
+    public TracingConfig setDistributedTracingMode(String tracingMode)
+    {
+        if (tracingMode.equalsIgnoreCase(DistributedTracingMode.SAMPLE_BASED.name())) {
+            throw new PrestoException(
+                    DISTRIBUTED_TRACING_ERROR,
+                    "SAMPLE_BASED Tracing Mode is currently not supported.");
+        }
+        this.tracingMode = DistributedTracingMode.valueOf(tracingMode.toUpperCase());
         return this;
     }
 }
