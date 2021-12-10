@@ -57,6 +57,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(19) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(19) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(19) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(19) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(20) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(21) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(21) td:nth-child(4) {background-color: #6BA81E;}
@@ -65,15 +66,18 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(22) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(22) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(22) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(22) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(23) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(23) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(23) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(23) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(24) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(24) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(25) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(26) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(27) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(27) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(27) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(28) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(28) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(29) td:nth-child(2) {background-color: #6BA81E;}
@@ -183,15 +187,15 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     array_position                            :func:`exp`                               line_interpolate_point                    :func:`sign`                              strrpos                                       classification_recall
     array_remove                              expand_envelope                           line_locate_point                         simplify_geometry                         :func:`substr`                                classification_thresholds
     array_sort                                features                                  :func:`ln`                                :func:`sin`                               :func:`tan`                                   convex_hull_agg
-    array_sum                                 :func:`filter`                            localtime                                 :func:`slice`                             :func:`tanh`                                  corr
+    array_sum                                 :func:`filter`                            localtime                                 :func:`slice`                             :func:`tanh`                                  :func:`corr`
     array_union                               flatten                                   localtimestamp                            spatial_partitions                        timezone_hour                                 :func:`count`
     arrays_overlap                            flatten_geometry_collections              :func:`log10`                             :func:`split`                             timezone_minute                               :func:`count_if`
-    :func:`asin`                              :func:`floor`                             :func:`log2`                              :func:`split_part`                        to_base                                       covar_pop
-    :func:`atan`                              fnv1_32                                   :func:`lower`                             split_to_map                              :func:`to_base64`                             covar_samp
+    :func:`asin`                              :func:`floor`                             :func:`log2`                              :func:`split_part`                        to_base                                       :func:`covar_pop`
+    :func:`atan`                              fnv1_32                                   :func:`lower`                             split_to_map                              :func:`to_base64`                             :func:`covar_samp`
     :func:`atan2`                             fnv1_64                                   :func:`lpad`                              split_to_multimap                         to_base64url                                  differential_entropy
     bar                                       fnv1a_32                                  :func:`ltrim`                             spooky_hash_v2_32                         to_big_endian_32                              entropy
     beta_cdf                                  fnv1a_64                                  :func:`map`                               spooky_hash_v2_64                         to_big_endian_64                              evaluate_classifier_predictions
-    bing_tile                                 format_datetime                           :func:`map_concat`                        :func:`sqrt`                              to_geometry                                   every
+    bing_tile                                 format_datetime                           :func:`map_concat`                        :func:`sqrt`                              to_geometry                                   :func:`every`
     bing_tile_at                              from_base                                 :func:`map_entries`                       st_area                                   :func:`to_hex`                                geometric_mean
     bing_tile_children                        :func:`from_base64`                       :func:`map_filter`                        st_asbinary                               to_ieee754_32                                 geometry_union_agg
     bing_tile_coordinates                     from_base64url                            map_from_entries                          st_astext                                 to_ieee754_64                                 histogram

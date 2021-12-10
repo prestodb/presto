@@ -304,4 +304,14 @@ bool registerAggregateFunction(
 /// Returns empty std::optional if function with that name is not found.
 std::optional<std::vector<std::shared_ptr<AggregateFunctionSignature>>>
 getAggregateFunctionSignatures(const std::string& name);
+
+struct AggregateFunctionEntry {
+  std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures;
+  AggregateFunctionFactory factory;
+};
+
+using AggregateFunctionMap =
+    std::unordered_map<std::string, AggregateFunctionEntry>;
+
+AggregateFunctionMap& aggregateFunctions();
 } // namespace facebook::velox::exec

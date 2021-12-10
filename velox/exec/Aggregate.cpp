@@ -29,23 +29,15 @@ bool isPartialOutput(core::AggregationNode::Step step) {
       step == core::AggregationNode::Step::kIntermediate;
 }
 
-namespace {
-
-struct FunctionEntry {
-  std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures;
-  AggregateFunctionFactory factory;
-};
-
-using FunctionMap = std::unordered_map<std::string, FunctionEntry>;
-
-FunctionMap& functions() {
-  static FunctionMap functions;
+AggregateFunctionMap& aggregateFunctions() {
+  static AggregateFunctionMap functions;
   return functions;
 }
 
-std::optional<const FunctionEntry*> getAggregateFunctionEntry(
+namespace {
+std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
     const std::string& name) {
-  auto& functionsMap = functions();
+  auto& functionsMap = aggregateFunctions();
   auto it = functionsMap.find(name);
   if (it != functionsMap.end()) {
     return &it->second;
@@ -59,7 +51,7 @@ bool registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
     AggregateFunctionFactory factory) {
-  functions()[name] = {std::move(signatures), std::move(factory)};
+  aggregateFunctions()[name] = {std::move(signatures), std::move(factory)};
   return true;
 }
 
