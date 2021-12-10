@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
 namespace facebook::velox::aggregate {
@@ -140,8 +141,30 @@ class SumAggregate
 
 template <template <typename U, typename V, typename W> class T>
 bool registerSumAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("real")
+          .intermediateType("double")
+          .argumentType("real")
+          .build(),
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("double")
+          .intermediateType("double")
+          .argumentType("double")
+          .build(),
+  };
+
+  for (const auto& inputType : {"tinyint", "smallint", "integer", "bigint"}) {
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType("bigint")
+                             .intermediateType("bigint")
+                             .argumentType(inputType)
+                             .build());
+  }
+
+  return exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
@@ -173,10 +196,8 @@ bool registerSumAggregate(const std::string& name) {
                 "Unknown input type for {} aggregation {}",
                 name,
                 inputType->kindName());
-            return nullptr;
         }
       });
-  return true;
 }
 
 } // namespace facebook::velox::aggregate
