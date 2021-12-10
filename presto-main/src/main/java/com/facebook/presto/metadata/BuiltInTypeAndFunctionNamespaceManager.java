@@ -32,6 +32,7 @@ import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFu
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateLongArrayPercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateRealPercentileAggregations;
@@ -597,6 +598,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
                 .aggregates(ApproximateLongPercentileArrayAggregations.class)
+                .aggregates(ApproximateLongArrayPercentileAggregations.class)
                 .aggregates(ApproximateDoublePercentileAggregations.class)
                 .aggregates(ApproximateDoublePercentileArrayAggregations.class)
                 .aggregates(ApproximateRealPercentileAggregations.class)
