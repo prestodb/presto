@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.MAX_ARRAY_SIZE;
@@ -114,6 +115,12 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size is variable based on the per element length
+    }
+
+    @Override
     public long getRegionSizeInBytes(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
@@ -123,18 +130,23 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
-        checkValidPositions(positions, getPositionCount());
-        long sizeInBytes = 0;
-        int usedPositionCount = 0;
+        int positionCount = getPositionCount();
+        checkValidPositions(positions, positionCount);
+        if (usedPositionCount == 0) {
+            return 0;
+        }
+        if (usedPositionCount == positionCount) {
+            return getSizeInBytes();
+        }
+        int sizeInBytes = 0;
         for (int i = 0; i < positions.length; ++i) {
             if (positions[i]) {
-                usedPositionCount++;
-                sizeInBytes += getOffset(i + 1) - getOffset(i);
+                sizeInBytes += offsets[i + 1] - offsets[i];
             }
         }
-        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount;
+        return sizeInBytes + ((Integer.BYTES + Byte.BYTES) * (long) usedPositionCount);
     }
 
     @Override

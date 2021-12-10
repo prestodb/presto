@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
@@ -69,6 +70,12 @@ public class SingleMapBlockWriter
 
         int numPositions = offset / 2;
         return size - (keyBlockBuilder.getRegionSizeInBytes(0, numPositions) + valueBlockBuilder.getRegionSizeInBytes(0, numPositions));
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override

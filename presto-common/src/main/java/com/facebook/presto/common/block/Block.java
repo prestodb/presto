@@ -16,6 +16,7 @@ package com.facebook.presto.common.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
@@ -239,11 +240,21 @@ public interface Block
     }
 
     /**
-     * Returns the size of of all positions marked true in the positions array.
+     * Returns the number of bytes (in terms of {@link Block#getSizeInBytes()}) required per position
+     * that this block contains, assuming that the number of bytes required is a known static quantity
+     * and not dependent on any particular specific position. This allows for some complex block wrappings
+     * to potentially avoid having to call {@link Block#getPositionsSizeInBytes(boolean[], int)}  which
+     * would require computing the specific positions selected
+     * @return The size in bytes, per position, if this block type does not require specific position information to compute its size
+     */
+    OptionalInt fixedSizeInBytesPerPosition();
+
+    /**
+     * Returns the size of all positions marked true in the positions array.
      * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
      * where you mark all positions for the regions first.
      */
-    long getPositionsSizeInBytes(boolean[] positions);
+    long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount);
 
     /**
      * Returns the retained size of this block in memory, including over-allocations.

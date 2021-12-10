@@ -21,13 +21,13 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidPosition;
 import static com.facebook.presto.common.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -225,19 +225,32 @@ public class DictionaryBlock
         return sizeInBytes;
     }
 
-    private void calculateCompactSize()
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
     {
-        int uniqueIds = 0;
-        boolean[] used = new boolean[dictionary.getPositionCount()];
-        for (int i = 0; i < positionCount; i++) {
-            int position = getId(i);
-            if (!used[position]) {
-                uniqueIds++;
-                used[position] = true;
+        if (uniqueIds == positionCount) {
+            // Each position is unique, so the per-position fixed size of the dictionary plus the dictionary id overhead
+            // is our fixed size per position
+            OptionalInt dictionarySizePerPosition = dictionary.fixedSizeInBytesPerPosition();
+            if (dictionarySizePerPosition.isPresent()) {
+                // Add overhead from the dictionary index
+                return OptionalInt.of(dictionarySizePerPosition.getAsInt() + Integer.BYTES);
             }
         }
-        this.sizeInBytes = dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) positionCount);
-        this.uniqueIds = uniqueIds;
+        return OptionalInt.empty();
+    }
+
+    private void calculateCompactSize()
+    {
+        int usedIds = 0;
+        boolean[] used = new boolean[dictionary.getPositionCount()];
+        for (int i = idsOffset; i < idsOffset + positionCount; i++) {
+            int id = ids[i];
+            usedIds += used[id] ? 0 : 1;
+            used[id] = true;
+        }
+        this.uniqueIds = usedIds;
+        this.sizeInBytes = dictionary.getPositionsSizeInBytes(used, usedIds) + (Integer.BYTES * (long) positionCount);
     }
 
     @Override
@@ -255,11 +268,19 @@ public class DictionaryBlock
             return getSizeInBytes();
         }
 
-        boolean[] used = new boolean[dictionary.getPositionCount()];
-        for (int i = positionOffset; i < positionOffset + length; i++) {
-            used[getId(i)] = true;
+        OptionalInt fixedSizePerPosition = fixedSizeInBytesPerPosition();
+        if (fixedSizePerPosition.isPresent()) {
+            return fixedSizePerPosition.getAsInt() * (long) length;
         }
-        return dictionary.getPositionsSizeInBytes(used) + Integer.BYTES * (long) length;
+
+        int usedIds = 0;
+        boolean[] used = new boolean[dictionary.getPositionCount()];
+        for (int i = idsOffset + positionOffset; i < idsOffset + positionOffset + length; i++) {
+            int id = ids[i];
+            usedIds += used[id] ? 0 : 1;
+            used[id] = true;
+        }
+        return dictionary.getPositionsSizeInBytes(used, usedIds) + (Integer.BYTES * (long) length);
     }
 
     @Override
@@ -306,17 +327,30 @@ public class DictionaryBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
         checkValidPositions(positions, positionCount);
+        if (usedPositionCount == 0) {
+            return 0;
+        }
+        if (usedPositionCount == positionCount) {
+            return getSizeInBytes();
+        }
+        OptionalInt fixedSizePerPosition = fixedSizeInBytesPerPosition();
+        if (fixedSizePerPosition.isPresent()) {
+            return fixedSizePerPosition.getAsInt() * (long) usedPositionCount;
+        }
 
+        int usedIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
         for (int i = 0; i < positions.length; i++) {
             if (positions[i]) {
-                used[getId(i)] = true;
+                int id = ids[idsOffset + i];
+                usedIds += used[id] ? 0 : 1;
+                used[id] = true;
             }
         }
-        return dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) countUsedPositions(positions));
+        return dictionary.getPositionsSizeInBytes(used, usedIds) + (Integer.BYTES * (long) usedPositionCount);
     }
 
     @Override
@@ -462,6 +496,9 @@ public class DictionaryBlock
 
     public boolean isCompact()
     {
+        if (dictionary.getPositionCount() > positionCount) {
+            return false;
+        }
         if (uniqueIds < 0) {
             calculateCompactSize();
         }
