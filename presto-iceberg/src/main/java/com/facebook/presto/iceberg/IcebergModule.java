@@ -107,8 +107,8 @@ public class IcebergModule
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
         configBinder(binder).bindConfig(HiveGcsConfig.class);
         binder.bind(GcsConfigurationInitializer.class).to(HiveGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
-        binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
-        binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(MBeanServer.class).toInstance(new TestingMBeanServer());
