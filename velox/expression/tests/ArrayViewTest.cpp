@@ -104,6 +104,31 @@ TEST_F(ArrayViewTest, intArray) {
   }
 }
 
+TEST_F(ArrayViewTest, encoded) {
+  std::vector<std::vector<std::optional<int32_t>>> intArray = {
+      {1},
+      {2, 3},
+  };
+  VectorPtr arrayVector = makeNullableArrayVector(intArray);
+  // Wrap in dictionary.
+  auto vectorSize = arrayVector->size();
+  BufferPtr indices =
+      AlignedBuffer::allocate<vector_size_t>(vectorSize, pool_.get());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  // Assign indices such that array is reversed.
+  for (size_t i = 0; i < vectorSize; ++i) {
+    rawIndices[i] = vectorSize - 1 - i;
+  }
+  arrayVector = BaseVector::wrapInDictionary(
+      BufferPtr(nullptr), indices, vectorSize, arrayVector);
+
+  DecodedVector decoded;
+  exec::VectorReader<Array<int32_t>> reader(decode(decoded, *arrayVector));
+
+  ASSERT_EQ(reader[0].size(), 2);
+  ASSERT_EQ(reader[1].size(), 1);
+}
+
 TEST_F(ArrayViewTest, notNullContainer) {
   auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
   DecodedVector decoded;

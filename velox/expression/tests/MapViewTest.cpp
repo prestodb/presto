@@ -127,6 +127,28 @@ TEST_F(MapViewTest, testIndexedLoop) {
   }
 }
 
+TEST_F(MapViewTest, encoded) {
+  VectorPtr mapVector = createTestMapVector();
+  // Wrap in dictionary.
+  auto vectorSize = mapVector->size();
+  BufferPtr indices =
+      AlignedBuffer::allocate<vector_size_t>(vectorSize, pool_.get());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  // Assign indices such that array is reversed.
+  for (size_t i = 0; i < vectorSize; ++i) {
+    rawIndices[i] = vectorSize - 1 - i;
+  }
+  mapVector = BaseVector::wrapInDictionary(
+      BufferPtr(nullptr), indices, vectorSize, mapVector);
+
+  DecodedVector decoded;
+  exec::VectorReader<Map<int64_t, int64_t>> reader(decode(decoded, *mapVector));
+
+  ASSERT_EQ(reader[0].size(), 5);
+  ASSERT_EQ(reader[1].size(), 3);
+  ASSERT_EQ(reader[2].size(), 0);
+}
+
 TEST_F(MapViewTest, testCompareLazyValueAccess) {
   auto mapVector = createTestMapVector();
   DecodedVector decoded;
