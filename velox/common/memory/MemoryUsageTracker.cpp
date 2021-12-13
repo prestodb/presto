@@ -67,7 +67,7 @@ void MemoryUsageTracker::updateInternal(UsageType type, int64_t size) {
     usage(currentUsageInBytes_, type)
         .fetch_add(-size, std::memory_order_relaxed);
     checkNonNegativeSizes("after exceeding cap");
-    VELOX_MEM_CAP_EXCEEDED();
+    VELOX_MEM_CAP_EXCEEDED(usage(maxMemory_, type));
   }
 
   maySetMax(type, newPeak);

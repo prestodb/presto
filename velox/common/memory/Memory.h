@@ -563,7 +563,7 @@ MemoryPoolImpl<Allocator, ALIGNMENT>::MemoryPoolImpl(
 template <typename Allocator, uint16_t ALIGNMENT>
 void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocate(int64_t size) {
   if (this->isMemoryCapped()) {
-    VELOX_MEM_CAP_EXCEEDED();
+    VELOX_MEM_CAP_EXCEEDED(cap_);
   }
   auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, size);
   reserve(alignedSize);
@@ -577,7 +577,7 @@ void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocateZeroFilled(
   VELOX_USER_CHECK_EQ(sizeEach, 1);
   auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, numMembers);
   if (this->isMemoryCapped()) {
-    VELOX_MEM_CAP_EXCEEDED();
+    VELOX_MEM_CAP_EXCEEDED(cap_);
   }
   reserve(alignedSize * sizeEach);
   return allocator_.allocZeroFilled(alignedSize, sizeEach);
@@ -602,7 +602,7 @@ void* MemoryPoolImpl<Allocator, ALIGNMENT>::reallocate(
       ALIGNER<ALIGNMENT>{}, p, alignedSize, alignedNewSize);
   if (UNLIKELY(!newP)) {
     free(p, alignedSize);
-    VELOX_MEM_CAP_EXCEEDED();
+    VELOX_MEM_CAP_EXCEEDED(cap_);
   }
 
   return newP;
@@ -758,7 +758,7 @@ void MemoryPoolImpl<Allocator, ALIGNMENT>::reserve(int64_t size) {
     // is low-pri because we can only have inflated aggregates, and be on the
     // more conservative side.
     release(size);
-    VELOX_MEM_CAP_EXCEEDED();
+    VELOX_MEM_CAP_EXCEEDED(cap_);
   }
 }
 
