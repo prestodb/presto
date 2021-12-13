@@ -20,7 +20,6 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveColumnConverter;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -66,9 +65,9 @@ public class TestingSemiTransactionalHiveMetastore
 
     private List<String> partitionNames;
 
-    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, ListeningExecutorService renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback, boolean undoMetastoreOperationsEnabled)
+    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, ListeningExecutorService renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback, boolean undoMetastoreOperationsEnabled, ColumnConverterProvider columnConverterProvider)
     {
-        super(hdfsEnvironment, delegate, renameExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback, undoMetastoreOperationsEnabled);
+        super(hdfsEnvironment, delegate, renameExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback, undoMetastoreOperationsEnabled, columnConverterProvider);
     }
 
     public static TestingSemiTransactionalHiveMetastore create()
@@ -79,12 +78,12 @@ public class TestingSemiTransactionalHiveMetastore
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreClientConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, HOST, PORT);
-        ColumnConverter columnConverter = new HiveColumnConverter();
-        ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, columnConverter), new HivePartitionMutator(), columnConverter);
+        ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
+        ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig), new HivePartitionMutator());
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         ListeningExecutorService renameExecutor = listeningDecorator(executor);
 
-        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, renameExecutor, false, false, true);
+        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, renameExecutor, false, false, true, columnConverterProvider);
     }
 
     public void addTable(String database, String tableName, Table table, List<String> partitions)

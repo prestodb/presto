@@ -62,7 +62,7 @@ public class TestHiveMaterializedViewUtils
     private static final String SQL = "sql";
 
     private final LiteralEncoder literalEncoder = new LiteralEncoder(new TestingBlockEncodingSerde());
-    private final MetastoreContext metastoreContext = new MetastoreContext(USER_NAME, QUERY_ID, Optional.empty(), Optional.empty(), Optional.empty(), false);
+    private final MetastoreContext metastoreContext = new MetastoreContext(USER_NAME, QUERY_ID, Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
 
     @Test
     public void testMaterializedDataPredicates()
