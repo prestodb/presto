@@ -672,4 +672,65 @@ public class TestRewriteAggregationIfToFilter
                                                         .build(),
                                                 values("column0")))));
     }
+
+    @Test
+    public void testCast()
+    {
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression column0 = p.variable("column0", BIGINT);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("SUM(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("CAST(IF(ds > '2021-06-01', column0) AS bigint)")),
+                                    p.values(ds, column0))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("a"))),
+                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("CAST(IF(ds > '2021-06-01', column0) as bigint)"))
+                                                        .put("greater_than", expression("ds > '2021-06-01'"))
+                                                        .build(),
+                                                values("ds", "column0")))));
+
+        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
+            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
+                    .on(p -> {
+                        VariableReferenceExpression a = p.variable("a");
+                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                        VariableReferenceExpression column0 = p.variable("column0", BIGINT);
+                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                                .addAggregation(p.variable("expr0"), p.rowExpression("SUM(a)"))
+                                .source(p.project(
+                                        assignment(a, p.rowExpression("CAST(IF(ds > '2021-06-01', column0) AS bigint)")),
+                                        p.values(ds, column0))));
+                    })
+                    .matches(
+                            aggregation(
+                                    globalAggregation(),
+                                    ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("cast"))),
+                                    ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                    Optional.empty(),
+                                    AggregationNode.Step.FINAL,
+                                    filter(
+                                            "greater_than",
+                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                            .put("a", expression("CAST(IF(ds > '2021-06-01', column0) as bigint)"))
+                                                            .put("greater_than", expression("ds > '2021-06-01'"))
+                                                            .put("cast", expression("CAST(column0 AS bigint)"))
+                                                            .build(),
+                                                    values("ds", "column0")))));
+        }
+    }
 }

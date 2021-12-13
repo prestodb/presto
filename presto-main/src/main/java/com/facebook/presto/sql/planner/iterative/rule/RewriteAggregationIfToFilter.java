@@ -20,6 +20,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -34,6 +35,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewr
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.Expressions;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -91,11 +93,13 @@ public class RewriteAggregationIfToFilter
 
     private final FunctionAndTypeManager functionAndTypeManager;
     private final RowExpressionDeterminismEvaluator rowExpressionDeterminismEvaluator;
+    private final StandardFunctionResolution standardFunctionResolution;
 
     public RewriteAggregationIfToFilter(FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
-        rowExpressionDeterminismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        this.rowExpressionDeterminismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        this.standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     @Override
@@ -123,7 +127,7 @@ public class RewriteAggregationIfToFilter
         }
 
         // Get the corresponding assignments in the input project.
-        // The aggregationReferences only has the aggregations to rewrite, thus the sourceAssignments only has IF expressions with NULL false results.
+        // The aggregationReferences only has the aggregations to rewrite, thus the sourceAssignments only has IF/CAST(IF) expressions with NULL false results.
         // Multiple aggregations may reference the same input. We use a map to dedup them based on the VariableReferenceExpression, so that we only do the rewrite once per input
         // IF expression.
         // The order of sourceAssignments determines the order of generating the new variables for the IF conditions and results. We use a sorted map to get a deterministic
@@ -144,7 +148,10 @@ public class RewriteAggregationIfToFilter
         AggregationIfToFilterRewriteStrategy rewriteStrategy = getAggregationIfToFilterRewriteStrategy(context.getSession());
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : sourceAssignments.entrySet()) {
             VariableReferenceExpression outputVariable = entry.getKey();
-            SpecialFormExpression ifExpression = (SpecialFormExpression) entry.getValue();
+            RowExpression rowExpression = entry.getValue();
+            SpecialFormExpression ifExpression = (SpecialFormExpression) ((rowExpression instanceof CallExpression)
+                    ? ((CallExpression) rowExpression).getArguments().get(0)
+                    : rowExpression);
 
             RowExpression condition = ifExpression.getArguments().get(0);
             VariableReferenceExpression conditionReference = context.getVariableAllocator().newVariable(condition);
@@ -153,6 +160,14 @@ public class RewriteAggregationIfToFilter
 
             if (canUnwrapIf(ifExpression, rewriteStrategy)) {
                 RowExpression trueResult = ifExpression.getArguments().get(1);
+                if (rowExpression instanceof CallExpression) {
+                    // Wrap the result with CAST().
+                    trueResult = new CallExpression(
+                            ((CallExpression) rowExpression).getDisplayName(),
+                            ((CallExpression) rowExpression).getFunctionHandle(),
+                            rowExpression.getType(),
+                            ImmutableList.of(trueResult));
+                }
                 VariableReferenceExpression ifResultReference = context.getVariableAllocator().newVariable(trueResult);
                 newAssignments.put(ifResultReference, trueResult);
                 aggregationReferenceToIfResultReference.put(outputVariable, ifResultReference);
@@ -229,6 +244,13 @@ public class RewriteAggregationIfToFilter
             return false;
         }
         RowExpression sourceExpression = sourceProject.getAssignments().get((VariableReferenceExpression) aggregation.getArguments().get(0));
+        if (sourceExpression instanceof CallExpression) {
+            CallExpression callExpression = (CallExpression) sourceExpression;
+            if (callExpression.getArguments().size() == 1 && standardFunctionResolution.isCastFunction(callExpression.getFunctionHandle())) {
+                // If the expression is CAST(), check the expression inside.
+                sourceExpression = callExpression.getArguments().get(0);
+            }
+        }
         if (!(sourceExpression instanceof SpecialFormExpression) || !rowExpressionDeterminismEvaluator.isDeterministic(sourceExpression)) {
             return false;
         }
