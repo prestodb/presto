@@ -427,6 +427,11 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        if (fragments.isEmpty()) {
+            transaction.commitTransaction();
+            return Optional.empty();
+        }
+
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
         org.apache.iceberg.Table icebergTable = transaction.table();
 
