@@ -50,6 +50,8 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy.UNWRAP_IF;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -74,7 +76,10 @@ import static java.util.function.Function.identity;
  * <p>
  * Note that unwrapping the IF expression in the aggregate might cause issues if the true branch return errors for rows not matching the filters. For example:
  * 'IF(CARDINALITY(array) > 0, array[1]))'
- * Session property AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY and canUnwrapIf() control whether to enable IF unwrapping.
+ * Session property AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY and canUnwrapIf() control whether to enable IF unwrapping:
+ * 1. If the strategy is FILTER_WITH_IF, then keep the IF expression.
+ * 2. If the strategy is UNWRAP_IF_SAFE,  then unwrap the IF expression if it is safe to do so.
+ * 3. If the strategy is UNWRAP_IF, then unwrap the IF expression after it passes the checks; note that this is an unsafe mode since the checks are not exhaustive.
  */
 public class RewriteAggregationIfToFilter
         implements Rule<AggregationNode>
@@ -136,7 +141,7 @@ public class RewriteAggregationIfToFilter
         // E.g., SUM(IF(CARDINALITY(array) > 0, array[1])) will not be included in this map as array[1] can return errors if we unwrap the IF.
         Map<VariableReferenceExpression, VariableReferenceExpression> aggregationReferenceToIfResultReference = new HashMap<>();
 
-        boolean unwrapIfEnabled = (getAggregationIfToFilterRewriteStrategy(context.getSession()) == AggregationIfToFilterRewriteStrategy.UNWRAP_IF);
+        AggregationIfToFilterRewriteStrategy rewriteStrategy = getAggregationIfToFilterRewriteStrategy(context.getSession());
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : sourceAssignments.entrySet()) {
             VariableReferenceExpression outputVariable = entry.getKey();
             SpecialFormExpression ifExpression = (SpecialFormExpression) entry.getValue();
@@ -146,7 +151,7 @@ public class RewriteAggregationIfToFilter
             newAssignments.put(conditionReference, condition);
             aggregationReferenceToConditionReference.put(outputVariable, conditionReference);
 
-            if (unwrapIfEnabled && canUnwrapIf(ifExpression)) {
+            if (canUnwrapIf(ifExpression, rewriteStrategy)) {
                 RowExpression trueResult = ifExpression.getArguments().get(1);
                 VariableReferenceExpression ifResultReference = context.getVariableAllocator().newVariable(trueResult);
                 newAssignments.put(ifResultReference, trueResult);
@@ -232,8 +237,12 @@ public class RewriteAggregationIfToFilter
         return expression.getForm() == IF && Expressions.isNull(expression.getArguments().get(2));
     }
 
-    private boolean canUnwrapIf(SpecialFormExpression ifExpression)
+    private boolean canUnwrapIf(SpecialFormExpression ifExpression, AggregationIfToFilterRewriteStrategy rewriteStrategy)
     {
+        if (rewriteStrategy == FILTER_WITH_IF) {
+            return false;
+        }
+
         // Some use cases use IF expression to avoid returning errors when evaluating the true branch. For example, IF(CARDINALITY(array) > 0, array[1])).
         // We shouldn't unwrap the IF for those cases.
         // But if the condition expression doesn't reference any variables referenced in the true branch, unwrapping the if should not cause exceptions for the true branch.
@@ -241,6 +250,10 @@ public class RewriteAggregationIfToFilter
         Set<VariableReferenceExpression> ifResultReferences = VariablesExtractor.extractUnique(ifExpression.getArguments().get(1));
         if (ifConditionReferences.stream().noneMatch(ifResultReferences::contains)) {
             return true;
+        }
+
+        if (rewriteStrategy != UNWRAP_IF) {
+            return false;
         }
 
         AtomicBoolean result = new AtomicBoolean(true);
