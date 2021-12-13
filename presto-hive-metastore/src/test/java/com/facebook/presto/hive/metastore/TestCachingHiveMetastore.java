@@ -73,10 +73,10 @@ public class TestCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         ColumnConverter hiveColumnConverter = new HiveColumnConverter();
-        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, new MetastoreClientConfig(), hiveColumnConverter);
+        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, new MetastoreClientConfig());
         PartitionMutator hivePartitionMutator = new HivePartitionMutator();
         metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator, hiveColumnConverter),
+                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),
@@ -215,7 +215,7 @@ public class TestCachingHiveMetastore
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
         ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator, hiveColumnConverter),
+                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),
@@ -262,7 +262,7 @@ public class TestCachingHiveMetastore
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, partitionMutator, hiveColumnConverter),
+                new BridgingHiveMetastore(mockHiveMetastore, partitionMutator),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),
@@ -297,7 +297,7 @@ public class TestCachingHiveMetastore
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
         ColumnConverter hiveColumnConverter = new HiveColumnConverter();
         CachingHiveMetastore partitionCacheVerificationEnabledMetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator, hiveColumnConverter),
+                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
                 new Duration(5, TimeUnit.MINUTES),

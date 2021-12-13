@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.ColumnConverter;
+import com.facebook.presto.hive.ColumnConverterProvider;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
@@ -30,26 +33,48 @@ public class MetastoreContext
     private final boolean impersonationEnabled;
     private final Optional<String> metastoreHeaders;
     private final boolean userDefinedTypeEncodingEnabled;
+    private final ColumnConverter columnConverter;
+    // provider is kept around and exposed via the getter when constructing
+    // a new MetastoreContext from either an existing MetastoreContext or callers
+    // that only have a handle to the provider (e.g. SemiTransactionalHiveMetastore)
+    private final ColumnConverterProvider columnConverterProvider;
 
-    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled)
+    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled);
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled)
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
     {
-        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled);
+        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled)
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
     {
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
+        this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.impersonationEnabled = impersonationEnabled;
         this.metastoreHeaders = requireNonNull(metastoreHeaders, "metastoreHeaders is null");
         this.userDefinedTypeEncodingEnabled = userDefinedTypeEncodingEnabled;
+        if (this.userDefinedTypeEncodingEnabled) {
+            this.columnConverter = requireNonNull(columnConverterProvider.getColumnConverter(), "columnConverter is null");
+        }
+        else {
+            this.columnConverter = requireNonNull(HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER, "columnConverter is null");
+        }
+    }
+
+    public ColumnConverterProvider getColumnConverterProvider()
+    {
+        return columnConverterProvider;
+    }
+
+    public ColumnConverter getColumnConverter()
+    {
+        return columnConverter;
     }
 
     public String getUsername()

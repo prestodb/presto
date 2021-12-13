@@ -24,7 +24,6 @@ import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveColumnConverter;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -183,9 +182,9 @@ public abstract class AbstractTestHiveFileSystem
         HdfsConfiguration hdfsConfiguration = hdfsConfigurationProvider.apply(config, metastoreClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        ColumnConverter columnConverter = new HiveColumnConverter();
+        ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, columnConverter), new HivePartitionMutator(), columnConverter),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig), new HivePartitionMutator()),
                 executor,
                 metastoreClientConfig,
                 getBasePath(),
@@ -214,7 +213,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                columnConverter);
+                columnConverterProvider);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,
@@ -249,7 +248,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()),
                 new HiveWriterStats(),
-                getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
+                getDefaultOrcFileWriterFactory(config, metastoreClientConfig),
+                columnConverterProvider);
         pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
     }
 
