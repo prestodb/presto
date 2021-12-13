@@ -15,11 +15,11 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 #include "velox/functions/prestosql/aggregates/SingleValueAccumulator.h"
 #include "velox/vector/DecodedVector.h"
-#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate {
 
@@ -253,8 +253,17 @@ class NonNumericArbitrary : public exec::Aggregate {
 };
 
 bool registerArbitraryAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("T")
+          .intermediateType("T")
+          .argumentType("T")
+          .build()};
+
+  return exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
@@ -287,7 +296,6 @@ bool registerArbitraryAggregate(const std::string& name) {
                 inputType->kindName());
         }
       });
-  return true;
 }
 
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
