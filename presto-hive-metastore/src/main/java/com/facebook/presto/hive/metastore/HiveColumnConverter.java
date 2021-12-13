@@ -18,8 +18,6 @@ import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.HiveType;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
@@ -27,7 +25,6 @@ import static com.google.common.base.Strings.emptyToNull;
 public class HiveColumnConverter
         implements ColumnConverter
 {
-    @Inject
     public HiveColumnConverter() {}
 
     @Override

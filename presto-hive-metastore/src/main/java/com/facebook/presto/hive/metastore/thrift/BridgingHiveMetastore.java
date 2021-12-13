@@ -15,7 +15,6 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.Column;
@@ -68,14 +67,12 @@ public class BridgingHiveMetastore
 {
     private final HiveMetastore delegate;
     private final PartitionMutator partitionMutator;
-    private final ColumnConverter columnConverter;
 
     @Inject
-    public BridgingHiveMetastore(HiveMetastore delegate, PartitionMutator partitionMutator, ColumnConverter columnConverter)
+    public BridgingHiveMetastore(HiveMetastore delegate, PartitionMutator partitionMutator)
     {
         this.delegate = delegate;
         this.partitionMutator = partitionMutator;
-        this.columnConverter = columnConverter;
     }
 
     @Override
@@ -95,9 +92,9 @@ public class BridgingHiveMetastore
     {
         return delegate.getTable(metastoreContext, databaseName, tableName).map(table -> {
             if (isAvroTableWithSchemaSet(table) || isCsvTable(table)) {
-                return fromMetastoreApiTable(table, delegate.getFields(metastoreContext, databaseName, tableName).get(), columnConverter);
+                return fromMetastoreApiTable(table, delegate.getFields(metastoreContext, databaseName, tableName).get(), metastoreContext.getColumnConverter());
             }
-            return fromMetastoreApiTable(table, columnConverter);
+            return fromMetastoreApiTable(table, metastoreContext.getColumnConverter());
         });
     }
 
@@ -174,7 +171,7 @@ public class BridgingHiveMetastore
     public void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!table.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
-        delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges, columnConverter));
+        delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges, metastoreContext.getColumnConverter()));
     }
 
     @Override
@@ -187,7 +184,7 @@ public class BridgingHiveMetastore
     public void replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
-        alterTable(metastoreContext, databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges, columnConverter));
+        alterTable(metastoreContext, databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges, metastoreContext.getColumnConverter()));
     }
 
     @Override
@@ -212,7 +209,7 @@ public class BridgingHiveMetastore
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
         Column column = new Column(columnName, columnType, Optional.ofNullable(columnComment), Optional.empty());
-        table.getSd().getCols().add(columnConverter.fromColumn(column));
+        table.getSd().getCols().add(metastoreContext.getColumnConverter().fromColumn(column));
         alterTable(metastoreContext, databaseName, tableName, table);
     }
 
@@ -255,7 +252,7 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
     {
-        return delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues).map(partition -> fromMetastoreApiPartition(partition, partitionMutator, columnConverter));
+        return delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues).map(partition -> fromMetastoreApiPartition(partition, partitionMutator, metastoreContext.getColumnConverter()));
     }
 
     @Override
@@ -294,7 +291,7 @@ public class BridgingHiveMetastore
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), MetastoreUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).stream()
-                .map(partition -> fromMetastoreApiPartition(partition, partitionMutator, columnConverter))
+                .map(partition -> fromMetastoreApiPartition(partition, partitionMutator, metastoreContext.getColumnConverter()))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {

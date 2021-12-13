@@ -16,10 +16,10 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ColumnConverter;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.hive.metastore.HiveColumnConverter;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
@@ -92,7 +92,7 @@ public class InMemoryHiveMetastore
     @GuardedBy("this")
     private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
-    private final ColumnConverter columnConverter = new HiveColumnConverter();
+    private final ColumnConverter columnConverter = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER;
     private final File baseDirectory;
 
     public InMemoryHiveMetastore(File baseDirectory)

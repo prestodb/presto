@@ -22,7 +22,6 @@ import com.facebook.presto.hive.HiveDwrfEncryptionProvider.ForUnknown;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
-import com.facebook.presto.hive.metastore.HiveColumnConverter;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
@@ -210,7 +209,7 @@ public class HiveClientModule
         newSetBinder(binder, EncryptionInformationSource.class);
 
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
-        binder.bind(ColumnConverter.class).to(HiveColumnConverter.class).in(Scopes.SINGLETON);
+        binder.bind(ColumnConverterProvider.class).to(HiveColumnConverterProvider.class).in(Scopes.SINGLETON);
     }
 
     @ForHiveClient
