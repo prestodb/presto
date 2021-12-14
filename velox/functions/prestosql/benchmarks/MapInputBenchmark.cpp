@@ -225,6 +225,25 @@ struct NestedMapSumValuesAndKeysSimple {
   }
 };
 
+template <typename T>
+struct NestedMapSumStructBind {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& out,
+      const arg_type<Map<int64_t, Map<int64_t, int64_t>>>& map) {
+    out = 0;
+    for (const auto& [key, value] : map) {
+      out += key;
+      for (const auto& [keyInner, valueInner] : *value) {
+        out += keyInner;
+        out += *valueInner;
+      }
+    }
+    return true;
+  }
+};
+
 class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   MapInputBenchmark() : FunctionBenchmarkBase() {
@@ -245,6 +264,12 @@ class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
         NestedMapSumValuesAndKeysSimple,
         int64_t,
         Map<int64_t, Map<int64_t, int64_t>>>({"nested_map_sum_simple"});
+
+    registerFunction<
+        NestedMapSumStructBind,
+        int64_t,
+        Map<int64_t, Map<int64_t, int64_t>>>(
+        {"nested_map_sum_simple_struct_bind"});
 
     facebook::velox::exec::registerVectorFunction(
         "nested_map_sum_vector",
@@ -368,9 +393,12 @@ class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
         compileExpression("nested_map_sum_simple(c0)", rowVector->type());
     auto exprSet3 = compileExpression(
         "nested_map_sum_vector_mapview(c0)", rowVector->type());
+    auto exprSet4 = compileExpression(
+        "nested_map_sum_simple_struct_bind(c0)", rowVector->type());
 
     return hasSameResults(exprSet1, exprSet2, rowVector) &&
-        hasSameResults(exprSet3, exprSet2, rowVector);
+        hasSameResults(exprSet3, exprSet2, rowVector) &&
+        hasSameResults(exprSet3, exprSet4, rowVector);
   }
 };
 
@@ -392,6 +420,11 @@ BENCHMARK(nestedMapSumVectorFunction) {
 BENCHMARK_RELATIVE(nestedMapSumSimpleFunction) {
   MapInputBenchmark benchmark;
   benchmark.runNested("nested_map_sum_simple");
+}
+
+BENCHMARK_RELATIVE(nestedMapSumSimpleFunctionStructBind) {
+  MapInputBenchmark benchmark;
+  benchmark.runNested("nested_map_sum_simple_struct_bind");
 }
 
 BENCHMARK_RELATIVE(nestedMapSumVectorFunctionMapView) {

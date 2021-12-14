@@ -350,4 +350,29 @@ TEST_F(MapViewTest, mapCoplexKey) {
   }
 }
 
+TEST_F(MapViewTest, testReadingStructureBindingLoop) {
+  auto mapVector = createTestMapVector();
+  DecodedVector decoded;
+  exec::VectorReader<Map<int64_t, int64_t>> reader(
+      decode(decoded, *mapVector.get()));
+
+  for (auto i = 0; i < mapsData.size(); i++) {
+    auto mapView = reader[i];
+    auto it = mapsData[i].begin();
+    int count = 0;
+    ASSERT_EQ(mapsData[i].size(), mapView.size());
+    for (const auto& [key, value] : mapView) {
+      ASSERT_EQ(key, it->first);
+      ASSERT_EQ(value.has_value(), it->second.has_value());
+      if (it->second.has_value()) {
+        ASSERT_EQ(value.value(), it->second.value());
+      }
+      ASSERT_EQ(value, it->second);
+      it++;
+      count++;
+    }
+    ASSERT_EQ(count, mapsData[i].size());
+  }
+}
+
 } // namespace

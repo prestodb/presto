@@ -502,10 +502,7 @@ class MapView {
         const key_reader_t* keyReader,
         const value_reader_t* valueReader,
         vector_size_t index)
-        : first((*keyReader)[index]),
-          second(valueReader, index),
-          keyReader_(keyReader),
-          index_(index) {}
+        : first((*keyReader)[index]), second(valueReader, index) {}
     const KeyAccessor first;
     const ValueAccessor second;
 
@@ -524,10 +521,6 @@ class MapView {
     bool operator!=(const T& other) const {
       return !(*this == other);
     }
-
-   private:
-    const key_reader_t* keyReader_;
-    vector_size_t index_;
   };
 
   class Iterator : public IndexBasedIterator<Element> {
