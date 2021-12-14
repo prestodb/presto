@@ -258,6 +258,7 @@ public class SimpleTtlNodeSelector
                 .map(remoteTask -> nodeMap.getActiveNodesByNodeId().get(remoteTask.getNodeId()))
                 // nodes may sporadically disappear from the nodeMap if the announcement is delayed
                 .filter(Objects::nonNull)
+                .filter(ttlInfo::containsKey)
                 .filter(node -> ttlInfo.get(node).isPresent())
                 .filter(node -> isTtlEnough(ttlInfo.get(node).get(), getEstimatedExecutionTimeRemaining()))
                 .collect(toList());
