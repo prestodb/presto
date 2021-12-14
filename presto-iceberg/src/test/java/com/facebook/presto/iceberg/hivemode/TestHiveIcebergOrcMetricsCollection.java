@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.hivemode;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.iceberg.IcebergPlugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -30,12 +31,12 @@ import static com.facebook.presto.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.iceberg.TestIcebergOrcMetricsCollection.DataFileRecord.toDataFileRecord;
+import static com.facebook.presto.iceberg.hivemode.TestHiveIcebergOrcMetricsCollection.DataFileRecord.toDataFileRecord;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
-public class TestIcebergOrcMetricsCollection
+public class TestHiveIcebergOrcMetricsCollection
         extends AbstractTestQueryFramework
 {
     @Override

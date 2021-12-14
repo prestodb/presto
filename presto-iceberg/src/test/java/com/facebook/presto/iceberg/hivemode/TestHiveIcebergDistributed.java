@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.hivemode;
 
+import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
@@ -20,19 +21,18 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 @Test
-public class TestIcebergDistributedNative
+public class TestHiveIcebergDistributed
         extends AbstractTestDistributedQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createNativeIcebergQueryRunner(ImmutableMap.of(), HADOOP);
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of());
     }
 
     @Override

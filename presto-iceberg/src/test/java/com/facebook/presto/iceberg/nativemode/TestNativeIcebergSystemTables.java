@@ -11,28 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.nativemode;
 
-import org.apache.iceberg.hadoop.HadoopCatalog;
-import org.apache.iceberg.hive.HiveCatalog;
+import com.facebook.presto.iceberg.TestIcebergSystemTables;
+import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 
-public enum CatalogType
+import static com.facebook.presto.iceberg.IcebergQueryRunner.createNativeIcebergQueryRunner;
+
+public class TestNativeIcebergSystemTables
+        extends TestIcebergSystemTables
 {
-    HADOOP(HadoopCatalog.class.getName()),
-    HIVE(HiveCatalog.class.getName()),
-    MEMORY(InMemoryCatalog.class.getName())
-
-    /**/;
-
-    private final String catalogImpl;
-
-    CatalogType(String catalogImpl)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this.catalogImpl = catalogImpl;
-    }
-
-    public String getCatalogImpl()
-    {
-        return catalogImpl;
+        return createNativeIcebergQueryRunner(ImmutableMap.of());
     }
 }
