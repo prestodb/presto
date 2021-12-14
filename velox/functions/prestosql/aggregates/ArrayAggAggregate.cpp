@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/ValueList.h"
 #include "velox/vector/ComplexVector.h"
@@ -160,18 +161,24 @@ class ArrayAggAggregate : public exec::Aggregate {
 };
 
 bool registerArrayAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .typeVariable("E")
+          .returnType("array(E)")
+          .intermediateType("array(E)")
+          .argumentType("E")
+          .build()};
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr&
-          /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(
             argTypes.size(), 1, "{} takes at most one argument", name);
-        auto rawInput = exec::isRawInput(step);
-        TypePtr returnType = rawInput ? ARRAY(argTypes[0]) : argTypes[0];
-        return std::make_unique<ArrayAggAggregate>(returnType);
+        return std::make_unique<ArrayAggAggregate>(resultType);
       });
   return true;
 }

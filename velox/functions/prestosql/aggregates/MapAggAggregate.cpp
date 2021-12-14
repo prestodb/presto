@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/ValueList.h"
 
@@ -261,22 +262,30 @@ class MapAggAggregate : public exec::Aggregate {
 };
 
 bool registerMapAggAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .typeVariable("K")
+          .typeVariable("V")
+          .returnType("map(K,V)")
+          .intermediateType("map(K,V)")
+          .argumentType("K")
+          .argumentType("V")
+          .build()};
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr&
-          /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         auto rawInput = exec::isRawInput(step);
         VELOX_CHECK_EQ(
             argTypes.size(),
             rawInput ? 2 : 1,
             "{} ({}): unexpected number of arguments",
             name);
-        TypePtr returnType =
-            rawInput ? MAP(argTypes[0], argTypes[1]) : argTypes[0];
-        return std::make_unique<MapAggAggregate>(returnType);
+        return std::make_unique<MapAggAggregate>(resultType);
       });
   return true;
 }

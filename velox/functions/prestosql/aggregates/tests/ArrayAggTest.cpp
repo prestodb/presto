@@ -55,7 +55,7 @@ TEST_F(ArrayAggTest, groupBy) {
   params.planNode = PlanBuilder()
                         .values(batches)
                         .partialAggregation({0}, {"array_agg(A)"})
-                        .finalAggregation({0}, {"array_agg(a0)"})
+                        .finalAggregation()
                         .planNode();
   auto pair = readCursor(params, [](Task*) {});
   auto reference = batches[0]->as<RowVector>()->childAt(1);
@@ -89,7 +89,7 @@ TEST_F(ArrayAggTest, global) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({}, {"array_agg(c0)"})
-                .finalAggregation({}, {"array_agg(a0)"})
+                .finalAggregation()
                 .planNode();
 
   auto value = readSingleValue(op);

@@ -37,7 +37,7 @@ TEST_F(MapAggTest, finalGroupBy) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({0}, {"map_agg(c1, c2)"})
-                .finalAggregation({0}, {"map_agg(a0)"})
+                .finalAggregation()
                 .planNode();
 
   static std::array<int32_t, 10> keys{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -109,7 +109,7 @@ TEST_F(MapAggTest, global) {
   op = PlanBuilder()
            .values(vectors)
            .partialAggregation({}, {"map_agg(c0, c1)"})
-           .finalAggregation({}, {"map_agg(a0)"})
+           .finalAggregation()
            .planNode();
   ASSERT_EQ(mapExpected, readSingleValue(op));
 }
