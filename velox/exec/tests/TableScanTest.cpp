@@ -1618,7 +1618,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
   auto op =
       PlanBuilder()
           .tableScan(rowType_, tableHandle, assignments)
-          .finalAggregation(
+          .partialAggregation(
               {5}, {"max(c0)", "sum(c1)", "sum(c2)", "sum(c3)", "sum(c4)"})
           .planNode();
   query =
@@ -1628,7 +1628,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
-           .finalAggregation(
+           .singleAggregation(
                {5}, {"max(c0)", "max(c1)", "max(c2)", "max(c3)", "max(c4)"})
            .planNode();
   query =
@@ -1638,7 +1638,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
-           .finalAggregation(
+           .singleAggregation(
                {5}, {"min(c0)", "min(c1)", "min(c2)", "min(c3)", "min(c4)"})
            .planNode();
   query =
@@ -1651,7 +1651,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
            .project({"c0 % 5", "c1"}, {"c0_mod_5", "c1"})
-           .finalAggregation({0}, {"sum(c1)"})
+           .singleAggregation({0}, {"sum(c1)"})
            .planNode();
 
   assertQuery(op, {filePath}, "SELECT c0 % 5, sum(c1) FROM tmp group by 1");
@@ -1662,7 +1662,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
       SubfieldFilters(), parseExpr("length(c5) % 2 = 0", rowType_));
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
-           .finalAggregation({5}, {"max(c0)"})
+           .singleAggregation({5}, {"max(c0)"})
            .planNode();
   query = "SELECT c5, max(c0) FROM tmp WHERE length(c5) % 2 = 0 GROUP BY c5 ";
   assertQuery(op, {filePath}, query);
@@ -1672,7 +1672,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
   tableHandle = makeTableHandle(SubfieldFilters(), nullptr);
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
-           .finalAggregation({5}, {"min(c0)", "max(c0)"})
+           .singleAggregation({5}, {"min(c0)", "max(c0)"})
            .planNode();
   assertQuery(
       op, {filePath}, "SELECT c5, min(c0), max(c0) FROM tmp GROUP BY 1");
@@ -1680,7 +1680,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
            .project({"c5", "c0", "c0 + c1"}, {"c5", "c0", "c0_plus_c1"})
-           .finalAggregation({0}, {"min(c0)", "max(c0_plus_c1)"})
+           .singleAggregation({0}, {"min(c0)", "max(c0_plus_c1)"})
            .planNode();
   assertQuery(
       op, {filePath}, "SELECT c5, min(c0), max(c0 + c1) FROM tmp GROUP BY 1");

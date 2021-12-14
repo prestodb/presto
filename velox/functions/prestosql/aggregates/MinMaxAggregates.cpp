@@ -17,6 +17,7 @@
 #include <limits>
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregationHook.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 #include "velox/functions/prestosql/aggregates/SingleValueAccumulator.h"
@@ -504,44 +505,58 @@ template <
     class TNumeric,
     typename TNonNumeric>
 bool registerMinMaxAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+
+  for (const auto& inputType :
+       {"tinyint", "smallint", "integer", "bigint", "timestamp", "real"}) {
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(inputType)
+                             .intermediateType("bigint")
+                             .argumentType(inputType)
+                             .build());
+  }
+
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .typeVariable("T")
+                           .returnType("T")
+                           .intermediateType("T")
+                           .argumentType("T")
+                           .build());
+
+  return exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           std::vector<TypePtr> argTypes,
           const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(argTypes.size(), 1, "{} takes only one argument", name);
         auto inputType = argTypes[0];
-        auto adjustedResultType = resultType;
-        if (resultType->kind() == TypeKind::UNKNOWN) {
-          adjustedResultType = inputType;
-        }
         switch (inputType->kind()) {
           case TypeKind::TINYINT:
             return createMinMaxIntegralAggregate<int8_t, TNumeric>(
-                name, adjustedResultType);
+                name, resultType);
           case TypeKind::SMALLINT:
             return createMinMaxIntegralAggregate<int16_t, TNumeric>(
-                name, adjustedResultType);
+                name, resultType);
           case TypeKind::INTEGER:
             return createMinMaxIntegralAggregate<int32_t, TNumeric>(
-                name, adjustedResultType);
+                name, resultType);
           case TypeKind::BIGINT:
-            if (adjustedResultType->isTimestamp()) {
-              return std::make_unique<TNumeric<int64_t, Timestamp>>(
-                  adjustedResultType);
+            if (resultType->isTimestamp()) {
+              return std::make_unique<TNumeric<int64_t, Timestamp>>(resultType);
             }
             return createMinMaxIntegralAggregate<int64_t, TNumeric>(
-                name, adjustedResultType);
+                name, resultType);
           case TypeKind::REAL:
             return createMinMaxFloatingPointAggregate<float, TNumeric>(
-                name, adjustedResultType);
+                name, resultType);
           case TypeKind::DOUBLE:
             return createMinMaxFloatingPointAggregate<double, TNumeric>(
-                name, adjustedResultType);
+                name, resultType);
           case TypeKind::TIMESTAMP:
             return createMinMaxTimestampAggregate<Timestamp, TNumeric>(
-                name, adjustedResultType);
+                name, resultType);
           case TypeKind::VARCHAR:
           case TypeKind::ARRAY:
           case TypeKind::MAP:
@@ -553,10 +568,8 @@ bool registerMinMaxAggregate(const std::string& name) {
                 "Unknown input type for {} aggregation {}",
                 name,
                 inputType->kindName());
-            return nullptr;
         }
       });
-  return true;
 }
 
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
