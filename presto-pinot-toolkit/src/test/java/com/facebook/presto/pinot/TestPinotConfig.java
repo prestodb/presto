@@ -55,6 +55,9 @@ public class TestPinotConfig
                         .setProxyGrpcPort(PinotConfig.DEFAULT_PROXY_GRPC_PORT)
                         .setUseProxyForBrokerRequest(false)
                         .setUseProxyGrpcEndpoint(false)
+                        .setUseHttpsForController(false)
+                        .setUseHttpsForBroker(false)
+                        .setUseHttpsForProxy(false)
                         .setNumSegmentsPerSplit(1)
                         .setFetchRetryCount(2)
                         .setMarkDataFetchExceptionsAsRetriable(true)
@@ -109,6 +112,9 @@ public class TestPinotConfig
                 .put("pinot.forbid-segment-queries", "true")
                 .put("pinot.use-streaming-for-segment-queries", "true")
                 .put("pinot.streaming-server-grpc-max-inbound-message-bytes", "65536")
+                .put("pinot.use-https-for-controller", "true")
+                .put("pinot.use-https-for-broker", "true")
+                .put("pinot.use-https-for-proxy", "true")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -149,7 +155,10 @@ public class TestPinotConfig
                 .setForbidSegmentQueries(true)
                 .setUseStreamingForSegmentQueries(true)
                 .setStreamingServerGrpcMaxInboundMessageBytes(65536)
-                .setUseDateTrunc(true);
+                .setUseDateTrunc(true)
+                .setUseHttpsForController(true)
+                .setUseHttpsForBroker(true)
+                .setUseHttpsForProxy(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
