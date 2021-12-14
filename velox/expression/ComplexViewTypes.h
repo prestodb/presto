@@ -55,8 +55,7 @@ class IndexBasedIterator {
   using pointer = PointerWrapper<value_type>;
   using reference = T;
 
-  explicit IndexBasedIterator<value_type>(vector_size_t index)
-      : index_(index) {}
+  explicit IndexBasedIterator<value_type>(int64_t index) : index_(index) {}
 
   bool operator!=(const Iterator& rhs) const {
     return index_ != rhs.index_;
@@ -96,7 +95,7 @@ class IndexBasedIterator {
   }
 
  protected:
-  vector_size_t index_;
+  int64_t index_;
 };
 
 // Implements an iterator for values that skips nulls and provides direct access
@@ -256,11 +255,11 @@ class VectorOptionalValueAccessor {
   }
 
  private:
-  VectorOptionalValueAccessor<T>(const T* reader, vector_size_t index)
+  VectorOptionalValueAccessor<T>(const T* reader, int64_t index)
       : reader_(reader), index_(index) {}
   const T* reader_;
   // Index of element within the reader.
-  vector_size_t index_;
+  int64_t index_;
 
   template <typename V>
   friend class ArrayView;
@@ -270,6 +269,9 @@ class VectorOptionalValueAccessor {
 
   template <typename... U>
   friend class RowView;
+
+  template <typename U>
+  friend class VariadicView;
 };
 
 template <typename T, typename U>
@@ -501,7 +503,7 @@ class MapView {
     Element(
         const key_reader_t* keyReader,
         const value_reader_t* valueReader,
-        vector_size_t index)
+        int64_t index)
         : first((*keyReader)[index]), second(valueReader, index) {}
     const KeyAccessor first;
     const ValueAccessor second;

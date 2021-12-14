@@ -21,7 +21,8 @@ add_executable(
   SimpleFunctionTest.cpp
   ArrayViewTest.cpp
   MapViewTest.cpp
-  RowViewTest.cpp)
+  RowViewTest.cpp
+  VariadicViewTest.cpp)
 
 add_test(
   NAME velox_expression_test
