@@ -15,6 +15,7 @@
  */
 #include "velox/serializers/PrestoSerializer.h"
 #include <boost/crc.hpp>
+#include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
 #include "velox/vector/BiasVector.h"

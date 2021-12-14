@@ -23,7 +23,7 @@ namespace facebook::velox::aggregate {
 void SingleValueAccumulator::write(
     const BaseVector* vector,
     vector_size_t index,
-    exec::HashStringAllocator* allocator) {
+    HashStringAllocator* allocator) {
   if (!begin_) {
     begin_ = allocator->allocate(kInitialBytes);
   }
@@ -39,7 +39,7 @@ void SingleValueAccumulator::read(const VectorPtr& vector, vector_size_t index)
   VELOX_CHECK(begin_);
 
   ByteStream inStream;
-  exec::HashStringAllocator::prepareRead(begin_, inStream);
+  HashStringAllocator::prepareRead(begin_, inStream);
   exec::ContainerRowSerde::instance().deserialize(
       inStream, index, vector.get());
 }
@@ -56,12 +56,12 @@ int32_t SingleValueAccumulator::compare(
   VELOX_CHECK(begin_);
 
   ByteStream inStream;
-  exec::HashStringAllocator::prepareRead(begin_, inStream);
+  HashStringAllocator::prepareRead(begin_, inStream);
   return exec::ContainerRowSerde::instance().compare(
       inStream, decoded, index, {true, true, false});
 }
 
-void SingleValueAccumulator::destroy(exec::HashStringAllocator* allocator) {
+void SingleValueAccumulator::destroy(HashStringAllocator* allocator) {
   if (begin_) {
     allocator->free(begin_);
   }

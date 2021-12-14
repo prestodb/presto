@@ -96,7 +96,7 @@ class SparseHllTest : public ::testing::Test {
     return serialized;
   }
 
-  exec::HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
+  HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
 };
 
 TEST_F(SparseHllTest, basic) {
@@ -171,7 +171,7 @@ class SparseHllToDenseTest : public ::testing::TestWithParam<int8_t> {
     return serialized;
   }
 
-  exec::HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
+  HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
 };
 
 TEST_P(SparseHllToDenseTest, toDense) {

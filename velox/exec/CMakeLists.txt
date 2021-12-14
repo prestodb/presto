@@ -14,7 +14,6 @@
 add_library(
   velox_exec
   Aggregate.cpp
-  AllocationPool.cpp
   ContainerRowSerde.cpp
   CrossJoinBuild.cpp
   CrossJoinProbe.cpp
@@ -27,7 +26,6 @@ add_library(
   HashBuild.cpp
   HashPartitionFunction.cpp
   HashProbe.cpp
-  HashStringAllocator.cpp
   HashTable.cpp
   JoinBridge.cpp
   Limit.cpp

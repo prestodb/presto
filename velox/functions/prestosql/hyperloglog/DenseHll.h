@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "velox/exec/HashStringAllocator.h"
+#include "velox/common/memory/HashStringAllocator.h"
 
 namespace facebook::velox::aggregate::hll {
 class SparseHll;
@@ -28,16 +28,16 @@ class SparseHll;
 /// which provides max standard error of 0.023.
 class DenseHll {
  public:
-  DenseHll(int8_t indexBitLength, exec::HashStringAllocator* allocator);
+  DenseHll(int8_t indexBitLength, HashStringAllocator* allocator);
 
-  DenseHll(const char* serialized, exec::HashStringAllocator* allocator);
+  DenseHll(const char* serialized, HashStringAllocator* allocator);
 
   /// Creates an uninitialized instance that doesn't allcate any significant
   /// memory. The caller must call initialize before using the HLL.
-  explicit DenseHll(exec::HashStringAllocator* allocator)
-      : deltas_{exec::StlAllocator<int8_t>(allocator)},
-        overflowBuckets_{exec::StlAllocator<uint16_t>(allocator)},
-        overflowValues_{exec::StlAllocator<int8_t>(allocator)} {}
+  explicit DenseHll(HashStringAllocator* allocator)
+      : deltas_{StlAllocator<int8_t>(allocator)},
+        overflowBuckets_{StlAllocator<uint16_t>(allocator)},
+        overflowValues_{StlAllocator<int8_t>(allocator)} {}
 
   /// Allocates memory that can fit 2 ^ indexBitLength buckets.
   void initialize(int8_t indexBitLength);
@@ -116,17 +116,17 @@ class DenseHll {
   /// Per-bucket values represented as deltas from the baseline_. Each entry
   /// stores 2 values, 4 bits each. The maximum value that can be stored is 15.
   /// Larger values are stored in a separate overflow list.
-  std::vector<int8_t, exec::StlAllocator<int8_t>> deltas_;
+  std::vector<int8_t, StlAllocator<int8_t>> deltas_;
 
   /// Number of overflowing values, e.g. values where delta from baseline is
   /// greater than 15.
   int16_t overflows_{0};
 
   /// List of buckets with overflowing values.
-  std::vector<uint16_t, exec::StlAllocator<uint16_t>> overflowBuckets_;
+  std::vector<uint16_t, StlAllocator<uint16_t>> overflowBuckets_;
 
   /// Overflowing values stored as deltas from the deltas: value - 15 -
   /// baseline.
-  std::vector<int8_t, exec::StlAllocator<int8_t>> overflowValues_;
+  std::vector<int8_t, StlAllocator<int8_t>> overflowValues_;
 };
 } // namespace facebook::velox::aggregate::hll

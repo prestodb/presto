@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/exec/HashStringAllocator.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 
@@ -31,36 +31,36 @@ class ValueList {
   void appendValue(
       const DecodedVector& decoded,
       vector_size_t index,
-      exec::HashStringAllocator* allocator);
+      HashStringAllocator* allocator);
 
   void appendRange(
       const VectorPtr& vector,
       vector_size_t offset,
       vector_size_t size,
-      exec::HashStringAllocator* allocator);
+      HashStringAllocator* allocator);
 
   int32_t size() const {
     return size_;
   }
 
   // Called after all data has been appended.
-  void finalize(exec::HashStringAllocator* allocator) {
+  void finalize(HashStringAllocator* allocator) {
     if (size_ % 64 != 0) {
       writeLastNulls(allocator);
     }
   }
 
   // Called after 'finalize()' to get access to 'data' allocation.
-  exec::HashStringAllocator::Header* dataBegin() {
+  HashStringAllocator::Header* dataBegin() {
     return dataBegin_;
   }
 
   // Called after 'finalize()' to get access to 'nulls' allocation.
-  exec::HashStringAllocator::Header* nullsBegin() {
+  HashStringAllocator::Header* nullsBegin() {
     return nullsBegin_;
   }
 
-  void free(exec::HashStringAllocator* allocator) {
+  void free(HashStringAllocator* allocator) {
     if (size_) {
       allocator->free(nullsBegin_);
       allocator->free(dataBegin_);
@@ -75,25 +75,25 @@ class ValueList {
   // sizes for lots of small arrays.
   static constexpr int kInitialSize = 44;
 
-  void appendNull(exec::HashStringAllocator* allocator);
+  void appendNull(HashStringAllocator* allocator);
 
   void appendNonNull(
       const BaseVector& vector,
       vector_size_t index,
-      exec::HashStringAllocator* allocator);
+      HashStringAllocator* allocator);
 
-  void prepareAppend(exec::HashStringAllocator* allocator);
+  void prepareAppend(HashStringAllocator* allocator);
 
   // Writes lastNulls_ word to the 'nulls' block.
-  void writeLastNulls(exec::HashStringAllocator* allocator);
+  void writeLastNulls(HashStringAllocator* allocator);
 
   // 'Nulls' allocation (potentially multi-part).
-  exec::HashStringAllocator::Header* nullsBegin_{nullptr};
-  exec::HashStringAllocator::Position nullsCurrent_{nullptr, nullptr};
+  HashStringAllocator::Header* nullsBegin_{nullptr};
+  HashStringAllocator::Position nullsCurrent_{nullptr, nullptr};
 
   // 'Data' allocation (potentially multi-part)
-  exec::HashStringAllocator::Header* dataBegin_{nullptr};
-  exec::HashStringAllocator::Position dataCurrent_{nullptr, nullptr};
+  HashStringAllocator::Header* dataBegin_{nullptr};
+  HashStringAllocator::Position dataCurrent_{nullptr, nullptr};
 
   // Total bytes written.
   uint64_t totalBytes_{0};

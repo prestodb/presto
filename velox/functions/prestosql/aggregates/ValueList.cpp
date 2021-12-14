@@ -17,7 +17,7 @@
 #include "velox/exec/ContainerRowSerde.h"
 
 namespace facebook::velox::aggregate {
-void ValueList::prepareAppend(exec::HashStringAllocator* allocator) {
+void ValueList::prepareAppend(HashStringAllocator* allocator) {
   if (!dataBegin_) {
     dataBegin_ = allocator->allocate(kInitialSize);
     dataCurrent_ = {dataBegin_, dataBegin_->begin()};
@@ -29,7 +29,7 @@ void ValueList::prepareAppend(exec::HashStringAllocator* allocator) {
   }
 }
 
-void ValueList::writeLastNulls(exec::HashStringAllocator* allocator) {
+void ValueList::writeLastNulls(HashStringAllocator* allocator) {
   ByteStream stream(allocator);
   if (nullsBegin_) {
     allocator->extendWrite(nullsCurrent_, stream);
@@ -43,7 +43,7 @@ void ValueList::writeLastNulls(exec::HashStringAllocator* allocator) {
   totalBytes_ += sizeof(uint64_t);
 }
 
-void ValueList::appendNull(exec::HashStringAllocator* allocator) {
+void ValueList::appendNull(HashStringAllocator* allocator) {
   prepareAppend(allocator);
   lastNulls_ |= 1UL << (size_ % 64);
   ++size_;
@@ -52,7 +52,7 @@ void ValueList::appendNull(exec::HashStringAllocator* allocator) {
 void ValueList::appendNonNull(
     const BaseVector& values,
     vector_size_t index,
-    exec::HashStringAllocator* allocator) {
+    HashStringAllocator* allocator) {
   prepareAppend(allocator);
   ByteStream stream(allocator);
   allocator->extendWrite(dataCurrent_, stream);
@@ -66,7 +66,7 @@ void ValueList::appendNonNull(
 void ValueList::appendValue(
     const DecodedVector& decoded,
     vector_size_t index,
-    exec::HashStringAllocator* allocator) {
+    HashStringAllocator* allocator) {
   auto& base = *decoded.base();
   if (decoded.isNullAt(index)) {
     appendNull(allocator);
@@ -79,7 +79,7 @@ void ValueList::appendRange(
     const VectorPtr& vector,
     vector_size_t offset,
     vector_size_t size,
-    exec::HashStringAllocator* allocator) {
+    HashStringAllocator* allocator) {
   for (auto index = offset; index < offset + size; ++index) {
     if (vector->isNullAt(index)) {
       appendNull(allocator);
@@ -90,8 +90,8 @@ void ValueList::appendRange(
 }
 
 ValueListReader::ValueListReader(ValueList& values) : values_(values) {
-  exec::HashStringAllocator::prepareRead(values_.dataBegin(), dataStream_);
-  exec::HashStringAllocator::prepareRead(values_.nullsBegin(), nullsStream_);
+  HashStringAllocator::prepareRead(values_.dataBegin(), dataStream_);
+  HashStringAllocator::prepareRead(values_.nullsBegin(), nullsStream_);
 }
 
 bool ValueListReader::next(BaseVector& output, vector_size_t outputIndex) {

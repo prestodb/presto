@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/HashStringAllocator.h"
+#include "velox/common/memory/HashStringAllocator.h"
 
 #include <folly/Random.h>
 
@@ -21,7 +21,6 @@
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
-using namespace facebook::velox::exec;
 
 struct Multipart {
   HashStringAllocator::Position start{nullptr, nullptr};

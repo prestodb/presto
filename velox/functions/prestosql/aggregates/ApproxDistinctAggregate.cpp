@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #define XXH_INLINE_ALL
+#include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/exec/HashStringAllocator.h"
 #include "velox/external/xxhash.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/hyperloglog/DenseHll.h"
@@ -28,7 +28,7 @@ namespace facebook::velox::aggregate {
 namespace {
 
 struct HllAccumulator {
-  explicit HllAccumulator(exec::HashStringAllocator* allocator)
+  explicit HllAccumulator(HashStringAllocator* allocator)
       : sparseHll_{allocator}, denseHll_{allocator} {}
 
   void setIndexBitLength(int8_t indexBitLength) {
@@ -51,7 +51,7 @@ struct HllAccumulator {
     return isSparse_ ? sparseHll_.cardinality() : denseHll_.cardinality();
   }
 
-  void mergeWith(StringView serialized, exec::HashStringAllocator* allocator) {
+  void mergeWith(StringView serialized, HashStringAllocator* allocator) {
     auto input = serialized.data();
     if (hll::SparseHll::canDeserialize(input)) {
       if (isSparse_) {

@@ -17,7 +17,7 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "velox/exec/CompactDoubleList.h"
+#include "velox/common/memory/CompactDoubleList.h"
 
 using namespace facebook::velox;
 

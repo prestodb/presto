@@ -46,12 +46,12 @@ class ValueListTest : public functions::test::FunctionBaseTest {
     assertEqualVectors(data, result);
   }
 
-  exec::HashStringAllocator* allocator() {
+  HashStringAllocator* allocator() {
     return allocator_.get();
   }
 
-  std::unique_ptr<exec::HashStringAllocator> allocator_{
-      std::make_unique<exec::HashStringAllocator>(
+  std::unique_ptr<HashStringAllocator> allocator_{
+      std::make_unique<HashStringAllocator>(
           memory::MappedMemory::getInstance())};
 };
 

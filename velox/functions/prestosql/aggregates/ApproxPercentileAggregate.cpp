@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include <folly/stats/TDigest.h>
+#include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/exec/HashStringAllocator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/IOUtils.h"
 #include "velox/vector/DecodedVector.h"
@@ -73,14 +73,12 @@ folly::TDigest singleValueDigest(T v, int64_t count) {
 }
 
 struct TDigestAccumulator {
-  explicit TDigestAccumulator(exec::HashStringAllocator* allocator)
-      : values_{exec::StlAllocator<double>(allocator)},
-        largeCountValues_{exec::StlAllocator<double>(allocator)},
-        largeCounts_{exec::StlAllocator<int64_t>(allocator)} {}
+  explicit TDigestAccumulator(HashStringAllocator* allocator)
+      : values_{StlAllocator<double>(allocator)},
+        largeCountValues_{StlAllocator<double>(allocator)},
+        largeCounts_{StlAllocator<int64_t>(allocator)} {}
 
-  void write(
-      const folly::TDigest& digest,
-      exec::HashStringAllocator* allocator) {
+  void write(const folly::TDigest& digest, HashStringAllocator* allocator) {
     if (!begin_) {
       begin_ = allocator->allocate(serializedSize(digest));
     }
@@ -95,7 +93,7 @@ struct TDigestAccumulator {
     VELOX_CHECK(begin_);
 
     ByteStream inStream;
-    exec::HashStringAllocator::prepareRead(begin_, inStream);
+    HashStringAllocator::prepareRead(begin_, inStream);
     return deserialize(inStream);
   }
 
@@ -103,14 +101,14 @@ struct TDigestAccumulator {
     return begin_ != nullptr;
   }
 
-  void destroy(exec::HashStringAllocator* allocator) {
+  void destroy(HashStringAllocator* allocator) {
     if (begin_) {
       allocator->free(begin_);
     }
   }
 
   template <typename T>
-  void append(T v, exec::HashStringAllocator* allocator) {
+  void append(T v, HashStringAllocator* allocator) {
     values_.emplace_back((double)v);
 
     if (values_.size() >= kMaxBufferSize) {
@@ -119,7 +117,7 @@ struct TDigestAccumulator {
   }
 
   template <typename T>
-  void append(T v, int64_t count, exec::HashStringAllocator* allocator) {
+  void append(T v, int64_t count, HashStringAllocator* allocator) {
     static const int64_t kMaxCountToBuffer = 99;
 
     if (values_.size() + count <= kMaxBufferSize &&
@@ -141,7 +139,7 @@ struct TDigestAccumulator {
     }
   }
 
-  void append(folly::TDigest digest, exec::HashStringAllocator* allocator) {
+  void append(folly::TDigest digest, HashStringAllocator* allocator) {
     if (hasValue()) {
       auto currentDigest = read();
       std::vector<folly::TDigest> digests = {
@@ -154,7 +152,7 @@ struct TDigestAccumulator {
     }
   }
 
-  void flush(exec::HashStringAllocator* allocator) {
+  void flush(HashStringAllocator* allocator) {
     if (!values_.empty()) {
       folly::TDigest digest{hasValue() ? read() : folly::TDigest()};
       digest = digest.merge(values_);
@@ -187,12 +185,12 @@ struct TDigestAccumulator {
   // Maximum number of values to accumulate before updating TDigest.
   static const size_t kMaxBufferSize = 4096;
 
-  exec::HashStringAllocator::Header* begin_{nullptr};
+  HashStringAllocator::Header* begin_{nullptr};
 
-  std::vector<double, exec::StlAllocator<double>> values_;
+  std::vector<double, StlAllocator<double>> values_;
 
-  std::vector<double, exec::StlAllocator<double>> largeCountValues_;
-  std::vector<int64_t, exec::StlAllocator<int64_t>> largeCounts_;
+  std::vector<double, StlAllocator<double>> largeCountValues_;
+  std::vector<int64_t, StlAllocator<int64_t>> largeCounts_;
 };
 
 // The following variations are possible:

@@ -15,12 +15,13 @@
  */
 #pragma once
 
-#include "velox/exec/AllocationPool.h"
-#include "velox/exec/CompactDoubleList.h"
+#include "velox/common/memory/AllocationPool.h"
+#include "velox/common/memory/ByteStream.h"
+#include "velox/common/memory/CompactDoubleList.h"
+#include "velox/common/memory/StreamArena.h"
 #include "velox/type/StringView.h"
-#include "velox/vector/VectorStream.h"
 
-namespace facebook::velox::exec {
+namespace facebook::velox {
 
 // Implements an arena backed by MappedMemory::Allocation. This is for backing
 // ByteStream or for allocating single blocks. Blocks can be individually freed.
@@ -315,7 +316,7 @@ template <class T>
 struct StlAllocator {
   using value_type = T;
 
-  explicit StlAllocator(exec::HashStringAllocator* FOLLY_NONNULL allocator)
+  explicit StlAllocator(HashStringAllocator* FOLLY_NONNULL allocator)
       : allocator_{allocator} {
     VELOX_CHECK(allocator);
   }
@@ -334,7 +335,7 @@ struct StlAllocator {
     allocator_->free(HashStringAllocator::headerOf(p));
   }
 
-  exec::HashStringAllocator* FOLLY_NONNULL allocator() const {
+  HashStringAllocator* FOLLY_NONNULL allocator() const {
     return allocator_;
   }
 
@@ -346,7 +347,7 @@ struct StlAllocator {
   }
 
  private:
-  exec::HashStringAllocator* FOLLY_NONNULL allocator_;
+  HashStringAllocator* FOLLY_NONNULL allocator_;
 };
 
-} // namespace facebook::velox::exec
+} // namespace facebook::velox

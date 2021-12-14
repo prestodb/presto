@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/common/memory/ByteStream.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 

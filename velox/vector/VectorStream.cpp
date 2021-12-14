@@ -35,62 +35,6 @@ bool isRegisteredVectorSerde() {
   return (getVectorSerde().get() != nullptr);
 }
 
-void StreamArena::newRange(int32_t bytes, ByteRange* range) {
-  VELOX_CHECK(bytes > 0);
-  memory::MachinePageCount numPages =
-      bits::roundUp(bytes, memory::MappedMemory::kPageSize) /
-      memory::MappedMemory::kPageSize;
-  int32_t numRuns = allocation_.numRuns();
-  if (currentRun_ >= numRuns) {
-    if (numRuns) {
-      allocations_.push_back(std::make_unique<memory::MappedMemory::Allocation>(
-          std::move(allocation_)));
-    }
-    if (!mappedMemory_->allocate(
-            std::max(allocationQuantum_, numPages),
-            kVectorStreamOwner,
-            allocation_)) {
-      throw std::bad_alloc();
-    }
-    currentRun_ = 0;
-    currentPage_ = 0;
-    size_ += allocation_.byteSize();
-  }
-  auto run = allocation_.runAt(currentRun_);
-  int32_t available = run.numPages() - currentPage_;
-  range->buffer = run.data() + memory::MappedMemory::kPageSize * currentPage_;
-  range->size =
-      std::min<int32_t>(numPages, available) * memory::MappedMemory::kPageSize;
-  range->position = 0;
-  currentPage_ += std::min<int32_t>(available, numPages);
-  if (currentPage_ == run.numPages()) {
-    ++currentRun_;
-    currentPage_ = 0;
-  }
-}
-
-void StreamArena::newTinyRange(int32_t bytes, ByteRange* range) {
-  tinyRanges_.emplace_back();
-  tinyRanges_.back().resize(bytes);
-  range->position = 0;
-  range->buffer = reinterpret_cast<uint8_t*>(tinyRanges_.back().data());
-  range->size = bytes;
-}
-
-void ByteStream::flush(std::ostream* out) {
-  for (int32_t i = 0; i < ranges_.size(); ++i) {
-    int32_t count = ranges_[i].position;
-    int32_t bytes = isBits_ ? bits::nbytes(count) : count;
-    if (isBits_ && isReverseBitOrder_ && !isReversed_) {
-      bits::reverseBits(ranges_[i].buffer, bytes);
-    }
-    out->write(reinterpret_cast<char*>(ranges_[i].buffer), bytes);
-  }
-  if (isBits_ && isReverseBitOrder_) {
-    isReversed_ = true;
-  }
-}
-
 void VectorStreamGroup::createStreamTree(
     std::shared_ptr<const RowType> type,
     int32_t numRows) {

@@ -16,6 +16,7 @@
 #pragma once
 
 #include <memory>
+#include "velox/common/memory/ByteStream.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {

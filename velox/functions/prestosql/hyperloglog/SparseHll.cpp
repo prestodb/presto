@@ -36,7 +36,7 @@ inline uint32_t decodeValue(uint32_t entry) {
 
 int searchIndex(
     uint32_t index,
-    const std::vector<uint32_t, exec::StlAllocator<uint32_t>>& entries) {
+    const std::vector<uint32_t, StlAllocator<uint32_t>>& entries) {
   int low = 0;
   int high = entries.size() - 1;
 
@@ -150,10 +150,8 @@ int32_t SparseHll::inMemorySize() const {
   return sizeof(uint32_t) * entries_.size();
 }
 
-SparseHll::SparseHll(
-    const char* serialized,
-    exec::HashStringAllocator* allocator)
-    : entries_{exec::StlAllocator<uint32_t>(allocator)} {
+SparseHll::SparseHll(const char* serialized, HashStringAllocator* allocator)
+    : entries_{StlAllocator<uint32_t>(allocator)} {
   auto stream = initializeInputStream(serialized);
 
   auto size = stream.read<int16_t>();

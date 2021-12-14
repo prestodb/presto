@@ -24,8 +24,6 @@ add_executable(
   AggregationTest.cpp
   RowContainerTest.cpp
   HashTableTest.cpp
-  HashStringAllocatorTest.cpp
-  CompactDoubleListTest.cpp
   TreeOfLosersTest.cpp
   VectorHasherTest.cpp
   LocalPartitionTest.cpp

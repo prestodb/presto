@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include "DenseHll.h"
-#include "velox/exec/HashStringAllocator.h"
+#include "velox/common/memory/HashStringAllocator.h"
+#include "velox/functions/prestosql/hyperloglog/DenseHll.h"
 
 namespace facebook::velox::aggregate::hll {
 /// HyperLogLog implementation using sparse storage layout.
@@ -23,10 +23,10 @@ namespace facebook::velox::aggregate::hll {
 /// Memory usage: 4 bytes for each observed bucket.
 class SparseHll {
  public:
-  explicit SparseHll(exec::HashStringAllocator* allocator)
-      : entries_{exec::StlAllocator<uint32_t>(allocator)} {}
+  explicit SparseHll(HashStringAllocator* allocator)
+      : entries_{StlAllocator<uint32_t>(allocator)} {}
 
-  SparseHll(const char* serialized, exec::HashStringAllocator* allocator);
+  SparseHll(const char* serialized, HashStringAllocator* allocator);
 
   void setSoftMemoryLimit(uint32_t softMemoryLimit) {
     softNumEntriesLimit_ = softMemoryLimit / 4;
@@ -79,7 +79,7 @@ class SparseHll {
   /// A list of observed buckets. Each entry is a 32 bit integer encoding 26-bit
   /// bucket and 6-bit value (number of zeros in the input hash after the bucket
   /// + 1).
-  std::vector<uint32_t, exec::StlAllocator<uint32_t>> entries_;
+  std::vector<uint32_t, StlAllocator<uint32_t>> entries_;
 
   /// Number of entries that can be stored before reaching soft memory limit.
   uint32_t softNumEntriesLimit_{0};

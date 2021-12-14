@@ -17,7 +17,7 @@
 
 #include "velox/common/memory/MappedMemory.h"
 
-namespace facebook::velox::exec {
+namespace facebook::velox {
 // A set of MappedMemory::Allocations holding the fixed width payload
 // rows. The Runs are filled to the end except for the last one. This
 // is used for iterating over the payload for rehashing, returning
@@ -110,4 +110,4 @@ class AllocationPool {
   const int32_t owner_;
 };
 
-} // namespace facebook::velox::exec
+} // namespace facebook::velox

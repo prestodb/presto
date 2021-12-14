@@ -15,8 +15,8 @@
  */
 
 #pragma once
+#include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/ContainerRowSerde.h"
-#include "velox/exec/HashStringAllocator.h"
 
 namespace facebook::velox::aggregate {
 
@@ -26,7 +26,7 @@ struct SingleValueAccumulator {
   void write(
       const BaseVector* vector,
       vector_size_t index,
-      exec::HashStringAllocator* allocator);
+      HashStringAllocator* allocator);
 
   void read(const VectorPtr& vector, vector_size_t index) const;
 
@@ -36,12 +36,12 @@ struct SingleValueAccumulator {
   // then new value; >0 if stored value is greated than new value
   int32_t compare(const DecodedVector& decoded, vector_size_t index) const;
 
-  void destroy(exec::HashStringAllocator* allocator);
+  void destroy(HashStringAllocator* allocator);
 
  private:
   static constexpr int kInitialBytes{20};
 
-  exec::HashStringAllocator::Header* begin_{nullptr};
+  HashStringAllocator::Header* begin_{nullptr};
 };
 
 } // namespace facebook::velox::aggregate

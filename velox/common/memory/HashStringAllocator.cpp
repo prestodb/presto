@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/exec/RowContainer.h"
-namespace facebook::velox::exec {
+#include "velox/common/memory/HashStringAllocator.h"
+
+namespace facebook::velox {
 
 namespace {
 /// Returns the size of the previous free block. The size is stored in the last
@@ -362,4 +363,4 @@ void HashStringAllocator::checkConsistency() const {
   VELOX_CHECK(bytesInFreeList == freeBytes_);
 }
 
-} // namespace facebook::velox::exec
+} // namespace facebook::velox

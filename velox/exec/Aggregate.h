@@ -19,10 +19,13 @@
 #include "velox/core/PlanNode.h"
 #include "velox/vector/BaseVector.h"
 
+namespace facebook::velox {
+class HashStringAllocator;
+}
+
 namespace facebook::velox::exec {
 
 class AggregateFunctionSignature;
-class HashStringAllocator;
 
 // Returns true if aggregation receives raw (unprocessed) input, e.g. partial
 // and single aggregation.

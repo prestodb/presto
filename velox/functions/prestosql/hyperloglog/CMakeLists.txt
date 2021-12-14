@@ -16,6 +16,6 @@ if(${VELOX_BUILD_TESTING})
 endif()
 
 add_library(velox_functions_hyperloglog BiasCorrection.cpp DenseHll.cpp
-        SparseHll.cpp)
+                                        SparseHll.cpp)
 
-target_link_libraries(velox_functions_hyperloglog velox_exec)
+target_link_libraries(velox_functions_hyperloglog velox_memory)

@@ -92,7 +92,7 @@ class DenseHllTest : public ::testing::TestWithParam<int8_t> {
         expected.cardinality());
   }
 
-  exec::HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
+  HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
 };
 
 TEST_P(DenseHllTest, basic) {

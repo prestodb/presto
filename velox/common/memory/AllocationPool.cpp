@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/AllocationPool.h"
+#include "velox/common/memory/AllocationPool.h"
 #include "velox/common/base/BitUtil.h"
 
-namespace facebook::velox::exec {
+namespace facebook::velox {
 
 void AllocationPool::clear() {
   // Trigger Allocation's destructor to free allocated memory
@@ -59,4 +59,4 @@ void AllocationPool::newRun(int32_t preferredSize) {
   currentOffset_ = 0;
 }
 
-} // namespace facebook::velox::exec
+} // namespace facebook::velox

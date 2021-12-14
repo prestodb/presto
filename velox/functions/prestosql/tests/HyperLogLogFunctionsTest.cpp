@@ -48,7 +48,7 @@ class HyperLogLogFunctionsTest : public functions::test::FunctionBaseTest {
     return serialized;
   }
 
-  exec::HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
+  HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
 };
 
 TEST_F(HyperLogLogFunctionsTest, cardinalitySparse) {

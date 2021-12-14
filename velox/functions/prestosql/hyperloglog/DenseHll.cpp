@@ -116,10 +116,10 @@ double correctBias(double rawEstimate, int8_t indexBitLength) {
 }
 } // namespace
 
-DenseHll::DenseHll(int8_t indexBitLength, exec::HashStringAllocator* allocator)
-    : deltas_{exec::StlAllocator<int8_t>(allocator)},
-      overflowBuckets_{exec::StlAllocator<uint16_t>(allocator)},
-      overflowValues_{exec::StlAllocator<int8_t>(allocator)} {
+DenseHll::DenseHll(int8_t indexBitLength, HashStringAllocator* allocator)
+    : deltas_{StlAllocator<int8_t>(allocator)},
+      overflowBuckets_{StlAllocator<uint16_t>(allocator)},
+      overflowValues_{StlAllocator<int8_t>(allocator)} {
   initialize(indexBitLength);
 }
 
@@ -430,10 +430,10 @@ void DenseHll::serialize(char* output) {
   }
 }
 
-DenseHll::DenseHll(const char* serialized, exec::HashStringAllocator* allocator)
-    : deltas_{exec::StlAllocator<int8_t>(allocator)},
-      overflowBuckets_{exec::StlAllocator<uint16_t>(allocator)},
-      overflowValues_{exec::StlAllocator<int8_t>(allocator)} {
+DenseHll::DenseHll(const char* serialized, HashStringAllocator* allocator)
+    : deltas_{StlAllocator<int8_t>(allocator)},
+      overflowBuckets_{StlAllocator<uint16_t>(allocator)},
+      overflowValues_{StlAllocator<int8_t>(allocator)} {
   auto hll = deserialize(serialized);
   indexBitLength_ = hll.indexBitLength;
   baseline_ = hll.baseline;
