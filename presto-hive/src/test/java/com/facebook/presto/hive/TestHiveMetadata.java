@@ -209,6 +209,12 @@ public class TestHiveMetadata
         }
 
         @Override
+        public Optional<String> getTypeMetadata(HiveType hiveType, TypeSignature typeSignature)
+        {
+            throw new NotImplementedException();
+        }
+
+        @Override
         public TypeSignature getTypeSignature(HiveType hiveType, Optional<String> typeMetadata)
         {
             if (typeMetadata == null) {

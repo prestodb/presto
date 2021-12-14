@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
@@ -33,6 +34,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
@@ -864,6 +866,13 @@ public class MetastoreUtil
         if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES);
         }
+        if (type instanceof TypeWithName) {
+            return getSupportedColumnStatistics(((TypeWithName) type).getType());
+        }
+        if (type instanceof EnumType) {
+            return getSupportedColumnStatistics(((EnumType) type).getValueType());
+        }
+
         // Throwing here to make sure this method is updated when a new type is added in Hive connector
         throw new IllegalArgumentException("Unsupported type: " + type);
     }

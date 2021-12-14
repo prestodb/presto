@@ -35,4 +35,11 @@ public interface ColumnConverter
      * Generates a new TypeSignature using {@param hiveType} and extra {@param typeMetadata}
      */
     TypeSignature getTypeSignature(HiveType hiveType, Optional<String> typeMetadata);
+
+    /**
+     * Issue #17249: clean up
+     * Generates serialized typeMetadata using {@param hiveType} and @param typeSignature
+     * Empty if there is no typeMetadata
+     */
+    Optional<String> getTypeMetadata(HiveType hiveType, TypeSignature typeSignature);
 }
