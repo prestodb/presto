@@ -16,6 +16,7 @@
 #define XXH_INLINE_ALL
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/external/xxhash.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/hyperloglog/DenseHll.h"
@@ -373,8 +374,46 @@ bool registerApproxDistinct(
     const std::string& name,
     bool hllAsFinalResult,
     bool hllAsRawInput) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  if (hllAsRawInput) {
+    signatures.push_back(
+        exec::AggregateFunctionSignatureBuilder()
+            .returnType(hllAsFinalResult ? "varbinary" : "bigint")
+            .intermediateType("varbinary")
+            .argumentType("varbinary")
+            .build());
+  } else {
+    for (const auto& inputType :
+         {"boolean",
+          "tinyint",
+          "smallint",
+          "integer",
+          "bigint",
+          "real",
+          "double",
+          "varchar",
+          "timestamp",
+          "date"}) {
+      signatures.push_back(
+          exec::AggregateFunctionSignatureBuilder()
+              .returnType(hllAsFinalResult ? "varbinary" : "bigint")
+              .intermediateType("varbinary")
+              .argumentType(inputType)
+              .build());
+
+      signatures.push_back(
+          exec::AggregateFunctionSignatureBuilder()
+              .returnType(hllAsFinalResult ? "varbinary" : "bigint")
+              .intermediateType("varbinary")
+              .argumentType(inputType)
+              .argumentType("double")
+              .build());
+    }
+  }
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name, hllAsFinalResult, hllAsRawInput](
           core::AggregationNode::Step /*step*/,
           const std::vector<TypePtr>& argTypes,

@@ -46,7 +46,7 @@ class ApproxPercentileTest : public AggregationTestBase {
              .values({makeRowVector({values})})
              .partialAggregation(
                  {}, {fmt::format("approx_percentile(c0, {})", percentile)})
-             .finalAggregation({}, {"approx_percentile(a0)"}, {values->type()})
+             .finalAggregation()
              .planNode();
 
     assertQuery(
@@ -79,7 +79,7 @@ class ApproxPercentileTest : public AggregationTestBase {
              .values({makeRowVector({values, weights})})
              .partialAggregation(
                  {}, {fmt::format("approx_percentile(c0, c1, {})", percentile)})
-             .finalAggregation({}, {"approx_percentile(a0)"}, {values->type()})
+             .finalAggregation()
              .planNode();
 
     assertQuery(
@@ -110,7 +110,7 @@ class ApproxPercentileTest : public AggregationTestBase {
              .values({rowVector})
              .partialAggregation(
                  {0}, {fmt::format("approx_percentile(c1, {})", percentile)})
-             .finalAggregation({0}, {"approx_percentile(a0)"}, {values->type()})
+             .finalAggregation()
              .planNode();
 
     assertQuery(op, expectedResult);
@@ -138,7 +138,7 @@ class ApproxPercentileTest : public AggregationTestBase {
             .values({rowVector})
             .partialAggregation(
                 {0}, {fmt::format("approx_percentile(c1, c2, {})", percentile)})
-            .finalAggregation({0}, {"approx_percentile(a0)"}, {values->type()})
+            .finalAggregation()
             .planNode();
 
     assertQuery(op, expectedResult);

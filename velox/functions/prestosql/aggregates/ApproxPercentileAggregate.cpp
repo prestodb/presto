@@ -16,6 +16,7 @@
 #include <folly/stats/TDigest.h>
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/IOUtils.h"
 #include "velox/vector/DecodedVector.h"
@@ -488,17 +489,33 @@ class ApproxPercentileAggregate : public exec::Aggregate {
 };
 
 bool registerApproxPercentile(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  for (const auto& inputType :
+       {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(inputType)
+                             .intermediateType("varbinary")
+                             .argumentType(inputType)
+                             .argumentType("double")
+                             .build());
+
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(inputType)
+                             .intermediateType("varbinary")
+                             .argumentType(inputType)
+                             .argumentType("bigint")
+                             .argumentType("double")
+                             .build());
+  }
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
           const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         auto isRawInput = exec::isRawInput(step);
-        auto isPartialOutput = exec::isPartialOutput(step);
         auto hasWeight = argTypes.size() == 3;
-
-        TypePtr type = isRawInput ? argTypes[0] : resultType;
 
         if (isRawInput) {
           VELOX_USER_CHECK_GE(
@@ -532,33 +549,32 @@ bool registerApproxPercentile(const std::string& name) {
               name);
         }
 
-        if (step == core::AggregationNode::Step::kIntermediate) {
+        if (!isRawInput && exec::isPartialOutput(step)) {
           return std::make_unique<ApproxPercentileAggregate<double>>(
               false, VARBINARY());
         }
 
-        auto aggResultType =
-            isPartialOutput ? VARBINARY() : (isRawInput ? type : resultType);
+        TypePtr type = isRawInput ? argTypes[0] : resultType;
 
         switch (type->kind()) {
           case TypeKind::TINYINT:
             return std::make_unique<ApproxPercentileAggregate<int8_t>>(
-                hasWeight, aggResultType);
+                hasWeight, resultType);
           case TypeKind::SMALLINT:
             return std::make_unique<ApproxPercentileAggregate<int16_t>>(
-                hasWeight, aggResultType);
+                hasWeight, resultType);
           case TypeKind::INTEGER:
             return std::make_unique<ApproxPercentileAggregate<int32_t>>(
-                hasWeight, aggResultType);
+                hasWeight, resultType);
           case TypeKind::BIGINT:
             return std::make_unique<ApproxPercentileAggregate<int64_t>>(
-                hasWeight, aggResultType);
+                hasWeight, resultType);
           case TypeKind::REAL:
             return std::make_unique<ApproxPercentileAggregate<float>>(
-                hasWeight, aggResultType);
+                hasWeight, resultType);
           case TypeKind::DOUBLE:
             return std::make_unique<ApproxPercentileAggregate<double>>(
-                hasWeight, aggResultType);
+                hasWeight, resultType);
           default:
             VELOX_USER_FAIL(
                 "Unsupported input type for {} aggregation {}",
