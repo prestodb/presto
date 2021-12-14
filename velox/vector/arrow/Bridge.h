@@ -16,12 +16,9 @@
 
 #pragma once
 
+#include "velox/common/memory/Memory.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/arrow/Abi.h"
-
-namespace facebook::velox::memory {
-class MemoryPool;
-}
 
 namespace facebook::velox {
 
@@ -38,7 +35,9 @@ namespace facebook::velox {
 /// being referenced, so the consumer does not need to explicitly hold on to the
 /// input Vector shared_ptr.
 ///
-/// The function throws in case the conversion is not implemented yet.
+/// The function takes a memory pool where allocations will be made (in cases
+/// where the conversion is not zero-copy, e.g. for strings) and throws in case
+/// the conversion is not implemented yet.
 ///
 /// Example usage:
 ///
@@ -50,7 +49,11 @@ namespace facebook::velox {
 ///
 ///   arrowArray.release(&arrowArray);
 ///
-void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray);
+void exportToArrow(
+    const VectorPtr& vector,
+    ArrowArray& arrowArray,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
 /// Export a generic Velox Type to an ArrowSchema.
 ///
@@ -117,21 +120,25 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema);
 VectorPtr importFromArrowAsViewer(
     const ArrowSchema& arrowSchema,
     const ArrowArray& arrowArray,
-    memory::MemoryPool* pool);
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
 /// Import an ArrowArray and ArrowSchema into a Velox vector, acquiring
 /// ownership over the input data.
 ///
 /// Similar to importFromArrowAsViewer but the ownership of arrowSchema and
 /// arrowArray will be taken over. Specifically, the returned Vector will own a
-/// copy of arrowSchema and arrowArray. The inputs arrowSchema and arrowArray
-/// will be marked as released by setting their release callback to nullptr
+/// copy of arrowSchema and arrowArray.
+///
+/// The inputs arrowSchema and arrowArray will be marked as released by setting
+/// their release callback to nullptr
 /// (https://arrow.apache.org/docs/format/CDataInterface.html). Afterwards, the
 /// returned Vector will be responsible for calling the release callbacks when
 /// destructed.
 VectorPtr importFromArrowAsOwner(
     ArrowSchema& arrowSchema,
     ArrowArray& arrowArray,
-    memory::MemoryPool* pool);
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
 } // namespace facebook::velox

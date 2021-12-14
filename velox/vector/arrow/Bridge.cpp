@@ -18,25 +18,50 @@
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/memory/Memory.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox {
 
 namespace {
 
-// TODO: The initial supported conversions only use one buffer for nulls and
-// one for value, but we'll need more once we support strings and complex types.
-static constexpr size_t kMaxBuffers{2};
+// The supported conversions use one buffer for nulls (0), one for values (1),
+// and one for offsets (2).
+static constexpr size_t kMaxBuffers{3};
 
 // Structure that will hold the buffers needed by ArrowArray. This is opaquely
 // carried by ArrowArray.private_data
-struct VeloxToArrowBridgeHolder {
-  // Holds a shared_ptr to the vector being bridged, to ensure its lifetime.
-  VectorPtr vector;
+class VeloxToArrowBridgeHolder {
+ public:
+  VeloxToArrowBridgeHolder() {
+    for (size_t i = 0; i < kMaxBuffers; ++i) {
+      buffers_[i] = nullptr;
+    }
+  }
 
-  // Holds the pointers to buffers.
-  const void* buffers[kMaxBuffers];
+  // Acquires a buffer at index `idx`.
+  void setBuffer(size_t idx, const BufferPtr& buffer) {
+    bufferPtrs_[idx] = buffer;
+    if (buffer) {
+      buffers_[idx] = buffer->as<void>();
+    }
+  }
+
+  template <typename T>
+  T* getBufferAs(size_t idx) {
+    return bufferPtrs_[idx]->asMutable<T>();
+  }
+
+  const void** getArrowBuffers() {
+    return buffers_;
+  }
+
+ private:
+  // Holds the pointers to the arrow buffers.
+  const void* buffers_[kMaxBuffers];
+
+  // Holds ownership over the Buffers being referenced by the buffers vector
+  // above.
+  BufferPtr bufferPtrs_[kMaxBuffers];
 };
 
 // Structure that will hold buffers needed by ArrowSchema. This is opaquely
@@ -125,7 +150,49 @@ static void bridgeSchemaRelease(ArrowSchema* arrowSchema) {
   arrowSchema->private_data = nullptr;
 }
 
-void exportFlatVector(const VectorPtr& vector, ArrowArray& arrowArray) {
+template <typename TOffset>
+void exportFlatStringVector(
+    FlatVector<StringView>* vector,
+    ArrowArray& arrowArray,
+    VeloxToArrowBridgeHolder& bridgeHolder,
+    memory::MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(vector);
+
+  // Quick first pass to calculate the buffer size for a single allocation.
+  size_t bufferSize = 0;
+  for (size_t i = 0; i < vector->size(); i++) {
+    bufferSize += vector->valueAtFast(i).size();
+  }
+
+  // Allocate raw string buffer.
+  bridgeHolder.setBuffer(1, AlignedBuffer::allocate<char>(bufferSize, pool));
+  char* rawBuffer = bridgeHolder.getBufferAs<char>(1);
+
+  // Allocate offset buffer.
+  bridgeHolder.setBuffer(
+      2, AlignedBuffer::allocate<TOffset>(vector->size() + 1, pool));
+  TOffset* rawOffsets = bridgeHolder.getBufferAs<TOffset>(2);
+  *rawOffsets = 0;
+
+  // Second pass to actually copy the string data and set offsets.
+  for (size_t i = 0; i < vector->size(); i++) {
+    // Copy string content.
+    const StringView& sv = vector->valueAtFast(i);
+    std::memcpy(rawBuffer, sv.data(), sv.size());
+    rawBuffer += sv.size();
+
+    // Set offset.
+    *(rawOffsets + 1) = *rawOffsets + sv.size();
+    ++rawOffsets;
+  }
+  VELOX_CHECK_EQ(bufferSize, *rawOffsets);
+}
+
+void exportFlatVector(
+    const VectorPtr& vector,
+    ArrowArray& arrowArray,
+    VeloxToArrowBridgeHolder& bridgeHolder,
+    memory::MemoryPool* pool) {
   switch (vector->typeKind()) {
     case TypeKind::BOOLEAN:
     case TypeKind::TINYINT:
@@ -134,7 +201,16 @@ void exportFlatVector(const VectorPtr& vector, ArrowArray& arrowArray) {
     case TypeKind::BIGINT:
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
-      arrowArray.buffers[1] = vector->valuesAsVoid();
+      bridgeHolder.setBuffer(1, vector->values());
+      arrowArray.n_buffers = 2;
+      break;
+
+    // Returned string types always assume int32_t offsets.
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      exportFlatStringVector<int32_t>(
+          vector->asFlatVector<StringView>(), arrowArray, bridgeHolder, pool);
+      arrowArray.n_buffers = 3;
       break;
 
     default:
@@ -162,10 +238,14 @@ const char* exportArrowFormatStr(const TypePtr& type) {
       return "f"; // float32
     case TypeKind::DOUBLE:
       return "g"; // float64
+
+    // We always map VARCHAR and VARBINARY to the "small" version (lower case
+    // format string), which uses 32 bit offsets.
     case TypeKind::VARCHAR:
       return "u"; // utf-8 string
     case TypeKind::VARBINARY:
       return "z"; // binary
+
     case TypeKind::TIMESTAMP:
       // TODO: need to figure out how we'll map this since in Velox we currently
       // store timestamps as two int64s (epoch in sec and nanos).
@@ -187,7 +267,10 @@ const char* exportArrowFormatStr(const TypePtr& type) {
 
 } // namespace
 
-void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray) {
+void exportToArrow(
+    const VectorPtr& vector,
+    ArrowArray& arrowArray,
+    memory::MemoryPool* pool) {
   // Bridge holder is stored in private_data, which is a C-compatible naked
   // pointer. However, since this function can throw (unsupported conversion
   // type, for instance), we temporarily use a unique_ptr to ensure the bridge
@@ -196,9 +279,7 @@ void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray) {
   // Since this unique_ptr dies with this function and we'll need this bridge
   // alive, the last step in this function is to release this unique_ptr.
   auto bridgeHolder = std::make_unique<VeloxToArrowBridgeHolder>();
-  bridgeHolder->vector = vector;
-  arrowArray.n_buffers = kMaxBuffers;
-  arrowArray.buffers = bridgeHolder->buffers;
+  arrowArray.buffers = bridgeHolder->getArrowBuffers();
   arrowArray.release = bridgeRelease;
   arrowArray.length = vector->size();
 
@@ -210,12 +291,12 @@ void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray) {
   arrowArray.offset = 0;
 
   // Setting up buffer pointers. First one is always nulls.
-  arrowArray.buffers[0] = vector->rawNulls();
+  bridgeHolder->setBuffer(0, vector->nulls());
 
   // Second buffer is values. Only support flat for now.
   switch (vector->encoding()) {
     case VectorEncoding::Simple::FLAT:
-      exportFlatVector(vector, arrowArray);
+      exportFlatVector(vector, arrowArray, *bridgeHolder, pool);
       break;
 
     default:
@@ -223,7 +304,7 @@ void exportToArrow(const VectorPtr& vector, ArrowArray& arrowArray) {
       break;
   }
 
-  // TODO: No nested types, strings, or dictionaries for now.
+  // TODO: No nested types or dictionaries for now.
   arrowArray.n_children = 0;
   arrowArray.children = nullptr;
   arrowArray.dictionary = nullptr;

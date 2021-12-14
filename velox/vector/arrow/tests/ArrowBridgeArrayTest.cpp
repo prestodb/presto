@@ -31,9 +31,12 @@ class ArrowBridgeArrayExportTest : public testing::Test {
  protected:
   template <typename T>
   void testFlatVector(const std::vector<std::optional<T>>& inputData) {
+    const bool isString =
+        std::is_same_v<T, StringView> or std::is_same_v<T, std::string>;
+
     auto flatVector = vectorMaker_.flatVectorNullable(inputData);
     ArrowArray arrowArray;
-    exportToArrow(flatVector, arrowArray);
+    exportToArrow(flatVector, arrowArray, pool_.get());
 
     size_t nullCount =
         std::count(inputData.begin(), inputData.end(), std::nullopt);
@@ -45,11 +48,29 @@ class ArrowBridgeArrayExportTest : public testing::Test {
     EXPECT_EQ(nullptr, arrowArray.children);
     EXPECT_EQ(nullptr, arrowArray.dictionary);
 
-    // Validate buffers.
+    // Validate array contents.
+    if constexpr (isString) {
+      validateStringArray(inputData, arrowArray);
+    } else {
+      validatePrimitiveArray(inputData, arrowArray);
+    }
+
+    arrowArray.release(&arrowArray);
+    EXPECT_EQ(nullptr, arrowArray.release);
+    EXPECT_EQ(nullptr, arrowArray.private_data);
+  }
+
+  template <typename T>
+  void validatePrimitiveArray(
+      const std::vector<std::optional<T>>& inputData,
+      const ArrowArray& arrowArray) {
     EXPECT_EQ(2, arrowArray.n_buffers); // null and values buffers.
 
     const uint64_t* nulls = static_cast<const uint64_t*>(arrowArray.buffers[0]);
     const T* values = static_cast<const T*>(arrowArray.buffers[1]);
+
+    EXPECT_NE(nulls, nullptr);
+    EXPECT_NE(values, nullptr);
 
     for (size_t i = 0; i < inputData.size(); ++i) {
       if (inputData[i] == std::nullopt) {
@@ -57,7 +78,7 @@ class ArrowBridgeArrayExportTest : public testing::Test {
       } else {
         EXPECT_FALSE(bits::isBitNull(nulls, i));
 
-        // Boolean needs special treatment.
+        // Boolean is packed in a single bit so it needs special treatment.
         if constexpr (std::is_same_v<T, bool>) {
           EXPECT_EQ(
               inputData[i],
@@ -67,10 +88,35 @@ class ArrowBridgeArrayExportTest : public testing::Test {
         }
       }
     }
+  }
 
-    arrowArray.release(&arrowArray);
-    EXPECT_EQ(nullptr, arrowArray.release);
-    EXPECT_EQ(nullptr, arrowArray.private_data);
+  template <typename T>
+  void validateStringArray(
+      const std::vector<std::optional<T>>& inputData,
+      const ArrowArray& arrowArray) {
+    EXPECT_EQ(3, arrowArray.n_buffers); // null, values, and offsets buffers.
+
+    const uint64_t* nulls = static_cast<const uint64_t*>(arrowArray.buffers[0]);
+    const char* values = static_cast<const char*>(arrowArray.buffers[1]);
+    const int32_t* offsets = static_cast<const int32_t*>(arrowArray.buffers[2]);
+
+    EXPECT_NE(nulls, nullptr);
+    EXPECT_NE(values, nullptr);
+    EXPECT_NE(offsets, nullptr);
+
+    for (size_t i = 0; i < inputData.size(); ++i) {
+      if (inputData[i] == std::nullopt) {
+        EXPECT_TRUE(bits::isBitNull(nulls, i));
+      } else {
+        EXPECT_FALSE(bits::isBitNull(nulls, i));
+        EXPECT_EQ(
+            0,
+            std::memcmp(
+                inputData[i]->data(),
+                values + offsets[i],
+                offsets[i + 1] - offsets[i]));
+      }
+    }
   }
 
   ArrowSchema makeArrowSchema(const char* format) {
@@ -121,7 +167,7 @@ TEST_F(ArrowBridgeArrayExportTest, flatNotNull) {
     // Make sure that ArrowArray is correctly acquiring ownership, even after
     // the initial vector shared_ptr is gone.
     auto flatVector = vectorMaker_.flatVector(inputData);
-    exportToArrow(flatVector, arrowArray);
+    exportToArrow(flatVector, arrowArray, pool_.get());
   }
 
   EXPECT_EQ(inputData.size(), arrowArray.length);
@@ -228,45 +274,62 @@ TEST_F(ArrowBridgeArrayExportTest, flatDouble) {
   });
 }
 
+TEST_F(ArrowBridgeArrayExportTest, flatString) {
+  testFlatVector<std::string>({
+      "my string",
+      "another slightly longer string",
+      std::nullopt,
+      std::nullopt,
+      "",
+      std::nullopt,
+      "a",
+      "another even longer string to ensure it's for sure not stored inline!!!",
+      std::nullopt,
+  });
+
+  // Empty vector.
+  testFlatVector<std::string>({});
+}
+
 TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   ArrowArray arrowArray;
   VectorPtr vector;
 
   // Strings.
   vector = vectorMaker_.flatVectorNullable<std::string>({});
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Timestamps.
   vector = vectorMaker_.flatVectorNullable<Timestamp>({});
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Dates.
   vector = vectorMaker_.flatVectorNullable<Date>({});
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Arrays.
   vector = vectorMaker_.arrayVector<int64_t>({{1, 2, 3}, {4, 5}});
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Maps.
   auto lambda = [](vector_size_t /* row */) { return 1; };
   vector = vectorMaker_.mapVector<int64_t, int64_t>(2, lambda, lambda, lambda);
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Row vectors.
   vector =
       vectorMaker_.rowVector({vectorMaker_.flatVector<int64_t>({1, 2, 3})});
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Constant encoding.
   vector = BaseVector::createConstant(variant(10), 10, pool_.get());
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Dictionary encoding.
   BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(3, pool_.get());
   vector = BaseVector::wrapInDictionary(
       BufferPtr(), indices, 3, vectorMaker_.flatVector<int64_t>({1, 2, 3}));
-  EXPECT_THROW(exportToArrow(vector, arrowArray), VeloxException);
+  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 }
 
 class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
