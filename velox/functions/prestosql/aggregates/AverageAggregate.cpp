@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
@@ -278,21 +279,27 @@ void checkSumCountRowType(TypePtr type, const std::string& errorMessage) {
 }
 
 bool registerAverageAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+
+  for (const auto& inputType :
+       {"smallint", "integer", "bigint", "real", "double"}) {
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType("double")
+                             .intermediateType("row(double,bigint)")
+                             .argumentType(inputType)
+                             .build());
+  }
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_LE(
             argTypes.size(), 1, "{} takes at most one argument", name);
         auto inputType = argTypes[0];
-        TypePtr resultType;
-        if (exec::isPartialOutput(step)) {
-          resultType = ROW({"sum", "count"}, {DOUBLE(), BIGINT()});
-        } else {
-          resultType = DOUBLE();
-        }
         if (exec::isRawInput(step)) {
           switch (inputType->kind()) {
             case TypeKind::SMALLINT:
@@ -310,7 +317,6 @@ bool registerAverageAggregate(const std::string& name) {
                   "Unknown input type for {} aggregation {}",
                   name,
                   inputType->kindName());
-              return nullptr;
           }
         } else {
           checkSumCountRowType(
