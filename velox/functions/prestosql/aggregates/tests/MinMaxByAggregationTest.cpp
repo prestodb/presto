@@ -41,7 +41,7 @@ class MinMaxByAggregationTest : public AggregationTestBase {
               .values(vectors)
               .partialAggregation(
                   {}, {fmt::format("{}({}, {})", aggName, valColName, colName)})
-              .finalAggregation({}, {fmt::format("{}(a0)", aggName)})
+              .finalAggregation()
               .planNode();
 
       assertQuery(
@@ -155,7 +155,7 @@ TEST_F(MinMaxByAggregationTest, maxByFinalNullCase) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({}, {"max_by(c0, c1)"})
-                .finalAggregation({}, {"max_by(a0)"})
+                .finalAggregation()
                 .planNode();
   assertQuery(op, "SELECT NULL");
 }
@@ -173,7 +173,7 @@ TEST_F(MinMaxByAggregationTest, maxByFinalGroupByNullCase) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({2}, {"max_by(c0, c1)"})
-                .finalAggregation({0}, {"max_by(a0)"})
+                .finalAggregation()
                 .planNode();
   assertQuery(op, "SELECT * FROM( VALUES (1, NULL), (2, 5), (3, NULL)) AS t");
 }
@@ -199,7 +199,7 @@ TEST_F(MinMaxByAggregationTest, maxByGroupBy) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({2}, {"max_by(c0, c1)"})
-                .finalAggregation({0}, {"max_by(a0)"})
+                .finalAggregation()
                 .planNode();
   assertQuery(
       op, "SELECT c2, max(CAST(c1 as DOUBLE)) * 0.1 FROM tmp GROUP BY 1");
@@ -231,7 +231,7 @@ TEST_F(MinMaxByAggregationTest, minByFinalNullCase) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({}, {"min_by(c0, c1)"})
-                .finalAggregation({}, {"min_by(a0)"})
+                .finalAggregation()
                 .planNode();
   assertQuery(op, "SELECT NULL");
 }
@@ -249,7 +249,7 @@ TEST_F(MinMaxByAggregationTest, minByFinalGroupByNullCase) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({2}, {"min_by(c0, c1)"})
-                .finalAggregation({0}, {"min_by(a0)"})
+                .finalAggregation()
                 .planNode();
   assertQuery(op, "SELECT * FROM( VALUES (1, 5), (2, NULL), (3, 5)) AS t");
 }
@@ -275,7 +275,7 @@ TEST_F(MinMaxByAggregationTest, minByGroupBy) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({2}, {"min_by(c0, c1)"})
-                .finalAggregation({0}, {"min_by(a0)"})
+                .finalAggregation()
                 .planNode();
   assertQuery(
       op, "SELECT c2, min(CAST(c1 as DOUBLE)) * 0.1 FROM tmp GROUP BY 1");

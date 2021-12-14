@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
@@ -458,13 +459,28 @@ std::unique_ptr<exec::Aggregate> create(
 
 template <template <typename U, typename V> class T>
 bool registerMinMaxByAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  for (const auto& valueType :
+       {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
+    for (const auto& compareType :
+         {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
+      signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                               .returnType(valueType)
+                               .intermediateType(fmt::format(
+                                   "row({},{})", valueType, compareType))
+                               .argumentType(valueType)
+                               .argumentType(compareType)
+                               .build());
+    }
+  }
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr&
-          /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         auto isRawInput = exec::isRawInput(step);
         if (isRawInput) {
           VELOX_CHECK_EQ(
@@ -499,9 +515,6 @@ bool registerMinMaxByAggregate(const std::string& name) {
             mapAggregationStepToName(step),
             valueType->kindName(),
             compareType->kindName());
-        auto resultType = exec::isPartialOutput(step)
-            ? ROW({"v", "c"}, {argTypes[0], argTypes[1]})
-            : argTypes[0]->childAt(0);
 
         switch (valueType->kind()) {
           case TypeKind::TINYINT:
