@@ -251,6 +251,13 @@ class VectorAdapter : public VectorFunction {
               nn = applyContext.result->mutableRawNulls();
             }
             bits::setNull(nn, row);
+          } else {
+            if (applyContext.result->rawNulls()) {
+              if (!nn) {
+                nn = applyContext.result->mutableRawNulls();
+              }
+              bits::clearNull(nn, row);
+            }
           }
         });
       } else {
@@ -261,6 +268,13 @@ class VectorAdapter : public VectorFunction {
               nn = applyContext.result->mutableRawNulls();
             }
             bits::setNull(nn, row);
+          } else {
+            if (applyContext.result->rawNulls()) {
+              if (!nn) {
+                nn = applyContext.result->mutableRawNulls();
+              }
+              bits::clearNull(nn, row);
+            }
           }
         });
       }

@@ -114,6 +114,7 @@ struct VectorWriter {
     // in future, we want to eliminate this so all writes go directly to their
     // slice.
     data_[offset_] = data;
+    vector_->setNull(offset_, false);
   }
 
   void commitNull() {
@@ -124,6 +125,8 @@ struct VectorWriter {
     // this code path is called when the slice is top-level
     if (!isSet) {
       vector_->setNull(offset_, true);
+    } else {
+      vector_->setNull(offset_, false);
     }
   }
 
@@ -214,6 +217,7 @@ struct VectorWriter<Map<K, V>> {
       }
       ++childSize;
     }
+    vector_->setNull(offset_, false);
   }
 
   void commitNull() {
@@ -376,6 +380,7 @@ struct VectorWriter<Array<V>> {
         childWriter_.commitNull();
       }
     }
+    vector_->setNull(offset_, false);
   }
 
   void commitNull() {
