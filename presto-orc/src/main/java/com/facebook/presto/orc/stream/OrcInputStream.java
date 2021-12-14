@@ -516,7 +516,7 @@ public final class OrcInputStream
         memoryUsage.setBytes(getRetainedSizeInBytes());
     }
 
-    private long getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
                 compressedSliceInputRetainedSizeInBytes +
