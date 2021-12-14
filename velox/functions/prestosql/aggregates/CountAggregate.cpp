@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/Exceptions.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/SumAggregate.h"
 
@@ -147,8 +148,22 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
 };
 
 bool registerCountAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("bigint")
+          .intermediateType("bigint")
+          .build(),
+      exec::AggregateFunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("bigint")
+          .intermediateType("bigint")
+          .argumentType("T")
+          .build(),
+  };
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,

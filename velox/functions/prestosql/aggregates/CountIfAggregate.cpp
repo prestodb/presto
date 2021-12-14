@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
@@ -165,8 +166,17 @@ class CountIfAggregate : public exec::Aggregate {
 };
 
 bool registerCountIfAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("bigint")
+          .intermediateType("bigint")
+          .argumentType("boolean")
+          .build(),
+  };
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           std::vector<TypePtr> argTypes,

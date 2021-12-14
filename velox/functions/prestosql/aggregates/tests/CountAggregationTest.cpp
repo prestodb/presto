@@ -53,7 +53,7 @@ TEST_F(CountAggregation, count) {
     auto agg = PlanBuilder()
                    .values(vectors)
                    .partialAggregation({}, {"count(c1)"})
-                   .finalAggregation({}, {"count(a0)"})
+                   .finalAggregation()
                    .planNode();
     assertQuery(agg, "SELECT count(c1) FROM tmp");
   }
@@ -64,7 +64,7 @@ TEST_F(CountAggregation, count) {
                    .values(vectors)
                    .filter("c0 % 3 > 5")
                    .partialAggregation({}, {"count(c1)"})
-                   .finalAggregation({}, {"count(a0)"})
+                   .finalAggregation()
                    .planNode();
     assertQuery(agg, "SELECT count(c1) FROM tmp WHERE c0 % 3 > 5");
   }
@@ -84,7 +84,7 @@ TEST_F(CountAggregation, count) {
                    .values(vectors)
                    .project({"c0 % 10", "c1"})
                    .partialAggregation({0}, {"count(1)"})
-                   .finalAggregation({0}, {"count(a0)"})
+                   .finalAggregation()
                    .planNode();
     assertQuery(agg, "SELECT c0 % 10, count(1) FROM tmp GROUP BY 1");
   }

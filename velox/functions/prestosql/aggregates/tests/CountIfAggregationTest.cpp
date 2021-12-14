@@ -44,7 +44,7 @@ TEST_F(CountIfAggregationTest, countIfConst) {
     auto agg = PlanBuilder()
                    .values(vectors)
                    .partialAggregation({}, {"count_if(c1)", "count_if(c2)"})
-                   .finalAggregation({}, {"count_if(a0)", "count_if(a1)"})
+                   .finalAggregation()
                    .planNode();
     assertQuery(
         agg,
@@ -56,7 +56,7 @@ TEST_F(CountIfAggregationTest, countIfConst) {
     auto agg = PlanBuilder()
                    .values(vectors)
                    .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
-                   .finalAggregation({0}, {"count_if(a0)", "count_if(a1)"})
+                   .finalAggregation()
                    .planNode();
     assertQuery(
         agg,
@@ -78,7 +78,7 @@ TEST_F(CountIfAggregationTest, oneAggregateSingleGroup) {
   auto agg = PlanBuilder()
                  .values(vectors)
                  .partialAggregation({}, {"count_if(c0)"})
-                 .finalAggregation({}, {"count(a0)"})
+                 .finalAggregation()
                  .planNode();
   assertQuery(agg, "SELECT sum(if(c0, 1, 0)) FROM tmp");
 }
@@ -89,7 +89,7 @@ TEST_F(CountIfAggregationTest, oneAggregateMultipleGroups) {
   auto agg = PlanBuilder()
                  .values(vectors)
                  .partialAggregation({0}, {"count_if(c1)"})
-                 .finalAggregation({0}, {"count_if(a0)"})
+                 .finalAggregation()
                  .planNode();
   assertQuery(
       agg,
@@ -102,7 +102,7 @@ TEST_F(CountIfAggregationTest, twoAggregatesSingleGroup) {
   auto agg = PlanBuilder()
                  .values(vectors)
                  .partialAggregation({}, {"count_if(c1)", "count_if(c2)"})
-                 .finalAggregation({}, {"count_if(a0)", "count_if(a1)"})
+                 .finalAggregation()
                  .planNode();
   assertQuery(
       agg,
@@ -116,7 +116,7 @@ TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroups) {
   auto agg = PlanBuilder()
                  .values(vectors)
                  .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
-                 .finalAggregation({0}, {"count_if(a0)", "count_if(a1)"})
+                 .finalAggregation()
                  .planNode();
   assertQuery(
       agg,
@@ -132,7 +132,7 @@ TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroupsWrapped) {
                  .filter("c0 % 2 = 0")
                  .project({"c0 % 11", "c1", "c2"}, {"c0_mod_11", "c1", "c2"})
                  .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
-                 .finalAggregation({0}, {"count_if(a0)", "count_if(a1)"})
+                 .finalAggregation()
                  .planNode();
   assertQuery(
       agg,
