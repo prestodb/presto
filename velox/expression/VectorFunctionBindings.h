@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "velox/core/FunctionRegistry.h"
+#include "velox/core/ScalarFunctionRegistry.h"
 #include "velox/expression/VectorFunctionRegistry.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
 

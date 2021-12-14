@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/core/FunctionRegistry.h"
+#include "velox/core/ScalarFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorFunctionBindings.h"
 

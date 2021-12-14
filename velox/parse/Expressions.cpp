@@ -16,7 +16,7 @@
 #include "Expressions.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/Expressions.h"
-#include "velox/core/FunctionRegistry.h"
+#include "velox/core/ScalarFunctionRegistry.h"
 #include "velox/parse/VariantToVector.h"
 #include "velox/type/Type.h"
 #include "velox/vector/ConstantVector.h"

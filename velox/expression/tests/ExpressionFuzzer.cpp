@@ -19,7 +19,7 @@
 #include <exception>
 
 #include "velox/common/base/Exceptions.h"
-#include "velox/core/FunctionRegistry.h"
+#include "velox/core/ScalarFunctionRegistry.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
