@@ -50,22 +50,15 @@ TEST_F(BitwiseAggregationTest, bitwiseOr) {
 
   // Global final aggregation.
   {
-    PlanBuilder builder;
-    auto partialAgg = builder.values(vectors)
-                          .partialAggregation(
-                              {},
-                              {"bitwise_or_agg(c1)",
-                               "bitwise_or_agg(c2)",
-                               "bitwise_or_agg(c3)",
-                               "bitwise_or_agg(c4)"})
-                          .planNode();
-    auto finalAgg = builder
-                        .finalAggregation(
+    auto finalAgg = PlanBuilder()
+                        .values(vectors)
+                        .partialAggregation(
                             {},
-                            {"bitwise_or_agg(a0)",
-                             "bitwise_or_agg(a1)",
-                             "bitwise_or_agg(a2)",
-                             "bitwise_or_agg(a3)"})
+                            {"bitwise_or_agg(c1)",
+                             "bitwise_or_agg(c2)",
+                             "bitwise_or_agg(c3)",
+                             "bitwise_or_agg(c4)"})
+                        .finalAggregation()
                         .planNode();
     assertQuery(
         finalAgg,
@@ -93,25 +86,18 @@ TEST_F(BitwiseAggregationTest, bitwiseOr) {
 
   // Group by final aggregation.
   {
-    PlanBuilder builder;
-    auto partialAgg = builder.values(vectors)
-                          .project(
-                              {"c0 % 10", "c1", "c2", "c3", "c4"},
-                              {"c0 % 10", "c1", "c2", "c3", "c4"})
-                          .partialAggregation(
-                              {0},
-                              {"bitwise_or_agg(c1)",
-                               "bitwise_or_agg(c2)",
-                               "bitwise_or_agg(c3)",
-                               "bitwise_or_agg(c4)"})
-                          .planNode();
-    auto finalAgg = builder
-                        .finalAggregation(
+    auto finalAgg = PlanBuilder()
+                        .values(vectors)
+                        .project(
+                            {"c0 % 10", "c1", "c2", "c3", "c4"},
+                            {"c0 % 10", "c1", "c2", "c3", "c4"})
+                        .partialAggregation(
                             {0},
-                            {"bitwise_or_agg(a0)",
-                             "bitwise_or_agg(a1)",
-                             "bitwise_or_agg(a2)",
-                             "bitwise_or_agg(a3)"})
+                            {"bitwise_or_agg(c1)",
+                             "bitwise_or_agg(c2)",
+                             "bitwise_or_agg(c3)",
+                             "bitwise_or_agg(c4)"})
+                        .finalAggregation()
                         .planNode();
     assertQuery(
         finalAgg,
@@ -141,22 +127,15 @@ TEST_F(BitwiseAggregationTest, bitwiseAnd) {
 
   // Global final aggregation.
   {
-    PlanBuilder builder;
-    auto partialAgg = builder.values(vectors)
-                          .partialAggregation(
-                              {},
-                              {"bitwise_and_agg(c1)",
-                               "bitwise_and_agg(c2)",
-                               "bitwise_and_agg(c3)",
-                               "bitwise_and_agg(c4)"})
-                          .planNode();
-    auto finalAgg = builder
-                        .finalAggregation(
+    auto finalAgg = PlanBuilder()
+                        .values(vectors)
+                        .partialAggregation(
                             {},
-                            {"bitwise_and_agg(a0)",
-                             "bitwise_and_agg(a1)",
-                             "bitwise_and_agg(a2)",
-                             "bitwise_and_agg(a3)"})
+                            {"bitwise_and_agg(c1)",
+                             "bitwise_and_agg(c2)",
+                             "bitwise_and_agg(c3)",
+                             "bitwise_and_agg(c4)"})
+                        .finalAggregation()
                         .planNode();
     assertQuery(
         finalAgg,
@@ -184,25 +163,18 @@ TEST_F(BitwiseAggregationTest, bitwiseAnd) {
 
   // Group by final aggregation.
   {
-    PlanBuilder builder;
-    auto partialAgg = builder.values(vectors)
-                          .project(
-                              {"c0 % 10", "c1", "c2", "c3", "c4"},
-                              {"c0 % 10", "c1", "c2", "c3", "c4"})
-                          .partialAggregation(
-                              {0},
-                              {"bitwise_and_agg(c1)",
-                               "bitwise_and_agg(c2)",
-                               "bitwise_and_agg(c3)",
-                               "bitwise_and_agg(c4)"})
-                          .planNode();
-    auto finalAgg = builder
-                        .finalAggregation(
+    auto finalAgg = PlanBuilder()
+                        .values(vectors)
+                        .project(
+                            {"c0 % 10", "c1", "c2", "c3", "c4"},
+                            {"c0 % 10", "c1", "c2", "c3", "c4"})
+                        .partialAggregation(
                             {0},
-                            {"bitwise_and_agg(a0)",
-                             "bitwise_and_agg(a1)",
-                             "bitwise_and_agg(a2)",
-                             "bitwise_and_agg(a3)"})
+                            {"bitwise_and_agg(c1)",
+                             "bitwise_and_agg(c2)",
+                             "bitwise_and_agg(c3)",
+                             "bitwise_and_agg(c4)"})
+                        .finalAggregation()
                         .planNode();
     assertQuery(
         finalAgg,

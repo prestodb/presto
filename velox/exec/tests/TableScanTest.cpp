@@ -1697,7 +1697,7 @@ TEST_P(TableScanTest, bitwiseAggregationPushdown) {
 
   auto op = PlanBuilder()
                 .tableScan(rowType_, tableHandle, assignments)
-                .finalAggregation(
+                .singleAggregation(
                     {5},
                     {"bitwise_and_agg(c0)",
                      "bitwise_and_agg(c1)",
@@ -1712,7 +1712,7 @@ TEST_P(TableScanTest, bitwiseAggregationPushdown) {
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
-           .finalAggregation(
+           .singleAggregation(
                {5},
                {"bitwise_or_agg(c0)",
                 "bitwise_or_agg(c1)",

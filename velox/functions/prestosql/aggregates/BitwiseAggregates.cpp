@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
@@ -148,24 +149,34 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
 
 template <template <typename U> class T>
 bool registerBitwiseAggregate(const std::string& name) {
-  exec::AggregateFunctions().Register(
+  // TODO Fix the signatures to match Presto.
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  for (const auto& inputType : {"tinyint", "smallint", "integer", "bigint"}) {
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(inputType)
+                             .intermediateType(inputType)
+                             .argumentType(inputType)
+                             .build());
+  }
+
+  exec::registerAggregateFunction(
       name,
+      std::move(signatures),
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr&
-          /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_LE(argTypes.size(), 1, "{} takes only one argument", name);
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
           case TypeKind::TINYINT:
-            return std::make_unique<T<int8_t>>(inputType);
+            return std::make_unique<T<int8_t>>(resultType);
           case TypeKind::SMALLINT:
-            return std::make_unique<T<int16_t>>(inputType);
+            return std::make_unique<T<int16_t>>(resultType);
           case TypeKind::INTEGER:
-            return std::make_unique<T<int32_t>>(inputType);
+            return std::make_unique<T<int32_t>>(resultType);
           case TypeKind::BIGINT:
-            return std::make_unique<T<int64_t>>(inputType);
+            return std::make_unique<T<int64_t>>(resultType);
           default:
             VELOX_CHECK(
                 false,
