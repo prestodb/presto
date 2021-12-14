@@ -584,6 +584,7 @@ void Task::terminate(TaskState terminalState) {
   for (auto& pair : oldBridges) {
     pair.second->cancel();
   }
+  std::lock_guard<std::mutex> l(mutex_);
   stateChangedLocked();
 }
 

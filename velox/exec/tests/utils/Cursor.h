@@ -90,7 +90,7 @@ class TaskCursor {
 
   ~TaskCursor() {
     queue_->close();
-    if (task_) {
+    if (task_ && !atEnd_) {
       task_->requestTerminate();
     }
   }
@@ -114,6 +114,7 @@ class TaskCursor {
   std::shared_ptr<exec::Task> task_;
   RowVectorPtr current_;
   static std::atomic<int32_t> serial_;
+  bool atEnd_{false};
 };
 
 class RowCursor {

@@ -148,6 +148,9 @@ bool TaskCursor::moveNext() {
   if (task_->error()) {
     std::rethrow_exception(task_->error());
   }
+  if (!current_) {
+    atEnd_ = true;
+  }
   return current_ != nullptr;
 }
 
