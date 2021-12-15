@@ -107,6 +107,7 @@ public class PinotConfig
     private boolean useHttpsForController;
     private boolean useHttpsForBroker;
     private boolean useHttpsForProxy;
+    private Map<String, String> extraGrpcMetadata = ImmutableMap.of();
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -118,6 +119,19 @@ public class PinotConfig
     public PinotConfig setExtraHttpHeaders(String headers)
     {
         extraHttpHeaders = ImmutableMap.copyOf(MAP_SPLITTER.split(headers));
+        return this;
+    }
+
+    @NotNull
+    public Map<String, String> getExtraGrpcMetadata()
+    {
+        return extraGrpcMetadata;
+    }
+
+    @Config("pinot.extra-grpc-metadata")
+    public PinotConfig setExtraGrpcMetadata(String metadata)
+    {
+        extraGrpcMetadata = ImmutableMap.copyOf(MAP_SPLITTER.split(metadata));
         return this;
     }
 

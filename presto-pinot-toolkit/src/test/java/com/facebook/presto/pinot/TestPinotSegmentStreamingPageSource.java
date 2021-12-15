@@ -17,10 +17,14 @@ import com.facebook.presto.pinot.grpc.Constants;
 import com.facebook.presto.pinot.grpc.GrpcRequestBuilder;
 import com.facebook.presto.pinot.grpc.PinotStreamingQueryClient;
 import com.facebook.presto.pinot.grpc.ServerResponse;
+import com.facebook.presto.pinot.query.PinotProxyGrpcRequestBuilder;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataTable;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -123,5 +127,74 @@ public class TestPinotSegmentStreamingPageSource
     Optional<Integer> getGrpcPort()
     {
         return Optional.of(DEFAULT_GRPC_PORT);
+    }
+
+    @Test
+    public void testPinotProxyGrpcRequest()
+    {
+        Server.ServerRequest grpcRequest = new PinotProxyGrpcRequestBuilder()
+                .setHostName("localhost")
+                .setPort(8124)
+                .setSegments(ImmutableList.of("segment1"))
+                .setEnableStreaming(true)
+                .setRequestId(121)
+                .setBrokerId("presto-coordinator-grpc")
+                .addExtraMetadata(ImmutableMap.of("k1", "v1", "k2", "v2"))
+                .setSql("SELECT * FROM myTable")
+                .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 9);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k1"), "v1");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k2"), "v2");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("FORWARD_HOST"), "localhost");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("FORWARD_PORT"), "8124");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+
+        grpcRequest = new PinotProxyGrpcRequestBuilder()
+            .setSegments(ImmutableList.of("segment1"))
+            .setEnableStreaming(true)
+            .setRequestId(121)
+            .setBrokerId("presto-coordinator-grpc")
+            .addExtraMetadata(ImmutableMap.of("k1", "v1", "k2", "v2"))
+            .setSql("SELECT * FROM myTable")
+            .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 7);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k1"), "v1");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k2"), "v2");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+    }
+
+    @Test
+    public void testPinotGrpcRequest()
+    {
+        final Server.ServerRequest grpcRequest = new GrpcRequestBuilder()
+                .setSegments(ImmutableList.of("segment1"))
+                .setEnableStreaming(true)
+                .setRequestId(121)
+                .setBrokerId("presto-coordinator-grpc")
+                .setSql("SELECT * FROM myTable")
+                .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 5);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(Constants.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
     }
 }
