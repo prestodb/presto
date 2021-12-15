@@ -16,6 +16,8 @@ package com.facebook.presto.functionNamespace.execution;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.grpc.GrpcSqlFunctionExecutionConfig;
+import com.facebook.presto.functionNamespace.execution.grpc.GrpcSqlFunctionExecutorsModule;
 import com.facebook.presto.functionNamespace.execution.thrift.SimpleAddressThriftSqlFunctionExecutionModule;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutionConfig;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -26,6 +28,7 @@ import com.google.inject.TypeLiteral;
 
 import java.util.Map;
 
+import static com.facebook.presto.spi.function.FunctionImplementationType.GRPC;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.google.inject.Scopes.SINGLETON;
 
@@ -39,6 +42,7 @@ public class SimpleAddressSqlFunctionExecutorsModule
 
         SqlInvokedFunctionNamespaceManagerConfig config = buildConfigObject(SqlInvokedFunctionNamespaceManagerConfig.class);
         ImmutableMap.Builder<Language, SimpleAddressSelectorConfig> thriftConfigs = ImmutableMap.builder();
+        ImmutableMap.Builder<Language, GrpcSqlFunctionExecutionConfig> grpcUdfConfigBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Language, FunctionImplementationType> languageImplementationTypeMap = ImmutableMap.builder();
         ImmutableMap.Builder<Language, ThriftSqlFunctionExecutionConfig> thriftExecutionConfigs = ImmutableMap.builder();
         for (String languageName : config.getSupportedFunctionLanguages()) {
@@ -49,9 +53,16 @@ public class SimpleAddressSqlFunctionExecutorsModule
                 thriftConfigs.put(language, buildConfigObject(SimpleAddressSelectorConfig.class, languageName));
                 thriftExecutionConfigs.put(language, buildConfigObject(ThriftSqlFunctionExecutionConfig.class, languageName));
             }
+            if (implementationType.equals(GRPC)) {
+                grpcUdfConfigBuilder.put(language, buildConfigObject(GrpcSqlFunctionExecutionConfig.class, languageName));
+            }
         }
         binder.bind(new TypeLiteral<Map<Language, FunctionImplementationType>>() {}).toInstance(languageImplementationTypeMap.build());
         binder.install(new SimpleAddressThriftSqlFunctionExecutionModule(thriftConfigs.build()));
         binder.bind(new TypeLiteral<Map<Language, ThriftSqlFunctionExecutionConfig>>() {}).toInstance(thriftExecutionConfigs.build());
+
+        ImmutableMap<Language, GrpcSqlFunctionExecutionConfig> grpcSqlFunctionExecutorConfigs = grpcUdfConfigBuilder.build();
+        binder.install(new GrpcSqlFunctionExecutorsModule(grpcSqlFunctionExecutorConfigs));
+        binder.bind(new TypeLiteral<Map<Language, GrpcSqlFunctionExecutionConfig>>() {}).toInstance(grpcSqlFunctionExecutorConfigs);
     }
 }

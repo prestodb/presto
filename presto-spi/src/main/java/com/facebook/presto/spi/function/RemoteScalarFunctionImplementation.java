@@ -17,16 +17,18 @@ import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 
 import static java.util.Objects.requireNonNull;
 
-public class ThriftScalarFunctionImplementation
+public class RemoteScalarFunctionImplementation
         implements ScalarFunctionImplementation
 {
     private final SqlFunctionHandle functionHandle;
     private final Language language;
+    private final FunctionImplementationType implementationType;
 
-    public ThriftScalarFunctionImplementation(SqlFunctionHandle functionHandle, Language language)
+    public RemoteScalarFunctionImplementation(SqlFunctionHandle functionHandle, Language language, FunctionImplementationType implementationType)
     {
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
         this.language = requireNonNull(language, "language is null");
+        this.implementationType = requireNonNull(implementationType, "implementationType is null");
     }
 
     public SqlFunctionHandle getFunctionHandle()
@@ -37,5 +39,10 @@ public class ThriftScalarFunctionImplementation
     public Language getLanguage()
     {
         return language;
+    }
+
+    public FunctionImplementationType getImplementationType()
+    {
+        return implementationType;
     }
 }
