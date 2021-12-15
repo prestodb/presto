@@ -20,6 +20,8 @@ import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
+import com.facebook.presto.orc.StreamLayout.ByColumnSize;
+import com.facebook.presto.orc.StreamLayout.ByStreamSize;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
@@ -35,6 +37,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -57,16 +61,63 @@ public class TestOrcWriter
     public static Object[][] zstdCompressionLevels()
     {
         ImmutableList.Builder<Object[]> parameters = new ImmutableList.Builder<>();
-        parameters.add(new Object[]{ORC, NONE, OptionalInt.empty()});
-        parameters.add(new Object[]{DWRF, ZSTD, OptionalInt.of(7)});
-        parameters.add(new Object[]{DWRF, ZSTD, OptionalInt.empty()});
-        parameters.add(new Object[]{DWRF, ZLIB, OptionalInt.of(5)});
-        parameters.add(new Object[]{DWRF, ZLIB, OptionalInt.empty()});
+        parameters.add(new Object[] {ORC, NONE, OptionalInt.empty()});
+        parameters.add(new Object[] {DWRF, ZSTD, OptionalInt.of(7)});
+        parameters.add(new Object[] {DWRF, ZSTD, OptionalInt.empty()});
+        parameters.add(new Object[] {DWRF, ZLIB, OptionalInt.of(5)});
+        parameters.add(new Object[] {DWRF, ZLIB, OptionalInt.empty()});
         return parameters.build().toArray(new Object[0][]);
     }
 
     @Test(dataProvider = "compressionLevels")
     public void testWriteOutputStreamsInOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
+            throws IOException
+    {
+        testStreamOrder(encoding, kind, level, new ByStreamSize(), () -> new Consumer<Stream>()
+        {
+            int size;
+
+            @Override
+            public void accept(Stream stream)
+            {
+                if (!isIndexStream(stream)) {
+                    assertGreaterThanOrEqual(stream.getLength(), size, stream.toString());
+                    size = stream.getLength();
+                }
+            }
+        });
+    }
+
+    @Test(dataProvider = "compressionLevels")
+    public void testOutputStreamsByColumnSize(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
+            throws IOException
+    {
+        testStreamOrder(encoding, kind, level, new ByColumnSize(), () -> new Consumer<Stream>()
+        {
+            int previousColumnSize;
+            int currentColumnSize;
+            int currentColumnId = -1;
+
+            @Override
+            public void accept(Stream stream)
+            {
+                if (!isIndexStream(stream)) {
+                    if (stream.getColumn() == currentColumnId) {
+                        currentColumnSize += stream.getLength();
+                    }
+                    else {
+                        assertGreaterThanOrEqual(currentColumnSize, previousColumnSize, stream.toString());
+                        previousColumnSize = currentColumnSize;
+
+                        currentColumnSize = stream.getLength();
+                        currentColumnId = stream.getColumn();
+                    }
+                }
+            }
+        });
+    }
+
+    private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level, StreamLayout streamLayout, Supplier<Consumer<Stream>> streamConsumerFactory)
             throws IOException
     {
         OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
@@ -76,6 +127,7 @@ public class TestOrcWriter
                 .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                 .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                 .withCompressionLevel(level)
+                .withStreamLayout(streamLayout)
                 .build();
         for (OrcWriteValidationMode validationMode : OrcWriteValidationMode.values()) {
             TempFile tempFile = new TempFile();
@@ -115,7 +167,7 @@ public class TestOrcWriter
             writer.close();
 
             for (StripeFooter stripeFooter : OrcTester.getStripes(tempFile.getFile(), encoding)) {
-                int size = 0;
+                Consumer<Stream> streamConsumer = streamConsumerFactory.get();
                 boolean dataStreamStarted = false;
                 for (Stream stream : stripeFooter.getStreams()) {
                     if (isIndexStream(stream)) {
@@ -123,9 +175,7 @@ public class TestOrcWriter
                         continue;
                     }
                     dataStreamStarted = true;
-                    // verify sizes in order
-                    assertGreaterThanOrEqual(stream.getLength(), size);
-                    size = stream.getLength();
+                    streamConsumer.accept(stream);
                 }
             }
         }

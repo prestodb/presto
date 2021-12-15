@@ -79,6 +79,7 @@ public class NodeSchedulerConfig
 
     @Config("node-scheduler.max-pending-splits-per-task")
     @LegacyConfig({"node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
+    @ConfigDescription("The number of splits weighted at the standard split weight that can be assigned and queued for each task")
     public NodeSchedulerConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
     {
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
@@ -96,6 +97,7 @@ public class NodeSchedulerConfig
     }
 
     @Config("node-scheduler.max-splits-per-node")
+    @ConfigDescription("The number of splits weighted at the standard split weight that are allowed to be scheduled on each node")
     public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;

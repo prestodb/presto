@@ -331,7 +331,7 @@ public class DruidQueryGenerator
 
             // Handling non-aggregated group by
             if (groupByExists && aggregations == 0) {
-                VariableReferenceExpression hidden = new VariableReferenceExpression(UUID.randomUUID().toString(), BigintType.BIGINT);
+                VariableReferenceExpression hidden = new VariableReferenceExpression(Optional.empty(), UUID.randomUUID().toString(), BigintType.BIGINT);
                 newSelections.put(hidden, new Selection("count(*)", DERIVED));
                 hiddenColumnSet.add(hidden);
                 aggregations++;

@@ -23,9 +23,9 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 
@@ -68,7 +68,7 @@ public class NullIfCodeGenerator
         FunctionAndTypeManager functionAndTypeManager = generatorContext.getFunctionManager();
         FunctionHandle equalFunction = functionAndTypeManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
         FunctionMetadata equalFunctionMetadata = functionAndTypeManager.getFunctionMetadata(equalFunction);
-        BuiltInScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalFunction);
+        JavaScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getJavaScalarFunctionImplementation(equalFunction);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 EQUAL.name(),
                 equalsFunction,
@@ -111,6 +111,6 @@ public class NullIfCodeGenerator
                 .lookupCast(CastType.CAST, actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
+        return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getJavaScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
     }
 }

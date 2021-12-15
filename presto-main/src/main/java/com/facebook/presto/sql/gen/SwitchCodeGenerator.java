@@ -120,7 +120,7 @@ public class SwitchCodeGenerator
                 FunctionHandle equalsFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, fromTypes(value.getType(), operand.getType()));
                 operandBytecode = generatorContext.generateCall(
                         EQUAL.name(),
-                        generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalsFunction),
+                        generatorContext.getFunctionManager().getJavaScalarFunctionImplementation(equalsFunction),
                         ImmutableList.of(
                                 generatorContext.generate(operand,
                                 Optional.empty()),

@@ -35,6 +35,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
@@ -90,9 +92,9 @@ public class TestRowExpressionFormatter
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final FunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(FUNCTION_AND_TYPE_MANAGER);
     private static final RowExpressionFormatter FORMATTER = new RowExpressionFormatter(FUNCTION_AND_TYPE_MANAGER);
-    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("c_bigint", BIGINT);
-    private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression("c_bigint_array", new ArrayType(BIGINT));
-    private static final VariableReferenceExpression C_VARCHAR = new VariableReferenceExpression("c_varchar", VARCHAR);
+    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression(Optional.empty(), "c_bigint", BIGINT);
+    private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression(Optional.empty(), "c_bigint_array", new ArrayType(BIGINT));
+    private static final VariableReferenceExpression C_VARCHAR = new VariableReferenceExpression(Optional.empty(), "c_varchar", VARCHAR);
     private static final RowExpressionOptimizer OPTIMIZER = new RowExpressionOptimizer(MetadataManager.createTestMetadataManager());
 
     @Test

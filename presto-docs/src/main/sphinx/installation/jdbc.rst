@@ -15,6 +15,15 @@ The driver is also available from Maven Central:
         <version>\ |version|\ </version>
     </dependency>
 
+Requirements
+------------
+
+The Presto JDBC driver has the following requirements:
+
+* Java version 8 or higher.
+* All users that connect to Presto with the JDBC driver must be granted access to
+  query tables in the ``system.jdbc`` schema.
+
 Connecting
 ----------
 

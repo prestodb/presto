@@ -264,7 +264,7 @@ public class TestConnectorOptimization
 
     private static VariableReferenceExpression newBigintVariable(String name)
     {
-        return new VariableReferenceExpression(name, BIGINT);
+        return new VariableReferenceExpression(Optional.empty(), name, BIGINT);
     }
 
     private static void assertPlanMatch(PlanNode actual, PlanMatchPattern expected)

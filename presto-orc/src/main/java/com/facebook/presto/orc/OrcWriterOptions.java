@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.StreamLayout.ByStreamSize;
+import com.facebook.presto.orc.StreamLayout.ByColumnSize;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import io.airlift.units.DataSize;
 
@@ -244,7 +244,7 @@ public class OrcWriterOptions
         private DataSize maxStringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private DataSize maxCompressionBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
         private OptionalInt compressionLevel = OptionalInt.empty();
-        private StreamLayout streamLayout = new ByStreamSize();
+        private StreamLayout streamLayout = new ByColumnSize();
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
         private boolean dwrfStripeCacheEnabled;

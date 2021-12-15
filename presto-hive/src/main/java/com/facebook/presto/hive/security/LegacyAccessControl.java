@@ -102,7 +102,7 @@ public class LegacyAccessControl
 
         TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
         // TODO: Refactor code to inject metastore headers using AccessControlContext instead of empty()
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false);
         Optional<Table> target = metadata.getMetastore().getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
 
         if (!target.isPresent()) {

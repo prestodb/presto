@@ -134,7 +134,7 @@ public class JdbcMetadata
             tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else {
-            tables = listTables(session, prefix.getSchemaName());
+            tables = listTables(session, Optional.of(prefix.getSchemaName()));
         }
         for (SchemaTableName tableName : tables) {
             try {

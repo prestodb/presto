@@ -908,7 +908,7 @@ public class TestHiveFileFormats
         List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
         List<Column> tableDataColumns = testColumns.stream()
                 .filter(column -> !column.isPartitionKey())
-                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty()))
+                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty(), Optional.empty()))
                 .collect(toImmutableList());
 
         Configuration configuration = new Configuration();
@@ -973,7 +973,7 @@ public class TestHiveFileFormats
         List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
         List<Column> tableDataColumns = testColumns.stream()
                 .filter(column -> !column.isPartitionKey())
-                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty()))
+                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty(), Optional.empty()))
                 .collect(toImmutableList());
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);

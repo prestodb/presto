@@ -25,12 +25,12 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.OrderBy;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.Streams;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -97,7 +97,7 @@ public class AggregationFunctionMatcher
         }
         for (int i = 0; i < expectedSortOrder.getSortItems().size(); i++) {
             VariableReferenceExpression orderingVariable = orderingScheme.getOrderByVariables().get(i);
-            if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(new SymbolReference(orderingVariable.getName())) &&
+            if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(createSymbolReference(orderingVariable)) &&
                     toSortOrder(expectedSortOrder.getSortItems().get(i)).equals(orderingScheme.getOrdering(orderingVariable))) {
                 continue;
             }
@@ -114,7 +114,7 @@ public class AggregationFunctionMatcher
                 return expression.get().equals(castToExpression(rowExpression.get()));
             }
             checkArgument(rowExpression.get() instanceof VariableReferenceExpression, "can only process variableReference");
-            return expression.get().equals(new SymbolReference(((VariableReferenceExpression) rowExpression.get()).getName()));
+            return expression.get().equals(createSymbolReference(((VariableReferenceExpression) rowExpression.get())));
         }
         return rowExpression.isPresent() == expression.isPresent();
     }

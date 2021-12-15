@@ -72,7 +72,7 @@ final class IcebergUtil
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
                 metastore,
-                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty()),
+                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false),
                 hdfsEnvironment,
                 hdfsContext,
                 table.getSchemaName(),

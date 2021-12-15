@@ -188,12 +188,12 @@ public class TestRuntimeReorderJoinSides
                 })
                 .overrideStats(nationNodeId.get(0), PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("nationkeyN", BIGINT), new VariableStatsEstimate(0, 100, 0, 8, 100)))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "nationkeyN", BIGINT), new VariableStatsEstimate(0, 100, 0, 8, 100)))
                         .build())
                 .overrideStats(suppNodeId.get(0), PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(3000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("nationkeyS", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 8, 10),
-                                new VariableReferenceExpression("suppkey", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 1, 10)))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "nationkeyS", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 8, 10),
+                                new VariableReferenceExpression(Optional.empty(), "suppkey", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 1, 10)))
                         .build())
                 .doesNotFire();
     }

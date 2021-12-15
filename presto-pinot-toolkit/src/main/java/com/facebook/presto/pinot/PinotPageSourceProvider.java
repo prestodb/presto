@@ -108,6 +108,7 @@ public class PinotPageSourceProvider
                             session,
                             pinotSplit.getBrokerPinotQuery().get(),
                             handles,
+                            pinotSplit.getExpectedColumnHandles(),
                             clusterInfoFetcher,
                             objectMapper);
                     case PQL:

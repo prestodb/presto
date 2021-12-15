@@ -40,4 +40,10 @@ public class NoopTracer
     public void endTrace(String annotation)
     {
     }
+
+    @Override
+    public String getTracerId()
+    {
+        return "noop_dummy_id";
+    }
 }

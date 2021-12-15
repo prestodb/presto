@@ -38,7 +38,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -140,6 +139,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -971,8 +971,8 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            if (functionMetadata.getImplementationType() == FunctionImplementationType.BUILTIN && functionMetadata.getName().getObjectName().equalsIgnoreCase("REDUCE_AGG")) {
-                Expression initialValueArg = (Expression) node.getArguments().get(1);
+            if (functionMetadata.getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "REDUCE_AGG"))) {
+                Expression initialValueArg = node.getArguments().get(1);
                 // For builtin reduce_agg, we make sure the initial value is not null as we cannot handle null properly now.
 
                 if (!isNonNullConstant(initialValueArg)) {
@@ -1230,7 +1230,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
                 Type type = types.get(i);
-                fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
+                fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getLocation(), lambdaArgument.getName().getValue(), type));
                 setExpressionType(lambdaArgument, type);
             }
 
@@ -1652,7 +1652,7 @@ public class ExpressionAnalyzer
                         .withRelationType(
                                 RelationId.anonymous(),
                                 new RelationType(argumentTypes.entrySet().stream()
-                                        .map(entry -> Field.newUnqualified(entry.getKey(), entry.getValue()))
+                                        .map(entry -> Field.newUnqualified(expression.getLocation(), entry.getKey(), entry.getValue()))
                                         .collect(toImmutableList()))).build());
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),

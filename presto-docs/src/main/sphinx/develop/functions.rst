@@ -176,6 +176,42 @@ on the underlying ``byte[]``, which have much better performance. This function
 has no ``@SqlNullable`` annotations, meaning that if the argument is ``NULL``,
 the result will automatically be ``NULL`` (the function will not be called).
 
+Codegen Scalar Function Implementation
+--------------------------------------
+
+Scalar functions can also be implemented in bytecode, allowing us to specialize
+and optimize functions according to the ``@TypeParameter``
+
+* ``@CodegenScalarFunction``:
+
+  The ``@CodegenScalarFunction`` annotation is used to declare a scalar function
+  which is implemented in bytecode. ``@SqlType`` annotation is used to declare the
+  return type. It takes ``Type`` as parameters which have ``@SqlType`` annotation as well.
+  Return type is ``MethodHandle`` which is codegen function method.
+
+.. code-block:: java
+
+    public class CodegenArrayLengthFunction
+    {
+        @CodegenScalarFunction("array_length", calledOnNullInput = true)
+        @SqlType(StandardTypes.INTEGER)
+        @TypeParameter("K")
+        public static MethodHandle arrayLength(@SqlType("array(K)") Type arr)
+        {
+            CallSiteBinder binder = new CallSiteBinder();
+            ClassDefinition classDefinition = new ClassDefinition(a(Access.PUBLIC, FINAL), makeClassName("ArrayLength"), type(Object.class));
+            classDefinition.declareDefaultConstructor(a(PRIVATE));
+
+            Parameter inputBlock = arg("inputBlock", Block.class);
+            MethodDefinition method = classDefinition.declareMethod(a(Access.PUBLIC, STATIC), "array_length", type(Block.class), ImmutableList.of(inputBlock));
+            BytecodeBlock body = method.getBody();
+            body.append(inputBlock.invoke("getPositionCount", int.class).ret());
+
+            Class<?> clazz = defineClass(classDefinition, Object.class, binder.getBindings(), CodegenArrayLengthFunction.class.getClassLoader());
+            return new methodHandle(clazz, "array_length", Block.class), Optional.of();
+        }
+    }
+
 Aggregation Function Implementation
 -----------------------------------
 

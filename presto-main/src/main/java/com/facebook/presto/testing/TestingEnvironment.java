@@ -30,6 +30,6 @@ public class TestingEnvironment
 
     public static MethodHandle getOperatorMethodHandle(OperatorType operatorType, Type... parameterTypes)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getBuiltInScalarFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.resolveOperator(operatorType, fromTypes(parameterTypes))).getMethodHandle();
+        return FUNCTION_AND_TYPE_MANAGER.getJavaScalarFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.resolveOperator(operatorType, fromTypes(parameterTypes))).getMethodHandle();
     }
 }

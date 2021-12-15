@@ -99,7 +99,7 @@ public class TestStatisticsWriterNode
 
         return new StatisticsWriterNode(
                 newId(),
-                new ValuesNode(newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(column, BIGINT)).collect(toImmutableList()), ImmutableList.of()),
+                new ValuesNode(newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(Optional.empty(), column, BIGINT)).collect(toImmutableList()), ImmutableList.of()),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 variableAllocator.newVariable("count", BIGINT),
                 true,

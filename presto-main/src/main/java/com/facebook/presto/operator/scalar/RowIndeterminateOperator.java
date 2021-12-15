@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
 import com.google.common.collect.ImmutableList;
 
@@ -46,8 +47,8 @@ import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
@@ -132,7 +133,7 @@ public class RowIndeterminateOperator
 
                 FunctionHandle functionHandle = functionAndTypeManager.resolveOperator(INDETERMINATE, fromTypes(fieldTypes.get(i)));
 
-                BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
+                JavaScalarFunctionImplementation function = functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 
                 ifNullField.ifFalse(new IfStatement("if the field is not null but indeterminate...")

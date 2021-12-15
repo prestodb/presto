@@ -1063,11 +1063,11 @@ public class TestAnalyzer
     @Test
     public void testAggregateWithWildcard()
     {
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 't.a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "line 1:25: Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "line 1:23: Column 't.a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
 
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 'a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "line 1:23: Column 'a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "line 1:25: Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
     }
 
     @Test
@@ -1380,10 +1380,6 @@ public class TestAnalyzer
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
                 ".* must be an aggregate expression or appear in GROUP BY clause",
                 "SELECT apply(1, y -> x + y) FROM (VALUES (1,2)) t(x, y) GROUP BY x+y");
-        assertFails(
-                MUST_BE_AGGREGATE_OR_GROUP_BY,
-                ".* must be an aggregate expression or appear in GROUP BY clause",
-                "SELECT apply(1, x -> y + transform(array[1], z -> x)[1]) FROM (VALUES (1, 2)) t(x,y) GROUP BY y + transform(array[1], z -> x)[1]");
     }
 
     @Test

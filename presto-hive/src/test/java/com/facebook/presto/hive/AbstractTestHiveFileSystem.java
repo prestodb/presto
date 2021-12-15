@@ -24,6 +24,7 @@ import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnConverter;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -182,8 +183,9 @@ public abstract class AbstractTestHiveFileSystem
         HdfsConfiguration hdfsConfiguration = hdfsConfigurationProvider.apply(config, metastoreClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+        ColumnConverter columnConverter = new HiveColumnConverter();
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig), new HivePartitionMutator()),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, columnConverter), new HivePartitionMutator(), columnConverter),
                 executor,
                 metastoreClientConfig,
                 getBasePath(),
@@ -211,7 +213,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer());
+                new HiveFileRenamer(),
+                columnConverter);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,

@@ -35,6 +35,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
@@ -636,7 +637,7 @@ public class TestNodeScheduler
         remoteTask1.abort();
         remoteTask2.abort();
 
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -683,7 +684,7 @@ public class TestNodeScheduler
         for (RemoteTask task : tasks) {
             task.abort();
         }
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -759,13 +760,13 @@ public class TestNodeScheduler
                 ImmutableList.of(new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote())),
                 nodeTaskMap.createTaskStatsTracker(chosenNode, taskId));
         nodeTaskMap.addTask(chosenNode, remoteTask);
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), standardWeightSplitsInfo(1));
         remoteTask.abort();
         MILLISECONDS.sleep(100); // Sleep until cache expires
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
 
         remoteTask.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -791,12 +792,71 @@ public class TestNodeScheduler
 
         nodeTaskMap.addTask(chosenNode, remoteTask1);
         nodeTaskMap.addTask(chosenNode, remoteTask2);
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 3);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), standardWeightSplitsInfo(3));
 
         remoteTask1.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), standardWeightSplitsInfo(1));
         remoteTask2.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
+    }
+
+    @Test
+    public void testMoreSplitsAssignedWhenSplitsWeightsAreSmall()
+    {
+        int standardSplitsPerNode = nodeSchedulerConfig.getMaxSplitsPerNode();
+        int standardPendingSplitsPerTask = nodeSchedulerConfig.getMaxPendingSplitsPerTask();
+        int fullyLoadedStandardSplitCount = standardSplitsPerNode + standardPendingSplitsPerTask;
+        long weightLimitPerNode = SplitWeight.rawValueForStandardSplitCount(standardSplitsPerNode);
+        long weightLimitPendingPerTask = SplitWeight.rawValueForStandardSplitCount(standardPendingSplitsPerTask);
+        long fullyLoadedStandardSplitWeight = weightLimitPerNode + weightLimitPendingPerTask;
+
+        // Single worker node
+        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 1);
+        InternalNode workerNode = nodeSelector.selectRandomNodes(1).get(0);
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
+
+        TaskId taskId = new TaskId("test", 1, 0, 1);
+        MockRemoteTaskFactory.MockRemoteTask task = remoteTaskFactory.createTableScanTask(taskId, workerNode, ImmutableList.of(), nodeTaskMap.createTaskStatsTracker(workerNode, taskId));
+
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
+        ImmutableSet.Builder<Split> splitsBuilder = ImmutableSet.builderWithExpectedSize(fullyLoadedStandardSplitCount * 2);
+        // Create 2x more splits than the standard split count limit, at 1/2 the standard weight
+        SplitWeight halfWeight = SplitWeight.fromProportion(0.5);
+        for (int i = 0; i < fullyLoadedStandardSplitCount * 2; i++) {
+            splitsBuilder.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote(halfWeight)));
+        }
+        Set<Split> splits = splitsBuilder.build();
+        // Verify we arrived at the exact weight limit
+        assertEquals(SplitWeight.rawValueSum(splits, Split::getSplitWeight), fullyLoadedStandardSplitWeight);
+
+        // Node assignment limit met
+        SplitPlacementResult result = nodeSelector.computeAssignments(splits, ImmutableList.of(task));
+        assertEquals(result.getAssignments().get(workerNode).size(), standardSplitsPerNode * 2);
+        assertEquals(SplitWeight.rawValueSum(result.getAssignments().get(workerNode), Split::getSplitWeight), weightLimitPerNode);
+
+        // Mark all splits as running
+        task.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
+                .putAll(new PlanNodeId("sourceId"), result.getAssignments().get(workerNode))
+                .build());
+        task.startSplits(result.getAssignments().get(workerNode).size());
+
+        // Per task pending splits limit met
+        Set<Split> remainingSplits = Sets.difference(splits, ImmutableSet.copyOf(result.getAssignments().get(workerNode)));
+        SplitPlacementResult secondResults = nodeSelector.computeAssignments(remainingSplits, ImmutableList.of(task));
+        assertEquals(secondResults.getAssignments().get(workerNode).size(), standardPendingSplitsPerTask * 2);
+        assertEquals(SplitWeight.rawValueSum(secondResults.getAssignments().get(workerNode), Split::getSplitWeight), weightLimitPendingPerTask);
+        task.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
+                .putAll(new PlanNodeId("sourceId"), secondResults.getAssignments().get(workerNode))
+                .build());
+
+        assertEquals(
+                nodeTaskMap.getPartitionedSplitsOnNode(workerNode),
+                // 2x fully loaded standard count, full weight limit reached
+                PartitionedSplitsInfo.forSplitCountAndWeightSum(fullyLoadedStandardSplitCount * 2, fullyLoadedStandardSplitWeight));
+
+        // No more splits assigned when full
+        SplitPlacementResult resultWhenFull = nodeSelector.computeAssignments(ImmutableSet.of(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote())), ImmutableList.of(task));
+        assertTrue(resultWhenFull.getAssignments().isEmpty());
     }
 
     @Test
@@ -985,9 +1045,26 @@ public class TestNodeScheduler
                 .build();
     }
 
+    private static PartitionedSplitsInfo standardWeightSplitsInfo(int splitCount)
+    {
+        return PartitionedSplitsInfo.forSplitCountAndWeightSum(splitCount, SplitWeight.rawValueForStandardSplitCount(splitCount));
+    }
+
     private static class TestSplitLocal
             implements ConnectorSplit
     {
+        private final SplitWeight splitWeight;
+
+        public TestSplitLocal()
+        {
+            this(SplitWeight.standard());
+        }
+
+        public TestSplitLocal(SplitWeight splitWeight)
+        {
+            this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        }
+
         @Override
         public NodeSelectionStrategy getNodeSelectionStrategy()
         {
@@ -1005,21 +1082,39 @@ public class TestNodeScheduler
         {
             return this;
         }
+
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return splitWeight;
+        }
     }
 
     private static class TestSplitRemote
             implements ConnectorSplit
     {
         private final List<HostAddress> hosts;
+        private final SplitWeight splitWeight;
 
         public TestSplitRemote()
         {
-            this(HostAddress.fromString("127.0.0.1:" + ThreadLocalRandom.current().nextInt(5000)));
+            this(SplitWeight.standard());
+        }
+
+        public TestSplitRemote(SplitWeight splitWeight)
+        {
+            this(HostAddress.fromString("127.0.0.1:" + ThreadLocalRandom.current().nextInt(5000)), splitWeight);
         }
 
         public TestSplitRemote(HostAddress host)
         {
+            this(host, SplitWeight.standard());
+        }
+
+        public TestSplitRemote(HostAddress host, SplitWeight splitWeight)
+        {
             this.hosts = ImmutableList.of(requireNonNull(host, "host is null"));
+            this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         }
 
         @Override
@@ -1038,6 +1133,12 @@ public class TestNodeScheduler
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return splitWeight;
         }
     }
 

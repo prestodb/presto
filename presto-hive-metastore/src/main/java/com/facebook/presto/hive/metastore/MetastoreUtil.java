@@ -139,6 +139,8 @@ public class MetastoreUtil
     public static final String PRESTO_MATERIALIZED_VIEW_FLAG = "presto_materialized_view";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
+    public static final String USER_DEFINED_TYPE_ENCODING_ENABLED = "user_defined_type_encoding";
+
     @SuppressWarnings("OctalInteger")
     public static final FsPermission ALL_PERMISSIONS = new FsPermission((short) 0777);
 
@@ -912,6 +914,16 @@ public class MetastoreUtil
         }
         catch (Exception e) {
             return Optional.empty();
+        }
+    }
+
+    public static boolean isUserDefinedTypeEncodingEnabled(ConnectorSession session)
+    {
+        try {
+            return session.getProperty(USER_DEFINED_TYPE_ENCODING_ENABLED, Boolean.class);
+        }
+        catch (Exception e) {
+            return false;
         }
     }
 }

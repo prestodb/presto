@@ -156,7 +156,7 @@ public class TestSimplifyExpressions
     private static Set<VariableReferenceExpression> booleanVariablesFor(Expression expression)
     {
         return VariablesExtractor.extractAllSymbols(expression).stream()
-                .map(symbol -> new VariableReferenceExpression(symbol.getName(), BOOLEAN))
+                .map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol.getName(), BOOLEAN))
                 .collect(toImmutableSet());
     }
 
