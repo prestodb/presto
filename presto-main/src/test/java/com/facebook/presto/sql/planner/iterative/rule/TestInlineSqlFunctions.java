@@ -131,6 +131,7 @@ public class TestInlineSqlFunctions
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
+                                null,
                                 null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(SQL_FUNCTION_SQUARE, true);

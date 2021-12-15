@@ -83,6 +83,7 @@ public class TestSqlInvokedFunctionNamespaceManager
                 TEST_CATALOG,
                 new SqlFunctionExecutors(
                         ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                        null,
                         null),
                 new SqlInvokedFunctionNamespaceManagerConfig()
                         .setFunctionCacheExpiration(new Duration(0, MILLISECONDS))
@@ -158,6 +159,7 @@ public class TestSqlInvokedFunctionNamespaceManager
                 TEST_CATALOG,
                 new SqlFunctionExecutors(
                         ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                        null,
                         null),
                 new SqlInvokedFunctionNamespaceManagerConfig());
     }
