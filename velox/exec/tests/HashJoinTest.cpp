@@ -289,7 +289,7 @@ TEST_F(HashJoinTest, memory) {
                             "",
                             allChannels(2 * (1 + keyTypes.size())))
                         .project({"t_k0 % 1000", "u_k0 % 1000"}, {"k1", "k2"})
-                        .finalAggregation({}, {"sum(k1)", "sum(k2)"})
+                        .singleAggregation({}, {"sum(k1)", "sum(k2)"})
                         .planNode();
   params.queryCtx = core::QueryCtx::create();
   auto tracker = memory::MemoryUsageTracker::create();

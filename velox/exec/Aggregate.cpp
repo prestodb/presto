@@ -74,18 +74,7 @@ std::unique_ptr<Aggregate> Aggregate::create(
     return func.value()->factory(step, argTypes, resultType);
   }
 
-  // Now check the legacy registry.
-  auto func = AggregateFunctions().Create(name, step, argTypes, resultType);
-  if (func.get() == nullptr) {
-    std::ostringstream message;
-    VELOX_USER_FAIL("Aggregate function not registered: {}", name);
-  }
-  return func;
-}
-
-AggregateFunctionRegistry& AggregateFunctions() {
-  static AggregateFunctionRegistry instance;
-  return instance;
+  VELOX_USER_FAIL("Aggregate function not registered: {}", name);
 }
 
 } // namespace facebook::velox::exec

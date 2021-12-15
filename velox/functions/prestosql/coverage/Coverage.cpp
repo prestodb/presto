@@ -275,14 +275,12 @@ std::vector<std::string> getSortedScalarNames() {
 /// Velox.
 std::vector<std::string> getSortedAggregateNames() {
   const auto& functions = exec::aggregateFunctions();
-  const auto& moreFunctions = exec::AggregateFunctions().Keys();
 
   std::vector<std::string> names;
-  names.reserve(functions.size() + moreFunctions.size());
+  names.reserve(functions.size());
   for (const auto& entry : functions) {
     names.push_back(entry.first);
   }
-  names.insert(names.end(), moreFunctions.begin(), moreFunctions.end());
   std::sort(names.begin(), names.end());
   return names;
 }
@@ -353,12 +351,10 @@ void printCoverageMap(
     veloxNames.emplace(func.first);
   }
 
-  auto veloxAggregateFunctions = exec::AggregateFunctions().Keys();
-  std::unordered_set<std::string> veloxAggNames(
-      veloxAggregateFunctions.begin(), veloxAggregateFunctions.end());
+  std::unordered_set<std::string> veloxAggNames;
 
-  const auto& moreVeloxAggregateFunctions = exec::aggregateFunctions();
-  for (const auto& entry : moreVeloxAggregateFunctions) {
+  const auto& veloxAggregateFunctions = exec::aggregateFunctions();
+  for (const auto& entry : veloxAggregateFunctions) {
     veloxAggNames.emplace(entry.first);
   }
 

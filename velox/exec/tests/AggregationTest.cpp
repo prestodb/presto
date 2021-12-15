@@ -343,7 +343,7 @@ TEST_F(AggregationTest, hashmodes) {
   createDuckDbTable(batches);
   auto op = PlanBuilder()
                 .values(batches)
-                .finalAggregation({0, 1, 2, 3, 4, 5}, {"sum(1)"})
+                .singleAggregation({0, 1, 2, 3, 4, 5}, {"sum(1)"})
                 .planNode();
 
   assertQuery(
@@ -371,7 +371,7 @@ TEST_F(AggregationTest, rangeToDistinct) {
   createDuckDbTable(batches);
   auto op = PlanBuilder()
                 .values(batches)
-                .finalAggregation({0, 1, 2, 3, 4, 5}, {"sum(1)"})
+                .singleAggregation({0, 1, 2, 3, 4, 5}, {"sum(1)"})
                 .planNode();
 
   assertQuery(
@@ -397,7 +397,7 @@ TEST_F(AggregationTest, allKeyTypes) {
   createDuckDbTable(batches);
   auto op = PlanBuilder()
                 .values(batches)
-                .finalAggregation({0, 1, 2, 3, 4, 5}, {"sum(1)"})
+                .singleAggregation({0, 1, 2, 3, 4, 5}, {"sum(1)"})
                 .planNode();
 
   assertQuery(
@@ -431,7 +431,7 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
   params.planNode = PlanBuilder()
                         .values(vectors)
                         .partialAggregation({0}, {})
-                        .finalAggregation({0}, {})
+                        .finalAggregation()
                         .planNode();
 
   assertQuery(params, "SELECT distinct c0 FROM tmp");
@@ -440,7 +440,7 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
   params.planNode = PlanBuilder()
                         .values(vectors)
                         .partialAggregation({0}, {"count(1)"})
-                        .finalAggregation({0}, {"sum(a0)"})
+                        .finalAggregation()
                         .planNode();
 
   assertQuery(params, "SELECT c0, count(1) FROM tmp GROUP BY 1");

@@ -74,7 +74,7 @@ TEST_F(CountAggregation, count) {
     auto agg = PlanBuilder()
                    .values(vectors)
                    .project({"cast(c1 as bigint)"}, {"c1_bigint"})
-                   .finalAggregation({}, {"count(c1_bigint)"})
+                   .finalAggregation({}, {"count(c1_bigint)"}, {BIGINT()})
                    .planNode();
     assertQuery(agg, "SELECT sum(c1) FROM tmp");
   }

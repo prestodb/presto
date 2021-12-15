@@ -1403,7 +1403,7 @@ TEST_P(TableScanTest, filterPushdown) {
   assertQuery(
       PlanBuilder()
           .tableScan(ROW({}, {}), tableHandle, assignments)
-          .finalAggregation({}, {"sum(1)"})
+          .singleAggregation({}, {"sum(1)"})
           .planNode(),
       filePaths,
       "SELECT count(*) FROM tmp WHERE (c1 >= 0 OR c1 IS NULL) AND c3");
@@ -1414,7 +1414,7 @@ TEST_P(TableScanTest, filterPushdown) {
   assertQuery(
       PlanBuilder()
           .tableScan(ROW({}, {}), tableHandle, assignments)
-          .finalAggregation({}, {"sum(1)"})
+          .singleAggregation({}, {"sum(1)"})
           .planNode(),
       filePaths,
       "SELECT count(*) FROM tmp");

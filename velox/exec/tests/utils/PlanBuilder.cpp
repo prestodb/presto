@@ -231,11 +231,6 @@ class AggregateTypeResolver {
       }
     }
 
-    auto aggregate =
-        exec::Aggregate::create(functionName, step_, types, UNKNOWN());
-    if (aggregate) {
-      return aggregate->resultType();
-    }
     return nullptr;
   }
 

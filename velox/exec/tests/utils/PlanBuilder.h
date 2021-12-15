@@ -69,15 +69,13 @@ class PlanBuilder {
   PlanBuilder& partialAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::vector<std::string>& masks = {},
-      const std::vector<TypePtr>& resultTypes = {}) {
+      const std::vector<std::string>& masks = {}) {
     return aggregation(
         groupingKeys,
         aggregates,
         masks,
         core::AggregationNode::Step::kPartial,
-        false,
-        resultTypes);
+        false);
   }
 
   /// Add final aggregation plan node to match the current partial aggregation
