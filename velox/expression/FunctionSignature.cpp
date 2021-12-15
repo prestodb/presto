@@ -84,7 +84,7 @@ TypeSignature parseTypeSignature(const std::string& signature) {
     nestedTypes.emplace_back(parseTypeSignature(token));
 
     prevPos = commaPos + 1;
-    commaPos = signature.find(',', prevPos);
+    commaPos = findNextComma(signature, prevPos);
   }
 
   auto token = signature.substr(prevPos, endParenPos - prevPos);

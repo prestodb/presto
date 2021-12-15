@@ -77,6 +77,11 @@ TEST(ParseTypeSignatureTest, roundTrip) {
   ASSERT_EQ(roundTrip("map(K,V)"), "map(K,V)");
 
   ASSERT_EQ(roundTrip("function(S,R)"), "function(S,R)");
+
+  // Test a complex type as the second field in a row
+  ASSERT_EQ(
+      roundTrip("row(map(K,V),map(bigint,array(double)))"),
+      "row(map(K,V),map(bigint,array(double)))");
 }
 
 TEST(ParseTypeSignatureTest, invalidSignatures) {
