@@ -710,6 +710,8 @@ once and reuse it for all the batches of data.
         const std::string& name,
         const std::vector<VectorFunctionArg>& inputArgs)>;
 
+.. _function-signature:
+
 Function signature
 ^^^^^^^^^^^^^^^^^^
 

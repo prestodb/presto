@@ -101,15 +101,15 @@ To add an aggregate function,
     * Figure out what are the input, intermediate and final types.
     * Figure out what are partial and final calculations.
     * Design the accumulator.
-    * Create a new class that extends f4d::exec::Aggregate base class (see velox/exec/Aggregate.h) and implement virtual methods.
-* Register the new function using exec::AggregateFunctions().Register(...) method.
+    * Create a new class that extends velox::exec::Aggregate base class (see velox/exec/Aggregate.h) and implement virtual methods.
+* Register the new function using exec::registerAggregateFunction(...).
 * Add tests.
 * Write documentation.
 
 Accumulator size
 ----------------
 
-The implementation of the f4d::exec::Aggregate interface can start with *accumulatorFixedWidthSize()* method.
+The implementation of the velox::exec::Aggregate interface can start with *accumulatorFixedWidthSize()* method.
 
 .. code-block:: c++
 
@@ -118,7 +118,7 @@ The implementation of the f4d::exec::Aggregate interface can start with *accumul
       // width part of the state from the fixed part.
       virtual int32_t accumulatorFixedWidthSize() const = 0;
 
-The HashAggregation operator uses this method during initialization to calculate the total size of the row and figure out offsets at which different aggregates will be storing their data. The operator then calls f4d::exec::Aggregate::setOffsets method for each aggregate to specify the location of the accumulator.
+The HashAggregation operator uses this method during initialization to calculate the total size of the row and figure out offsets at which different aggregates will be storing their data. The operator then calls velox::exec::Aggregate::setOffsets method for each aggregate to specify the location of the accumulator.
 
 .. code-block:: c++
 
@@ -272,78 +272,117 @@ Global aggregation is similar to group-by aggregation, but there is only one gro
 Factory function
 ----------------
 
-We can now write a factory function that creates an instance of the new aggregation function and register it using exec::AggregateFunctions().Register(...) method.
+We can now write a factory function that creates an instance of the new
+aggregation function and register it by calling exec::registerAggregateFunction
+(...) and specifying function name and signatures.
 
-.. code-block:: c++
+HashAggregation operator uses this function to create an instance of the
+aggregate function. A new instance is created for each thread of execution. When
+partial aggregation runs on 5 threads, it uses 5 instances of each aggregate
+function.
 
-    static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-        registerApproxPercentile(kApproxPercentile);
-
-HashAggregation operator uses this function to create an instance of the aggregate function. New instance is created for each thread of execution. When partial aggregation runs on 5 threads, it uses 5 instances of each aggregate function.
-
-Factory function takes core::AggregationNode::Step (partial/final/intermediate/single) which tells what type of input to expect, input type and result type.
+Factory function takes core::AggregationNode::Step
+(partial/final/intermediate/single) which tells what type of input to expect,
+input type and result type.
 
 .. code-block:: c++
 
         bool registerApproxPercentile(const std::string& name) {
-          exec::AggregateFunctions().Register(
+          std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+          ...
+
+          exec::registerAggregateFunction(
               name,
+              std::move(signatures),
               [name](
                   core::AggregationNode::Step step,
                   const std::vector<TypePtr>& argTypes,
                   const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
-                auto isRawInput = exec::isRawInput(step);
-                auto isPartialOutput = exec::isPartialOutput(step);
-                auto hasWeight = argTypes.size() == 3;
-
-                TypePtr type = isRawInput ? argTypes[0] : resultType;
-
-                if (isRawInput) {
-                  <...Check raw input types...>
-                } else {
-                  <...Check intermediate results types...>
-                }
-
                 if (step == core::AggregationNode::Step::kIntermediate) {
                   return std::make_unique<ApproxPercentileAggregate<double>>(
                       false, false, VARBINARY());
                 }
 
-                auto aggResultType =
-                    isPartialOutput ? VARBINARY() : (isRawInput ? type : resultType);
+                auto hasWeight = argTypes.size() == 3;
+                TypePtr type = exec::isRawInput(step) ? argTypes[0] : resultType;
 
                 switch (type->kind()) {
                   case TypeKind::BIGINT:
                     return std::make_unique<ApproxPercentileAggregate<int64_t>>(
-                        isRawInput, hasWeight, aggResultType);
+                        hasWeight, resultType);
                   case TypeKind::DOUBLE:
                     return std::make_unique<ApproxPercentileAggregate<double>>(
-                        isRawInput, hasWeight, aggResultType);
+                        hasWeight, resultType);
                   ...
                 }
               });
           return true;
         }
 
+        static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
+            registerApproxPercentile(kApproxPercentile);
+
+Use FunctionSignatureBuilder to create FunctionSignature instances which
+describe supported signatures. Each signature includes zero or more input
+types, an intermediate result type and final result type.
+
+FunctionSignatureBuilder and FunctionSignature support Java-like
+generics, variable number of arguments and lambdas. See more in
+:ref:`function-signature` section of the :doc:`scalar-functions` guide.
+
+Here is an example of signatures for the :func:`approx_percentile` function. This
+functions takes value argument of a numeric type, an optional weight argument
+of type INTEGER, and a percentage argument of type DOUBLE. The intermediate
+type does not depend on the input types and is always VARBINARY. The final
+result type is the same as input value type.
+
+.. code-block:: c++
+
+        for (const auto& inputType :
+               {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
+            // (x, double percentage) -> varbinary -> x
+            signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                                     .returnType(inputType)
+                                     .intermediateType("varbinary")
+                                     .argumentType(inputType)
+                                     .argumentType("double")
+                                     .build());
+
+            // (x, integer weight, double percentage) -> varbinary -> x
+            signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                                     .returnType(inputType)
+                                     .intermediateType("varbinary")
+                                     .argumentType(inputType)
+                                     .argumentType("bigint")
+                                     .argumentType("double")
+                                     .build());
+          }
+
 Testing
 -------
 
-It is time to put all the pieces together and test how well the new function works.
+It is time to put all the pieces together and test how well the new function
+works.
 
-Use AggregationTestBase from velox/aggregates/tests/AggregationTestBase.h as a base class for the test.
+Use AggregationTestBase from velox/aggregates/tests/AggregationTestBase.h as a
+base class for the test.
 
-If the new aggregate function is supported by DuckDB, you can use DuckDB to check results. In this case you write a query plan with an aggregation node that uses the new function and compare the results of that plan with SQL query that runs on DuckDB.
+If the new aggregate function is supported by DuckDB, you can use DuckDB to
+check results. In this case you write a query plan with an aggregation node
+that uses the new function and compare the results of that plan with SQL query
+that runs on DuckDB.
 
 .. code-block:: c++
 
       agg = PlanBuilder()
                 .values(vectors)
                 .partialAggregation({0}, {"sum(c1)"})
-                .finalAggregation({0}, {"sum(a0)"})
+                .finalAggregation()
                 .planNode();
       assertQuery(agg, "SELECT c0, sum(c1) FROM tmp GROUP BY 1");
 
-If the new function is not supported by DuckDB, you need to specify the expected results manually.
+If the new function is not supported by DuckDB, you need to specify the expected
+results manually.
 
 .. code-block:: c++
 
@@ -367,15 +406,11 @@ If the new function is not supported by DuckDB, you need to specify the expected
                  .values({rowVector})
                  .partialAggregation(
                      {0}, {fmt::format("approx_percentile(c1, {})", percentile)})
-                 .finalAggregation(
-                     {0}, {"approx_percentile(a0)"}, {values()->type()})
+                 .finalAggregation()
                  .planNode();
 
         assertQuery(op, expectedResult);
       }
-
-Known Limitations
------------------
 
 As shown in the example above, you can use PlanBuilder to create aggregation plan nodes.
 
@@ -383,46 +418,19 @@ As shown in the example above, you can use PlanBuilder to create aggregation pla
 * finalAggregation() creates plan node for a final aggregation
 * singleAggregation() creates plan node for a single agg
 
-Each of these methods takes a list of grouping keys (as indices into the input RowVector)
-and a list of aggregate functions (as SQL strings). Testing framework parses SQL strings
-for the aggregate functions and infers the types of the results. It does so by calling
-exec::Aggregate::create() to create an instance of the aggregate function. It passes
-input types, aggregation step (partial/intermediate/fina/single) and bogus result type
-(UNKNOWN). It then uses Aggregate::resultType() getter to get the actual result type of
-the aggregate function.
+partialAggregation() and singleAggregation() methods take a list of grouping
+keys (as indices into the input RowVector) and a list of aggregate functions
+(as SQL strings). Testing framework parses SQL strings for the aggregate
+functions and infers the types of the results using signatures stored in the
+registry.
 
-.. code-block:: c++
+finalAggregation() method doesn't take any parameters and infers grouping keys
+and aggregate functions from the preceding partial aggregation.
 
-      std::shared_ptr<const Type> resolveType(
-          const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs,
-          const std::shared_ptr<const core::CallExpr>& expr) const {
-        std::vector<TypePtr> types;
-        for (auto& input : inputs) {
-          types.push_back(input->type());
-        }
-        auto functionName = expr->getFunctionName();
+When building a plan that includes final aggregation without the corresponding
+partial aggregation, use finalAggregation() variant that takes grouping keys,
+aggregate functions and aggregate functions result types.
 
-        auto aggregate =
-            exec::Aggregate::create(functionName, step_, types, UNKNOWN());
-        if (aggregate) {
-          return aggregate->resultType();
-        }
-        return nullptr;
-      }
-
-This works for most aggregate functions, but some aggregate functions cannot
-infer return type from input types alone.
-
-For example, :func:`approx_percentile` supports multiple raw input types:
-integers and floating point numbers. The type of the intermediate results for
-:func:`approx_percentile` is always VARBINARY (serialized T-Digest sketch),
-regardless of the raw input type. The type of the final results is the same
-as the type of the raw input. Therefore, final :func:`approx_percentile`
-aggregation receives VARBINARY type as input and returns any of the supported
-input types. This function cannot infer the result type from just the input types.
-
-As a workaround, PlanBuilder::finalAggregation() takes an option parameter
-that specifies the result type of the aggregate function.
 For example,
 
 .. code-block:: c++
@@ -431,12 +439,8 @@ For example,
             ...
             .finalAggregation({0}, {"approx_percentile(a0)"}, {DOUBLE()})
 
-creates an approx_percentile aggregate with DOUBLE as return type.
-
-A proper solution would be to modify the function registry to add a separate
-type resolution function for each aggregate function. That function would take
-aggregate function name and raw input types and return the types of the intermediate
-and final results.
+creates a final aggregation using an approx_percentile aggregate function with
+DOUBLE result type.
 
 Documentation
 -------------
@@ -448,7 +452,7 @@ You can see the documentation for all functions at :doc:`../functions/aggregate`
 Accumulator
 -----------
 
-Variable-width accumulators need to use :doc:`HashStringAllocator <arena>` to allocate memory. An instance of the allocator is available in the base class: *f4d::exec::Aggregate::allocator_*.
+Variable-width accumulators need to use :doc:`HashStringAllocator <arena>` to allocate memory. An instance of the allocator is available in the base class: *velox::exec::Aggregate::allocator_*.
 
 Sometimes you’ll need to create a custom accumulator. Sometimes one of the existing accumulators would do the jobs.
 
