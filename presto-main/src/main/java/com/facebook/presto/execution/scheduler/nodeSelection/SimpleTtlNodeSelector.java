@@ -163,6 +163,12 @@ public class SimpleTtlNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
+        boolean isNodeSelectionStrategyNoPreference = splits.stream().allMatch(split -> split.getNodeSelectionStrategy() == NodeSelectionStrategy.NO_PREFERENCE);
+        // Current NodeSelectionStrategy support is limited to NO_PREFERENCE
+        if (!isNodeSelectionStrategyNoPreference) {
+            return simpleNodeSelector.computeAssignments(splits, existingTasks);
+        }
+
         ImmutableMultimap.Builder<InternalNode, Split> assignment = ImmutableMultimap.builder();
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
