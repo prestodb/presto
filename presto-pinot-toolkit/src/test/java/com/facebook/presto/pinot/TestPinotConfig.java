@@ -29,6 +29,7 @@ public class TestPinotConfig
         ConfigAssertions.assertRecordedDefaults(
                 ConfigAssertions.recordDefaults(PinotConfig.class)
                         .setExtraHttpHeaders("")
+                        .setExtraGrpcMetadata("")
                         .setControllerUrls("")
                         .setIdleTimeout(new Duration(5, TimeUnit.MINUTES))
                         .setLimitLargeForSegment(PinotConfig.DEFAULT_LIMIT_LARGE_FOR_SEGMENT)
@@ -76,6 +77,7 @@ public class TestPinotConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("pinot.extra-http-headers", "k:v")
+                .put("pinot.extra-grpc-metadata", "k1:v1")
                 .put("pinot.controller-rest-service", "pinot-controller-service")
                 .put("pinot.controller-urls", "host1:1111,host2:1111")
                 .put("pinot.idle-timeout", "1h")
@@ -119,6 +121,7 @@ public class TestPinotConfig
 
         PinotConfig expected = new PinotConfig()
                 .setExtraHttpHeaders("k:v")
+                .setExtraGrpcMetadata("k1:v1")
                 .setControllerRestService("pinot-controller-service")
                 .setControllerUrls("host1:1111,host2:1111")
                 .setRestProxyUrl("localhost:1111")

@@ -29,7 +29,7 @@ public class PinotProxyGrpcRequestBuilder
     private static final String KEY_OF_PROXY_GRPC_FORWARD_PORT = "FORWARD_PORT";
 
     private String hostName;
-    private int port;
+    private int port = -1;
     private int requestId;
     private String brokerId = "unknown";
     private boolean enableTrace;
@@ -51,44 +51,44 @@ public class PinotProxyGrpcRequestBuilder
         return this;
     }
 
-    public GrpcRequestBuilder setRequestId(int requestId)
+    public PinotProxyGrpcRequestBuilder setRequestId(int requestId)
     {
         this.requestId = requestId;
         return this;
     }
 
-    public GrpcRequestBuilder setBrokerId(String brokerId)
+    public PinotProxyGrpcRequestBuilder setBrokerId(String brokerId)
     {
         this.brokerId = brokerId;
         return this;
     }
 
-    public GrpcRequestBuilder setEnableTrace(boolean enableTrace)
+    public PinotProxyGrpcRequestBuilder setEnableTrace(boolean enableTrace)
     {
         this.enableTrace = enableTrace;
         return this;
     }
 
-    public GrpcRequestBuilder setEnableStreaming(boolean enableStreaming)
+    public PinotProxyGrpcRequestBuilder setEnableStreaming(boolean enableStreaming)
     {
         this.enableStreaming = enableStreaming;
         return this;
     }
 
-    public GrpcRequestBuilder setSql(String sql)
+    public PinotProxyGrpcRequestBuilder setSql(String sql)
     {
         payloadType = Constants.Request.PayloadType.SQL;
         this.sql = sql;
         return this;
     }
 
-    public GrpcRequestBuilder addExtraMetadata(Map<String, String> extraMetadata)
+    public PinotProxyGrpcRequestBuilder addExtraMetadata(Map<String, String> extraMetadata)
     {
         this.extraMetadata.putAll(extraMetadata);
         return this;
     }
 
-    public GrpcRequestBuilder setSegments(List<String> segments)
+    public PinotProxyGrpcRequestBuilder setSegments(List<String> segments)
     {
         this.segments = segments;
         return this;
@@ -108,8 +108,12 @@ public class PinotProxyGrpcRequestBuilder
         metadata.put(Constants.Request.MetadataKeys.ENABLE_TRACE, Boolean.toString(enableTrace));
         metadata.put(Constants.Request.MetadataKeys.ENABLE_STREAMING, Boolean.toString(enableStreaming));
         metadata.put(Constants.Request.MetadataKeys.PAYLOAD_TYPE, payloadType);
-        metadata.put(KEY_OF_PROXY_GRPC_FORWARD_HOST, this.hostName);
-        metadata.put(KEY_OF_PROXY_GRPC_FORWARD_PORT, String.valueOf(this.port));
+        if (this.hostName != null) {
+            metadata.put(KEY_OF_PROXY_GRPC_FORWARD_HOST, this.hostName);
+        }
+        if (this.port > 0) {
+            metadata.put(KEY_OF_PROXY_GRPC_FORWARD_PORT, String.valueOf(this.port));
+        }
         extraMetadata.forEach((k, v) -> metadata.put(k, v));
         return Server.ServerRequest.newBuilder()
             .putAllMetadata(metadata)
