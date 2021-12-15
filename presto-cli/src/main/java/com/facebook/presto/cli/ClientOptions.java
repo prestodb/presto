@@ -188,7 +188,9 @@ public class ClientOptions
 
         HostAndPort host = HostAndPort.fromString(server);
         try {
-            return new URI("http", null, host.getHost(), host.getPortOrDefault(80), null, null, null);
+            int port = host.getPortOrDefault(80);
+            String scheme = port == 443 ? "https" : "http";
+            return new URI(scheme, null, host.getHost(), port, null, null, null);
         }
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
