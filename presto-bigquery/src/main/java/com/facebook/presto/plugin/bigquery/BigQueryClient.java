@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Dataset;
@@ -25,18 +27,17 @@ import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_QUERY_FAILED_UNKNOWN;
+import static com.google.cloud.bigquery.Field.Mode.NULLABLE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -62,6 +63,52 @@ public class BigQueryClient
         this.viewMaterializationDataset = requireNonNull(config.getViewMaterializationDataset(), "viewMaterializationDataset is null");
     }
 
+    public BigQueryTable createTable(ConnectorTableMetadata meta)
+    {
+        Map<String, Object> tableProperties = meta.getProperties();
+        String rowIdColumn = getRowIdColumn(meta);
+
+        // Get the list of column handles
+        List<BigQueryColumnHandle> columns = getColumnHandles(meta);
+
+        // Create the BigQueryTable object
+        BigQueryTable table = new BigQueryTable(
+                meta.getTable().getSchemaName(),
+                meta.getTable().getTableName(),
+                columns,
+                rowIdColumn,
+                BigQueryTableProperties.isExternal(tableProperties),
+                BigQueryTableProperties.getScanAuthorizations(tableProperties));
+
+        return table;
+    }
+
+    private static String getRowIdColumn(ConnectorTableMetadata meta)
+    {
+        Optional<String> rowIdColumn = BigQueryTableProperties.getRowId(meta.getProperties());
+        return rowIdColumn.orElse(meta.getColumns().get(0).getName()).toLowerCase(Locale.ENGLISH);
+    }
+
+    private static List<BigQueryColumnHandle> getColumnHandles(ConnectorTableMetadata meta)
+    {
+        // The list of indexed columns
+        Optional<List<String>> indexedColumns = BigQueryTableProperties.getIndexColumns(meta.getProperties());
+
+        // And now we parse the configured columns and create handles for the metadata manager
+        ImmutableList.Builder<BigQueryColumnHandle> cBuilder = ImmutableList.builder();
+        for (int ordinal = 0; ordinal < meta.getColumns().size(); ++ordinal) {
+            ColumnMetadata cm = meta.getColumns().get(ordinal);
+
+            boolean indexed = indexedColumns.isPresent() && indexedColumns.get().contains(cm.getName().toLowerCase(Locale.ENGLISH));
+
+            // Create a new object
+            cBuilder.add(
+                    new BigQueryColumnHandle(
+                            cm.getName(), BigQueryType.valueOf(cm.getType().toString()), NULLABLE, ImmutableList.of(), null));
+        }
+
+        return cBuilder.build();
+    }
     public TableInfo getTable(TableId tableId)
     {
         TableId bigQueryTableId = tableIds.get(tableId);

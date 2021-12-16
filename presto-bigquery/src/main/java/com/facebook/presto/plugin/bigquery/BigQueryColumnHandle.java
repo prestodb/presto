@@ -35,11 +35,13 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryColumnHandle
         implements ColumnHandle, Adaptor
 {
+    private boolean indexed;
     private final String name;
     private final BigQueryType bigQueryType;
     private final Mode mode;
     private final List<BigQueryColumnHandle> subColumns;
     private final String description;
+    private int ordinal;
 
     @JsonCreator
     public BigQueryColumnHandle(
@@ -62,6 +64,17 @@ public class BigQueryColumnHandle
         return name;
     }
 
+    @JsonProperty
+    public int getOrdinal()
+    {
+        return ordinal;
+    }
+
+    @JsonProperty
+    public boolean isIndexed()
+    {
+        return indexed;
+    }
     @Override
     @JsonProperty
     public BigQueryType getBigQueryType()
@@ -140,4 +153,6 @@ public class BigQueryColumnHandle
                 .add("description", description)
                 .toString();
     }
+
+
 }
