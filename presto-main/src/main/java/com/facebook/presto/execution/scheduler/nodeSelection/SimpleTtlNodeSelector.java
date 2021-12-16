@@ -218,7 +218,6 @@ public class SimpleTtlNodeSelector
 
         ListenableFuture<?> blocked = splitWaitingForAnyNode ?
                 toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask)) : immediateFuture(null);
-
         return new SplitPlacementResult(blocked, assignment.build());
     }
 
