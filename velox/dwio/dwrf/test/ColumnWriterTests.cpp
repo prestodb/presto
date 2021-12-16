@@ -1619,7 +1619,7 @@ struct IntegerColumnWriterTypedTestCase {
       for (size_t j = 0; j != repetitionCount; ++j) {
         columnWriter->write(batch, Ranges::of(0, batch->size()));
         if (callAbandonDict(i, j)) {
-          columnWriter->abandonDictionaries();
+          columnWriter->tryAbandonDictionaries(true);
         }
         columnWriter->createIndexEntry();
       }
@@ -2486,7 +2486,7 @@ struct StringColumnWriterTestCase {
         // TODO: break the batch into multiple strides.
         columnWriter->write(batches[j], Ranges::of(0, size));
         if (callAbandonDict(i, j)) {
-          columnWriter->abandonDictionaries();
+          columnWriter->tryAbandonDictionaries(true);
         }
         columnWriter->createIndexEntry();
       }
@@ -3160,7 +3160,7 @@ struct DictColumnWriterTestCase {
 
     // Testing write direct paths
     if (writeDirect_) {
-      writer->abandonDictionaries();
+      writer->tryAbandonDictionaries(true);
     }
     writer->write(batch, Ranges::of(0, batch->size()));
     writer->createIndexEntry();

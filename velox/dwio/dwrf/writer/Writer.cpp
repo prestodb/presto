@@ -39,7 +39,10 @@ void Writer::write(const VectorPtr& slice) {
     length = std::min(length, slice->size() - offset);
     VELOX_CHECK_GT(length, 0);
     if (shouldFlush(context, length)) {
-      flush();
+      abandonLowValueDictionaries();
+      if (shouldFlush(context, length)) {
+        flush();
+      }
     }
 
     auto rawSize = writer_->write(slice, Ranges::of(offset, offset + length));

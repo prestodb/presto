@@ -119,9 +119,12 @@ class ColumnWriter {
     return size;
   }
 
-  virtual void abandonDictionaries() {
+  // Determine whether dictionary is the right encoding to use when writing
+  // the first stripe. We will continue using the same decision for all
+  // subsequent stripes.
+  virtual void tryAbandonDictionaries(bool force) {
     for (auto& child : children_) {
-      child->abandonDictionaries();
+      child->tryAbandonDictionaries(force);
     }
   }
 

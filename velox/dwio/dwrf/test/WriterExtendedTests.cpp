@@ -411,26 +411,26 @@ TEST(E2EWriterTests, FlushPolicyWithMemoryBudget) {
       FlushPolicyTestCase{
           /*stripeSize*/ 2 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 21,
-          /*numStripesUpper*/ 21,
+          /*numStripesLower*/ 20,
+          /*numStripesUpper*/ 20,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
           /*stripeSize*/ 2 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 21,
-          /*numStripesUpper*/ 21,
+          /*numStripesLower*/ 20,
+          /*numStripesUpper*/ 20,
           /*seed*/ 1630160118,
           13 * kSizeMB},
       FlushPolicyTestCase{
           /*stripeSize*/ 32 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 2,
-          /*numStripesUpper*/ 2,
+          /*numStripesLower*/ 1,
+          /*numStripesUpper*/ 1,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
           /*stripeSize*/ 32 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 3,
+          /*numStripesLower*/ 2,
           /*numStripesUpper*/ 3,
           /*seed*/ 1630160118,
           40 * kSizeMB});

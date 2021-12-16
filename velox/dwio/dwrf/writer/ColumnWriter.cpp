@@ -248,40 +248,19 @@ class IntegerColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    // Determine whether dictionary is the right encoding to use when writing
-    // the first stripe. We will continue using the same decision for all
-    // subsequent stripes.
-    // When we have already determined not to use dictionary encoding prior to
-    // flush, we would skip this block.
-    if (UNLIKELY(firstStripe_) && useDictionaryEncoding_) {
-      // Determine whether dictionary is the right encoding.
-      useDictionaryEncoding_ = shouldKeepDictionary();
-      initStreamWriters(useDictionaryEncoding_);
-      if (!useDictionaryEncoding_) {
-        // Suppress the stream used to initialize dictionary encoder.
-        // TODO: passing factory method into the dict encoder also works
-        // around this problem but has messier code organization.
-        context_.suppressStream(StreamIdentifier{
-            id_,
-            context_.shareFlatMapDictionaries ? 0 : sequence_,
-            0,
-            StreamKind::StreamKind_DICTIONARY_DATA});
-        // Record direct encoding stream starting position.
-        recordDirectEncodingStreamPositions(0);
-        convertToDirectEncoding();
-      }
-    }
+    tryAbandonDictionaries(false);
+    initStreamWriters(useDictionaryEncoding_);
 
+    size_t dictEncoderSize = dictEncoder_.size();
     if (useDictionaryEncoding_) {
       finalDictionarySize_ = dictEncoder_.flush();
       populateDictionaryEncodingStreams();
+      dictEncoder_.clear();
+      rows_.clear();
     }
 
     // NOTE: Flushes index. All index entries need to have been backfilled.
     ColumnWriter::flush(encodingFactory, encodingOverride);
-    size_t dictEncoderSize = dictEncoder_.size();
-    dictEncoder_.clear();
-    rows_.clear();
 
     ensureValidStreamWriters(useDictionaryEncoding_);
     // Flush in the order of the spec: IN_DICT, DICT_DATA, DATA
@@ -351,21 +330,31 @@ class IntegerColumnWriter : public ColumnWriter {
 
   // This incurs additional memory usage. A good long term adjustment but not
   // viable mitigation to memory pressure.
-  void abandonDictionaries() override {
-    if (!useDictionaryEncoding_) {
-      return;
-    }
-    useDictionaryEncoding_ = false;
+  void tryAbandonDictionaries(bool force) override {
     // TODO: hopefully not required in the future, but need to solve the problem
     // of replacing/deleting streams.
-    DWIO_ENSURE(firstStripe_);
-    initStreamWriters(useDictionaryEncoding_);
-    // Record direct encoding stream starting position.
-    recordDirectEncodingStreamPositions(0);
-    convertToDirectEncoding();
-    dictEncoder_.clear();
-    rows_.clear();
-    strideOffsets_.clear();
+    if (!useDictionaryEncoding_ || !firstStripe_) {
+      return;
+    }
+
+    useDictionaryEncoding_ = shouldKeepDictionary() && !force;
+    if (!useDictionaryEncoding_) {
+      initStreamWriters(useDictionaryEncoding_);
+      // Record direct encoding stream starting position.
+      recordDirectEncodingStreamPositions(0);
+      convertToDirectEncoding();
+      // Suppress the stream used to initialize dictionary encoder.
+      // TODO: passing factory method into the dict encoder also works
+      // around this problem but has messier code organization.
+      context_.suppressStream(StreamIdentifier{
+          id_,
+          context_.shareFlatMapDictionaries ? 0 : sequence_,
+          0,
+          StreamKind::StreamKind_DICTIONARY_DATA});
+      dictEncoder_.clear();
+      rows_.clear();
+      strideOffsets_.clear();
+    }
   }
 
  private:
@@ -377,7 +366,13 @@ class IntegerColumnWriter : public ColumnWriter {
     // Ensure we have valid streams for exactly one encoding.
     DWIO_ENSURE(
         (dictEncoding && data_ && inDictionary_ && !dataDirect_) ||
-        (!dictEncoding && !data_ && !inDictionary_ && dataDirect_));
+            (!dictEncoding && !data_ && !inDictionary_ && dataDirect_),
+        fmt::format(
+            "dictEncoding = {}, data_ = {}, inDictionary_ = {}, dataDirect_ = {}",
+            dictEncoding,
+            data_ != nullptr,
+            inDictionary_ != nullptr,
+            dataDirect_ != nullptr));
   }
 
   void initStreamWriters(bool dictEncoding) {
@@ -833,29 +828,18 @@ class StringColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    // Determine whether dictionary is the right encoding to use when writing
-    // the first stripe. We will continue using the same decision for all
-    // subsequent stripes.
-    if (UNLIKELY(firstStripe_) && useDictionaryEncoding_) {
-      // Determine whether dictionary is the right encoding.
-      useDictionaryEncoding_ = shouldKeepDictionary();
-      initStreamWriters(useDictionaryEncoding_);
-      if (!useDictionaryEncoding_) {
-        // Record direct encoding stream starting position.
-        recordDirectEncodingStreamPositions(0);
-        convertToDirectEncoding();
-      }
-    }
+    tryAbandonDictionaries(false);
+    initStreamWriters(useDictionaryEncoding_);
 
+    size_t dictEncoderSize = dictEncoder_.size();
     if (useDictionaryEncoding_) {
       populateDictionaryEncodingStreams();
+      dictEncoder_.clear();
+      rows_.clear();
     }
 
     // NOTE: Flushes index. All index entries need to have been backfilled.
     ColumnWriter::flush(encodingFactory, encodingOverride);
-    size_t dictEncoderSize = dictEncoder_.size();
-    dictEncoder_.clear();
-    rows_.clear();
 
     ensureValidStreamWriters(useDictionaryEncoding_);
     // Flush in the order of the spec:
@@ -938,21 +922,23 @@ class StringColumnWriter : public ColumnWriter {
     }
   }
 
-  void abandonDictionaries() override {
-    if (!useDictionaryEncoding_) {
-      return;
-    }
-    useDictionaryEncoding_ = false;
+  void tryAbandonDictionaries(bool force) override {
     // TODO: hopefully not required in the future, but need to solve the problem
     // of replacing/deleting streams.
-    DWIO_ENSURE(firstStripe_);
-    initStreamWriters(useDictionaryEncoding_);
-    // Record direct encoding stream starting position.
-    recordDirectEncodingStreamPositions(0);
-    convertToDirectEncoding();
-    dictEncoder_.clear();
-    rows_.clear();
-    strideOffsets_.clear();
+    if (!useDictionaryEncoding_ || !firstStripe_) {
+      return;
+    }
+
+    useDictionaryEncoding_ = shouldKeepDictionary() && !force;
+    if (!useDictionaryEncoding_) {
+      initStreamWriters(useDictionaryEncoding_);
+      // Record direct encoding stream starting position.
+      recordDirectEncodingStreamPositions(0);
+      convertToDirectEncoding();
+      dictEncoder_.clear();
+      rows_.clear();
+      strideOffsets_.clear();
+    }
   }
 
  protected:

@@ -729,7 +729,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
                 EXPECT_CALL(*mockIndexBuilderPtr, add(_, k))
                     .Times(positionCount - 4);
               }
-              columnWriter->abandonDictionaries();
+              columnWriter->tryAbandonDictionaries(true);
               break;
             }
           }
@@ -752,7 +752,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
           if (abandonDict_) {
             if (callAbandonDict(j, i)) {
               // These calls should essentially be no-ops.
-              columnWriter->abandonDictionaries();
+              columnWriter->tryAbandonDictionaries(true);
             }
           }
           EXPECT_CALL(*mockIndexBuilderPtr, addEntry(_))
@@ -790,7 +790,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
           if (abandonDict_) {
             if (callAbandonDict(j, i)) {
               // These calls should essentially be no-ops.
-              columnWriter->abandonDictionaries();
+              columnWriter->tryAbandonDictionaries(true);
             }
           }
           EXPECT_CALL(*mockIndexBuilderPtr, addEntry(_))
@@ -1018,7 +1018,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
                 EXPECT_CALL(*mockIndexBuilderPtr, add(_, k))
                     .Times(positionCount - 4);
               }
-              columnWriter->abandonDictionaries();
+              columnWriter->tryAbandonDictionaries(true);
               break;
             }
           }
@@ -1041,7 +1041,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
           if (abandonDict_) {
             if (callAbandonDict(j, i)) {
               // These calls should essentially be no-ops.
-              columnWriter->abandonDictionaries();
+              columnWriter->tryAbandonDictionaries(true);
             }
           }
           EXPECT_CALL(*mockIndexBuilderPtr, addEntry(_))
@@ -1079,7 +1079,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
           if (abandonDict_) {
             if (callAbandonDict(j, i)) {
               // These calls should essentially be no-ops.
-              columnWriter->abandonDictionaries();
+              columnWriter->tryAbandonDictionaries(true);
             }
           }
           EXPECT_CALL(*mockIndexBuilderPtr, addEntry(_))
