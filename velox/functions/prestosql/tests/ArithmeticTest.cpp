@@ -91,29 +91,29 @@ __attribute__((__no_sanitize__("float-divide-by-zero")))
       "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, kInf, kNan});
 }
 
-TEST_F(ArithmeticTest, modulus) {
+TEST_F(ArithmeticTest, mod) {
   std::vector<double> numerDouble = {0, 6, 0, -7, -1, -9, 9, 10.1};
   std::vector<double> denomDouble = {1, 2, -1, 3, -1, -3, -3, -99.9};
   std::vector<double> expectedDouble = {0, 0, 0, -1, 0, 0, 0, 10.1};
 
   // Check using function name and alias.
   assertExpression<double>(
-      "modulus(c0, c1)", numerDouble, denomDouble, expectedDouble);
+      "mod(c0, c1)", numerDouble, denomDouble, expectedDouble);
   assertExpression<double>(
-      "modulus(c0, c1)",
+      "mod(c0, c1)",
       {5.1, kNan, 5.1, kInf, 5.1},
       {0.0, 5.1, kNan, 5.1, kInf},
       {kNan, kNan, kNan, kNan, 5.1});
 }
 
-TEST_F(ArithmeticTest, modulusInt) {
+TEST_F(ArithmeticTest, modInt) {
   std::vector<int64_t> numerInt = {9, 10, 0, -9, -10, -11};
   std::vector<int64_t> denomInt = {3, -3, 11, -1, 199999, 77};
   std::vector<int64_t> expectedInt = {0, 1, 0, 0, -10, -11};
 
   assertExpression<int64_t, int64_t>(
-      "modulus(c0, c1)", numerInt, denomInt, expectedInt);
-  assertError<int64_t>("modulus(c0, c1)", {10}, {0}, "Cannot divide by 0");
+      "mod(c0, c1)", numerInt, denomInt, expectedInt);
+  assertError<int64_t>("mod(c0, c1)", {10}, {0}, "Cannot divide by 0");
 }
 
 TEST_F(ArithmeticTest, power) {

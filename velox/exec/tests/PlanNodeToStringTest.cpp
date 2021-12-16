@@ -76,9 +76,9 @@ TEST_F(PlanNodeToStringTest, recursiveAndDetailed) {
   auto output = plan_->toString(true, true);
   ASSERT_EQ(
       "->project[expressions: (out3:BIGINT, plus(cast ROW[\"out1\"] as BIGINT,10)), ]\n"
-      "  ->filter[expression: lt(modulus(cast ROW[\"out1\"] as BIGINT,10),8)]\n"
-      "    ->project[expressions: (out1:INTEGER, ROW[\"c0\"]), (out2:BIGINT, plus(modulus(cast ROW[\"c0\"] as BIGINT,100),modulus(cast ROW[\"c1\"] as BIGINT,50))), ]\n"
-      "      ->filter[expression: lt(modulus(cast ROW[\"c0\"] as BIGINT,10),9)]\n"
+      "  ->filter[expression: lt(mod(cast ROW[\"out1\"] as BIGINT,10),8)]\n"
+      "    ->project[expressions: (out1:INTEGER, ROW[\"c0\"]), (out2:BIGINT, plus(mod(cast ROW[\"c0\"] as BIGINT,100),mod(cast ROW[\"c1\"] as BIGINT,50))), ]\n"
+      "      ->filter[expression: lt(mod(cast ROW[\"c0\"] as BIGINT,10),9)]\n"
       "        ->values[]\n",
       output);
 }

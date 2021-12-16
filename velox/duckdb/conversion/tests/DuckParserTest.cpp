@@ -123,7 +123,7 @@ TEST(DuckParserTest, expressions) {
   EXPECT_EQ("minus(1,0)", parseExpr("1 - 0")->toString());
   EXPECT_EQ("multiply(1,0)", parseExpr("1 * 0")->toString());
   EXPECT_EQ("divide(1,0)", parseExpr("1 / 0")->toString());
-  EXPECT_EQ("modulus(1,0)", parseExpr("1 % 0")->toString());
+  EXPECT_EQ("mod(1,0)", parseExpr("1 % 0")->toString());
 
   // ANDs and ORs.
   EXPECT_EQ("and(1,0)", parseExpr("1 and 0")->toString());
@@ -139,7 +139,7 @@ TEST(DuckParserTest, expressions) {
 
   // Mix-and-match.
   EXPECT_EQ(
-      "gte(plus(modulus(\"c0\",10),0),multiply(f(100),9))",
+      "gte(plus(mod(\"c0\",10),0),multiply(f(100),9))",
       parseExpr("c0 % 10 + 0 >= f(100) * 9")->toString());
 }
 

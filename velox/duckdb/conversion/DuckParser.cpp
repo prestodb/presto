@@ -52,7 +52,7 @@ std::string normalizeFuncName(std::string input) {
       {"-", "minus"},
       {"*", "multiply"},
       {"/", "divide"},
-      {"%", "modulus"},
+      {"%", "mod"},
       {"<", "lt"},
       {"<=", "lte"},
       {">", "gt"},
