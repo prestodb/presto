@@ -214,6 +214,113 @@ class FunctionBaseTest : public testing::Test {
     return vectorMaker_.arrayOfRowVector(rowType, data);
   }
 
+  // Create an ArrayVector<ArrayVector<T>> from nested std::vectors of values.
+  // Example:
+  //   std::vector<std::optional<int64_t>> a {1, 2, 3};
+  //   std::vector<std::optional<int64_t>> b {4, 5};
+  //   std::vector<std::optional<int64_t>> c {6, 7, 8};
+  //   auto O = [](const std::vector<std::optional<int64_t>>& data) {
+  //     return std::make_optional(data);
+  //   };
+  //   auto arrayVector = makeNestedArrayVector<int64_t>(
+  //      {{O(a), O(b)},
+  //       {O(a), O(c)},
+  //       {O({})},
+  //       {O({std::nullopt})}});
+  //
+  //   EXPECT_EQ(4, arrayVector->size());
+  template <typename T>
+  ArrayVectorPtr makeNestedArrayVector(
+      const std::vector<
+          std::vector<std::optional<std::vector<std::optional<T>>>>>& data) {
+    vector_size_t size = data.size();
+    BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool());
+    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool());
+
+    auto rawOffsets = offsets->asMutable<vector_size_t>();
+    auto rawSizes = sizes->asMutable<vector_size_t>();
+
+    // Flatten the outermost layer of std::vector of the input, and populate
+    // the sizes and offsets for the top-level array vector.
+    std::vector<std::optional<std::vector<std::optional<T>>>> flattenedData;
+    vector_size_t i = 0;
+    for (const auto& vector : data) {
+      flattenedData.insert(flattenedData.end(), vector.begin(), vector.end());
+
+      rawSizes[i] = vector.size();
+      rawOffsets[i] = (i == 0) ? 0 : rawOffsets[i - 1] + rawSizes[i - 1];
+
+      ++i;
+    }
+
+    // Create the underlying vector.
+    auto baseArray = makeVectorWithNullArrays<T>(flattenedData);
+
+    // Build and return a second-level of ArrayVector on top of baseArray.
+    return std::make_shared<ArrayVector>(
+        pool(),
+        ARRAY(ARRAY(CppToType<T>::create())),
+        BufferPtr(nullptr),
+        size,
+        offsets,
+        sizes,
+        baseArray,
+        0);
+  }
+
+  // Create an ArrayVector<MapVector<TKey, TValue>> from nested std::vectors of
+  // pairs. Example:
+  //   using S = StringView;
+  //   using P = std::pair<int64_t, std::optional<S>>;
+  //   std::vector<P> a {P{1, S{"red"}}, P{2, S{"blue"}}, P{3, S{"green"}}};
+  //   std::vector<P> b {P{1, S{"yellow"}}, P{2, S{"orange"}}};
+  //   std::vector<P> c {P{1, S{"red"}}, P{2, S{"yellow"}}, P{3, S{"purple"}}};
+  //   std::vector<std::vector<std::vector<P>>> data = {{a, b, b}, {b, c}, {c,
+  //   a, c}};
+  //   auto arrayVector = makeArrayOfMapVector<int64_t, S>(data);
+  //
+  //   EXPECT_EQ(3, arrayVector->size());
+  template <typename TKey, typename TValue>
+  ArrayVectorPtr makeArrayOfMapVector(
+      const std::vector<
+          std::vector<std::vector<std::pair<TKey, std::optional<TValue>>>>>&
+          data) {
+    vector_size_t size = data.size();
+    BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool());
+    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool());
+
+    auto rawOffsets = offsets->asMutable<vector_size_t>();
+    auto rawSizes = sizes->asMutable<vector_size_t>();
+
+    // Flatten the outermost std::vector of the input and populate the sizes and
+    // offsets for the top-level array vector.
+    std::vector<std::vector<std::pair<TKey, std::optional<TValue>>>>
+        flattenedData;
+    vector_size_t i = 0;
+    for (const auto& vector : data) {
+      flattenedData.insert(flattenedData.end(), vector.begin(), vector.end());
+
+      rawSizes[i] = vector.size();
+      rawOffsets[i] = (i == 0) ? 0 : rawOffsets[i - 1] + rawSizes[i - 1];
+
+      ++i;
+    }
+
+    // Create the underlying map vector.
+    auto baseVector = makeMapVector<TKey, TValue>(flattenedData);
+
+    // Build and return a second-level of array vector on top of baseVector.
+    return std::make_shared<ArrayVector>(
+        pool(),
+        ARRAY(MAP(CppToType<TKey>::create(), CppToType<TValue>::create())),
+        BufferPtr(nullptr),
+        size,
+        offsets,
+        sizes,
+        baseVector,
+        0);
+  }
+
   // Convenience function to create arrayVectors (vector of arrays) based on
   // input values from nested std::vectors. The underlying array elements are
   // nullable.

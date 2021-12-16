@@ -30,6 +30,7 @@ void registerArrayFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_duplicates, "array_duplicates");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_slice, "slice");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_zip, "zip");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_position, "array_position");
 
   exec::registerStatefulVectorFunction(
       "width_bucket", widthBucketArraySignature(), makeWidthBucketArray);

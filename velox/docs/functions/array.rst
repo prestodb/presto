@@ -53,6 +53,14 @@ Array Functions
         SELECT array_min(ARRAY [-1, -2, NULL]); -- NULL
         SELECT array_min(ARRAY []); -- NULL
 
+.. function:: array_position(x, element) -> bigint
+
+    Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).
+
+.. function:: array_position(x, element, instance) -> bigint
+
+    If ``instance > 0``, returns the position of the ``instance``-th occurrence of the ``element`` in array ``x``. If ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``. If no matching element instance is found, 0 is returned.
+
 .. function:: cardinality(x) -> bigint
 
     Returns the cardinality (size) of the array ``x``.
