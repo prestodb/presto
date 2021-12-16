@@ -84,7 +84,7 @@ class S3ReadFile final : public ReadFile {
 
   uint64_t preadv(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) override {
+      const std::vector<folly::Range<char*>>& buffers) const override {
     VELOX_NYI();
   }
 
