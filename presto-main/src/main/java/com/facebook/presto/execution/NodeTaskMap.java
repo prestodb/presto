@@ -25,10 +25,11 @@ import javax.inject.Inject;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -49,9 +50,9 @@ public class NodeTaskMap
         createOrGetNodeTasks(node).addTask(task);
     }
 
-    public int getPartitionedSplitsOnNode(InternalNode node)
+    public PartitionedSplitsInfo getPartitionedSplitsOnNode(InternalNode node)
     {
-        return createOrGetNodeTasks(node).getPartitionedSplitCount();
+        return createOrGetNodeTasks(node).getPartitionedSplitsInfo();
     }
 
     public long getNodeTotalMemoryUsageInBytes(InternalNode node)
@@ -78,6 +79,7 @@ public class NodeTaskMap
     {
         private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
         private final AtomicLong nodeTotalPartitionedSplitCount = new AtomicLong();
+        private final AtomicLong nodeTotalPartitionedSplitsWeight = new AtomicLong();
         private final AtomicLong nodeTotalMemoryUsageInBytes = new AtomicLong();
         private final AtomicDouble nodeTotalCpuTimePerMillis = new AtomicDouble();
         private final FinalizerService finalizerService;
@@ -87,9 +89,9 @@ public class NodeTaskMap
             this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
         }
 
-        private int getPartitionedSplitCount()
+        private PartitionedSplitsInfo getPartitionedSplitsInfo()
         {
-            return nodeTotalPartitionedSplitCount.intValue();
+            return PartitionedSplitsInfo.forSplitCountAndWeightSum(toIntExact(nodeTotalPartitionedSplitCount.get()), nodeTotalPartitionedSplitsWeight.get());
         }
 
         private long getTotalMemoryUsageInBytes()
@@ -122,10 +124,10 @@ public class NodeTaskMap
         {
             requireNonNull(taskId, "taskId is null");
 
-            TaskStatsTracker splitTracker = new TaskStatsTracker("SplitTracker", taskId, nodeTotalPartitionedSplitCount);
+            PartitionedSplitsTracker splitTracker = new PartitionedSplitsTracker(taskId, nodeTotalPartitionedSplitCount, nodeTotalPartitionedSplitsWeight);
             TaskStatsTracker memoryUsageTracker = new TaskStatsTracker("MemoryTracker", taskId, nodeTotalMemoryUsageInBytes);
             AccumulatedTaskStatsTracker cpuUtilizationPercentageTracker = new AccumulatedTaskStatsTracker("CpuTracker", taskId, nodeTotalCpuTimePerMillis);
-            NodeStatsTracker nodeStatsTracker = new NodeStatsTracker(splitTracker::setValue, memoryUsageTracker::setValue, cpuUtilizationPercentageTracker::setValue);
+            NodeStatsTracker nodeStatsTracker = new NodeStatsTracker(splitTracker, memoryUsageTracker::setValue, cpuUtilizationPercentageTracker::setValue);
 
             // when nodeStatsTracker is garbage collected, run the cleanup method on the tracker
             // Note: tracker can not have a reference to nodeStatsTracker
@@ -138,6 +140,79 @@ public class NodeTaskMap
             });
 
             return nodeStatsTracker;
+        }
+
+        private static class PartitionedSplitsTracker
+                implements Consumer<PartitionedSplitsInfo>
+        {
+            private final TaskId taskId;
+            private final AtomicLong totalSplitCount;
+            private final AtomicLong totalSplitWeight;
+            private final AtomicLong localSplitCount = new AtomicLong();
+            private final AtomicLong localSplitWeight = new AtomicLong();
+
+            public PartitionedSplitsTracker(TaskId taskId, AtomicLong totalSplitCount, AtomicLong totalSplitWeight)
+            {
+                this.taskId = requireNonNull(taskId, "taskId is null");
+                this.totalSplitCount = requireNonNull(totalSplitCount, "totalSplitCount is null");
+                this.totalSplitWeight = requireNonNull(totalSplitWeight, "totalSplitWeight is null");
+            }
+
+            @Override
+            public synchronized void accept(PartitionedSplitsInfo partitionedSplits)
+            {
+                if (partitionedSplits == null || partitionedSplits.getCount() < 0 || partitionedSplits.getWeightSum() < 0) {
+                    clearLocalSplitInfo(false);
+                    requireNonNull(partitionedSplits, "partitionedSplits is null"); // throw NPE if null, otherwise negative value
+                    throw new IllegalArgumentException("Invalid negative value: " + partitionedSplits);
+                }
+
+                long newCount = partitionedSplits.getCount();
+                long newWeight = partitionedSplits.getWeightSum();
+                long countDelta = newCount - localSplitCount.getAndSet(newCount);
+                long weightDelta = newWeight - localSplitWeight.getAndSet(newWeight);
+                if (countDelta != 0) {
+                    totalSplitCount.addAndGet(countDelta);
+                }
+                if (weightDelta != 0) {
+                    totalSplitWeight.addAndGet(weightDelta);
+                }
+            }
+
+            private void clearLocalSplitInfo(boolean reportAsLeaked)
+            {
+                long leakedCount = localSplitCount.getAndSet(0);
+                long leakedWeight = localSplitWeight.getAndSet(0);
+                if (leakedCount == 0 && leakedWeight == 0) {
+                    return;
+                }
+
+                if (reportAsLeaked) {
+                    log.error("BUG! %s for %s leaked with %s partitioned splits (weight: %s). Cleaning up so server can continue to function.",
+                            getClass().getName(),
+                            taskId,
+                            leakedCount,
+                            leakedWeight);
+                }
+
+                totalSplitCount.addAndGet(-leakedCount);
+                totalSplitWeight.addAndGet(-leakedWeight);
+            }
+
+            public void cleanup()
+            {
+                clearLocalSplitInfo(true);
+            }
+
+            @Override
+            public String toString()
+            {
+                return toStringHelper(this)
+                        .add("taskId", taskId)
+                        .add("splits", localSplitCount)
+                        .add("weight", localSplitWeight)
+                        .toString();
+            }
         }
 
         @ThreadSafe
@@ -267,20 +342,20 @@ public class NodeTaskMap
 
     public static class NodeStatsTracker
     {
-        private final IntConsumer splitSetter;
+        private final Consumer<PartitionedSplitsInfo> splitSetter;
         private final LongConsumer memoryUsageSetter;
         private final CumulativeStatsConsumer cpuUsageSetter;
 
-        public NodeStatsTracker(IntConsumer splitSetter, LongConsumer memoryUsageSetter, CumulativeStatsConsumer cpuUsageSetter)
+        public NodeStatsTracker(Consumer<PartitionedSplitsInfo> splitSetter, LongConsumer memoryUsageSetter, CumulativeStatsConsumer cpuUsageSetter)
         {
             this.splitSetter = requireNonNull(splitSetter, "splitSetter is null");
             this.memoryUsageSetter = requireNonNull(memoryUsageSetter, "memoryUsageSetter is null");
             this.cpuUsageSetter = requireNonNull(cpuUsageSetter, "cpuUsageSetter is null");
         }
 
-        public void setPartitionedSplitCount(int partitionedSplitCount)
+        public void setPartitionedSplits(PartitionedSplitsInfo partitionedSplits)
         {
-            splitSetter.accept(partitionedSplitCount);
+            splitSetter.accept(partitionedSplits);
         }
 
         public void setMemoryUsage(long memoryUsage)

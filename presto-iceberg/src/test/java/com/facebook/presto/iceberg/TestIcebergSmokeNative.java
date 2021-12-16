@@ -37,6 +37,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergSmokeNative
         extends AbstractTestIntegrationSmokeTest
@@ -389,20 +390,22 @@ public class TestIcebergSmokeNative
     {
         Session session = getSession();
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM system");
-        assertUpdate(session, "CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");
+        assertUpdate(session, "CREATE TABLE test_rollback AS SELECT * FROM (VALUES (123, CAST(321 AS BIGINT))) AS t (col0, col1)", 1);
         long afterCreateTableId = getLatestSnapshotId();
 
         assertUpdate(session, "INSERT INTO test_rollback (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
         long afterFirstInsertId = getLatestSnapshotId();
 
         assertUpdate(session, "INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
-        assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
+        assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0",
+                "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT)), (123, CAST(321 AS BIGINT))");
 
         assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterFirstInsertId));
-        assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
+        assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0",
+                "VALUES (123, CAST(987 AS BIGINT)), (123, CAST(321 AS BIGINT))");
 
         assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterCreateTableId));
-        assertEquals((long) computeActual(session, "SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 0);
+        assertEquals((long) computeActual(session, "SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 1);
 
         dropTable(session, "test_rollback");
     }
@@ -678,5 +681,16 @@ public class TestIcebergSmokeNative
 
         dropTable(session, "test_nested_table");
         dropTable(session, "test_nested_table2");
+    }
+
+    @Test
+    public void testReadEmptyTable()
+    {
+        assertUpdate("CREATE TABLE test_read_empty (a bigint, b double, c varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_read_empty"));
+        assertQuery("SELECT * FROM test_read_empty", "SELECT * FROM region WHERE name='not_exist'");
+
+        assertUpdate("DROP TABLE test_read_empty");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_original"));
     }
 }

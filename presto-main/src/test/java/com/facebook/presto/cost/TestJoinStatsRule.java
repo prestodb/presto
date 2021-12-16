@@ -41,12 +41,12 @@ import static org.testng.Assert.assertEquals;
 public class TestJoinStatsRule
         extends BaseStatsCalculatorTest
 {
-    private static final VariableReferenceExpression LEFT_JOIN_COLUMN = new VariableReferenceExpression("left_join_column", BIGINT);
-    private static final VariableReferenceExpression LEFT_JOIN_COLUMN_2 = new VariableReferenceExpression("left_join_column_2", BIGINT);
-    private static final VariableReferenceExpression RIGHT_JOIN_COLUMN = new VariableReferenceExpression("right_join_column", DOUBLE);
-    private static final VariableReferenceExpression RIGHT_JOIN_COLUMN_2 = new VariableReferenceExpression("right_join_column_2", DOUBLE);
-    private static final VariableReferenceExpression LEFT_OTHER_COLUMN = new VariableReferenceExpression("left_column", BIGINT);
-    private static final VariableReferenceExpression RIGHT_OTHER_COLUMN = new VariableReferenceExpression("right_column", DOUBLE);
+    private static final VariableReferenceExpression LEFT_JOIN_COLUMN = new VariableReferenceExpression(Optional.empty(), "left_join_column", BIGINT);
+    private static final VariableReferenceExpression LEFT_JOIN_COLUMN_2 = new VariableReferenceExpression(Optional.empty(), "left_join_column_2", BIGINT);
+    private static final VariableReferenceExpression RIGHT_JOIN_COLUMN = new VariableReferenceExpression(Optional.empty(), "right_join_column", DOUBLE);
+    private static final VariableReferenceExpression RIGHT_JOIN_COLUMN_2 = new VariableReferenceExpression(Optional.empty(), "right_join_column_2", DOUBLE);
+    private static final VariableReferenceExpression LEFT_OTHER_COLUMN = new VariableReferenceExpression(Optional.empty(), "left_column", BIGINT);
+    private static final VariableReferenceExpression RIGHT_OTHER_COLUMN = new VariableReferenceExpression(Optional.empty(), "right_column", DOUBLE);
 
     private static final double LEFT_ROWS_COUNT = 500.0;
     private static final double RIGHT_ROWS_COUNT = 1000.0;
@@ -371,7 +371,7 @@ public class TestJoinStatsRule
 
         VariableStatistics(String variableName, VariableStatsEstimate estimate)
         {
-            this(new VariableReferenceExpression(variableName, BIGINT), estimate);
+            this(new VariableReferenceExpression(Optional.empty(), variableName, BIGINT), estimate);
         }
 
         VariableStatistics(VariableReferenceExpression variable, VariableStatsEstimate estimate)

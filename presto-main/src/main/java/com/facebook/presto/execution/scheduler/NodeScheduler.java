@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
@@ -68,6 +69,7 @@ import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.Math.addExact;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -82,8 +84,8 @@ public class NodeScheduler
     private final NodeSelectionStats nodeSelectionStats;
     private final int minCandidates;
     private final boolean includeCoordinator;
-    private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerTask;
+    private final long maxSplitsWeightPerNode;
+    private final long maxPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
     private final Duration nodeMapRefreshInterval;
@@ -131,10 +133,12 @@ public class NodeScheduler
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
-        this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
-        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        int maxSplitsPerNode = config.getMaxSplitsPerNode();
+        int maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
+        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
+        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
@@ -191,8 +195,8 @@ public class NodeScheduler
                     includeCoordinator,
                     nodeMap,
                     minCandidates,
-                    maxSplitsPerNode,
-                    maxPendingSplitsPerTask,
+                    maxSplitsWeightPerNode,
+                    maxPendingSplitsWeightPerTask,
                     maxUnacknowledgedSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
@@ -206,8 +210,8 @@ public class NodeScheduler
                 includeCoordinator,
                 nodeMap,
                 minCandidates,
-                maxSplitsPerNode,
-                maxPendingSplitsPerTask,
+                maxSplitsWeightPerNode,
+                maxPendingSplitsWeightPerTask,
                 maxUnacknowledgedSplitsPerTask,
                 maxTasksPerStage);
 
@@ -219,8 +223,8 @@ public class NodeScheduler
                     nodeMap,
                     minCandidates,
                     includeCoordinator,
-                    maxSplitsPerNode,
-                    maxPendingSplitsPerTask,
+                    maxSplitsWeightPerNode,
+                    maxPendingSplitsWeightPerTask,
                     maxTasksPerStage,
                     nodeTtlFetcherManager,
                     queryManager,
@@ -360,8 +364,8 @@ public class NodeScheduler
     public static SplitPlacementResult selectDistributionNodes(
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
-            int maxSplitsPerNode,
-            int maxPendingSplitsPerTask,
+            long maxSplitsWeightPerNode,
+            long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
@@ -376,9 +380,10 @@ public class NodeScheduler
             // node placement is forced by the bucket to node map
             InternalNode node = bucketNodeMap.getAssignedNode(split).get();
             boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
+            SplitWeight splitWeight = split.getSplitWeight();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (!isDistributionNodeFull(assignmentStats, node, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask)) {
+            if (canAssignSplitToDistributionNode(assignmentStats, node, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splitWeight)) {
                 if (isCacheable) {
                     split = new Split(split.getConnectorId(), split.getTransactionHandle(), split.getConnectorSplit(), split.getLifespan(), new SplitContext(true));
                     nodeSelectionStats.incrementBucketedPreferredNodeSelectedCount();
@@ -387,29 +392,37 @@ public class NodeScheduler
                     nodeSelectionStats.incrementBucketedNonPreferredNodeSelectedCount();
                 }
                 assignments.put(node, split);
-                assignmentStats.addAssignedSplit(node);
+                assignmentStats.addAssignedSplit(node, splitWeight);
             }
             else {
                 blockedNodes.add(node);
             }
         }
 
-        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
         return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
     }
 
-    private static boolean isDistributionNodeFull(NodeAssignmentStats assignmentStats, InternalNode node, int maxSplitsPerNode, int maxPendingSplitsPerTask, int maxUnacknowledgedSplitsPerTask)
+    private static boolean canAssignSplitToDistributionNode(NodeAssignmentStats assignmentStats, InternalNode node, long maxSplitsWeightPerNode, long maxPendingSplitsWeightPerTask, int maxUnacknowledgedSplitsPerTask, SplitWeight splitWeight)
     {
-        return assignmentStats.getUnacknowledgedSplitCountForStage(node) >= maxUnacknowledgedSplitsPerTask ||
-                (assignmentStats.getTotalSplitCount(node) >= maxSplitsPerNode && assignmentStats.getQueuedSplitCountForStage(node) >= maxPendingSplitsPerTask);
+        return assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask &&
+                (canAssignSplitBasedOnWeight(assignmentStats.getTotalSplitsWeight(node), maxSplitsWeightPerNode, splitWeight) ||
+                        canAssignSplitBasedOnWeight(assignmentStats.getQueuedSplitsWeightForStage(node), maxPendingSplitsWeightPerTask, splitWeight));
     }
 
-    public static int calculateLowWatermark(int maxPendingSplitsPerTask)
+    public static boolean canAssignSplitBasedOnWeight(long currentWeight, long weightLimit, SplitWeight splitWeight)
     {
-        return (int) Math.ceil(maxPendingSplitsPerTask / 2.0);
+        // Nodes or tasks that are configured to accept any splits (ie: weightLimit > 0) should always accept at least one split when
+        // empty (ie: currentWeight == 0) to ensure that forward progress can be made if split weights are huge
+        return addExact(currentWeight, splitWeight.getRawValue()) <= weightLimit || (currentWeight == 0 && weightLimit > 0);
     }
 
-    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<InternalNode> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
+    public static long calculateLowWatermark(long maxPendingSplitsWeightPerTask)
+    {
+        return (long) Math.ceil(maxPendingSplitsWeightPerTask * 0.5);
+    }
+
+    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<InternalNode> blockedNodes, List<RemoteTask> existingTasks, long weightSpaceThreshold)
     {
         if (blockedNodes.isEmpty()) {
             return immediateFuture(null);
@@ -422,7 +435,7 @@ public class NodeScheduler
                 .map(InternalNode::getNodeIdentifier)
                 .map(nodeToTaskMap::get)
                 .filter(Objects::nonNull)
-                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
+                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(weightSpaceThreshold))
                 .collect(toImmutableList());
         if (blockedFutures.isEmpty()) {
             return immediateFuture(null);
@@ -430,13 +443,13 @@ public class NodeScheduler
         return whenAnyCompleteCancelOthers(blockedFutures);
     }
 
-    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
+    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, long weightSpaceThreshold)
     {
         if (existingTasks.isEmpty()) {
             return immediateFuture(null);
         }
         List<ListenableFuture<?>> stateChangeFutures = existingTasks.stream()
-                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
+                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(weightSpaceThreshold))
                 .collect(toImmutableList());
         return whenAnyCompleteCancelOthers(stateChangeFutures);
     }

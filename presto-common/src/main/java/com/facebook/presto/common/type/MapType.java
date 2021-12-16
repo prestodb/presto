@@ -100,6 +100,16 @@ public class MapType
         return valueType.isComparable();
     }
 
+    public MethodHandle getKeyBlockEquals()
+    {
+        return keyBlockEquals;
+    }
+
+    public MethodHandle getKeyBlockHashCode()
+    {
+        return keyBlockHashCode;
+    }
+
     @Override
     public long hash(Block block, int position)
     {

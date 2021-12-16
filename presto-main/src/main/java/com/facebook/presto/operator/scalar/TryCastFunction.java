@@ -18,7 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -34,6 +34,7 @@ import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManage
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.sql.gen.BytecodeUtils.getAllScalarFunctionImplementationChoices;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -87,7 +88,7 @@ public class TryCastFunction
 
         // the resulting method needs to return a boxed type
         FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, fromType.getTypeSignature(), toType.getTypeSignature());
-        BuiltInScalarFunctionImplementation implementation = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
+        ScalarFunctionImplementationChoice implementation = getAllScalarFunctionImplementationChoices(functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle)).get(0);
         argumentProperties = ImmutableList.of(implementation.getArgumentProperty(0));
         MethodHandle coercion = implementation.getMethodHandle();
         coercion = coercion.asType(methodType(returnType, coercion.type()));

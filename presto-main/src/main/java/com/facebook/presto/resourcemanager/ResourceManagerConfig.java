@@ -37,6 +37,7 @@ public class ResourceManagerConfig
     private int resourceManagerExecutorThreads = 1000;
     private Duration proxyAsyncTimeout = new Duration(60, SECONDS);
     private Duration memoryPoolFetchInterval = new Duration(1, SECONDS);
+    private boolean resourceGroupServiceCacheEnabled;
     private Duration resourceGroupServiceCacheExpireInterval = new Duration(10, SECONDS);
     private Duration resourceGroupServiceCacheRefreshInterval = new Duration(1, SECONDS);
 
@@ -198,6 +199,19 @@ public class ResourceManagerConfig
         return this;
     }
 
+    public boolean getResourceGroupServiceCacheEnabled()
+    {
+        return resourceGroupServiceCacheEnabled;
+    }
+
+    @Config("resource-manager.resource-group-service-cache-enabled")
+    public ResourceManagerConfig setResourceGroupServiceCacheEnabled(Boolean resourceGroupServiceCacheEnabled)
+    {
+        this.resourceGroupServiceCacheEnabled = resourceGroupServiceCacheEnabled;
+        return this;
+    }
+
+    @MinDuration("1ms")
     public Duration getResourceGroupServiceCacheExpireInterval()
     {
         return resourceGroupServiceCacheExpireInterval;

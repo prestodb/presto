@@ -74,8 +74,8 @@ public abstract class AbstractArrayBlock
 
         int totalElements = newOffsets[length];
         if (totalElements == 0) {
-            // No elements selected
-            Block newValues = getRawElementBlock().copyRegion(getOffsetBase(), 0);
+            // No elements selected, copy a zero-length region from the elements block
+            Block newValues = getRawElementBlock().copyRegion(0, 0);
             return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
         }
 

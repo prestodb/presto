@@ -202,7 +202,7 @@ public class AlluxioProtoUtils
     private static Column fromProto(alluxio.grpc.table.FieldSchema column)
     {
         Optional<String> comment = column.hasComment() ? Optional.of(column.getComment()) : Optional.empty();
-        return new Column(column.getName(), HiveType.valueOf(column.getType()), comment);
+        return new Column(column.getName(), HiveType.valueOf(column.getType()), comment, Optional.empty());
     }
 
     public static Partition fromProto(alluxio.grpc.table.layout.hive.PartitionInfo info)

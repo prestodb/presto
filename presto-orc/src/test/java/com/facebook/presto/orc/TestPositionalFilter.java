@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
-import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 

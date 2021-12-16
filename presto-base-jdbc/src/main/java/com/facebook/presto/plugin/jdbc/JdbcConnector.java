@@ -25,6 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -123,7 +124,7 @@ public class JdbcConnector
     {
         JdbcMetadata metadata = transactions.get(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
-        return metadata;
+        return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 
     @Override

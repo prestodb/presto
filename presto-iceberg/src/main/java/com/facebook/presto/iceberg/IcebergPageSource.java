@@ -14,9 +14,9 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.TimeZoneKey;

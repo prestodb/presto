@@ -107,7 +107,7 @@ public class CommonSubExpressionBenchmark
     {
         Type type = TYPE_MAP.get(this.functionType);
 
-        VariableReferenceExpression variable = new VariableReferenceExpression(type.getDisplayName().toLowerCase(ENGLISH) + "0", type);
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), type.getDisplayName().toLowerCase(ENGLISH) + "0", type);
         symbolTypes = ImmutableMap.of(variable.getName(), type);
         sourceLayout = ImmutableMap.of(variable, 0);
         inputPage = createPage(functionType, dictionaryBlocks);

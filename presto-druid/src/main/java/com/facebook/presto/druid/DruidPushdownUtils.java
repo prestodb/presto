@@ -79,7 +79,7 @@ public class DruidPushdownUtils
                     // This block handles the case when a distinct aggregation is present in addition to another aggregation function.
                     // E.g. `SELECT count(distinct COL_A), sum(COL_B) FROM myTable` to Druid as `SELECT distinctCount(COL_A), sum(COL_B) FROM myTable`
                     if (aggregation.getCall().getDisplayName().equalsIgnoreCase(COUNT_FUNCTION_NAME) && aggregation.getMask().get().getName().equalsIgnoreCase(aggregation.getArguments().get(0) + DISTINCT_MASK)) {
-                        nodeBuilder.add(new AggregationFunctionColumnNode(outputColumn, new CallExpression(DRUID_COUNT_DISTINCT_FUNCTION_NAME, aggregation.getCall().getFunctionHandle(), aggregation.getCall().getType(), aggregation.getCall().getArguments())));
+                        nodeBuilder.add(new AggregationFunctionColumnNode(outputColumn, new CallExpression(aggregation.getCall().getSourceLocation(), DRUID_COUNT_DISTINCT_FUNCTION_NAME, aggregation.getCall().getFunctionHandle(), aggregation.getCall().getType(), aggregation.getCall().getArguments())));
                         continue;
                     }
                     // Druid doesn't support push down aggregation functions other than count on top of distinct function.
@@ -135,6 +135,7 @@ public class DruidPushdownUtils
                 new AggregationFunctionColumnNode(
                         outputColumn,
                         new CallExpression(
+                                aggregation.getCall().getSourceLocation(),
                                 DRUID_COUNT_DISTINCT_FUNCTION_NAME,
                                 aggregation.getFunctionHandle(),
                                 aggregation.getCall().getType(),

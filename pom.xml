@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.266-SNAPSHOT</version>
+    <version>0.268-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -65,7 +65,7 @@
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.6.1</dep.alluxio.version>
+        <dep.alluxio.version>2.7.0</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -173,6 +173,8 @@
         <module>presto-testng-services</module>
         <module>presto-node-ttl-fetchers</module>
         <module>presto-cluster-ttl-providers</module>
+        <module>presto-google-sheets</module>
+        <module>presto-hive-function-namespace</module>
     </modules>
 
     <dependencyManagement>
@@ -243,6 +245,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cluster-ttl-providers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hive-function-namespace</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1676,7 +1684,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.4.9-2</version>
+                <version>1.5.0-4</version>
             </dependency>
 
             <dependency>

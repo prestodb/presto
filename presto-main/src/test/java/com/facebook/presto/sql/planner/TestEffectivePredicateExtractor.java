@@ -102,13 +102,13 @@ public class TestEffectivePredicateExtractor
             TestingTransactionHandle.create(),
             Optional.of(TestingHandle.INSTANCE));
 
-    private static final VariableReferenceExpression AV = new VariableReferenceExpression("a", BIGINT);
-    private static final VariableReferenceExpression BV = new VariableReferenceExpression("b", BIGINT);
-    private static final VariableReferenceExpression CV = new VariableReferenceExpression("c", BIGINT);
-    private static final VariableReferenceExpression DV = new VariableReferenceExpression("d", BIGINT);
-    private static final VariableReferenceExpression EV = new VariableReferenceExpression("e", BIGINT);
-    private static final VariableReferenceExpression FV = new VariableReferenceExpression("f", BIGINT);
-    private static final VariableReferenceExpression GV = new VariableReferenceExpression("g", BIGINT);
+    private static final VariableReferenceExpression AV = new VariableReferenceExpression(Optional.empty(), "a", BIGINT);
+    private static final VariableReferenceExpression BV = new VariableReferenceExpression(Optional.empty(), "b", BIGINT);
+    private static final VariableReferenceExpression CV = new VariableReferenceExpression(Optional.empty(), "c", BIGINT);
+    private static final VariableReferenceExpression DV = new VariableReferenceExpression(Optional.empty(), "d", BIGINT);
+    private static final VariableReferenceExpression EV = new VariableReferenceExpression(Optional.empty(), "e", BIGINT);
+    private static final VariableReferenceExpression FV = new VariableReferenceExpression(Optional.empty(), "f", BIGINT);
+    private static final VariableReferenceExpression GV = new VariableReferenceExpression(Optional.empty(), "g", BIGINT);
 
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(

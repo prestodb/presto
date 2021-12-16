@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -459,7 +460,7 @@ public class SemiTransactionalHiveMetastore
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session));
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session));
         if (oldTableAction == null || oldTableAction.getData().getTable().getTableType().equals(TEMPORARY_TABLE)) {
             Table table = getTable(metastoreContext, databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
@@ -497,7 +498,16 @@ public class SemiTransactionalHiveMetastore
     public synchronized void truncateUnpartitionedTable(ConnectorSession session, String databaseName, String tableName)
     {
         checkReadable();
-        Optional<Table> table = getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), databaseName, tableName);
+        Optional<Table> table = getTable(
+                new MetastoreContext(
+                        session.getIdentity(),
+                        session.getQueryId(),
+                        session.getClientInfo(),
+                        session.getSource(),
+                        getMetastoreHeaders(session),
+                        isUserDefinedTypeEncodingEnabled(session)),
+                databaseName,
+                tableName);
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         if (!table.isPresent()) {
             throw new TableNotFoundException(schemaTableName);
@@ -784,7 +794,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(schemaTableName, k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session));
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session));
 
         if (oldPartitionAction == null) {
             Partition partition = delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues)
@@ -985,7 +995,13 @@ public class SemiTransactionalHiveMetastore
                 SchemaTableName schemaTableName = entry.getKey();
                 Action<TableAndMore> action = entry.getValue();
                 HdfsContext hdfsContext = action.getContext();
-                MetastoreContext metastoreContext = new MetastoreContext(hdfsContext.getIdentity(), hdfsContext.getQueryId().orElse(""), hdfsContext.getClientInfo(), hdfsContext.getSource(), hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders));
+                MetastoreContext metastoreContext = new MetastoreContext(
+                        hdfsContext.getIdentity(),
+                        hdfsContext.getQueryId().orElse(""),
+                        hdfsContext.getClientInfo(),
+                        hdfsContext.getSource(),
+                        hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
+                        hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false));
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(metastoreContext, schemaTableName);
@@ -1009,7 +1025,13 @@ public class SemiTransactionalHiveMetastore
                     List<String> partitionValues = partitionEntry.getKey();
                     Action<PartitionAndMore> action = partitionEntry.getValue();
                     HdfsContext hdfsContext = action.getContext();
-                    MetastoreContext metastoreContext = new MetastoreContext(hdfsContext.getIdentity(), hdfsContext.getQueryId().orElse(""), hdfsContext.getClientInfo(), hdfsContext.getSource(), hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders));
+                    MetastoreContext metastoreContext = new MetastoreContext(
+                            hdfsContext.getIdentity(),
+                            hdfsContext.getQueryId().orElse(""),
+                            hdfsContext.getClientInfo(),
+                            hdfsContext.getSource(),
+                            hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
+                            hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false));
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(metastoreContext, schemaTableName, partitionValues);

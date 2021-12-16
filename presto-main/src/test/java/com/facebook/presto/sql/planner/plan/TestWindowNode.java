@@ -114,7 +114,7 @@ public class TestWindowNode
         WindowNode.Specification specification = new WindowNode.Specification(
                 ImmutableList.of(columnA),
                 Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(columnB, SortOrder.ASC_NULLS_FIRST)))));
-        CallExpression call = call("sum", functionHandle, BIGINT, new VariableReferenceExpression(columnC.getName(), BIGINT));
+        CallExpression call = call("sum", functionHandle, BIGINT, new VariableReferenceExpression(Optional.empty(), columnC.getName(), BIGINT));
         Map<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.of(windowVariable, new WindowNode.Function(call, frame, false));
         Optional<VariableReferenceExpression> hashVariable = Optional.of(columnB);
         Set<VariableReferenceExpression> prePartitionedInputs = ImmutableSet.of(columnA);

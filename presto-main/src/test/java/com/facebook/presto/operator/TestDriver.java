@@ -421,7 +421,7 @@ public class TestDriver
         // Create a new driver and test cache hit
         driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
-                .addDriverContext(Lifespan.taskWide(), Optional.of(TESTING_FRAGMENT_RESULT_CACHE_CONTEXT));
+                .addDriverContext(0, Lifespan.taskWide(), Optional.of(TESTING_FRAGMENT_RESULT_CACHE_CONTEXT));
         processSourceDriver(driverContextWithFragmentResultCacheContext);
     }
 

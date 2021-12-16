@@ -17,14 +17,17 @@ import com.facebook.presto.common.block.ArrayBlockBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.type.ArrayType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBlock;
@@ -248,6 +251,32 @@ public class TestArrayBlock
         assertEquals(arrayOfDictionaryOfArrayOfLong.getLogicalSizeInBytes(), 1900);
     }
 
+    @Test
+    public void testCopyEmptyRawElementPositions()
+    {
+        int positionCount = 100;
+        int[] offsets = new int[positionCount + 1];
+        // Only the first array is non-empty
+        Arrays.fill(offsets, 1, offsets.length, 1);
+
+        // Array(LongArrayBlock(1)) - single element
+        Block elements = fromElementBlock(positionCount, Optional.empty(), offsets, createRandomLongsBlock(1, 0));
+        // Shift the array offsets index
+        Block offsetsShifted = elements.getRegion(50, 50);
+        assertEquals(offsetsShifted.getOffsetBase(), 50);
+        // Copy the first, middle, and last elements via copyPositions
+        Block copiedArray = offsetsShifted.copyPositions(new int[]{0, 25, 49}, 0, 3);
+        assertEquals(copiedArray.getPositionCount(), 3);
+
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 0, 0);
+        long[][] expectedValues = new long[3][];
+        for (int i = 0; i < expectedValues.length; i++) {
+            expectedValues[i] = new long[0]; // empty, but not null
+        }
+        writeValues(expectedValues, blockBuilder);
+        assertBlockEquals(new ArrayType(BIGINT), copiedArray, blockBuilder.build());
+    }
+
     private static int getExpectedEstimatedDataSize(long[][] values)
     {
         if (values == null) {
@@ -262,6 +291,7 @@ public class TestArrayBlock
         return size;
     }
 
+    @Test
     public void testCompactBlock()
     {
         Block emptyValueBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);

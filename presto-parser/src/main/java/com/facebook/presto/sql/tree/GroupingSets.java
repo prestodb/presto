@@ -45,6 +45,7 @@ public final class GroupingSets
         super(location);
         requireNonNull(sets, "sets is null");
         checkArgument(!sets.isEmpty(), "grouping sets cannot be empty");
+        sets.forEach(this::validateExpressions);
         this.sets = sets.stream().map(ImmutableList::copyOf).collect(toImmutableList());
     }
 

@@ -207,6 +207,14 @@ public class PinotClusterInfoFetcher
                 Optional.empty());
     }
 
+    private String sendHttpGetToRestProxy(String path)
+    {
+        return doHttpActionWithHeaders(
+                Request.builder().prepareGet().setUri(URI.create(String.format("http://%s/%s", pinotConfig.getRestProxyUrl(), path))),
+                Optional.empty(),
+                Optional.empty());
+    }
+
     private String getControllerUrl()
     {
         List<String> controllerUrls = pinotConfig.getControllerUrls();
@@ -391,7 +399,7 @@ public class PinotClusterInfoFetcher
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
         log.debug("Trying to get routingTable for %s from broker", tableName);
-        String responseBody = sendHttpGetToBroker(tableName, String.format(ROUTING_TABLE_API_TEMPLATE, tableName));
+        String responseBody = (pinotConfig.isUseProxyForBrokerRequest()) ? sendHttpGetToRestProxy(String.format(ROUTING_TABLE_API_TEMPLATE, tableName)) : sendHttpGetToBroker(tableName, String.format(ROUTING_TABLE_API_TEMPLATE, tableName));
         // New Pinot Broker API (>=0.3.0) directly return a valid routing table.
         // Will always check with new API response format first, then fail over to old routing table format.
         try {
@@ -483,7 +491,7 @@ public class PinotClusterInfoFetcher
     public TimeBoundary getTimeBoundaryForTable(String table)
     {
         try {
-            String responseBody = sendHttpGetToBroker(table, String.format(TIME_BOUNDARY_API_TEMPLATE, table));
+            String responseBody = (pinotConfig.isUseProxyForBrokerRequest()) ? sendHttpGetToRestProxy(String.format(TIME_BOUNDARY_API_TEMPLATE, table)) : sendHttpGetToBroker(table, String.format(TIME_BOUNDARY_API_TEMPLATE, table));
             return timeBoundaryJsonCodec.fromJson(responseBody);
         }
         catch (Exception e) {

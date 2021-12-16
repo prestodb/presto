@@ -29,6 +29,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
+import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -88,6 +89,7 @@ public final class Session
     private final Map<String, String> preparedStatements;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
+    private final Optional<Tracer> tracer;
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
@@ -113,7 +115,8 @@ public final class Session
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
-            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            Optional<Tracer> tracer)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -152,6 +155,7 @@ public final class Session
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
         this.context = new AccessControlContext(queryId, clientInfo, source);
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public QueryId getQueryId()
@@ -302,6 +306,11 @@ public final class Session
         return runtimeStats;
     }
 
+    public Optional<Tracer> getTracer()
+    {
+        return tracer;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -391,7 +400,8 @@ public final class Session
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements,
-                sessionFunctions);
+                sessionFunctions,
+                tracer);
     }
 
     public Session withDefaultProperties(
@@ -444,7 +454,8 @@ public final class Session
                 connectorProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                sessionFunctions);
+                sessionFunctions,
+                tracer);
     }
 
     public ConnectorSession toConnectorSession()
@@ -560,6 +571,7 @@ public final class Session
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
         private ResourceEstimates resourceEstimates;
+        private Optional<Tracer> tracer = Optional.empty();
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
@@ -596,6 +608,7 @@ public final class Session
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.sessionFunctions.putAll(session.sessionFunctions);
+            this.tracer = requireNonNull(session.tracer, "tracer is null");
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -608,6 +621,12 @@ public final class Session
         {
             checkArgument(catalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
             this.transactionId = transactionId;
+            return this;
+        }
+
+        public SessionBuilder setTracer(Optional<Tracer> tracer)
+        {
+            this.tracer = requireNonNull(tracer, "tracer is null");
             return this;
         }
 
@@ -752,7 +771,8 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
-                    sessionFunctions);
+                    sessionFunctions,
+                    tracer);
         }
     }
 

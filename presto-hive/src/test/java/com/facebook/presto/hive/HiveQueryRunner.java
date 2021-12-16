@@ -73,7 +73,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty());
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false);
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -133,6 +133,8 @@ public final class HiveQueryRunner
         Map<String, String> systemProperties = ImmutableMap.<String, String>builder()
                 .put("task.writer-count", "2")
                 .put("task.partitioned-writer-count", "4")
+                .put("tracing.tracer-type", "simple")
+                .put("tracing.enable-distributed-tracing", "simple")
                 .putAll(extraProperties)
                 .build();
 

@@ -21,8 +21,8 @@ import com.google.inject.Inject;
 public class NoopTracerProvider
         implements TracerProvider
 {
+    public static final NoopTracerProvider NOOP_TRACER_PROVIDER = new NoopTracerProvider();
     public static final NoopTracer NOOP_TRACER = new NoopTracer();
-
     @Inject
     public NoopTracerProvider() {}
 

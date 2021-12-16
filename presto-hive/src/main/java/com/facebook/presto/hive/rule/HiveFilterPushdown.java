@@ -86,6 +86,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -263,7 +264,7 @@ public class HiveFilterPushdown
         RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session)), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(
@@ -368,7 +369,7 @@ public class HiveFilterPushdown
             BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = tableScan.getAssignments().entrySet().stream()
                     .collect(toImmutableBiMap(
                             Map.Entry::getKey,
-                            entry -> new VariableReferenceExpression(getColumnName(session, hiveMetadata, handle.getConnectorHandle(), entry.getValue()), entry.getKey().getType())));
+                            entry -> new VariableReferenceExpression(Optional.empty(), getColumnName(session, hiveMetadata, handle.getConnectorHandle(), entry.getValue()), entry.getKey().getType())));
 
             RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
             // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node
@@ -551,7 +552,7 @@ public class HiveFilterPushdown
     private static List<Column> pruneColumnComments(List<Column> columns)
     {
         return columns.stream()
-                .map(column -> new Column(column.getName(), column.getType(), Optional.empty()))
+                .map(column -> new Column(column.getName(), column.getType(), Optional.empty(), column.getTypeMetadata()))
                 .collect(toImmutableList());
     }
 

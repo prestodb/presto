@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -26,9 +25,7 @@ import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -47,10 +44,11 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.STACK;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -73,7 +71,6 @@ public final class ArrayJoin
             ArrayJoin.class,
             "arrayJoinStack",
             MethodHandle.class,
-            Object.class,
             SqlFunctionProperties.class,
             Block.class,
             Slice.class);
@@ -92,8 +89,6 @@ public final class ArrayJoin
     private static final MethodHandle GET_LONG = methodHandle(Type.class, "getLong", Block.class, int.class);
     private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
 
-    private static final MethodHandle STATE_FACTORY = methodHandle(ArrayJoin.class, "createState");
-
     public static class ArrayJoinWithNullReplacement
             extends SqlScalarFunction
     {
@@ -101,7 +96,6 @@ public final class ArrayJoin
                 ArrayJoin.class,
                 "arrayJoinStack",
                 MethodHandle.class,
-                Object.class,
                 SqlFunctionProperties.class,
                 Block.class,
                 Slice.class,
@@ -171,12 +165,6 @@ public final class ArrayJoin
                 false));
     }
 
-    @UsedByGeneratedCode
-    public static Object createState()
-    {
-        return new PageBuilder(ImmutableList.of(VARCHAR));
-    }
-
     @Override
     public SqlFunctionVisibility getVisibility()
     {
@@ -225,11 +213,11 @@ public final class ArrayJoin
                     false,
                     argumentProperties,
                     methodHandleStack.bindTo(null),
-                    Optional.of(STATE_FACTORY));
+                    Optional.empty());
         }
         else {
             try {
-                BuiltInScalarFunctionImplementation castFunction = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR_TYPE_SIGNATURE));
+                MethodHandle cast = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR_TYPE_SIGNATURE)).getMethodHandle();
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();
@@ -249,8 +237,6 @@ public final class ArrayJoin
                     throw new UnsupportedOperationException("Unsupported type: " + elementType.getName());
                 }
 
-                MethodHandle cast = castFunction.getMethodHandle();
-
                 // if the cast doesn't take a SqlFunctionProperties, create an adapter that drops the provided session
                 if (cast.type().parameterArray()[0] != SqlFunctionProperties.class) {
                     cast = MethodHandles.dropArguments(cast, 0, SqlFunctionProperties.class);
@@ -268,13 +254,13 @@ public final class ArrayJoin
                 MethodHandle targetProvidedBlock = MethodHandles.insertArguments(methodHandleProvidedBlock, 0, cast);
                 return new BuiltInScalarFunctionImplementation(
                         ImmutableList.of(
-                                new ScalarImplementationChoice(
+                                new ScalarFunctionImplementationChoice(
                                         false,
                                         argumentProperties,
-                                        ReturnPlaceConvention.STACK,
+                                        STACK,
                                         targetStack,
-                                        Optional.of(STATE_FACTORY)),
-                                new ScalarImplementationChoice(
+                                        Optional.empty()),
+                                new ScalarFunctionImplementationChoice(
                                         false,
                                         argumentProperties,
                                         PROVIDED_BLOCKBUILDER,
@@ -290,12 +276,11 @@ public final class ArrayJoin
     @UsedByGeneratedCode
     public static Slice arrayJoinStack(
             MethodHandle castFunction,
-            Object state,
             SqlFunctionProperties properties,
             Block arrayBlock,
             Slice delimiter)
     {
-        return arrayJoinStack(castFunction, state, properties, arrayBlock, delimiter, null);
+        return arrayJoinStack(castFunction, properties, arrayBlock, delimiter, null);
     }
 
     @UsedByGeneratedCode
@@ -312,28 +297,13 @@ public final class ArrayJoin
     @UsedByGeneratedCode
     public static Slice arrayJoinStack(
             MethodHandle castFunction,
-            Object state,
             SqlFunctionProperties properties,
             Block arrayBlock,
             Slice delimiter,
             Slice nullReplacement)
     {
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        try {
-            arrayJoinProvidedBlock(castFunction, properties, blockBuilder, arrayBlock, delimiter, nullReplacement);
-        }
-        catch (PrestoException e) {
-            // Restore pageBuilder into a consistent state
-            pageBuilder.declarePosition();
-        }
-
-        pageBuilder.declarePosition();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, arrayBlock.getPositionCount() * 2);
+        arrayJoinProvidedBlock(castFunction, properties, blockBuilder, arrayBlock, delimiter, nullReplacement);
         return VARCHAR.getSlice(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
 

@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
