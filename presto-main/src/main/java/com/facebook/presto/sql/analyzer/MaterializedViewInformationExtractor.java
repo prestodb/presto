@@ -150,7 +150,7 @@ public class MaterializedViewInformationExtractor
         private void setHavingClause(Optional<Expression> havingClause)
         {
             checkState(!this.havingClause.isPresent());
-            this.whereClause = havingClause;
+            this.havingClause = havingClause;
         }
 
         private void setDistinct(boolean state)
