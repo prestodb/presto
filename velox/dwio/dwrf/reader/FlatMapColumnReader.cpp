@@ -259,7 +259,7 @@ FlatMapColumnReader<T>::FlatMapColumnReader(
       requestedType,
       dataType,
       stripe,
-      memoryPool);
+      memoryPool_);
 
   // sort nodes by sequence id so order of keys is fixed
   std::sort(keyNodes_.begin(), keyNodes_.end(), [](auto& a, auto& b) {
@@ -293,7 +293,7 @@ template <typename T>
 void FlatMapColumnReader<T>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
-  initializeFlatVector<T>(vector, memoryPool, size, false);
+  initializeFlatVector<T>(vector, memoryPool_, size, false);
   vector->setSize(size);
 }
 
@@ -303,7 +303,7 @@ void FlatMapColumnReader<StringView>::initKeysVector(
     vector_size_t size) {
   initializeFlatVector<StringView>(
       vector,
-      memoryPool,
+      memoryPool_,
       size,
       false,
       std::vector<BufferPtr>{stringKeyBuffer_->getBuffer()});
@@ -335,8 +335,8 @@ void FlatMapColumnReader<T>::next(
     offsets = mapVector->mutableOffsets(numValues);
     lengths = mapVector->mutableSizes(numValues);
   } else {
-    offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool);
-    lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool);
+    offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
+    lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
   }
 
   auto nonNullMaps = numValues - nullCount;
@@ -375,7 +375,7 @@ void FlatMapColumnReader<T>::next(
     }
 
     initKeysVector(keysVector, totalChildren);
-    initializeVector(valuesVector, mapValueType, memoryPool, nodeBatches);
+    initializeVector(valuesVector, mapValueType, memoryPool_, nodeBatches);
 
     if (!returnFlatVector_) {
       for (auto batch : nodeBatches) {
@@ -387,7 +387,7 @@ void FlatMapColumnReader<T>::next(
   BufferPtr indices;
   vector_size_t* indicesPtr = nullptr;
   if (!returnFlatVector_) {
-    indices = AlignedBuffer::allocate<int32_t>(totalChildren, &memoryPool);
+    indices = AlignedBuffer::allocate<int32_t>(totalChildren, &memoryPool_);
     indices->setSize(totalChildren * sizeof(vector_size_t));
     indicesPtr = indices->asMutable<vector_size_t>();
   }
@@ -442,7 +442,7 @@ void FlatMapColumnReader<T>::next(
 
   // TODO Reuse
   result = std::make_shared<MapVector>(
-      &memoryPool,
+      &memoryPool_,
       mapType,
       nulls,
       numValues,
@@ -455,7 +455,7 @@ void FlatMapColumnReader<T>::next(
 
 template <>
 void FlatMapColumnReader<StringView>::initStringKeyBuffer() {
-  stringKeyBuffer_ = std::make_unique<StringKeyBuffer>(memoryPool, keyNodes_);
+  stringKeyBuffer_ = std::make_unique<StringKeyBuffer>(memoryPool_, keyNodes_);
 }
 
 template <typename T>
@@ -608,7 +608,7 @@ FlatMapStructEncodingColumnReader<T>::FlatMapStructEncodingColumnReader(
           requestedType,
           dataType,
           stripe,
-          memoryPool)},
+          memoryPool_)},
       nullColumnReader_{std::make_unique<NullColumnReader>(
           stripe,
           requestedType_->type->asMap().valueType())} {
@@ -673,7 +673,7 @@ void FlatMapStructEncodingColumnReader<T>::next(
     result->setNullCount(nullCount);
   } else {
     result = std::make_shared<RowVector>(
-        &memoryPool,
+        &memoryPool_,
         ROW(std::vector<std::string>(keyNodes_.size()),
             std::vector<std::shared_ptr<const Type>>(
                 keyNodes_.size(), requestedType_->type->asMap().valueType())),

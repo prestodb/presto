@@ -36,9 +36,9 @@ class ColumnReader {
   explicit ColumnReader(
       memory::MemoryPool& memoryPool,
       const std::shared_ptr<const dwio::common::TypeWithId>& type)
-      : notNullDecoder{},
+      : notNullDecoder_{},
         nodeType_{type},
-        memoryPool{memoryPool},
+        memoryPool_{memoryPool},
         flatMapContext_{FlatMapContext::nonFlatMapContext()} {}
 
   // Reads nulls, if any. Sets '*nulls' to nullptr if void
@@ -58,9 +58,9 @@ class ColumnReader {
       VectorPtr& result,
       const uint64_t* incomingNulls);
 
-  std::unique_ptr<ByteRleDecoder> notNullDecoder;
+  std::unique_ptr<ByteRleDecoder> notNullDecoder_;
   const std::shared_ptr<const dwio::common::TypeWithId> nodeType_;
-  memory::MemoryPool& memoryPool;
+  memory::MemoryPool& memoryPool_;
   FlatMapContext flatMapContext_;
 
  public:

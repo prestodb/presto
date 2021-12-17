@@ -137,7 +137,7 @@ void SelectiveColumnReader::ensureValuesCapacity(vector_size_t numRows) {
     return;
   }
   values_ = AlignedBuffer::allocate<T>(
-      numRows + (simd::kPadding / sizeof(T)), &memoryPool);
+      numRows + (simd::kPadding / sizeof(T)), &memoryPool_);
   rawValues_ = values_->asMutable<char>();
 }
 
@@ -169,7 +169,7 @@ void SelectiveColumnReader::prepareNulls(RowSet rows, bool hasNulls) {
 
   anyNulls_ = false;
   resultNulls_ = AlignedBuffer::allocate<bool>(
-      numRows + (simd::kPadding * 8), &memoryPool);
+      numRows + (simd::kPadding * 8), &memoryPool_);
   rawResultNulls_ = resultNulls_->asMutable<uint64_t>();
   simd::memset(rawResultNulls_, bits::kNotNullByte, resultNulls_->capacity());
 }
@@ -228,7 +228,7 @@ void SelectiveColumnReader::getFlatValues(
   }
   if (allNull_) {
     *result = std::make_shared<ConstantVector<TVector>>(
-        &memoryPool,
+        &memoryPool_,
         rows.size(),
         true,
         type,
@@ -249,7 +249,12 @@ void SelectiveColumnReader::getFlatValues(
       ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)
       : nullptr;
   *result = std::make_shared<FlatVector<TVector>>(
-      &memoryPool, type, nulls, numValues_, values_, std::move(stringBuffers_));
+      &memoryPool_,
+      type,
+      nulls,
+      numValues_,
+      values_,
+      std::move(stringBuffers_));
 }
 
 template <>
@@ -263,7 +268,7 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
   VELOX_CHECK_EQ(valueSize_, sizeof(int8_t));
   compactScalarValues<int8_t, int8_t>(rows, isFinal);
   auto boolValues =
-      AlignedBuffer::allocate<bool>(numValues_, &memoryPool, false);
+      AlignedBuffer::allocate<bool>(numValues_, &memoryPool_, false);
   auto rawBits = boolValues->asMutable<uint32_t>();
   auto rawBytes = values_->as<int8_t>();
   auto zero = V8::setAll(0);
@@ -275,7 +280,7 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
       ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)
       : nullptr;
   *result = std::make_shared<FlatVector<bool>>(
-      &memoryPool,
+      &memoryPool_,
       type,
       nulls,
       numValues_,
@@ -530,7 +535,7 @@ void SelectiveColumnReader::filterNulls(
     RowSet rows,
     bool isNull,
     bool extractValues) {
-  if (!notNullDecoder) {
+  if (!notNullDecoder_) {
     if (isNull) {
       // The whole stripe will be empty. We do not update
       // 'readOffset' since nothing is read from either nulls or data.
@@ -600,7 +605,7 @@ char* SelectiveColumnReader::copyStringValue(folly::StringPiece value) {
       stringBuffers_.back()->setSize(rawStringUsed_);
     }
     auto bytes = std::max(size, kStringBufferSize);
-    BufferPtr buffer = AlignedBuffer::allocate<char>(bytes, &memoryPool);
+    BufferPtr buffer = AlignedBuffer::allocate<char>(bytes, &memoryPool_);
     stringBuffers_.push_back(buffer);
     rawStringBuffer_ = buffer->asMutable<char>();
     rawStringUsed_ = 0;
@@ -1103,8 +1108,8 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
     auto positions = toPositions(index_->entry(index));
     PositionProvider positionsProvider(positions);
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     if (boolRle_) {
@@ -1331,8 +1336,8 @@ class SelectiveIntegerDirectColumnReader : public SelectiveColumnReader {
     auto positions = toPositions(index_->entry(index));
     PositionProvider positionsProvider(positions);
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     ints->seekToRowGroup(positionsProvider);
@@ -2025,8 +2030,8 @@ class SelectiveIntegerDictionaryColumnReader : public SelectiveColumnReader {
     auto positions = toPositions(index_->entry(index));
     PositionProvider positionsProvider(positions);
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     if (inDictionaryReader_) {
@@ -2098,7 +2103,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
   dataReader_ = IntDecoder</* isSigned = */ false>::createRle(
       stripe.getStream(data, true),
       rleVersion_,
-      memoryPool,
+      memoryPool_,
       dataVInts,
       numBytes);
 
@@ -2261,7 +2266,7 @@ void SelectiveIntegerDictionaryColumnReader::read(
         ? bits::countNonNulls(nullsInReadRange_->as<uint64_t>(), 0, end)
         : end;
     ensureCapacity<uint64_t>(
-        inDictionary_, bits::nwords(numFlags), &memoryPool);
+        inDictionary_, bits::nwords(numFlags), &memoryPool_);
     inDictionaryReader_->next(
         inDictionary_->asMutable<char>(),
         numFlags,
@@ -2333,8 +2338,8 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
     auto positions = toPositions(index_->entry(index));
     PositionProvider positionsProvider(positions);
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     decoder_.seekToRowGroup(positionsProvider);
@@ -2539,8 +2544,8 @@ class SelectiveStringDirectColumnReader : public SelectiveColumnReader {
     auto positions = toPositions(index_->entry(index));
     PositionProvider positionsProvider(positions);
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     blobStream_->seekToRowGroup(positionsProvider);
@@ -2636,7 +2641,7 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
   lengthDecoder_ = IntDecoder</*isSigned*/ false>::createRle(
       stripe.getStream(lenId, true),
       rleVersion,
-      memoryPool,
+      memoryPool_,
       lenVInts,
       INT_BYTE_SIZE);
   blobStream_ =
@@ -2645,7 +2650,7 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
 
 uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {
   numValues = ColumnReader::skip(numValues);
-  ensureCapacity<int64_t>(lengths_, numValues, &memoryPool);
+  ensureCapacity<int64_t>(lengths_, numValues, &memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), numValues);
   rawLengths_ = lengths_->as<uint32_t>();
   for (auto i = 0; i < numValues; ++i) {
@@ -3011,7 +3016,7 @@ void SelectiveStringDirectColumnReader::read(
   auto end = rows.back() + 1;
   auto numNulls =
       nullsInReadRange_ ? BaseVector::countNulls(nullsInReadRange_, 0, end) : 0;
-  ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool);
+  ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), end - numNulls);
   rawLengths_ = lengths_->as<uint32_t>();
   lengthIndex_ = 0;
@@ -3072,8 +3077,8 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
       flatMapContext_.inMapDecoder->seekToRowGroup(positionsProvider);
     }
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     if (strideDictStream_) {
@@ -3173,7 +3178,7 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
   dictIndex_ = IntDecoder</*isSigned*/ false>::createRle(
       stripe.getStream(dataId, true),
       rleVersion,
-      memoryPool,
+      memoryPool_,
       dictVInts,
       INT_BYTE_SIZE);
 
@@ -3182,7 +3187,7 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
   lengthDecoder_ = IntDecoder</*isSigned*/ false>::createRle(
       stripe.getStream(lenId, false),
       rleVersion,
-      memoryPool,
+      memoryPool_,
       lenVInts,
       INT_BYTE_SIZE);
 
@@ -3209,7 +3214,7 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
     strideDictLengthDecoder_ = IntDecoder</*isSigned*/ false>::createRle(
         stripe.getStream(strideDictLenId, true),
         rleVersion,
-        memoryPool,
+        memoryPool_,
         strideLenVInt,
         INT_BYTE_SIZE);
   }
@@ -3242,7 +3247,7 @@ BufferPtr SelectiveStringDictionaryColumnReader::loadDictionary(
 
   // read bytes from underlying string
   int64_t blobSize = offsetsPtr[count];
-  BufferPtr dictionary = AlignedBuffer::allocate<char>(blobSize, &memoryPool);
+  BufferPtr dictionary = AlignedBuffer::allocate<char>(blobSize, &memoryPool_);
   data.readFully(dictionary->asMutable<char>(), blobSize);
   return dictionary;
 }
@@ -3265,7 +3270,7 @@ void SelectiveStringDictionaryColumnReader::loadStrideDictionary() {
     strideDictLengthDecoder_->seekToRowGroup(pp);
 
     ensureCapacity<int64_t>(
-        strideDictOffset_, strideDictCount_ + 1, &memoryPool);
+        strideDictOffset_, strideDictCount_ + 1, &memoryPool_);
     strideDict_ = loadDictionary(
         strideDictCount_,
         *strideDictStream_,
@@ -3291,7 +3296,7 @@ void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
   if (strideDictCount_) {
     // TODO Reuse memory
     BufferPtr values = AlignedBuffer::allocate<StringView>(
-        dictionaryCount_ + strideDictCount_, &memoryPool);
+        dictionaryCount_ + strideDictCount_, &memoryPool_);
     auto* valuesPtr = values->asMutable<StringView>();
     for (size_t i = 0; i < dictionaryCount_; i++) {
       valuesPtr[i] = StringView(
@@ -3308,7 +3313,7 @@ void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
     }
 
     dictionaryValues_ = std::make_shared<FlatVector<StringView>>(
-        &memoryPool,
+        &memoryPool_,
         type_,
         BufferPtr(nullptr), // TODO nulls
         dictionaryCount_ + strideDictCount_ /*length*/,
@@ -3317,7 +3322,7 @@ void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
   } else {
     // TODO Reuse memory
     BufferPtr values =
-        AlignedBuffer::allocate<StringView>(dictionaryCount_, &memoryPool);
+        AlignedBuffer::allocate<StringView>(dictionaryCount_, &memoryPool_);
     auto* valuesPtr = values->asMutable<StringView>();
     for (size_t i = 0; i < dictionaryCount_; i++) {
       valuesPtr[i] = StringView(
@@ -3326,7 +3331,7 @@ void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
     }
 
     dictionaryValues_ = std::make_shared<FlatVector<StringView>>(
-        &memoryPool,
+        &memoryPool_,
         type_,
         BufferPtr(nullptr), // TODO nulls
         dictionaryCount_ /*length*/,
@@ -3735,7 +3740,7 @@ void SelectiveStringDictionaryColumnReader::read(
     int32_t numFlags = (isBulk && nullsInReadRange_)
         ? bits::countNonNulls(nullsInReadRange_->as<uint64_t>(), 0, end)
         : end;
-    ensureCapacity<uint64_t>(inDict_, bits::nwords(numFlags), &memoryPool);
+    ensureCapacity<uint64_t>(inDict_, bits::nwords(numFlags), &memoryPool_);
     inDictionaryReader_->next(
         inDict_->asMutable<char>(), numFlags, isBulk ? nullptr : nullsPtr);
     loadStrideDictionary();
@@ -3809,7 +3814,7 @@ void SelectiveStringDictionaryColumnReader::getValues(
   compactScalarValues<int32_t, int32_t>(rows, false);
 
   *result = std::make_shared<DictionaryVector<StringView>>(
-      &memoryPool,
+      &memoryPool_,
       !anyNulls_               ? nullptr
           : returnReaderNulls_ ? nullsInReadRange_
                                : resultNulls_,
@@ -3820,7 +3825,7 @@ void SelectiveStringDictionaryColumnReader::getValues(
 
   if (scanSpec_->makeFlat()) {
     BaseVector::ensureWritable(
-        SelectivityVector::empty(), (*result)->type(), &memoryPool, result);
+        SelectivityVector::empty(), (*result)->type(), &memoryPool_, result);
   }
 }
 
@@ -3831,7 +3836,8 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
 
   Timer timer;
 
-  ensureCapacity<int64_t>(dictionaryOffset_, dictionaryCount_ + 1, &memoryPool);
+  ensureCapacity<int64_t>(
+      dictionaryOffset_, dictionaryCount_ + 1, &memoryPool_);
   dictionaryBlob_ = loadDictionary(
       dictionaryCount_, *blobStream_, *lengthDecoder_, dictionaryOffset_);
   dictionaryValues_.reset();
@@ -3845,8 +3851,8 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
     auto indexStartOffset = flatMapContext_.inMapDecoder
         ? flatMapContext_.inMapDecoder->loadIndices(*index_, 0)
         : 0;
-    positionOffset_ = notNullDecoder
-        ? notNullDecoder->loadIndices(*index_, indexStartOffset)
+    positionOffset_ = notNullDecoder_
+        ? notNullDecoder_->loadIndices(*index_, indexStartOffset)
         : indexStartOffset;
     size_t offset = strideDictStream_->loadIndices(*index_, positionOffset_);
     strideDictSizeOffset_ =
@@ -3872,15 +3878,15 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   }
 
   void seekToRowGroup(uint32_t index) override {
-    if (isTopLevel_ && !notNullDecoder) {
+    if (isTopLevel_ && !notNullDecoder_) {
       readOffset_ = index * rowsPerRowGroup_;
       return;
     }
-    if (notNullDecoder) {
+    if (notNullDecoder_) {
       ensureRowGroupIndex();
       auto positions = toPositions(index_->entry(index));
       PositionProvider positionsProvider(positions);
-      notNullDecoder->seekToRowGroup(positionsProvider);
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
     // Set the read offset recursively. Do this before seeking the
     // children because list/map children will reset the offsets for
@@ -3943,7 +3949,7 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
 
   void setIsTopLevel() override {
     isTopLevel_ = true;
-    if (!notNullDecoder) {
+    if (!notNullDecoder_) {
       for (auto& child : children_) {
         child->setIsTopLevel();
       }
@@ -4252,7 +4258,7 @@ void SelectiveStructColumnReader::getValues(RowSet rows, VectorPtr* result) {
           lazyPrepared = true;
         }
         resultRow->childAt(channel) = std::make_shared<LazyVector>(
-            &memoryPool,
+            &memoryPool_,
             resultRow->type()->childAt(channel),
             rows.size(),
             std::make_unique<ColumnLoader>(
@@ -4295,7 +4301,7 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
     length_ = IntDecoder</*isSigned*/ false>::createRle(
         stripe.getStream(lenId, true),
         rleVersion,
-        memoryPool,
+        memoryPool_,
         lenVints,
         INT_BYTE_SIZE);
   }
@@ -4308,8 +4314,8 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
     // Reads the lengths, leaves an uninitialized gap for a null
     // map/list. Reading these checks the null nask.
     length_->next(allLengths_.data(), rows.back() + 1, nulls);
-    ensureCapacity<vector_size_t>(offsets_, rows.size(), &memoryPool);
-    ensureCapacity<vector_size_t>(sizes_, rows.size(), &memoryPool);
+    ensureCapacity<vector_size_t>(offsets_, rows.size(), &memoryPool_);
+    ensureCapacity<vector_size_t>(sizes_, rows.size(), &memoryPool_);
     auto rawOffsets = offsets_->asMutable<vector_size_t>();
     auto rawSizes = sizes_->asMutable<vector_size_t>();
     vector_size_t nestedLength = 0;
@@ -4398,7 +4404,7 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // Creates a struct if '*result' is empty and 'type' is a row.
   void prepareStructResult(const TypePtr& type, VectorPtr* result) {
     if (!*result && type->kind() == TypeKind::ROW) {
-      *result = BaseVector::create(type, 0, &memoryPool);
+      *result = BaseVector::create(type, 0, &memoryPool_);
     }
   }
 
@@ -4434,8 +4440,8 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
     auto positions = toPositions(index_->entry(index));
     PositionProvider positionsProvider(positions);
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     length_->seekToRowGroup(positionsProvider);
@@ -4541,7 +4547,7 @@ void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
     child_->getValues(nestedRows_, &elements);
   }
   *result = std::make_shared<ArrayVector>(
-      &memoryPool,
+      &memoryPool_,
       requestedType_->type,
       anyNulls_ ? resultNulls_ : nullptr,
       rows.size(),
@@ -4570,8 +4576,8 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
     auto positions = toPositions(index_->entry(index));
     PositionProvider positionsProvider(positions);
 
-    if (notNullDecoder) {
-      notNullDecoder->seekToRowGroup(positionsProvider);
+    if (notNullDecoder_) {
+      notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
     length_->seekToRowGroup(positionsProvider);
@@ -4716,7 +4722,7 @@ void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
     elementReader_->getValues(nestedRows_, &values);
   }
   *result = std::make_shared<MapVector>(
-      &memoryPool,
+      &memoryPool_,
       requestedType_->type,
       anyNulls_ ? resultNulls_ : nullptr,
       rows.size(),

@@ -82,7 +82,7 @@ void ColumnReader::readNulls(
     const uint64_t* incomingNulls,
     VectorPtr* result,
     BufferPtr& nulls) {
-  if (!notNullDecoder && !incomingNulls) {
+  if (!notNullDecoder_ && !incomingNulls) {
     nulls = nullptr;
     if (result && *result) {
       (*result)->resetNulls();
@@ -94,16 +94,16 @@ void ColumnReader::readNulls(
     nulls = (*result)->mutableNulls(numValues + (simd::kPadding * 8));
   } else if (!nulls || nulls->capacity() < numBytes + simd::kPadding) {
     nulls =
-        AlignedBuffer::allocate<char>(numBytes + simd::kPadding, &memoryPool);
+        AlignedBuffer::allocate<char>(numBytes + simd::kPadding, &memoryPool_);
   }
   nulls->setSize(numBytes);
   auto* nullsPtr = nulls->asMutable<uint64_t>();
-  if (!notNullDecoder) {
+  if (!notNullDecoder_) {
     memcpy(nullsPtr, incomingNulls, numBytes);
     return;
   }
   memset(nullsPtr, bits::kNotNullByte, numBytes);
-  notNullDecoder->next(
+  notNullDecoder_->next(
       reinterpret_cast<char*>(nullsPtr), numValues, incomingNulls);
 }
 
@@ -112,18 +112,18 @@ ColumnReader::ColumnReader(
     StripeStreams& stripe,
     FlatMapContext flatMapContext)
     : nodeType_(std::move(nodeType)),
-      memoryPool(stripe.getMemoryPool()),
+      memoryPool_(stripe.getMemoryPool()),
       flatMapContext_(std::move(flatMapContext)) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   std::unique_ptr<SeekableInputStream> stream =
       stripe.getStream(encodingKey.forKind(proto::Stream_Kind_PRESENT), false);
   if (stream) {
-    notNullDecoder = createBooleanRleDecoder(std::move(stream), encodingKey);
+    notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
   }
 }
 
 uint64_t ColumnReader::skip(uint64_t numValues) {
-  if (notNullDecoder) {
+  if (notNullDecoder_) {
     // page through the values that we want to skip
     // and count how many are non-null
     std::array<char, BUFFER_SIZE> buffer;
@@ -131,7 +131,7 @@ uint64_t ColumnReader::skip(uint64_t numValues) {
     uint64_t remaining = numValues;
     while (remaining > 0) {
       uint64_t chunkSize = std::min(remaining, bitCount);
-      notNullDecoder->next(buffer.data(), chunkSize, nullptr);
+      notNullDecoder_->next(buffer.data(), chunkSize, nullptr);
       remaining -= chunkSize;
       numValues -= bits::countNulls(
           reinterpret_cast<uint64_t*>(buffer.data()), 0, chunkSize);
@@ -237,7 +237,7 @@ void ByteRleColumnReader<DataType>::readBytes(
   if (result) {
     values = result->asFlatVector<RequestedType>()->mutableValues(numValues);
   } else {
-    values = AlignedBuffer::allocate<RequestedType>(numValues, &memoryPool);
+    values = AlignedBuffer::allocate<RequestedType>(numValues, &memoryPool_);
   }
   values->setSize(BaseVector::byteSize<RequestedType>(numValues));
 
@@ -257,7 +257,7 @@ void ByteRleColumnReader<DataType>::readBytes(
 
   if (!result) {
     result = makeFlatVector<RequestedType>(
-        &memoryPool, nulls, nullCount, numValues, values);
+        &memoryPool_, nulls, nullCount, numValues, values);
   }
 }
 
@@ -350,7 +350,7 @@ BufferPtr IntegerDirectColumnReader::allocateValues(
   if (result) {
     values = result->asFlatVector<T>()->mutableValues(numValues);
   } else {
-    values = AlignedBuffer::allocate<T>(numValues, &memoryPool);
+    values = AlignedBuffer::allocate<T>(numValues, &memoryPool_);
   }
   return values;
 }
@@ -375,7 +375,7 @@ void IntegerDirectColumnReader::next(
       ints->nextShorts(values->asMutable<int16_t>(), numValues, nullsPtr);
       if (!result) {
         result = makeFlatVector<int16_t>(
-            &memoryPool, nulls, nullCount, numValues, values);
+            &memoryPool_, nulls, nullCount, numValues, values);
       }
       break;
     case TypeKind::INTEGER:
@@ -383,7 +383,7 @@ void IntegerDirectColumnReader::next(
       ints->nextInts(values->asMutable<int32_t>(), numValues, nullsPtr);
       if (!result) {
         result = makeFlatVector<int32_t>(
-            &memoryPool, nulls, nullCount, numValues, values);
+            &memoryPool_, nulls, nullCount, numValues, values);
       }
       break;
     case TypeKind::BIGINT:
@@ -391,7 +391,7 @@ void IntegerDirectColumnReader::next(
       ints->next(values->asMutable<int64_t>(), numValues, nullsPtr);
       if (!result) {
         result = makeFlatVector<int64_t>(
-            &memoryPool, nulls, nullCount, numValues, values);
+            &memoryPool_, nulls, nullCount, numValues, values);
       }
       break;
     default:
@@ -486,7 +486,7 @@ IntegerDictionaryColumnReader::IntegerDictionaryColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
   dataReader = IntDecoder</* isSigned = */ false>::createRle(
-      stripe.getStream(data, true), vers, memoryPool, dataVInts, numBytes);
+      stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
 
   // make a lazy dictionary initializer
   dictInit = stripe.getIntDictionaryInitializerForNode(encodingKey, numBytes);
@@ -518,7 +518,7 @@ BufferPtr IntegerDictionaryColumnReader::allocateValues(
   if (result) {
     values = result->asFlatVector<T>()->mutableValues(numValues);
   } else {
-    values = AlignedBuffer::allocate<T>(numValues, &memoryPool);
+    values = AlignedBuffer::allocate<T>(numValues, &memoryPool_);
   }
   return values;
 }
@@ -540,7 +540,7 @@ void IntegerDictionaryColumnReader::next(
   // is an offset or a literal value.
   const char* inDict = nullptr;
   if (inDictionaryReader) {
-    ensureCapacity<bool>(inDictionary, numValues, &memoryPool);
+    ensureCapacity<bool>(inDictionary, numValues, &memoryPool_);
     inDictionaryReader->next(
         inDictionary->asMutable<char>(), numValues, nullsPtr);
     inDict = inDictionary->as<char>();
@@ -559,7 +559,7 @@ void IntegerDictionaryColumnReader::next(
       populateOutput(dict, valuesPtr, numValues, nullsPtr, inDict);
       if (!result) {
         result = makeFlatVector<int16_t>(
-            &memoryPool, nulls, nullCount, numValues, values);
+            &memoryPool_, nulls, nullCount, numValues, values);
       }
       break;
     }
@@ -570,7 +570,7 @@ void IntegerDictionaryColumnReader::next(
       populateOutput(dict, valuesPtr, numValues, nullsPtr, inDict);
       if (!result) {
         result = makeFlatVector<int32_t>(
-            &memoryPool, nulls, nullCount, numValues, values);
+            &memoryPool_, nulls, nullCount, numValues, values);
       }
       break;
     }
@@ -581,7 +581,7 @@ void IntegerDictionaryColumnReader::next(
       populateOutput(dict, valuesPtr, numValues, nullsPtr, inDict);
       if (!result) {
         result = makeFlatVector<int64_t>(
-            &memoryPool, nulls, nullCount, numValues, values);
+            &memoryPool_, nulls, nullCount, numValues, values);
       }
       break;
     }
@@ -630,13 +630,13 @@ TimestampColumnReader::TimestampColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
   seconds = IntDecoder</*isSigned*/ true>::createRle(
-      stripe.getStream(data, true), vers, memoryPool, vints, LONG_BYTE_SIZE);
+      stripe.getStream(data, true), vers, memoryPool_, vints, LONG_BYTE_SIZE);
   auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
   bool nanoVInts = stripe.getUseVInts(nanoData);
   nano = IntDecoder</*isSigned*/ false>::createRle(
       stripe.getStream(nanoData, true),
       vers,
-      memoryPool,
+      memoryPool_,
       nanoVInts,
       LONG_BYTE_SIZE);
 }
@@ -662,8 +662,8 @@ void TimestampColumnReader::next(
     result->setNullCount(nullCount);
   }
 
-  ensureCapacity<int64_t>(secondsBuffer_, numValues, &memoryPool);
-  ensureCapacity<int64_t>(nanosBuffer_, numValues, &memoryPool);
+  ensureCapacity<int64_t>(secondsBuffer_, numValues, &memoryPool_);
+  ensureCapacity<int64_t>(nanosBuffer_, numValues, &memoryPool_);
   auto secondsData = secondsBuffer_->asMutable<int64_t>();
   auto nanosData = nanosBuffer_->asMutable<int64_t>();
   seconds->next(secondsData, numValues, nullsPtr);
@@ -690,9 +690,9 @@ void TimestampColumnReader::next(
   if (result) {
     values = result->asFlatVector<Timestamp>()->mutableValues(numValues);
   } else {
-    values = AlignedBuffer::allocate<Timestamp>(numValues, &memoryPool);
+    values = AlignedBuffer::allocate<Timestamp>(numValues, &memoryPool_);
     result = makeFlatVector<Timestamp>(
-        &memoryPool, nulls, nullCount, numValues, values);
+        &memoryPool_, nulls, nullCount, numValues, values);
   }
 
   auto* valuesPtr = values->asMutable<Timestamp>();
@@ -819,9 +819,9 @@ void FloatingPointColumnReader<DataT, ReqT>::next(
   if (result) {
     values = result->asFlatVector<ReqT>()->mutableValues(numValues);
   } else {
-    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool);
+    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool_);
     result =
-        makeFlatVector<ReqT>(&memoryPool, nulls, nullCount, numValues, values);
+        makeFlatVector<ReqT>(&memoryPool_, nulls, nullCount, numValues, values);
   }
   auto* valuesPtr = values->asMutable<ReqT>();
   if (nulls) {
@@ -961,7 +961,7 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
   dictIndex = IntDecoder</*isSigned*/ false>::createRle(
       stripe.getStream(dataId, true),
       rleVersion,
-      memoryPool,
+      memoryPool_,
       dictVInts,
       INT_BYTE_SIZE);
 
@@ -970,7 +970,7 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
   lengthDecoder = IntDecoder</*isSigned*/ false>::createRle(
       stripe.getStream(lenId, false),
       rleVersion,
-      memoryPool,
+      memoryPool_,
       lenVInts,
       INT_BYTE_SIZE);
 
@@ -999,7 +999,7 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
     strideDictLengthDecoder = IntDecoder</*isSigned*/ false>::createRle(
         stripe.getStream(strideDictLenId, true),
         rleVersion,
-        memoryPool,
+        memoryPool_,
         strideLenVInt,
         INT_BYTE_SIZE);
   }
@@ -1032,7 +1032,7 @@ BufferPtr StringDictionaryColumnReader::loadDictionary(
 
   // read bytes from underlying string
   int64_t blobSize = offsetsPtr[count];
-  BufferPtr dictionary = AlignedBuffer::allocate<char>(blobSize, &memoryPool);
+  BufferPtr dictionary = AlignedBuffer::allocate<char>(blobSize, &memoryPool_);
   data.readFully(dictionary->asMutable<char>(), blobSize);
   return dictionary;
 }
@@ -1054,7 +1054,8 @@ void StringDictionaryColumnReader::loadStrideDictionary() {
     strideDictStream->seekToRowGroup(pp);
     strideDictLengthDecoder->seekToRowGroup(pp);
 
-    ensureCapacity<int64_t>(strideDictOffset, strideDictCount + 1, &memoryPool);
+    ensureCapacity<int64_t>(
+        strideDictOffset, strideDictCount + 1, &memoryPool_);
     strideDict = loadDictionary(
         strideDictCount,
         *strideDictStream,
@@ -1121,7 +1122,7 @@ void StringDictionaryColumnReader::next(
   int64_t* flatIndices = nullptr;
   if (returnFlatVector_) {
     if (!indices_ || indices_->capacity() < numValues * sizeof(int64_t)) {
-      indices_ = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool);
+      indices_ = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool_);
     }
     flatIndices = indices_->asMutable<int64_t>();
     dictIndex->next(flatIndices, numValues, nullsPtr);
@@ -1131,7 +1132,7 @@ void StringDictionaryColumnReader::next(
       indices =
           result->as<DictionaryVector<StringView>>()->mutableIndices(numValues);
     } else {
-      indices = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool);
+      indices = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
     }
 
     auto indicesPtr = indices->asMutable<vector_size_t>();
@@ -1149,7 +1150,7 @@ void StringDictionaryColumnReader::next(
 
   const char* strideDictBlob = nullptr;
   if (inDictionaryReader) {
-    ensureCapacity<bool>(inDict, numValues, &memoryPool);
+    ensureCapacity<bool>(inDict, numValues, &memoryPool_);
     inDictionaryReader->next(inDict->asMutable<char>(), numValues, nullsPtr);
     loadStrideDictionary();
     if (strideDict) {
@@ -1216,7 +1217,7 @@ void StringDictionaryColumnReader::readDictionaryVector(
     if (!combinedDictionaryValues_) {
       // TODO Reuse memory
       BufferPtr values = AlignedBuffer::allocate<StringView>(
-          dictionaryCount + strideDictCount, &memoryPool);
+          dictionaryCount + strideDictCount, &memoryPool_);
       auto* valuesPtr = values->asMutable<StringView>();
       for (size_t i = 0; i < dictionaryCount; i++) {
         valuesPtr[i] = StringView(
@@ -1233,7 +1234,7 @@ void StringDictionaryColumnReader::readDictionaryVector(
       }
 
       combinedDictionaryValues_ = std::make_shared<FlatVector<StringView>>(
-          &memoryPool,
+          &memoryPool_,
           nodeType_->type,
           BufferPtr(nullptr), // TODO nulls
           dictionaryCount + strideDictCount /*length*/,
@@ -1246,7 +1247,7 @@ void StringDictionaryColumnReader::readDictionaryVector(
     if (!dictionaryValues_) {
       // TODO Reuse memory
       BufferPtr values =
-          AlignedBuffer::allocate<StringView>(dictionaryCount, &memoryPool);
+          AlignedBuffer::allocate<StringView>(dictionaryCount, &memoryPool_);
       auto* valuesPtr = values->asMutable<StringView>();
       for (size_t i = 0; i < dictionaryCount; i++) {
         valuesPtr[i] = StringView(
@@ -1255,7 +1256,7 @@ void StringDictionaryColumnReader::readDictionaryVector(
       }
 
       dictionaryValues_ = std::make_shared<FlatVector<StringView>>(
-          &memoryPool,
+          &memoryPool_,
           nodeType_->type,
           BufferPtr(nullptr), // TODO nulls
           dictionaryCount /*length*/,
@@ -1270,7 +1271,7 @@ void StringDictionaryColumnReader::readDictionaryVector(
         dictionaryValues);
   } else {
     result = std::make_shared<DictionaryVector<StringView>>(
-        &memoryPool,
+        &memoryPool_,
         nulls,
         numValues,
         dictionaryValues,
@@ -1295,7 +1296,7 @@ void StringDictionaryColumnReader::readFlatVector(
     result->setNullCount(nullCount);
     data = result->asFlatVector<StringView>()->mutableValues(numValues);
   } else {
-    data = AlignedBuffer::allocate<StringView>(numValues, &memoryPool);
+    data = AlignedBuffer::allocate<StringView>(numValues, &memoryPool_);
   }
 
   auto dataPtr = data->asMutable<StringView>();
@@ -1352,7 +1353,7 @@ void StringDictionaryColumnReader::readFlatVector(
     result->asFlatVector<StringView>()->setStringBuffers(stringBuffers);
   } else {
     result = std::make_shared<FlatVector<StringView>>(
-        &memoryPool,
+        &memoryPool_,
         nulls,
         numValues,
         data,
@@ -1366,7 +1367,7 @@ void StringDictionaryColumnReader::ensureInitialized() {
     return;
   }
 
-  ensureCapacity<int64_t>(dictionaryOffset, dictionaryCount + 1, &memoryPool);
+  ensureCapacity<int64_t>(dictionaryOffset, dictionaryCount + 1, &memoryPool_);
   dictionaryBlob = loadDictionary(
       dictionaryCount, *blobStream, *lengthDecoder, dictionaryOffset);
   dictionaryValues_.reset();
@@ -1379,8 +1380,8 @@ void StringDictionaryColumnReader::ensureInitialized() {
     auto indexStartOffset = flatMapContext_.inMapDecoder
         ? flatMapContext_.inMapDecoder->loadIndices(*rowIndex_, 0)
         : 0;
-    positionOffset = notNullDecoder
-        ? notNullDecoder->loadIndices(*rowIndex_, indexStartOffset)
+    positionOffset = notNullDecoder_
+        ? notNullDecoder_->loadIndices(*rowIndex_, indexStartOffset)
         : indexStartOffset;
     auto offset = strideDictStream->loadIndices(*rowIndex_, positionOffset);
     strideDictSizeOffset =
@@ -1441,7 +1442,7 @@ StringDirectColumnReader::StringDirectColumnReader(
   length = IntDecoder</*isSigned*/ false>::createRle(
       stripe.getStream(lenId, true),
       rleVersion,
-      memoryPool,
+      memoryPool_,
       lenVInts,
       INT_BYTE_SIZE);
   blobStream =
@@ -1498,7 +1499,7 @@ void StringDirectColumnReader::readFlatVector(
     result->setNullCount(nullCount);
     values = result->asFlatVector<StringView>()->mutableValues(numValues);
   } else {
-    values = AlignedBuffer::allocate<StringView>(numValues, &memoryPool);
+    values = AlignedBuffer::allocate<StringView>(numValues, &memoryPool_);
   }
   auto* valuesPtr = values->asMutable<StringView>();
   const auto* dataPtr = data->as<char>();
@@ -1523,7 +1524,7 @@ void StringDirectColumnReader::readFlatVector(
         std::vector<BufferPtr>{data});
   } else {
     result = std::make_shared<FlatVector<StringView>>(
-        &memoryPool,
+        &memoryPool_,
         nodeType_->type,
         nulls,
         numValues,
@@ -1543,7 +1544,7 @@ void StringDirectColumnReader::next(
 
   // TODO Reuse memory
   // read the length vector
-  BufferPtr lengths = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool);
+  BufferPtr lengths = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool_);
   length->next(lengths->asMutable<int64_t>(), numValues, nullsPtr);
 
   // figure out the total length of data we need fom the blob stream
@@ -1553,7 +1554,7 @@ void StringDirectColumnReader::next(
   // TODO Reuse memory
   // Load data from the blob stream into our buffer until we have enough
   // to get the rest directly out of the stream's buffer.
-  BufferPtr data = AlignedBuffer::allocate<char>(totalLength, &memoryPool);
+  BufferPtr data = AlignedBuffer::allocate<char>(totalLength, &memoryPool_);
   blobStream->readFully(data->asMutable<char>(), totalLength);
 
   readFlatVector(
@@ -1680,7 +1681,7 @@ void StructColumnReader::next(
     }
 
     result = std::make_shared<RowVector>(
-        &memoryPool,
+        &memoryPool_,
         ROW(std::move(types)),
         nulls,
         numValues,
@@ -1724,7 +1725,7 @@ ListColumnReader::ListColumnReader(
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
   length = IntDecoder</*isSigned*/ false>::createRle(
-      stripe.getStream(lenId, true), vers, memoryPool, vints, INT_BYTE_SIZE);
+      stripe.getStream(lenId, true), vers, memoryPool_, vints, INT_BYTE_SIZE);
 
   const auto& cs = stripe.getColumnSelector();
   auto& childType = requestedType_->childAt(0);
@@ -1785,8 +1786,8 @@ void ListColumnReader::next(
     offsets = resultArray->mutableOffsets(numValues);
     lengths = resultArray->mutableSizes(numValues);
   } else {
-    offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool);
-    lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool);
+    offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
+    lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
   }
 
   // Hack. Cast vector_size_t to signed so integer reader can handle it. This
@@ -1837,7 +1838,7 @@ void ListColumnReader::next(
     auto arrayType =
         elements != nullptr ? ARRAY(elements->type()) : requestedType_->type;
     result = std::make_shared<ArrayVector>(
-        &memoryPool,
+        &memoryPool_,
         arrayType,
         nulls,
         numValues,
@@ -1884,7 +1885,7 @@ MapColumnReader::MapColumnReader(
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
   length = IntDecoder</*isSigned*/ false>::createRle(
-      stripe.getStream(lenId, true), vers, memoryPool, vints, INT_BYTE_SIZE);
+      stripe.getStream(lenId, true), vers, memoryPool_, vints, INT_BYTE_SIZE);
 
   const auto& cs = stripe.getColumnSelector();
   auto& keyType = requestedType_->childAt(0);
@@ -1947,8 +1948,8 @@ void MapColumnReader::next(
     offsets = resultMap->mutableOffsets(numValues);
     lengths = resultMap->mutableSizes(numValues);
   } else {
-    offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool);
-    lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool);
+    offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
+    lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
   }
 
   // Hack. Cast vector_size_t to signed so integer reader can handle it. This
@@ -2005,7 +2006,7 @@ void MapColumnReader::next(
         ? requestedType_->type
         : MAP(keys->type(), values->type());
     result = std::make_shared<MapVector>(
-        &memoryPool,
+        &memoryPool_,
         mapType,
         nulls,
         numValues,

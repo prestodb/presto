@@ -42,7 +42,7 @@ class NullColumnReader : public ColumnReader {
       // If vector already exists and contains the right value, resize.
       result->resize(numValues);
     } else {
-      auto valueVector = BaseVector::create(nodeType_->type, 1, &memoryPool);
+      auto valueVector = BaseVector::create(nodeType_->type, 1, &memoryPool_);
       valueVector->setNull(0, true);
       result = BaseVector::wrapInConstant(numValues, 0, valueVector);
     }
