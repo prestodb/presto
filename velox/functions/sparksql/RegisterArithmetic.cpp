@@ -28,30 +28,28 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerBinaryNumeric<MultiplyFunction>({prefix + "multiply"});
   registerFunction<udf_divide, double, double, double>({prefix + "divide"});
   registerBinaryIntegral<RemainderFunction>({prefix + "remainder"});
-  registerUnaryNumeric<udf_unaryminus>({prefix + "unaryminus"});
+  registerUnaryNumeric<UnaryMinusFunction>({prefix + "unaryminus"});
   // Math functions.
-  registerUnaryNumeric<udf_abs>({prefix + "abs"});
+  registerUnaryNumeric<AbsFunction>({prefix + "abs"});
   registerFunction<udf_exp, double, double>({prefix + "exp"});
   registerBinaryIntegral<PModFunction>({prefix + "pmod"});
   registerFunction<udf_power<double>, double, double, double>(
       {prefix + "power"});
-  registerUnaryNumeric<udf_round>({prefix + "round"});
-  registerFunction<udf_round<int8_t>, int8_t, int8_t, int32_t>(
+  registerUnaryNumeric<RoundFunction>({prefix + "round"});
+  registerFunction<RoundFunction, int8_t, int8_t, int32_t>({prefix + "round"});
+  registerFunction<RoundFunction, int16_t, int16_t, int32_t>(
       {prefix + "round"});
-  registerFunction<udf_round<int16_t>, int16_t, int16_t, int32_t>(
+  registerFunction<RoundFunction, int32_t, int32_t, int32_t>(
       {prefix + "round"});
-  registerFunction<udf_round<int32_t>, int32_t, int32_t, int32_t>(
+  registerFunction<RoundFunction, int64_t, int64_t, int32_t>(
       {prefix + "round"});
-  registerFunction<udf_round<int64_t>, int64_t, int64_t, int32_t>(
-      {prefix + "round"});
-  registerFunction<udf_round<double>, double, double, int32_t>(
-      {prefix + "round"});
-  registerFunction<udf_round<float>, float, float, int32_t>({prefix + "round"});
+  registerFunction<RoundFunction, double, double, int32_t>({prefix + "round"});
+  registerFunction<RoundFunction, float, float, int32_t>({prefix + "round"});
   // In Spark only long, double, and decimal have ceil/floor
-  registerFunction<udf_ceil<int64_t>, int64_t, int64_t>({prefix + "ceil"});
-  registerFunction<udf_ceil<double>, int64_t, double>({prefix + "ceil"});
-  registerFunction<udf_floor<int64_t>, int64_t, int64_t>({prefix + "floor"});
-  registerFunction<udf_floor<double>, int64_t, double>({prefix + "floor"});
+  registerFunction<CeilFunction, int64_t, int64_t>({prefix + "ceil"});
+  registerFunction<CeilFunction, int64_t, double>({prefix + "ceil"});
+  registerFunction<FloorFunction, int64_t, int64_t>({prefix + "floor"});
+  registerFunction<FloorFunction, int64_t, double>({prefix + "floor"});
 }
 
 } // namespace facebook::velox::functions::sparksql

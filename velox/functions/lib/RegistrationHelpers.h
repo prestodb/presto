@@ -81,16 +81,16 @@ void registerUnaryScalar(const std::vector<std::string>& aliases) {
 
 template <template <class> class T>
 void registerUnaryIntegral(const std::vector<std::string>& aliases) {
-  registerFunction<T<int8_t>, int8_t, int8_t>(aliases);
-  registerFunction<T<int16_t>, int16_t, int16_t>(aliases);
-  registerFunction<T<int32_t>, int32_t, int32_t>(aliases);
-  registerFunction<T<int64_t>, int64_t, int64_t>(aliases);
+  registerFunction<T, int8_t, int8_t>(aliases);
+  registerFunction<T, int16_t, int16_t>(aliases);
+  registerFunction<T, int32_t, int32_t>(aliases);
+  registerFunction<T, int64_t, int64_t>(aliases);
 }
 
 template <template <class> class T>
 void registerUnaryFloatingPoint(const std::vector<std::string>& aliases) {
-  registerFunction<T<double>, double, double>(aliases);
-  registerFunction<T<float>, float, float>(aliases);
+  registerFunction<T, double, double>(aliases);
+  registerFunction<T, float, float>(aliases);
 }
 
 template <template <class> class T>

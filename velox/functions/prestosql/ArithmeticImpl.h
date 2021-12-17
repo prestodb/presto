@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
 #include "folly/CPortability.h"
-namespace facebook {
-namespace velox {
-namespace functions {
+
+namespace facebook::velox::functions {
 
 /// Round function
 /// when AlwaysRoundNegDec is false, presto semantics is followed which does not
@@ -115,6 +115,4 @@ T ceil(const T& arg) {
   return results;
 }
 
-} // namespace functions
-} // namespace velox
-}; // namespace facebook
+} // namespace facebook::velox::functions

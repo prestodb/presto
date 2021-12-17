@@ -83,44 +83,58 @@ struct ModulusFunction {
 };
 
 template <typename T>
-VELOX_UDF_BEGIN(ceil)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-  result = ceil(a);
-  return true;
-}
-VELOX_UDF_END();
+struct CeilFunction {
+  template <typename TOutput, typename TInput = TOutput>
+  FOLLY_ALWAYS_INLINE bool call(TOutput& result, const TInput& a) {
+    if constexpr (std::is_integral<TInput>::value) {
+      result = a;
+    } else {
+      result = ceil(a);
+    }
+    return true;
+  }
+};
 
 template <typename T>
-VELOX_UDF_BEGIN(floor)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-  result = floor(a);
-  return true;
-}
-VELOX_UDF_END();
+struct FloorFunction {
+  template <typename TOutput, typename TInput = TOutput>
+  FOLLY_ALWAYS_INLINE bool call(TOutput& result, const TInput& a) {
+    if constexpr (std::is_integral<TInput>::value) {
+      result = a;
+    } else {
+      result = floor(a);
+    }
+    return true;
+  }
+};
 
 template <typename T>
-VELOX_UDF_BEGIN(abs)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-  result = abs(a);
-  return true;
-}
-VELOX_UDF_END();
+struct AbsFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+    result = abs(a);
+    return true;
+  }
+};
 
 template <typename T>
-VELOX_UDF_BEGIN(negate)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-  result = negate(a);
-  return true;
-}
-VELOX_UDF_END();
+struct NegateFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+    result = negate(a);
+    return true;
+  }
+};
 
 template <typename T>
-VELOX_UDF_BEGIN(round)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& a, const int32_t b = 0) {
-  result = round(a, b);
-  return true;
-}
-VELOX_UDF_END();
+struct RoundFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool
+  call(TInput& result, const TInput& a, const int32_t b = 0) {
+    result = round(a, b);
+    return true;
+  }
+};
 
 template <typename T>
 VELOX_UDF_BEGIN(power)
@@ -304,20 +318,21 @@ FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
 VELOX_UDF_END();
 
 template <typename T>
-VELOX_UDF_BEGIN(sign)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-  if constexpr (std::is_floating_point<T>::value) {
-    if (std::isnan(a)) {
-      result = std::numeric_limits<T>::quiet_NaN();
+struct SignFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+    if constexpr (std::is_floating_point<TInput>::value) {
+      if (std::isnan(a)) {
+        result = std::numeric_limits<TInput>::quiet_NaN();
+      } else {
+        result = (a == 0.0) ? 0.0 : (a > 0.0) ? 1.0 : -1.0;
+      }
     } else {
-      result = (a == 0.0) ? 0.0 : (a > 0.0) ? 1.0 : -1.0;
+      result = (a == 0) ? 0 : (a > 0) ? 1 : -1;
     }
-  } else {
-    result = (a == 0) ? 0 : (a > 0) ? 1 : -1;
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
 VELOX_UDF_BEGIN(infinity)
 FOLLY_ALWAYS_INLINE bool call(double& result) {

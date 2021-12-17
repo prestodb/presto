@@ -74,11 +74,12 @@ struct CheckedModulusFunction {
 };
 
 template <typename T>
-VELOX_UDF_BEGIN(checked_negate)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-  result = checkedNegate(a);
-  return true;
-}
-VELOX_UDF_END();
+struct CheckedNegateFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+    result = checkedNegate(a);
+    return true;
+  }
+};
 
 } // namespace facebook::velox::functions

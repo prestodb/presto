@@ -28,18 +28,18 @@ void registerSimpleFunctions() {
   registerBinaryFloatingPoint<MultiplyFunction>({"multiply"});
   registerBinaryFloatingPoint<DivideFunction>({"divide"});
   registerBinaryFloatingPoint<ModulusFunction>({"mod"});
-  registerUnaryNumeric<udf_ceil>({"ceil", "ceiling"});
-  registerUnaryNumeric<udf_floor>({});
-  registerUnaryNumeric<udf_abs>({});
-  registerUnaryFloatingPoint<udf_negate>({});
+  registerUnaryNumeric<CeilFunction>({"ceil", "ceiling"});
+  registerUnaryNumeric<FloorFunction>({"floor"});
+  registerUnaryNumeric<AbsFunction>({"abs"});
+  registerUnaryFloatingPoint<NegateFunction>({"negate"});
   registerFunction<udf_radians, double, double>({"radians"});
-  registerUnaryNumeric<udf_round>({"round"});
-  registerFunction<udf_round<int8_t>, int8_t, int8_t, int32_t>({"round"});
-  registerFunction<udf_round<int16_t>, int16_t, int16_t, int32_t>({"round"});
-  registerFunction<udf_round<int32_t>, int32_t, int32_t, int32_t>({"round"});
-  registerFunction<udf_round<int64_t>, int64_t, int64_t, int32_t>({"round"});
-  registerFunction<udf_round<double>, double, double, int32_t>({"round"});
-  registerFunction<udf_round<float>, float, float, int32_t>({"round"});
+  registerUnaryNumeric<RoundFunction>({"round"});
+  registerFunction<RoundFunction, int8_t, int8_t, int32_t>({"round"});
+  registerFunction<RoundFunction, int16_t, int16_t, int32_t>({"round"});
+  registerFunction<RoundFunction, int32_t, int32_t, int32_t>({"round"});
+  registerFunction<RoundFunction, int64_t, int64_t, int32_t>({"round"});
+  registerFunction<RoundFunction, double, double, int32_t>({"round"});
+  registerFunction<RoundFunction, float, float, int32_t>({"round"});
   registerFunction<udf_power<double>, double, double, double>({"power", "pow"});
   registerFunction<udf_power<int64_t>, double, int64_t, int64_t>(
       {"power", "pow"});
@@ -72,15 +72,15 @@ void registerSimpleFunctions() {
   registerFunction<udf_width_bucket, int64_t, double, double, double, int64_t>(
       {"width_bucket"});
 
-  registerUnaryNumeric<udf_sign>({});
+  registerUnaryNumeric<SignFunction>({"sign"});
   registerFunction<udf_infinity, double>({});
   registerFunction<udf_is_finite, bool, double>({});
   registerFunction<udf_is_infinite, bool, double>({});
   registerFunction<udf_is_nan, bool, double>({});
   registerFunction<udf_nan, double>({});
   registerFunction<RandFunction, double>({"rand", "random"});
+}
 
-} // namespace
 } // namespace
 
 void registerArithmeticFunctions() {
