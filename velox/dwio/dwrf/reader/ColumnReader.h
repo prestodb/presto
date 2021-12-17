@@ -18,12 +18,12 @@
 
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"
+#include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 #include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/EncodingContext.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
-#include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::dwrf {
@@ -33,9 +33,11 @@ namespace facebook::velox::dwrf {
  */
 class ColumnReader {
  protected:
-  explicit ColumnReader(memory::MemoryPool& memoryPool)
+  explicit ColumnReader(
+      memory::MemoryPool& memoryPool,
+      const std::shared_ptr<const dwio::common::TypeWithId>& type)
       : notNullDecoder{},
-        encodingKey{0},
+        nodeType_{type},
         memoryPool{memoryPool},
         flatMapContext_{FlatMapContext::nonFlatMapContext()} {}
 
@@ -57,13 +59,13 @@ class ColumnReader {
       const uint64_t* incomingNulls);
 
   std::unique_ptr<ByteRleDecoder> notNullDecoder;
-  EncodingKey encodingKey;
+  const std::shared_ptr<const dwio::common::TypeWithId> nodeType_;
   memory::MemoryPool& memoryPool;
   FlatMapContext flatMapContext_;
 
  public:
   ColumnReader(
-      const EncodingKey& ek,
+      std::shared_ptr<const dwio::common::TypeWithId> nodeId,
       StripeStreams& stripe,
       FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
 

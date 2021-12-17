@@ -154,7 +154,9 @@ class TestStripeStreams : public StripeStreamsBase {
   }
 
   bool getUseVInts(const StreamIdentifier& streamId) const override {
-    DWIO_ENSURE(context_.hasStream(streamId));
+    DWIO_ENSURE(
+        context_.hasStream(streamId),
+        fmt::format("Stream not found: {}", streamId.toString()));
     return context_.getConfig(Config::USE_VINTS);
   }
 
@@ -724,6 +726,8 @@ void testMapWriter(
   const auto dataType = rowType->childAt(0);
   const auto rowTypeWithId = TypeWithId::create(rowType);
   const auto dataTypeWithId = rowTypeWithId->childAt(0);
+  const auto writerSchema = TypeWithId::create(rowType);
+  const auto writerDataTypeWithId = writerSchema->childAt(0);
 
   VLOG(2) << "Testing map writer " << dataType->toString() << " using "
           << (useFlatMap ? "Flat Map" : "Regular Map");
@@ -731,13 +735,13 @@ void testMapWriter(
   const auto config = std::make_shared<Config>();
   if (useFlatMap) {
     config->set(Config::FLATTEN_MAP, true);
-    config->set(Config::MAP_FLAT_COLS, {dataTypeWithId->column});
+    config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column});
     config->set(
         Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
   }
 
   WriterContext context{config, getDefaultScopedMemoryPool()};
-  const auto writer = ColumnWriter::create(context, *dataTypeWithId);
+  const auto writer = ColumnWriter::create(context, *writerDataTypeWithId);
   // For writing flat map with encoded input, we'd like to test all 4
   // combinations.
   size_t strideCount = testEncoded ? 4 : 2;

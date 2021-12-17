@@ -35,7 +35,7 @@ class SelectiveColumnReader : public ColumnReader {
   static constexpr uint64_t kStringBufferSize = 16 * 1024;
 
   SelectiveColumnReader(
-      const EncodingKey& ek,
+      std::shared_ptr<const dwio::common::TypeWithId> requestedType,
       StripeStreams& stripe,
       common::ScanSpec* scanSpec,
       const TypePtr& type,

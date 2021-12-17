@@ -18,6 +18,7 @@
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/DataBuffer.h"
+#include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/ConstantColumnReader.h"
 #include "velox/dwio/dwrf/utils/BitIterator.h"
@@ -201,10 +202,10 @@ template <typename T>
 class FlatMapColumnReader : public ColumnReader {
  public:
   FlatMapColumnReader(
-      EncodingKey& ek,
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
-      StripeStreams& stripe);
+      StripeStreams& stripe,
+      FlatMapContext flatMapContext);
   ~FlatMapColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override;
@@ -215,7 +216,7 @@ class FlatMapColumnReader : public ColumnReader {
       const uint64_t* FOLLY_NULLABLE nulls) override;
 
  private:
-  const std::shared_ptr<const dwio::common::TypeWithId> type_;
+  const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
   std::unique_ptr<StringKeyBuffer> stringKeyBuffer_;
   bool returnFlatVector_;
@@ -229,10 +230,10 @@ template <typename T>
 class FlatMapStructEncodingColumnReader : public ColumnReader {
  public:
   FlatMapStructEncodingColumnReader(
-      EncodingKey& ek,
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
-      StripeStreams& stripe);
+      StripeStreams& stripe,
+      FlatMapContext flatMapContext);
   ~FlatMapStructEncodingColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override;
@@ -243,7 +244,7 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
       const uint64_t* FOLLY_NULLABLE nulls) override;
 
  private:
-  const std::shared_ptr<const dwio::common::TypeWithId> type_;
+  const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
   std::unique_ptr<NullColumnReader> nullColumnReader_;
   BufferPtr mergedNulls_;
@@ -252,10 +253,10 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
 class FlatMapColumnReaderFactory {
  public:
   static std::unique_ptr<ColumnReader> create(
-      EncodingKey& ek,
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
-      StripeStreams& stripe);
+      StripeStreams& stripe,
+      FlatMapContext flatMapContext);
 };
 
 } // namespace facebook::velox::dwrf

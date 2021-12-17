@@ -26,7 +26,9 @@ class NullColumnReader : public ColumnReader {
   NullColumnReader(
       const StripeStreams& stripe,
       const std::shared_ptr<const Type>& type)
-      : ColumnReader(stripe.getMemoryPool()), type_{type} {}
+      : ColumnReader(
+            stripe.getMemoryPool(),
+            dwio::common::TypeWithId::create(type)) {}
   ~NullColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override {
@@ -40,14 +42,11 @@ class NullColumnReader : public ColumnReader {
       // If vector already exists and contains the right value, resize.
       result->resize(numValues);
     } else {
-      auto valueVector = BaseVector::create(type_, 1, &memoryPool);
+      auto valueVector = BaseVector::create(nodeType_->type, 1, &memoryPool);
       valueVector->setNull(0, true);
       result = BaseVector::wrapInConstant(numValues, 0, valueVector);
     }
   }
-
- private:
-  const std::shared_ptr<const Type> type_;
 };
 
 } // namespace facebook::velox::dwrf
