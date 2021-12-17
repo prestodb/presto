@@ -16,6 +16,7 @@ package com.facebook.presto.localfile;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -71,7 +72,7 @@ public class LocalFileSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         return ImmutableList.of(address);
     }
