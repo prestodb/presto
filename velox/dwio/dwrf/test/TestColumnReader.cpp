@@ -230,8 +230,6 @@ std::shared_ptr<T> getOnlyChild(const std::shared_ptr<F>& batch) {
   EXPECT_TRUE(rowVector.get() != nullptr)
       << "Vector is not a struct: " << typeid(F).name();
   auto child = std::dynamic_pointer_cast<T>(rowVector->loadedChildAt(0));
-  LOG(INFO) << "child type: "
-            << rowVector->loadedChildAt(0)->type()->toString();
   EXPECT_TRUE(child.get() != nullptr)
       << "Child vector type doesn't match " << typeid(T).name();
   return child;
