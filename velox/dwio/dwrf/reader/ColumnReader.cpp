@@ -168,13 +168,11 @@ std::enable_if_t<std::is_same_v<From, int8_t>> expandBytes(
   }
 }
 
-template <typename DataType>
+template <typename DataType, typename RequestedType>
 class ByteRleColumnReader : public ColumnReader {
  private:
-  TypeKind requestedKind_;
   std::unique_ptr<ByteRleDecoder> rle;
 
-  template <typename RequestedType>
   void readBytes(
       uint64_t numValues,
       BufferPtr nulls,
@@ -184,14 +182,12 @@ class ByteRleColumnReader : public ColumnReader {
  public:
   ByteRleColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
-      TypeKind requestedKind,
       StripeStreams& stripe,
       std::function<std::unique_ptr<ByteRleDecoder>(
           std::unique_ptr<SeekableInputStream>,
           const EncodingKey&)> creator,
       FlatMapContext flatMapContext)
-      : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)),
-        requestedKind_{requestedKind} {
+      : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)) {
     EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
     rle = creator(
         stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true),
@@ -205,8 +201,9 @@ class ByteRleColumnReader : public ColumnReader {
       override;
 };
 
-template <typename DataType>
-uint64_t ByteRleColumnReader<DataType>::skip(uint64_t numValues) {
+template <typename DataType, typename RequestedType>
+uint64_t ByteRleColumnReader<DataType, RequestedType>::skip(
+    uint64_t numValues) {
   numValues = ColumnReader::skip(numValues);
   rle->skip(numValues);
   return numValues;
@@ -225,9 +222,8 @@ VectorPtr makeFlatVector(
   return flatVector;
 }
 
-template <typename DataType>
-template <typename RequestedType>
-void ByteRleColumnReader<DataType>::readBytes(
+template <typename DataType, typename RequestedType>
+void ByteRleColumnReader<DataType, RequestedType>::readBytes(
     uint64_t numValues,
     BufferPtr nulls,
     uint64_t nullCount,
@@ -262,8 +258,8 @@ void ByteRleColumnReader<DataType>::readBytes(
   }
 }
 
-template <typename DataType>
-void ByteRleColumnReader<DataType>::next(
+template <typename DataType, typename RequestedType>
+void ByteRleColumnReader<DataType, RequestedType>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
@@ -276,25 +272,7 @@ void ByteRleColumnReader<DataType>::next(
     result->setNullCount(nullCount);
   }
 
-  switch (requestedKind_) {
-    case TypeKind::BOOLEAN:
-      readBytes<bool>(numValues, nulls, nullCount, result);
-      break;
-    case TypeKind::TINYINT:
-      readBytes<int8_t>(numValues, nulls, nullCount, result);
-      break;
-    case TypeKind::SMALLINT:
-      readBytes<int16_t>(numValues, nulls, nullCount, result);
-      break;
-    case TypeKind::INTEGER:
-      readBytes<int32_t>(numValues, nulls, nullCount, result);
-      break;
-    case TypeKind::BIGINT:
-      readBytes<int64_t>(numValues, nulls, nullCount, result);
-      break;
-    default:
-      DWIO_RAISE("unexpected type: ", nodeType_->type->toString());
-  }
+  readBytes(numValues, nulls, nullCount, result);
 }
 
 namespace {
@@ -2016,6 +1994,70 @@ void MapColumnReader::next(
   }
 }
 
+template <typename DataT>
+struct RleDecoderFactory {};
+
+template <>
+struct RleDecoderFactory<bool> {
+  static std::function<std::unique_ptr<
+      ByteRleDecoder>(std::unique_ptr<SeekableInputStream>, const EncodingKey&)>
+  get() {
+    return createBooleanRleDecoder;
+  }
+};
+
+template <>
+struct RleDecoderFactory<int8_t> {
+  static std::function<std::unique_ptr<
+      ByteRleDecoder>(std::unique_ptr<SeekableInputStream>, const EncodingKey&)>
+  get() {
+    return createByteRleDecoder;
+  }
+};
+
+template <typename DataT>
+std::unique_ptr<ColumnReader> buildByteRleColumnReader(
+    const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
+    TypeKind requestedKind,
+    StripeStreams& stripe,
+    FlatMapContext flatMapContext) {
+  switch (requestedKind) {
+    case TypeKind::BOOLEAN:
+      return std::make_unique<ByteRleColumnReader<DataT, bool>>(
+          nodeType,
+          stripe,
+          RleDecoderFactory<DataT>::get(),
+          std::move(flatMapContext));
+    case TypeKind::TINYINT:
+      return std::make_unique<ByteRleColumnReader<DataT, int8_t>>(
+          nodeType,
+          stripe,
+          RleDecoderFactory<DataT>::get(),
+          std::move(flatMapContext));
+    case TypeKind::SMALLINT:
+      return std::make_unique<ByteRleColumnReader<DataT, int16_t>>(
+          nodeType,
+          stripe,
+          RleDecoderFactory<DataT>::get(),
+          std::move(flatMapContext));
+    case TypeKind::INTEGER:
+      return std::make_unique<ByteRleColumnReader<DataT, int32_t>>(
+          nodeType,
+          stripe,
+          RleDecoderFactory<DataT>::get(),
+          std::move(flatMapContext));
+    case TypeKind::BIGINT:
+      return std::make_unique<ByteRleColumnReader<DataT, int64_t>>(
+          nodeType,
+          stripe,
+          RleDecoderFactory<DataT>::get(),
+          std::move(flatMapContext));
+    default:
+      DWIO_RAISE(
+          fmt::format("Unsupported upcast to typekind: {}", requestedKind));
+  }
+}
+
 template <template <class> class IntegerColumnReaderT>
 std::unique_ptr<ColumnReader> buildTypedIntegerColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
@@ -2106,18 +2148,16 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
           DWIO_RAISE("buildReader unhandled string encoding");
       }
     case TypeKind::BOOLEAN:
-      return std::make_unique<ByteRleColumnReader<bool>>(
+      return buildByteRleColumnReader<bool>(
           dataType,
           requestedType->type->kind(),
           stripe,
-          createBooleanRleDecoder,
           std::move(flatMapContext));
     case TypeKind::TINYINT:
-      return std::make_unique<ByteRleColumnReader<int8_t>>(
+      return buildByteRleColumnReader<int8_t>(
           dataType,
           requestedType->type->kind(),
           stripe,
-          createByteRleDecoder,
           std::move(flatMapContext));
     case TypeKind::ARRAY:
       return std::make_unique<ListColumnReader>(
