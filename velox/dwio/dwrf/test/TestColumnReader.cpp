@@ -104,7 +104,11 @@ class SelectiveColumnReaderBuilder {
     makeFieldSpecs("", 0, rowType, scanSpec_.get());
 
     return SelectiveColumnReader::build(
-        cs.getSchemaWithId(), dataTypeWithId, stripe, scanSpec_.get(), 0);
+        cs.getSchemaWithId(),
+        dataTypeWithId,
+        stripe,
+        scanSpec_.get(),
+        FlatMapContext::nonFlatMapContext());
   }
 
  private:

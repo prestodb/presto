@@ -855,7 +855,10 @@ TEST(TestReader, testUpcastBoolean) {
   ColumnSelector cs(reqType, rowType);
   EXPECT_CALL(streams, getColumnSelectorProxy()).WillRepeatedly(Return(&cs));
   std::unique_ptr<ColumnReader> reader = ColumnReader::build(
-      TypeWithId::create(reqType), TypeWithId::create(rowType), streams, false);
+      TypeWithId::create(reqType),
+      TypeWithId::create(rowType),
+      streams,
+      FlatMapContext::nonFlatMapContext());
 
   VectorPtr batch;
   reader->next(104, batch);
@@ -899,7 +902,10 @@ TEST(TestReader, testUpcastIntDirect) {
   ColumnSelector cs(reqType, rowType);
   EXPECT_CALL(streams, getColumnSelectorProxy()).WillRepeatedly(Return(&cs));
   std::unique_ptr<ColumnReader> reader = ColumnReader::build(
-      TypeWithId::create(reqType), TypeWithId::create(rowType), streams, false);
+      TypeWithId::create(reqType),
+      TypeWithId::create(rowType),
+      streams,
+      FlatMapContext::nonFlatMapContext());
 
   VectorPtr batch;
   reader->next(100, batch);
@@ -960,7 +966,10 @@ TEST(TestReader, testUpcastIntDict) {
   ColumnSelector cs(reqType, rowType);
   EXPECT_CALL(streams, getColumnSelectorProxy()).WillRepeatedly(Return(&cs));
   std::unique_ptr<ColumnReader> reader = ColumnReader::build(
-      TypeWithId::create(reqType), TypeWithId::create(rowType), streams, false);
+      TypeWithId::create(reqType),
+      TypeWithId::create(rowType),
+      streams,
+      FlatMapContext::nonFlatMapContext());
 
   VectorPtr batch;
   reader->next(100, batch);
@@ -1009,7 +1018,10 @@ TEST(TestReader, testUpcastFloat) {
   ColumnSelector cs(reqType, rowType);
   EXPECT_CALL(streams, getColumnSelectorProxy()).WillRepeatedly(Return(&cs));
   std::unique_ptr<ColumnReader> reader = ColumnReader::build(
-      TypeWithId::create(reqType), TypeWithId::create(rowType), streams, false);
+      TypeWithId::create(reqType),
+      TypeWithId::create(rowType),
+      streams,
+      FlatMapContext::nonFlatMapContext());
 
   VectorPtr batch;
   reader->next(100, batch);

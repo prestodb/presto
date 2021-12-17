@@ -138,16 +138,19 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
           // check if we have key filter passed through read schema
           if (keyPredicate(key)) {
             // fetch reader, in map bitmap and key object.
-            // std::unique_ptr<ColumnReader>
-            auto valueReader = ColumnReader::build(
-                requestedValueType, dataValueType, stripe, sequence);
-
             auto inMap = stripe.getStream(
                 seqEk.forKind(proto::Stream_Kind_IN_MAP), true);
             DWIO_ENSURE_NOT_NULL(inMap, "In map stream is required");
             // build seekable
             auto inMapDecoder =
                 createBooleanRleDecoder(std::move(inMap), seqEk);
+
+            // std::unique_ptr<ColumnReader>
+            auto valueReader = ColumnReader::build(
+                requestedValueType,
+                dataValueType,
+                stripe,
+                FlatMapContext{sequence, inMapDecoder.get()});
 
             keyNodes.push_back(std::make_unique<KeyNode<T>>(
                 std::move(valueReader),

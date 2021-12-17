@@ -95,7 +95,12 @@ class TestStripeStreams : public StripeStreamsBase {
     }
     if (!stream || stream->isSuppressed()) {
       if (throwIfNotFound) {
-        DWIO_RAISE("stream not found");
+        DWIO_RAISE(fmt::format(
+            "stream (node = {}, seq = {}, column = {}, kind = {}) not found",
+            si.node,
+            si.sequence,
+            si.column,
+            si.kind));
       } else {
         return nullptr;
       }
@@ -318,7 +323,8 @@ void testDataTypeWriter(
     TestStripeStreams streams(context, sf, rowType);
     auto typeWithId = TypeWithId::create(rowType);
     auto reqType = typeWithId->childAt(0);
-    auto reader = ColumnReader::build(reqType, reqType, streams, sequence);
+    auto reader = ColumnReader::build(
+        reqType, reqType, streams, FlatMapContext{sequence, nullptr});
     VectorPtr out;
     for (auto strideI = 0; strideI < strideCount; ++strideI) {
       reader->next(size, out);

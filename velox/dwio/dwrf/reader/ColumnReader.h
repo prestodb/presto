@@ -21,6 +21,7 @@
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 #include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
+#include "velox/dwio/dwrf/reader/EncodingContext.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -33,7 +34,10 @@ namespace facebook::velox::dwrf {
 class ColumnReader {
  protected:
   explicit ColumnReader(memory::MemoryPool& memoryPool)
-      : notNullDecoder{}, encodingKey{0}, memoryPool{memoryPool} {}
+      : notNullDecoder{},
+        encodingKey{0},
+        memoryPool{memoryPool},
+        flatMapContext_{FlatMapContext::nonFlatMapContext()} {}
 
   // Reads nulls, if any. Sets '*nulls' to nullptr if void
   // the reader has no nulls and there are no incoming
@@ -55,9 +59,13 @@ class ColumnReader {
   std::unique_ptr<ByteRleDecoder> notNullDecoder;
   EncodingKey encodingKey;
   memory::MemoryPool& memoryPool;
+  FlatMapContext flatMapContext_;
 
  public:
-  ColumnReader(const EncodingKey& ek, StripeStreams& stripe);
+  ColumnReader(
+      const EncodingKey& ek,
+      StripeStreams& stripe,
+      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
 
   virtual ~ColumnReader() = default;
 
@@ -101,7 +109,7 @@ class ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
-      uint32_t sequence = 0);
+      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
 };
 
 class ColumnReaderFactory {
@@ -111,8 +119,9 @@ class ColumnReaderFactory {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
-      uint32_t sequence = 0) {
-    return ColumnReader::build(requestedType, dataType, stripe, sequence);
+      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext()) {
+    return ColumnReader::build(
+        requestedType, dataType, stripe, std::move(flatMapContext));
   }
 
   static ColumnReaderFactory* baseFactory();
