@@ -84,6 +84,28 @@ TEST_F(DateTimeFunctionsTest, toUnixtime) {
   EXPECT_EQ(-9999999998.9, toUnixtime(Timestamp(-9999999999, 100000000)));
   EXPECT_EQ(998474645.321, toUnixtime(Timestamp(998474645, 321000000)));
   EXPECT_EQ(998423705.321, toUnixtime(Timestamp(998423705, 321000000)));
+
+  const auto toUnixtimeWTZ = [&](int64_t timestamp, const char* tz) {
+    const int64_t tzid =
+        strcmp(tz, "+00:00") == 0 ? 0 : util::getTimeZoneID(tz);
+    return evaluateOnce<double>(
+        "to_unixtime(c0)",
+        makeRowVector({makeRowVector({
+            makeNullableFlatVector<int64_t>({timestamp}),
+            makeNullableFlatVector<int16_t>({tzid}),
+        })}));
+  };
+
+  // 1639426440000 is milliseconds (from PrestoDb '2021-12-13+20:14+00:00').
+  EXPECT_EQ(0, toUnixtimeWTZ(0, "+00:00"));
+  EXPECT_EQ(1639426440, toUnixtimeWTZ(1639426440000, "+00:00"));
+  EXPECT_EQ(1639415640, toUnixtimeWTZ(1639426440000, "+03:00"));
+  EXPECT_EQ(1639412040, toUnixtimeWTZ(1639426440000, "+04:00"));
+  EXPECT_EQ(1639451640, toUnixtimeWTZ(1639426440000, "-07:00"));
+  EXPECT_EQ(1639426500, toUnixtimeWTZ(1639426440000, "-00:01"));
+  EXPECT_EQ(1639426380, toUnixtimeWTZ(1639426440000, "+00:01"));
+  EXPECT_EQ(1639476840, toUnixtimeWTZ(1639426440000, "-14:00"));
+  EXPECT_EQ(1639376040, toUnixtimeWTZ(1639426440000, "+14:00"));
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeRountTrip) {

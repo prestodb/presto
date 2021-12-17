@@ -68,6 +68,9 @@ struct Timestamp {
   // ts.toString() returns January 1, 1970 11:00:00
   void toTimezone(const date::time_zone& zone);
 
+  // Same as above, but accepts PrestoDB time zone ID.
+  void toTimezone(int16_t tzID);
+
   // Converts the unix epoch represented by this object to the time in
   // in time zone `zone` when GMT reaches this timestamp.
   // For example, ts.toTimezone("Pacific/Apia") converts ts to represent
@@ -76,6 +79,9 @@ struct Timestamp {
   // ts.Timezone("Pacific/Apia");
   // ts.toString() returns December 31, 1969 13:00:00
   void toTimezoneUTC(const date::time_zone& zone);
+
+  // Same as above, but accepts PrestoDB time zone ID.
+  void toTimezoneUTC(int16_t tzID);
 
   bool operator==(const Timestamp& b) const {
     return seconds_ == b.seconds_ && nanos_ == b.nanos_;

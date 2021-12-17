@@ -16,6 +16,7 @@
 #include "velox/type/Timestamp.h"
 #include <chrono>
 #include "velox/external/date/tz.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
 namespace {
@@ -29,14 +30,47 @@ inline int64_t deltaWithTimezone(const date::time_zone& zone, int64_t seconds) {
   return delta;
 }
 
+// Assuming tzID is in [1, 1680] range.
+// tzID - PrestoDB time zone ID.
+inline int64_t getPrestoTZOffsetInSeconds(int16_t tzID) {
+  // TODO(spershin): Maybe we need something better if we can (we could use
+  //  precomputed vector for PrestoDB timezones, for instance).
+
+  // PrestoDb time zone ids require some custom code.
+  // Mapping is 1-based and covers [-14:00, +14:00] range without 00:00.
+  return ((tzID <= 840) ? (tzID - 841) : (tzID - 840)) * 60;
+}
+
 } // namespace
 
 void Timestamp::toTimezone(const date::time_zone& zone) {
   seconds_ += deltaWithTimezone(zone, seconds_);
 }
 
+void Timestamp::toTimezone(int16_t tzID) {
+  if (tzID == 0) {
+    // No conversion required for time zone id 0, as it is '+00:00'.
+  } else if (tzID <= 1680) {
+    seconds_ -= getPrestoTZOffsetInSeconds(tzID);
+  } else {
+    // Other ids go this path.
+    toTimezone(*date::locate_zone(util::getTimeZoneName(tzID)));
+  }
+}
+
 void Timestamp::toTimezoneUTC(const date::time_zone& zone) {
   seconds_ -= deltaWithTimezone(zone, seconds_);
+}
+
+void Timestamp::toTimezoneUTC(int16_t tzID) {
+  if (tzID == 0) {
+    // No conversion required for time zone id 0, as it is '+00:00'.
+  } else if (tzID <= 1680) {
+    seconds_ += getPrestoTZOffsetInSeconds(tzID);
+  } else {
+    // Other ids go this path.
+    toTimezoneUTC(*date::locate_zone(util::getTimeZoneName(tzID)));
+  }
 }
 
 void parseTo(folly::StringPiece in, ::facebook::velox::Timestamp& out) {

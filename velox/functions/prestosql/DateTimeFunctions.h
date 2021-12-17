@@ -33,6 +33,16 @@ struct ToUnixtimeFunction {
     result = toUnixtime(timestamp);
     return true;
   }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      double& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    const auto milliseconds = *timestampWithTimezone.template at<0>();
+    Timestamp timestamp{milliseconds / kMillisecondsInSecond, 0UL};
+    timestamp.toTimezone(*timestampWithTimezone.template at<1>());
+    result = toUnixtime(timestamp);
+    return true;
+  }
 };
 
 template <typename T>
@@ -307,7 +317,7 @@ struct MillisecondFunction {
   FOLLY_ALWAYS_INLINE bool call(
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
-    result = timestamp.getNanos() / kNanosecondsInMilliseconds;
+    result = timestamp.getNanos() / kNanosecondsInMillisecond;
     return true;
   }
 

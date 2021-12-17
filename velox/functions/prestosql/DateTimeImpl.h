@@ -21,7 +21,8 @@
 namespace facebook::velox::functions {
 namespace {
 constexpr double kNanosecondsInSecond = 1'000'000'000;
-constexpr int64_t kNanosecondsInMilliseconds = 1'000'000;
+constexpr int64_t kNanosecondsInMillisecond = 1'000'000;
+constexpr int64_t kMillisecondsInSecond = 1'000;
 } // namespace
 
 FOLLY_ALWAYS_INLINE double toUnixtime(const Timestamp& timestamp) {
@@ -39,9 +40,9 @@ FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
   static const int64_t kMin = std::numeric_limits<int64_t>::min();
 
   static const Timestamp kMaxTimestamp(
-      kMax / 1000, kMax % 1000 * kNanosecondsInMilliseconds);
+      kMax / 1000, kMax % 1000 * kNanosecondsInMillisecond);
   static const Timestamp kMinTimestamp(
-      kMin / 1000 - 1, (kMin % 1000 + 1000) * kNanosecondsInMilliseconds);
+      kMin / 1000 - 1, (kMin % 1000 + 1000) * kNanosecondsInMillisecond);
 
   if (UNLIKELY(unixtime >= kMax)) {
     return kMaxTimestamp;
