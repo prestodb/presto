@@ -50,7 +50,6 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,6 +69,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.addExact;
+import static java.lang.Math.ceil;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -92,6 +92,8 @@ public class NodeScheduler
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final QueryManager queryManager;
     private final SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig;
+    private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
+    private final int minVirtualNodeCount;
 
     @Inject
     public NodeScheduler(
@@ -156,6 +158,8 @@ public class NodeScheduler
         this.nodeTtlFetcherManager = requireNonNull(nodeTtlFetcherManager, "nodeTtlFetcherManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.simpleTtlNodeSelectorConfig = requireNonNull(simpleTtlNodeSelectorConfig, "simpleTtlNodeSelectorConfig is null");
+        this.nodeSelectionHashStrategy = config.getNodeSelectionHashStrategy();
+        this.minVirtualNodeCount = config.getMinVirtualNodeCount();
     }
 
     @PreDestroy
@@ -200,7 +204,8 @@ public class NodeScheduler
                     maxUnacknowledgedSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
-                    networkLocationCache);
+                    networkLocationCache,
+                    nodeSelectionHashStrategy);
         }
 
         SimpleNodeSelector simpleNodeSelector = new SimpleNodeSelector(
@@ -213,7 +218,8 @@ public class NodeScheduler
                 maxSplitsWeightPerNode,
                 maxPendingSplitsWeightPerTask,
                 maxUnacknowledgedSplitsPerTask,
-                maxTasksPerStage);
+                maxTasksPerStage,
+                nodeSelectionHashStrategy);
 
         if (resourceAwareSchedulingStrategy == TTL) {
             return new SimpleTtlNodeSelector(
@@ -242,20 +248,23 @@ public class NodeScheduler
             ImmutableSetMultimap.Builder<HostAddress, InternalNode> allNodesByHostAndPort = ImmutableSetMultimap.builder();
             ImmutableSetMultimap.Builder<InetAddress, InternalNode> allNodesByHost = ImmutableSetMultimap.builder();
 
-            Set<InternalNode> activeNodes;
-            Set<InternalNode> allNodes;
+            List<InternalNode> activeNodes;
+            List<InternalNode> allNodes;
             if (connectorId != null) {
-                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
-                allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
+                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableList());
+                allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableList());
             }
             else {
-                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
+                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(node -> !node.isResourceManager()).collect(toImmutableList());
                 allNodes = activeNodes;
             }
 
             Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                     .map(InternalNode::getNodeIdentifier)
                     .collect(toImmutableSet());
+
+            int weight = (int) ceil(1.0 * minVirtualNodeCount / activeNodes.size());
+            ConsistentHashingNodeProvider consistentHashingNodeProvider = ConsistentHashingNodeProvider.create(activeNodes, weight);
 
             for (InternalNode node : allNodes) {
                 if (node.getNodeStatus() == ALIVE) {
@@ -277,7 +286,15 @@ public class NodeScheduler
                 }
             }
 
-            return new NodeMap(activeNodesByNodeId.build(), activeWorkersByNetworkPath.build(), coordinatorNodeIds, new LinkedList<>(activeNodes), new LinkedList<>(allNodes), allNodesByHost.build(), allNodesByHostAndPort.build());
+            return new NodeMap(
+                    activeNodesByNodeId.build(),
+                    activeWorkersByNetworkPath.build(),
+                    coordinatorNodeIds,
+                    activeNodes,
+                    allNodes,
+                    allNodesByHost.build(),
+                    allNodesByHostAndPort.build(),
+                    consistentHashingNodeProvider);
         };
     }
 
