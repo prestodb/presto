@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(velox_dwrf_test_utils BatchMaker.cpp DataFiles.cpp
-                                  E2EWriterTestUtil.cpp)
+                                  E2EWriterTestUtil.cpp FilterGenerator.cpp)
 
 target_link_libraries(
   velox_dwrf_test_utils
@@ -21,6 +21,8 @@ target_link_libraries(
   velox_dwio_common
   velox_dwio_dwrf_reader
   velox_dwio_dwrf_writer
+  velox_exception
+  velox_memory
   velox_type
   velox_vector)
 
