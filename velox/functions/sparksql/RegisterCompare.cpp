@@ -21,24 +21,24 @@
 namespace facebook::velox::functions::sparksql {
 
 void registerCompareFunctions(const std::string& prefix) {
-  registerBinaryScalar<udf_eq, bool>({prefix + "equalto"});
-  registerBinaryScalar<udf_neq, bool>({prefix + "notequalto"});
-  registerBinaryScalar<udf_lt, bool>({prefix + "lessthan"});
-  registerBinaryScalar<udf_gt, bool>({prefix + "greaterthan"});
-  registerBinaryScalar<udf_lte, bool>({prefix + "lessthanorequal"});
-  registerBinaryScalar<udf_gte, bool>({prefix + "greaterthanorequal"});
+  registerBinaryScalar<EqFunction, bool>({prefix + "equalto"});
+  registerBinaryScalar<NeqFunction, bool>({prefix + "notequalto"});
+  registerBinaryScalar<LtFunction, bool>({prefix + "lessthan"});
+  registerBinaryScalar<GtFunction, bool>({prefix + "greaterthan"});
+  registerBinaryScalar<LteFunction, bool>({prefix + "lessthanorequal"});
+  registerBinaryScalar<GteFunction, bool>({prefix + "greaterthanorequal"});
 
-  registerFunction<udf_between<int8_t>, bool, int8_t, int8_t, int8_t>(
+  registerFunction<BetweenFunction, bool, int8_t, int8_t, int8_t>(
       {prefix + "between"});
-  registerFunction<udf_between<int16_t>, bool, int16_t, int16_t, int16_t>(
+  registerFunction<BetweenFunction, bool, int16_t, int16_t, int16_t>(
       {prefix + "between"});
-  registerFunction<udf_between<int32_t>, bool, int32_t, int32_t, int32_t>(
+  registerFunction<BetweenFunction, bool, int32_t, int32_t, int32_t>(
       {prefix + "between"});
-  registerFunction<udf_between<int64_t>, bool, int64_t, int64_t, int64_t>(
+  registerFunction<BetweenFunction, bool, int64_t, int64_t, int64_t>(
       {prefix + "between"});
-  registerFunction<udf_between<double>, bool, double, double, double>(
+  registerFunction<BetweenFunction, bool, double, double, double>(
       {prefix + "between"});
-  registerFunction<udf_between<float>, bool, float, float, float>(
+  registerFunction<BetweenFunction, bool, float, float, float>(
       {prefix + "between"});
 }
 

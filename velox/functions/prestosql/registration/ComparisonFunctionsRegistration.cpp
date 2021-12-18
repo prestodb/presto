@@ -20,21 +20,25 @@
 namespace facebook::velox::functions {
 
 void registerComparisonFunctions() {
-  registerBinaryScalar<udf_eq, bool>({});
-  registerBinaryScalar<udf_neq, bool>({});
-  registerBinaryScalar<udf_lt, bool>({});
-  registerBinaryScalar<udf_gt, bool>({});
-  registerBinaryScalar<udf_lte, bool>({});
-  registerBinaryScalar<udf_gte, bool>({});
+  registerBinaryScalar<EqFunction, bool>({"eq"});
+  registerBinaryScalar<NeqFunction, bool>({"neq"});
+  registerBinaryScalar<LtFunction, bool>({"lt"});
+  registerBinaryScalar<GtFunction, bool>({"gt"});
+  registerBinaryScalar<LteFunction, bool>({"lte"});
+  registerBinaryScalar<GteFunction, bool>({"gte"});
 
-  registerFunction<udf_between<int8_t>, bool, int8_t, int8_t, int8_t>();
-  registerFunction<udf_between<int16_t>, bool, int16_t, int16_t, int16_t>();
-  registerFunction<udf_between<int32_t>, bool, int32_t, int32_t, int32_t>();
-  registerFunction<udf_between<int64_t>, bool, int64_t, int64_t, int64_t>();
-  registerFunction<udf_between<double>, bool, double, double, double>();
-  registerFunction<udf_between<float>, bool, float, float, float>();
-  registerFunction<udf_between<StringView>, bool, Varchar, Varchar, Varchar>();
-  registerFunction<udf_between<Date>, bool, Date, Date, Date>();
+  registerFunction<BetweenFunction, bool, int8_t, int8_t, int8_t>({"between"});
+  registerFunction<BetweenFunction, bool, int16_t, int16_t, int16_t>(
+      {"between"});
+  registerFunction<BetweenFunction, bool, int32_t, int32_t, int32_t>(
+      {"between"});
+  registerFunction<BetweenFunction, bool, int64_t, int64_t, int64_t>(
+      {"between"});
+  registerFunction<BetweenFunction, bool, double, double, double>({"between"});
+  registerFunction<BetweenFunction, bool, float, float, float>({"between"});
+  registerFunction<BetweenFunction, bool, Varchar, Varchar, Varchar>(
+      {"between"});
+  registerFunction<BetweenFunction, bool, Date, Date, Date>({"between"});
 }
 
 } // namespace facebook::velox::functions

@@ -17,40 +17,40 @@
 
 #include "velox/functions/Macros.h"
 
-namespace facebook {
-namespace velox {
-namespace functions {
+namespace facebook::velox::functions {
 
-#define VELOX_GEN_BINARY_EXPR(Name, Expr, TResult) \
-  template <typename T>                            \
-  VELOX_UDF_BEGIN(Name)                            \
-  FOLLY_ALWAYS_INLINE bool call(                   \
-      out_type<TResult>& result,                   \
-      const arg_type<T>& lhs,                      \
-      const arg_type<T>& rhs) {                    \
-    result = (Expr);                               \
-    return true;                                   \
-  }                                                \
-  VELOX_UDF_END();
+#define VELOX_GEN_BINARY_EXPR(Name, Expr, TResult)                \
+  template <typename T>                                           \
+  struct Name {                                                   \
+    VELOX_DEFINE_FUNCTION_TYPES(T);                               \
+    template <typename TInput>                                    \
+    FOLLY_ALWAYS_INLINE bool                                      \
+    call(TResult& result, const TInput& lhs, const TInput& rhs) { \
+      result = (Expr);                                            \
+      return true;                                                \
+    }                                                             \
+  };
 
-VELOX_GEN_BINARY_EXPR(eq, lhs == rhs, bool);
-VELOX_GEN_BINARY_EXPR(neq, lhs != rhs, bool);
-VELOX_GEN_BINARY_EXPR(lt, lhs < rhs, bool);
-VELOX_GEN_BINARY_EXPR(gt, lhs > rhs, bool);
-VELOX_GEN_BINARY_EXPR(lte, lhs <= rhs, bool);
-VELOX_GEN_BINARY_EXPR(gte, lhs >= rhs, bool);
+VELOX_GEN_BINARY_EXPR(EqFunction, lhs == rhs, bool);
+VELOX_GEN_BINARY_EXPR(NeqFunction, lhs != rhs, bool);
+VELOX_GEN_BINARY_EXPR(LtFunction, lhs < rhs, bool);
+VELOX_GEN_BINARY_EXPR(GtFunction, lhs > rhs, bool);
+VELOX_GEN_BINARY_EXPR(LteFunction, lhs <= rhs, bool);
+VELOX_GEN_BINARY_EXPR(GteFunction, lhs >= rhs, bool);
 
 #undef VELOX_GEN_BINARY_EXPR
 
 template <typename T>
-VELOX_UDF_BEGIN(between)
-FOLLY_ALWAYS_INLINE
-    bool call(bool& result, const T& value, const T& low, const T& high) {
-  result = value >= low && value <= high;
-  return true;
-}
-VELOX_UDF_END();
+struct BetweenFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(
+      bool& result,
+      const TInput& value,
+      const TInput& low,
+      const TInput& high) {
+    result = value >= low && value <= high;
+    return true;
+  }
+};
 
-} // namespace functions
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::functions
