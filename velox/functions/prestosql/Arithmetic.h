@@ -137,19 +137,22 @@ struct RoundFunction {
 };
 
 template <typename T>
-VELOX_UDF_BEGIN(power)
-FOLLY_ALWAYS_INLINE bool call(double& result, const T& a, const T& b) {
-  result = std::pow(a, b);
-  return true;
-}
-VELOX_UDF_END();
+struct PowerFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool
+  call(double& result, const TInput& a, const TInput& b) {
+    result = std::pow(a, b);
+    return true;
+  }
+};
 
-VELOX_UDF_BEGIN(exp)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::exp(a);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct ExpFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::exp(a);
+    return true;
+  }
+};
 
 template <typename T>
 struct MinFunction {
@@ -162,160 +165,178 @@ struct MinFunction {
 };
 
 template <typename T>
-VELOX_UDF_BEGIN(clamp)
-FOLLY_ALWAYS_INLINE bool call(T& result, const T& v, const T& lo, const T& hi) {
-  result = std::clamp(v, lo, hi);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(ln)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::log(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(log2)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::log2(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(log10)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::log10(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(cos)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::cos(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(cosh)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::cosh(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(acos)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::acos(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(sin)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::sin(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(asin)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::asin(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(tan)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::tan(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(tanh)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::tanh(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(atan)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::atan(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(atan2)
-FOLLY_ALWAYS_INLINE bool call(double& result, double y, double x) {
-  result = std::atan2(y, x);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(sqrt)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::sqrt(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(cbrt)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = std::cbrt(a);
-  return true;
-}
-VELOX_UDF_END();
-
-VELOX_UDF_BEGIN(width_bucket)
-FOLLY_ALWAYS_INLINE bool call(
-    int64_t& result,
-    double operand,
-    double bound1,
-    double bound2,
-    int64_t bucketCount) {
-  // TODO: These checks are costing ~13% performance penalty, it would be nice
-  //       to optimize for the common cases where bounds and bucket count are
-  //       constant to skip these checks
-  // Benchmark reference: WidthBucketBenchmark.cpp
-  // Benchmark Result:
-  // https://github.com/facebookexternal/velox/pull/1225#discussion_r665621405
-  VELOX_USER_CHECK_GT(bucketCount, 0, "bucketCount must be greater than 0");
-  VELOX_USER_CHECK(!std::isnan(operand), "operand must not be NaN");
-  VELOX_USER_CHECK(std::isfinite(bound1), "first bound must be finite");
-  VELOX_USER_CHECK(std::isfinite(bound2), "second bound must be finite");
-  VELOX_USER_CHECK_NE(bound1, bound2, "bounds cannot equal each other");
-
-  double lower = std::min(bound1, bound2);
-  double upper = std::max(bound1, bound2);
-
-  if (operand < lower) {
-    result = 0;
-  } else if (operand > upper) {
-    VELOX_USER_CHECK_NE(
-        bucketCount,
-        std::numeric_limits<int64_t>::max(),
-        "Bucket for value {} is out of range",
-        operand);
-    result = bucketCount + 1;
-  } else {
-    result =
-        (int64_t)((double)bucketCount * (operand - lower) / (upper - lower) + 1);
+struct ClampFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool
+  call(TInput& result, const TInput& v, const TInput& lo, const TInput& hi) {
+    result = std::clamp(v, lo, hi);
+    return true;
   }
+};
 
-  if (bound1 > bound2) {
-    result = bucketCount - result + 1;
+template <typename T>
+struct LnFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::log(a);
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
-VELOX_UDF_BEGIN(radians)
-FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
-  result = a * (M_PI / 180);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct Log2Function {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::log2(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct Log10Function {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::log10(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct CosFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::cos(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct CoshFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::cosh(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct AcosFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::acos(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct SinFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::sin(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct AsinFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::asin(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct TanFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::tan(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct TanhFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::tanh(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct AtanFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::atan(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct Atan2Function {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double y, double x) {
+    result = std::atan2(y, x);
+    return true;
+  }
+};
+
+template <typename T>
+struct SqrtFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::sqrt(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct CbrtFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = std::cbrt(a);
+    return true;
+  }
+};
+
+template <typename T>
+struct WidthBucketFunction {
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      double operand,
+      double bound1,
+      double bound2,
+      int64_t bucketCount) {
+    // TODO: These checks are costing ~13% performance penalty, it would be nice
+    //       to optimize for the common cases where bounds and bucket count are
+    //       constant to skip these checks
+    // Benchmark reference: WidthBucketBenchmark.cpp
+    // Benchmark Result:
+    // https://github.com/facebookexternal/velox/pull/1225#discussion_r665621405
+    VELOX_USER_CHECK_GT(bucketCount, 0, "bucketCount must be greater than 0");
+    VELOX_USER_CHECK(!std::isnan(operand), "operand must not be NaN");
+    VELOX_USER_CHECK(std::isfinite(bound1), "first bound must be finite");
+    VELOX_USER_CHECK(std::isfinite(bound2), "second bound must be finite");
+    VELOX_USER_CHECK_NE(bound1, bound2, "bounds cannot equal each other");
+
+    double lower = std::min(bound1, bound2);
+    double upper = std::max(bound1, bound2);
+
+    if (operand < lower) {
+      result = 0;
+    } else if (operand > upper) {
+      VELOX_USER_CHECK_NE(
+          bucketCount,
+          std::numeric_limits<int64_t>::max(),
+          "Bucket for value {} is out of range",
+          operand);
+      result = bucketCount + 1;
+    } else {
+      result =
+          (int64_t)((double)bucketCount * (operand - lower) / (upper - lower) + 1);
+    }
+
+    if (bound1 > bound2) {
+      result = bucketCount - result + 1;
+    }
+    return true;
+  }
+};
+
+template <typename T>
+struct RadiansFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    result = a * (M_PI / 180);
+    return true;
+  }
+};
 
 template <typename T>
 struct SignFunction {
@@ -334,39 +355,44 @@ struct SignFunction {
   }
 };
 
-VELOX_UDF_BEGIN(infinity)
-FOLLY_ALWAYS_INLINE bool call(double& result) {
-  result = std::numeric_limits<double>::infinity();
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct InfinityFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result) {
+    result = std::numeric_limits<double>::infinity();
+    return true;
+  }
+};
 
-VELOX_UDF_BEGIN(is_finite)
-FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
-  result = !std::isinf(a);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct IsFiniteFunction {
+  FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+    result = !std::isinf(a);
+    return true;
+  }
+};
 
-VELOX_UDF_BEGIN(is_infinite)
-FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
-  result = std::isinf(a);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct IsInfiniteFunction {
+  FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+    result = std::isinf(a);
+    return true;
+  }
+};
 
-VELOX_UDF_BEGIN(is_nan)
-FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
-  result = std::isnan(a);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct IsNanFunction {
+  FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+    result = std::isnan(a);
+    return true;
+  }
+};
 
-VELOX_UDF_BEGIN(nan)
-FOLLY_ALWAYS_INLINE bool call(double& result) {
-  result = std::numeric_limits<double>::quiet_NaN();
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct NanFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result) {
+    result = std::numeric_limits<double>::quiet_NaN();
+    return true;
+  }
+};
 
 } // namespace facebook::velox::functions

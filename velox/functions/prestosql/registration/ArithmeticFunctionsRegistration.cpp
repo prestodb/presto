@@ -32,7 +32,7 @@ void registerSimpleFunctions() {
   registerUnaryNumeric<FloorFunction>({"floor"});
   registerUnaryNumeric<AbsFunction>({"abs"});
   registerUnaryFloatingPoint<NegateFunction>({"negate"});
-  registerFunction<udf_radians, double, double>({"radians"});
+  registerFunction<RadiansFunction, double, double>({"radians"});
   registerUnaryNumeric<RoundFunction>({"round"});
   registerFunction<RoundFunction, int8_t, int8_t, int32_t>({"round"});
   registerFunction<RoundFunction, int16_t, int16_t, int32_t>({"round"});
@@ -40,44 +40,46 @@ void registerSimpleFunctions() {
   registerFunction<RoundFunction, int64_t, int64_t, int32_t>({"round"});
   registerFunction<RoundFunction, double, double, int32_t>({"round"});
   registerFunction<RoundFunction, float, float, int32_t>({"round"});
-  registerFunction<udf_power<double>, double, double, double>({"power", "pow"});
-  registerFunction<udf_power<int64_t>, double, int64_t, int64_t>(
-      {"power", "pow"});
-  registerFunction<udf_exp, double, double>({"exp"});
-  registerFunction<udf_clamp<int8_t>, int8_t, int8_t, int8_t, int8_t>(
+  registerFunction<PowerFunction, double, double, double>({"power", "pow"});
+  registerFunction<PowerFunction, double, int64_t, int64_t>({"power", "pow"});
+  registerFunction<ExpFunction, double, double>({"exp"});
+  registerFunction<ClampFunction, int8_t, int8_t, int8_t, int8_t>({"clamp"});
+  registerFunction<ClampFunction, int16_t, int16_t, int16_t, int16_t>(
       {"clamp"});
-  registerFunction<udf_clamp<int16_t>, int16_t, int16_t, int16_t, int16_t>(
+  registerFunction<ClampFunction, int32_t, int32_t, int32_t, int32_t>(
       {"clamp"});
-  registerFunction<udf_clamp<int32_t>, int32_t, int32_t, int32_t, int32_t>(
+  registerFunction<ClampFunction, int64_t, int64_t, int64_t, int64_t>(
       {"clamp"});
-  registerFunction<udf_clamp<int64_t>, int64_t, int64_t, int64_t, int64_t>(
-      {"clamp"});
-  registerFunction<udf_clamp<double>, double, double, double, double>(
-      {"clamp"});
-  registerFunction<udf_clamp<float>, float, float, float, float>({"clamp"});
-  registerFunction<udf_ln, double, double>({"ln"});
-  registerFunction<udf_log2, double, double>({"log2"});
-  registerFunction<udf_log10, double, double>({"log10"});
-  registerFunction<udf_cos, double, double>({"cos"});
-  registerFunction<udf_cosh, double, double>({"cosh"});
-  registerFunction<udf_acos, double, double>({"acos"});
-  registerFunction<udf_sin, double, double>({"sin"});
-  registerFunction<udf_asin, double, double>({"asin"});
-  registerFunction<udf_tan, double, double>({"tan"});
-  registerFunction<udf_tanh, double, double>({"tanh"});
-  registerFunction<udf_atan, double, double>({"atan"});
-  registerFunction<udf_atan2, double, double, double>({"atan2"});
-  registerFunction<udf_sqrt, double, double>({"sqrt"});
-  registerFunction<udf_cbrt, double, double>({"cbrt"});
-  registerFunction<udf_width_bucket, int64_t, double, double, double, int64_t>(
-      {"width_bucket"});
+  registerFunction<ClampFunction, double, double, double, double>({"clamp"});
+  registerFunction<ClampFunction, float, float, float, float>({"clamp"});
+  registerFunction<LnFunction, double, double>({"ln"});
+  registerFunction<Log2Function, double, double>({"log2"});
+  registerFunction<Log10Function, double, double>({"log10"});
+  registerFunction<CosFunction, double, double>({"cos"});
+  registerFunction<CoshFunction, double, double>({"cosh"});
+  registerFunction<AcosFunction, double, double>({"acos"});
+  registerFunction<SinFunction, double, double>({"sin"});
+  registerFunction<AsinFunction, double, double>({"asin"});
+  registerFunction<TanFunction, double, double>({"tan"});
+  registerFunction<TanhFunction, double, double>({"tanh"});
+  registerFunction<AtanFunction, double, double>({"atan"});
+  registerFunction<Atan2Function, double, double, double>({"atan2"});
+  registerFunction<SqrtFunction, double, double>({"sqrt"});
+  registerFunction<CbrtFunction, double, double>({"cbrt"});
+  registerFunction<
+      WidthBucketFunction,
+      int64_t,
+      double,
+      double,
+      double,
+      int64_t>({"width_bucket"});
 
   registerUnaryNumeric<SignFunction>({"sign"});
-  registerFunction<udf_infinity, double>({});
-  registerFunction<udf_is_finite, bool, double>({});
-  registerFunction<udf_is_infinite, bool, double>({});
-  registerFunction<udf_is_nan, bool, double>({});
-  registerFunction<udf_nan, double>({});
+  registerFunction<InfinityFunction, double>({"infinity"});
+  registerFunction<IsFiniteFunction, bool, double>({"is_finite"});
+  registerFunction<IsInfiniteFunction, bool, double>({"is_infinite"});
+  registerFunction<IsNanFunction, bool, double>({"is_nan"});
+  registerFunction<NanFunction, double>({"nan"});
   registerFunction<RandFunction, double>({"rand", "random"});
 }
 

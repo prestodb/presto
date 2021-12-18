@@ -55,30 +55,6 @@ void registerBinaryScalar(const std::vector<std::string>& aliases) {
   registerFunction<T, TReturn, Date, Date>(aliases);
 }
 
-template <template <class> class T, typename TReturn>
-void registerUnaryScalar(const std::vector<std::string>& aliases) {
-  registerFunction<T<int32_t>, TReturn, int32_t>(aliases);
-  registerFunction<T<int64_t>, TReturn, int64_t>(aliases);
-  registerFunction<T<double>, TReturn, double>(aliases);
-  registerFunction<T<float>, TReturn, float>(aliases);
-  registerFunction<T<Varchar>, TReturn, Varchar>(aliases);
-  registerFunction<T<Varbinary>, TReturn, Varbinary>(aliases);
-  registerFunction<T<bool>, TReturn, bool>(aliases);
-}
-
-template <template <class, class> class T, typename TReturn>
-void registerUnaryScalar(const std::vector<std::string>& aliases) {
-  registerFunction<T<int8_t, TReturn>, TReturn, int8_t>(aliases);
-  registerFunction<T<int16_t, TReturn>, TReturn, int16_t>(aliases);
-  registerFunction<T<int32_t, TReturn>, TReturn, int32_t>(aliases);
-  registerFunction<T<int64_t, TReturn>, TReturn, int64_t>(aliases);
-  registerFunction<T<double, TReturn>, TReturn, double>(aliases);
-  registerFunction<T<float, TReturn>, TReturn, float>(aliases);
-  registerFunction<T<Varchar, TReturn>, TReturn, Varchar>(aliases);
-  registerFunction<T<Varbinary, TReturn>, TReturn, Varbinary>(aliases);
-  registerFunction<T<bool, TReturn>, TReturn, bool>(aliases);
-}
-
 template <template <class> class T>
 void registerUnaryIntegral(const std::vector<std::string>& aliases) {
   registerFunction<T, int8_t, int8_t>(aliases);
