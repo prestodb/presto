@@ -32,6 +32,10 @@ class TypeVariableConstraint {
     return name_;
   }
 
+  bool operator==(const TypeVariableConstraint& rhs) const {
+    return name_ == rhs.name_;
+  }
+
  private:
   const std::string name_;
 };
@@ -51,6 +55,10 @@ class TypeSignature {
   }
 
   std::string toString() const;
+
+  bool operator==(const TypeSignature& rhs) const {
+    return baseType_ == rhs.baseType_ && parameters_ == rhs.parameters_;
+  }
 
  private:
   const std::string baseType_;
@@ -94,6 +102,16 @@ class FunctionSignature {
   }
 
   std::string toString() const;
+
+  // This tests syntactic equality not semantic equality
+  // For example, even if only the names of the typeVariableConstants are
+  // different the signatures are considered not equal (array(K) != array(V))
+  bool operator==(const FunctionSignature& rhs) const {
+    return typeVariableConstants_ == rhs.typeVariableConstants_ &&
+        returnType_ == rhs.returnType_ &&
+        argumentTypes_ == rhs.argumentTypes_ &&
+        variableArity_ == rhs.variableArity_;
+  }
 
  private:
   const std::vector<TypeVariableConstraint> typeVariableConstants_;
@@ -234,3 +252,57 @@ class AggregateFunctionSignatureBuilder {
 };
 
 } // namespace facebook::velox::exec
+
+namespace std {
+template <>
+struct hash<facebook::velox::exec::TypeVariableConstraint> {
+  using argument_type = facebook::velox::exec::TypeVariableConstraint;
+  using result_type = std::size_t;
+
+  result_type operator()(const argument_type& key) const noexcept {
+    return std::hash<std::string>{}(key.name());
+  }
+};
+
+template <>
+struct hash<facebook::velox::exec::TypeSignature> {
+  using argument_type = facebook::velox::exec::TypeSignature;
+  using result_type = std::size_t;
+
+  result_type operator()(const argument_type& key) const noexcept {
+    size_t val = std::hash<std::string>{}(key.baseType());
+    for (const auto& parameter : key.parameters()) {
+      val = val * 31 + this->operator()(parameter);
+    }
+    return val;
+  }
+};
+
+template <>
+struct hash<facebook::velox::exec::FunctionSignature> {
+  using argument_type = facebook::velox::exec::FunctionSignature;
+  using result_type = std::size_t;
+
+  result_type operator()(const argument_type& key) const noexcept {
+    auto typeVariableConstraintHasher =
+        std::hash<facebook::velox::exec::TypeVariableConstraint>{};
+    auto typeSignatureHasher =
+        std::hash<facebook::velox::exec::TypeSignature>{};
+
+    size_t val = 0;
+    for (const auto& constraint : key.typeVariableConstants()) {
+      val = val * 31 + typeVariableConstraintHasher(constraint);
+    }
+
+    val = val * 31 + typeSignatureHasher(key.returnType());
+
+    for (const auto& arg : key.argumentTypes()) {
+      val = val * 31 + typeSignatureHasher(arg);
+    }
+
+    val = val * 31 + (key.variableArity() ? 0 : 1);
+    return val;
+  }
+};
+
+} // namespace std
