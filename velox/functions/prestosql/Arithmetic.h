@@ -15,15 +15,21 @@
  */
 #pragma once
 
+#include <cerrno>
+#include <climits>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
 
 #include "folly/CPortability.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/ArithmeticImpl.h"
 
 namespace facebook::velox::functions {
+
+inline constexpr int kMinRadix = 2;
+inline constexpr int kMaxRadix = 36;
 
 template <typename T>
 struct PlusFunction {
@@ -391,6 +397,40 @@ template <typename T>
 struct NanFunction {
   FOLLY_ALWAYS_INLINE bool call(double& result) {
     result = std::numeric_limits<double>::quiet_NaN();
+    return true;
+  }
+};
+
+template <typename T>
+struct FromBaseFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool
+  call(int64_t& result, const arg_type<Varchar>& input, int64_t radix) {
+    VELOX_USER_CHECK_GE(
+        radix,
+        kMinRadix,
+        "Radix must be between {} and {}.",
+        kMinRadix,
+        kMaxRadix);
+    VELOX_USER_CHECK_LE(
+        radix,
+        kMaxRadix,
+        "Radix must be between {} and {}.",
+        kMinRadix,
+        kMaxRadix);
+
+    char* position;
+    errno = 0;
+    result = std::strtoll(input.data(), &position, static_cast<int>(radix));
+    if (UNLIKELY(
+            errno == ERANGE && (result == LLONG_MAX || result == LLONG_MIN))) {
+      VELOX_USER_FAIL("{} is out of range.", input.data());
+    }
+    if (position != input.end()) {
+      VELOX_USER_FAIL("Not a valid base-{} number: {}.", radix, input.data());
+    }
+
     return true;
   }
 };

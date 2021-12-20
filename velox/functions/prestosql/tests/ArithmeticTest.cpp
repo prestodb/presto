@@ -53,17 +53,17 @@ class ArithmeticTest : public functions::test::FunctionBaseTest {
     }
   }
 
-  template <typename T>
+  template <typename T, typename U = T, typename V = T>
   void assertError(
       const std::string& expression,
       const std::vector<T>& arg0,
-      const std::vector<T>& arg1,
+      const std::vector<U>& arg1,
       const std::string& errorMessage) {
     auto vector0 = makeFlatVector(arg0);
     auto vector1 = makeFlatVector(arg1);
 
     try {
-      evaluate<SimpleVector<T>>(expression, makeRowVector({vector0, vector1}));
+      evaluate<SimpleVector<V>>(expression, makeRowVector({vector0, vector1}));
       ASSERT_TRUE(false) << "Expected an error";
     } catch (const std::exception& e) {
       ASSERT_TRUE(
@@ -468,6 +468,43 @@ TEST_F(ArithmeticTest, nan) {
   };
 
   EXPECT_EQ(true, std::isnan(nan().value()));
+}
+
+TEST_F(ArithmeticTest, fromBase) {
+  const auto fromBase = [&](const std::optional<StringView>& a,
+                            std::optional<int64_t> b) {
+    return evaluateOnce<int64_t>("from_base(c0, c1)", a, b);
+  };
+
+  EXPECT_EQ(12, fromBase("12"_sv, 10));
+  EXPECT_EQ(26, fromBase("1a"_sv, 16));
+  EXPECT_EQ(3, fromBase("11"_sv, 2));
+  EXPECT_EQ(71, fromBase("1z"_sv, 36));
+
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)", {"0"_sv}, {1}, "Radix must be between 2 and 36.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)", {"0"_sv}, {37}, "Radix must be between 2 and 36.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)",
+      {"123xy"_sv},
+      {10},
+      "Not a valid base-10 number: 123xy.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)",
+      {"123456789012xy"_sv},
+      {10},
+      "Not a valid base-10 number: 123456789012xy.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)",
+      {"abc12"_sv},
+      {10},
+      "Not a valid base-10 number: abc12.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)",
+      {"9223372036854775808"_sv},
+      {10},
+      "9223372036854775808 is out of range.");
 }
 
 } // namespace

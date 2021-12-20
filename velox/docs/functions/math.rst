@@ -39,6 +39,10 @@ Mathematical Functions
 
     Returns ``x`` rounded down to the nearest integer.
 
+.. function:: from_base(string, radix) -> bigint
+
+    Returns the value of ``string`` interpreted as a base-``radix`` number. ``radix`` must be between 2 and 36.
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.
