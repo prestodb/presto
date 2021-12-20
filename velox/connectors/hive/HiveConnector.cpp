@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 #include "velox/connectors/hive/HiveConnector.h"
-#include <velox/dwio/dwrf/reader/SelectiveColumnReader.h>
+
+#include <memory>
+
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/dwrf/common/CachedBufferedInput.h"
+#include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
@@ -166,15 +169,12 @@ HiveDataSource::HiveDataSource(
       scanId_(scanId),
       executor_(executor) {
   // Column handled keyed on the column alias, the name used in the query.
-  std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
-      columnHandleMap;
-  for (const auto& entry : columnHandles) {
-    auto handle = std::dynamic_pointer_cast<HiveColumnHandle>(entry.second);
+  for (const auto& [canonicalizedName, columnHandle] : columnHandles) {
+    auto handle = std::dynamic_pointer_cast<HiveColumnHandle>(columnHandle);
     VELOX_CHECK(
         handle != nullptr,
         "ColumnHandle must be an instance of HiveColumnHandle for {}",
-        entry.first);
-    columnHandleMap.emplace(entry.first, handle);
+        canonicalizedName);
 
     if (handle->columnType() == HiveColumnHandle::ColumnType::kPartitionKey) {
       partitionKeys_.emplace(handle->name(), handle);
@@ -183,14 +183,15 @@ HiveDataSource::HiveDataSource(
 
   std::vector<std::string> columnNames;
   columnNames.reserve(outputType->size());
-  for (auto& name : outputType->names()) {
-    auto it = columnHandleMap.find(name);
+  for (auto& outputName : outputType->names()) {
+    auto it = columnHandles.find(outputName);
     VELOX_CHECK(
-        it != columnHandleMap.end(),
-        "ColumnHandle is missing for output column {}",
-        name);
+        it != columnHandles.end(),
+        "ColumnHandle is missing for output column: {}",
+        outputName);
 
-    columnNames.emplace_back(it->second->name());
+    const auto& handle = static_cast<HiveColumnHandle&>(*it->second);
+    columnNames.emplace_back(handle.name());
   }
 
   auto hiveTableHandle =
