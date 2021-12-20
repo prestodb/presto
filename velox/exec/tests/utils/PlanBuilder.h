@@ -90,7 +90,7 @@ class PlanBuilder {
   PlanBuilder& finalAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::vector<TypePtr>& resultTypes = {}) {
+      const std::vector<TypePtr>& resultTypes) {
     return aggregation(
         groupingKeys,
         aggregates,
@@ -108,7 +108,7 @@ class PlanBuilder {
   PlanBuilder& intermediateAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::vector<TypePtr>& resultTypes = {}) {
+      const std::vector<TypePtr>& resultTypes) {
     return aggregation(
         groupingKeys,
         aggregates,
@@ -120,15 +120,13 @@ class PlanBuilder {
 
   PlanBuilder& singleAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
-      const std::vector<std::string>& aggregates,
-      const std::vector<TypePtr>& resultTypes = {}) {
+      const std::vector<std::string>& aggregates) {
     return aggregation(
         groupingKeys,
         aggregates,
         {},
         core::AggregationNode::Step::kSingle,
-        false,
-        resultTypes);
+        false);
   }
 
   PlanBuilder& aggregation(

@@ -73,7 +73,7 @@ class PushdownBenchmark : public HiveConnectorTestBase {
     return PlanBuilder()
         .tableScan(rowType_, tableHandle, assignments)
         .partialAggregation({0}, {fmt::format("{}(c1)", aggName)})
-        .finalAggregation({0}, {fmt::format("{}(a0)", aggName)})
+        .finalAggregation()
         .planNode();
   }
 
