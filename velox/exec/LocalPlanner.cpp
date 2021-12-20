@@ -30,6 +30,7 @@
 #include "velox/exec/MergeJoin.h"
 #include "velox/exec/OrderBy.h"
 #include "velox/exec/PartitionedOutput.h"
+#include "velox/exec/StreamingAggregation.h"
 #include "velox/exec/TableScan.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/TopN.h"
@@ -306,6 +307,12 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
             std::dynamic_pointer_cast<const core::CrossJoinNode>(planNode)) {
       operators.push_back(
           std::make_unique<CrossJoinProbe>(id, ctx.get(), joinNode));
+    } else if (
+        auto aggregationNode =
+            std::dynamic_pointer_cast<const core::StreamingAggregationNode>(
+                planNode)) {
+      operators.push_back(std::make_unique<StreamingAggregation>(
+          id, ctx.get(), aggregationNode));
     } else if (
         auto aggregationNode =
             std::dynamic_pointer_cast<const core::AggregationNode>(planNode)) {

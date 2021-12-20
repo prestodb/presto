@@ -31,6 +31,7 @@ add_executable(
   ParseTypeSignatureTest.cpp
   PartitionedOutputBufferManagerTest.cpp
   RoundRobinPartitionFunctionTest.cpp
+  StreamingAggregationTest.cpp
   TableWriteTest.cpp
   TopNTest.cpp
   LimitTest.cpp

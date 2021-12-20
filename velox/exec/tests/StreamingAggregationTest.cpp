@@ -1,0 +1,187 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
+
+using namespace facebook::velox;
+using namespace facebook::velox::exec::test;
+
+class StreamingAggregationTest : public OperatorTestBase {
+ protected:
+  static CursorParameters makeCursorParameters(
+      const std::shared_ptr<const core::PlanNode>& planNode,
+      uint32_t preferredOutputBatchSize) {
+    auto queryCtx = std::make_shared<core::QueryCtx>();
+    queryCtx->setConfigOverridesUnsafe(
+        {{core::QueryConfig::kCreateEmptyFiles, "true"}});
+
+    CursorParameters params;
+    params.planNode = planNode;
+    params.queryCtx = std::make_shared<core::QueryCtx>();
+    params.queryCtx->setConfigOverridesUnsafe(
+        {{core::QueryConfig::kPreferredOutputBatchSize,
+          std::to_string(preferredOutputBatchSize)}});
+    return params;
+  }
+
+  void testAggregation(
+      const std::vector<VectorPtr>& keys,
+      uint32_t outputBatchSize = 1'024) {
+    std::vector<RowVectorPtr> data;
+
+    vector_size_t totalSize = 0;
+    for (const auto& keyVector : keys) {
+      auto size = keyVector->size();
+      auto payload = makeFlatVector<int32_t>(
+          size, [totalSize](auto row) { return totalSize + row; });
+      data.push_back(makeRowVector({keyVector, payload}));
+      totalSize += size;
+    }
+    createDuckDbTable(data);
+
+    auto plan = PlanBuilder()
+                    .values(data)
+                    .partialStreamingAggregation(
+                        {0}, {"count(1)", "min(c1)", "max(c1)", "sum(c1)"})
+                    .finalStreamingAggregation()
+                    .planNode();
+
+    assertQuery(
+        makeCursorParameters(plan, outputBatchSize),
+        "SELECT c0, count(1), min(c1), max(c1), sum(c1) FROM tmp GROUP BY 1");
+  }
+
+  void testMultiKeyAggregation(
+      const std::vector<RowVectorPtr>& keys,
+      uint32_t outputBatchSize = 1'024) {
+    auto numKeys = keys[0]->type()->size();
+
+    std::vector<RowVectorPtr> data;
+
+    vector_size_t totalSize = 0;
+    for (const auto& keyVector : keys) {
+      auto size = keyVector->size();
+      auto payload = makeFlatVector<int32_t>(
+          size, [totalSize](auto row) { return totalSize + row; });
+
+      auto children = keyVector->as<RowVector>()->children();
+      VELOX_CHECK_EQ(numKeys, children.size());
+      children.push_back(payload);
+      data.push_back(makeRowVector(children));
+      totalSize += size;
+    }
+    createDuckDbTable(data);
+
+    std::vector<ChannelIndex> keyChannels(numKeys);
+    std::iota(keyChannels.begin(), keyChannels.end(), 0);
+
+    auto plan =
+        PlanBuilder()
+            .values(data)
+            .partialStreamingAggregation(
+                keyChannels, {"count(1)", "min(c1)", "max(c1)", "sum(c1)"})
+            .finalStreamingAggregation()
+            .planNode();
+
+    // Generate a list of grouping keys to use in the query: c0, c1, c2,..
+    std::ostringstream keySql;
+    keySql << "c0";
+    for (auto i = 1; i < numKeys; i++) {
+      keySql << ", c" << i;
+    }
+
+    assertQuery(
+        makeCursorParameters(plan, outputBatchSize),
+        fmt::format(
+            "SELECT {}, count(1), min(c1), max(c1), sum(c1) FROM tmp GROUP BY {}",
+            keySql.str(),
+            keySql.str()));
+  }
+};
+
+TEST_F(StreamingAggregationTest, smallInputBatches) {
+  // Use grouping keys that span one or more batches.
+  std::vector<VectorPtr> keys = {
+      makeNullableFlatVector<int32_t>({1, 1, std::nullopt, 2, 2}),
+      makeFlatVector<int32_t>({2, 3, 3, 4}),
+      makeFlatVector<int32_t>({5, 6, 6, 6}),
+      makeFlatVector<int32_t>({6, 6, 6, 6}),
+      makeFlatVector<int32_t>({6, 7, 8}),
+  };
+
+  testAggregation(keys);
+
+  // Cut output into tiny batches of size 3.
+  testAggregation(keys, 3);
+}
+
+TEST_F(StreamingAggregationTest, multipleKeys) {
+  std::vector<RowVectorPtr> keys = {
+      makeRowVector({
+          makeFlatVector<int32_t>({1, 1, 2, 2, 2}),
+          makeFlatVector<int64_t>({10, 20, 20, 30, 30}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>({2, 3, 3, 3, 4}),
+          makeFlatVector<int64_t>({30, 30, 40, 40, 40}),
+      }),
+      makeRowVector({
+          makeNullableFlatVector<int32_t>({5, std::nullopt, 6, 6, 6}),
+          makeNullableFlatVector<int64_t>({40, 50, 50, 50, std::nullopt}),
+      }),
+  };
+
+  testMultiKeyAggregation(keys);
+
+  // Cut output into tiny batches of size 3.
+  testMultiKeyAggregation(keys, 3);
+}
+
+TEST_F(StreamingAggregationTest, regularSizeInputBatches) {
+  auto size = 1'024;
+
+  std::vector<VectorPtr> keys = {
+      makeFlatVector<int32_t>(size, [](auto row) { return row / 5; }),
+      makeFlatVector<int32_t>(
+          size, [size](auto row) { return (size + row) / 5; }),
+      makeFlatVector<int32_t>(
+          size, [size](auto row) { return (2 * size + row) / 5; }),
+      makeFlatVector<int32_t>(
+          78, [size](auto row) { return (3 * size + row) / 5; }),
+  };
+
+  testAggregation(keys);
+
+  // Cut output into small batches of size 100.
+  testAggregation(keys, 100);
+}
+
+TEST_F(StreamingAggregationTest, uniqueKeys) {
+  auto size = 1'024;
+
+  std::vector<VectorPtr> keys = {
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size, [size](auto row) { return (size + row); }),
+      makeFlatVector<int32_t>(
+          size, [size](auto row) { return 2 * size + row; }),
+      makeFlatVector<int32_t>(78, [size](auto row) { return 3 * size + row; }),
+  };
+
+  testAggregation(keys);
+
+  // Cut output into small batches of size 100.
+  testAggregation(keys, 100);
+}

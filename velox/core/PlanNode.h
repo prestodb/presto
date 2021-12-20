@@ -397,6 +397,8 @@ class TableWriteNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
+// TODO Split into AbstractAggregationNode and HashAggregation. Move Step one
+// level up.
 class AggregationNode : public PlanNode {
  public:
   enum class Step {
@@ -500,6 +502,32 @@ inline std::string mapAggregationStepToName(const AggregationNode::Step& step) {
   ss << step;
   return ss.str();
 }
+
+/// Represents streaming aggregation that assumes that input is already grouped
+/// on the grouping keys.
+class StreamingAggregationNode : public AggregationNode {
+ public:
+  StreamingAggregationNode(
+      const PlanNodeId& id,
+      Step step,
+      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+          groupingKeys,
+      const std::vector<std::string>& aggregateNames,
+      const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates,
+      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+          aggregateMasks,
+      bool ignoreNullKeys,
+      std::shared_ptr<const PlanNode> source)
+      : AggregationNode(
+            id,
+            step,
+            groupingKeys,
+            aggregateNames,
+            aggregates,
+            aggregateMasks,
+            ignoreNullKeys,
+            std::move(source)) {}
+};
 
 class ExchangeNode : public PlanNode {
  public:

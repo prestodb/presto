@@ -40,6 +40,7 @@ add_library(
   PartitionedOutput.cpp
   PartitionedOutputBufferManager.cpp
   RowContainer.cpp
+  StreamingAggregation.cpp
   TableScan.cpp
   TableWriter.cpp
   Task.cpp

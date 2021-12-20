@@ -25,13 +25,13 @@ void AllocationPool::clear() {
 }
 
 char* AllocationPool::allocateFixed(uint64_t bytes) {
-  VELOX_CHECK(bytes > 0, "Cannot allocate zero bytes");
+  VELOX_CHECK_GT(bytes, 0, "Cannot allocate zero bytes");
   if (availableInRun() < bytes) {
     newRun(bytes);
   }
-  auto run = allocation_.runAt(currentRun_);
+  auto run = currentRun();
   uint64_t size = run.numBytes();
-  VELOX_CHECK(bytes + currentOffset_ <= size);
+  VELOX_CHECK_LE(bytes + currentOffset_, size);
   currentOffset_ += bytes;
   return reinterpret_cast<char*>(run.data() + currentOffset_ - bytes);
 }
