@@ -194,6 +194,7 @@ public class MapBlockBuilder
      * This method beginDirectEntry along with exposing keyBlockBuilder and valueBlockBuilder addresses
      * this concern. BenchmarkMapBlockBuilder shows that both approaches are comparable.
      */
+    @Override
     public void beginDirectEntry()
     {
         if (currentEntryOpened) {
