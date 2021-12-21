@@ -477,14 +477,33 @@ TEST_F(ArithmeticTest, fromBase) {
   };
 
   EXPECT_EQ(12, fromBase("12"_sv, 10));
+  EXPECT_EQ(12, fromBase("+12"_sv, 10));
+  EXPECT_EQ(-12, fromBase("-12"_sv, 10));
   EXPECT_EQ(26, fromBase("1a"_sv, 16));
   EXPECT_EQ(3, fromBase("11"_sv, 2));
   EXPECT_EQ(71, fromBase("1z"_sv, 36));
+  EXPECT_EQ(
+      9223372036854775807,
+      fromBase(
+          "111111111111111111111111111111111111111111111111111111111111111"_sv,
+          2));
 
   assertError<StringView, int64_t, int64_t>(
       "from_base(c0, c1)", {"0"_sv}, {1}, "Radix must be between 2 and 36.");
   assertError<StringView, int64_t, int64_t>(
       "from_base(c0, c1)", {"0"_sv}, {37}, "Radix must be between 2 and 36.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)",
+      {"0x12"_sv},
+      {16},
+      "Not a valid base-16 number: 0x12.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)", {""_sv}, {10}, "Not a valid base-10 number: .");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)",
+      {" 12"_sv},
+      {16},
+      "Not a valid base-16 number:  12.");
   assertError<StringView, int64_t, int64_t>(
       "from_base(c0, c1)",
       {"123xy"_sv},
@@ -505,6 +524,11 @@ TEST_F(ArithmeticTest, fromBase) {
       {"9223372036854775808"_sv},
       {10},
       "9223372036854775808 is out of range.");
+  assertError<StringView, int64_t, int64_t>(
+      "from_base(c0, c1)",
+      {"1111111111111111111111111111111111111111111111111111111111111111111111"_sv},
+      {2},
+      "1111111111111111111111111111111111111111111111111111111111111111111111 is out of range.");
 }
 
 } // namespace

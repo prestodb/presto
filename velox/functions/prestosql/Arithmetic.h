@@ -16,10 +16,12 @@
 #pragma once
 
 #include <cerrno>
+#include <charconv>
 #include <climits>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
+#include <system_error>
 
 #include "folly/CPortability.h"
 #include "velox/common/base/Exceptions.h"
@@ -420,16 +422,22 @@ struct FromBaseFunction {
         kMinRadix,
         kMaxRadix);
 
-    char* position;
-    errno = 0;
-    result = std::strtoll(input.data(), &position, static_cast<int>(radix));
-    if (UNLIKELY(
-            errno == ERANGE && (result == LLONG_MAX || result == LLONG_MIN))) {
-      VELOX_USER_FAIL("{} is out of range.", input.data());
-    }
-    if (position != input.end()) {
-      VELOX_USER_FAIL("Not a valid base-{} number: {}.", radix, input.data());
-    }
+    auto begin = input.begin();
+    if (input.size() > 0 && (*input.begin()) == '+')
+      begin = input.begin() + 1;
+    auto status = std::from_chars(begin, input.end(), result, radix);
+
+    VELOX_USER_CHECK(
+        (status.ec != std::errc::invalid_argument && status.ptr == input.end()),
+        "Not a valid base-{} number: {}.",
+        radix,
+        input.getString());
+
+    VELOX_USER_CHECK_NE(
+        status.ec,
+        std::errc::result_out_of_range,
+        "{} is out of range.",
+        input.getString());
 
     return true;
   }
