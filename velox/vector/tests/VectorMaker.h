@@ -126,37 +126,26 @@ class VectorMaker {
   }
 
   /// Create a FlatVector<T>
-  /// creates a FlatVector based on elements from the input std::vector.
+  /// creates a FlatVector based on elements from the input std::vector. String
+  /// vectors can be created using std::vector of char*, StringView,
+  /// std::string, or std::string_view as input. The string contents will be
+  /// copied to the flatvector's internal string buffer.
   ///
   /// Elements are non-nullable.
   ///
   /// Examples:
   ///   auto flatVector = flatVector({1, 2, 3, 4});
+  ///   auto flatVector2 = flatVector({"hello", "world"});
   template <typename T>
   FlatVectorPtr<EvalType<T>> flatVector(const std::vector<T>& data);
 
-  /// Create a FlatVector<StringView>
-  /// convenience function to create a FlatVector based on a vector of
-  /// std::string. Note that the lifetime of the StringViews on the the
-  /// returned FlatVector are bound to the lifetime of the vector input
-  /// strings, so be careful with temporaries.
-  ///
-  /// Elements are non-nullable.
-  ///
-  /// Examples:
-  ///   std::vector<std::string> data({"hello", "world"});
-  ///   auto flatVector = flatVector(data);
-  ///
-  /// but not:
-  ///
-  ///   auto flatVector2 = flatVector({"hello", "world"});
-  FlatVectorPtr<StringView> flatVector(const std::vector<std::string>& data) {
-    std::vector<StringView> stringViews;
-    stringViews.reserve(data.size());
-    for (const auto& str : data) {
-      stringViews.emplace_back(str);
-    }
-    return flatVector(stringViews);
+  // This overload allows users to use initializer list directly without
+  // explicitly specifying the template type, e.g:
+  //
+  //   auto flatVector2 = flatVector({"hello", "world"});
+  template <typename T>
+  FlatVectorPtr<EvalType<T>> flatVector(const std::initializer_list<T>& data) {
+    return flatVector(std::vector<T>(data));
   }
 
   /// Create a FlatVector<T>

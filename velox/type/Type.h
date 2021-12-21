@@ -1375,6 +1375,9 @@ struct CppToType<velox::StringView> : public CppToTypeBase<TypeKind::VARCHAR> {
 };
 
 template <>
+struct CppToType<std::string_view> : public CppToTypeBase<TypeKind::VARCHAR> {};
+
+template <>
 struct CppToType<std::string> : public CppToTypeBase<TypeKind::VARCHAR> {};
 
 template <>

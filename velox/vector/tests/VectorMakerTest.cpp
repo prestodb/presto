@@ -32,8 +32,7 @@ class VectorMakerTest : public ::testing::Test {
 
 TEST_F(VectorMakerTest, flatVector) {
   std::vector<int64_t> data = {0, 1, 2, 3, 1024, -123456, -99, -999, -1};
-
-  auto flatVector = maker_.flatVector<int64_t>(data);
+  auto flatVector = maker_.flatVector(data);
 
   EXPECT_EQ(data.size(), flatVector->size());
   EXPECT_FALSE(flatVector->mayHaveNulls());
@@ -94,6 +93,27 @@ TEST_F(VectorMakerTest, flatVectorString) {
   for (vector_size_t i = 0; i < data.size(); i++) {
     EXPECT_EQ(data[i], std::string(flatVector->valueAt(i)));
   }
+}
+
+TEST_F(VectorMakerTest, flatVectorStringTypes) {
+  auto validate = [&](const FlatVectorPtr<StringView>& input) {
+    ASSERT_NE(nullptr, input);
+    EXPECT_EQ("hello"_sv, input->valueAt(0));
+    EXPECT_EQ("world"_sv, input->valueAt(1));
+  };
+
+  // char*
+  validate(maker_.flatVector({"hello", "world"}));
+
+  // std::string
+  validate(maker_.flatVector({std::string("hello"), std::string("world")}));
+
+  // StringView
+  validate(maker_.flatVector({"hello"_sv, "world"_sv}));
+
+  // std::string_view
+  validate(maker_.flatVector(
+      {std::string_view("hello"), std::string_view("world")}));
 }
 
 TEST_F(VectorMakerTest, nullableFlatVectorString) {
@@ -681,24 +701,20 @@ TEST_F(VectorMakerTest, dictionaryVector) {
 
 TEST_F(VectorMakerTest, isSorted) {
   // Empty and single element.
-  EXPECT_TRUE(
-      maker_.flatVector<int64_t>(std::vector<int64_t>())->isSorted().value());
-  EXPECT_TRUE(
-      maker_.flatVector<int64_t>(std::vector<int64_t>(10))->isSorted().value());
+  EXPECT_TRUE(maker_.flatVector(std::vector<int64_t>())->isSorted().value());
+  EXPECT_TRUE(maker_.flatVector(std::vector<int64_t>(10))->isSorted().value());
 
   // More variations and data types.
-  EXPECT_TRUE(maker_.flatVector<int64_t>({-1, 0, 1, 2})->isSorted().value());
-  EXPECT_FALSE(maker_.flatVector<int64_t>({-1, 0, 2, 1})->isSorted().value());
+  EXPECT_TRUE(maker_.flatVector({-1, 0, 1, 2})->isSorted().value());
+  EXPECT_FALSE(maker_.flatVector({-1, 0, 2, 1})->isSorted().value());
+
+  EXPECT_TRUE(maker_.flatVector({-1.9, 0.0, 9.1, 10.09})->isSorted().value());
+  EXPECT_FALSE(maker_.flatVector({-1.9, 0.0, -9.1, 10.09})->isSorted().value());
 
   EXPECT_TRUE(
-      maker_.flatVector<double>({-1.9, 0, 9.1, 10.09})->isSorted().value());
+      maker_.flatVector({false, false, true, true})->isSorted().value());
   EXPECT_FALSE(
-      maker_.flatVector<double>({-1.9, 0, -9.1, 10.09})->isSorted().value());
-
-  EXPECT_TRUE(
-      maker_.flatVector<bool>({false, false, true, true})->isSorted().value());
-  EXPECT_FALSE(
-      maker_.flatVector<bool>({false, false, true, false})->isSorted().value());
+      maker_.flatVector({false, false, true, false})->isSorted().value());
 
   // Nullable.
   EXPECT_FALSE(maker_.flatVectorNullable<int64_t>({-1, std::nullopt, 1, 2})

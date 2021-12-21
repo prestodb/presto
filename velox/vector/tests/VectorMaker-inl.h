@@ -270,19 +270,9 @@ FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVector(
     const std::vector<T>& data) {
   using TEvalType = EvalType<T>;
   BufferPtr dataBuffer = AlignedBuffer::allocate<TEvalType>(data.size(), pool_);
-  auto rawData = dataBuffer->asMutable<TEvalType>();
-
-  for (vector_size_t i = 0; i < data.size(); i++) {
-    // Using bitUtils for bool vectors.
-    if constexpr (std::is_same<T, bool>::value) {
-      bits::setBit(rawData, i, data[i]);
-    } else {
-      rawData[i] = TEvalType(data[i]);
-    }
-  }
 
   auto stats = genVectorMakerStats(data);
-  return std::make_shared<FlatVector<TEvalType>>(
+  auto flatVector = std::make_shared<FlatVector<TEvalType>>(
       pool_,
       CppToType<T>::create(),
       BufferPtr(nullptr),
@@ -293,6 +283,11 @@ FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVector(
       stats.distinctCount(),
       stats.nullCount,
       stats.isSorted);
+
+  for (vector_size_t i = 0; i < data.size(); i++) {
+    flatVector->set(i, TEvalType(data[i]));
+  }
+  return flatVector;
 }
 
 } // namespace facebook::velox::test
