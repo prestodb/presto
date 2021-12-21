@@ -218,7 +218,7 @@ public class HiveSplit
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
             // Use + 1 as secondary hash for now, would always get a different position from the first hash.
             int size = sortedCandidates.size();
-            int mod = path.hashCode() % size;
+            int mod = (path.hashCode() + (int) (start / (fileSize / size))) % size;
             int position = mod < 0 ? mod + size : mod;
             return ImmutableList.of(
                     sortedCandidates.get(position),
