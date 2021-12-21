@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/exec/AggregationMasks.h"
 #include "velox/exec/HashTable.h"
 #include "velox/exec/VectorHasher.h"
 
@@ -53,12 +54,6 @@ class GroupingSet {
 
   void populateTempVectors(int32_t aggregateIndex, const RowVectorPtr& input);
 
-  // For each aggregation, if that aggregation has mask, the method prepares the
-  // selectivity vector by copying activeRows_ and then updating it from the
-  // mask column. The selectivity vectors are reused, if more than one
-  // aggregation is using it (we keep the map keyed by channel index).
-  void prepareMaskedSelectivityVectors(const RowVectorPtr& input);
-
   // If the given aggregation has mask, the method returns reference to the
   // selectivity vector from the maskedActiveRows_ (based on the mask channel
   // index for this aggregation), otherwise it returns reference to activeRows_.
@@ -69,9 +64,7 @@ class GroupingSet {
   const bool isGlobal_;
   const bool isRawInput_;
   std::vector<std::unique_ptr<Aggregate>> aggregates_;
-  // For each aggregation, can hold an index to a boolean channel (projection in
-  // the input row vector), that acts as row mask for the aggregation.
-  std::vector<std::optional<ChannelIndex>> aggrMaskChannels_;
+  AggregationMasks masks_;
   // Argument list for the corresponding element of 'aggregates_'.
   const std::vector<std::vector<ChannelIndex>> channelLists_;
   // Constant arguments to aggregates. Corresponds pairwise to
@@ -89,17 +82,6 @@ class GroupingSet {
   std::unique_ptr<HashLookup> lookup_;
   uint64_t numAdded_ = 0;
   SelectivityVector activeRows_;
-  // For aggregations that use masks we keep selectivity vectors in this map,
-  // keyed by the channel index, so the selectivity vectors can be reused.
-  struct MaskedRows {
-    bool prepared{false}; // true, if already prepared for the current batch.
-    SelectivityVector rows;
-  };
-  std::unordered_map<ChannelIndex, MaskedRows> maskedActiveRows_;
-
-  // We use this vector to decode mask boolean projections to update aggregation
-  // masks.
-  DecodedVector decodedMask_;
 
   // Used to allocate memory for a single row accumulating results of global
   // aggregation
