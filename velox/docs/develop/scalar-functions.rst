@@ -320,17 +320,144 @@ as much as possible to allow for faster compilation in codegen.
 Complex Types
 ^^^^^^^^^^^^^
 
-Although it is possible to define simple functions that operate on complex
-types, e.g. arrays, maps and structs, it is generally not recommended to do
-so. These functions are inefficient because they require each value to be
-converted from a compact columnar representation into an STL container
-(std::vector, std::map, std::tuple). Also, it is not possible to define
-functions that accept generic arrays, maps or structs (e.g. map_keys,
-map_values, array_distinct, array_sort) as registerFunction requires all the
-signatures to be enumerated explicitly.
+Complex types as inputs:
+************************
+Input complex types are represented in the simple function interface using light-weight lazy
+access abstractions that enable efficient direct access to the underlying data in Velox
+vectors.
+As mentioned earlier, the helper alias arg_type can be used in the function signature to
+map Velox types to the corresponding input types. The table below shows the actual types that are
+used to represent inputs of different complex types.
 
-Given this recommendation, we will not discuss how to define a simple function
-with complex type inputs or results.
+==========  ==============================  =============================
+Velox Type  C++ Argument Type               C++ Actual Argument Type
+==========  ==============================  =============================
+ARRAY       arg_type<Array<E>>              ArrayView<VectorOptionalValueAccessor<VectorReader<E>>>>
+MAP         arg_type<Map<K,V>>              MapView<arg_type<K>, VectorOptionalValueAccessor<VectorReader<V>>>
+ROW         arg_type<Row<T1, T2, T3,...>>   RowView<VectorOptionalValueAccessor<arg_type<T1>>...>>
+==========  ==============================  =============================
+
+The view types are designed to have interfaces similar to those of std::containers, in fact in most cases
+they can be used as a drop in replacement. The table below shows the mapping between the Velox type and
+the corresponding std type. For example: a *Map<Row<int, int>, Array<float>>* corresponds to const
+*std::map<std:::tuple<int, int>, std::vector<float>>*.
+
+All views types are cheap to copy objects, for example the size of ArrayView is 16 bytes at max.
+
+===========      ======================================
+Lazy Input       Type  std Similar Object
+===========      ======================================
+ArrayView        const std::vector<std::optional<V>>
+MapView          const std::map<K, std::optional<V>>
+RowView          const std::tuple<std::optional<T1>...>
+===========      ======================================
+
+
+
+**1- VectorOptionalValueAccessor<VectorReader<E>>**:
+
+VectorOptionalValueAccessor is an *std::optional* like object that provides lazy access to the nullity and
+value of the underlying Velox vector at a specific index. Currently, it is used to represent elements of input arrays
+and values in the input maps. Note that keys in the map are assumed to be not nullable in Velox.
+
+The object supports the following methods:
+
+- arg_type<E> value()      : unchecked access to the underlying value.
+
+- arg_type<E> operator *() : unchecked access to the underlying value.
+
+- bool has_value()         : return true if the value is true.
+
+The nullity and the value accesses are decoupled, and hence if someone knows inputs are null-free,
+accessing the value does not have the overhead of checking the nullity. So is checking the nullity.
+Note that, unlike std::container, the return type category is a value and not a reference.
+
+**2- ArrayView<T>**:
+
+ArrayView have an interface similar to that of const *std::vector<std::optional<V>>*, the code
+bellow shows the function array_sum, a range loop is used to iterate over the values.
+
+.. code-block:: c++
+
+        template <typename T>
+        VELOX_UDF_BEGIN(array_sum)
+        bool call(const T& output, const arg_type<T>& array) {
+          output = 0;
+          for(const auto& element : array) {
+            if(element.has_value()) {
+                output += element.value();
+            }
+          }
+          return true;
+        }
+        VELOX_UDF_END();
+
+
+ArrayView supports the following:
+
+- size_t size() : return the number of elements in the array.
+
+- VectorOptionalValueAccessor<arg_type<T>> operator[](size_t index) : access element at index.
+
+- ArrayView<T>::Iterator begin() : iterator to the first element.
+
+- ArrayView<T>::Iterator end() : iterator indicating end of iteration.
+
+- bool mayHaveNulls() : Constant time check on the underlying vector nullity. When it returns false, there are definitely no nulls, a true does not guarantee null existence.
+
+- ArrayView<T>::SkipNullsContainer SkipNulls() : return an iterable container that provides direct access to non-null values in the underlying array. For example, the function above can be written as:
+
+.. code-block:: c++
+
+        template <typename T>
+        VELOX_UDF_BEGIN(array_sum)
+        bool call(const T& output, const arg_type<T>& array) {
+          output = 0;
+          for(const auto& value : array.skipNulls()) {
+              output += value;
+          }
+          return true;
+        }
+        VELOX_UDF_END();
+
+The skipNulls iterator will do check the nullity at each index and skip nulls, a more performant implementation
+would skip reading the nullity when mayHaveNulls() is false.
+
+.. code-block:: c++
+
+        template <typename T>
+        VELOX_UDF_BEGIN(array_sum)
+        bool call(const T& output, const arg_type<T>& array) {
+          output = 0;
+          if(array.mayHaveNulls()){
+             for(const auto& value : array.skipNulls()) {
+                output += value;
+             }
+             return true;
+          }
+          // no nulls, skip reading nullity.
+          for(const auto& element : array) {
+             output += element.value();
+          }
+          return true;
+        }
+        VELOX_UDF_END();
+
+Note: operator[], iterator de-referencing, and iterator pointer de-referencing have return type of value category and
+results in temporaries. Hence those can bound to const references or value variables but not normal references.
+
+Limitations:
+************************
+
+1. It is not possible to define functions that accept generic arrays,
+maps or structs (e.g. map_keys, map_values, array_distinct, array_sort) as
+it requires a generic representation for the input type that is still not
+supported.
+
+2. Output complex types now are double materialized; first in the simple functions when they
+are created and then when they are copied again to the Velox vector. Some work is planned to
+avoid that by using writer proxies that write directly to Velox vectors. This section will
+be updated once the new writer interfaces are completed.
 
 Vector Functions
 ----------------
