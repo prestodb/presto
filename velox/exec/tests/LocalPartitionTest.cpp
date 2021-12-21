@@ -285,7 +285,7 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
   verifyExchangeSourceOperatorStats(task, 2100);
 }
 
-TEST_F(LocalPartitionTest, outputLayout) {
+TEST_F(LocalPartitionTest, outputLayoutGather) {
   std::vector<RowVectorPtr> vectors = {
       makeRowVector({
           makeFlatVector<int32_t>(100, [](auto row) { return row; }),
@@ -318,8 +318,7 @@ TEST_F(LocalPartitionTest, outputLayout) {
                 .singleAggregation({}, {"count(1)", "min(c0)", "max(c1)"})
                 .planNode();
 
-  auto task = assertQuery(
-      op, std::vector<std::shared_ptr<TempFilePath>>{}, "SELECT 300, -71, 102");
+  auto task = assertQuery(op, "SELECT 300, -71, 102");
   verifyExchangeSourceOperatorStats(task, 300);
 
   op = PlanBuilder()
@@ -335,8 +334,7 @@ TEST_F(LocalPartitionTest, outputLayout) {
            .singleAggregation({}, {"count(1)", "min(c1)", "max(c1)"})
            .planNode();
 
-  task = assertQuery(
-      op, std::vector<std::shared_ptr<TempFilePath>>{}, "SELECT 300, -71, 102");
+  task = assertQuery(op, "SELECT 300, -71, 102");
   verifyExchangeSourceOperatorStats(task, 300);
 
   op = PlanBuilder()
@@ -352,8 +350,82 @@ TEST_F(LocalPartitionTest, outputLayout) {
            .singleAggregation({}, {"count(1)"})
            .planNode();
 
-  task = assertQuery(
-      op, std::vector<std::shared_ptr<TempFilePath>>{}, "SELECT 300");
+  task = assertQuery(op, "SELECT 300");
+  verifyExchangeSourceOperatorStats(task, 300);
+}
+
+TEST_F(LocalPartitionTest, outputLayoutPartition) {
+  std::vector<RowVectorPtr> vectors = {
+      makeRowVector({
+          makeFlatVector<int32_t>(100, [](auto row) { return row; }),
+          makeFlatVector<int32_t>(100, [](auto /*row*/) { return 123; }),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>(100, [](auto row) { return 53 + row; }),
+          makeFlatVector<int32_t>(100, [](auto /*row*/) { return 123; }),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>(100, [](auto row) { return -71 + row; }),
+          makeFlatVector<int32_t>(100, [](auto /*row*/) { return 123; }),
+      }),
+  };
+
+  auto valuesNode = [&](int index) {
+    return PlanBuilder().values({vectors[index]}).planNode();
+  };
+
+  CursorParameters params;
+  params.maxDrivers = 2;
+  params.planNode =
+      PlanBuilder()
+          .localPartition(
+              {0},
+              {
+                  valuesNode(0),
+                  valuesNode(1),
+                  valuesNode(2),
+              },
+              // Change column order: (c0, c1) -> (c1, c0).
+              {1, 0})
+          .partialAggregation({}, {"count(1)", "min(c0)", "max(c1)"})
+          .planNode();
+
+  auto task = OperatorTestBase::assertQuery(
+      params, "VALUES (146, -71, 123), (154, -70, 123)");
+  verifyExchangeSourceOperatorStats(task, 300);
+
+  params.planNode =
+      PlanBuilder()
+          .localPartition(
+              {0},
+              {
+                  valuesNode(0),
+                  valuesNode(1),
+                  valuesNode(2),
+              },
+              // Drop column: (c0, c1) -> (c1).
+              {1})
+          .partialAggregation({}, {"count(1)", "min(c1)", "max(c1)"})
+          .planNode();
+
+  task = OperatorTestBase::assertQuery(
+      params, "VALUES (146, 123, 123), (154, 123, 123)");
+  verifyExchangeSourceOperatorStats(task, 300);
+
+  params.planNode = PlanBuilder()
+                        .localPartition(
+                            {0},
+                            {
+                                valuesNode(0),
+                                valuesNode(1),
+                                valuesNode(2),
+                            },
+                            // Drop all columns.
+                            {})
+                        .partialAggregation({}, {"count(1)"})
+                        .planNode();
+
+  task = OperatorTestBase::assertQuery(params, "VALUES (146), (154)");
   verifyExchangeSourceOperatorStats(task, 300);
 }
 

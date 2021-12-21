@@ -261,25 +261,6 @@ std::vector<vector_size_t*> getRawIndices(
   return rawIndices;
 }
 
-RowVectorPtr project(
-    const RowVectorPtr& input,
-    const RowTypePtr& outputType,
-    const std::vector<ChannelIndex>& outputChannels) {
-  std::vector<VectorPtr> outputColumns;
-  outputColumns.reserve(outputChannels.size());
-  for (const auto& i : outputChannels) {
-    outputColumns.push_back(input->childAt(i));
-  }
-
-  return std::make_shared<RowVector>(
-      input->pool(),
-      outputType,
-      input->nulls(),
-      input->size(),
-      outputColumns,
-      input->getNullCount());
-}
-
 RowVectorPtr
 wrapChildren(const RowVectorPtr& input, vector_size_t size, BufferPtr indices) {
   std::vector<VectorPtr> wrappedChildren;
@@ -294,6 +275,27 @@ wrapChildren(const RowVectorPtr& input, vector_size_t size, BufferPtr indices) {
 }
 } // namespace
 
+BlockingReason LocalPartition::enqueue(
+    int32_t source,
+    RowVectorPtr data,
+    ContinueFuture* future) {
+  RowVectorPtr projectedData;
+  if (outputChannels_.empty() && outputType_->size() > 0) {
+    projectedData = std::move(data);
+  } else {
+    std::vector<VectorPtr> outputColumns;
+    outputColumns.reserve(outputChannels_.size());
+    for (const auto& i : outputChannels_) {
+      outputColumns.push_back(data->childAt(i));
+    }
+
+    projectedData = std::make_shared<RowVector>(
+        data->pool(), outputType_, nullptr, data->size(), outputColumns);
+  }
+
+  return localExchangeSources_[source]->enqueue(projectedData, future);
+}
+
 void LocalPartition::addInput(RowVectorPtr input) {
   stats_.outputBytes += input->retainedSize();
   stats_.outputPositions += input->size();
@@ -303,15 +305,10 @@ void LocalPartition::addInput(RowVectorPtr input) {
     child->loadedVector();
   }
 
-  if (outputChannels_.empty()) {
-    input_ = input;
-  } else {
-    input_ = project(input, outputType_, outputChannels_);
-  }
+  input_ = std::move(input);
 
   if (numPartitions_ == 1) {
-    blockingReasons_[0] =
-        localExchangeSources_[0]->enqueue(input_, &futures_[0]);
+    blockingReasons_[0] = enqueue(0, input_, &futures_[0]);
     if (blockingReasons_[0] != BlockingReason::kNotBlocked) {
       numBlockedPartitions_ = 1;
     }
@@ -340,7 +337,7 @@ void LocalPartition::addInput(RowVectorPtr input) {
           wrapChildren(input_, partitionSize, std::move(indexBuffers[i]));
 
       ContinueFuture future{false};
-      auto reason = localExchangeSources_[i]->enqueue(partitionData, &future);
+      auto reason = enqueue(i, partitionData, &future);
       if (reason != BlockingReason::kNotBlocked) {
         blockingReasons_[numBlockedPartitions_] = reason;
         futures_[numBlockedPartitions_] = std::move(future);
