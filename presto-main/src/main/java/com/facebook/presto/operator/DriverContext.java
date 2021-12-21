@@ -305,7 +305,7 @@ public class DriverContext
         }
     }
 
-    public long getPphysicalWrittenDataSize()
+    public long getPhysicalWrittenDataSize()
     {
         return operatorContexts.stream()
                 .mapToLong(OperatorContext::getPhysicalWrittenDataSize)
