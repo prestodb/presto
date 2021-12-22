@@ -19,7 +19,7 @@
 namespace facebook::velox {
 
 void parseTo(folly::StringPiece in, Date& out) {
-  auto daysSinceEpoch = util::fromDateString(in.data());
+  auto daysSinceEpoch = util::fromDateString(in.data(), in.size());
   out = Date(daysSinceEpoch);
 }
 

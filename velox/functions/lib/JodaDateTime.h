@@ -97,6 +97,10 @@ struct JodaResult {
 /// Compiles a Joda-compatible datetime format string.
 class JodaFormatter {
  public:
+  explicit JodaFormatter(const char* data) : format_(data) {
+    initialize();
+  }
+
   explicit JodaFormatter(std::string format) : format_(std::move(format)) {
     initialize();
   }

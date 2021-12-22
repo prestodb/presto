@@ -87,7 +87,6 @@ TEST(DateTimeUtilTest, fromDateString) {
   EXPECT_EQ(-719162, fromDateString("1\\1\\1"));
 
   // Other string types.
-  EXPECT_EQ(0, fromDateString(std::string("1970-01-01")));
   EXPECT_EQ(0, fromDateString(StringView("1970-01-01")));
 }
 

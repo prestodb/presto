@@ -33,10 +33,6 @@ int32_t fromDate(int32_t year, int32_t month, int32_t day);
 /// Throws VeloxUserError if the format or date is invalid.
 int32_t fromDateString(const char* buf, size_t len);
 
-inline int32_t fromDateString(const std::string& str) {
-  return fromDateString(str.data(), str.size());
-}
-
 inline int32_t fromDateString(const StringView& str) {
   return fromDateString(str.data(), str.size());
 }
@@ -54,10 +50,6 @@ fromTime(int32_t hour, int32_t minute, int32_t second, int32_t microseconds);
 /// Throws VeloxUserError if the format or time is invalid.
 int64_t fromTimeString(const char* buf, size_t len);
 
-inline int64_t fromTimeString(const std::string& str) {
-  return fromTimeString(str.data(), str.size());
-}
-
 inline int64_t fromTimeString(const StringView& str) {
   return fromTimeString(str.data(), str.size());
 }
@@ -67,10 +59,6 @@ inline int64_t fromTimeString(const StringView& str) {
 /// Parses a full ISO 8601 timestamp string, following the format
 /// "YYYY-MM-DD HH:MM:SS[.MS] +00:00"
 Timestamp fromTimestampString(const char* buf, size_t len);
-
-inline Timestamp fromTimestampString(const std::string& str) {
-  return fromTimestampString(str.data(), str.size());
-}
 
 inline Timestamp fromTimestampString(const StringView& str) {
   return fromTimestampString(str.data(), str.size());

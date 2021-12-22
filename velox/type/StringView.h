@@ -74,7 +74,16 @@ struct StringView {
       value_.data = data;
     }
   }
-  explicit StringView(const char* data) : StringView(data, strlen(data)) {}
+
+  // Making StringView implicitly constructible/convertible from char* and
+  // string literals, in order to allow for a more flexible API and optional
+  // interoperability. E.g:
+  //
+  //   StringView sv = "literal";
+  //   std::optional<StringView> osv = "literal";
+  //
+  /* implicit */ StringView(const char* data)
+      : StringView(data, strlen(data)) {}
   explicit StringView(const folly::fbstring& value)
       : StringView(value.data(), value.size()) {}
   explicit StringView(const std::string& value)

@@ -377,11 +377,11 @@ struct Converter<TypeKind::TIMESTAMP> {
   }
 
   static T cast(const StringView& v, bool& nullOutput) {
-    return fromTimestampString(v);
+    return fromTimestampString(v.data(), v.size());
   }
 
   static T cast(const std::string& v, bool& nullOutput) {
-    return fromTimestampString(v);
+    return fromTimestampString(v.data(), v.size());
   }
 
   static T cast(const Date& d, bool& nullOutput) {
@@ -404,11 +404,11 @@ struct Converter<TypeKind::DATE> {
   }
 
   static T cast(const StringView& v, bool& nullOutput) {
-    return fromDateString(v);
+    return fromDateString(v.data(), v.size());
   }
 
   static T cast(const std::string& v, bool& nullOutput) {
-    return fromDateString(v);
+    return fromDateString(v.data(), v.size());
   }
 
   static T cast(const Timestamp& t, bool& nullOutput) {
