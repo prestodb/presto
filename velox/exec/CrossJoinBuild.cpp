@@ -30,7 +30,7 @@ std::optional<std::vector<VectorPtr>> CrossJoinBridge::dataOrFuture(
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(!cancelled_, "Getting data after the build side is aborted");
   if (data_.has_value()) {
-    return std::move(data_);
+    return data_;
   }
   promises_.emplace_back("CrossJoinBridge::tableOrFuture");
   *future = promises_.back().getSemiFuture();

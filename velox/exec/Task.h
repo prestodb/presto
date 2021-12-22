@@ -546,9 +546,6 @@ class Task {
   // Holds states for pipelineBarrier(). Guarded by
   // 'mutex_'.
   std::unordered_map<std::string, BarrierState> barriers_;
-  // Map from the plan node id of the join to the corresponding JoinBridge.
-  // Guarded by 'mutex_'.
-  std::unordered_map<std::string, std::shared_ptr<JoinBridge>> bridges_;
 
   std::vector<VeloxPromise<bool>> stateChangePromises_;
 
@@ -558,6 +555,10 @@ class Task {
   // Keep driver and operator memory pools alive for the duration of the task to
   // allow for sharing vectors across drivers without copy.
   std::vector<std::unique_ptr<velox::memory::MemoryPool>> childPools_;
+
+  // Map from the plan node id of the join to the corresponding JoinBridge.
+  // Guarded by 'mutex_'.
+  std::unordered_map<std::string, std::shared_ptr<JoinBridge>> bridges_;
 
   std::vector<std::shared_ptr<MergeSource>> localMergeSources_;
 

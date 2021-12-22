@@ -44,8 +44,6 @@ class HashProbe : public Operator {
 
   void clearDynamicFilters() override;
 
-  void close() override {}
-
  private:
   // Sets up 'filter_' and related members.
   void initializeFilter(
