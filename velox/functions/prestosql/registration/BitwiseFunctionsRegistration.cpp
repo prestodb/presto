@@ -21,38 +21,46 @@ namespace facebook::velox::functions {
 namespace {
 template <template <class> class T>
 void registerBitwiseBinaryIntegral(const std::vector<std::string>& aliases) {
-  registerFunction<T<int8_t>, int64_t, int8_t, int8_t>(aliases);
-  registerFunction<T<int16_t>, int64_t, int16_t, int16_t>(aliases);
-  registerFunction<T<int32_t>, int64_t, int32_t, int32_t>(aliases);
-  registerFunction<T<int64_t>, int64_t, int64_t, int64_t>(aliases);
+  registerFunction<T, int64_t, int8_t, int8_t>(aliases);
+  registerFunction<T, int64_t, int16_t, int16_t>(aliases);
+  registerFunction<T, int64_t, int32_t, int32_t>(aliases);
+  registerFunction<T, int64_t, int64_t, int64_t>(aliases);
 }
 
 template <template <class> class T>
 void registerBitwiseUnaryIntegral(const std::vector<std::string>& aliases) {
-  registerFunction<T<int8_t>, int64_t, int8_t>(aliases);
-  registerFunction<T<int16_t>, int64_t, int16_t>(aliases);
-  registerFunction<T<int32_t>, int64_t, int32_t>(aliases);
-  registerFunction<T<int64_t>, int64_t, int64_t>(aliases);
+  registerFunction<T, int64_t, int8_t>(aliases);
+  registerFunction<T, int64_t, int16_t>(aliases);
+  registerFunction<T, int64_t, int32_t>(aliases);
+  registerFunction<T, int64_t, int64_t>(aliases);
 }
 } // namespace
 
 void registerBitwiseFunctions() {
-  registerBitwiseBinaryIntegral<udf_bitwise_and>({});
-  registerBitwiseUnaryIntegral<udf_bitwise_not>({});
-  registerBitwiseBinaryIntegral<udf_bitwise_or>({});
-  registerBitwiseBinaryIntegral<udf_bitwise_xor>({});
-  registerBitwiseBinaryIntegral<udf_bitwise_arithmetic_shift_right>({});
-  registerBitwiseBinaryIntegral<udf_bitwise_left_shift>({});
-  registerBitwiseBinaryIntegral<udf_bitwise_right_shift>({});
-  registerBitwiseBinaryIntegral<udf_bitwise_right_shift_arithmetic>({});
+  registerBitwiseBinaryIntegral<BitwiseAndFunction>({"bitwise_and"});
+  registerBitwiseUnaryIntegral<BitwiseNotFunction>({"bitwise_not"});
+  registerBitwiseBinaryIntegral<BitwiseOrFunction>({"bitwise_or"});
+  registerBitwiseBinaryIntegral<BitwiseXorFunction>({"bitwise_xor"});
+  registerBitwiseBinaryIntegral<BitwiseArithmeticShiftRightFunction>(
+      {"bitwise_arithmetic_shift_right"});
+  registerBitwiseBinaryIntegral<BitwiseLeftShiftFunction>(
+      {"bitwise_left_shift"});
+  registerBitwiseBinaryIntegral<BitwiseRightShiftFunction>(
+      {"bitwise_right_shift"});
+  registerBitwiseBinaryIntegral<BitwiseRightShiftArithmeticFunction>(
+      {"bitwise_right_shift_arithmetic"});
   registerFunction<
-      udf_bitwise_logical_shift_right,
+      BitwiseLogicalShiftRightFunction,
       int64_t,
       int64_t,
       int64_t,
-      int64_t>({});
-  registerFunction<udf_bitwise_shift_left, int64_t, int64_t, int64_t, int64_t>(
-      {});
+      int64_t>({"bitwise_logical_shift_right"});
+  registerFunction<
+      BitwiseShiftLeftFunction,
+      int64_t,
+      int64_t,
+      int64_t,
+      int64_t>({"bitwise_shift_left"});
 }
 
 } // namespace facebook::velox::functions
