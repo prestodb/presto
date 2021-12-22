@@ -42,6 +42,7 @@ inline const folly::json::serialization_opts getSerializationOptions() {
   opts.allow_trailing_comma = true;
   opts.recursion_limit = UINT_MAX;
   opts.sort_keys = true;
+  opts.double_fallback = true;
   return opts;
 }
 
