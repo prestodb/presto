@@ -1924,7 +1924,8 @@ TEST_F(ExprTest, tryExpr) {
     assertEqualVectors(expectedResult, result);
   }
 
-  auto c = vectorMaker_->flatVectorNullable({"1", "2x", "3", "4", "5y"});
+  auto c =
+      vectorMaker_->flatVectorNullable<StringView>({"1", "2x", "3", "4", "5y"});
   {
     auto result = evaluate("try(cast(c0 as integer))", makeRowVector({c}));
     auto expectedResult = vectorMaker_->flatVectorNullable<int32_t>(

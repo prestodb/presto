@@ -50,16 +50,17 @@ BufferPtr buildBiasedBuffer(
 }
 
 template <typename T>
-BiasVectorPtr<T> VectorMaker::biasVector(
+BiasVectorPtr<VectorMaker::EvalType<T>> VectorMaker::biasVector(
     const std::vector<std::optional<T>>& data) {
   VELOX_CHECK_GT(data.size(), 1);
+  using TEvalType = EvalType<T>;
 
-  if constexpr (admitsBias<T>()) {
+  if constexpr (admitsBias<TEvalType>()) {
     auto stats = genVectorMakerStats(data);
     VELOX_CHECK(stats.min != std::nullopt);
     VELOX_CHECK(stats.max != std::nullopt);
-    T min = *stats.min;
-    T max = *stats.max;
+    TEvalType min = *stats.min;
+    TEvalType max = *stats.max;
 
     // This ensures the math conversions when getting a delta on signed
     // values at opposite ends of the int64 range do not overflow a
@@ -69,29 +70,29 @@ BiasVectorPtr<T> VectorMaker::biasVector(
         ? static_cast<uint64_t>(max) + static_cast<uint64_t>(std::abs(min))
         : max - min;
 
-    VELOX_CHECK(deltaAllowsBias<T>(delta));
+    VELOX_CHECK(deltaAllowsBias<TEvalType>(delta));
 
     // Check BiasVector.h for explanation of this calculation.
-    T bias = min + static_cast<T>(std::ceil(delta / 2.0));
+    TEvalType bias = min + static_cast<TEvalType>(std::ceil(delta / 2.0));
 
     auto metadata = getMetadata(stats);
-    encodeMetaData(metadata, BiasVector<T>::BIAS_VALUE, bias);
+    encodeMetaData(metadata, BiasVector<TEvalType>::BIAS_VALUE, bias);
 
     BufferPtr buffer;
     TypeKind valueType;
 
     if (delta <= std::numeric_limits<uint8_t>::max()) {
-      buffer = buildBiasedBuffer<T, int8_t>(data, bias, pool_);
+      buffer = buildBiasedBuffer<TEvalType, int8_t>(data, bias, pool_);
       valueType = TypeKind::TINYINT;
     } else if (delta <= std::numeric_limits<uint16_t>::max()) {
-      buffer = buildBiasedBuffer<T, int16_t>(data, bias, pool_);
+      buffer = buildBiasedBuffer<TEvalType, int16_t>(data, bias, pool_);
       valueType = TypeKind::SMALLINT;
     } else {
-      buffer = buildBiasedBuffer<T, int32_t>(data, bias, pool_);
+      buffer = buildBiasedBuffer<TEvalType, int32_t>(data, bias, pool_);
       valueType = TypeKind::INTEGER;
     }
 
-    auto biasVector = std::make_shared<BiasVector<T>>(
+    auto biasVector = std::make_shared<BiasVector<TEvalType>>(
         pool_,
         nullptr /*nulls*/,
         data.size(),
@@ -113,10 +114,10 @@ BiasVectorPtr<T> VectorMaker::biasVector(
   }
 }
 
-template <typename T>
+template <typename T, typename TEvalType>
 void sequenceEncode(
     const std::vector<std::optional<T>>& input,
-    std::vector<std::optional<T>>& encodedVals,
+    std::vector<std::optional<TEvalType>>& encodedVals,
     std::vector<SequenceLength>& encodedLengths) {
   VELOX_CHECK_GT(input.size(), 0, "need at least one element to encode.");
   auto currentValue = input.front();
@@ -137,14 +138,16 @@ void sequenceEncode(
 }
 
 template <typename T>
-SequenceVectorPtr<T> VectorMaker::sequenceVector(
+SequenceVectorPtr<VectorMaker::EvalType<T>> VectorMaker::sequenceVector(
     const std::vector<std::optional<T>>& data) {
-  std::vector<std::optional<T>> sequenceVals;
+  using TEvalType = EvalType<T>;
+
+  std::vector<std::optional<TEvalType>> sequenceVals;
   std::vector<SequenceLength> sequenceLengths;
   sequenceEncode(data, sequenceVals, sequenceLengths);
 
   auto stats = genVectorMakerStats(data);
-  return std::make_unique<SequenceVector<T>>(
+  return std::make_unique<SequenceVector<TEvalType>>(
       pool_,
       data.size(),
       flatVectorNullable(sequenceVals),
@@ -156,9 +159,10 @@ SequenceVectorPtr<T> VectorMaker::sequenceVector(
 }
 
 template <typename T>
-ConstantVectorPtr<T> VectorMaker::constantVector(
+ConstantVectorPtr<VectorMaker::EvalType<T>> VectorMaker::constantVector(
     const std::vector<std::optional<T>>& data) {
   VELOX_CHECK_GT(data.size(), 0);
+  using TEvalType = EvalType<T>;
 
   auto stats = genVectorMakerStats(data);
   vector_size_t distinctCount = stats.distinctCount();
@@ -168,21 +172,23 @@ ConstantVectorPtr<T> VectorMaker::constantVector(
       (distinctCount == 1 && nullCount == 0) || distinctCount == 0,
       "Attempting to build a constant vector with invalid entries");
 
-  return std::make_unique<ConstantVector<T>>(
+  return std::make_unique<ConstantVector<TEvalType>>(
       pool_,
       data.size(),
       nullCount > 0,
-      (nullCount > 0) ? T() : folly::copy(*data.front()),
+      (nullCount > 0) ? TEvalType() : folly::copy(*data.front()),
       getMetadata(stats));
 }
 
 template <typename T>
-DictionaryVectorPtr<T> VectorMaker::dictionaryVector(
+DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
     const std::vector<std::optional<T>>& data) {
+  using TEvalType = EvalType<T>;
+
   // Encodes the data saving distinct values on `distinctValues` and their
   // respective indices on `indices`.
-  std::vector<T> distinctValues;
-  std::unordered_map<T, int32_t> indexMap;
+  std::vector<TEvalType> distinctValues;
+  std::unordered_map<TEvalType, int32_t> indexMap;
 
   BufferPtr indices = AlignedBuffer::allocate<int32_t>(data.size(), pool_);
   auto rawIndices = indices->asMutable<int32_t>();
@@ -203,7 +209,7 @@ DictionaryVectorPtr<T> VectorMaker::dictionaryVector(
 
   auto values = flatVector(distinctValues);
   auto stats = genVectorMakerStats(data);
-  auto dictionaryVector = std::make_unique<DictionaryVector<T>>(
+  auto dictionaryVector = std::make_unique<DictionaryVector<TEvalType>>(
       pool_,
       nullptr /*nulls*/,
       data.size(),
@@ -224,38 +230,17 @@ DictionaryVectorPtr<T> VectorMaker::dictionaryVector(
 }
 
 template <typename T>
-FlatVectorPtr<T> VectorMaker::flatVectorNullable(
+FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVectorNullable(
     const std::vector<std::optional<T>>& data,
     const TypePtr& type) {
-  BufferPtr dataBuffer = AlignedBuffer::allocate<T>(data.size(), pool_);
-  BufferPtr nullBuffer = AlignedBuffer::allocate<bool>(data.size(), pool_);
-
-  auto rawData = dataBuffer->asMutable<T>();
-  auto rawNulls = nullBuffer->asMutable<uint64_t>();
-
-  for (vector_size_t i = 0; i < data.size(); i++) {
-    if (data[i] != std::nullopt) {
-      // Using bitUtils for bool vectors.
-      if constexpr (std::is_same<T, bool>::value) {
-        bits::setBit(rawData, i, *data[i]);
-      } else {
-        rawData[i] = *data[i];
-      }
-      bits::setNull(rawNulls, i, false);
-    } else {
-      // Prevent null StringViews to point to garbage.
-      if constexpr (std::is_same<T, StringView>::value) {
-        rawData[i] = T();
-      }
-      bits::setNull(rawNulls, i, true);
-    }
-  }
+  using TEvalType = EvalType<T>;
+  BufferPtr dataBuffer = AlignedBuffer::allocate<TEvalType>(data.size(), pool_);
 
   auto stats = genVectorMakerStats(data);
-  return std::make_shared<FlatVector<T>>(
+  auto flatVector = std::make_shared<FlatVector<TEvalType>>(
       pool_,
       type,
-      std::move(nullBuffer),
+      BufferPtr(nullptr),
       data.size(),
       std::move(dataBuffer),
       std::vector<BufferPtr>(),
@@ -263,6 +248,17 @@ FlatVectorPtr<T> VectorMaker::flatVectorNullable(
       stats.distinctCount(),
       stats.nullCount,
       stats.isSorted);
+
+  for (vector_size_t i = 0; i < data.size(); i++) {
+    if (data[i] != std::nullopt) {
+      flatVector->set(i, TEvalType(*data[i]));
+      flatVector->setNull(i, false);
+    } else {
+      flatVector->set(i, TEvalType());
+      flatVector->setNull(i, true);
+    }
+  }
+  return flatVector;
 }
 
 template <typename T>

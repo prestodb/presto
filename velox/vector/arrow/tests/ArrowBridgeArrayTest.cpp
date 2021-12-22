@@ -69,7 +69,11 @@ class ArrowBridgeArrayExportTest : public testing::Test {
     const uint64_t* nulls = static_cast<const uint64_t*>(arrowArray.buffers[0]);
     const T* values = static_cast<const T*>(arrowArray.buffers[1]);
 
-    EXPECT_NE(nulls, nullptr);
+    if (arrowArray.null_count == 0) {
+      EXPECT_EQ(nulls, nullptr);
+    } else {
+      EXPECT_NE(nulls, nullptr);
+    }
     EXPECT_NE(values, nullptr);
 
     for (size_t i = 0; i < inputData.size(); ++i) {
@@ -100,7 +104,11 @@ class ArrowBridgeArrayExportTest : public testing::Test {
     const char* values = static_cast<const char*>(arrowArray.buffers[1]);
     const int32_t* offsets = static_cast<const int32_t*>(arrowArray.buffers[2]);
 
-    EXPECT_NE(nulls, nullptr);
+    if (arrowArray.null_count == 0) {
+      EXPECT_EQ(nulls, nullptr);
+    } else {
+      EXPECT_NE(nulls, nullptr);
+    }
     EXPECT_NE(values, nullptr);
     EXPECT_NE(offsets, nullptr);
 
@@ -205,6 +213,7 @@ TEST_F(ArrowBridgeArrayExportTest, flatBool) {
       true,
       std::nullopt,
   });
+  testFlatVector<bool>({});
 }
 
 TEST_F(ArrowBridgeArrayExportTest, flatTinyint) {
@@ -216,6 +225,7 @@ TEST_F(ArrowBridgeArrayExportTest, flatTinyint) {
       std::nullopt,
       4,
   });
+  testFlatVector<int8_t>({std::nullopt});
 }
 
 TEST_F(ArrowBridgeArrayExportTest, flatSmallint) {
@@ -294,10 +304,6 @@ TEST_F(ArrowBridgeArrayExportTest, flatString) {
 TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   ArrowArray arrowArray;
   VectorPtr vector;
-
-  // Strings.
-  vector = vectorMaker_.flatVectorNullable<std::string>({});
-  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Timestamps.
   vector = vectorMaker_.flatVectorNullable<Timestamp>({});

@@ -116,6 +116,35 @@ TEST_F(VectorMakerTest, flatVectorStringTypes) {
       {std::string_view("hello"), std::string_view("world")}));
 }
 
+TEST_F(VectorMakerTest, flatVectorStringNullableTypes) {
+  auto validate = [&](const FlatVectorPtr<StringView>& input) {
+    ASSERT_NE(nullptr, input);
+    EXPECT_EQ("hello"_sv, input->valueAt(0));
+    EXPECT_TRUE(input->isNullAt(1));
+    EXPECT_EQ("world"_sv, input->valueAt(2));
+  };
+
+  // Compilers can't infer dependent template types, so we either need to
+  // explicitly specify the template type, of fully declare the vector type:
+
+  // char*
+  validate(
+      maker_.flatVectorNullable<const char*>({"hello", std::nullopt, "world"}));
+
+  // std::string
+  validate(maker_.flatVectorNullable(std::vector<std::optional<std::string>>(
+      {"hello", std::nullopt, "world"})));
+
+  // StringView
+  validate(
+      maker_.flatVectorNullable<StringView>({"hello", std::nullopt, "world"}));
+
+  // std::string_view
+  validate(
+      maker_.flatVectorNullable(std::vector<std::optional<std::string_view>>(
+          {"hello", std::nullopt, "world"})));
+}
+
 TEST_F(VectorMakerTest, nullableFlatVectorString) {
   std::vector<std::optional<std::string>> data = {
       "hello",
@@ -132,8 +161,8 @@ TEST_F(VectorMakerTest, nullableFlatVectorString) {
   EXPECT_EQ(1, flatVector->getNullCount().value());
   EXPECT_FALSE(flatVector->isSorted().value());
   EXPECT_EQ(4, flatVector->getDistinctValueCount().value());
-  EXPECT_EQ(StringView(""), flatVector->getMin().value());
-  EXPECT_EQ(StringView("world"), flatVector->getMax().value());
+  EXPECT_EQ(""_sv, flatVector->getMin().value());
+  EXPECT_EQ("world"_sv, flatVector->getMax().value());
 
   for (vector_size_t i = 0; i < data.size(); i++) {
     if (data[i] == std::nullopt) {

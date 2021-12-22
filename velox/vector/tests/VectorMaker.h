@@ -139,7 +139,7 @@ class VectorMaker {
   template <typename T>
   FlatVectorPtr<EvalType<T>> flatVector(const std::vector<T>& data);
 
-  // This overload allows users to use initializer list directly without
+  // Helper overload to allow users to use initializer list directly without
   // explicitly specifying the template type, e.g:
   //
   //   auto flatVector2 = flatVector({"hello", "world"});
@@ -150,47 +150,26 @@ class VectorMaker {
 
   /// Create a FlatVector<T>
   /// creates a FlatVector based on elements from the input std::vector.
-  /// Works for primitive types and StringViews.
+  /// Works for primitive and string types, similarly to flatVector().
   ///
   /// Elements are nullable.
   ///
   /// Examples:
   ///   auto flatVector = flatVectorNullable({1, std::nullopt, 3});
-  ///   auto flatVectorStr = flatVectorNullable<StringView>({
-  ///       StringView("hello"), std::nullopt, StringView("world")});
+  ///   auto flatVectorStr = flatVectorNullable({
+  ///       "hello"_sv, std::nullopt, "world"_sv});
   template <typename T>
-  FlatVectorPtr<T> flatVectorNullable(
-      const std::vector<std::optional<T>>& values,
+  FlatVectorPtr<EvalType<T>> flatVectorNullable(
+      const std::vector<std::optional<T>>& data,
       const TypePtr& type = CppToType<T>::create());
 
-  /// Create a FlatVector<T>
-  /// convenience function to create a FlatVector based on a vector of
-  /// std::string. Note that the lifetime of the StringViews on the the
-  /// returned FlatVector are bound to the lifetime of the vector input
-  /// strings.
-  ///
-  /// Elements are nullable.
-  ///
-  /// Examples:
-  ///   auto flatVector = flatVectorNullable(
-  ///       {std::string("hello"), std::nullopt, std::string("world")});
-  //
-  /// or simply:
-  ///
-  ///   auto flatVector2 = flatVectorNullable({"hello", std::nullopt, "world"});
-  FlatVectorPtr<StringView> flatVectorNullable(
-      const std::vector<std::optional<std::string>>& data,
-      const TypePtr& type = ScalarType<TypeKind::VARCHAR>::create()) {
-    std::vector<std::optional<StringView>> stringViews;
-    stringViews.reserve(data.size());
-    for (const auto& str : data) {
-      if (str == std::nullopt) {
-        stringViews.emplace_back(std::nullopt);
-      } else {
-        stringViews.emplace_back(*str);
-      }
-    }
-    return flatVectorNullable(stringViews, type);
+  // Helper overload to allow users to use initializer list directly without
+  // explicitly specifying the template type.
+  template <typename T>
+  FlatVectorPtr<EvalType<T>> flatVectorNullable(
+      const std::initializer_list<std::optional<T>>& data,
+      const TypePtr& type = CppToType<T>::create()) {
+    return flatVectorNullable(std::vector<std::optional<T>>(data), type);
   }
 
   template <typename T, int TupleIndex, typename TupleType>
@@ -222,7 +201,8 @@ class VectorMaker {
   /// Example:
   ///   auto biasVector = maker.biasVector<int64_t>({10, 15, 13, 11, 12, 14});
   template <typename T>
-  BiasVectorPtr<T> biasVector(const std::vector<std::optional<T>>& data);
+  BiasVectorPtr<EvalType<T>> biasVector(
+      const std::vector<std::optional<T>>& data);
 
   /// Create a SequenceVector<T>
   /// creates a SequenceVector (vector encoded using RLE) based on a flat
@@ -234,7 +214,7 @@ class VectorMaker {
   ///   auto sequenceVector = maker.sequenceVector<int64_t>({
   ///       10, 10, 10, std::nullopt, 15, 15, std::nullopt, std::nullopt});
   template <typename T>
-  SequenceVectorPtr<T> sequenceVector(
+  SequenceVectorPtr<EvalType<T>> sequenceVector(
       const std::vector<std::optional<T>>& data);
 
   /// Create a ConstantVector<T>
@@ -250,7 +230,7 @@ class VectorMaker {
   ///   auto constantVector = maker.constantVector<int64_t>(
   ///        {std::nullopt, std::nullopt});
   template <typename T>
-  ConstantVectorPtr<T> constantVector(
+  ConstantVectorPtr<EvalType<T>> constantVector(
       const std::vector<std::optional<T>>& data);
 
   /// Create a DictionaryVector<T>
@@ -263,13 +243,13 @@ class VectorMaker {
   ///   auto dictionaryVector = maker.dictionaryVector<int64_t>({
   ///       10, 10, 10, std::nullopt, 15, 15, std::nullopt, std::nullopt});
   template <typename T>
-  DictionaryVectorPtr<T> dictionaryVector(
+  DictionaryVectorPtr<EvalType<T>> dictionaryVector(
       const std::vector<std::optional<T>>& data);
 
   /// Convenience function that creates an vector based on input std::vector
   /// data, encoded with given `vecType`.
   template <typename T>
-  SimpleVectorPtr<T> encodedVector(
+  SimpleVectorPtr<EvalType<T>> encodedVector(
       VectorEncoding::Simple vecType,
       const std::vector<std::optional<T>>& data) {
     switch (vecType) {
