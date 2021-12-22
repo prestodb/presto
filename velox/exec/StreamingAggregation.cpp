@@ -52,7 +52,8 @@ StreamingAggregation::StreamingAggregation(
 
   auto numAggregates = aggregationNode->aggregates().size();
   aggregates_.reserve(numAggregates);
-  masks_.reserve(numAggregates);
+  std::vector<std::optional<ChannelIndex>> maskChannels;
+  maskChannels.reserve(numAggregates);
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
@@ -73,10 +74,9 @@ StreamingAggregation::StreamingAggregation(
 
     const auto& mask = aggregationNode->aggregateMasks()[i];
     if (mask == nullptr) {
-      masks_.emplace_back(std::nullopt);
+      maskChannels.emplace_back(std::nullopt);
     } else {
-      masks_.emplace_back(inputType->asRow().getChildIdx(mask->name()));
-      VELOX_NYI("Streaming aggregation doesn't support masks yet");
+      maskChannels.emplace_back(inputType->asRow().getChildIdx(mask->name()));
     }
 
     const auto& aggResultType = outputType_->childAt(numKeys + i);
@@ -89,6 +89,8 @@ StreamingAggregation::StreamingAggregation(
   if (aggregationNode->ignoreNullKeys()) {
     VELOX_NYI("Streaming aggregation doesn't support ignoring null keys yet");
   }
+
+  masks_ = std::make_unique<AggregationMasks>(std::move(maskChannels));
 
   rows_ = std::make_unique<RowContainer>(
       groupingKeyTypes,
@@ -209,6 +211,14 @@ void StreamingAggregation::assignGroups() {
   }
 }
 
+const SelectivityVector& StreamingAggregation::getSelectivityVector(
+    size_t aggregateIndex) const {
+  auto* rows = masks_->activeRows(aggregateIndex);
+
+  // No mask? Use the current selectivity vector for this aggregation.
+  return rows ? *rows : inputRows_;
+}
+
 void StreamingAggregation::evaluateAggregates() {
   for (auto i = 0; i < aggregates_.size(); ++i) {
     auto& aggregate = aggregates_[i];
@@ -222,11 +232,12 @@ void StreamingAggregation::evaluateAggregates() {
       }
     }
 
+    const auto& rows = getSelectivityVector(i);
+
     if (isRawInput(step_)) {
-      aggregate->addRawInput(inputGroups_.data(), inputRows_, args, false);
+      aggregate->addRawInput(inputGroups_.data(), rows, args, false);
     } else {
-      aggregate->addIntermediateResults(
-          inputGroups_.data(), inputRows_, args, false);
+      aggregate->addIntermediateResults(inputGroups_.data(), rows, args, false);
     }
   }
 }
@@ -244,6 +255,8 @@ RowVectorPtr StreamingAggregation::getOutput() {
   auto numInput = input_->size();
   inputRows_.resize(numInput);
   inputRows_.setAll();
+
+  masks_->addInput(input_, inputRows_);
 
   auto numPrevGroups = numGroups_;
 

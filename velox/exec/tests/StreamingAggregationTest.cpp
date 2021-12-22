@@ -62,6 +62,26 @@ class StreamingAggregationTest : public OperatorTestBase {
     assertQuery(
         makeCursorParameters(plan, outputBatchSize),
         "SELECT c0, count(1), min(c1), max(c1), sum(c1) FROM tmp GROUP BY 1");
+
+    // Test aggregation masks: one aggregate without a mask, two with the same
+    // mask, one with a different mask.
+    plan = PlanBuilder()
+               .values(data)
+               .project(
+                   {"c0", "c1", "c1 % 7 = 0", "c1 % 11 = 0"},
+                   {"c0", "c1", "m1", "m2"})
+               .partialStreamingAggregation(
+                   {0},
+                   {"count(1)", "min(c1)", "max(c1)", "sum(c1)"},
+                   {"", "m1", "m2", "m1"})
+               .finalStreamingAggregation()
+               .planNode();
+
+    assertQuery(
+        makeCursorParameters(plan, outputBatchSize),
+        "SELECT c0, count(1), min(c1) filter (where c1 % 7 = 0), "
+        "max(c1) filter (where c1 % 11 = 0), sum(c1) filter (where c1 % 7 = 0) "
+        "FROM tmp GROUP BY 1");
   }
 
   void testMultiKeyAggregation(

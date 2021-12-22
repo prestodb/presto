@@ -370,13 +370,20 @@ std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::createAggregateMasks(
     size_t numAggregates,
     const std::vector<std::string>& masks) {
-  if (!masks.empty()) {
-    VELOX_CHECK_EQ(numAggregates, masks.size());
-    return fields(masks);
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> maskExprs(
+      numAggregates);
+  if (masks.empty()) {
+    return maskExprs;
   }
 
-  return std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>(
-      numAggregates);
+  VELOX_CHECK_EQ(numAggregates, masks.size());
+  for (auto i = 0; i < numAggregates; ++i) {
+    if (!masks[i].empty()) {
+      maskExprs[i] = field(masks[i]);
+    }
+  }
+
+  return maskExprs;
 }
 
 PlanBuilder& PlanBuilder::aggregation(

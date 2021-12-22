@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/exec/AggregationMasks.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {
@@ -43,6 +44,9 @@ class StreamingAggregation : public Operator {
   }
 
  private:
+  // Returns the rows to aggregate with masking applied if applicable.
+  const SelectivityVector& getSelectivityVector(size_t aggregateIndex) const;
+
   // Allocate new group or re-use previously allocated group that has been fully
   // calculated and included in the output.
   char* startNewGroup(vector_size_t index);
@@ -68,7 +72,7 @@ class StreamingAggregation : public Operator {
 
   std::vector<ChannelIndex> groupingKeys_;
   std::vector<std::unique_ptr<Aggregate>> aggregates_;
-  std::vector<std::optional<ChannelIndex>> masks_;
+  std::unique_ptr<AggregationMasks> masks_;
   std::vector<std::vector<ChannelIndex>> args_;
   std::vector<std::vector<VectorPtr>> constantArgs_;
   std::vector<DecodedVector> decodedKeys_;
