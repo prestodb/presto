@@ -540,6 +540,44 @@ VectorPtr createFlatVector(
 using WrapInBufferViewFunc =
     std::function<BufferPtr(const void* buffer, size_t length)>;
 
+template <typename TOffset>
+VectorPtr createStringFlatVector(
+    memory::MemoryPool* pool,
+    const TypePtr& type,
+    BufferPtr nulls,
+    size_t length,
+    const TOffset* offsets,
+    const char* values,
+    int64_t nullCount,
+    WrapInBufferViewFunc wrapInBufferView) {
+  BufferPtr stringViews = AlignedBuffer::allocate<StringView>(length, pool);
+  auto rawStringViews = stringViews->asMutable<StringView>();
+  bool shouldAcquireStringBuffer = false;
+
+  for (size_t i = 0; i < length; ++i) {
+    rawStringViews[i] =
+        StringView(values + offsets[i], offsets[i + 1] - offsets[i]);
+    shouldAcquireStringBuffer |= !rawStringViews[i].isInline();
+  }
+
+  std::vector<BufferPtr> stringViewBuffers;
+  if (shouldAcquireStringBuffer) {
+    stringViewBuffers.emplace_back(
+        wrapInBufferView(values, offsets[length + 1]));
+  }
+
+  return std::make_shared<FlatVector<StringView>>(
+      pool,
+      type,
+      nulls,
+      length,
+      stringViews,
+      std::move(stringViewBuffers),
+      cdvi::EMPTY_METADATA,
+      std::nullopt,
+      nullCount == -1 ? std::nullopt : std::optional<int64_t>(nullCount));
+}
+
 VectorPtr importFromArrowImpl(
     const ArrowSchema& arrowSchema,
     const ArrowArray& arrowArray,
@@ -582,25 +620,44 @@ VectorPtr importFromArrowImpl(
         "Nulls buffer must be nullptr when null_count is zero.");
   }
 
-  // Wrap the values buffer into a Velox BufferView (also zero-copy).
-  VELOX_USER_CHECK_EQ(
-      arrowArray.n_buffers,
-      2,
-      "Expecting two buffers as input "
-      "(only simple types supported for now).");
-  auto values = wrapInBufferView(
-      arrowArray.buffers[1], arrowArray.length * type->cppSizeInBytes());
+  // String data types (VARCHAR and VARBINARY).
+  if (type->isVarchar() || type->isVarbinary()) {
+    VELOX_USER_CHECK_EQ(
+        arrowArray.n_buffers,
+        3,
+        "Expecting three buffers as input for string types.");
+    return createStringFlatVector(
+        pool,
+        type,
+        nulls,
+        arrowArray.length,
+        static_cast<const int32_t*>(arrowArray.buffers[2]), // offsets
+        static_cast<const char*>(arrowArray.buffers[1]), // values
+        arrowArray.null_count,
+        wrapInBufferView);
+  }
+  // Other primitive types.
+  else {
+    // Wrap the values buffer into a Velox BufferView - zero-copy.
+    VELOX_USER_CHECK_EQ(
+        arrowArray.n_buffers,
+        2,
+        "Primitive types expect two buffers as input.");
+    auto values = wrapInBufferView(
+        arrowArray.buffers[1], arrowArray.length * type->cppSizeInBytes());
 
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      createFlatVector,
-      type->kind(),
-      pool,
-      type,
-      nulls,
-      arrowArray.length,
-      values,
-      arrowArray.null_count);
+    return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        createFlatVector,
+        type->kind(),
+        pool,
+        type,
+        nulls,
+        arrowArray.length,
+        values,
+        arrowArray.null_count);
+  }
 }
+
 } // namespace
 
 VectorPtr importFromArrowAsViewer(

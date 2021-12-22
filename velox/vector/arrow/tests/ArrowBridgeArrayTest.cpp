@@ -384,21 +384,81 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     ArrowArray arrowArray = makeArrowArray(buffers, 2, length, nullCount);
     auto arrowSchema = makeArrowSchema(format);
     auto output = importFromArrow(arrowSchema, arrowArray, pool_.get());
+    assertVectorContent(inputValues, output, nullCount);
 
     // Buffer views are not reusable.
     EXPECT_FALSE(BaseVector::isReusableFlatVector(output));
+  }
 
-    EXPECT_EQ((nullCount > 0), output->mayHaveNulls());
-    EXPECT_EQ(nullCount, *output->getNullCount());
-    EXPECT_EQ(inputValues.size(), output->size());
+  void testArrowImportString(
+      const char* format,
+      const std::vector<std::optional<std::string>>& inputValues) {
+    int64_t length = inputValues.size();
+    int64_t nullCount = 0;
 
-    auto expected = vectorMaker_.flatVectorNullable<T>(inputValues);
+    // Calculate overall buffer size.
+    int64_t bufferSize = 0;
+    for (const auto& it : inputValues) {
+      if (it.has_value()) {
+        bufferSize += it->size();
+      }
+    }
+
+    BufferPtr nulls = AlignedBuffer::allocate<uint64_t>(length, pool_.get());
+    BufferPtr offsets =
+        AlignedBuffer::allocate<int32_t>(length + 1, pool_.get());
+    BufferPtr values = AlignedBuffer::allocate<char>(bufferSize, pool_.get());
+
+    auto rawNulls = nulls->asMutable<uint64_t>();
+    auto rawOffsets = offsets->asMutable<int32_t>();
+    auto rawValues = values->asMutable<char>();
+    *rawOffsets = 0;
+
+    const void* buffers[3];
+    buffers[1] = (length == 0) ? nullptr : (const void*)rawValues;
+    buffers[2] = (length == 0) ? nullptr : (const void*)rawOffsets;
+
+    for (size_t i = 0; i < length; ++i) {
+      if (inputValues[i] == std::nullopt) {
+        bits::setNull(rawNulls, i);
+        nullCount++;
+        *(rawOffsets + 1) = *rawOffsets;
+        ++rawOffsets;
+      } else {
+        bits::clearNull(rawNulls, i);
+        const auto& val = *inputValues[i];
+
+        std::memcpy(rawValues, val.data(), val.size());
+        rawValues += val.size();
+        *(rawOffsets + 1) = *rawOffsets + val.size();
+        ++rawOffsets;
+      }
+    }
+
+    buffers[0] = (nullCount == 0) ? nullptr : (const void*)rawNulls;
+
+    ArrowArray arrowArray = makeArrowArray(buffers, 3, length, nullCount);
+    auto arrowSchema = makeArrowSchema(format);
+    auto output = importFromArrow(arrowSchema, arrowArray, pool_.get());
+    assertVectorContent(inputValues, output, nullCount);
+  }
+
+  template <typename T>
+  void assertVectorContent(
+      const std::vector<std::optional<T>>& inputValues,
+      const VectorPtr& convertedVector,
+      size_t nullCount) {
+    EXPECT_EQ((nullCount > 0), convertedVector->mayHaveNulls());
+    EXPECT_EQ(nullCount, *convertedVector->getNullCount());
+    EXPECT_EQ(inputValues.size(), convertedVector->size());
+
+    auto expected = vectorMaker_.flatVectorNullable(inputValues);
 
     // Assert new vector contents.
-    for (vector_size_t i = 0; i < length; ++i) {
-      ASSERT_TRUE(expected->equalValueAt(output.get(), i, i))
+    for (vector_size_t i = 0; i < convertedVector->size(); ++i) {
+      ASSERT_TRUE(expected->equalValueAt(convertedVector.get(), i, i))
           << "at " << i << ": " << expected->toString(i) << " vs. "
-          << output->toString(i);
+          << convertedVector->toString(i);
     }
   }
 
@@ -428,14 +488,37 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     testArrowImport<double>("g", {std::nullopt});
     testArrowImport<double>("g", {-99.9, 4.3, 31.1, 129.11, -12});
     testArrowImport<float>("f", {-99.9, 4.3, 31.1, 129.11, -12});
+  }
 
-    // VARCHAR and VARBINARY not supported for now.
-    EXPECT_THROW(
-        testArrowImport<std::string>("u", {"hello world"}),
-        std::invalid_argument);
-    EXPECT_THROW(
-        testArrowImport<std::string>("z", {"hello world"}),
-        std::invalid_argument);
+  void testImportString() {
+    testArrowImportString("u", {});
+    testArrowImportString("u", {"single"});
+    testArrowImportString(
+        "u",
+        {
+            "hello world",
+            "larger string which should not be inlined...",
+            std::nullopt,
+            "hello",
+            "from",
+            "the",
+            "other",
+            "side",
+            std::nullopt,
+            std::nullopt,
+        });
+
+    testArrowImportString(
+        "z",
+        {
+            std::nullopt,
+            "testing",
+            "a",
+            std::nullopt,
+            "varbinary",
+            "vector",
+            std::nullopt,
+        });
   }
 
   void testImportFailures() {
@@ -521,6 +604,10 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, scalar) {
   testImportScalar();
 }
 
+TEST_F(ArrowBridgeArrayImportAsViewerTest, string) {
+  testImportString();
+}
+
 TEST_F(ArrowBridgeArrayImportAsViewerTest, failures) {
   testImportFailures();
 }
@@ -538,6 +625,10 @@ class ArrowBridgeArrayImportAsOwnerTest
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, scalar) {
   testImportScalar();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, string) {
+  testImportString();
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, failures) {
