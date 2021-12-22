@@ -3,10 +3,11 @@ Plan Nodes and Operators
 ========================
 
 Velox query plan is a tree of PlanNode's. Each PlanNode has zero or more child
-PlanNodes. To execute a query plan, Velox converts it into a set of pipelines.
-Each pipeline is made of a linear sequence of operators. Each pipeline
-corresponds to a linear sub-tree of the plan that starts at the leaf node and
-goes all the way to the first node that has 2 or more children.
+PlanNode's. To execute a query plan, Velox converts it into a set of pipelines.
+Each pipeline is made of a linear sequence of operators that corresponds to a
+linear sub-tree of the plan. The plan tree is broken down into a set of linear
+sub-trees by disconnecting all but one child node from each node that has two
+or more children.
 
 .. image:: images/local-planner.png
     :width: 400
@@ -15,10 +16,10 @@ goes all the way to the first node that has 2 or more children.
 The conversion of plan nodes to operators is mostly one-to-one. Some exceptions are:
 
 * Filter node followed by Project node is converted into a single operator FilterProject
-* Nodes with 2 or more children are converted to multiple operators, e.g. HashJoin node is converted to a pair of operators: HashProbe and HashBuild.
+* Nodes with two or more child nodes are converted to multiple operators, e.g. HashJoin node is converted to a pair of operators: HashProbe and HashBuild.
 
 Operators corresponding to leaf nodes are called source operators. Only a subset
-of plan nodes can be located at the leaves of the plan tree. There are:
+of plan nodes can be located at the leaves of the plan tree. These are:
 
 * TableScanNode
 * ValuesNode
@@ -28,30 +29,31 @@ of plan nodes can be located at the leaves of the plan tree. There are:
 
 Here is a list of supported plan nodes and corresponding operators.
 
-=====================   ==============================================   ===========================
-Plan Node               Operator(s)                                      Leaf Node / Source Operator
-=====================   ==============================================   ===========================
-TableScanNode           TableScan                                        Y
-FilterNode              FilterProject
-ProjectNode             FilterProject
-AggregationNode         HashAggregation
-HashJoinNode            HashProbe and HashBuild
-MergeJoinNode           MergeJoin
-CrossJoinNode           CrossJoinProbe and CrossJoinBuild
-OrderByNode             OrderBy
-TopNNode                TopN
-LimitNode               Limit
-UnnestNode              Unnest
-TableWriteNode          TableWrite
-PartitionedOutputNode   PartitionedOutput
-ExchangeNode            Exchange                                         Y
-MergeExchangeNode       MergeExchange                                    Y
-ValuesNode              Values                                           Y
-LocalMergeNode          LocalMerge
-LocalPartitionNode      LocalPartition and LocalExchangeSourceOperator
-EnforceSingleRowNode    EnforceSingleRow
-AssignUniqueIdNode      AssignUniqueId
-=====================   ==============================================   ===========================
+==========================  ==============================================   ===========================
+Plan Node                   Operator(s)                                      Leaf Node / Source Operator
+==========================  ==============================================   ===========================
+TableScanNode               TableScan                                        Y
+FilterNode                  FilterProject
+ProjectNode                 FilterProject
+AggregationNode             HashAggregation
+StreamingAggregationNode    StreamingAggregation
+HashJoinNode                HashProbe and HashBuild
+MergeJoinNode               MergeJoin
+CrossJoinNode               CrossJoinProbe and CrossJoinBuild
+OrderByNode                 OrderBy
+TopNNode                    TopN
+LimitNode                   Limit
+UnnestNode                  Unnest
+TableWriteNode              TableWrite
+PartitionedOutputNode       PartitionedOutput
+ExchangeNode                Exchange                                         Y
+MergeExchangeNode           MergeExchange                                    Y
+ValuesNode                  Values                                           Y
+LocalMergeNode              LocalMerge
+LocalPartitionNode          LocalPartition and LocalExchangeSourceOperator
+EnforceSingleRowNode        EnforceSingleRow
+AssignUniqueIdNode          AssignUniqueId
+==========================  ==============================================   ===========================
 
 Plan Nodes
 ----------
@@ -111,11 +113,16 @@ input columns.
    * - expressions
      - Expressions for the output columns.
 
-AggregationNode
-~~~~~~~~~~~~~~~
+AggregationNode and StreamingAggregationNode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The aggregate operation groups input data on a set of grouping keys, calculating
 each measure for each combination of the grouping keys.
+
+StreamingAggregationNode represents an implementation that assumes that input is
+pre-grouped on the grouping keys, e.g. all rows with a given combination of
+values of the grouping keys appear together one after another. The input is not
+assumed to be sorted on the grouping keys.
 
 .. list-table::
    :widths: 10 30
