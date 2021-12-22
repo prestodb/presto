@@ -168,6 +168,9 @@ AbstractJoinNode::AbstractJoinNode(
       leftKeys_.size(),
       rightKeys_.size(),
       "HashJoinNode requires same number of join keys on probe and build sides");
+  if (isSemiJoin() || isAntiJoin()) {
+    VELOX_CHECK_NULL(filter, "Semi and anti join does not support filter");
+  }
   auto leftType = sources_[0]->outputType();
   for (auto key : leftKeys_) {
     VELOX_CHECK(
