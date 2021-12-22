@@ -87,10 +87,7 @@ min_debug:				#: Minimal build with debugging symbols
 	$(MAKE) build BUILD_DIR=debug
 
 unittest: debug			#: Build with debugging and run unit tests
-	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure --exclude-regex "MemoryMemoryHeaderTest\.getDefaultScopedMemoryPool|MemoryManagerTest\.GlobalMemoryManager"
-
-unittestrel: release    	#: Build with release and run unit tests
-	cd $(BUILD_BASE_DIR)/release && ctest -j ${NUM_THREADS} -VV --output-on-failure --exclude-regex "MemoryMemoryHeaderTest\.getDefaultScopedMemoryPool|MemoryManagerTest\.GlobalMemoryManager"
+	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure
 
 fuzzertest: debug		#: Build with debugging and run expression fuzzer test.
 	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test --steps 100000 --logtostderr=1 --minloglevel=0
