@@ -697,8 +697,10 @@ class VectorTest : public testing::Test {
             oddIndices.size() - oddIndices.size() / 2));
     std::stringstream evenStream;
     std::stringstream oddStream;
-    even.flush(&evenStream);
-    odd.flush(&oddStream);
+    OutputStream eventOutputStream(&evenStream);
+    OutputStream oddOutputStream(&oddStream);
+    even.flush(&eventOutputStream);
+    odd.flush(&oddOutputStream);
     ByteStream input;
     auto evenString = evenStream.str();
     checkSizes(source.get(), evenSizes, evenString);

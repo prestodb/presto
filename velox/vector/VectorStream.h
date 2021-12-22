@@ -16,14 +16,14 @@
 #pragma once
 
 #include "velox/buffer/Buffer.h"
+#include "velox/common/memory/ByteStream.h"
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/StreamArena.h"
 #include "velox/type/Type.h"
 #include "velox/vector/SelectivityVector.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 class BaseVector;
 class ByteStream;
@@ -43,7 +43,7 @@ class VectorSerializer {
       const folly::Range<const IndexRange*>& ranges) = 0;
 
   // Writes the contents to 'stream' in wire format
-  virtual void flush(std::ostream* stream) = 0;
+  virtual void flush(OutputStream* stream) = 0;
 };
 
 class VectorSerde {
@@ -101,7 +101,7 @@ class VectorStreamGroup : public StreamArena {
       const folly::Range<const IndexRange*>& ranges);
 
   // Writes the contents to 'stream' in wire format.
-  void flush(std::ostream* stream);
+  void flush(OutputStream* stream);
 
   // Reads data in wire format. Returns the RowVector in 'result'.
   static void read(
@@ -114,5 +114,4 @@ class VectorStreamGroup : public StreamArena {
   std::unique_ptr<VectorSerializer> serializer_;
 };
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

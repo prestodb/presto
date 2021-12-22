@@ -17,7 +17,7 @@
 #include "velox/common/memory/ByteStream.h"
 
 namespace facebook::velox {
-void ByteStream::flush(std::ostream* out) {
+void ByteStream::flush(OutputStream* out) {
   for (int32_t i = 0; i < ranges_.size(); ++i) {
     int32_t count = ranges_[i].position;
     int32_t bytes = isBits_ ? bits::nbytes(count) : count;

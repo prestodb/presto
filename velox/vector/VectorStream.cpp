@@ -48,7 +48,7 @@ void VectorStreamGroup::append(
   serializer_->append(vector, ranges);
 }
 
-void VectorStreamGroup::flush(std::ostream* out) {
+void VectorStreamGroup::flush(OutputStream* out) {
   serializer_->flush(out);
 }
 

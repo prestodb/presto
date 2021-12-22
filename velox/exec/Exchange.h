@@ -46,7 +46,9 @@ class SerializedPage {
   static std::unique_ptr<SerializedPage> fromVectorStreamGroup(
       VectorStreamGroup* group) {
     std::stringstream out;
-    group->flush(&out);
+    OutputStreamListener listener;
+    OutputStream outputStream(&out, &listener);
+    group->flush(&outputStream);
     return std::make_unique<SerializedPage>(
         &out, out.tellp(), group->mappedMemory());
   }

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+
 #include "velox/common/memory/StreamArena.h"
 #include "velox/type/Type.h"
 
@@ -29,6 +30,43 @@ struct ByteRange {
   uint8_t* buffer;
   int32_t size;
   int32_t position;
+};
+
+class OutputStreamListener {
+ public:
+  virtual void onWrite(const char* /* s */, std::streamsize /* count */) {}
+  virtual ~OutputStreamListener() = default;
+};
+
+class OutputStream {
+ public:
+  explicit OutputStream(
+      std::ostream* out,
+      OutputStreamListener* listener = nullptr)
+      : out_(out), listener_(listener) {}
+
+  void write(const char* s, std::streamsize count) {
+    out_->write(s, count);
+    if (listener_) {
+      listener_->onWrite(s, count);
+    }
+  }
+
+  std::streampos tellp() const {
+    return out_->tellp();
+  }
+
+  void seekp(std::streampos pos) {
+    out_->seekp(pos);
+  }
+
+  OutputStreamListener* listener() const {
+    return listener_;
+  }
+
+ private:
+  std::ostream* out_;
+  OutputStreamListener* listener_;
 };
 
 template <>
@@ -281,7 +319,7 @@ class ByteStream {
     append(folly::Range(&value, 1));
   }
 
-  void flush(std::ostream* stream);
+  void flush(OutputStream* stream);
 
   // Returns the next byte that would be written to by a write. This
   // is used after an append to release the remainder of the reserved

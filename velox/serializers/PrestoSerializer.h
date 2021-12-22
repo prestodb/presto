@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <boost/crc.hpp>
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::serializer::presto {
@@ -36,5 +37,34 @@ class PrestoVectorSerde : public VectorSerde {
       std::shared_ptr<RowVector>* result) override;
 
   static void registerVectorSerde();
+};
+
+class PrestoOutputStreamListener : public OutputStreamListener {
+ public:
+  void onWrite(const char* s, std::streamsize count) override {
+    if (not paused_) {
+      crc_.process_bytes(s, count);
+    }
+  }
+
+  void pause() {
+    paused_ = true;
+  }
+
+  void resume() {
+    paused_ = false;
+  }
+
+  boost::crc_32_type crc() const {
+    return crc_;
+  }
+
+  void reset() {
+    crc_.reset();
+  }
+
+ private:
+  bool paused_{false};
+  boost::crc_32_type crc_;
 };
 } // namespace facebook::velox::serializer::presto

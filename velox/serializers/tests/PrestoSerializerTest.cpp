@@ -60,7 +60,9 @@ class PrestoSerializerTest : public ::testing::Test {
     auto serializer = serde_->createSerializer(rowType, numRows, arena.get());
 
     serializer->append(rowVector, folly::Range(rows.data(), numRows));
-    serializer->flush(output);
+    facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
+    OutputStream out(output, &listener);
+    serializer->flush(&out);
   }
 
   std::unique_ptr<ByteStream> toByteStream(const std::string& input) {
