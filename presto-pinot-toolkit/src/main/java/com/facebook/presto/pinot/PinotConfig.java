@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.pinot.PinotPushdownUtils.PINOT_DISTINCT_COUNT_FUNCTION_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -108,6 +109,7 @@ public class PinotConfig
     private boolean useHttpsForBroker;
     private boolean useHttpsForProxy;
     private Map<String, String> extraGrpcMetadata = ImmutableMap.of();
+    private String overrideDistinctCountFunction = PINOT_DISTINCT_COUNT_FUNCTION_NAME;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -624,6 +626,18 @@ public class PinotConfig
     public PinotConfig setUseHttpsForProxy(boolean useHttpsForProxy)
     {
         this.useHttpsForProxy = useHttpsForProxy;
+        return this;
+    }
+
+    public String getOverrideDistinctCountFunction()
+    {
+        return this.overrideDistinctCountFunction;
+    }
+
+    @Config("pinot.override-distinct-count-function")
+    public PinotConfig setOverrideDistinctCountFunction(String overrideDistinctCountFunction)
+    {
+        this.overrideDistinctCountFunction = overrideDistinctCountFunction;
         return this;
     }
 }
