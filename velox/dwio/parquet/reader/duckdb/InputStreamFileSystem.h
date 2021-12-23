@@ -36,7 +36,9 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
       uint8_t /*flags*/,
       ::duckdb::FileLockType /*lock = ::duckdb::FileLockType::NO_LOCK*/,
       ::duckdb::FileCompressionType /*compression =
-          ::duckdb::FileCompressionType::UNCOMPRESSED*/) override {
+          ::duckdb::FileCompressionType::UNCOMPRESSED*/
+      ,
+      ::duckdb::FileOpener* /*opener = nullptr*/) override {
     int streamId = std::stoi(path);
 
     auto lockedStreams = streams_.wlock();
@@ -164,45 +166,16 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
     VELOX_FAIL("Unexpected call to InputStreamFileSystem::RemoveFile");
   }
 
-  std::string PathSeparator() override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::PathSeparator");
-  }
-
-  std::string JoinPath(const std::string& /*a*/, const std::string& /*path*/)
-      override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::JoinPath");
-  }
-
-  std::string ConvertSeparators(const std::string& /*path*/) override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::ConvertSeparators");
-  }
-
-  std::string ExtractBaseName(const std::string& /*path*/) override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::ExtractBaseName");
-  }
-
   void FileSync(::duckdb::FileHandle& /*handle*/) override {
     VELOX_FAIL("Unexpected call to InputStreamFileSystem::FileSync");
-  }
-
-  void SetWorkingDirectory(const std::string& /*path*/) override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::SetWorkingDirectory");
-  }
-
-  std::string GetWorkingDirectory() override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::GetWorkingDirectory");
-  }
-
-  std::string GetHomeDirectory() override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::GetHomeDirectory");
   }
 
   std::vector<std::string> Glob(const std::string& /*path*/) override {
     VELOX_FAIL("Unexpected call to InputStreamFileSystem::Glob");
   }
 
-  uint64_t GetAvailableMemory() override {
-    VELOX_FAIL("Unexpected call to InputStreamFileSystem::GetAvailableMemory");
+  virtual std::string GetName() const override {
+    VELOX_FAIL("Unexpected call to InputStreamFileSystem::GetName");
   }
 
  private:

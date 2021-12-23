@@ -9,6 +9,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 */
 
 #pragma once
+
+
+#include "duckdb.hpp"
+
+namespace duckdb {
+
+class ParquetExtension : public Extension {
+public:
+	void Load(DuckDB &db) override;
+	std::string Name() override;
+};
+
+} // namespace duckdb
 //===----------------------------------------------------------------------===//
 //                         DuckDB
 //
@@ -26,94 +39,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/data_chunk.hpp"
 #endif
-//===----------------------------------------------------------------------===//
-//                         DuckDB
-//
-// resizable_buffer.hpp
-//
-//
-//===----------------------------------------------------------------------===//
-
-
-#include "duckdb.hpp"
-#ifndef DUCKDB_AMALGAMATION
-#include "duckdb/common/allocator.hpp"
-#endif
-
-#include <exception>
-
-namespace duckdb {
-
-class ByteBuffer { // on to the 10 thousandth impl
-public:
-	char *ptr = nullptr;
-	uint64_t len = 0;
-
-	ByteBuffer() {};
-	ByteBuffer(char *ptr, uint64_t len) : ptr(ptr), len(len) {};
-
-	void inc(uint64_t increment) {
-		available(increment);
-		len -= increment;
-		ptr += increment;
-	}
-
-	template <class T>
-	T read() {
-		T val = get<T>();
-		inc(sizeof(T));
-		return val;
-	}
-
-	template <class T>
-	T get() {
-		available(sizeof(T));
-		T val = Load<T>((data_ptr_t)ptr);
-		return val;
-	}
-
-	void copy_to(char *dest, uint64_t len) {
-		available(len);
-		std::memcpy(dest, ptr, len);
-	}
-
-	void zero() {
-		std::memset(ptr, 0, len);
-	}
-
-	void available(uint64_t req_len) {
-		if (req_len > len) {
-			throw std::runtime_error("Out of buffer");
-		}
-	}
-};
-
-class ResizeableBuffer : public ByteBuffer {
-public:
-	ResizeableBuffer() {
-	}
-	ResizeableBuffer(Allocator &allocator, uint64_t new_size) {
-		resize(allocator, new_size);
-	}
-	void resize(Allocator &allocator, uint64_t new_size) {
-		len = new_size;
-		if (new_size == 0) {
-			return;
-		}
-		if (new_size > alloc_len) {
-			alloc_len = new_size;
-			allocated_data = allocator.Allocate(alloc_len);
-			ptr = (char *)allocated_data->get();
-		}
-	}
-
-private:
-	unique_ptr<AllocatedData> allocated_data;
-	idx_t alloc_len = 0;
-};
-
-} // namespace duckdb
-
 //===----------------------------------------------------------------------===//
 //                         DuckDB
 //
@@ -200,6 +125,9 @@ private:
 #  define _THRIFT_TRANSPORT_PLATFORM_SOCKET_H_
 
 #ifdef _WIN32
+#ifdef _WINSOCKAPI_
+#undef _WINSOCKAPI_
+#endif
 #  include <winsock2.h>
 #  define THRIFT_GET_SOCKET_ERROR ::WSAGetLastError()
 #  define THRIFT_ERRNO (*_errno())
@@ -339,23 +267,21 @@ private:
  * under the License.
  */
 
+#ifndef THRIFT_CONFIG_H
+#define THRIFT_CONFIG_H
+
+
 #ifdef _WIN32
-//#include <thrift/windows/config.h>
+#if defined(_M_IX86) || defined(_M_X64)
+#define ARITHMETIC_RIGHT_SHIFT 1
+#define SIGNED_RIGHT_SHIFT_IS 1
+#endif
 #else
-
-
-// LICENSE_CHANGE_BEGIN
-// The following code up to LICENSE_CHANGE_END is subject to THIRD PARTY LICENSE #2
-// See the end of this file for a list
-
-#define SIGNED_RIGHT_SHIFT_IS  1		
-#define ARITHMETIC_RIGHT_SHIFT 1 
-
-
-// LICENSE_CHANGE_END
-
+#define SIGNED_RIGHT_SHIFT_IS  1
+#define ARITHMETIC_RIGHT_SHIFT 1
 #endif
 
+#endif
 
 // LICENSE_CHANGE_END
 
@@ -5470,7 +5396,7 @@ public:
   void setContainerSizeLimit(int32_t container_limit) { container_limit_ = container_limit; }
 
   std::shared_ptr<TProtocol> getProtocol(std::shared_ptr<TTransport> trans) override {
-    std::shared_ptr<Transport_> specific_trans = std::dynamic_pointer_cast<Transport_>(trans);
+    std::shared_ptr<Transport_> specific_trans = std::static_pointer_cast<Transport_>(trans);
     TProtocol* prot;
     if (specific_trans) {
       prot = new TCompactProtocolT<Transport_>(specific_trans, string_limit_, container_limit_);
@@ -5519,8 +5445,6 @@ typedef TCompactProtocolFactoryT<TTransport> TCompactProtocolFactory;
 #define _THRIFT_PROTOCOL_TCOMPACTPROTOCOL_TCC_ 1
 
 #include <limits>
-
-
 
 /*
  * TCompactProtocol::i*ToZigzag depend on the fact that the right shift
@@ -6987,19 +6911,36 @@ protected:
 #include "duckdb.hpp"
 #ifndef DUCKDB_AMALGAMATION
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/allocator.hpp"
 #endif
 
 namespace duckdb {
 
 class ThriftFileTransport : public duckdb_apache::thrift::transport::TVirtualTransport<ThriftFileTransport> {
 public:
-	ThriftFileTransport(FileHandle &handle_p) : handle(handle_p), location(0) {
+	ThriftFileTransport(Allocator &allocator, FileHandle &handle_p)
+	    : allocator(allocator), handle(handle_p), location(0) {
 	}
 
 	uint32_t read(uint8_t *buf, uint32_t len) {
-		handle.Read(buf, len, location);
+		if (prefetched_data && location >= prefetch_location &&
+		    location + len < prefetch_location + prefetched_data->GetSize()) {
+			memcpy(buf, prefetched_data->get() + location - prefetch_location, len);
+		} else {
+			handle.Read(buf, len, location);
+		}
 		location += len;
 		return len;
+	}
+
+	void Prefetch(idx_t pos, idx_t len) {
+		prefetch_location = pos;
+		prefetched_data = allocator.Allocate(len);
+		handle.Read(prefetched_data->get(), len, prefetch_location);
+	}
+
+	void ClearPrefetch() {
+		prefetched_data.reset();
 	}
 
 	void SetLocation(idx_t location_p) {
@@ -7014,16 +6955,122 @@ public:
 	}
 
 private:
-	duckdb::FileHandle &handle;
-	duckdb::idx_t location;
+	Allocator &allocator;
+	FileHandle &handle;
+	idx_t location;
+
+	unique_ptr<AllocatedData> prefetched_data;
+	idx_t prefetch_location;
+};
+
+} // namespace duckdb
+
+//===----------------------------------------------------------------------===//
+//                         DuckDB
+//
+// resizable_buffer.hpp
+//
+//
+//===----------------------------------------------------------------------===//
+
+
+#include "duckdb.hpp"
+#ifndef DUCKDB_AMALGAMATION
+#include "duckdb/common/allocator.hpp"
+#endif
+
+#include <exception>
+
+namespace duckdb {
+
+class ByteBuffer { // on to the 10 thousandth impl
+public:
+	ByteBuffer() {};
+	ByteBuffer(char *ptr, uint64_t len) : ptr(ptr), len(len) {};
+
+	char *ptr = nullptr;
+	uint64_t len = 0;
+
+public:
+	void inc(uint64_t increment) {
+		available(increment);
+		len -= increment;
+		ptr += increment;
+	}
+
+	template <class T>
+	T read() {
+		T val = get<T>();
+		inc(sizeof(T));
+		return val;
+	}
+
+	template <class T>
+	T get() {
+		available(sizeof(T));
+		T val = Load<T>((data_ptr_t)ptr);
+		return val;
+	}
+
+	void copy_to(char *dest, uint64_t len) {
+		available(len);
+		std::memcpy(dest, ptr, len);
+	}
+
+	void zero() {
+		std::memset(ptr, 0, len);
+	}
+
+	void available(uint64_t req_len) {
+		if (req_len > len) {
+			throw std::runtime_error("Out of buffer");
+		}
+	}
+};
+
+class ResizeableBuffer : public ByteBuffer {
+public:
+	ResizeableBuffer() {
+	}
+	ResizeableBuffer(Allocator &allocator, uint64_t new_size) {
+		resize(allocator, new_size);
+	}
+	void resize(Allocator &allocator, uint64_t new_size) {
+		len = new_size;
+		if (new_size == 0) {
+			return;
+		}
+		if (new_size > alloc_len) {
+			alloc_len = new_size;
+			allocated_data = allocator.Allocate(alloc_len);
+			ptr = (char *)allocated_data->get();
+		}
+	}
+
+private:
+	unique_ptr<AllocatedData> allocated_data;
+	idx_t alloc_len = 0;
 };
 
 } // namespace duckdb
 
 
+//===----------------------------------------------------------------------===//
+//                         DuckDB
+//
+// parquet_rle_bp_decoder.hpp
+//
+//
+//===----------------------------------------------------------------------===//
+
+
+
+
+
 
 
 namespace duckdb {
+
 class RleBpDecoder {
 public:
 	/// Create a decoder object. buffer/buffer_len is the decoded data.
@@ -7069,6 +7116,17 @@ public:
 		if (values_read != batch_size) {
 			throw std::runtime_error("RLE decode did not find enough values");
 		}
+	}
+
+	static uint8_t ComputeBitWidth(idx_t val) {
+		if (val == 0) {
+			return 0;
+		}
+		uint8_t ret = 1;
+		while (((idx_t)(1 << ret) - 1) < val) {
+			ret++;
+		}
+		return ret;
 	}
 
 private:
@@ -7320,14 +7378,12 @@ private:
 	unique_ptr<RleBpDecoder> repeated_decoder;
 
 	// dummies for Skip()
-	Vector dummy_result;
 	parquet_filter_t none_filter;
 	ResizeableBuffer dummy_define;
 	ResizeableBuffer dummy_repeat;
 };
 
 } // namespace duckdb
-
 
 //===----------------------------------------------------------------------===//
 //                         DuckDB
@@ -7362,8 +7418,18 @@ public:
 
 	//! read time
 	time_t read_time;
+
+public:
+	static string ObjectType() {
+		return "parquet_metadata";
+	}
+
+	string GetObjectType() override {
+		return ObjectType();
+	}
 };
 } // namespace duckdb
+
 
 
 
@@ -7400,6 +7466,14 @@ struct ParquetReaderScanState {
 	ResizeableBuffer repeat_buf;
 };
 
+struct ParquetOptions {
+	explicit ParquetOptions() {
+	}
+	explicit ParquetOptions(ClientContext &context);
+
+	bool binary_as_string = false;
+};
+
 class ParquetReader {
 public:
 	ParquetReader(Allocator &allocator, unique_ptr<FileHandle> file_handle_p,
@@ -7409,17 +7483,19 @@ public:
 	}
 
 	ParquetReader(ClientContext &context, string file_name, const vector<LogicalType> &expected_types_p,
-	              const string &initial_filename = string());
-	ParquetReader(ClientContext &context, string file_name)
-	    : ParquetReader(context, move(file_name), vector<LogicalType>()) {
+	              ParquetOptions parquet_options, const string &initial_filename = string());
+	ParquetReader(ClientContext &context, string file_name, ParquetOptions parquet_options)
+	    : ParquetReader(context, move(file_name), vector<LogicalType>(), parquet_options, string()) {
 	}
 	~ParquetReader();
 
 	Allocator &allocator;
 	string file_name;
+	FileOpener *file_opener;
 	vector<LogicalType> return_types;
 	vector<string> names;
 	shared_ptr<ParquetFileMetadataCache> metadata;
+	ParquetOptions parquet_options;
 
 public:
 	void InitializeScan(ParquetReaderScanState &state, vector<column_t> column_ids, vector<idx_t> groups_to_read,
@@ -7437,9 +7513,14 @@ public:
 private:
 	void InitializeSchema(const vector<LogicalType> &expected_types_p, const string &initial_filename_p);
 	bool ScanInternal(ParquetReaderScanState &state, DataChunk &output);
+	unique_ptr<ColumnReader> CreateReader(const duckdb_parquet::format::FileMetaData *file_meta_data);
 
+	unique_ptr<ColumnReader> CreateReaderRecursive(const duckdb_parquet::format::FileMetaData *file_meta_data,
+	                                               idx_t depth, idx_t max_define, idx_t max_repeat,
+	                                               idx_t &next_schema_idx, idx_t &next_file_idx);
 	const duckdb_parquet::format::RowGroup &GetGroup(ParquetReaderScanState &state);
 	void PrepareRowGroupBuffer(ParquetReaderScanState &state, idx_t out_col_idx);
+	LogicalType DeriveLogicalType(const SchemaElement &s_ele);
 
 	template <typename... Args>
 	std::runtime_error FormatException(const string fmt_str, Args... params) {
@@ -7472,19 +7553,111 @@ private:
 #endif
 
 
+//===----------------------------------------------------------------------===//
+//                         DuckDB
+//
+// column_writer.hpp
+//
+//
+//===----------------------------------------------------------------------===//
+
+
+
+#include "duckdb.hpp"
+
+
+namespace duckdb {
+class BufferedSerializer;
+class ParquetWriter;
+class ColumnWriterPageState;
+
+class ColumnWriterState {
+public:
+	virtual ~ColumnWriterState();
+
+	vector<uint16_t> definition_levels;
+	vector<uint16_t> repetition_levels;
+	vector<bool> is_empty;
+};
+
+class ColumnWriter {
+	//! We limit the uncompressed page size to 100MB
+	// The max size in Parquet is 2GB, but we choose a more conservative limit
+	static constexpr const idx_t MAX_UNCOMPRESSED_PAGE_SIZE = 100000000;
+
+public:
+	ColumnWriter(ParquetWriter &writer, idx_t schema_idx, idx_t max_repeat, idx_t max_define);
+	virtual ~ColumnWriter();
+
+	ParquetWriter &writer;
+	idx_t schema_idx;
+	idx_t max_repeat;
+	idx_t max_define;
+
+public:
+	//! Create the column writer for a specific type recursively
+	static unique_ptr<ColumnWriter> CreateWriterRecursive(vector<duckdb_parquet::format::SchemaElement> &schemas,
+	                                                      ParquetWriter &writer, const LogicalType &type,
+	                                                      const string &name, idx_t max_repeat = 0,
+	                                                      idx_t max_define = 1);
+
+	virtual unique_ptr<ColumnWriterState> InitializeWriteState(duckdb_parquet::format::RowGroup &row_group,
+	                                                           vector<string> schema_path);
+	virtual void Prepare(ColumnWriterState &state, ColumnWriterState *parent, Vector &vector, idx_t count);
+
+	virtual void BeginWrite(ColumnWriterState &state);
+	virtual void Write(ColumnWriterState &state, Vector &vector, idx_t count);
+	virtual void FinalizeWrite(ColumnWriterState &state);
+
+protected:
+	void HandleDefineLevels(ColumnWriterState &state, ColumnWriterState *parent, ValidityMask &validity, idx_t count,
+	                        uint16_t define_value, uint16_t null_value);
+	void HandleRepeatLevels(ColumnWriterState &state_p, ColumnWriterState *parent, idx_t count, idx_t max_repeat);
+
+	void WriteLevels(Serializer &temp_writer, const vector<uint16_t> &levels, idx_t max_value, idx_t start_offset,
+	                 idx_t count);
+
+	void NextPage(ColumnWriterState &state_p);
+	void FlushPage(ColumnWriterState &state_p);
+
+	//! Retrieves the row size of a vector at the specified location. Only used for scalar types.
+	virtual idx_t GetRowSize(Vector &vector, idx_t index) = 0;
+	//! Writes a (subset of a) vector to the specified serializer. Only used for scalar types.
+	virtual void WriteVector(Serializer &temp_writer, ColumnWriterPageState *page_state, Vector &vector,
+	                         idx_t chunk_start, idx_t chunk_end) = 0;
+	//! Initialize the writer for a specific page. Only used for scalar types.
+	virtual unique_ptr<ColumnWriterPageState> InitializePageState();
+	//! Flushes the writer for a specific page. Only used for scalar types.
+	virtual void FlushPageState(Serializer &temp_writer, ColumnWriterPageState *state);
+
+	void CompressPage(BufferedSerializer &temp_writer, size_t &compressed_size, data_ptr_t &compressed_data,
+	                  unique_ptr<data_t[]> &compressed_buf);
+};
+
+} // namespace duckdb
+
 
 
 namespace duckdb {
 class FileSystem;
+class FileOpener;
 
 class ParquetWriter {
+	friend class ColumnWriter;
+	friend class ListColumnWriter;
+	friend class StructColumnWriter;
+
 public:
-	ParquetWriter(FileSystem &fs, string file_name, vector<LogicalType> types, vector<string> names,
-	              duckdb_parquet::format::CompressionCodec::type codec);
+	ParquetWriter(FileSystem &fs, string file_name, FileOpener *file_opener, vector<LogicalType> types,
+	              vector<string> names, duckdb_parquet::format::CompressionCodec::type codec);
 
 public:
 	void Flush(ChunkCollection &buffer);
 	void Finalize();
+
+	static duckdb_parquet::format::Type::type DuckDBTypeToParquetType(const LogicalType &duckdb_type);
+	static bool DuckDBTypeToConvertedType(const LogicalType &duckdb_type,
+	                                      duckdb_parquet::format::ConvertedType::type &result);
 
 private:
 	string file_name;
@@ -7496,6 +7669,8 @@ private:
 	shared_ptr<duckdb_apache::thrift::protocol::TProtocol> protocol;
 	duckdb_parquet::format::FileMetaData file_meta_data;
 	std::mutex lock;
+
+	vector<unique_ptr<ColumnWriter>> column_writers;
 };
 
 } // namespace duckdb

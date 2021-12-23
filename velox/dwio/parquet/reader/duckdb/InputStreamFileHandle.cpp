@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/reader/duckdb/InputStreamFileSystem.h"
 
 namespace facebook::velox::duckdb {

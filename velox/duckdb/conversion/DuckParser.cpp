@@ -119,15 +119,15 @@ std::shared_ptr<const core::IExpr> parseConstantExpr(ParsedExpression& expr) {
 // Parse a column reference (col1, "col2", tbl.col, etc).
 std::shared_ptr<const core::IExpr> parseColumnRefExpr(ParsedExpression& expr) {
   const auto& colRefExpr = dynamic_cast<ColumnRefExpression&>(expr);
-  if (colRefExpr.table_name.empty()) {
+  if (!colRefExpr.IsQualified()) {
     return std::make_shared<const core::FieldAccessExpr>(
-        colRefExpr.column_name);
+        colRefExpr.GetColumnName());
   }
   return std::make_shared<const core::FieldAccessExpr>(
-      colRefExpr.column_name,
+      colRefExpr.GetColumnName(),
       std::vector<std::shared_ptr<const core::IExpr>>{
           std::make_shared<const core::FieldAccessExpr>(
-              colRefExpr.table_name)});
+              colRefExpr.GetTableName())});
 }
 
 // Parse a function call (avg(a), func(1, b), etc).
