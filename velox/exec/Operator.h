@@ -233,21 +233,25 @@ class Operator {
 
   virtual ~Operator() = default;
 
-  // Returns true if can accept input.
+  // Returns true if 'this' can accept input. Not used if operator is a source
+  // operator, e.g. the first operator in the pipeline.
   virtual bool needsInput() const = 0;
 
-  // Adds input.
+  // Adds input. Not used if operator is a source operator, e.g. the first
+  // operator in the pipeline.
   virtual void addInput(RowVectorPtr input) = 0;
 
   // Returns a RowVector with the result columns. Returns nullptr if
   // no more output can be produced without more input or if blocked
-  // for outside cause. isBlocked distinguishes between the
-  // cases.
+  // for outside causes. isBlocked distinguishes between the
+  // cases. Sink operator, e.g. the last operator in the pipeline, must return
+  // nullptr and pass results to the consumer through a custom mechanism.
   virtual RowVectorPtr getOutput() = 0;
 
   // Informs 'this' that addInput will no longer be called. This means
   // that any partial state kept by 'this' should be returned by
-  // the next call(s) to getOutput.
+  // the next call(s) to getOutput. isFinishing must return true after this
+  // call.
   virtual void finish() {
     isFinishing_ = true;
   }
@@ -259,6 +263,10 @@ class Operator {
   // another call.
   virtual BlockingReason isBlocked(ContinueFuture* future) = 0;
 
+  // Return true if finish() has been called or the operator doesn't need to
+  // receive remaining input to produce the final result. Limit is one operator
+  // that can finish before seeing all input. HashProbe is another example where
+  // it finishes early if the build side is empty.
   virtual bool isFinishing() {
     return isFinishing_;
   }

@@ -558,7 +558,7 @@ class Task {
 
   // Map from the plan node id of the join to the corresponding JoinBridge.
   // Guarded by 'mutex_'.
-  std::unordered_map<std::string, std::shared_ptr<JoinBridge>> bridges_;
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<JoinBridge>> bridges_;
 
   std::vector<std::shared_ptr<MergeSource>> localMergeSources_;
 

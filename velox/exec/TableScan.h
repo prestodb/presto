@@ -38,11 +38,6 @@ class TableScan : public SourceOperator {
     return BlockingReason::kNotBlocked;
   }
 
-  void finish() override {
-    Operator::finish();
-    close();
-  }
-
   bool canAddDynamicFilter() const override {
     // TODO Consult with the connector. Return true only if connector can accept
     // dynamic filters.
@@ -52,8 +47,6 @@ class TableScan : public SourceOperator {
   void addDynamicFilter(
       ChannelIndex outputChannel,
       const std::shared_ptr<common::Filter>& filter) override;
-
-  void close() override;
 
  private:
   static constexpr int32_t kDefaultBatchSize = 1024;

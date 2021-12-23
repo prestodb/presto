@@ -137,8 +137,4 @@ void TableScan::addDynamicFilter(
   }
 }
 
-void TableScan::close() {
-  // TODO Implement
-}
-
 } // namespace facebook::velox::exec
