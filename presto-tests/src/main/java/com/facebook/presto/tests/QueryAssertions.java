@@ -387,6 +387,8 @@ public final class QueryAssertions
             switch (sourceCatalog) {
                 case "tpch":
                     return getTpchCopyTableSqlBucketed(table);
+                case "tpcds":
+                    return getTpcdsCopyTableSqlBucketed(table);
                 default:
                     throw new UnsupportedOperationException();
             }
@@ -416,6 +418,57 @@ public final class QueryAssertions
             default:
                 throw new UnsupportedOperationException();
         }
+        return sql;
+    }
+
+    private static String getTpcdsCopyTableSqlBucketed(QualifiedObjectName table)
+    {
+        @Language("SQL") String sql;
+        switch (table.getObjectName()) {
+            case "call_center":
+            case "catalog_page":
+            case "customer":
+            case "customer_address":
+            case "customer_demographics":
+            case "date_dim":
+            case "household_demographics":
+            case "income_band":
+            case "item":
+            case "promotion":
+            case "reason":
+            case "ship_mode":
+            case "store":
+            case "time_dim":
+            case "warehouse":
+            case "web_page":
+            case "web_site":
+                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "inventory":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['inv_date_sk'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "store_returns":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['sr_returned_date_sk'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "store_sales":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['ss_sold_date_sk'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "web_returns":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['wr_returned_date_sk'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "web_sales":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['ws_sold_date_sk'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "catalog_returns":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['cr_returned_date_sk'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "catalog_sales":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['cs_sold_date_sk'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
+
         return sql;
     }
 }

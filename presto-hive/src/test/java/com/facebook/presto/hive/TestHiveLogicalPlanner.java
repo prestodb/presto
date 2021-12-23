@@ -163,6 +163,7 @@ import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestHiveLogicalPlanner
         extends AbstractTestQueryFramework
 {
