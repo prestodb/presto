@@ -201,6 +201,21 @@ TEST_F(CeilFloorTest, Limits) {
   EXPECT_EQ(
       std::numeric_limits<int64_t>::min(),
       floor<int64_t>(std::numeric_limits<int64_t>::min()));
+
+  // Very large double values are truncated to int64_t::max/min.
+  EXPECT_EQ(
+      std::numeric_limits<int64_t>::max(),
+      ceil<double>(std::numeric_limits<double>::infinity()));
+  EXPECT_EQ(
+      std::numeric_limits<int64_t>::max(),
+      floor<double>(std::numeric_limits<double>::infinity()));
+
+  EXPECT_EQ(
+      std::numeric_limits<int64_t>::min(),
+      ceil<double>(-std::numeric_limits<double>::infinity()));
+  EXPECT_EQ(
+      std::numeric_limits<int64_t>::min(),
+      floor<double>(-std::numeric_limits<double>::infinity()));
 }
 
 } // namespace

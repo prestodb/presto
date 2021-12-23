@@ -26,7 +26,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerBinaryNumeric<PlusFunction>({prefix + "add"});
   registerBinaryNumeric<MinusFunction>({prefix + "subtract"});
   registerBinaryNumeric<MultiplyFunction>({prefix + "multiply"});
-  registerFunction<udf_divide, double, double, double>({prefix + "divide"});
+  registerFunction<DivideFunction, double, double, double>({prefix + "divide"});
   registerBinaryIntegral<RemainderFunction>({prefix + "remainder"});
   registerUnaryNumeric<UnaryMinusFunction>({prefix + "unaryminus"});
   // Math functions.
@@ -45,10 +45,12 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<RoundFunction, double, double, int32_t>({prefix + "round"});
   registerFunction<RoundFunction, float, float, int32_t>({prefix + "round"});
   // In Spark only long, double, and decimal have ceil/floor
-  registerFunction<CeilFunction, int64_t, int64_t>({prefix + "ceil"});
-  registerFunction<CeilFunction, int64_t, double>({prefix + "ceil"});
-  registerFunction<FloorFunction, int64_t, int64_t>({prefix + "floor"});
-  registerFunction<FloorFunction, int64_t, double>({prefix + "floor"});
+  registerFunction<sparksql::CeilFunction, int64_t, int64_t>({prefix + "ceil"});
+  registerFunction<sparksql::CeilFunction, int64_t, double>({prefix + "ceil"});
+  registerFunction<sparksql::FloorFunction, int64_t, int64_t>(
+      {prefix + "floor"});
+  registerFunction<sparksql::FloorFunction, int64_t, double>(
+      {prefix + "floor"});
 }
 
 } // namespace facebook::velox::functions::sparksql
