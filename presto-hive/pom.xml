@@ -396,6 +396,12 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpcds</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
