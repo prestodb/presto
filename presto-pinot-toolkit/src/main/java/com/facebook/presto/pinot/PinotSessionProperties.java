@@ -27,6 +27,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class PinotSessionProperties
@@ -43,6 +44,7 @@ public class PinotSessionProperties
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
     public static final String NUM_SEGMENTS_PER_SPLIT = "num_segments_per_split";
     public static final String LIMIT_LARGER_FOR_SEGMENT = "limit_larger_for_segment";
+    public static final String OVERRIDE_DISTINCT_COUNT_FUNCTION = "override_distinct_count_function";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -107,6 +109,11 @@ public class PinotSessionProperties
         return session.getProperty(LIMIT_LARGER_FOR_SEGMENT, Integer.class);
     }
 
+    public static String getOverrideDistinctCountFunction(ConnectorSession session)
+    {
+        return session.getProperty(OVERRIDE_DISTINCT_COUNT_FUNCTION, String.class);
+    }
+
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
@@ -145,6 +152,11 @@ public class PinotSessionProperties
                         LIMIT_LARGER_FOR_SEGMENT,
                         "Server query selection limit for large segment",
                         pinotConfig.getLimitLargeForSegment(),
+                        false),
+                stringProperty(
+                    OVERRIDE_DISTINCT_COUNT_FUNCTION,
+                        "Override distinct count function to another function name",
+                        pinotConfig.getOverrideDistinctCountFunction(),
                         false),
                 booleanProperty(
                         USE_DATE_TRUNC,

@@ -44,6 +44,7 @@ public class TestPinotConfig
                         .setServiceHeaderParam("RPC-Service")
                         .setCallerHeaderValue("presto")
                         .setCallerHeaderParam("RPC-Caller")
+                        .setOverrideDistinctCountFunction("distinctCount")
                         .setMetadataCacheExpiry(new Duration(2, TimeUnit.MINUTES))
                         .setAllowMultipleAggregations(true)
                         .setInferDateTypeInSchema(true)
@@ -117,6 +118,7 @@ public class TestPinotConfig
                 .put("pinot.use-https-for-controller", "true")
                 .put("pinot.use-https-for-broker", "true")
                 .put("pinot.use-https-for-proxy", "true")
+                .put("pinot.override-distinct-count-function", "distinctCountBitmap")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -141,6 +143,7 @@ public class TestPinotConfig
                 .setServiceHeaderParam("myServiceHeader")
                 .setCallerHeaderValue("myCaller")
                 .setCallerHeaderParam("myParam")
+                .setOverrideDistinctCountFunction("distinctCountBitmap")
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MINUTES))
                 .setAllowMultipleAggregations(false)
                 .setInferDateTypeInSchema(false)
