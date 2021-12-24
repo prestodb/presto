@@ -15,9 +15,8 @@
  */
 
 #include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/caching/FileIds.h"
-
 #include <folly/executors/QueuedImmediateExecutor.h>
+#include "velox/common/caching/FileIds.h"
 
 namespace facebook::velox::cache {
 
@@ -293,6 +292,7 @@ void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
     VELOX_CHECK(removeIter != entryMap_.end());
     entryMap_.erase(removeIter);
     entry->key_.fileNum.clear();
+    entry->setSsdFile(nullptr, 0);
     if (entry->isPrefetch()) {
       entry->setPrefetch(false);
     }
@@ -502,6 +502,53 @@ std::string AsyncDataCache::toString() const {
       << " read pins " << stats.numShared << " unused prefetch "
       << stats.numPrefetch << " Alloc Mclks " << (stats.allocClocks >> 20);
   return out.str();
+}
+
+CoalesceIoStats readPins(
+    const std::vector<CachePin>& pins,
+    int32_t maxGap,
+    int32_t rangesPerIo,
+    std::function<uint64_t(int32_t index)> offsetFunc,
+    std::function<void(
+        const std::vector<CachePin>& pins,
+        int32_t begin,
+        int32_t end,
+        uint64_t offset,
+        const std::vector<folly::Range<char*>>& buffers)> readFunc) {
+  return coalesceIo<CachePin, folly::Range<char*>>(
+      pins,
+      maxGap,
+      rangesPerIo,
+      offsetFunc,
+      [&](int32_t index) { return pins[index].checkedEntry()->size(); },
+      [&](int32_t index) {
+        return std::max<int32_t>(
+            1, pins[index].checkedEntry()->data().numRuns());
+      },
+      [&](const CachePin& pin, std::vector<folly::Range<char*>>& ranges) {
+        auto entry = pin.checkedEntry();
+        auto& data = entry->data();
+        uint64_t offsetInRuns = 0;
+        auto size = entry->size();
+        if (data.numPages() == 0) {
+          ranges.push_back(
+              folly::Range<char*>(pin.checkedEntry()->tinyData(), size));
+          offsetInRuns = size;
+        } else {
+          for (int i = 0; i < data.numRuns(); ++i) {
+            auto run = data.runAt(i);
+            uint64_t bytes = run.numBytes();
+            uint64_t readSize = std::min(bytes, size - offsetInRuns);
+            ranges.push_back(folly::Range<char*>(run.data<char>(), readSize));
+            offsetInRuns += readSize;
+          }
+        }
+        VELOX_CHECK_EQ(offsetInRuns, size);
+      },
+      [&](int32_t size, std::vector<folly::Range<char*>>& ranges) {
+        ranges.push_back(folly::Range<char*>(nullptr, size));
+      },
+      readFunc);
 }
 
 } // namespace facebook::velox::cache

@@ -18,6 +18,7 @@ add_executable(
   RangeTest.cpp
   BitUtilTest.cpp
   BloomFilterTest.cpp
+  CoalesceIoTest.cpp
   RawVectorTest.cpp
   StatsReporterTest.cpp
   SimdUtilTest.cpp

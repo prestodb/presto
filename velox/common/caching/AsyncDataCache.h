@@ -21,6 +21,7 @@
 #include <folly/chrono/Hardware.h>
 #include <folly/futures/SharedPromise.h>
 #include "velox/common/base/BitUtil.h"
+#include "velox/common/base/CoalesceIo.h"
 #include "velox/common/base/SelectivityInfo.h"
 #include "velox/common/caching/StringIdMap.h"
 #include "velox/common/memory/MappedMemory.h"
@@ -29,6 +30,7 @@ namespace facebook::velox::cache {
 
 class AsyncDataCache;
 class CacheShard;
+class SsdFile;
 
 // Type for tracking last access. This is based on CPU clock and
 // scaled to be around 1ms resolution. This can wrap around and is
@@ -68,6 +70,10 @@ struct AccessStats {
 struct FileCacheKey {
   StringIdLease fileNum;
   uint64_t offset;
+
+  bool operator==(const FileCacheKey& other) const {
+    return offset == other.offset && fileNum.id() == other.fileNum.id();
+  }
 };
 
 // Non-owning reference to a file number and offset.
@@ -216,6 +222,19 @@ class AsyncDataCacheEntry {
 
   void setExclusiveToShared();
 
+  void setSsdFile(SsdFile* FOLLY_NULLABLE file, uint64_t offset) {
+    ssdFile_ = file;
+    ssdOffset_ = offset;
+  }
+
+  SsdFile* FOLLY_NULLABLE ssdFile() const {
+    return ssdFile_;
+  }
+
+  uint64_t ssdOffset() const {
+    return ssdOffset_;
+  }
+
  private:
   void release();
   void addReference();
@@ -268,6 +287,16 @@ class AsyncDataCacheEntry {
   // mutex. If set, 'this' is pinned for either exclusive or shared.
   std::shared_ptr<FusedLoad> load_;
 
+  // SSD file from which this was loaded or nullptr if not backed by
+  // SsdFile. Used to avoid re-adding items that already come from
+  // SSD. The exact file and offset are needed to include uses in RAM
+  // to uses on SSD. Failing this, we could have the hottest data first in
+  // line for eviction from SSD.
+  SsdFile* FOLLY_NULLABLE ssdFile_{nullptr};
+
+  // Offset in 'ssdFile_'.
+  uint64_t ssdOffset_{0};
+
   friend class CacheShard;
   friend class CachePin;
 };
@@ -310,6 +339,20 @@ class CachePin {
   }
   AsyncDataCacheEntry* FOLLY_NULLABLE entry() const {
     return entry_;
+  }
+
+  AsyncDataCacheEntry* FOLLY_NONNULL checkedEntry() const {
+    assert(entry_);
+    return entry_;
+  }
+
+  bool operator<(const CachePin& other) const {
+    auto id1 = entry_->key_.fileNum.id();
+    auto id2 = other.entry_->key_.fileNum.id();
+    if (id1 == id2) {
+      return entry_->offset() < other.entry_->offset();
+    }
+    return id1 < id2;
   }
 
  private:
@@ -676,6 +719,100 @@ T percentile(Next next, int32_t numSamples, int percent) {
   }
   std::sort(values.begin(), values.end());
   return values.empty() ? 0 : values[(values.size() * percent) / 100];
+}
+
+// Utility function for loading multiple pins with coalesced
+// IO. 'pins' is a vector of CachePins to fill. 'maxGap' is the
+// largest allowed distance in bytes between the end of one entry and
+// the start of the next. If the gap is larger or the next is before
+// the end of the previous, the entries will be fetched separately.
+//
+//'offsetFunc' returns the starting offset of the data in the
+// file given a pin and the pin's index in 'pins'. The pins are expected to be
+// sorted by this offset. 'readFunc' reads from the appropriate media. It gets
+// the 'pins' and the index of the first pin included in the read and the index
+// of the first pin not included. It gets the starting offset of the read and a
+// vector of memory ranges to fill by ReadFile::preadv or a similar
+// function.
+// The caller is responsible for calling setValid on the pins after a successful
+// read.
+//
+// Returns the number of distinct IOs, the number of bytes loaded into pins and
+// the number of extr bytes read.
+CoalesceIoStats readPins(
+    const std::vector<CachePin>& pins,
+    int32_t maxGap,
+    int32_t maxBatch,
+    std::function<uint64_t(int32_t index)> offsetFunc,
+    std::function<void(
+        const std::vector<CachePin>& pins,
+        int32_t begin,
+        int32_t end,
+        uint64_t offset,
+        const std::vector<folly::Range<char*>>& buffers)> readFunc);
+
+// Generic template for grouping IOs into batches of <
+// rangesPerIo ranges separated by gaps of size >= maxGap. Element
+// represents the object of the IO, Range is the type representing
+// the IO, e.g. pointer + size, offsetFunc and SizeFunc return the
+// offset and size of an Element, AddRange adds the ranges that
+// correspond to an Element, skipRange adds a gap between
+// neighboring items, ioFunc takes the items, the first item to
+// process, the first item not to process, the offset of the first
+// item and a vector of Ranges.
+template <
+    typename Item,
+    typename Range,
+    typename ItemOffset,
+    typename ItemSize,
+    typename ItemNumRanges,
+    typename AddRanges,
+    typename SkipRange,
+    typename IoFunc>
+CoalesceIoStats coalescedIo(
+    const std::vector<Item>& items,
+    int32_t maxGap,
+    int32_t rangesPerIo,
+    ItemOffset offsetFunc,
+    ItemSize sizeFunc,
+    ItemNumRanges numRanges,
+    AddRanges addRanges,
+    SkipRange skipRange,
+    IoFunc ioFunc) {
+  std::vector<Range> buffers;
+  auto start = offsetFunc(0);
+  auto lastOffset = start;
+  std::vector<Range> ranges;
+  CoalesceIoStats result;
+  int32_t firstItem = 0;
+  for (int32_t i = 0; i < items.size(); ++i) {
+    auto& item = items[i];
+    auto startOffset = offsetFunc(i);
+    auto size = sizeFunc(i);
+    result.payloadBytes += size;
+    bool enoughRanges =
+        ranges.size() + numRanges(item) >= rangesPerIo && !ranges.empty();
+    if (lastOffset != startOffset || enoughRanges) {
+      int64_t gap = startOffset - lastOffset;
+      if (gap > 0 && gap < maxGap && !enoughRanges) {
+        // The next one is after the previous and no farther than maxGap bytes,
+        // we read the gap but drop the bytes.
+        result.extraBytes += gap;
+        skipRange(gap, ranges);
+      } else {
+        ioFunc(items, firstItem, i, start, ranges);
+        ranges.clear();
+        firstItem = i;
+        ++result.numIos;
+        start = startOffset;
+      }
+    }
+    addRanges(item, ranges);
+    lastOffset = startOffset + size;
+  }
+  ioFunc(items, firstItem, items.size(), start, ranges);
+  ++result.numIos;
+  return result;
 }
 
 } // namespace facebook::velox::cache

@@ -80,6 +80,8 @@ LocalReadFile::LocalReadFile(std::string_view path) {
   VELOX_CHECK_GE(fd_, 0, "open failure in LocalReadFile constructor, {}.", fd_);
 }
 
+LocalReadFile::LocalReadFile(int32_t fd) : fd_(fd) {}
+
 void LocalReadFile::preadInternal(uint64_t offset, uint64_t length, char* pos)
     const {
   bytesRead_ += length;
@@ -116,7 +118,9 @@ std::string LocalReadFile::pread(uint64_t offset, uint64_t length) const {
 uint64_t LocalReadFile::preadv(
     uint64_t offset,
     const std::vector<folly::Range<char*>>& buffers) const {
-  static char droppedBytes[8 * 1024];
+  // Dropped bytes sized so that a typical dropped range of 50K is not
+  // too many iovecs.
+  static char droppedBytes[16 * 1024];
   std::vector<struct iovec> iovecs;
   iovecs.reserve(buffers.size());
   for (auto& range : buffers) {

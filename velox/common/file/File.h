@@ -199,6 +199,8 @@ class LocalReadFile final : public ReadFile {
  public:
   explicit LocalReadFile(std::string_view path);
 
+  explicit LocalReadFile(int32_t fd);
+
   std::string_view pread(uint64_t offset, uint64_t length, Arena* arena)
       const final;
   std::string_view pread(uint64_t offset, uint64_t length, void* buf)
