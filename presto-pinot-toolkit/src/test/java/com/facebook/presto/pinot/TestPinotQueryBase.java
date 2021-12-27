@@ -92,6 +92,7 @@ public class TestPinotQueryBase
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");
     protected static PinotTableHandle hybridTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "hybrid");
     protected static PinotColumnHandle regionId = new PinotColumnHandle("regionId", BIGINT, REGULAR);
+    protected static PinotColumnHandle distinctCountDim = new PinotColumnHandle("distinctCountDim", BIGINT, REGULAR);
     protected static PinotColumnHandle city = new PinotColumnHandle("city", VARCHAR, REGULAR);
     protected static final PinotColumnHandle fare = new PinotColumnHandle("fare", DOUBLE, REGULAR);
     protected static final PinotColumnHandle scores = array(DOUBLE, "scores");
@@ -112,6 +113,7 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression(Optional.empty(), "city", VARCHAR), new PinotQueryGeneratorContext.Selection("city", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "scores", new ArrayType(DOUBLE)), new PinotQueryGeneratorContext.Selection("scores", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
+                    .put(new VariableReferenceExpression(Optional.empty(), "distinctCountDim", DOUBLE), new PinotQueryGeneratorContext.Selection("distinctCountDim", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column

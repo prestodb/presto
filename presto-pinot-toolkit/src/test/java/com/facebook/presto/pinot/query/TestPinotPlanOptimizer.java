@@ -322,6 +322,7 @@ public class TestPinotPlanOptimizer
         for (String distinctCountFunctionName : Arrays.asList("DISTINCTCOUNT", "DISTINCTCOUNTBITMAP", "SEGMENTPARTITIONEDDISTINCTCOUNT")) {
             final PinotConfig pinotConfig = new PinotConfig().setOverrideDistinctCountFunction(distinctCountFunctionName);
             testDistinctCountInSubQueryPushdown(distinctCountFunctionName, pinotConfig);
+            testDistinctCountPushdownNoOverride(pinotConfig);
         }
     }
 
@@ -358,6 +359,27 @@ public class TestPinotPlanOptimizer
                         rightAggregation.getOutputVariables(),
                         useSqlSyntax()),
                 typeProvider);
+    }
+
+    private void testDistinctCountPushdownNoOverride(PinotConfig pinotConfig)
+    {
+        PlanBuilder planBuilder = createPlanBuilder(new SessionHolder(pinotConfig));
+        Map<VariableReferenceExpression, PinotColumnHandle> leftColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "regionid", regionId.getDataType()), regionId);
+        PlanNode leftJustScan = tableScan(planBuilder, pinotTable, leftColumnHandleMap);
+        PlanNode leftAggregation = planBuilder.aggregation(aggBuilder -> aggBuilder.source(leftJustScan).addAggregation(planBuilder.variable("approx_distinct(regionid)"), getRowExpression("approx_distinct(regionid)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.empty()).globalGrouping());
+        PlanNode optimized = getOptimizedPlan(pinotConfig, planBuilder, leftAggregation);
+        assertPlanMatch(
+                optimized,
+                PinotTableScanMatcher.match(
+                        pinotTable,
+                        Optional.of("SELECT DISTINCTCOUNTHLL\\(regionId\\) FROM hybrid"),
+                        Optional.of(false),
+                        leftAggregation.getOutputVariables(),
+                        useSqlSyntax()),
+                typeProvider);
+
+        PlanNode optimizedPlan = getOptimizedPlan(planBuilder, limit(planBuilder, 50L, tableScan(planBuilder, pinotTable, distinctCountDim)));
+        assertPlanMatch(optimizedPlan, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT distinctCountDim FROM hybrid LIMIT 50"), Optional.of(false), optimizedPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
     }
 
     @Test

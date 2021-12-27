@@ -478,7 +478,7 @@ public class PinotQueryGeneratorContext
     {
         final String overrideDistinctCountFunction = PinotSessionProperties.getOverrideDistinctCountFunction(session);
         if (!PINOT_DISTINCT_COUNT_FUNCTION_NAME.equalsIgnoreCase(overrideDistinctCountFunction)) {
-            return definition.replaceFirst(PINOT_DISTINCT_COUNT_FUNCTION_NAME.toUpperCase(), overrideDistinctCountFunction.toUpperCase());
+            return definition.replaceFirst(PINOT_DISTINCT_COUNT_FUNCTION_NAME.toUpperCase() + "\\(", overrideDistinctCountFunction.toUpperCase() + "\\(");
         }
         return definition;
     }
