@@ -319,7 +319,8 @@ int compareArrays(
       return result;
     }
   }
-  return leftRange.size - rightRange.size;
+  int result = leftRange.size - rightRange.size;
+  return flags.ascending ? result : result * -1;
 }
 
 int compareArrays(
@@ -339,7 +340,8 @@ int compareArrays(
       return result;
     }
   }
-  return leftRange.size() - rightRange.size();
+  int result = leftRange.size() - rightRange.size();
+  return flags.ascending ? result : result * -1;
 }
 } // namespace
 
