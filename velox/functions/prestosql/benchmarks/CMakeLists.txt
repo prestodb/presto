@@ -69,3 +69,7 @@ target_link_libraries(velox_functions_prestosql_benchmarks_map_input
 
 add_executable(velox_functions_benchmarks_url URLBenchmark.cpp)
 target_link_libraries(velox_functions_benchmarks_url ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_benchmarks_compare CompareBenchmark.cpp)
+target_link_libraries(velox_functions_benchmarks_compare
+                      ${BENCHMARK_DEPENDENCIES})

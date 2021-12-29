@@ -34,17 +34,23 @@ FOLLY_ALWAYS_INLINE bool call(
   if (array.mayHaveNulls()) {
     auto nullFound = false;
     for (const auto& item : array) {
-      if (item && (*item == key)) {
-        out = true;
-        return true;
+      if (item.has_value()) {
+        if (*item == key) {
+          out = true;
+          return true;
+        }
+        continue;
       }
-      nullFound |= !item.has_value();
+      nullFound = true;
     }
+
     if (!nullFound) {
       out = false;
+      return true;
     }
-    return !nullFound;
+    return false;
   }
+
   // Not nulls path
   for (const auto& item : array) {
     if (*item == key) {
