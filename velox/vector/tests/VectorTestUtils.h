@@ -217,7 +217,15 @@ void assertVector(
       if (dbgPrintVec) {
         LOG(INFO) << "[" << i << "]:" << *optionalValue;
       }
-      EXPECT_EQ(*optionalValue, outVector->valueAt(i));
+      if constexpr (std::is_floating_point<T>::value) {
+        if (auto isNan = std::isnan(*optionalValue)) {
+          EXPECT_EQ(isNan, std::isnan(outVector->valueAt(i)));
+        } else {
+          EXPECT_EQ(*optionalValue, outVector->valueAt(i));
+        }
+      } else {
+        EXPECT_EQ(*optionalValue, outVector->valueAt(i));
+      }
     }
   }
 }

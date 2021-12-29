@@ -192,7 +192,8 @@ class SimpleVector : public BaseVector {
     auto simpleVector = reinterpret_cast<const SimpleVector<T>*>(other);
     auto thisValue = valueAt(index);
     auto otherValue = simpleVector->valueAt(otherIndex);
-    return thisValue == otherValue ? 0 : thisValue < otherValue ? -1 : 1;
+    auto result = comparePrimitiveAsc(thisValue, otherValue);
+    return flags.ascending ? result : result * -1;
   }
 
   /**
@@ -389,6 +390,20 @@ class SimpleVector : public BaseVector {
   void setMinMax(const folly::F14FastMap<std::string, std::string>& metaData) {
     min_ = getMetaDataValue<T>(metaData, META_MIN);
     max_ = getMetaDataValue<T>(metaData, META_MAX);
+  }
+
+  int comparePrimitiveAsc(const T& left, const T& right) const {
+    if constexpr (std::is_floating_point<T>::value) {
+      bool isLeftNan = std::isnan(left);
+      bool isRightNan = std::isnan(right);
+      if (isLeftNan) {
+        return isRightNan ? 0 : 1;
+      }
+      if (isRightNan) {
+        return -1;
+      }
+    }
+    return left < right ? -1 : left == right ? 0 : 1;
   }
 
  protected:
