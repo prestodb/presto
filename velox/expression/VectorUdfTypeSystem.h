@@ -17,11 +17,14 @@
 #pragma once
 
 #include <algorithm>
+#include <cstring>
+#include <string_view>
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VariadicView.h"
 #include "velox/functions/UDFOutputString.h"
+#include "velox/type/StringView.h"
 #include "velox/type/Type.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
@@ -688,9 +691,39 @@ class StringProxy<FlatVector<StringView>, false /*reuseInput*/>
     finalized_ = true;
   }
 
-  void setNoCopy(StringView value) {
+  void setNoCopy(const StringView& value) {
     vector_->setNoCopy(offset_, value);
     finalized_ = true;
+  }
+
+  void append(const StringView& input) {
+    DCHECK(!finalized_);
+    auto oldSize = size();
+    resize(this->size() + input.size());
+    if (input.size() != 0) {
+      DCHECK(data());
+      DCHECK(input.data());
+      std::memcpy(data() + oldSize, input.data(), input.size());
+    }
+  }
+
+  void operator+=(const StringView& input) {
+    append(input);
+  }
+
+  void append(const std::string_view input) {
+    DCHECK(!finalized_);
+    auto oldSize = size();
+    resize(this->size() + input.size());
+    if (input.size() != 0) {
+      DCHECK(data());
+      DCHECK(input.data());
+      std::memcpy(data() + oldSize, input.data(), input.size());
+    }
+  }
+
+  void operator+=(const std::string_view input) {
+    append(input);
   }
 
  private:
