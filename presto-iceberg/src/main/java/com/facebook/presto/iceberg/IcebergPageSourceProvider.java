@@ -107,7 +107,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedPa
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static com.facebook.presto.hive.HiveSessionProperties.readColumnIndexFilter;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;

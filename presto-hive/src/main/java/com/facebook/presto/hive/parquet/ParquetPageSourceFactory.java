@@ -264,8 +264,8 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
-                ColumnIndexStore ciStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, ciStore, readColumnIndexFilter)) {
+                ColumnIndexStore columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, columnIndexStore, readColumnIndexFilter)) {
                     blocks.add(block);
                     hiveFileContext.incrementCounter("parquet.blocksRead", 1);
                     hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
@@ -275,7 +275,8 @@ public class ParquetPageSourceFactory
                     hiveFileContext.incrementCounter("parquet.blocksSkipped", 1);
                     hiveFileContext.incrementCounter("parquet.rowsSkipped", block.getRowCount());
                     hiveFileContext.incrementCounter("parquet.totalBytesSkipped", block.getTotalByteSize());
-                    blockIndexStores.add(ciStore);
+                    //what if columnIndexStore is null
+                    blockIndexStores.add(columnIndexStore);
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
@@ -359,23 +360,16 @@ public class ParquetPageSourceFactory
             return null;
         }
 
-        boolean hasColumnIndex = false;
         for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
             if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
-                hasColumnIndex = true;
-                break;
+                Set<ColumnPath> paths = new HashSet<>();
+                for (List<String> path : descriptorsByPath.keySet()) {
+                    paths.add(ColumnPath.get(path.toArray(new String[0])));
+                }
+                return ColumnIndexStoreImpl.create(dataSource, blockMetadata, paths);
             }
         }
-
-        if (!hasColumnIndex) {
-            return null;
-        }
-
-        Set<ColumnPath> paths = new HashSet<>();
-        for (List<String> path : descriptorsByPath.keySet()) {
-            paths.add(ColumnPath.get(path.toArray(new String[0])));
-        }
-        return ColumnIndexStoreImpl.create(dataSource, blockMetadata, paths);
+        return null;
     }
 
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<HiveColumnHandle> effectivePredicate)

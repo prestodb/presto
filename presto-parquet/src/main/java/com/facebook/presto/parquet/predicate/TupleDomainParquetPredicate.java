@@ -686,110 +686,77 @@ public class TupleDomainParquetPredicate
 
         public List<Long> getMinValuesAsLong(Type type, ColumnIndex columnIndex, String column)
         {
-            int pageCount = columnIndex.getMinValues().size();
-            List<ByteBuffer> minValues = columnIndex.getMinValues();
-            List<Long> mins = new ArrayList<>();
-            for (int i = 0; i < pageCount; i++) {
-                if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type)) {
-                    int minValue = converter.convert(minValues.get(i), column);
-                    mins.add((long) minValue);
-                }
-                else if (BIGINT.equals(type)) {
-                    long minValue = converter.convert(minValues.get(i), column);
-                    mins.add(minValue);
-                }
-                else if (REAL.equals(type)) {
-                    float minValue = floatToRawIntBits(converter.convert(minValues.get(i), column));
-                    mins.add((long) minValue);
-                }
-            }
-            return mins;
+            return getValuesAsLong(type, column, columnIndex.getMinValues().size(), columnIndex.getMinValues());
         }
 
         public List<Long> getMaxValuesAsLong(Type type, ColumnIndex columnIndex, String column)
         {
-            int pageCount = columnIndex.getMaxValues().size();
-            List<ByteBuffer> maxValues = columnIndex.getMaxValues();
-            List<Long> maxs = new ArrayList<>();
-            if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type)) {
-                for (int i = 0; i < pageCount; i++) {
-                    int maxValue = converter.convert(maxValues.get(i), column);
-                    maxs.add((long) maxValue);
-                }
-            }
-            else if (BIGINT.equals(type)) {
-                for (int i = 0; i < pageCount; i++) {
-                    long maxValue = converter.convert(maxValues.get(i), column);
-                    maxs.add((long) maxValue);
-                }
-            }
-            else if (REAL.equals(type)) {
-                for (int i = 0; i < pageCount; i++) {
-                    float maxValue = floatToRawIntBits(converter.convert(maxValues.get(i), column));
-                    maxs.add((long) maxValue);
-                }
-            }
-            //TODO: Else
-            return maxs;
+            return getValuesAsLong(type, column, columnIndex.getMaxValues().size(), columnIndex.getMaxValues());
         }
 
         public List<Double> getMinValuesAsDouble(Type type, ColumnIndex columnIndex, String column)
         {
-            int pageCount = columnIndex.getMinValues().size();
-            List<ByteBuffer> minValues = columnIndex.getMinValues();
-            List<Double> mins = new ArrayList<>();
-            if (DOUBLE.equals(type)) {
-                for (int i = 0; i < pageCount; i++) {
-                    double minValue = converter.convert(minValues.get(i), column);
-                    mins.add(minValue);
-                }
-            }
-            //TODO: Else
-            return mins;
+            return getValuesAsDouble(type, column, columnIndex.getMinValues().size(), columnIndex.getMinValues());
         }
 
         public List<Double> getMaxValuesAsDouble(Type type, ColumnIndex columnIndex, String column)
         {
-            int pageCount = columnIndex.getMaxValues().size();
-            List<ByteBuffer> maxValues = columnIndex.getMaxValues();
-            List<Double> maxs = new ArrayList<>();
-            if (DOUBLE.equals(type)) {
-                for (int i = 0; i < pageCount; i++) {
-                    double maxValue = converter.convert(maxValues.get(i), column);
-                    maxs.add(maxValue);
-                }
-            }
-            return maxs;
+            return getValuesAsDouble(type, column, columnIndex.getMaxValues().size(), columnIndex.getMaxValues());
         }
 
         public List<Slice> getMinValuesAsSlice(Type type, ColumnIndex columnIndex)
         {
-            int pageCount = columnIndex.getMinValues().size();
-            List<ByteBuffer> minValues = columnIndex.getMinValues();
-            List<Slice> mins = new ArrayList<>();
-            if (isVarcharType(type)) {
-                for (int i = 0; i < pageCount; i++) {
-                    Slice minValue = Slices.wrappedBuffer(minValues.get(i));
-                    mins.add(minValue);
-                }
-            }
-            //TODO: Else
-            return mins;
+            return getValuesAsSlice(type, columnIndex.getMinValues().size(), columnIndex.getMinValues());
         }
 
         public List<Slice> getMaxValuesAsSlice(Type type, ColumnIndex columnIndex)
         {
-            int pageCount = columnIndex.getMaxValues().size();
-            List<ByteBuffer> maxValues = columnIndex.getMaxValues();
-            List<Slice> maxs = new ArrayList<>();
-            if (isVarcharType(type)) {
+            return getValuesAsSlice(type, columnIndex.getMaxValues().size(), columnIndex.getMaxValues());
+        }
+
+        private List<Long> getValuesAsLong(Type type, String column, int pageCount, List<ByteBuffer> values)
+        {
+            List<Long> ret = new ArrayList<>();
+            if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type)) {
                 for (int i = 0; i < pageCount; i++) {
-                    Slice maxValue = Slices.wrappedBuffer(maxValues.get(i));
-                    maxs.add(maxValue);
+                    ret.add((long) converter.convert(values.get(i), column));
+                }
+            }
+            else if (BIGINT.equals(type)) {
+                for (int i = 0; i < pageCount; i++) {
+                    ret.add((long) converter.convert(values.get(i), column));
+                }
+            }
+            else if (REAL.equals(type)) {
+                for (int i = 0; i < pageCount; i++) {
+                    ret.add((long) floatToRawIntBits(converter.convert(values.get(i), column)));
                 }
             }
             //TODO: Else
-            return maxs;
+            return ret;
+        }
+
+        private List<Double> getValuesAsDouble(Type type, String column, int pageCount, List<ByteBuffer> values)
+        {
+            List<Double> ret = new ArrayList<>();
+            if (DOUBLE.equals(type)) {
+                for (int i = 0; i < pageCount; i++) {
+                    ret.add(converter.convert(values.get(i), column));
+                }
+            }
+            return ret;
+        }
+
+        private List<Slice> getValuesAsSlice(Type type, int pageCount, List<ByteBuffer> values)
+        {
+            List<Slice> ret = new ArrayList<>();
+            if (isVarcharType(type)) {
+                for (int i = 0; i < pageCount; i++) {
+                    ret.add(Slices.wrappedBuffer(values.get(i)));
+                }
+            }
+            //TODO: Else
+            return ret;
         }
 
         private <T> T convert(ByteBuffer buf, String name)

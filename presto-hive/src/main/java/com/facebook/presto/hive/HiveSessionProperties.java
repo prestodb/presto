@@ -129,7 +129,7 @@ public final class HiveSessionProperties
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_ENABLED = "dwrf_writer_stripe_cache_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
-    public static final String READ_COLUMN_INDEX_FILTER = "read_column_index_filter";
+    public static final String USE_COLUMN_INDEX_FILTER = "use_column_index_filter";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -620,7 +620,7 @@ public final class HiveSessionProperties
                         orcFileWriterConfig.getDwrfStripeCacheMaxSize(),
                         false),
                 booleanProperty(
-                        READ_COLUMN_INDEX_FILTER,
+                        USE_COLUMN_INDEX_FILTER,
                         "should use column index statistics filtering",
                         hiveClientConfig.getReadColumnIndexFilter(),
                         false));
@@ -1086,6 +1086,6 @@ public final class HiveSessionProperties
 
     public static boolean readColumnIndexFilter(ConnectorSession session)
     {
-        return session.getProperty(READ_COLUMN_INDEX_FILTER, Boolean.class);
+        return session.getProperty(USE_COLUMN_INDEX_FILTER, Boolean.class);
     }
 }

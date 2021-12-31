@@ -142,19 +142,6 @@ class ColumnIndexFilterUtils
         return new FilteredOffsetIndex(offsetIndex, indexMap.toIntArray());
     }
 
-    static OffsetIndex filterOffsetIndex_original(OffsetIndex offsetIndex, RowRanges rowRanges, long totalRowCount)
-    {
-        //TODO: Hack it now !!!!!
-        IntList indexMap = new IntArrayList();
-        for (int i = 0, n = offsetIndex.getPageCount(); i < n; ++i) {
-            long from = offsetIndex.getFirstRowIndex(i);
-            if (rowRanges.isOverlapping(from, offsetIndex.getLastRowIndex(i, totalRowCount))) {
-                indexMap.add(i);
-            }
-        }
-        return new FilteredOffsetIndex(offsetIndex, indexMap.toIntArray());
-    }
-
     static List<OffsetRange> calculateOffsetRanges(OffsetIndex offsetIndex, ColumnChunkMetaData cm,
                                                    long firstPageOffset, long startingPosition)
     {

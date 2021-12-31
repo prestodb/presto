@@ -76,22 +76,22 @@ public class HdfsParquetDataSource
     @Override
     public ColumnIndex readColumnIndex(ColumnChunkMetaData column) throws IOException
     {
-        IndexReference ref = column.getColumnIndexReference();
-        if (ref == null) {
+        IndexReference indexRef = column.getColumnIndexReference();
+        if (indexRef == null) {
             return null;
         }
-        inputStream.seek(ref.getOffset());
+        inputStream.seek(indexRef.getOffset());
         return ParquetMetadataConverter.fromParquetColumnIndex(column.getPrimitiveType(), Util.readColumnIndex(inputStream));
     }
 
     @Override
     public OffsetIndex readOffsetIndex(ColumnChunkMetaData column) throws IOException
     {
-        IndexReference ref = column.getOffsetIndexReference();
-        if (ref == null) {
+        IndexReference indexRef = column.getOffsetIndexReference();
+        if (indexRef == null) {
             return null;
         }
-        inputStream.seek(ref.getOffset());
+        inputStream.seek(indexRef.getOffset());
         return ParquetMetadataConverter.fromParquetOffsetIndex(Util.readOffsetIndex(inputStream));
     }
 

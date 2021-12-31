@@ -135,24 +135,6 @@ public class PageReader
         }
     }
 
-    /**
-     * Cast value to a an int, or throw an exception
-     * if there is an overflow.
-     *
-     * @param value a long to be casted to an int
-     * @return an int that is == to value
-     * @throws IllegalArgumentException if value can't be casted to an int
-     * @deprecated replaced by {@link java.lang.Math#toIntExact(long)}
-     */
-    public static int checkedCast(long value)
-    {
-        int valueI = (int) value;
-        if (valueI != value) {
-            throw new IllegalArgumentException(String.format("Overflow casting %d to an int", value));
-        }
-        return valueI;
-    }
-
     public static long getFirstRowIndex(int pageIndex, OffsetIndex offsetIndex)
     {
         return offsetIndex == null ? -1 : offsetIndex.getFirstRowIndex(pageIndex);

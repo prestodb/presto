@@ -1685,7 +1685,7 @@ public class HiveClientConfig
         return this.materializedViewMissingPartitionsThreshold;
     }
 
-    @Config("hive.readColumnIndexFilter")
+    @Config("hive.parquet-use-column-index-filter")
     @ConfigDescription("enable using parquet column index filter")
     public HiveClientConfig setReadColumnIndexFilter(boolean readColumnIndexFilter)
     {
