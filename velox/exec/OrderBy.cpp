@@ -77,14 +77,12 @@ void OrderBy::finish() {
       returningRows_.begin(),
       returningRows_.end(),
       [this](const char* leftRow, const char* rightRow) {
-        for (auto& key : keyInfo_) {
+        for (auto& [channelIndex, sortOrder] : keyInfo_) {
           if (auto result = data_->compare(
                   leftRow,
                   rightRow,
-                  key.first,
-                  {key.second.isNullsFirst(),
-                   key.second.isAscending(),
-                   false})) {
+                  channelIndex,
+                  {sortOrder.isNullsFirst(), sortOrder.isAscending(), false})) {
             return result < 0;
           }
         }

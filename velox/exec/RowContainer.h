@@ -112,7 +112,7 @@ class RowContainer {
   // allowed. 'hasProbedFlag' indicates that an extra bit is reserved
   // for a probed state of a full or right outer
   // join. 'hasNormalizedKey' specifies that an extra word is left
-  // below each row for a normlized key that collapses all parts
+  // below each row for a normalized key that collapses all parts
   // into one word for faster comparison. The bulk allocation is done
   // from 'mappedMemory'.  'serde_' is used for serializing complex
   // type values into the container.

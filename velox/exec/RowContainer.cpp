@@ -73,7 +73,7 @@ RowContainer::RowContainer(
   //
   // In most cases, rows are prefixed with a normalized_key_t at index
   // -1, 8 bytes below the pointer. This space is reserved for a 64
-  // bit unique digest of the keys for speding up comparison. This
+  // bit unique digest of the keys for speeding up comparison. This
   // space is reserved for the rows that are inserted before the
   // cardinality grows too large for packing all in 64
   // bits. 'numRowsWithNormalizedKey_' gives the number of rows with
