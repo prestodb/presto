@@ -197,6 +197,12 @@ public class HiveClientConfig
     private int materializedViewMissingPartitionsThreshold = 100;
 
     private boolean verboseRuntimeStatsEnabled;
+    private boolean useRecordPageSourceForCustomSplit = true;
+
+    private boolean sizeBasedSplitWeightsEnabled = true;
+    private double minimumAssignedSplitWeight = 0.05;
+
+    private boolean userDefinedTypeEncodingEnabled;
 
     private boolean readColumnIndexFilter;
 
@@ -315,6 +321,18 @@ public class HiveClientConfig
     public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
     {
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        return this;
+    }
+
+    public boolean isUserDefinedTypeEncodingEnabled()
+    {
+        return userDefinedTypeEncodingEnabled;
+    }
+
+    @Config("hive.user-defined-type-encoding-enabled")
+    public HiveClientConfig setUserDefinedTypeEncodingEnabled(boolean userDefinedTypeEncodingEnabled)
+    {
+        this.userDefinedTypeEncodingEnabled = userDefinedTypeEncodingEnabled;
         return this;
     }
 
@@ -1696,5 +1714,47 @@ public class HiveClientConfig
     public boolean getReadColumnIndexFilter()
     {
         return this.readColumnIndexFilter;
+    }
+
+    @Config("hive.size-based-split-weights-enabled")
+    public HiveClientConfig setSizeBasedSplitWeightsEnabled(boolean sizeBasedSplitWeightsEnabled)
+    {
+        this.sizeBasedSplitWeightsEnabled = sizeBasedSplitWeightsEnabled;
+        return this;
+    }
+
+    public boolean isSizeBasedSplitWeightsEnabled()
+    {
+        return sizeBasedSplitWeightsEnabled;
+    }
+
+    @Config("hive.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned when size based split weights are enabled")
+    public HiveClientConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1.0") // standard split weight
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
+    }
+
+    public boolean isUseRecordPageSourceForCustomSplit()
+    {
+        return this.useRecordPageSourceForCustomSplit;
+    }
+
+    @Config("hive.use-record-page-source-for-custom-split")
+    @ConfigDescription("Use record page source for custom split. By default, true. Used to query MOR tables in Hudi.")
+    public HiveClientConfig setUseRecordPageSourceForCustomSplit(boolean useRecordPageSourceForCustomSplit)
+    {
+        this.useRecordPageSourceForCustomSplit = useRecordPageSourceForCustomSplit;
+        return this;
+      
+      
     }
 }

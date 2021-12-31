@@ -51,6 +51,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.SupportsNamespaces;
@@ -58,7 +59,6 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
-import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -77,6 +77,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPS
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
@@ -100,6 +101,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 
 public class IcebergNativeMetadata
         implements ConnectorMetadata
@@ -150,16 +152,24 @@ public class IcebergNativeMetadata
             // return null to throw
             return null;
         }
-        if (name.getSnapshotId().isPresent() && table.snapshot(name.getSnapshotId().get()) == null) {
-            throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), table));
-        }
 
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
-                Optional.of(name.getSnapshotId().orElse(table.currentSnapshot().snapshotId())),
+                resolveSnapshotId(name, table),
                 TupleDomain.all());
+    }
+
+    private Optional<Long> resolveSnapshotId(IcebergTableName name, Table table)
+    {
+        if (name.getSnapshotId().isPresent()) {
+            if (table.snapshot(name.getSnapshotId().get()) == null) {
+                throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), table));
+            }
+            return name.getSnapshotId();
+        }
+        return Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
     }
 
     @Override
@@ -194,7 +204,7 @@ public class IcebergNativeMetadata
         }
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
-        Optional<Long> snapshotId = Optional.of(name.getSnapshotId().orElse(table.currentSnapshot().snapshotId()));
+        Optional<Long> snapshotId = resolveSnapshotId(name, table);
         switch (name.getTableType()) {
             case HISTORY:
                 if (name.getSnapshotId().isPresent()) {
@@ -323,11 +333,15 @@ public class IcebergNativeMetadata
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+        String formatVersion = getFormatVersion(tableMetadata.getProperties());
+        if (formatVersion != null) {
+            propertiesBuilder.put(FORMAT_VERSION, formatVersion);
         }
 
         try {
@@ -378,6 +392,11 @@ public class IcebergNativeMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        if (fragments.isEmpty()) {
+            transaction.commitTransaction();
+            return Optional.empty();
+        }
+
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
         org.apache.iceberg.Table icebergTable = transaction.table();
 
@@ -391,10 +410,10 @@ public class IcebergNativeMetadata
                 .toArray(Type[]::new);
 
         AppendFiles appendFiles = transaction.newFastAppend();
-        FileIO io = transaction.table().io();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(io.newInputFile(task.getPath()))
+                    .withPath(task.getPath())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 

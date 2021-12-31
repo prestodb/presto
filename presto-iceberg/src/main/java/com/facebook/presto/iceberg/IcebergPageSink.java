@@ -159,6 +159,7 @@ public class IcebergPageSink
 
             CommitTaskData task = new CommitTaskData(
                     context.getPath().toString(),
+                    context.writer.getFileSizeInBytes(),
                     new MetricsWrapper(context.writer.getMetrics()),
                     context.getPartitionData().map(PartitionData::toJson));
 

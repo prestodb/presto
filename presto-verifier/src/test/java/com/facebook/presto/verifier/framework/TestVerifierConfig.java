@@ -46,6 +46,7 @@ public class TestVerifierConfig
                 .setSetupOnMainClusters(true)
                 .setTeardownOnMainClusters(true)
                 .setSkipControl(false)
+                .setSkipChecksum(false)
                 .setExplain(false));
     }
 
@@ -71,6 +72,7 @@ public class TestVerifierConfig
                 .put("setup-on-main-clusters", "false")
                 .put("teardown-on-main-clusters", "false")
                 .put("skip-control", "true")
+                .put("skip-checksum", "true")
                 .put("explain", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
@@ -92,6 +94,7 @@ public class TestVerifierConfig
                 .setSetupOnMainClusters(false)
                 .setTeardownOnMainClusters(false)
                 .setSkipControl(true)
+                .setSkipChecksum(true)
                 .setExplain(true);
 
         assertFullMapping(properties, expected);

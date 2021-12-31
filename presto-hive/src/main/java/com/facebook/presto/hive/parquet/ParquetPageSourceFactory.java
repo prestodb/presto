@@ -173,7 +173,7 @@ public class ParquetPageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation)
     {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe()) || shouldUseRecordReaderFromInputFormat(configuration, storage)) {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 

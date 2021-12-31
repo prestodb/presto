@@ -23,7 +23,6 @@ import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
@@ -150,7 +149,7 @@ public class LocalExchange
         }
     }
 
-    private static PartitionFunction createPartitionFunction(
+    static PartitionFunction createPartitionFunction(
             PartitioningProviderManager partitioningProviderManager,
             Session session,
             PartitioningHandle partitioning,
@@ -170,14 +169,10 @@ public class LocalExchange
         }
 
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioning.getConnectorId().get());
-        ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
+        int bucketCount = partitioningProvider.getBucketCount(
                 partitioning.getTransactionHandle().orElse(null),
                 session.toConnectorSession(partitioning.getConnectorId().get()),
-                partitioning.getConnectorHandle(),
-                ImmutableList.of());
-        checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioning);
-
-        int bucketCount = connectorBucketNodeMap.getBucketCount();
+                partitioning.getConnectorHandle());
         int[] bucketToPartition = new int[bucketCount];
         for (int bucket = 0; bucket < bucketCount; bucket++) {
             bucketToPartition[bucket] = bucket % partitionCount;

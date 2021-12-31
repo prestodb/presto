@@ -62,11 +62,11 @@ public class TestAbstractDwrfEncryptionInformationSource
                         ImmutableMap.of(),
                         ImmutableMap.of()),
                 ImmutableList.of(
-                        new Column("col_string", HIVE_STRING, Optional.empty()),
-                        new Column("col_bigint", HIVE_LONG, Optional.empty()),
-                        new Column("col_map", HiveType.valueOf("map<string,string>"), Optional.empty()),
-                        new Column("col_struct", STRUCT_TYPE, Optional.empty())),
-                isPartitioned ? ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty())) : ImmutableList.of(),
+                        new Column("col_string", HIVE_STRING, Optional.empty(), Optional.empty()),
+                        new Column("col_bigint", HIVE_LONG, Optional.empty(), Optional.empty()),
+                        new Column("col_map", HiveType.valueOf("map<string,string>"), Optional.empty(), Optional.empty()),
+                        new Column("col_struct", STRUCT_TYPE, Optional.empty(), Optional.empty())),
+                isPartitioned ? ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())) : ImmutableList.of(),
                 tableEncryptionProperties.map(DwrfTableEncryptionProperties::toHiveProperties).orElse(ImmutableMap.of()),
                 Optional.empty(),
                 Optional.empty());

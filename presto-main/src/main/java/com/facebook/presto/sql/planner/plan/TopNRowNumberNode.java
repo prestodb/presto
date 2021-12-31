@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -44,6 +45,7 @@ public final class TopNRowNumberNode
 
     @JsonCreator
     public TopNRowNumberNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
@@ -52,7 +54,7 @@ public final class TopNRowNumberNode
             @JsonProperty("partial") boolean partial,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
@@ -141,6 +143,6 @@ public final class TopNRowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+        return new TopNRowNumberNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 }

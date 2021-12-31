@@ -395,6 +395,7 @@ public class HiveTableOperations
                 .map(column -> new Column(
                         column.name(),
                         HiveType.toHiveType(HiveSchemaUtil.convert(column.type())),
+                        Optional.empty(),
                         Optional.empty()))
                 .collect(toImmutableList());
     }

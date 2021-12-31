@@ -69,8 +69,8 @@ import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -139,9 +139,10 @@ public class BenchmarkArrayFilter
                 projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
+                                Optional.empty(),
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
+                                new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), constant(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 

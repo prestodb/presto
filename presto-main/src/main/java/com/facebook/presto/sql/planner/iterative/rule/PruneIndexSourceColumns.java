@@ -58,6 +58,7 @@ public class PruneIndexSourceColumns
 
         return Optional.of(
                 new IndexSourceNode(
+                        indexSourceNode.getSourceLocation(),
                         indexSourceNode.getId(),
                         indexSourceNode.getIndexHandle(),
                         indexSourceNode.getTableHandle(),

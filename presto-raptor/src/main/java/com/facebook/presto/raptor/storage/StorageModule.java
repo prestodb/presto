@@ -27,6 +27,7 @@ import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.OrcFileTail;
+import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.metadata.AssignmentLimiter;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
@@ -55,11 +56,14 @@ import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -157,9 +161,21 @@ public class StorageModule
                     .build();
             CacheStatsMBean footerCacheStatsMBean = new CacheStatsMBean(footerCache);
             CacheStatsMBean streamCacheStatsMBean = new CacheStatsMBean(streamCache);
-            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
+
+            Optional<Cache<StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache = Optional.empty();
+            if (orcCacheConfig.isRowGroupIndexCacheEnabled()) {
+                rowGroupIndexCache = Optional.of(CacheBuilder.newBuilder()
+                        .maximumWeight(orcCacheConfig.getRowGroupIndexCacheSize().toBytes())
+                        .weigher((id, rowGroupIndices) -> toIntExact(((List<RowGroupIndex>) rowGroupIndices).stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
+                        .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
+                        .recordStats()
+                        .build());
+                CacheStatsMBean rowGroupIndexCacheStatsMBean = new CacheStatsMBean(rowGroupIndexCache.get());
+                exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStreamRowGroupIndex"), rowGroupIndexCacheStatsMBean);
+            }
+            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache, rowGroupIndexCache);
         }
         StripeMetadataSourceFactory factory = StripeMetadataSourceFactory.of(stripeMetadataSource);
         if (orcCacheConfig.isDwrfStripeCacheEnabled()) {

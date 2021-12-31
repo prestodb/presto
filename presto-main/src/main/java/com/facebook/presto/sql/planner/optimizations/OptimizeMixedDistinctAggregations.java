@@ -169,6 +169,7 @@ public class OptimizeMixedDistinctAggregations
                     VariableReferenceExpression input = aggregateInfo.getNewDistinctAggregateVariable();
                     aggregations.put(entry.getKey(), new Aggregation(
                             new CallExpression(
+                                    entry.getValue().getCall().getSourceLocation(),
                                     entry.getValue().getCall().getDisplayName(),
                                     entry.getValue().getCall().getFunctionHandle(),
                                     entry.getValue().getCall().getType(),
@@ -183,6 +184,7 @@ public class OptimizeMixedDistinctAggregations
                     VariableReferenceExpression argument = aggregateInfo.getNewNonDistinctAggregateVariables().get(entry.getKey());
                     Aggregation aggregation = new Aggregation(
                             new CallExpression(
+                                    entry.getValue().getCall().getSourceLocation(),
                                     "arbitrary",
                                     metadata.getFunctionAndTypeManager().lookupFunction("arbitrary", fromTypes(ImmutableList.of(argument.getType()))),
                                     entry.getKey().getType(),
@@ -195,7 +197,7 @@ public class OptimizeMixedDistinctAggregations
                     if (functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count")) ||
                             functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count_if")) ||
                             functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"))) {
-                        VariableReferenceExpression newVariable = variableAllocator.newVariable("expr", entry.getKey().getType());
+                        VariableReferenceExpression newVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), "expr", entry.getKey().getType());
                         aggregations.put(newVariable, aggregation);
                         coalesceVariablesBuilder.put(newVariable, entry.getKey());
                     }
@@ -207,6 +209,7 @@ public class OptimizeMixedDistinctAggregations
             Map<VariableReferenceExpression, VariableReferenceExpression> coalesceVariables = coalesceVariablesBuilder.build();
 
             AggregationNode aggregationNode = new AggregationNode(
+                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     source,
                     aggregations.build(),
@@ -223,7 +226,7 @@ public class OptimizeMixedDistinctAggregations
             Assignments.Builder outputVariables = Assignments.builder();
             for (VariableReferenceExpression variable : aggregationNode.getOutputVariables()) {
                 if (coalesceVariables.containsKey(variable)) {
-                    RowExpression expression = new SpecialFormExpression(COALESCE, BIGINT, variable, constant(0L, BIGINT));
+                    RowExpression expression = new SpecialFormExpression(variable.getSourceLocation(), COALESCE, BIGINT, variable, constant(0L, BIGINT));
                     outputVariables.put(coalesceVariables.get(variable), expression);
                 }
                 else {
@@ -231,7 +234,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
 
-            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputVariables.build(), LOCAL);
+            return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), aggregationNode, outputVariables.build(), LOCAL);
         }
 
         @Override
@@ -344,7 +347,7 @@ public class OptimizeMixedDistinctAggregations
             ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputNonDistinctAggregateVariables = ImmutableMap.builder();
             for (VariableReferenceExpression variable : source.getOutputVariables()) {
                 if (distinctVariable.equals(variable)) {
-                    VariableReferenceExpression newVariable = variableAllocator.newVariable("expr", variable.getType());
+                    VariableReferenceExpression newVariable = variableAllocator.newVariable(variable.getSourceLocation(), "expr", variable.getType());
                     aggregateInfo.setNewDistinctAggregateSymbol(newVariable);
 
                     RowExpression ifExpression = new SpecialFormExpression(
@@ -357,11 +360,11 @@ public class OptimizeMixedDistinctAggregations
                                             BOOLEAN,
                                             ImmutableList.of(groupVariable, constant(1L, BIGINT))), // TODO: this should use GROUPING() instead of relying on specific group numbering
                                     variable,
-                                    constantNull(variable.getType())));
+                                    constantNull(variable.getSourceLocation(), variable.getType())));
                     outputVariables.put(newVariable, ifExpression);
                 }
                 else if (aggregationOutputVariablesMap.containsKey(variable)) {
-                    VariableReferenceExpression newVariable = variableAllocator.newVariable("expr", variable.getType());
+                    VariableReferenceExpression newVariable = variableAllocator.newVariable(variable.getSourceLocation(), "expr", variable.getType());
                     // key of outputNonDistinctAggregateSymbols is key of an aggregation in AggrNode above, it will now aggregate on this Map's value
                     outputNonDistinctAggregateVariables.put(aggregationOutputVariablesMap.get(variable), newVariable);
 
@@ -375,7 +378,7 @@ public class OptimizeMixedDistinctAggregations
                                             BOOLEAN,
                                             ImmutableList.of(groupVariable, constant(0L, BIGINT))), // TODO: this should use GROUPING() instead of relying on specific group numbering
                                     variable,
-                                    constantNull(variable.getType())));
+                                    constantNull(variable.getSourceLocation(), variable.getType())));
                     outputVariables.put(newVariable, ifExpression);
                 }
 
@@ -391,7 +394,7 @@ public class OptimizeMixedDistinctAggregations
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 
-            return new ProjectNode(idAllocator.getNextId(), source, outputVariables.build(), LOCAL);
+            return new ProjectNode(source.getSourceLocation(), idAllocator.getNextId(), source, outputVariables.build(), LOCAL);
         }
 
         private GroupIdNode createGroupIdNode(
@@ -420,6 +423,7 @@ public class OptimizeMixedDistinctAggregations
             groups.add(ImmutableList.copyOf(group1));
 
             return new GroupIdNode(
+                    source.getSourceLocation(),
                     idAllocator.getNextId(),
                     source,
                     groups,
@@ -477,6 +481,7 @@ public class OptimizeMixedDistinctAggregations
 
                     aggregations.put(newVariable, new Aggregation(
                             new CallExpression(
+                                    aggregation.getCall().getSourceLocation(),
                                     aggregation.getCall().getDisplayName(),
                                     aggregation.getCall().getFunctionHandle(),
                                     aggregation.getCall().getType(),
@@ -488,6 +493,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
             return new AggregationNode(
+                    groupIdNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     groupIdNode,
                     aggregations.build(),

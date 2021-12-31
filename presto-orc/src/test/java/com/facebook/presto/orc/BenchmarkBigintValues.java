@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingBitmask;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -32,7 +33,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Random;
 
-import static com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask.BigintValuesUsingHashTable;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingBitmask.BigintValuesUsingHashTable;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @State(Scope.Thread)

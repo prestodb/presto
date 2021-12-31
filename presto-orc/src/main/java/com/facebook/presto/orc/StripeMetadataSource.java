@@ -13,10 +13,17 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.StripeReader.StripeId;
+import com.facebook.presto.orc.metadata.MetadataReader;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
+import com.facebook.presto.orc.metadata.RowGroupIndex;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.stream.OrcInputStream;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 public interface StripeMetadataSource
@@ -29,5 +36,15 @@ public interface StripeMetadataSource
             StripeId stripeId,
             Map<StreamId, DiskRange> diskRanges,
             boolean cacheable)
+            throws IOException;
+
+    List<RowGroupIndex> getRowIndexes(
+            MetadataReader metadataReader,
+            HiveWriterVersion hiveWriterVersion,
+            StripeId stripeId,
+            StreamId streamId,
+            OrcInputStream inputStream,
+            List<HiveBloomFilter> bloomFilters,
+            RuntimeStats runtimeStats)
             throws IOException;
 }

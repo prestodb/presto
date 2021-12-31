@@ -44,6 +44,7 @@ public class MergeLimits
 
         return Result.ofPlanNode(
                 new LimitNode(
+                        parent.getSourceLocation(),
                         parent.getId(),
                         child.getSource(),
                         Math.min(parent.getCount(), child.getCount()),

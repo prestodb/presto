@@ -317,14 +317,18 @@ public class OrcWriter
             }
         }
         this.columnWriters = columnWriters.build();
-        this.dictionaryMaxMemoryBytes = toIntExact(
-                requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes());
+        this.dictionaryMaxMemoryBytes = toIntExact(options.getDictionaryMaxMemory().toBytes());
+        int dictionaryMemoryAlmostFullRangeBytes = toIntExact(options.getDictionaryMemoryAlmostFullRange().toBytes());
+        int dictionaryUsefulCheckColumnSizeBytes = toIntExact(options.getDictionaryUsefulCheckColumnSize().toBytes());
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 dictionaryColumnWriters.build(),
                 stripeMinBytes,
                 stripeMaxBytes,
                 stripeMaxRowCount,
-                dictionaryMaxMemoryBytes);
+                dictionaryMaxMemoryBytes,
+                dictionaryMemoryAlmostFullRangeBytes,
+                dictionaryUsefulCheckColumnSizeBytes,
+                options.getDictionaryUsefulCheckPerChunkFrequency());
 
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));

@@ -79,6 +79,7 @@ public class PushLimitThroughOffset
         return Result.ofPlanNode(
                 child.replaceChildren(ImmutableList.of(
                         new LimitNode(
+                                parent.getSourceLocation(),
                                 parent.getId(),
                                 child.getSource(),
                                 count,

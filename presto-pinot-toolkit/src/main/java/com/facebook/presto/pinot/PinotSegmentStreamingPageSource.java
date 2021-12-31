@@ -15,9 +15,9 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.pinot.grpc.Constants;
-import com.facebook.presto.pinot.grpc.GrpcRequestBuilder;
 import com.facebook.presto.pinot.grpc.PinotStreamingQueryClient;
 import com.facebook.presto.pinot.grpc.ServerResponse;
+import com.facebook.presto.pinot.query.PinotProxyGrpcRequestBuilder;
 import com.facebook.presto.spi.ConnectorSession;
 import org.apache.pinot.common.utils.DataTable;
 
@@ -135,11 +135,20 @@ public class PinotSegmentStreamingPageSource
                     Optional.empty(),
                     "Expected the grpc port > 0 always");
         }
-        return pinotStreamingQueryClient.submit(grpcHost, grpcPort, new GrpcRequestBuilder()
+        final PinotProxyGrpcRequestBuilder grpcRequestBuilder = new PinotProxyGrpcRequestBuilder()
                 .setSegments(split.getSegments())
                 .setEnableStreaming(true)
                 .setBrokerId("presto-coordinator-grpc")
-                .setSql(sql));
+                .addExtraMetadata(pinotConfig.getExtraHttpHeaders())
+                .setSql(sql);
+        if (pinotConfig.isUseProxyGrpcEndpoint()) {
+            grpcRequestBuilder.setHostName(grpcHost).setPort(grpcPort);
+            return pinotStreamingQueryClient.submit(
+                pinotConfig.getProxyGrpcHost(),
+                pinotConfig.getProxyGrpcPort(),
+                grpcRequestBuilder);
+        }
+        return pinotStreamingQueryClient.submit(grpcHost, grpcPort, grpcRequestBuilder);
     }
 
     @Override

@@ -348,7 +348,7 @@ public class BenchmarkParquetPageSource
         {
             ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
             for (int i = 0; i < channelCount; i++) {
-                builder.add(new InputReferenceExpression(i, type));
+                builder.add(new InputReferenceExpression(Optional.empty(), i, type));
             }
 
             return builder.build();

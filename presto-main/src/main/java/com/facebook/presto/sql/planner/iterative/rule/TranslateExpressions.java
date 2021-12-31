@@ -70,6 +70,7 @@ public class TranslateExpressions
             {
                 Map<NodeRef<Expression>, Type> types = analyzeCallExpressionTypes(callExpression, session, variableAllocator.getTypes());
                 return new CallExpression(
+                        callExpression.getSourceLocation(),
                         callExpression.getDisplayName(),
                         callExpression.getFunctionHandle(),
                         callExpression.getType(),

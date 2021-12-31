@@ -102,7 +102,7 @@ public final class RowExpressionTreeRewriter<C>
             List<RowExpression> arguments = rewrite(call.getArguments(), context);
 
             if (!sameElements(call.getArguments(), arguments)) {
-                return new CallExpression(call.getDisplayName(), call.getFunctionHandle(), call.getType(), arguments);
+                return new CallExpression(call.getSourceLocation(), call.getDisplayName(), call.getFunctionHandle(), call.getType(), arguments);
             }
             return call;
         }
@@ -132,7 +132,7 @@ public final class RowExpressionTreeRewriter<C>
 
             RowExpression body = rewrite(lambda.getBody(), context.get());
             if (body != lambda.getBody()) {
-                return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), body);
+                return new LambdaDefinitionExpression(lambda.getSourceLocation(), lambda.getArgumentTypes(), lambda.getArguments(), body);
             }
 
             return lambda;

@@ -56,6 +56,7 @@ import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.OrcFileTail;
+import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -75,6 +76,8 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 import javax.inject.Singleton;
 import javax.management.MBeanServer;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -208,9 +211,21 @@ public class IcebergModule
                     .build();
             CacheStatsMBean footerCacheStatsMBean = new CacheStatsMBean(footerCache);
             CacheStatsMBean streamCacheStatsMBean = new CacheStatsMBean(streamCache);
-            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
+
+            Optional<Cache<StripeReader.StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache = Optional.empty();
+            if (orcCacheConfig.isRowGroupIndexCacheEnabled()) {
+                rowGroupIndexCache = Optional.of(CacheBuilder.newBuilder()
+                        .maximumWeight(orcCacheConfig.getRowGroupIndexCacheSize().toBytes())
+                        .weigher((id, rowGroupIndices) -> toIntExact(((List<RowGroupIndex>) rowGroupIndices).stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
+                        .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
+                        .recordStats()
+                        .build());
+                CacheStatsMBean rowGroupIndexCacheStatsMBean = new CacheStatsMBean(rowGroupIndexCache.get());
+                exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStreamRowGroupIndex"), rowGroupIndexCacheStatsMBean);
+            }
+            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache, rowGroupIndexCache);
         }
         StripeMetadataSourceFactory factory = StripeMetadataSourceFactory.of(stripeMetadataSource);
         if (orcCacheConfig.isDwrfStripeCacheEnabled()) {

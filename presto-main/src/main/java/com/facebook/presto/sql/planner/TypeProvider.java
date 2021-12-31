@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -69,7 +70,7 @@ public class TypeProvider
     public Set<VariableReferenceExpression> allVariables()
     {
         return types.entrySet().stream()
-                .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
+                .map(entry -> new VariableReferenceExpression(Optional.empty(), entry.getKey(), entry.getValue()))
                 .collect(toImmutableSet());
     }
 

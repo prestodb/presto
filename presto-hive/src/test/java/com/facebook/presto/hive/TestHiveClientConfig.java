@@ -158,6 +158,10 @@ public class TestHiveClientConfig
                 .setMaterializedViewMissingPartitionsThreshold(100)
                 .setLooseMemoryAccountingEnabled(false)
                 .setReadColumnIndexFilter(false));
+                .setSizeBasedSplitWeightsEnabled(true)
+                .setMinimumAssignedSplitWeight(0.05)
+                .setUserDefinedTypeEncodingEnabled(false)
+                .setUseRecordPageSourceForCustomSplit(true));
     }
 
     @Test
@@ -276,6 +280,10 @@ public class TestHiveClientConfig
                 .put("hive.verbose-runtime-stats-enabled", "true")
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
                 .put("hive.readColumnIndexFilter", "true")
+                .put("hive.size-based-split-weights-enabled", "false")
+                .put("hive.user-defined-type-encoding-enabled", "true")
+                .put("hive.minimum-assigned-split-weight", "1.0")
+                .put("hive.use-record-page-source-for-custom-split", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -391,6 +399,10 @@ public class TestHiveClientConfig
                 .setMaterializedViewMissingPartitionsThreshold(50)
                 .setLooseMemoryAccountingEnabled(true)
                 .setReadColumnIndexFilter(true);
+                .setSizeBasedSplitWeightsEnabled(false)
+                .setMinimumAssignedSplitWeight(1.0)
+                .setUserDefinedTypeEncodingEnabled(true)
+                .setUseRecordPageSourceForCustomSplit(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

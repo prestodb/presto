@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.Map;
+import java.util.Optional;
 
 public abstract class AbstractJoinNode
         extends InternalPlanNode
 {
-    protected AbstractJoinNode(PlanNodeId planNodeId)
+    protected AbstractJoinNode(Optional<SourceLocation> sourceLocation, PlanNodeId planNodeId)
     {
-        super(planNodeId);
+        super(sourceLocation, planNodeId);
     }
 
     public abstract Map<String, VariableReferenceExpression> getDynamicFilters();
