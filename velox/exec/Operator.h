@@ -344,9 +344,7 @@ class Operator {
 
   // Registers 'translator' for mapping user defined PlanNode subclass instances
   // to user-defined Operators.
-  static void registerOperator(std::unique_ptr<PlanNodeTranslator> translator) {
-    translators().emplace_back(std::move(translator));
-  }
+  static void registerOperator(std::unique_ptr<PlanNodeTranslator> translator);
 
   // Calls all the registered PlanNodeTranslators on 'planNode' and
   // returns the result of the first one that returns non-nullptr

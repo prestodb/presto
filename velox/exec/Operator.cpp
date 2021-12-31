@@ -45,6 +45,12 @@ std::unique_ptr<Operator> Operator::fromPlanNode(
   return nullptr;
 }
 
+// static
+void Operator::registerOperator(
+    std::unique_ptr<PlanNodeTranslator> translator) {
+  translators().emplace_back(std::move(translator));
+}
+
 std::optional<uint32_t> Operator::maxDrivers(
     const std::shared_ptr<const core::PlanNode>& planNode) {
   for (auto& translator : translators()) {
