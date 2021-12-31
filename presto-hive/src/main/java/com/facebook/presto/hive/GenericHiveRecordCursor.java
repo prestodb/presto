@@ -255,7 +255,15 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            booleans[column] = (Boolean) fieldValue;
+            if (fieldValue instanceof String) {
+                booleans[column] = Boolean.parseBoolean((String) fieldValue);
+            }
+            else if (fieldValue instanceof Boolean) {
+                booleans[column] = (Boolean) fieldValue;
+            }
+            else {
+                throw new IllegalStateException("unsupported boolean field type: " + fieldValue.getClass().getName());
+            }
             nulls[column] = false;
         }
     }
@@ -275,6 +283,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private void parseLongColumn(int column)
     {
         loaded[column] = true;
+        Type type = types[column];
 
         Object fieldData = rowInspector.getStructFieldData(rowData, structFields[column]);
 
@@ -284,37 +293,68 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
+            longs[column] = getLongExpressedValue(fieldValue, type, hiveStorageTimeZone);
             nulls[column] = false;
         }
     }
 
-    private static long getLongExpressedValue(Object value, DateTimeZone hiveTimeZone)
+    private static long getLongExpressedValue(Object value, Type type, DateTimeZone hiveTimeZone)
     {
-        if (value instanceof Date) {
-            long storageTime = ((Date) value).getTime();
+        Type[] numberTypes = {TINYINT, SMALLINT, INTEGER, BIGINT};
+        if (DATE.equals(type)) {
+            long storageTime;
+            if (value instanceof String) {
+                storageTime = Date.valueOf((String) value).getTime();
+            }
+            else {
+                storageTime = ((Date) value).getTime();
+            }
             // convert date from VM current time zone to UTC
             long utcMillis = storageTime + JVM_TIME_ZONE.getOffset(storageTime);
             return TimeUnit.MILLISECONDS.toDays(utcMillis);
         }
-        if (value instanceof Timestamp) {
+        else if (TIMESTAMP.equals(type)) {
             // The Hive SerDe parses timestamps using the default time zone of
             // this JVM, but the data might have been written using a different
             // time zone. We need to convert it to the configured time zone.
 
             // the timestamp that Hive parsed using the JVM time zone
-            long parsedJvmMillis = ((Timestamp) value).getTime();
-
+            long parsedJvmMillis;
+            if (value instanceof String) {
+                parsedJvmMillis = Timestamp.valueOf((String) value).getTime();
+            }
+            else {
+                parsedJvmMillis = ((Timestamp) value).getTime();
+            }
             // remove the JVM time zone correction from the timestamp
             long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);
 
             // convert to UTC using the real time zone for the underlying data
             return hiveTimeZone.convertLocalToUTC(hiveMillis, false);
         }
-        if (value instanceof Float) {
-            return floatToRawIntBits(((Float) value));
+        else if (REAL.equals(type)) {
+            float parsedFloat;
+            if (value instanceof String) {
+                parsedFloat = Float.parseFloat((String) value);
+            }
+            else {
+                parsedFloat = (Float) value;
+            }
+            return floatToRawIntBits(parsedFloat);
         }
-        return ((Number) value).longValue();
+        else if (Arrays.asList(numberTypes).contains(type)) {
+            long parsedLong;
+            if (value instanceof String) {
+                parsedLong = Long.parseLong((String) value);
+            }
+            else {
+                parsedLong = ((Number) value).longValue();
+            }
+            return parsedLong;
+        }
+        else {
+            throw new IllegalStateException("unsupported long field type: " + value.getClass().getName());
+        }
     }
 
     @Override
@@ -341,7 +381,15 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            doubles[column] = ((Number) fieldValue).doubleValue();
+            if (fieldValue instanceof String) {
+                doubles[column] = Double.parseDouble((String) fieldValue);
+            }
+            else if (fieldValue instanceof Number) {
+                doubles[column] = ((Number) fieldValue).doubleValue();
+            }
+            else {
+                throw new IllegalStateException("unsupported double field type: " + value.getClass().getName());
+            }
             nulls[column] = false;
         }
     }
@@ -385,7 +433,10 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         checkState(fieldValue != null, "fieldValue should not be null");
         BinaryComparable hiveValue;
-        if (fieldValue instanceof Text) {
+        if (fieldValue instanceof String) {
+            hiveValue = new Text((String) fieldValue);
+        }
+        else if (fieldValue instanceof Text) {
             hiveValue = (Text) fieldValue;
         }
         else if (fieldValue instanceof BytesWritable) {
@@ -457,7 +508,16 @@ class GenericHiveRecordCursor<K, V extends Writable>
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
 
-            HiveDecimal decimal = (HiveDecimal) fieldValue;
+            HiveDecimal decimal;
+            if (fieldValue instanceof String) {
+                decimal = HiveDecimal.create((String) fieldValue);
+            }
+            else if (fieldValue instanceof HiveDecimal) {
+                decimal = (HiveDecimal) fieldValue;
+            }
+            else {
+                throw new IllegalStateException("unsupported decimal field type: " + fieldValue.getClass().getName());
+            }
             DecimalType columnType = (DecimalType) types[column];
             BigInteger unscaledDecimal = rescale(decimal.unscaledValue(), decimal.scale(), columnType.getScale());
 
