@@ -107,7 +107,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReade
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveSessionProperties.readColumnIndexFilter;
-import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;

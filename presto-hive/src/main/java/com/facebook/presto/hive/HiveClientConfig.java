@@ -1754,7 +1754,5 @@ public class HiveClientConfig
     {
         this.useRecordPageSourceForCustomSplit = useRecordPageSourceForCustomSplit;
         return this;
-      
-      
     }
 }

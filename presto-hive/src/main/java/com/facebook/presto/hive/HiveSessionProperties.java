@@ -632,7 +632,7 @@ public final class HiveSessionProperties
                         USE_COLUMN_INDEX_FILTER,
                         "should use column index statistics filtering",
                         hiveClientConfig.getReadColumnIndexFilter(),
-                        false),                
+                        false),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
                         "Enable estimating split weights based on size in bytes",
@@ -1122,7 +1122,7 @@ public final class HiveSessionProperties
     {
         return session.getProperty(USE_COLUMN_INDEX_FILTER, Boolean.class);
     }
-  
+
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
     {
         return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
@@ -1135,12 +1135,6 @@ public final class HiveSessionProperties
 
     public static boolean isUseRecordPageSourceForCustomSplit(ConnectorSession session)
     {
-        return session.getProperty(
-          
-          
-          
-          
-          
-          , Boolean.class);
+        return session.getProperty(USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT, Boolean.class);
     }
 }

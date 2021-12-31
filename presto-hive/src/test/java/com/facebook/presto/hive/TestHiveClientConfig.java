@@ -157,7 +157,7 @@ public class TestHiveClientConfig
                 .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS))
                 .setMaterializedViewMissingPartitionsThreshold(100)
                 .setLooseMemoryAccountingEnabled(false)
-                .setReadColumnIndexFilter(false));
+                .setReadColumnIndexFilter(false)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setUserDefinedTypeEncodingEnabled(false)
@@ -279,7 +279,7 @@ public class TestHiveClientConfig
                 .put("hive.loose-memory-accounting-enabled", "true")
                 .put("hive.verbose-runtime-stats-enabled", "true")
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
-                .put("hive.readColumnIndexFilter", "true")
+                .put("hive.parquet-use-column-index-filter", "true")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.user-defined-type-encoding-enabled", "true")
                 .put("hive.minimum-assigned-split-weight", "1.0")
@@ -398,7 +398,7 @@ public class TestHiveClientConfig
                 .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS))
                 .setMaterializedViewMissingPartitionsThreshold(50)
                 .setLooseMemoryAccountingEnabled(true)
-                .setReadColumnIndexFilter(true);
+                .setReadColumnIndexFilter(true)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0)
                 .setUserDefinedTypeEncodingEnabled(true)
