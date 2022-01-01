@@ -354,6 +354,14 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testLastDayOfMonth()
+    {
+        assertFunction("last_day_of_month(" + DATE_LITERAL + ")", DateType.DATE, toDate(DATE.withDayOfMonth(31)));
+        assertFunction("last_day_of_month(" + TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(DATE.withDayOfMonth(31)));
+        assertFunction("last_day_of_month(" + WEIRD_TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(DATE.withDayOfMonth(31)));
+    }
+
+    @Test
     public void testExtractFromTimestamp()
     {
         assertFunction("extract(second FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getSecondOfMinute());
