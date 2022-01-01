@@ -24,6 +24,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
@@ -31,8 +32,10 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class UseTask
-        implements DataDefinitionTask<Use>
+        implements SessionTransactionControlTask<Use>
 {
+    private final AtomicReference<String> setCatalog = new AtomicReference<>();
+
     @Override
     public String getName()
     {

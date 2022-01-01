@@ -140,8 +140,9 @@ public class TestCreateMaterializedViewTask
                 executorService,
                 metadata,
                 WarningCollector.NOOP);
-
-        getFutureValue(new CreateMaterializedViewTask(parser).execute(statement, transactionManager, metadata, accessControl, stateMachine, emptyList()));
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+        getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector));
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
     }
@@ -165,9 +166,9 @@ public class TestCreateMaterializedViewTask
                 executorService,
                 metadata,
                 WarningCollector.NOOP);
-
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
         try {
-            getFutureValue(new CreateMaterializedViewTask(parser).execute(statement, transactionManager, metadata, accessControl, stateMachine, emptyList()));
+            getFutureValue(new CreateMaterializedViewTask(parser).execute(statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector));
             fail("expected exception");
         }
         catch (RuntimeException e) {

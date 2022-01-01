@@ -38,7 +38,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 
 public class SetSessionTask
-        implements DataDefinitionTask<SetSession>
+        implements SessionTransactionControlTask<SetSession>
 {
     @Override
     public String getName()
