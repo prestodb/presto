@@ -20,6 +20,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -37,44 +38,46 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     public static final String PATH_SCHEMA = "$path$";
     public static final String DELTA_SCHEMA = "deltaTables"; // Schema in Hive which has test Delta tables
 
+    /**
+     * List of tables present in the test resources directory.
+     */
+    private static final String[] DELTA_TEST_TABLE_LIST = {
+            "data-reader-primitives",
+            "data-reader-array-primitives",
+            "data-reader-map",
+            "snapshot-data3",
+            "checkpointed-delta-table",
+            "time-travel-partition-changes-b",
+            "deltatbl-partition-prune",
+            "data-reader-partition-values",
+            "data-reader-nested-struct"
+    };
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaQueryRunner(ImmutableMap.of(
+        QueryRunner queryRunner = createDeltaQueryRunner(ImmutableMap.of(
                 "experimental.pushdown-subfields-enabled", "true",
                 "experimental.pushdown-dereference-enabled", "true"));
+
+        // Create the test Delta tables in HMS
+        for (String deltaTestTable : DELTA_TEST_TABLE_LIST) {
+            registerDeltaTableInHMS(queryRunner, deltaTestTable, deltaTestTable);
+        }
+
+        return queryRunner;
     }
 
-    /**
-     * Helper method to
-     * - registering Delta table given location as a Hive table and
-     * - run the test query, expected results query and compare the results.
-     */
-    protected void assertDeltaQuery(String deltaTable, String testQuery, String expResultsQuery)
+    @AfterClass
+    public void deleteTestDeltaTables()
     {
-        try {
-            registerDeltaTableInHMS(deltaTable, deltaTable);
-            assertQuery(testQuery, expResultsQuery);
-        }
-        finally {
-            unregisterDeltaTableInHMS(deltaTable);
-        }
-    }
-
-    /**
-     * Helper method to
-     * - registering Delta table given location as a Hive table and
-     * - run the test query, expect the query to fail and failure contains the expected message
-     */
-    protected void assertDeltaQueryFails(String deltaTable, String testQuery, String expFailure)
-    {
-        try {
-            registerDeltaTableInHMS(deltaTable, deltaTable);
-            assertQueryFails(testQuery, expFailure);
-        }
-        finally {
-            unregisterDeltaTableInHMS(deltaTable);
+        QueryRunner queryRunner = getQueryRunner();
+        if (queryRunner != null) {
+            // Remove the test Delta tables from HMS
+            for (String deltaTestTable : DELTA_TEST_TABLE_LIST) {
+                unregisterDeltaTableInHMS(queryRunner, deltaTestTable);
+            }
         }
     }
 
@@ -132,12 +135,13 @@ public abstract class AbstractDeltaDistributedQueryTestBase
      * Hive and Delta catalogs share the same HMS in this test. Hive is used to register the tables as Delta
      * connector doesn't have the write support yet.
      *
+     * @param queryRunner
      * @param deltaTableName Name of the delta table which is on the classpath.
      * @param hiveTableName Name of the Hive table that the Delta table is to be registered as in HMS
      */
-    protected void registerDeltaTableInHMS(String deltaTableName, String hiveTableName)
+    private static void registerDeltaTableInHMS(QueryRunner queryRunner, String deltaTableName, String hiveTableName)
     {
-        getQueryRunner().execute(format(
+        queryRunner.execute(format(
                 "CREATE TABLE %s.\"%s\".\"%s\" (dummyColumn INT) WITH (external_location = '%s')",
                 HIVE_CATALOG,
                 DELTA_SCHEMA,
@@ -148,9 +152,8 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     /**
      * Drop the given table from HMS
      */
-    protected void unregisterDeltaTableInHMS(String hiveTableName)
+    private static void unregisterDeltaTableInHMS(QueryRunner queryRunner, String hiveTableName)
     {
-        getQueryRunner().execute(
-                format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", HIVE_CATALOG, DELTA_SCHEMA, hiveTableName));
+        queryRunner.execute(format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", HIVE_CATALOG, DELTA_SCHEMA, hiveTableName));
     }
 }
