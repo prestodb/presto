@@ -184,22 +184,15 @@ public class TestDeltaScanOptimizations
             Map<String, Domain> expectedConstraint,
             Map<String, Domain> expectedEnforcedConstraint)
     {
-        try {
-            registerDeltaTableInHMS(tableName, tableName);
+        // verify the plan contains filter pushed down into scan appropriately
+        assertPlan(withDereferencePushdownEnabled(),
+                testQuery,
+                anyTree(tableScanWithConstraints(
+                        tableName,
+                        expectedConstraint,
+                        expectedEnforcedConstraint)));
 
-            // verify the plan contains filter pushed down into scan appropriately
-            assertPlan(withDereferencePushdownEnabled(),
-                    testQuery,
-                    anyTree(tableScanWithConstraints(
-                            tableName,
-                            expectedConstraint,
-                            expectedEnforcedConstraint)));
-
-            assertQuery(testQuery, expResultsQuery);
-        }
-        finally {
-            unregisterDeltaTableInHMS(tableName);
-        }
+        assertQuery(testQuery, expResultsQuery);
     }
 
     /**
