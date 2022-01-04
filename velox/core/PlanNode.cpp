@@ -162,12 +162,11 @@ AbstractJoinNode::AbstractJoinNode(
       filter_(std::move(filter)),
       sources_({std::move(left), std::move(right)}),
       outputType_(outputType) {
-  VELOX_CHECK(
-      !leftKeys_.empty(), "HashJoinNode requires at least one join key");
+  VELOX_CHECK(!leftKeys_.empty(), "JoinNode requires at least one join key");
   VELOX_CHECK_EQ(
       leftKeys_.size(),
       rightKeys_.size(),
-      "HashJoinNode requires same number of join keys on probe and build sides");
+      "JoinNode requires same number of join keys on left and right sides");
   if (isSemiJoin() || isAntiJoin()) {
     VELOX_CHECK_NULL(filter, "Semi and anti join does not support filter");
   }
@@ -175,37 +174,37 @@ AbstractJoinNode::AbstractJoinNode(
   for (auto key : leftKeys_) {
     VELOX_CHECK(
         leftType->containsChild(key->name()),
-        "Probe side join key not found in probe side output: {}",
+        "Left side join key not found in left side output: {}",
         key->name());
   }
   auto rightType = sources_[1]->outputType();
   for (auto key : rightKeys_) {
     VELOX_CHECK(
         rightType->containsChild(key->name()),
-        "Build side join key not found in build side output: {}",
+        "Right side join key not found in right side output: {}",
         key->name());
   }
   for (auto i = 0; i < leftKeys_.size(); ++i) {
     VELOX_CHECK_EQ(
         leftKeys_[i]->type()->kind(),
         rightKeys_[i]->type()->kind(),
-        "Join key types on the probe and build sides must match");
+        "Join key types on the left and right sides must match");
   }
   for (auto i = 0; i < outputType_->size(); ++i) {
     auto name = outputType_->nameOf(i);
     if (leftType->containsChild(name)) {
       VELOX_CHECK(
           !rightType->containsChild(name),
-          "Duplicate column name found on join's build and probe sides: {}",
+          "Duplicate column name found on join's left and right sides: {}",
           name);
     } else if (rightType->containsChild(name)) {
       VELOX_CHECK(
           !leftType->containsChild(name),
-          "Duplicate column name found on join's build and probe sides: {}",
+          "Duplicate column name found on join's left and right sides: {}",
           name);
     } else {
       VELOX_FAIL(
-          "Join's output column not found in either probe or build sides: {}",
+          "Join's output column not found in either left or right sides: {}",
           name);
     }
   }
