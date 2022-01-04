@@ -73,6 +73,15 @@ template <>
 }
 
 template <>
+::duckdb::Value duckValueAt<TypeKind::DATE>(
+    const VectorPtr& vector,
+    vector_size_t index) {
+  using T = typename KindToFlatVector<TypeKind::DATE>::WrapperType;
+  return ::duckdb::Value::DATE(::duckdb::Date::EpochDaysToDate(
+      vector->as<SimpleVector<T>>()->valueAt(index).days()));
+}
+
+template <>
 ::duckdb::Value duckValueAt<TypeKind::ARRAY>(
     const VectorPtr& vector,
     int32_t row) {
@@ -126,6 +135,15 @@ velox::variant variantAt<TypeKind::TIMESTAMP>(
     int32_t column) {
   return velox::variant::timestamp(duckdbTimestampToVelox(
       dataChunk->GetValue(column, row).GetValue<::duckdb::timestamp_t>()));
+}
+
+template <>
+velox::variant variantAt<TypeKind::DATE>(
+    ::duckdb::DataChunk* dataChunk,
+    int32_t row,
+    int32_t column) {
+  return velox::variant::date(::duckdb::Date::EpochDays(
+      dataChunk->GetValue(column, row).GetValue<::duckdb::date_t>()));
 }
 
 template <TypeKind kind>

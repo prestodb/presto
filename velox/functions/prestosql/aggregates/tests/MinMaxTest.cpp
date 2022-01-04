@@ -278,6 +278,19 @@ TEST_F(MinMaxTest, minMaxTimestamp) {
       "SELECT date_trunc('millisecond', min(c0)), date_trunc('millisecond', max(c0)) FROM tmp");
 }
 
+TEST_F(MinMaxTest, minMaxDate) {
+  auto rowType = ROW({"c0"}, {DATE()});
+  auto vectors = makeVectors(rowType, 1'000, 10);
+  createDuckDbTable(vectors);
+
+  auto agg = PlanBuilder()
+                 .values(vectors)
+                 .partialAggregation({}, {"min(c0)", "max(c0)"})
+                 .finalAggregation()
+                 .planNode();
+  assertQuery(agg, "SELECT min(c0), max(c0) from tmp");
+}
+
 TEST_F(MinMaxTest, initialValue) {
   // Ensures that no groups are default initialized (to 0) in
   // aggregate::SimpleNumericAggregate.
