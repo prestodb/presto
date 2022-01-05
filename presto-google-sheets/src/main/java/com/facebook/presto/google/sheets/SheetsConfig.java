@@ -29,6 +29,11 @@ public class SheetsConfig
     private String metadataSheetId;
     private int sheetsDataMaxCacheSize = 1000;
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
+    private String sheetsRange;
+    private String sheetsValueInputOption;
+    private String drivePermissionType;
+    private String drivePermissionRole;
+    private String drivePermissionDomain;
 
     @NotNull
     public String getCredentialsFilePath()
@@ -84,5 +89,75 @@ public class SheetsConfig
     {
         this.sheetsDataExpireAfterWrite = sheetsDataExpireAfterWriteMinutes;
         return this;
+    }
+
+    @Config("sheets-range")
+    @ConfigDescription("Sheets range while updating data")
+    public SheetsConfig setSheetRange(String sheetsRange)
+    {
+        this.sheetsRange = sheetsRange;
+        return this;
+    }
+
+    @NotNull
+    public String getSheetRange()
+    {
+        return sheetsRange;
+    }
+
+    @Config("sheets-value-input-option")
+    @ConfigDescription("Sheets value input option")
+    public SheetsConfig setSheetsValueInputOption(String sheetsValueInputOption)
+    {
+        this.sheetsValueInputOption = sheetsValueInputOption;
+        return this;
+    }
+
+    @NotNull
+    public String getSheetsValueInputOption()
+    {
+        return sheetsValueInputOption;
+    }
+
+    @Config("drive-permission-type")
+    @ConfigDescription("Drive permission type")
+    public SheetsConfig setDrivePermissionType(String drivePermissionType)
+    {
+        this.drivePermissionType = drivePermissionType;
+        return this;
+    }
+
+    @Config("drive-permission-role")
+    @ConfigDescription("Drive permission role")
+    public SheetsConfig setDrivePermissionRole(String drivePermissionRole)
+    {
+        this.drivePermissionRole = drivePermissionRole;
+        return this;
+    }
+
+    @Config("drive-permission-domain")
+    @ConfigDescription("Drive permission domain")
+    public SheetsConfig setDrivePermissionDomain(String drivePermissionDomain)
+    {
+        this.drivePermissionDomain = drivePermissionDomain;
+        return this;
+    }
+
+    @NotNull
+    public String getDrivePermissionType()
+    {
+        return drivePermissionType;
+    }
+
+    @NotNull
+    public String getDrivePermissionRole()
+    {
+        return drivePermissionRole;
+    }
+
+    @NotNull
+    public String getDrivePermissionDomain()
+    {
+        return drivePermissionDomain;
     }
 }
