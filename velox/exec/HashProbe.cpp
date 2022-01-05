@@ -225,7 +225,6 @@ void HashProbe::clearDynamicFilters() {
 
 void HashProbe::addInput(RowVectorPtr input) {
   input_ = std::move(input);
-  newInputForLeftJoin_ = isLeftJoin(joinType_);
 
   if (canReplaceWithDynamicFilter_) {
     replacedWithDynamicFilter_ = true;
@@ -291,9 +290,28 @@ void HashProbe::addInput(RowVectorPtr input) {
     }
     return;
   }
-  lookup_->hits.resize(lookup_->rows.back() + 1);
-  table_->joinProbe(*lookup_);
-  results_.reset(*lookup_);
+  if (isLeftJoin(joinType_)) {
+    // Make sure to allocate an entry in 'hits' for every input row to allow for
+    // including rows without a match in the output. Also, make sure to
+    // initialize all 'hits' to nullptr as HashTable::joinProbe will only
+    // process activeRows_.
+    auto numInput = input_->size();
+    auto& hits = lookup_->hits;
+    hits.resize(numInput);
+    std::fill(hits.data(), hits.data() + numInput, nullptr);
+    table_->joinProbe(*lookup_);
+
+    // Update lookup_->rows to include all input rows, not just activeRows_ as
+    // we need to include all rows in the output.
+    auto& rows = lookup_->rows;
+    rows.resize(numInput);
+    std::iota(rows.begin(), rows.end(), 0);
+    results_.reset(*lookup_);
+  } else {
+    lookup_->hits.resize(lookup_->rows.back() + 1);
+    table_->joinProbe(*lookup_);
+    results_.reset(*lookup_);
+  }
 }
 
 namespace {
@@ -352,21 +370,12 @@ void HashProbe::fillOutput(vector_size_t size) {
         wrapChild(size, rowNumberMapping_, inputChild);
   }
 
-  if (newInputForLeftJoin_) {
-    // populate build-side columns of the output with nulls
-    for (const auto& projection : tableResultProjections_) {
-      output_->childAt(projection.outputChannel) =
-          BaseVector::createNullConstant(
-              outputType_->childAt(projection.outputChannel), size, pool());
-    }
-  } else {
-    extractColumns(
-        table_.get(),
-        folly::Range<char**>(outputRows_.data(), size),
-        tableResultProjections_,
-        pool(),
-        output_);
-  }
+  extractColumns(
+      table_.get(),
+      folly::Range<char**>(outputRows_.data(), size),
+      tableResultProjections_,
+      pool(),
+      output_);
 }
 
 RowVectorPtr HashProbe::getNonMatchingOutputForRightJoin() {
@@ -428,7 +437,7 @@ RowVectorPtr HashProbe::getOutput() {
   // of input they produce zero or 1 row of output. Therefore, we can process
   // each batch of input in one go.
   auto outputBatchSize =
-      (isSemiOrAntiJoin || newInputForLeftJoin_) ? inputSize : outputBatchSize_;
+      (isSemiOrAntiJoin || emptyBuildSide) ? inputSize : outputBatchSize_;
   auto mapping =
       initializeRowNumberMapping(rowNumberMapping_, outputBatchSize, pool());
   outputRows_.resize(outputBatchSize);
@@ -452,25 +461,11 @@ RowVectorPtr HashProbe::getOutput() {
         }
       }
     } else {
-      if (newInputForLeftJoin_) {
-        // Collect probe rows with no match.
-        for (auto i = 0; i < inputSize; i++) {
-          if (!activeRows_.isValid(i) || !lookup_->hits[i]) {
-            mapping[numOut] = i;
-            ++numOut;
-          }
-        }
-        if (!numOut) {
-          newInputForLeftJoin_ = false;
-        }
-      }
-
-      if (!numOut) {
-        numOut = table_->listJoinResults(
-            results_,
-            mapping,
-            folly::Range(outputRows_.data(), outputRows_.size()));
-      }
+      numOut = table_->listJoinResults(
+          results_,
+          isLeftJoin(joinType_),
+          mapping,
+          folly::Range(outputRows_.data(), outputRows_.size()));
     }
 
     if (!numOut) {
@@ -479,16 +474,14 @@ RowVectorPtr HashProbe::getOutput() {
     }
     VELOX_CHECK_LE(numOut, outputRows_.size());
 
-    if (!newInputForLeftJoin_) {
-      numOut = evalFilter(numOut);
-      if (!numOut) {
-        // the filter was false on all rows.
-        if (isSemiOrAntiJoin) {
-          input_ = nullptr;
-          return nullptr;
-        }
-        continue;
+    numOut = evalFilter(numOut);
+    if (!numOut) {
+      // the filter was false on all rows.
+      if (isSemiOrAntiJoin) {
+        input_ = nullptr;
+        return nullptr;
       }
+      continue;
     }
 
     if (isRightJoin(joinType_)) {
@@ -501,7 +494,6 @@ RowVectorPtr HashProbe::getOutput() {
     if (isSemiOrAntiJoin || emptyBuildSide) {
       input_ = nullptr;
     }
-    newInputForLeftJoin_ = false;
     return output_;
   }
 }

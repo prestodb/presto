@@ -210,9 +210,6 @@ class HashProbe : public Operator {
     bool currentRowPassed{false};
   };
 
-  /// For left join, true if we received new 'input_'.
-  bool newInputForLeftJoin_{false};
-
   /// True if this is the last HashProbe operator in the pipeline. It is
   /// responsible for producing non-matching build-side rows for the right join.
   bool lastRightJoinProbe_{false};

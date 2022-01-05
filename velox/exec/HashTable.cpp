@@ -1073,16 +1073,27 @@ void HashTable<ignoreNullKeys>::prepareJoinTable(
 template <bool ignoreNullKeys>
 int32_t HashTable<ignoreNullKeys>::listJoinResults(
     JoinResultIterator& iter,
+    bool includeMisses,
     folly::Range<vector_size_t*> inputRows,
     folly::Range<char**> hits) {
   VELOX_CHECK_LE(inputRows.size(), hits.size());
   int numOut = 0;
   auto maxOut = inputRows.size();
-  while (iter.lastRow < iter.rows->size()) {
+  while (iter.lastRowIndex < iter.rows->size()) {
     if (!iter.nextHit) {
-      iter.nextHit = (*iter.hits)[(*iter.rows)[iter.lastRow]]; // NOLINT
+      auto row = (*iter.rows)[iter.lastRowIndex];
+      iter.nextHit = (*iter.hits)[row]; // NOLINT
       if (!iter.nextHit) {
-        ++iter.lastRow;
+        ++iter.lastRowIndex;
+
+        if (includeMisses) {
+          inputRows[numOut] = row; // NOLINT
+          hits[numOut] = nullptr;
+          ++numOut;
+          if (numOut >= maxOut) {
+            return numOut;
+          }
+        }
         continue;
       }
     }
@@ -1092,12 +1103,12 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
         next = nextRow(iter.nextHit);
         __builtin_prefetch(reinterpret_cast<char*>(next) + nextOffset_);
       }
-      inputRows[numOut] = (*iter.rows)[iter.lastRow]; // NOLINT
+      inputRows[numOut] = (*iter.rows)[iter.lastRowIndex]; // NOLINT
       hits[numOut] = iter.nextHit;
       ++numOut;
       iter.nextHit = next;
       if (!iter.nextHit) {
-        ++iter.lastRow;
+        ++iter.lastRowIndex;
       }
       if (numOut >= maxOut) {
         return numOut;

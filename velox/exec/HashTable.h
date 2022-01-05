@@ -68,17 +68,17 @@ class BaseHashTable {
       rows = &lookup.rows;
       hits = &lookup.hits;
       nextHit = nullptr;
-      lastRow = 0;
+      lastRowIndex = 0;
     }
 
     bool atEnd() const {
-      return lastRow == rows->size();
+      return lastRowIndex == rows->size();
     }
 
     const raw_vector<vector_size_t>* rows;
     const raw_vector<char*>* hits;
     char* nextHit{nullptr};
-    vector_size_t lastRow{0};
+    vector_size_t lastRowIndex{0};
   };
 
   struct NotProbedRowsIterator {
@@ -111,8 +111,13 @@ class BaseHashTable {
   /// of 'inputRows' is set to the corresponding row number in probe keys.
   /// Returns the number of hits produced. If this s less than hits.size() then
   /// all the hits have been produced.
+  /// Adds input rows without a match to 'inputRows' with corresponding hit
+  /// set to nullptr if 'includeMisses' is true. Otherwise, skips input rows
+  /// without a match. 'includeMisses' is set to true when listing results for
+  /// the LEFT join.
   virtual int32_t listJoinResults(
       JoinResultIterator& iter,
+      bool includeMisses,
       folly::Range<vector_size_t*> inputRows,
       folly::Range<char**> hits) = 0;
 
@@ -273,6 +278,7 @@ class HashTable : public BaseHashTable {
 
   int32_t listJoinResults(
       JoinResultIterator& iter,
+      bool includeMisses,
       folly::Range<vector_size_t*> inputRows,
       folly::Range<char**> hits) override;
 
