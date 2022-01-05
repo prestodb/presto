@@ -857,6 +857,46 @@ TEST_F(HashJoinTest, leftJoin) {
       "SELECT t.c0, t.c1, u.c1 FROM t LEFT JOIN u ON t.c0 = u.c0 AND (t.c1 + u.c1) % 2 = 3");
 }
 
+/// Tests left join with a filter that may evalute to true, false or null. Makes
+/// sure that null filter results are handled correctly, e.g. as if the filter
+/// returned false.
+TEST_F(HashJoinTest, leftJoinWithNullableFilter) {
+  auto leftVectors = {
+      makeRowVector({
+          makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
+          makeNullableFlatVector<int32_t>(
+              {10, std::nullopt, 30, std::nullopt, 50}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
+          makeNullableFlatVector<int32_t>(
+              {std::nullopt, 20, 30, std::nullopt, 50}),
+      })};
+  auto rightVectors = {
+      makeRowVector({makeFlatVector<int32_t>({1, 2, 10, 30, 40})}),
+  };
+
+  createDuckDbTable("t", leftVectors);
+  createDuckDbTable("u", rightVectors);
+
+  auto buildSide =
+      PlanBuilder(0).values(rightVectors).project({"c0"}, {"u_c0"}).planNode();
+
+  auto plan = PlanBuilder(10)
+                  .values(leftVectors)
+                  .hashJoin(
+                      {0},
+                      {0},
+                      buildSide,
+                      "c1 + u_c0 > 0",
+                      {0, 1, 2},
+                      core::JoinType::kLeft)
+                  .planNode();
+
+  assertQuery(
+      plan, "SELECT * FROM t LEFT JOIN u ON (t.c0 = u.c0 AND t.c1 + u.c0 > 0)");
+}
+
 TEST_F(HashJoinTest, rightJoin) {
   // Left side keys are [0, 1, 2,..10].
   auto leftVectors = {

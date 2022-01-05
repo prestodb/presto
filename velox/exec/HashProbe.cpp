@@ -548,7 +548,8 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
       rawMapping[numPassed++] = row;
     };
     for (auto i = 0; i < numRows; ++i) {
-      const bool passed = decodedFilterResult_.valueAt<bool>(i);
+      const bool passed = !decodedFilterResult_.isNullAt(i) &&
+          decodedFilterResult_.valueAt<bool>(i);
       leftJoinTracker_.advance(rawMapping[i], passed, addMiss);
       if (passed) {
         outputRows_[numPassed] = outputRows_[i];
