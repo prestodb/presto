@@ -25,7 +25,7 @@ line width, indentation and ordering (for includes, using directives and etc). 
 * **camelCase_** for private and protected members variables.
 * Use **snake_case** for namespace names and build targets
 * Use **UPPER_SNAKE_CASE** for macros.
-* Use **kPascalCase** for static constants.
+* Use **kPascalCase** for static constants and enumerators.
 
 
 ## Comments
