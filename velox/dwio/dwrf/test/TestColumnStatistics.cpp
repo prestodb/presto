@@ -602,29 +602,29 @@ TEST(StatisticsBuilder, basicMissingStats) {
 }
 
 TEST(StatisticsBuilder, basicHasNull) {
-  enum State { TRUE = 0, FALSE, MISSING };
+  enum class State { kTrue = 0, kFalse, kMissing };
   auto test = [](State to, State from, State expected) {
     StatisticsBuilder target{options};
-    if (to == State::TRUE) {
+    if (to == State::kTrue) {
       target.setHasNull();
-    } else if (to == State::MISSING) {
+    } else if (to == State::kMissing) {
       // merge against unknown
       proto::ColumnStatistics proto;
       target.merge(*buildColumnStatisticsFromProto(proto, context));
     }
 
     proto::ColumnStatistics proto;
-    if (from == State::FALSE) {
+    if (from == State::kFalse) {
       proto.set_hasnull(false);
-    } else if (from == State::TRUE) {
+    } else if (from == State::kTrue) {
       proto.set_hasnull(true);
     }
 
     target.merge(*buildColumnStatisticsFromProto(proto, context));
     auto stats = target.build();
-    if (expected == State::FALSE) {
+    if (expected == State::kFalse) {
       EXPECT_FALSE(stats->hasNull().value());
-    } else if (expected == State::TRUE) {
+    } else if (expected == State::kTrue) {
       EXPECT_TRUE(stats->hasNull().value());
     } else {
       EXPECT_FALSE(stats->hasNull().has_value());
@@ -632,20 +632,20 @@ TEST(StatisticsBuilder, basicHasNull) {
   };
 
   // true / any => true
-  test(State::TRUE, State::TRUE, State::TRUE);
-  test(State::TRUE, State::FALSE, State::TRUE);
-  test(State::TRUE, State::MISSING, State::TRUE);
+  test(State::kTrue, State::kTrue, State::kTrue);
+  test(State::kTrue, State::kFalse, State::kTrue);
+  test(State::kTrue, State::kMissing, State::kTrue);
   // unknown / true => true
   // unknown / unknown or false => unknown
-  test(State::MISSING, State::TRUE, State::TRUE);
-  test(State::MISSING, State::FALSE, State::MISSING);
-  test(State::MISSING, State::MISSING, State::MISSING);
+  test(State::kMissing, State::kTrue, State::kTrue);
+  test(State::kMissing, State::kFalse, State::kMissing);
+  test(State::kMissing, State::kMissing, State::kMissing);
   // false / unknown => unknown
   // false / false => false
   // false / true => true
-  test(State::FALSE, State::MISSING, State::MISSING);
-  test(State::FALSE, State::FALSE, State::FALSE);
-  test(State::FALSE, State::TRUE, State::TRUE);
+  test(State::kFalse, State::kMissing, State::kMissing);
+  test(State::kFalse, State::kFalse, State::kFalse);
+  test(State::kFalse, State::kTrue, State::kTrue);
 }
 
 TEST(StatisticsBuilder, binary) {
