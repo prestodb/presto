@@ -37,11 +37,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -129,7 +127,7 @@ public abstract class DictionaryColumnWriter
 
     protected abstract ColumnEncoding getDictionaryColumnEncoding();
 
-    protected abstract BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes);
+    protected abstract BlockStatistics addBlockToDictionary(Block block, int rowGroupOffset, int[] rowGroupIndexes);
 
     protected abstract long getRetainedDictionaryBytes();
 
@@ -518,84 +516,6 @@ public abstract class DictionaryColumnWriter
             else {
                 preserveDirectEncodingStripeIndex++;
             }
-        }
-    }
-
-    private static class DictionaryRowGroup
-    {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryRowGroup.class).instanceSize();
-
-        private final byte[] byteIndexes;
-        private final short[] shortIndexes;
-        private final int[] intIndexes;
-        private final ColumnStatistics columnStatistics;
-        private final int valueCount;
-
-        public DictionaryRowGroup(int maxIndex, int[] dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
-        {
-            requireNonNull(dictionaryIndexes, "dictionaryIndexes is null");
-            checkArgument(valueCount >= 0, "valueCount is negative");
-            requireNonNull(columnStatistics, "columnStatistics is null");
-
-            if (maxIndex <= Byte.MAX_VALUE) {
-                this.byteIndexes = new byte[valueCount];
-                this.shortIndexes = null;
-                this.intIndexes = null;
-
-                for (int i = 0; i < valueCount; i++) {
-                    byteIndexes[i] = (byte) dictionaryIndexes[i];
-                }
-            }
-            else if (maxIndex <= Short.MAX_VALUE) {
-                this.shortIndexes = new short[valueCount];
-                this.byteIndexes = null;
-                this.intIndexes = null;
-
-                for (int i = 0; i < valueCount; i++) {
-                    shortIndexes[i] = (short) dictionaryIndexes[i];
-                }
-            }
-            else {
-                this.intIndexes = Arrays.copyOf(dictionaryIndexes, valueCount);
-                this.byteIndexes = null;
-                this.shortIndexes = null;
-            }
-            this.columnStatistics = columnStatistics;
-            this.valueCount = valueCount;
-        }
-
-        public byte[] getByteIndexes()
-        {
-            return byteIndexes;
-        }
-
-        public short[] getShortIndexes()
-        {
-            return shortIndexes;
-        }
-
-        public int[] getIntegerIndexes()
-        {
-            return intIndexes;
-        }
-
-        public int getValueCount()
-        {
-            return valueCount;
-        }
-
-        public ColumnStatistics getColumnStatistics()
-        {
-            return columnStatistics;
-        }
-
-        public long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE +
-                    sizeOf(byteIndexes) +
-                    sizeOf(shortIndexes) +
-                    sizeOf(intIndexes) +
-                    columnStatistics.getRetainedSizeInBytes();
         }
     }
 
