@@ -16,6 +16,7 @@
 #pragma once
 
 #include <folly/Executor.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/core/Context.h"
@@ -26,53 +27,30 @@ namespace facebook::velox::core {
 
 class QueryCtx : public Context {
  public:
-  static std::shared_ptr<QueryCtx> create() {
-    return create(
-        std::make_shared<MemConfig>(), {}, memory::MappedMemory::getInstance());
+  // Returns QueryCtx with new executor created if not supplied. For testing
+  // purpose.
+  static std::shared_ptr<QueryCtx> createForTest(
+      std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
+      std::shared_ptr<folly::Executor> executor =
+          std::make_shared<folly::CPUThreadPoolExecutor>(
+              std::thread::hardware_concurrency())) {
+    return std::make_shared<QueryCtx>(std::move(executor), std::move(config));
   }
 
-  static std::shared_ptr<QueryCtx> create(
-      std::shared_ptr<Config> config,
-      std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
-      memory::MappedMemory* mappedMemory,
-      std::unique_ptr<memory::MemoryPool> pool =
-          memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-              kQueryRootMemoryPool),
-      std::shared_ptr<folly::Executor> executor = nullptr) {
-    return std::make_shared<QueryCtx>(
-        config,
-        connectorConfigs,
-        mappedMemory,
-        std::move(pool),
-        std::move(executor));
-  }
-
-  // TODO: Make constructors private once presto_cpp
-  // is updated to use factory methods.
-  QueryCtx()
-      : QueryCtx(
-            std::make_shared<MemConfig>(),
-            {},
-            memory::MappedMemory::getInstance(),
-            memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-                kQueryRootMemoryPool)) {}
-
-  explicit QueryCtx(const std::shared_ptr<Config>& config)
-      : QueryCtx(
-            config,
-            {},
-            memory::MappedMemory::getInstance(),
-            memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-                kQueryRootMemoryPool)) {}
-
+  // QueryCtx is used in different places. When used with `Task`, it's required
+  // that callers supply executors. In contrast, when used in expression
+  // evaluation through `ExecCtx`, executor is not needed. Hence, we don't
+  // require executor to always be passed in here, but instead, ensure that
+  // executor exists when actually being used.
   QueryCtx(
-      std::shared_ptr<Config> config,
-      std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
-      memory::MappedMemory* mappedMemory,
+      std::shared_ptr<folly::Executor> executor = nullptr,
+      std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
+      std::unordered_map<std::string, std::shared_ptr<Config>>
+          connectorConfigs = {},
+      memory::MappedMemory* mappedMemory = memory::MappedMemory::getInstance(),
       std::unique_ptr<memory::MemoryPool> pool =
           memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-              kQueryRootMemoryPool),
-      std::shared_ptr<folly::Executor> executor = nullptr)
+              kQueryRootMemoryPool))
       : Context{ContextScope::QUERY},
         pool_(std::move(pool)),
         mappedMemory_(mappedMemory),
@@ -91,6 +69,7 @@ class QueryCtx : public Context {
   }
 
   folly::Executor* executor() const {
+    VELOX_CHECK(executor_, "Executor was not supplied.");
     return executor_.get();
   }
 

@@ -67,7 +67,7 @@ class BaseDuckWrapperTest : public testing::Test {
         << "Query failed: " << result->errorMessage();
   }
 
-  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
+  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
   std::unique_ptr<core::ExecCtx> execCtx_{

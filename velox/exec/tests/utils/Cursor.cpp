@@ -110,7 +110,7 @@ TaskCursor::TaskCursor(const CursorParameters& params)
   if (params.queryCtx) {
     queryCtx = params.queryCtx;
   } else {
-    queryCtx = core::QueryCtx::create();
+    queryCtx = core::QueryCtx::createForTest();
   }
   auto numProducers = params.numResultDrivers.has_value()
       ? params.numResultDrivers.value()

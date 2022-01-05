@@ -201,7 +201,7 @@ TEST_F(LocalPartitionTest, maxBufferSizeGather) {
 
   CursorParameters params;
   params.planNode = op;
-  params.queryCtx = core::QueryCtx::create();
+  params.queryCtx = core::QueryCtx::createForTest();
 
   // Set an artificially low buffer size limit to trigger blocking behavior.
   params.queryCtx->setConfigOverridesUnsafe({
@@ -247,7 +247,7 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
   CursorParameters params;
   params.planNode = op;
   params.maxDrivers = 2;
-  params.queryCtx = core::QueryCtx::create();
+  params.queryCtx = core::QueryCtx::createForTest();
 
   // Set an artificially low buffer size limit to trigger blocking behavior.
   params.queryCtx->setConfigOverridesUnsafe({

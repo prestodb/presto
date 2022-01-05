@@ -322,7 +322,6 @@ class DriverTest : public OperatorTestBase {
   expectWithDelay([&]() { return test; }, __FILE__, __LINE__, #test)
 
 TEST_F(DriverTest, error) {
-  Driver::testingJoinAndReinitializeExecutor(10);
   CursorParameters params;
   params.planNode = makeValuesFilterProject(rowType_, "m1 % 0", "", 100, 10);
   params.maxDrivers = 20;
@@ -342,8 +341,6 @@ TEST_F(DriverTest, error) {
 
 TEST_F(DriverTest, cancel) {
   CursorParameters params;
-  params.queryCtx = core::QueryCtx::create();
-
   params.planNode = makeValuesFilterProject(
       rowType_,
       "m1 % 10 > 0",
@@ -368,8 +365,6 @@ TEST_F(DriverTest, cancel) {
 
 TEST_F(DriverTest, terminate) {
   CursorParameters params;
-  params.queryCtx = core::QueryCtx::create();
-
   params.planNode = makeValuesFilterProject(
       rowType_,
       "m1 % 10 > 0",
@@ -645,7 +640,7 @@ TEST_F(DriverTest, pauserNode) {
   constexpr int32_t kNumTasks = 20;
   constexpr int32_t kThreadsPerTask = 5;
   // Run with a fraction of the testing threads fitting in the executor.
-  Driver::testingJoinAndReinitializeExecutor(20);
+  auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(20);
   static std::atomic<int32_t> sequence{0};
   // Use a static variable to pass the test instance to the create
   // function of the testing operator. The testing operator registers
@@ -661,7 +656,8 @@ TEST_F(DriverTest, pauserNode) {
   params.resize(kNumTasks);
   int32_t hits;
   for (int32_t i = 0; i < kNumTasks; ++i) {
-    params[i].queryCtx = core::QueryCtx::create();
+    params[i].queryCtx = core::QueryCtx::createForTest(
+        std::make_shared<core::MemConfig>(), executor);
     params[i].planNode = makeValuesFilterProject(
         rowType_,
         "m1 % 10 > 0",
@@ -692,7 +688,6 @@ TEST_F(DriverTest, pauserNode) {
     EXPECT_EQ(counters[i], kThreadsPerTask * hits);
     EXPECT_TRUE(stateFutures_.at(i).isReady());
   }
-  Driver::testingJoinAndReinitializeExecutor(10);
 }
 
 int main(int argc, char** argv) {

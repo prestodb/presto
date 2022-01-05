@@ -40,7 +40,6 @@ OperatorTestBase::OperatorTestBase() {
 }
 
 OperatorTestBase::~OperatorTestBase() {
-  exec::Driver::testingJoinAndReinitializeExecutor();
   // Revert to default process-wide MappedMemory.
   memory::MappedMemory::setDefaultInstance(nullptr);
 }

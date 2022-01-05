@@ -62,12 +62,8 @@ class MultiFragmentTest : public OperatorTestBase {
       const std::string& taskId,
       std::shared_ptr<const core::PlanNode> planNode,
       int destination) {
-    auto queryCtx = core::QueryCtx::create(
-        std::make_shared<core::MemConfig>(configSettings_),
-        std::unordered_map<std::string, std::shared_ptr<Config>>{},
-        memory::MappedMemory::getInstance(),
-        memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-            "query_root"));
+    auto queryCtx = core::QueryCtx::createForTest(
+        std::make_shared<core::MemConfig>(configSettings_));
     return std::make_shared<Task>(
         taskId, planNode, destination, std::move(queryCtx));
   }

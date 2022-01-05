@@ -11,7 +11,7 @@ cpp_library(
         "include": "//velox/experimental/codegen/code_generator/tests:copy_dependencies[include]",
         "package_json": "//velox/experimental/codegen/code_generator/tests:copy_dependencies[package.json]",
     },
-    deps = [
+    exported_deps = [
         "//folly:benchmark",
         "//velox/core:velox_core",
         "//velox/dwio/dwrf/test/utils:lib_test_batch_maker",
@@ -21,12 +21,12 @@ cpp_library(
         "//velox/experimental/codegen:velox_experimental_codegen_impl",
         "//velox/experimental/codegen/code_generator:velox_codegen_code_generator",
         "//velox/experimental/codegen/utils/resources:velox_experimental_codegen_utils_resource_path",
-              "//velox/functions/prestosql/registration:velox_functions_prestosql",
+        "//velox/functions/prestosql/registration:velox_functions_prestosql",
         "//velox/parse:velox_parse",
         "//velox/parse:velox_parse_expression",
         "//velox/type:velox_type",
     ],
-    external_deps = [
+    exported_external_deps = [
         "glog",
         ("googletest", None, "gtest"),
     ],
@@ -48,7 +48,7 @@ cpp_unittest(
         "//velox/experimental/codegen:velox_experimental_codegen_exceptions",
         "//velox/experimental/codegen:velox_experimental_codegen_impl",
         "//velox/experimental/codegen/utils/timer:velox_codegen_utils_timer",
-              "//velox/functions/prestosql/registration:velox_functions_prestosql",
+        "//velox/functions/prestosql/registration:velox_functions_prestosql",
         "//velox/type:velox_type",
     ],
 )

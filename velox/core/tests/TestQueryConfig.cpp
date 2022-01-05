@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,7 +26,7 @@ using ::facebook::velox::core::QueryCtx;
 TEST(TestQueryConfig, emptyConfig) {
   std::unordered_map<std::string, std::string> configData;
   auto queryCtxConfig = std::make_shared<MemConfig>(configData);
-  auto queryCtx = std::make_shared<QueryCtx>(queryCtxConfig);
+  auto queryCtx = QueryCtx::createForTest(queryCtxConfig);
   const QueryConfig& config = queryCtx->config();
 
   ASSERT_FALSE(config.codegenEnabled());
@@ -38,7 +40,7 @@ TEST(TestQueryConfig, setConfig) {
       {{QueryConfig::kCodegenEnabled, "true"},
        {QueryConfig::kCodegenConfigurationFilePath, path}});
   auto queryCtxConfig = std::make_shared<MemConfig>(configData);
-  auto queryCtx = std::make_shared<QueryCtx>(queryCtxConfig);
+  auto queryCtx = QueryCtx::createForTest(queryCtxConfig);
   const QueryConfig& config = queryCtx->config();
 
   ASSERT_TRUE(config.codegenEnabled());

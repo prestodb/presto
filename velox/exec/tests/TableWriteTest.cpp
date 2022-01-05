@@ -230,7 +230,7 @@ TEST_F(TableWriteTest, writeEmptyFile) {
 
   auto execute = [](const std::shared_ptr<const core::PlanNode>& plan,
                     std::shared_ptr<core::QueryCtx> queryCtx =
-                        core::QueryCtx::create()) {
+                        core::QueryCtx::createForTest()) {
     CursorParameters params;
     params.planNode = plan;
     params.queryCtx = queryCtx;
@@ -240,7 +240,7 @@ TEST_F(TableWriteTest, writeEmptyFile) {
   execute(plan);
   ASSERT_FALSE(fs::exists(outputFile));
 
-  auto queryCtx = std::make_shared<core::QueryCtx>();
+  auto queryCtx = core::QueryCtx::createForTest();
   queryCtx->setConfigOverridesUnsafe(
       {{core::QueryConfig::kCreateEmptyFiles, "true"}});
   execute(plan, queryCtx);

@@ -190,9 +190,6 @@ class Driver {
     close();
   }
 
-  static folly::CPUThreadPoolExecutor* FOLLY_NONNULL
-  executor(int32_t threads = 0);
-
   static void run(std::shared_ptr<Driver> self);
 
   static void enqueue(std::shared_ptr<Driver> instance);

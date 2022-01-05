@@ -421,7 +421,7 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
   // Set an artificially low limit on the amount of data to accumulate in
   // the partial aggregation.
   CursorParameters params;
-  params.queryCtx = core::QueryCtx::create();
+  params.queryCtx = core::QueryCtx::createForTest();
 
   params.queryCtx->setConfigOverridesUnsafe({
       {core::QueryConfig::kMaxPartialAggregationMemory, "100"},

@@ -291,7 +291,7 @@ TEST_F(HashJoinTest, memory) {
                         .project({"t_k0 % 1000", "u_k0 % 1000"}, {"k1", "k2"})
                         .singleAggregation({}, {"sum(k1)", "sum(k2)"})
                         .planNode();
-  params.queryCtx = core::QueryCtx::create();
+  params.queryCtx = core::QueryCtx::createForTest();
   auto tracker = memory::MemoryUsageTracker::create();
   params.queryCtx->pool()->setMemoryUsageTracker(tracker);
   auto [taskCursor, rows] = readCursor(params, [](Task*) {});

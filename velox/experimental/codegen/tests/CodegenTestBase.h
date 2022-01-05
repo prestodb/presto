@@ -103,7 +103,7 @@ class CodegenTestCore {
             useSymbolForArithmetic_,
             eventSequence_);
     pool_ = memory::getDefaultScopedMemoryPool();
-    queryCtx_ = std::make_shared<core::QueryCtx>();
+    queryCtx_ = core::QueryCtx::createForTest();
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 
     exec::test::registerTypeResolver();
@@ -415,10 +415,6 @@ class CodegenTestBase : public CodegenTestCore, public testing::Test {
 
   virtual void SetUp() override {
     init();
-  }
-
-  void TearDown() override {
-    Driver::testingJoinAndReinitializeExecutor();
   }
 };
 }; // namespace facebook::velox::codegen
