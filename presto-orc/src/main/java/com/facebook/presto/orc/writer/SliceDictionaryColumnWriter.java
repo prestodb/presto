@@ -179,7 +179,7 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes)
+    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupOffset, int[] rowGroupIndexes)
     {
         int nonNullValueCount = 0;
         long rawBytes = 0;
@@ -198,7 +198,7 @@ public class SliceDictionaryColumnWriter
             else {
                 index = NULL_INDEX;
             }
-            rowGroupIndexes[rowGroupValueCount++] = index;
+            rowGroupIndexes[rowGroupOffset++] = index;
         }
         long rawBytesIncludingNulls = rawBytes + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
         return new BlockStatistics(nonNullValueCount, rawBytes, rawBytesIncludingNulls);

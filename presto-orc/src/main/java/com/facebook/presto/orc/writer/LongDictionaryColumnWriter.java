@@ -206,7 +206,7 @@ public class LongDictionaryColumnWriter
     }
 
     @Override
-    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes)
+    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupOffset, int[] rowGroupIndexes)
     {
         int nonNullValueCount = 0;
         long rawBytes = 0;
@@ -222,8 +222,7 @@ public class LongDictionaryColumnWriter
                 rawBytes += typeSize;
                 nonNullValueCount++;
             }
-            rowGroupIndexes[rowGroupValueCount] = index;
-            rowGroupValueCount++;
+            rowGroupIndexes[rowGroupOffset++] = index;
         }
         long rawBytesIncludingNulls = rawBytes + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
         return new BlockStatistics(nonNullValueCount, rawBytes, rawBytesIncludingNulls);
