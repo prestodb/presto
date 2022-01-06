@@ -16,8 +16,6 @@ package com.facebook.presto.orc.writer;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Arrays;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -26,63 +24,34 @@ class DictionaryRowGroup
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryRowGroup.class).instanceSize();
 
-    private final byte[] byteIndexes;
-    private final short[] shortIndexes;
-    private final int[] intIndexes;
+    private final byte[][] byteSegments;
+    private final short[][] shortSegments;
+    private final int[][] intSegments;
     private final ColumnStatistics columnStatistics;
-    private final int valueCount;
 
-    public DictionaryRowGroup(int maxIndex, int[] dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
+    public DictionaryRowGroup(byte[][] byteSegments, short[][] shortSegments, int[][] intSegments, ColumnStatistics columnStatistics)
     {
-        requireNonNull(dictionaryIndexes, "dictionaryIndexes is null");
-        checkArgument(valueCount >= 0, "valueCount is negative");
         requireNonNull(columnStatistics, "columnStatistics is null");
-
-        if (maxIndex <= Byte.MAX_VALUE) {
-            this.byteIndexes = new byte[valueCount];
-            this.shortIndexes = null;
-            this.intIndexes = null;
-
-            for (int i = 0; i < valueCount; i++) {
-                byteIndexes[i] = (byte) dictionaryIndexes[i];
-            }
-        }
-        else if (maxIndex <= Short.MAX_VALUE) {
-            this.shortIndexes = new short[valueCount];
-            this.byteIndexes = null;
-            this.intIndexes = null;
-
-            for (int i = 0; i < valueCount; i++) {
-                shortIndexes[i] = (short) dictionaryIndexes[i];
-            }
-        }
-        else {
-            this.intIndexes = Arrays.copyOf(dictionaryIndexes, valueCount);
-            this.byteIndexes = null;
-            this.shortIndexes = null;
-        }
+        checkArgument(byteSegments != null || shortSegments != null || intSegments != null, "All segments are null");
+        this.byteSegments = byteSegments;
+        this.shortSegments = shortSegments;
+        this.intSegments = intSegments;
         this.columnStatistics = columnStatistics;
-        this.valueCount = valueCount;
     }
 
-    public byte[] getByteIndexes()
+    public byte[][] getByteSegments()
     {
-        return byteIndexes;
+        return byteSegments;
     }
 
-    public short[] getShortIndexes()
+    public short[][] getShortSegments()
     {
-        return shortIndexes;
+        return shortSegments;
     }
 
-    public int[] getIntegerIndexes()
+    public int[][] getIntSegments()
     {
-        return intIndexes;
-    }
-
-    public int getValueCount()
-    {
-        return valueCount;
+        return intSegments;
     }
 
     public ColumnStatistics getColumnStatistics()
@@ -90,12 +59,12 @@ class DictionaryRowGroup
         return columnStatistics;
     }
 
-    public long getRetainedSizeInBytes()
+    public long getShallowRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                sizeOf(byteIndexes) +
-                sizeOf(shortIndexes) +
-                sizeOf(intIndexes) +
+                sizeOf(byteSegments) +
+                sizeOf(shortSegments) +
+                sizeOf(intSegments) +
                 columnStatistics.getRetainedSizeInBytes();
     }
 }
