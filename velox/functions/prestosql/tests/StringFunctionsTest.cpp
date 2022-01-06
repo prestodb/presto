@@ -1382,12 +1382,13 @@ TEST_F(StringFunctionsTest, ascinessOnDictionary) {
   using S = StringView;
   VELOX_REGISTER_VECTOR_FUNCTION(udf_multi_string_function, "multi_string_fn")
   vector_size_t size = 5;
-  auto flatVector = makeFlatVector<StringView>(
-      {S("hello how do"),
-       S("how are"),
-       S("is this how"),
-       S("abcd"),
-       S("yes no")});
+  auto flatVector = makeFlatVector<StringView>({
+      S("hello how do"),
+      S("how are"),
+      S("is this how"),
+      S("abcd"),
+      S("yes no"),
+  });
 
   auto searchVector = makeFlatVector<StringView>(
       {S("hello"), S("how"), S("is"), S("abc"), S("yes")});
@@ -1628,8 +1629,6 @@ TEST_F(StringFunctionsTest, trim) {
   // Making input vector
   std::string complexStr = generateComplexUtf8();
   std::string expectedComplexStr = complexStr.substr(4, complexStr.size() - 8);
-  std::string invalidStr = generateComplexUtf8(true);
-  std::string expectedInvalidStr = invalidStr.substr(4, invalidStr.size() - 4);
 
   const auto trim = [&](std::optional<std::string> input) {
     return evaluateOnce<std::string>("trim(c0)", input);
@@ -1661,14 +1660,13 @@ TEST_F(StringFunctionsTest, trim) {
       trim(u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
 
   EXPECT_EQ(expectedComplexStr, trim(complexStr));
-  EXPECT_EQ(expectedInvalidStr, trim(invalidStr));
+  EXPECT_EQ(
+      "Ψ\xFF\xFFΣΓΔA", trim("\u2028 \r \t \nΨ\xFF\xFFΣΓΔA \u2028 \r \t \n"));
 }
 
 TEST_F(StringFunctionsTest, ltrim) {
   std::string complexStr = generateComplexUtf8();
   std::string expectedComplexStr = complexStr.substr(4, complexStr.size() - 4);
-  std::string invalidStr = generateComplexUtf8(true);
-  std::string expectedInvalidStr = invalidStr.substr(4, invalidStr.size() - 4);
 
   const auto ltrim = [&](std::optional<std::string> input) {
     return evaluateOnce<std::string>("ltrim(c0)", input);
@@ -1702,14 +1700,12 @@ TEST_F(StringFunctionsTest, ltrim) {
       ltrim(u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
 
   EXPECT_EQ(expectedComplexStr, ltrim(complexStr));
-  EXPECT_EQ(expectedInvalidStr, ltrim(invalidStr));
+  EXPECT_EQ("Ψ\xFF\xFFΣΓΔA", ltrim("  \u2028 \r \t \n   Ψ\xFF\xFFΣΓΔA"));
 }
 
 TEST_F(StringFunctionsTest, rtrim) {
   std::string complexStr = generateComplexUtf8();
   std::string expectedComplexStr = complexStr.substr(0, complexStr.size() - 4);
-  std::string invalidStr = generateComplexUtf8(true);
-  std::string expectedInvalidStr = invalidStr;
 
   const auto rtrim = [&](std::optional<std::string> input) {
     return evaluateOnce<std::string>("rtrim(c0)", input);
@@ -1743,7 +1739,7 @@ TEST_F(StringFunctionsTest, rtrim) {
       rtrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
 
   EXPECT_EQ(expectedComplexStr, rtrim(complexStr));
-  EXPECT_EQ(expectedInvalidStr, rtrim(invalidStr));
+  EXPECT_EQ("     Ψ\xFF\xFFΣΓΔA", rtrim("     Ψ\xFF\xFFΣΓΔA \u2028 \r \t \n"));
 }
 
 TEST_F(StringFunctionsTest, rpad) {

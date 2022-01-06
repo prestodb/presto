@@ -447,7 +447,7 @@ FOLLY_ALWAYS_INLINE bool urlUnescape(
   return true;
 }
 
-// Presto supports both ascii whitespace and unicode line separator \u2028
+// Presto supports both ascii whitespace and unicode line separator \u2028.
 FOLLY_ALWAYS_INLINE bool isUnicodeWhiteSpace(utf8proc_int32_t codePoint) {
   // 9 -> \t, 10 -> \n, 13 -> \r, 32 -> ' ', 8232 -> \u2028
   return codePoint == 9 || codePoint == 10 || codePoint == 13 ||
@@ -456,6 +456,32 @@ FOLLY_ALWAYS_INLINE bool isUnicodeWhiteSpace(utf8proc_int32_t codePoint) {
 
 FOLLY_ALWAYS_INLINE bool isAsciiWhiteSpace(char ch) {
   return ch == '\t' || ch == '\n' || ch == '\r' || ch == ' ';
+}
+
+// Returns -1 if 'data' does not end with a white space, otherwise returns the
+// size of the white space character at the end of 'data'. 'size' is the size of
+// 'data' in bytes.
+FOLLY_ALWAYS_INLINE int endsWithUnicodeWhiteSpace(
+    const char* data,
+    size_t size) {
+  if (size >= 1) {
+    // check 1 byte characters.
+    // codepoints: 9, 10, 13, 32.
+    auto& lastChar = data[size - 1];
+    if (isAsciiWhiteSpace(lastChar)) {
+      return 1;
+    }
+  }
+
+  if (size >= 3) {
+    // Check if the last character is \u2028.
+    if (data[size - 3] == '\xe2' && data[size - 2] == '\x80' &&
+        data[size - 1] == '\xa8') {
+      return 3;
+    }
+  }
+
+  return -1;
 }
 
 template <typename TOutString, typename TInString>
@@ -542,58 +568,47 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
     return;
   }
 
-  auto curPos = 0;
-  int codePointSize = 0;
+  auto curStartPos = 0;
   if constexpr (leftTrim) {
-    while (curPos < input.size()) {
-      auto codePoint = utf8proc_codepoint(input.data() + curPos, codePointSize);
-      // Invalid encoding, return the remaining of the input
-      if (UNLIKELY(-1 == codePoint)) {
-        output.setNoCopy(
-            StringView(input.data() + curPos, input.size() - curPos));
+    int codePointSize = 0;
+    while (curStartPos < input.size()) {
+      auto codePoint =
+          utf8proc_codepoint(input.data() + curStartPos, codePointSize);
+      if (!isUnicodeWhiteSpace(codePoint)) {
         break;
       }
+      curStartPos += codePointSize;
+    }
 
-      if (isUnicodeWhiteSpace(codePoint)) {
-        curPos += codePointSize;
-      } else {
-        break;
-      }
+    if (curStartPos >= input.size()) {
+      output.setEmpty();
+      return;
     }
   }
-  if (curPos >= input.size()) {
-    output.setEmpty();
-    return;
-  }
-  size_t start = curPos;
 
-  // Right trim for unicode input requires to traverse the whole string
-  size_t lastNonWhiteSpace = input.size();
-  bool hasWhiteSpace = false;
+  const auto startIndex = curStartPos;
+  const auto* stringStart = input.data() + startIndex;
+  auto endIndex = input.size() - 1;
+
   if constexpr (rightTrim) {
-    while (curPos < input.size()) {
-      auto codePoint = utf8proc_codepoint(input.data() + curPos, codePointSize);
-      // Invalid encoding, return the remaining of the input
-      if (UNLIKELY(-1 == codePoint)) {
-        output.setNoCopy(
-            StringView(input.data() + start, input.size() - start));
-        return;
-      }
+    // Right trim traverses the string backwards.
 
-      if (isUnicodeWhiteSpace(codePoint)) {
-        if (!hasWhiteSpace) {
-          lastNonWhiteSpace = curPos;
-          hasWhiteSpace = true;
-        }
-      } else {
-        // reset if the next one is not a white space
-        lastNonWhiteSpace = input.size();
-        hasWhiteSpace = false;
+    while (endIndex >= startIndex) {
+      auto charSize =
+          endsWithUnicodeWhiteSpace(stringStart, endIndex - startIndex + 1);
+      if (charSize == -1) {
+        break;
       }
-      curPos += codePointSize;
+      endIndex -= charSize;
+    }
+
+    if (endIndex < startIndex) {
+      output.setEmpty();
+      return;
     }
   }
-  output.setNoCopy(StringView(input.data() + start, lastNonWhiteSpace - start));
+
+  output.setNoCopy(StringView(stringStart, endIndex - startIndex + 1));
 }
 
 template <bool ascii, typename TOutString, typename TInString>
