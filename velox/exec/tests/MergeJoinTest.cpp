@@ -116,6 +116,7 @@ class MergeJoinTest : public OperatorTestBase {
     createDuckDbTable("t", left);
     createDuckDbTable("u", right);
 
+    // Test INNER join.
     auto plan = PlanBuilder()
                     .values(left)
                     .mergeJoin(
@@ -144,6 +145,36 @@ class MergeJoinTest : public OperatorTestBase {
     assertQuery(
         makeCursorParameters(plan, 10'000),
         "SELECT t.c0, t.c1, u.c1 FROM t, u WHERE t.c0 = u.c0");
+
+    // Test LEFT join.
+    plan = PlanBuilder()
+               .values(left)
+               .mergeJoin(
+                   {"c0"},
+                   {"u_c0"},
+                   PlanBuilder()
+                       .values(right)
+                       .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                       .planNode(),
+                   "",
+                   {"c0", "c1", "u_c1"},
+                   core::JoinType::kLeft)
+               .planNode();
+
+    // Use very small output batch size.
+    assertQuery(
+        makeCursorParameters(plan, 16),
+        "SELECT t.c0, t.c1, u.c1 FROM t LEFT JOIN u ON t.c0 = u.c0");
+
+    // Use regular output batch size.
+    assertQuery(
+        makeCursorParameters(plan, 1024),
+        "SELECT t.c0, t.c1, u.c1 FROM t LEFT JOIN u ON t.c0 = u.c0");
+
+    // Use very large output batch size.
+    assertQuery(
+        makeCursorParameters(plan, 10'000),
+        "SELECT t.c0, t.c1, u.c1 FROM t LEFT JOIN u ON t.c0 = u.c0");
   }
 };
 

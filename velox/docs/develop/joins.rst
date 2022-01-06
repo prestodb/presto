@@ -6,8 +6,8 @@ Velox supports inner, left, right, semi and anti hash joins using either
 partitioned or broadcast distribution strategies. Velox also supports cross
 joins. Full outer joins are not supported yet.
 
-Velox also supports inner merge join for the case where join inputs are sorted
-on the join keys. Left, right, full, semi and anti merge joins are not
+Velox also supports inner and left merge join for the case where join inputs are
+sorted on the join keys. Right, full, semi and anti merge joins are not
 supported yet.
 
 Hash Join Implementation

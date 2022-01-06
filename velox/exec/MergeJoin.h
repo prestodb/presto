@@ -136,6 +136,10 @@ class MergeJoin : public Operator {
   /// that next batch of input is checked for more matching rows.
   bool findEndOfMatch(Match& match, const RowVectorPtr& input);
 
+  /// Initialize 'output_' vector using 'ouputType_' and 'outputBatchSize_' if
+  /// it is null.
+  void prepareOutput();
+
   // Appends a cartesian product of the current set of matching rows, leftMatch_
   // x rightMatch_, to output_. Returns true if output_ is full. Sets
   // leftMatchCursor_ and rightMatchCursor_ if output_ filled up before all the
@@ -158,8 +162,16 @@ class MergeJoin : public Operator {
       const RowVectorPtr& right,
       vector_size_t rightIndex);
 
+  /// Adds one row of output for a left-side row with no right-side match.
+  /// Copies values from the 'index_' row on the left side and fills in nulls
+  /// for columns that correspond to the right side.
+  void addOutputRowForLeftJoin();
+
   /// Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
+
+  /// Type of join.
+  const core::JoinType joinType_;
 
   /// Number of join keys.
   const size_t numKeys_;

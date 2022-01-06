@@ -30,10 +30,11 @@ MergeJoin::MergeJoin(
           "MergeJoin"),
       outputBatchSize_{
           driverCtx->execCtx->queryCtx()->config().preferredOutputBatchSize()},
+      joinType_{joinNode->joinType()},
       numKeys_{joinNode->leftKeys().size()} {
   VELOX_USER_CHECK(
-      joinNode->isInnerJoin(),
-      "Merge join supports only inner join. Other joins types are not supported yet.");
+      joinNode->isInnerJoin() || joinNode->isLeftJoin(),
+      "Merge join supports only inner and left joins. Other join types are not supported yet.");
   VELOX_USER_CHECK_NULL(
       joinNode->filter(), "Merge join doesn't support filter yet.");
 
@@ -136,6 +137,21 @@ bool MergeJoin::findEndOfMatch(Match& match, const RowVectorPtr& input) {
   return true;
 }
 
+void MergeJoin::addOutputRowForLeftJoin() {
+  for (auto& projection : leftProjections_) {
+    auto source = input_->childAt(projection.inputChannel);
+    auto target = output_->childAt(projection.outputChannel);
+    target->copy(source.get(), outputSize_, index_, 1);
+  }
+
+  for (auto& projection : rightProjections_) {
+    auto target = output_->childAt(projection.outputChannel);
+    target->setNull(outputSize_, true);
+  }
+
+  ++outputSize_;
+}
+
 void MergeJoin::addOutputRow(
     const RowVectorPtr& left,
     vector_size_t leftIndex,
@@ -156,8 +172,7 @@ void MergeJoin::addOutputRow(
   ++outputSize_;
 }
 
-bool MergeJoin::addToOutput() {
-  // Prepare output vector.
+void MergeJoin::prepareOutput() {
   if (output_ == nullptr) {
     std::vector<VectorPtr> localColumns(outputType_->size());
     for (auto i = 0; i < outputType_->size(); ++i) {
@@ -173,6 +188,10 @@ bool MergeJoin::addToOutput() {
         std::move(localColumns));
     outputSize_ = 0;
   }
+}
+
+bool MergeJoin::addToOutput() {
+  prepareOutput();
 
   size_t firstLeftBatch;
   vector_size_t leftStartIndex;
@@ -329,10 +348,35 @@ RowVectorPtr MergeJoin::doGetOutput() {
   }
 
   if (!input_ || !rightInput_) {
-    if (isFinishing() || noMoreRightInput_) {
-      if (output_) {
+    if (isLeftJoin(joinType_)) {
+      if (input_ && noMoreRightInput_) {
+        prepareOutput();
+        while (true) {
+          if (outputSize_ == outputBatchSize_) {
+            return std::move(output_);
+          }
+
+          addOutputRowForLeftJoin();
+
+          ++index_;
+          if (index_ == input_->size()) {
+            // Ran out of rows on the left side.
+            input_ = nullptr;
+            return nullptr;
+          }
+        }
+      }
+
+      if (isFinishing() && output_) {
         output_->resize(outputSize_);
         return std::move(output_);
+      }
+    } else {
+      if (isFinishing() || noMoreRightInput_) {
+        if (output_) {
+          output_->resize(outputSize_);
+          return std::move(output_);
+        }
       }
     }
 
@@ -346,6 +390,16 @@ RowVectorPtr MergeJoin::doGetOutput() {
   for (;;) {
     // Catch up input_ with rightInput_.
     while (compareResult < 0) {
+      if (isLeftJoin(joinType_)) {
+        prepareOutput();
+
+        if (outputSize_ == outputBatchSize_) {
+          return std::move(output_);
+        }
+
+        addOutputRowForLeftJoin();
+      }
+
       ++index_;
       if (index_ == input_->size()) {
         // Ran out of rows on the left side.
