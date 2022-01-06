@@ -35,6 +35,15 @@ class HashJoinTest : public HiveConnectorTestBase {
     HiveConnectorTestBase::SetUp();
   }
 
+  static std::vector<std::string> concat(
+      const std::vector<std::string>& a,
+      const std::vector<std::string>& b) {
+    std::vector<std::string> result;
+    result.insert(result.end(), a.begin(), a.end());
+    result.insert(result.end(), b.begin(), b.end());
+    return result;
+  }
+
   void testJoin(
       const std::vector<TypePtr>& keyTypes,
       int32_t numThreads,
@@ -55,11 +64,11 @@ class HashJoinTest : public HiveConnectorTestBase {
         PlanBuilder()
             .values({leftBatch}, true)
             .hashJoin(
-                allChannels(keyTypes.size()),
-                allChannels(keyTypes.size()),
+                makeKeyNames(keyTypes.size(), "t_"),
+                makeKeyNames(keyTypes.size(), "u_"),
                 PlanBuilder().values({rightBatch}, true).planNode(),
                 filter,
-                allChannels(2 * (1 + keyTypes.size())))
+                concat(leftType->names(), rightType->names()))
             .planNode();
     params.maxDrivers = numThreads;
 
@@ -69,25 +78,26 @@ class HashJoinTest : public HiveConnectorTestBase {
         params, [](auto*) {}, referenceQuery, duckDbQueryRunner_);
   }
 
+  static std::vector<std::string> makeKeyNames(
+      int cnt,
+      const std::string& prefix) {
+    std::vector<std::string> names;
+    for (int i = 0; i < cnt; ++i) {
+      names.push_back(fmt::format("{}k{}", prefix, i));
+    }
+    return names;
+  }
+
   static RowTypePtr makeRowType(
       const std::vector<TypePtr>& keyTypes,
       const std::string& namePrefix) {
-    std::vector<std::string> names;
-    for (int i = 0; i < keyTypes.size(); ++i) {
-      names.push_back(fmt::format("{}k{}", namePrefix, i));
-    }
+    std::vector<std::string> names = makeKeyNames(keyTypes.size(), namePrefix);
     names.push_back(fmt::format("{}data", namePrefix));
 
     std::vector<TypePtr> types = keyTypes;
     types.push_back(VARCHAR());
 
     return ROW(std::move(names), std::move(types));
-  }
-
-  static std::vector<ChannelIndex> allChannels(int32_t numChannels) {
-    std::vector<ChannelIndex> channels(numChannels);
-    std::iota(channels.begin(), channels.end(), 0);
-    return channels;
   }
 
   static RuntimeMetric getFiltersProduced(
@@ -246,14 +256,14 @@ TEST_F(HashJoinTest, joinSidesDifferentSchema) {
           .values({leftVectors})
           .project({"c0", "c1", "c2"}, {"t_c0", "t_c1", "t_c2"})
           .hashJoin(
-              {0},
-              {0},
+              {"t_c0"},
+              {"u_c0"},
               PlanBuilder()
                   .values({rightVectors})
                   .project({"c0", "c1", "c2"}, {"u_c0", "u_c1", "u_c2"})
                   .planNode(),
               "u_c2 > 10 AND ltrim(t_c1) = 'a%'",
-              {0, 2})
+              {"t_c0", "t_c2"})
           .project({"t_c0 * t_c2/2"})
           .planNode();
 
@@ -283,11 +293,11 @@ TEST_F(HashJoinTest, memory) {
   params.planNode = PlanBuilder()
                         .values(leftBatches, true)
                         .hashJoin(
-                            allChannels(keyTypes.size()),
-                            allChannels(keyTypes.size()),
+                            makeKeyNames(keyTypes.size(), "t_"),
+                            makeKeyNames(keyTypes.size(), "u_"),
                             PlanBuilder().values(rightBatches, true).planNode(),
                             "",
-                            allChannels(2 * (1 + keyTypes.size())))
+                            concat(leftType->names(), rightType->names()))
                         .project({"t_k0 % 1000", "u_k0 % 1000"}, {"k1", "k2"})
                         .singleAggregation({}, {"sum(k1)", "sum(k2)"})
                         .planNode();
@@ -320,11 +330,11 @@ TEST_F(HashJoinTest, lazyVectors) {
       PlanBuilder(10)
           .tableScan(ROW({"c0", "c1"}, {INTEGER(), BIGINT()}))
           .hashJoin(
-              {0},
-              {0},
+              {"c0"},
+              {"c0"},
               PlanBuilder(0).tableScan(ROW({"c0"}, {INTEGER()})).planNode(),
               "",
-              {1})
+              {"c1"})
           .project({"c1 + 1"})
           .planNode();
 
@@ -371,13 +381,16 @@ TEST_F(HashJoinTest, arrayBasedLookup) {
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
 
-  auto op =
-      PlanBuilder(10)
-          .values(leftVectors)
-          .hashJoin(
-              {0}, {0}, PlanBuilder(0).values(rightVectors).planNode(), "", {1})
-          .project({"c1 + 1"})
-          .planNode();
+  auto op = PlanBuilder(10)
+                .values(leftVectors)
+                .hashJoin(
+                    {"c0"},
+                    {"c0"},
+                    PlanBuilder(0).values(rightVectors).planNode(),
+                    "",
+                    {"c1"})
+                .project({"c1 + 1"})
+                .planNode();
 
   auto task = assertQuery(op, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
   auto joinStats =
@@ -400,11 +413,11 @@ TEST_F(HashJoinTest, innerJoinWithEmptyBuild) {
       PlanBuilder(10)
           .values({leftVectors})
           .hashJoin(
-              {0},
-              {0},
+              {"c0"},
+              {"c0"},
               PlanBuilder(0).values({rightVectors}).filter("c0 < 0").planNode(),
               "",
-              {1},
+              {"c1"},
               core::JoinType::kInner)
           .planNode();
 
@@ -429,11 +442,11 @@ TEST_F(HashJoinTest, semiJoin) {
   auto op = PlanBuilder(10)
                 .values({leftVectors})
                 .hashJoin(
-                    {0},
-                    {0},
+                    {"c0"},
+                    {"c0"},
                     PlanBuilder(0).values({rightVectors}).planNode(),
                     "",
-                    {1},
+                    {"c1"},
                     core::JoinType::kSemi)
                 .planNode();
 
@@ -444,11 +457,11 @@ TEST_F(HashJoinTest, semiJoin) {
       PlanBuilder(10)
           .values({leftVectors})
           .hashJoin(
-              {0},
-              {0},
+              {"c0"},
+              {"c0"},
               PlanBuilder(0).values({rightVectors}).filter("c0 < 0").planNode(),
               "",
-              {1},
+              {"c1"},
               core::JoinType::kSemi)
           .planNode();
 
@@ -474,14 +487,14 @@ TEST_F(HashJoinTest, antiJoin) {
   auto op = PlanBuilder(10)
                 .values({leftVectors})
                 .hashJoin(
-                    {0},
-                    {0},
+                    {"c0"},
+                    {"c0"},
                     PlanBuilder(0)
                         .values({rightVectors})
                         .filter("c0 IS NOT NULL")
                         .planNode(),
                     "",
-                    {1},
+                    {"c1"},
                     core::JoinType::kAnti)
                 .planNode();
 
@@ -494,11 +507,11 @@ TEST_F(HashJoinTest, antiJoin) {
       PlanBuilder(10)
           .values({leftVectors})
           .hashJoin(
-              {0},
-              {0},
+              {"c0"},
+              {"c0"},
               PlanBuilder(0).values({rightVectors}).filter("c0 < 0").planNode(),
               "",
-              {1},
+              {"c1"},
               core::JoinType::kAnti)
           .planNode();
 
@@ -510,11 +523,11 @@ TEST_F(HashJoinTest, antiJoin) {
   op = PlanBuilder(10)
            .values({leftVectors})
            .hashJoin(
-               {0},
-               {0},
+               {"c0"},
+               {"c0"},
                PlanBuilder(0).values({rightVectors}).planNode(),
                "",
-               {1},
+               {"c1"},
                core::JoinType::kAnti)
            .planNode();
 
@@ -561,13 +574,17 @@ TEST_F(HashJoinTest, dynamicFilters) {
   // Basic push-down.
   {
     // Inner join.
-    auto op =
-        PlanBuilder(10)
-            .tableScan(probeType)
-            .hashJoin(
-                {0}, {0}, buildSide, "", {0, 1, 3}, core::JoinType::kInner)
-            .project({"c0", "c1 + 1", "c1 + u_c1"})
-            .planNode();
+    auto op = PlanBuilder(10)
+                  .tableScan(probeType)
+                  .hashJoin(
+                      {"c0"},
+                      {"u_c0"},
+                      buildSide,
+                      "",
+                      {"c0", "c1", "u_c1"},
+                      core::JoinType::kInner)
+                  .project({"c0", "c1 + 1", "c1 + u_c1"})
+                  .planNode();
 
     auto task = assertQuery(
         op,
@@ -581,7 +598,13 @@ TEST_F(HashJoinTest, dynamicFilters) {
     // Semi join.
     op = PlanBuilder(10)
              .tableScan(probeType)
-             .hashJoin({0}, {0}, buildSide, "", {0, 1}, core::JoinType::kSemi)
+             .hashJoin(
+                 {"c0"},
+                 {"u_c0"},
+                 buildSide,
+                 "",
+                 {"c0", "c1"},
+                 core::JoinType::kSemi)
              .project({"c0", "c1 + 1"})
              .planNode();
 
@@ -609,7 +632,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                 scanOutputType,
                 makeTableHandle(common::test::SubfieldFiltersBuilder().build()),
                 assignments)
-            .hashJoin({0}, {0}, buildSide, "", {0, 1, 3})
+            .hashJoin({"a"}, {"u_c0"}, buildSide, "", {"a", "b", "u_c1"})
             .project({"a", "b + 1", "b + u_c1"})
             .planNode();
 
@@ -632,7 +655,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                       probeType,
                       makeTableHandle(std::move(filters)),
                       allRegularColumns(probeType))
-                  .hashJoin({0}, {0}, buildSide, "", {1, 3})
+                  .hashJoin({"c0"}, {"u_c0"}, buildSide, "", {"c1", "u_c1"})
                   .project({"c1 + u_c1"})
                   .planNode();
 
@@ -647,11 +670,12 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
   // Push-down that turns join into a no-op.
   {
-    auto op = PlanBuilder(10)
-                  .tableScan(probeType)
-                  .hashJoin({0}, {0}, keyOnlyBuildSide, "", {0, 1})
-                  .project({"c0", "c1 + 1"})
-                  .planNode();
+    auto op =
+        PlanBuilder(10)
+            .tableScan(probeType)
+            .hashJoin({"c0"}, {"u_c0"}, keyOnlyBuildSide, "", {"c0", "c1"})
+            .project({"c0", "c1 + 1"})
+            .planNode();
 
     auto task = assertQuery(
         op,
@@ -672,7 +696,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                       probeType,
                       makeTableHandle(std::move(filters)),
                       allRegularColumns(probeType))
-                  .hashJoin({0}, {0}, keyOnlyBuildSide, "", {1})
+                  .hashJoin({"c0"}, {"u_c0"}, keyOnlyBuildSide, "", {"c1"})
                   .project({"c1 + 1"})
                   .planNode();
 
@@ -695,7 +719,8 @@ TEST_F(HashJoinTest, dynamicFilters) {
         PlanBuilder(10)
             .tableScan(
                 probeType, probeTableHandle, allRegularColumns(probeType))
-            .hashJoin({0}, {0}, buildSide, "", {1}, core::JoinType::kInner)
+            .hashJoin(
+                {"c0"}, {"u_c0"}, buildSide, "", {"c1"}, core::JoinType::kInner)
             .project({"c1 + 1"})
             .planNode();
 
@@ -711,7 +736,8 @@ TEST_F(HashJoinTest, dynamicFilters) {
     op = PlanBuilder(10)
              .tableScan(
                  probeType, probeTableHandle, allRegularColumns(probeType))
-             .hashJoin({0}, {0}, buildSide, "", {1}, core::JoinType::kSemi)
+             .hashJoin(
+                 {"c0"}, {"u_c0"}, buildSide, "", {"c1"}, core::JoinType::kSemi)
              .project({"c1 + 1"})
              .planNode();
 
@@ -728,7 +754,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
   {
     auto op = PlanBuilder(10)
                   .values(leftVectors)
-                  .hashJoin({0}, {0}, buildSide, "", {1})
+                  .hashJoin({"c0"}, {"u_c0"}, buildSide, "", {"c1"})
                   .project({"c1 + 1"})
                   .planNode();
 
@@ -744,7 +770,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     auto op = PlanBuilder(10)
                   .tableScan(probeType)
                   .project({"cast(c0 + 1 as integer)", "c1"})
-                  .hashJoin({0}, {0}, buildSide, "", {1})
+                  .hashJoin({"p0"}, {"u_c0"}, buildSide, "", {"p1"})
                   .project({"p1 + 1"})
                   .planNode();
 
@@ -799,12 +825,16 @@ TEST_F(HashJoinTest, leftJoin) {
                        .project({"c0", "c1"}, {"u_c0", "u_c1"})
                        .planNode();
 
-  auto op =
-      PlanBuilder(10)
-          .values(leftVectors)
-          .hashJoin(
-              {0}, {0}, buildSide, "", {2, 0, 1, 4}, core::JoinType::kLeft)
-          .planNode();
+  auto op = PlanBuilder(10)
+                .values(leftVectors)
+                .hashJoin(
+                    {"c0"},
+                    {"u_c0"},
+                    buildSide,
+                    "",
+                    {"row_number", "c0", "c1", "u_c1"},
+                    core::JoinType::kLeft)
+                .planNode();
 
   assertQueryOrdered(
       op,
@@ -817,11 +847,17 @@ TEST_F(HashJoinTest, leftJoin) {
                             .filter("c0 < 0")
                             .project({"c0", "c1"}, {"u_c0", "u_c1"})
                             .planNode();
-  op =
-      PlanBuilder(10)
-          .values(leftVectors)
-          .hashJoin({0}, {0}, emptyBuildSide, "", {2, 1}, core::JoinType::kLeft)
-          .planNode();
+
+  op = PlanBuilder(10)
+           .values(leftVectors)
+           .hashJoin(
+               {"c0"},
+               {"u_c0"},
+               emptyBuildSide,
+               "",
+               {"row_number", "c1"},
+               core::JoinType::kLeft)
+           .planNode();
 
   assertQueryOrdered(
       op,
@@ -833,7 +869,12 @@ TEST_F(HashJoinTest, leftJoin) {
            .values(leftVectors)
            .filter("c0 < 5")
            .hashJoin(
-               {0}, {0}, buildSide, "", {2, 0, 1, 4}, core::JoinType::kLeft)
+               {"c0"},
+               {"u_c0"},
+               buildSide,
+               "",
+               {"row_number", "c0", "c1", "u_c1"},
+               core::JoinType::kLeft)
            .planNode();
 
   assertQueryOrdered(
@@ -846,11 +887,11 @@ TEST_F(HashJoinTest, leftJoin) {
   op = PlanBuilder(10)
            .values(leftVectors)
            .hashJoin(
-               {0},
-               {0},
+               {"c0"},
+               {"u_c0"},
                buildSide,
                "(c1 + u_c1) % 2 = 1",
-               {2, 0, 1, 4},
+               {"row_number", "c0", "c1", "u_c1"},
                core::JoinType::kLeft)
            .planNode();
 
@@ -863,11 +904,11 @@ TEST_F(HashJoinTest, leftJoin) {
   op = PlanBuilder(10)
            .values(leftVectors)
            .hashJoin(
-               {0},
-               {0},
+               {"c0"},
+               {"u_c0"},
                buildSide,
-               "(c1 + u_c1) % 2 = 3",
-               {2, 0, 1, 4},
+               "(c1 + u_c1) % 2  = 3",
+               {"row_number", "c0", "c1", "u_c1"},
                core::JoinType::kLeft)
            .planNode();
 
@@ -905,11 +946,11 @@ TEST_F(HashJoinTest, leftJoinWithNullableFilter) {
   auto plan = PlanBuilder(10)
                   .values(leftVectors)
                   .hashJoin(
-                      {0},
-                      {0},
+                      {"c0"},
+                      {"u_c0"},
                       buildSide,
                       "c1 + u_c0 > 0",
-                      {0, 1, 2},
+                      {"c0", "c1", "u_c0"},
                       core::JoinType::kLeft)
                   .planNode();
 
@@ -948,11 +989,16 @@ TEST_F(HashJoinTest, rightJoin) {
                        .project({"c0", "c1"}, {"u_c0", "u_c1"})
                        .planNode();
 
-  auto op =
-      PlanBuilder(10)
-          .values(leftVectors)
-          .hashJoin({0}, {0}, buildSide, "", {0, 1, 3}, core::JoinType::kRight)
-          .planNode();
+  auto op = PlanBuilder(10)
+                .values(leftVectors)
+                .hashJoin(
+                    {"c0"},
+                    {"u_c0"},
+                    buildSide,
+                    "",
+                    {"c0", "c1", "u_c1"},
+                    core::JoinType::kRight)
+                .planNode();
 
   assertQuery(op, "SELECT t.c0, t.c1, u.c1 FROM t RIGHT JOIN u ON t.c0 = u.c0");
 
@@ -964,7 +1010,13 @@ TEST_F(HashJoinTest, rightJoin) {
                             .planNode();
   op = PlanBuilder(10)
            .values(leftVectors)
-           .hashJoin({0}, {0}, emptyBuildSide, "", {1}, core::JoinType::kRight)
+           .hashJoin(
+               {"c0"},
+               {"u_c0"},
+               emptyBuildSide,
+               "",
+               {"c1"},
+               core::JoinType::kRight)
            .planNode();
 
   assertQueryReturnsEmptyResult(op);
@@ -973,15 +1025,15 @@ TEST_F(HashJoinTest, rightJoin) {
   op = PlanBuilder(10)
            .values(leftVectors)
            .hashJoin(
-               {0},
-               {0},
+               {"c0"},
+               {"u_c0"},
                PlanBuilder(0)
                    .values({rightVectors})
                    .filter("c0 >= 0")
                    .project({"c0", "c1"}, {"u_c0", "u_c1"})
                    .planNode(),
                "",
-               {0, 1, 3},
+               {"c0", "c1", "u_c1"},
                core::JoinType::kRight)
            .planNode();
 
@@ -994,11 +1046,11 @@ TEST_F(HashJoinTest, rightJoin) {
   op = PlanBuilder(10)
            .values(leftVectors)
            .hashJoin(
-               {0},
-               {0},
+               {"c0"},
+               {"u_c0"},
                buildSide,
                "(c1 + u_c1) % 2 = 1",
-               {0, 1, 3},
+               {"c0", "c1", "u_c1"},
                core::JoinType::kRight)
            .planNode();
 
@@ -1010,11 +1062,11 @@ TEST_F(HashJoinTest, rightJoin) {
   op = PlanBuilder(10)
            .values(leftVectors)
            .hashJoin(
-               {0},
-               {0},
+               {"c0"},
+               {"u_c0"},
                buildSide,
                "(c1 + u_c1) % 2  = 3",
-               {0, 1, 3},
+               {"c0", "c1", "u_c1"},
                core::JoinType::kRight)
            .planNode();
 

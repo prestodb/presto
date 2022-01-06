@@ -39,15 +39,14 @@ std::vector<std::string> makeNames(const std::string& prefix, int size) {
 
 std::shared_ptr<const core::ITypedExpr> parseExpr(
     const std::string& text,
-    std::shared_ptr<const RowType> rowType,
+    RowTypePtr rowType,
     memory::MemoryPool* pool) {
   auto untyped = parse::parseExpr(text);
   return core::Expressions::inferTypes(untyped, rowType, pool);
 }
 } // namespace
 
-PlanBuilder& PlanBuilder::tableScan(
-    const std::shared_ptr<const RowType>& outputType) {
+PlanBuilder& PlanBuilder::tableScan(const RowTypePtr& outputType) {
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   for (uint32_t i = 0; i < outputType->size(); ++i) {
@@ -65,7 +64,7 @@ PlanBuilder& PlanBuilder::tableScan(
 }
 
 PlanBuilder& PlanBuilder::tableScan(
-    const std::shared_ptr<const RowType>& outputType,
+    const RowTypePtr& outputType,
     const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
     const std::unordered_map<
         std::string,
@@ -84,15 +83,14 @@ PlanBuilder& PlanBuilder::values(
   return *this;
 }
 
-PlanBuilder& PlanBuilder::exchange(
-    const std::shared_ptr<const RowType>& outputType) {
+PlanBuilder& PlanBuilder::exchange(const RowTypePtr& outputType) {
   planNode_ =
       std::make_shared<core::ExchangeNode>(nextPlanNodeId(), outputType);
   return *this;
 }
 
 PlanBuilder& PlanBuilder::mergeExchange(
-    const std::shared_ptr<const RowType>& outputType,
+    const RowTypePtr& outputType,
     const std::vector<ChannelIndex>& keyIndices,
     const std::vector<core::SortOrder>& sortOrder) {
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
@@ -147,7 +145,7 @@ PlanBuilder& PlanBuilder::tableWrite(
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
-    const std::shared_ptr<const RowType>& columns,
+    const RowTypePtr& columns,
     const std::vector<std::string>& columnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     const std::string& rowCountColumnName) {
@@ -623,25 +621,24 @@ RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
 
 RowTypePtr extract(
     const RowTypePtr& type,
-    const std::vector<ChannelIndex>& channels) {
-  std::vector<std::string> names;
-  names.reserve(channels.size());
+    const std::vector<std::string>& childNames) {
+  std::vector<std::string> names = childNames;
+
   std::vector<TypePtr> types;
-  types.reserve(channels.size());
-  for (auto channel : channels) {
-    names.emplace_back(type->nameOf(channel));
-    types.emplace_back(type->childAt(channel));
+  types.reserve(childNames.size());
+  for (const auto& name : childNames) {
+    types.emplace_back(type->findChild(name));
   }
   return ROW(std::move(names), std::move(types));
 }
 } // namespace
 
 PlanBuilder& PlanBuilder::hashJoin(
-    const std::vector<ChannelIndex>& leftKeys,
-    const std::vector<ChannelIndex>& rightKeys,
+    const std::vector<std::string>& leftKeys,
+    const std::vector<std::string>& rightKeys,
     const std::shared_ptr<facebook::velox::core::PlanNode>& build,
     const std::string& filterText,
-    const std::vector<ChannelIndex>& output,
+    const std::vector<std::string>& output,
     core::JoinType joinType) {
   VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
 
@@ -669,11 +666,11 @@ PlanBuilder& PlanBuilder::hashJoin(
 }
 
 PlanBuilder& PlanBuilder::mergeJoin(
-    const std::vector<ChannelIndex>& leftKeys,
-    const std::vector<ChannelIndex>& rightKeys,
+    const std::vector<std::string>& leftKeys,
+    const std::vector<std::string>& rightKeys,
     const std::shared_ptr<facebook::velox::core::PlanNode>& build,
     const std::string& filterText,
-    const std::vector<ChannelIndex>& output,
+    const std::vector<std::string>& output,
     core::JoinType joinType) {
   VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
 
@@ -702,7 +699,7 @@ PlanBuilder& PlanBuilder::mergeJoin(
 
 PlanBuilder& PlanBuilder::crossJoin(
     const std::shared_ptr<core::PlanNode>& build,
-    const std::vector<ChannelIndex>& output) {
+    const std::vector<std::string>& output) {
   auto resultType = concat(planNode_->outputType(), build->outputType());
   auto outputType = extract(resultType, output);
 
@@ -766,12 +763,18 @@ std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
 
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
     const std::string& name) {
-  auto index = planNode_->outputType()->getChildIdx(name);
-  return field(planNode_->outputType(), index);
+  return field(planNode_->outputType(), name);
 }
 
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
-    const std::shared_ptr<const RowType>& inputType,
+    const RowTypePtr& inputType,
+    const std::string& name) {
+  auto index = inputType->getChildIdx(name);
+  return field(inputType, index);
+}
+
+std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
+    const RowTypePtr& inputType,
     int index) {
   auto name = inputType->names()[index];
   auto type = inputType->childAt(index);
@@ -780,17 +783,23 @@ std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
 
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::fields(const std::vector<std::string>& names) {
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
-      names.size());
-  for (auto i = 0; i < names.size(); i++) {
-    fields[i] = field(names[i]);
+  return fields(planNode_->outputType(), names);
+}
+
+std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
+PlanBuilder::fields(
+    const RowTypePtr& inputType,
+    const std::vector<std::string>& names) {
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields;
+  for (const auto& name : names) {
+    fields.push_back(field(inputType, name));
   }
   return fields;
 }
 
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::fields(
-    const std::shared_ptr<const RowType> inputType,
+    const RowTypePtr& inputType,
     const std::vector<ChannelIndex>& indices) {
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields;
   for (auto& index : indices) {

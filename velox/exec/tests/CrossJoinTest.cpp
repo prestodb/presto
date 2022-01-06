@@ -66,7 +66,7 @@ TEST_F(CrossJoinTest, basic) {
                         .filter("c0 < 13")
                         .project({"c0"}, {"u_c0"})
                         .planNode(),
-                    {0, 1})
+                    {"c0", "u_c0"})
                 .planNode();
 
   assertQuery(op, "SELECT * FROM t, u WHERE u.c0 < 13");
@@ -80,7 +80,7 @@ TEST_F(CrossJoinTest, basic) {
                    .values({rightVectors})
                    .project({"c0"}, {"u_c0"})
                    .planNode(),
-               {0, 1})
+               {"c0", "u_c0"})
            .planNode();
 
   assertQuery(op, "SELECT * FROM t, u WHERE t.c0 < 13");
@@ -92,7 +92,7 @@ TEST_F(CrossJoinTest, basic) {
                PlanBuilder(0)
                    .values({vectorMaker_.rowVector(ROW({}, {}), 13)})
                    .planNode(),
-               {0})
+               {"c0"})
            .planNode();
 
   assertQuery(op, "SELECT t.* FROM t, (SELECT * FROM u LIMIT 13) u");
@@ -105,7 +105,7 @@ TEST_F(CrossJoinTest, basic) {
                PlanBuilder(0)
                    .values({vectorMaker_.rowVector(ROW({}, {}), 1121)})
                    .planNode(),
-               {0})
+               {"c0"})
            .planNode();
 
   assertQuery(
@@ -121,7 +121,7 @@ TEST_F(CrossJoinTest, basic) {
                    .filter("c0 < 0")
                    .project({"c0"}, {"u_c0"})
                    .planNode(),
-               {0, 1})
+               {"c0", "u_c0"})
            .planNode();
 
   assertQueryReturnsEmptyResult(op);
@@ -138,7 +138,7 @@ TEST_F(CrossJoinTest, basic) {
                                 .filter("c0 in (10, 17)")
                                 .project({"c0"}, {"u_c0"})
                                 .planNode(),
-                            {0, 1})
+                            {"c0", "u_c0"})
                         .limit(0, 100'000, false)
                         .planNode();
 
@@ -172,7 +172,7 @@ TEST_F(CrossJoinTest, lazyVectors) {
                         .values({rightVectors})
                         .project({"c0"}, {"u_c0"})
                         .planNode(),
-                    {0, 1})
+                    {"c0", "u_c0"})
                 .filter("c0 + u_c0 < 100")
                 .planNode();
 
@@ -200,7 +200,8 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
       PlanBuilder(10)
           .values({leftVectors})
           .crossJoin(
-              PlanBuilder(0).values({rightVectors}).project({}).planNode(), {0})
+              PlanBuilder(0).values({rightVectors}).project({}).planNode(),
+              {"c0"})
           .planNode();
 
   assertQuery(
@@ -215,7 +216,7 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
                    .filter("c0 = 1")
                    .project({})
                    .planNode(),
-               {0})
+               {"c0"})
            .planNode();
 
   assertQuery(op, "SELECT * FROM t");
@@ -231,14 +232,15 @@ TEST_F(CrossJoinTest, parallelism) {
   // the bridge. Each probe thread is expected to produce 30 rows.
 
   auto left = {makeRowVector({sequence<int32_t>(2)})};
-  auto right = {makeRowVector({sequence<int32_t>(3)})};
+  auto right = {makeRowVector({"u_c0"}, {sequence<int32_t>(3)})};
 
   CursorParameters params;
   params.maxDrivers = 5;
   params.planNode =
       PlanBuilder(10)
           .values({left}, true)
-          .crossJoin(PlanBuilder().values({right}, true).planNode(), {0, 1})
+          .crossJoin(
+              PlanBuilder().values({right}, true).planNode(), {"c0", "u_c0"})
           .partialAggregation({}, {"count(1)"})
           .planNode();
 

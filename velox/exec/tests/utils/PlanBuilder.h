@@ -219,31 +219,31 @@ class PlanBuilder {
       const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
       const std::vector<ChannelIndex>& outputLayout = {});
 
-  // 'leftKeys' and 'rightKeys' are indices into the output type of the
-  // previous PlanNode and 'build', respectively.  'output' is indices
-  // into the concatenation of the previous node's output and the
-  // output of 'build'.  'filterText', if non-empty, is an expression over
+  // 'leftKeys' and 'rightKeys' are column names of the output of the
+  // previous PlanNode and 'build', respectively. 'output' is a subset of
+  // column names from the left and right sides of the join to project out.
+  // 'filterText', if non-empty, is an expression over
   // the concatenation of columns of the previous PlanNode and
   // 'build'. This may be wider than output.
   PlanBuilder& hashJoin(
-      const std::vector<ChannelIndex>& leftKeys,
-      const std::vector<ChannelIndex>& rightKeys,
+      const std::vector<std::string>& leftKeys,
+      const std::vector<std::string>& rightKeys,
       const std::shared_ptr<core::PlanNode>& build,
       const std::string& filterText,
-      const std::vector<ChannelIndex>& output,
+      const std::vector<std::string>& output,
       core::JoinType joinType = core::JoinType::kInner);
 
   PlanBuilder& mergeJoin(
-      const std::vector<ChannelIndex>& leftKeys,
-      const std::vector<ChannelIndex>& rightKeys,
+      const std::vector<std::string>& leftKeys,
+      const std::vector<std::string>& rightKeys,
       const std::shared_ptr<core::PlanNode>& build,
       const std::string& filterText,
-      const std::vector<ChannelIndex>& output,
+      const std::vector<std::string>& output,
       core::JoinType joinType = core::JoinType::kInner);
 
   PlanBuilder& crossJoin(
       const std::shared_ptr<core::PlanNode>& build,
-      const std::vector<ChannelIndex>& output);
+      const std::vector<std::string>& output);
 
   PlanBuilder& unnest(
       const std::vector<std::string>& replicateColumns,
@@ -270,15 +270,23 @@ class PlanBuilder {
       const std::vector<std::string>& names);
 
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
+      const RowTypePtr& inputType,
+      const std::vector<std::string>& names);
+
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
       const std::vector<ChannelIndex>& indices);
 
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
-      const RowTypePtr inputType,
+      const RowTypePtr& inputType,
       const std::vector<ChannelIndex>& indices);
 
   std::shared_ptr<const core::FieldAccessTypedExpr> field(
-      const RowTypePtr& outputType,
+      const RowTypePtr& inputType,
       int index);
+
+  std::shared_ptr<const core::FieldAccessTypedExpr> field(
+      const RowTypePtr& inputType,
+      const std::string& name);
 
   std::shared_ptr<core::PlanNode> createIntermediateOrFinalAggregation(
       core::AggregationNode::Step step,

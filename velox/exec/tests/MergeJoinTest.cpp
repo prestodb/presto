@@ -119,14 +119,14 @@ class MergeJoinTest : public OperatorTestBase {
     auto plan = PlanBuilder()
                     .values(left)
                     .mergeJoin(
-                        {0},
-                        {0},
+                        {"c0"},
+                        {"u_c0"},
                         PlanBuilder()
                             .values(right)
                             .project({"c0", "c1"}, {"u_c0", "u_c1"})
                             .planNode(),
                         "",
-                        {0, 1, 3},
+                        {"c0", "c1", "u_c1"},
                         core::JoinType::kInner)
                     .planNode();
 
@@ -189,11 +189,11 @@ TEST_F(MergeJoinTest, aggregationOverJoin) {
   auto plan = PlanBuilder()
                   .values({left})
                   .mergeJoin(
-                      {0},
-                      {0},
+                      {"t_c0"},
+                      {"u_c0"},
                       PlanBuilder().values({right}).planNode(),
                       "",
-                      {0, 1},
+                      {"t_c0", "u_c0"},
                       core::JoinType::kInner)
                   .singleAggregation({}, {"count(1)"})
                   .planNode();
