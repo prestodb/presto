@@ -220,6 +220,44 @@ ArrayVectorPtr VectorMaker::arrayOfRowVector(
       0);
 }
 
+ArrayVectorPtr VectorMaker::arrayVector(
+    const std::vector<vector_size_t>& offsets,
+    const VectorPtr& elements,
+    const std::vector<vector_size_t>& nulls) {
+  const auto size = offsets.size();
+  BufferPtr offsetsBuffer = allocateOffsets(size, pool_);
+  BufferPtr sizesBuffer = allocateSizes(size, pool_);
+  BufferPtr nullsBuffer = nullptr;
+  auto rawOffsets = offsetsBuffer->asMutable<vector_size_t>();
+  auto rawSizes = sizesBuffer->asMutable<vector_size_t>();
+
+  for (int i = 0; i < size - 1; i++) {
+    rawSizes[i] = offsets[i + 1] - offsets[i];
+  }
+  rawSizes[size - 1] = elements->size() - offsets.back();
+
+  memcpy(rawOffsets, offsets.data(), size * sizeof(vector_size_t));
+
+  if (!nulls.empty()) {
+    nullsBuffer = AlignedBuffer::allocate<bool>(size, pool_, bits::kNotNull);
+    auto rawNulls = nullsBuffer->asMutable<uint64_t>();
+
+    for (int i = 0; i < nulls.size(); i++) {
+      VELOX_CHECK_EQ(rawSizes[nulls[i]], 0)
+      bits::setNull(rawNulls, nulls[i]);
+    }
+  }
+
+  return std::make_shared<ArrayVector>(
+      pool_,
+      ARRAY(elements->type()),
+      nullsBuffer,
+      size,
+      offsetsBuffer,
+      sizesBuffer,
+      elements);
+}
+
 // static
 VectorPtr VectorMaker::flatten(const VectorPtr& vector) {
   SelectivityVector allRows(vector->size());

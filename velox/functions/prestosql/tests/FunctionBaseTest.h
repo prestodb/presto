@@ -368,6 +368,25 @@ class FunctionBaseTest : public testing::Test {
     return vectorMaker_.arrayVector<T>(size, sizeAt, valueAt, isNullAt);
   }
 
+  // Convenience function to create vector from a base vector.
+  // The size of the arrays is computed from the difference of offsets.
+  // An optional vector of nulls can be passed to specify null rows.
+  // The offset for a null value must match previous offset
+  // i.e size computed should be zero.
+  // Example:
+  //   auto arrayVector = makeArrayVector({0, 2 ,2}, elementVector, {1});
+  //
+  //   creates an array vector with array at index 1 as null.
+  // You can make higher order ArrayVectors (i.e array of arrays etc), by
+  // repeatedly calling this function and passing in resultant ArrayVector
+  // and appropriate offsets.
+  ArrayVectorPtr makeArrayVector(
+      const std::vector<vector_size_t>& offsets,
+      const VectorPtr& elementVector,
+      const std::vector<vector_size_t>& nulls = {}) {
+    return vectorMaker_.arrayVector(offsets, elementVector, nulls);
+  }
+
   template <typename TKey, typename TValue>
   MapVectorPtr makeMapVector(
       vector_size_t size,

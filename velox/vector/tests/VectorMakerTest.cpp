@@ -566,6 +566,32 @@ TEST_F(VectorMakerTest, arrayOfRowVector) {
   EXPECT_EQ("purple", colorVector->valueAt(4).str());
 }
 
+TEST_F(VectorMakerTest, arrayVectorUsingBaseVector) {
+  auto elementsVector = maker_.flatVector<int64_t>({1, 2, 3, 4, 5, 6});
+
+  // Create an array vector with 2 elements per array .
+  auto arrayVector = maker_.arrayVector({0, 2, 4}, elementsVector);
+
+  EXPECT_EQ(arrayVector->size(), 3);
+  for (int i = 0; i < 3; i++) {
+    EXPECT_EQ(arrayVector->sizeAt(i), 2);
+    EXPECT_EQ(arrayVector->isNullAt(i), false);
+  }
+
+  auto rawArrayValues = arrayVector->elements()->values()->as<int64_t>();
+  auto baseValues = elementsVector->values()->as<int64_t>();
+  EXPECT_EQ(
+      memcmp(
+          rawArrayValues, baseValues, elementsVector->size() * sizeof(int64_t)),
+      0);
+
+  // Create array vector with last array as null.
+  auto arrayVectorWithNull =
+      maker_.arrayVector({0, 2, 4, 6}, elementsVector, {3});
+  EXPECT_EQ(arrayVectorWithNull->isNullAt(3), true);
+  EXPECT_EQ(arrayVectorWithNull->sizeAt(3), 0);
+}
+
 TEST_F(VectorMakerTest, biasVector) {
   std::vector<std::optional<int64_t>> data = {10, 13, std::nullopt, 15, 12, 11};
   auto biasVector = maker_.biasVector(data);

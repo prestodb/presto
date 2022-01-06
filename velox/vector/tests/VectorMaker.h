@@ -623,6 +623,18 @@ class VectorMaker {
 
   static VectorPtr flatten(const VectorPtr& vector);
 
+  /// Create an ArrayVector from a vector of offsets and a base element vector.
+  /// The size of the arrays is computed from the difference of offsets.
+  /// An optional vector of nulls can be passed to specify null rows.
+  /// The offset for a null value must match previous offset
+  /// i.e size computed should be zero.
+  /// E.g arrayVector({0, 2 ,2}, elements, {1}) creates an array vector
+  /// with array at index 1 as null.
+  ArrayVectorPtr arrayVector(
+      const std::vector<vector_size_t>& offsets,
+      const VectorPtr& elements,
+      const std::vector<vector_size_t>& nulls = {});
+
  private:
   vector_size_t createOffsetsAndSizes(
       vector_size_t size,

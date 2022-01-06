@@ -22,41 +22,7 @@ using namespace facebook::velox::functions::test;
 
 namespace {
 
-class ZipTest : public FunctionBaseTest {
- protected:
-  VectorPtr createArrayVector(
-      const std::vector<vector_size_t>& offsets,
-      const std::vector<vector_size_t>& sizes,
-      VectorPtr elementVector) {
-    BufferPtr offsetsBuffer = allocateOffsets(offsets.size(), pool());
-    BufferPtr sizesBuffer = allocateSizes(sizes.size(), pool());
-    BufferPtr nullBuffer =
-        AlignedBuffer::allocate<bool>(sizes.size(), pool(), bits::kNotNull);
-    auto rawOffsets = offsetsBuffer->asMutable<vector_size_t>();
-    auto rawSizes = sizesBuffer->asMutable<vector_size_t>();
-    auto rawNull = nullBuffer->asMutable<uint64_t>();
-
-    for (int i = 0; i < offsets.size(); i++) {
-      rawOffsets[i] = offsets[i];
-    }
-
-    for (int i = 0; i < sizes.size(); i++) {
-      rawSizes[i] = sizes[i];
-      if (sizes[i] == 0) {
-        bits::setNull(rawNull, i, true);
-      }
-    }
-
-    return std::make_shared<ArrayVector>(
-        pool(),
-        ARRAY(elementVector->type()),
-        nullBuffer,
-        offsets.size(),
-        offsetsBuffer,
-        sizesBuffer,
-        elementVector);
-  }
-};
+class ZipTest : public FunctionBaseTest {};
 
 /// Test if we can zip two integer arrays.
 TEST_F(ZipTest, simpleInt) {
@@ -80,7 +46,7 @@ TEST_F(ZipTest, simpleInt) {
   auto rowVector = makeRowVector({firstResult, secondResult});
 
   // create the expected ArrayVector
-  auto expected = createArrayVector({0, 4, 7}, {4, 3, 3}, rowVector);
+  auto expected = makeArrayVector({0, 4, 7}, rowVector);
 
   assertEqualVectors(expected, result);
 }
@@ -100,7 +66,7 @@ TEST_F(ZipTest, combineInt) {
       }));
 
   auto firstResult = makeNullableFlatVector<int64_t>(
-      {1, 1, 1, 1, 2, 2, 2, std::nullopt, std::nullopt, std::nullopt});
+      {1, 1, 1, 1, 2, 2, 2, std::nullopt, std::nullopt});
   auto secondResult = makeNullableFlatVector<std::string>(
       {S("a"),
        S("a"),
@@ -115,7 +81,7 @@ TEST_F(ZipTest, combineInt) {
   auto rowVector = makeRowVector({firstResult, secondResult});
 
   // create the expected ArrayVector
-  auto expected = createArrayVector({0, 4, 7}, {4, 3, 2}, rowVector);
+  auto expected = makeArrayVector({0, 4, 7}, rowVector);
 
   assertEqualVectors(expected, result);
 }
@@ -146,7 +112,7 @@ TEST_F(ZipTest, nullEmptyArray) {
   auto rowVector = makeRowVector({firstResult, secondResult});
 
   // create the expected ArrayVector
-  auto expected = createArrayVector({0, 4, 6}, {4, 2, 0}, rowVector);
+  auto expected = makeArrayVector({0, 4, 6}, rowVector, {2});
 
   assertEqualVectors(expected, result);
 }
@@ -182,7 +148,7 @@ TEST_F(ZipTest, arity) {
       {S("a"), S("a"), S("a"), S("a"), S("b"), S("b"), S("b"), S("c"), S("c")});
   auto rowVector =
       makeRowVector({firstResult, secondResult, thirdResult, fourthResult});
-  auto expected = createArrayVector({0, 4, 7}, {4, 3, 2}, rowVector);
+  auto expected = makeArrayVector({0, 4, 7}, rowVector);
   assertEqualVectors(expected, result);
 }
 
@@ -192,7 +158,7 @@ TEST_F(ZipTest, complexTypes) {
       {{1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}, {6, 6}});
 
   // Create an array of array vector using above base vector
-  auto arrayOfArrays = createArrayVector({0, 2, 4}, {2, 2, 2}, baseVector);
+  auto arrayOfArrays = makeArrayVector({0, 2, 4}, baseVector);
 
   auto secondVector = makeArrayVector<int32_t>({{0, 0}, {4, 4}, {5, 5}});
 
@@ -206,7 +172,7 @@ TEST_F(ZipTest, complexTypes) {
   auto secondResult = makeNullableFlatVector<int32_t>({0, 0, 4, 4, 5, 5});
   auto rowVector = makeRowVector({baseVector, secondResult});
   // create the expected ArrayVector
-  auto expected = createArrayVector({0, 2, 4}, {2, 2, 2}, rowVector);
+  auto expected = makeArrayVector({0, 2, 4}, rowVector);
 
   assertEqualVectors(expected, result);
 }
