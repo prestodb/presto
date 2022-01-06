@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.writer;
 
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -23,47 +22,55 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
-public class DictionaryRowGroupTest
+public class TestDictionaryRowGroupBuilder
 {
     private static final int MAX_DICTIONARY_INDEX = 10_000;
 
     private final Random random = new Random();
 
-    private static ColumnStatistics getColumnStatistics()
+    private byte[] getByteIndexes(DictionaryRowGroupBuilder rowGroupBuilder)
     {
-        return new ColumnStatistics(10L, null);
+        byte[][] byteSegments = rowGroupBuilder.getByteSegments();
+        assertNotNull(byteSegments);
+        assertEquals(1, byteSegments.length);
+
+        assertNull(rowGroupBuilder.getShortSegments());
+        assertNull(rowGroupBuilder.getIntegerSegments());
+        assertNotNull(byteSegments[0]);
+        return byteSegments[0];
     }
 
-    private byte[] getByteIndexes(DictionaryRowGroup rowGroup)
+    private short[] getShortIndexes(DictionaryRowGroupBuilder rowGroupBuilder)
     {
-        assertNotNull(rowGroup.getByteIndexes());
-        assertNull(rowGroup.getShortIndexes());
-        assertNull(rowGroup.getIntegerIndexes());
-        return rowGroup.getByteIndexes();
+        short[][] shortSegments = rowGroupBuilder.getShortSegments();
+        assertNotNull(shortSegments);
+        assertEquals(1, shortSegments.length);
+
+        assertNull(rowGroupBuilder.getByteSegments());
+        assertNull(rowGroupBuilder.getIntegerSegments());
+        assertNotNull(shortSegments[0]);
+        return shortSegments[0];
     }
 
-    private short[] getShortIndexes(DictionaryRowGroup rowGroup)
+    private int[] getIntegerIndexes(DictionaryRowGroupBuilder rowGroupBuilder)
     {
-        assertNotNull(rowGroup.getShortIndexes());
-        assertNull(rowGroup.getByteIndexes());
-        assertNull(rowGroup.getIntegerIndexes());
-        return rowGroup.getShortIndexes();
-    }
+        int[][] integerSegments = rowGroupBuilder.getIntegerSegments();
+        assertNotNull(integerSegments);
+        assertEquals(1, integerSegments.length);
 
-    private int[] getIntegerIndexes(DictionaryRowGroup rowGroup)
-    {
-        assertNotNull(rowGroup.getIntegerIndexes());
-        assertNull(rowGroup.getByteIndexes());
-        assertNull(rowGroup.getShortIndexes());
-        return rowGroup.getIntegerIndexes();
+        assertNull(rowGroupBuilder.getByteSegments());
+        assertNull(rowGroupBuilder.getShortSegments());
+        assertNotNull(integerSegments[0]);
+        return integerSegments[0];
     }
 
     @Test
     public void testEmptyDictionary()
     {
-        DictionaryRowGroup rowGroup = new DictionaryRowGroup(-1, new int[0], 0, getColumnStatistics());
-        assertEquals(rowGroup.getValueCount(), 0);
-        byte[] byteIndexes = getByteIndexes(rowGroup);
+        DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();
+        rowGroupBuilder.addIndexes(-1, new int[0], 0);
+
+        byte[] byteIndexes = getByteIndexes(rowGroupBuilder);
         assertEquals(0, byteIndexes.length);
     }
 
@@ -76,8 +83,9 @@ public class DictionaryRowGroupTest
         }
 
         for (int length : ImmutableList.of(0, 10, MAX_DICTIONARY_INDEX)) {
-            DictionaryRowGroup rowGroup = new DictionaryRowGroup(Byte.MAX_VALUE, dictionaryIndexes, length, getColumnStatistics());
-            byte[] byteIndexes = getByteIndexes(rowGroup);
+            DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();
+            rowGroupBuilder.addIndexes(Byte.MAX_VALUE, dictionaryIndexes, length);
+            byte[] byteIndexes = getByteIndexes(rowGroupBuilder);
             assertEquals(length, byteIndexes.length);
             for (int i = 0; i < length; i++) {
                 assertEquals(dictionaryIndexes[i], byteIndexes[i]);
@@ -94,8 +102,9 @@ public class DictionaryRowGroupTest
         }
 
         for (int length : ImmutableList.of(0, 10, MAX_DICTIONARY_INDEX)) {
-            DictionaryRowGroup rowGroup = new DictionaryRowGroup(Short.MAX_VALUE, dictionaryIndexes, length, getColumnStatistics());
-            short[] shortIndexes = getShortIndexes(rowGroup);
+            DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();
+            rowGroupBuilder.addIndexes(Short.MAX_VALUE, dictionaryIndexes, length);
+            short[] shortIndexes = getShortIndexes(rowGroupBuilder);
             assertEquals(length, shortIndexes.length);
             for (int i = 0; i < length; i++) {
                 assertEquals(dictionaryIndexes[i], shortIndexes[i]);
@@ -112,8 +121,9 @@ public class DictionaryRowGroupTest
         }
 
         for (int length : ImmutableList.of(0, 10, MAX_DICTIONARY_INDEX)) {
-            DictionaryRowGroup rowGroup = new DictionaryRowGroup(Integer.MAX_VALUE, dictionaryIndexes, length, getColumnStatistics());
-            int[] intIndexes = getIntegerIndexes(rowGroup);
+            DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();
+            rowGroupBuilder.addIndexes(Integer.MAX_VALUE, dictionaryIndexes, length);
+            int[] intIndexes = getIntegerIndexes(rowGroupBuilder);
             assertEquals(length, intIndexes.length);
             for (int i = 0; i < length; i++) {
                 assertEquals(dictionaryIndexes[i], intIndexes[i]);
