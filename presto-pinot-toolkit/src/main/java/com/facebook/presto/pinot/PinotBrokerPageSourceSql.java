@@ -35,7 +35,7 @@ public class PinotBrokerPageSourceSql
         extends PinotBrokerPageSourceBase
 {
     private static final String REQUEST_PAYLOAD_KEY = "sql";
-    private static final String QUERY_URL_TEMPLATE = "http://%s/query/sql";
+    private static final String QUERY_URL_TEMPLATE = "%s://%s/query/sql";
 
     private final GeneratedPinotQuery brokerSql;
     private final List<PinotColumnHandle> expectedHandles;
