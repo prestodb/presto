@@ -40,6 +40,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE = "spark_broadcast_join_max_memory_override";
     public static final String SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE = "spark_split_assignment_batch_size";
     public static final String SPARK_MEMORY_REVOKING_THRESHOLD = "spark_memory_revoking_threshold";
+    public static final String SPARK_MEMORY_REVOKING_TARGET = "spark_memory_revoking_target";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -101,6 +102,11 @@ public class PrestoSparkSessionProperties
                         SPARK_MEMORY_REVOKING_THRESHOLD,
                         "Revoke memory when memory pool is filled over threshold",
                         prestoSparkConfig.getMemoryRevokingThreshold(),
+                        false),
+                doubleProperty(
+                        SPARK_MEMORY_REVOKING_TARGET,
+                        "When revoking memory, try to revoke so much that memory pool is filled below target at the end",
+                        prestoSparkConfig.getMemoryRevokingTarget(),
                         false));
     }
 
@@ -162,5 +168,10 @@ public class PrestoSparkSessionProperties
     public static double getMemoryRevokingThreshold(Session session)
     {
         return session.getSystemProperty(SPARK_MEMORY_REVOKING_THRESHOLD, Double.class);
+    }
+
+    public static double getMemoryRevokingTarget(Session session)
+    {
+        return session.getSystemProperty(SPARK_MEMORY_REVOKING_TARGET, Double.class);
     }
 }
