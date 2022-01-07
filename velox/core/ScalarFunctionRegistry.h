@@ -48,7 +48,7 @@ void registerFunctionInternal(
   ScalarFunctions().Register(
       key,
       [metadata]() { return CreateUdf<UDF>(metadata->returnType()); },
-      metadata->signature(key.name()));
+      metadata->helpMessage(key.name()));
 }
 
 // This function should be called once and alone.

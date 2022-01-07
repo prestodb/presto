@@ -14,16 +14,48 @@
  * limitations under the License.
  */
 #include "velox/core/ScalarFunction.h"
+#include <boost/algorithm/string.hpp>
 
 namespace facebook {
 namespace velox {
 namespace core {
 
+namespace {
+// convert type to a string representation that is recognized in
+// FunctionSignature.
+std::string typeToString(const TypePtr& type) {
+  std::ostringstream out;
+  out << boost::algorithm::to_lower_copy(std::string(type->kindName()));
+  if (type->size()) {
+    out << "(";
+    for (auto i = 0; i < type->size(); i++) {
+      if (i > 0) {
+        out << ",";
+      }
+      out << typeToString(type->childAt(i));
+    }
+    out << ")";
+  }
+  return out.str();
+}
+} // namespace
+
 FunctionKey IScalarFunction::key() const {
   return FunctionKey{getName(), argTypes()};
 }
 
-std::string IScalarFunction::signature(const std::string& name) const {
+std::shared_ptr<exec::FunctionSignature> IScalarFunction::signature() const {
+  auto builder =
+      exec::FunctionSignatureBuilder().returnType(typeToString(returnType()));
+
+  for (const auto& arg : argTypes()) {
+    builder.argumentType(typeToString(arg));
+  }
+
+  return builder.build();
+}
+
+std::string IScalarFunction::helpMessage(const std::string& name) const {
   std::string s{name};
   s.append("(");
   bool first = true;

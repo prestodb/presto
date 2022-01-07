@@ -11,6 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+add_library(velox_expression_functions FunctionRegistry.h FunctionSignature.cpp
+                                       SignatureBinder.cpp)
+
+target_link_libraries(velox_expression_functions velox_common_base)
+
 add_library(
   velox_expression
   CastExpr.cpp
@@ -18,13 +24,11 @@ add_library(
   EvalCtx.cpp
   Expr.cpp
   ExprCompiler.cpp
-  FunctionSignature.cpp
-  SignatureBinder.cpp
   VectorFunction.cpp
   VectorFunctionRegistry.cpp)
 
 target_link_libraries(velox_expression velox_core velox_vector
-                      velox_common_base)
+                      velox_common_base velox_expression_functions)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

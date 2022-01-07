@@ -17,7 +17,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include "velox/common/base/Exceptions.h"
-#include "velox/expression/VectorFunction.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox::exec {
 

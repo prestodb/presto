@@ -15,7 +15,7 @@
  */
 #include "velox/expression/SignatureBinder.h"
 #include <boost/algorithm/string.hpp>
-#include "velox/expression/VectorFunction.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox::exec {
 

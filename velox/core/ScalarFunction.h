@@ -20,6 +20,7 @@
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
@@ -165,7 +166,8 @@ class IScalarFunction {
   virtual int32_t reuseStringsFromArg() const = 0;
 
   FunctionKey key() const;
-  std::string signature(const std::string& name) const;
+  std::shared_ptr<exec::FunctionSignature> signature() const;
+  std::string helpMessage(const std::string& name) const;
 
   virtual ~IScalarFunction() = default;
 };

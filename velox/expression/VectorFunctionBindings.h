@@ -30,7 +30,7 @@ void registerVectorFunctionInternal(
         return std::make_unique<VectorAdapterFactoryImpl<UDF>>(
             metadata->returnType());
       },
-      metadata->signature(key.name()));
+      metadata->helpMessage(key.name()));
 }
 
 // This function should be called once and alone.
