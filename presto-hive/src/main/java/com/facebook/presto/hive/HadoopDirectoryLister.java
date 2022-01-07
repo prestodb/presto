@@ -45,7 +45,7 @@ public class HadoopDirectoryLister
                 p -> new HadoopFileInfoIterator(fileSystem.listLocatedStatus(p)),
                 namenodeStats,
                 hiveDirectoryContext.getNestedDirectoryPolicy(),
-                Optional.of(pathFilter));
+                pathFilter);
     }
 
     public static class HadoopFileInfoIterator

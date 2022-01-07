@@ -207,8 +207,6 @@
                     <ignoredClassPatterns>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
-                        <ignoredClassPattern>org.apache.htrace.*</ignoredClassPattern>
-                        <ignoredClassPattern>org.apache.parquet.avro.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
