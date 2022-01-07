@@ -72,7 +72,7 @@ uint64_t BaseVector::byteSize<bool>(vector_size_t count) {
   return bits::nbytes(count);
 }
 
-void BaseVector::resize(vector_size_t size) {
+void BaseVector::resize(vector_size_t size, bool setNotNull) {
   if (nulls_) {
     auto bytes = byteSize<bool>(size);
     if (length_ < size) {
@@ -80,7 +80,7 @@ void BaseVector::resize(vector_size_t size) {
         AlignedBuffer::reallocate<char>(&nulls_, bytes);
         rawNulls_ = nulls_->as<uint64_t>();
       }
-      if (size > length_) {
+      if (setNotNull && size > length_) {
         bits::fillBits(
             const_cast<uint64_t*>(rawNulls_), length_, size, bits::kNotNull);
       }

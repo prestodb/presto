@@ -283,7 +283,7 @@ class ConstantVector final : public SimpleVector<T> {
     return index_;
   }
 
-  void resize(vector_size_t size) override {
+  void resize(vector_size_t size, bool setNotNull = true) override {
     BaseVector::length_ = size;
   }
 

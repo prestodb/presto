@@ -244,7 +244,7 @@ class FlatVector final : public SimpleVector<T> {
     copyValuesAndNulls(source, targetIndex, sourceIndex, count);
   }
 
-  void resize(vector_size_t size) override;
+  void resize(vector_size_t size, bool setNotNull = true) override;
 
   bool isScalar() const override {
     return true;

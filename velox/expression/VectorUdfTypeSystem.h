@@ -109,7 +109,7 @@ struct VectorWriter {
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
-      vector_->resize(size);
+      vector_->resize(size, /*setNotNull*/ false);
       init(*vector_);
     }
   }
@@ -205,7 +205,7 @@ struct VectorWriter<Map<K, V>> {
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
-      vector_->resize(size);
+      vector_->resize(size, /*setNotNull*/ false);
       init(*vector_);
     }
   }
@@ -373,7 +373,7 @@ struct VectorWriter<Array<V>> {
   void ensureSize(size_t size) {
     // todo(youknowjack): optimize the excessive ensureSize calls
     if (size > vector_->size()) {
-      vector_->resize(size);
+      vector_->resize(size, /*setNotNull*/ false);
       init(*vector_);
     }
   }
@@ -486,7 +486,7 @@ struct VectorWriter<Row<T...>> {
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
-      vector_->resize(size);
+      vector_->resize(size, /*setNotNull*/ false);
       resizeVectorWritersInternal<0>(vector_->size());
     }
   }
@@ -803,7 +803,7 @@ struct VectorWriter<
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
-      vector_->resize(size);
+      vector_->resize(size, /*setNotNull*/ false);
     }
   }
 
@@ -860,7 +860,7 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
-      vector_->resize(size);
+      vector_->resize(size, /*setNotNull*/ false);
     }
   }
 
@@ -912,7 +912,7 @@ struct VectorWriter<std::shared_ptr<T>> {
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
-      vector_->resize(size);
+      vector_->resize(size, /*setNotNull*/ false);
     }
   }
 

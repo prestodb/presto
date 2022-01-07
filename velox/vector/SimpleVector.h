@@ -216,7 +216,7 @@ class SimpleVector : public BaseVector {
     return max_;
   }
 
-  void resize(vector_size_t size) override {
+  void resize(vector_size_t size, bool setNotNull = true) override {
     VELOX_CHECK(false, "Can only resize flat vectors.");
   }
 

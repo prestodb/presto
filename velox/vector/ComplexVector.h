@@ -270,12 +270,12 @@ class ArrayVector : public BaseVector {
 
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
 
-  void resize(vector_size_t size) override {
+  void resize(vector_size_t size, bool setNotNull = true) override {
     if (BaseVector::length_ < size) {
       resizeIndices(size, 0, &offsets_, &rawOffsets_);
       resizeIndices(size, 0, &sizes_, &rawSizes_);
     }
-    BaseVector::resize(size);
+    BaseVector::resize(size, setNotNull);
   }
 
   void
@@ -425,12 +425,12 @@ class MapVector : public BaseVector {
 
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
 
-  void resize(vector_size_t size) override {
+  void resize(vector_size_t size, bool setNotNull = true) override {
     if (BaseVector::length_ < size) {
       resizeIndices(size, 0, &offsets_, &rawOffsets_);
       resizeIndices(size, 0, &sizes_, &rawSizes_);
     }
-    BaseVector::resize(size);
+    BaseVector::resize(size, setNotNull);
   }
 
   const VectorPtr& mapKeys() const {

@@ -337,7 +337,9 @@ class BaseVector {
 
   // Sets the size to 'size' and ensures there is space for the
   // indicated number of nulls and top level values.
-  virtual void resize(vector_size_t newSize);
+  // 'setNotNull' indicates if nulls in range [oldSize, newSize) should be set
+  // to not null.
+  virtual void resize(vector_size_t newSize, bool setNotNull = true);
 
   // Sets the rows of 'this' given by 'rows' to
   // 'source.valueAt(toSourceRow ? toSourceRow[row] : row)', where
@@ -466,6 +468,7 @@ class BaseVector {
   virtual BaseVector* loadedVector() {
     return this;
   }
+
   virtual const BaseVector* loadedVector() const {
     return this;
   }

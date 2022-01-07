@@ -281,9 +281,9 @@ void FlatVector<T>::copyValuesAndNulls(
 }
 
 template <typename T>
-void FlatVector<T>::resize(vector_size_t size) {
+void FlatVector<T>::resize(vector_size_t size, bool setNotNull) {
   auto previousSize = BaseVector::length_;
-  BaseVector::resize(size);
+  BaseVector::resize(size, setNotNull);
   if (!values_) {
     return;
   }
