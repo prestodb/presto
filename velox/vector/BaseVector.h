@@ -304,9 +304,15 @@ class BaseVector {
   }
 
   // Sets the null indicator at 'idx'. 'true' means null.
-  virtual void setNull(vector_size_t idx, bool value) {
+  FOLLY_ALWAYS_INLINE virtual void setNull(vector_size_t idx, bool value) {
     VELOX_DCHECK(idx >= 0 && idx < length_);
-    ensureNulls();
+    if (!nulls_) {
+      if (!value) {
+        return;
+      }
+      allocateNulls();
+    }
+
     bits::setBit(
         nulls_->asMutable<uint64_t>(), idx, bits::kNull ? value : !value);
   }

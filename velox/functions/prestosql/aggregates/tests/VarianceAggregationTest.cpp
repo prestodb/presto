@@ -155,8 +155,9 @@ TEST_F(VarianceAggregationTest, varianceConstNull) {
               .values(vectors)
               .partialAggregation({}, {GEN_AGG("c0")})
               .finalAggregation()
+              .project({"round(a0, cast (10 as int))"})
               .planNode();
-    sql = genAggrQuery("SELECT {0}(c0) FROM tmp", aggrName);
+    sql = genAggrQuery("SELECT round({0}(c0), 10) FROM tmp", aggrName);
     assertQuery(agg, sql);
   }
 }
