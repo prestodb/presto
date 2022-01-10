@@ -792,7 +792,7 @@ public class AddLocalExchanges
                             requiredProperties.constrainTo(source.getOutputVariables()),
                             preferredProperties.constrainTo(source.getOutputVariables())))
                     .collect(toImmutableList());
-
+            // TODO: Deriving the properties of the current node should also take the preferred property as input and disable the splitting if group by is enabled.
             return rebaseAndDeriveProperties(node, children);
         }
 

@@ -63,6 +63,7 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.MaterializedViewNotFoundException;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
@@ -70,6 +71,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -215,6 +217,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabl
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrderBasedExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPreferManifestsToListFiles;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isShufflePartitionedColumnsForTableWriteEnabled;
@@ -2740,14 +2743,43 @@ public class HiveMetadata
             predicate = createPredicate(partitionColumns, partitions);
         }
 
+        // Expose ordering property of the table.
+        ImmutableList.Builder<LocalProperty<ColumnHandle>> localProperties = ImmutableList.builder();
+        Optional<Set<ColumnHandle>> streamPartitionColumns = Optional.empty();
+        if (table.getStorage().getBucketProperty().isPresent() && isOrderBasedExecutionEnabled(session)) {
+            HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty().get();
+            if (!bucketProperty.getSortedBy().isEmpty()) {
+                ImmutableSet.Builder<ColumnHandle> streamPartitionColumnsBuilder = ImmutableSet.builder();
+                Map<String, ColumnHandle> columnHandles = hiveColumnHandles(table).stream()
+                        .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
+                // TODO: Decide if partition columns need to be part of the order property and group property. If the local property only means the property of the current stream,
+                // it is OK to exclude it. But the exchange across partitions should change the property.
+                // The aggregation across multiple partitions could be streaming aggregation on top of a merging exchange or just be hash-based aggregation.
+                // Local aggregation for one partition can be streaming based. We can rely on the constant property of the partition column to simplify away the partition
+                // column in the property.
+                partitionColumns.forEach(streamPartitionColumnsBuilder::add);
+                bucketProperty.getSortedBy().forEach(sortingColumn -> {
+                    ColumnHandle columnHandle = columnHandles.get(sortingColumn.getColumnName());
+                    // No need to expose GroupingProperty on the same columns, as Sorting property implies it and it will be normalized away even if we add it.
+                    localProperties.add(new SortingProperty<>(columnHandle, sortingColumn.getOrder().getSortOrder()));
+                    streamPartitionColumnsBuilder.add(columnHandle);
+                });
+                if (bucketProperty.getSortedBy().stream().map(SortingColumn::getColumnName).collect(toImmutableList()).equals(bucketProperty.getBucketedBy())) {
+                    // This should only be set when the all rows of the same value group are guaranteed to be in the same split. We only set this when the bucket columns are
+                    // the same as the sort columns in with case we disable splitting a file.
+                    streamPartitionColumns = Optional.of(streamPartitionColumnsBuilder.build());
+                }
+            }
+        }
+
         return new ConnectorTableLayout(
                 hiveLayoutHandle,
                 Optional.empty(),
                 predicate,
                 tablePartitioning,
-                Optional.empty(),
+                streamPartitionColumns,
                 discretePredicates,
-                ImmutableList.of(),
+                localProperties.build(),
                 Optional.of(hiveLayoutHandle.getRemainingPredicate()));
     }
 

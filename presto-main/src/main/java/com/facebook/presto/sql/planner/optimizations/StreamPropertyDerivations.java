@@ -267,6 +267,7 @@ public final class StreamPropertyDerivations
             // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
             // the connector does not guarantee a single split in this case (since it might not understand
             // that the value is a constant).
+            // TODO: Set ordered to true if sorting property on streamPartitionSymbols is present.
             if (streamPartitionSymbols.isPresent() && streamPartitionSymbols.get().isEmpty()) {
                 return new StreamProperties(MULTIPLE, Optional.empty(), false);
             }

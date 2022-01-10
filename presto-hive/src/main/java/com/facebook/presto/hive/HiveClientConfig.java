@@ -154,6 +154,7 @@ public class HiveClientConfig
     private boolean partitionStatisticsBasedOptimizationEnabled;
 
     private boolean s3SelectPushdownEnabled;
+    private boolean orderBasedExecutionEnabled;
     private int s3SelectPushdownMaxConnections = 500;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
@@ -1348,6 +1349,19 @@ public class HiveClientConfig
     public HiveClientConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
     {
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        return this;
+    }
+
+    public boolean isOrderBasedExecutionEnabled()
+    {
+        return orderBasedExecutionEnabled;
+    }
+
+    @Config("hive.order-based-execution-enabled")
+    @ConfigDescription("Enable order-based execution (currently only supports streaming aggregation). When this is enabled, a file is not splittable")
+    public HiveClientConfig setOrderBasedExecutionEnabled(boolean orderBasedExecutionEnabled)
+    {
+        this.orderBasedExecutionEnabled = orderBasedExecutionEnabled;
         return this;
     }
 
