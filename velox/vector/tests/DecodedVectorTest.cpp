@@ -543,6 +543,7 @@ TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
 
 TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
   const int kSize = 12;
+  // non-null
   auto intVector =
       vectorMaker_->flatVector<int32_t>(kSize, [](auto row) { return row; });
   auto rowVector = vectorMaker_->rowVector({intVector});
@@ -553,6 +554,22 @@ TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
   for (auto i = 0; i < kSize; i++) {
     ASSERT_TRUE(
         wrappedVector->equalValueAt(intVector.get(), i, decoded.index(i)));
+  }
+
+  // null with empty size children
+  intVector = vectorMaker_->flatVector<int32_t>(
+      0 /*size*/, [](auto row) { return row; });
+  rowVector = std::make_shared<RowVector>(
+      pool_.get(),
+      rowVector->type(),
+      nullsBuffer(kSize, VectorMaker::nullEvery(1)),
+      kSize,
+      std::vector<VectorPtr>{intVector});
+  constantVector = BaseVector::wrapInConstant(kSize, 1, rowVector);
+  decoded.decode(*constantVector, allRows);
+  wrappedVector = decoded.wrap(intVector, *constantVector, allRows);
+  for (auto i = 0; i < kSize; i++) {
+    ASSERT_TRUE(wrappedVector->isNullAt(i));
   }
 }
 

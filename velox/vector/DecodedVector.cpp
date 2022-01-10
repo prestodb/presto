@@ -432,6 +432,10 @@ VectorPtr DecodedVector::wrap(
     return data;
   }
   if (wrapper.isConstantEncoding()) {
+    if (wrapper.isNullAt(0)) {
+      return BaseVector::createNullConstant(
+          data->type(), rows.end(), data->pool());
+    }
     return BaseVector::wrapInConstant(
         rows.end(), wrapper.wrappedIndex(0), data);
   }
