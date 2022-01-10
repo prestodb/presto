@@ -21,6 +21,7 @@
 #include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/sparksql/Register.h"
+#include "velox/functions/sparksql/tests/ArraySortTestData.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -39,43 +40,15 @@ class ArraySortTest : public SparkFunctionBaseTest {
 
   template <typename T>
   void testInt() {
-    auto min = std::numeric_limits<T>::min();
-    auto max = std::numeric_limits<T>::max();
-    auto input = makeNullableArrayVector<T>({
-        {},
-        {9, 8, 12},
-        {5, 6, 1, std::nullopt, 0, 99, -99},
-        {std::nullopt, std::nullopt},
-        {max, std::nullopt, min, -1, 1, 0},
-    });
-    auto expected = makeNullableArrayVector<T>({
-        {},
-        {8, 9, 12},
-        {-99, 0, 1, 5, 6, 99, std::nullopt},
-        {std::nullopt, std::nullopt},
-        {min, -1, 0, 1, max, std::nullopt},
-    });
+    auto input = makeNullableArrayVector(intInput<T>());
+    auto expected = makeNullableArrayVector(intAscNullLargest<T>());
     testArraySort(input, expected);
   }
 
   template <typename T>
   void testFloatingPoint() {
-    auto lowest = std::numeric_limits<T>::lowest();
-    auto max = std::numeric_limits<T>::max();
-    auto inf = std::numeric_limits<T>::infinity();
-    auto nan = std::numeric_limits<T>::quiet_NaN();
-    auto input = makeNullableArrayVector<T>({
-        {},
-        {1.0001, std::nullopt, 1.0, -2.0, 3.03, std::nullopt},
-        {std::nullopt, std::nullopt},
-        {max, lowest, nan, inf, -9.009, 9.009, std::nullopt, 0.0},
-    });
-    auto expected = makeNullableArrayVector<T>({
-        {},
-        {-2.0, 1.0, 1.0001, 3.03, std::nullopt, std::nullopt},
-        {std::nullopt, std::nullopt},
-        {lowest, -9.009, 0.0, 9.009, max, inf, nan, std::nullopt},
-    });
+    auto input = makeNullableArrayVector(floatingPointInput<T>());
+    auto expected = makeNullableArrayVector(floatingPointAscNullLargest<T>());
     testArraySort(input, expected);
   }
 };
@@ -105,50 +78,46 @@ TEST_F(ArraySortTest, double) {
 }
 
 TEST_F(ArraySortTest, string) {
-  auto input = makeNullableArrayVector<std::string>({
-      {},
-      {"spiderman", "captainamerica", "ironman", "hulk", "deadpool", "thor"},
-      {"s", "c", "", std::nullopt, "h", "d"},
-      {std::nullopt, std::nullopt},
-  });
-  auto expected = makeNullableArrayVector<std::string>({
-      {},
-      {"captainamerica", "deadpool", "hulk", "ironman", "spiderman", "thor"},
-      {"", "c", "d", "h", "s", std::nullopt},
-      {std::nullopt, std::nullopt},
-  });
+  auto input = makeNullableArrayVector(stringInput());
+  auto expected = makeNullableArrayVector(stringAscNullLargest());
   testArraySort(input, expected);
 }
 
 TEST_F(ArraySortTest, timestamp) {
-  using T = Timestamp;
-  auto input = makeNullableArrayVector<Timestamp>({
-      {},
-      {T{0, 1}, T{1, 0}, std::nullopt, T{4, 20}, T{3, 30}},
-      {std::nullopt, std::nullopt},
-  });
-  auto expected = makeNullableArrayVector<Timestamp>({
-      {},
-      {T{0, 1}, T{1, 0}, T{3, 30}, T{4, 20}, std::nullopt},
-      {std::nullopt, std::nullopt},
-  });
+  auto input = makeNullableArrayVector(timestampInput());
+  auto expected = makeNullableArrayVector(timestampAscNullLargest());
   testArraySort(input, expected);
 }
 
 TEST_F(ArraySortTest, date) {
-  using D = Date;
-  auto input = makeNullableArrayVector<Date>({
-      {},
-      {D{0}, D{1}, std::nullopt, D{4}, D{3}},
-      {std::nullopt, std::nullopt},
-  });
-  auto expected = makeNullableArrayVector<Date>({
-      {},
-      {D{0}, D{1}, D{3}, D{4}, std::nullopt},
-      {std::nullopt, std::nullopt},
-  });
+  auto input = makeNullableArrayVector(dateInput());
+  auto expected = makeNullableArrayVector(dateAscNullLargest());
   testArraySort(input, expected);
 }
 
+TEST_F(ArraySortTest, bool) {
+  auto input = makeNullableArrayVector(boolInput());
+  auto expected = makeNullableArrayVector(boolAscNullLargest());
+  testArraySort(input, expected);
+}
+
+TEST_F(ArraySortTest, array) {
+  auto input = makeNestedArrayVector(arrayInput());
+  auto expected = makeNestedArrayVector(arrayAscNullLargest());
+  testArraySort(input, expected);
+}
+
+TEST_F(ArraySortTest, map) {
+  auto input = makeArrayOfMapVector(mapInput());
+  auto expected = makeArrayOfMapVector(mapAscNullLargest());
+  testArraySort(input, expected);
+}
+
+TEST_F(ArraySortTest, row) {
+  auto rowType = ROW({INTEGER(), VARCHAR()});
+  auto input = makeArrayOfRowVector(rowType, rowInput());
+  auto expected = makeArrayOfRowVector(rowType, rowAscNullLargest());
+  testArraySort(input, expected);
+}
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

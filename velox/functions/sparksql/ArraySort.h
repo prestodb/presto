@@ -19,7 +19,6 @@
 
 namespace facebook::velox::functions::sparksql {
 
-template <template <typename> class Cmp>
 class ArraySort : public exec::VectorFunction {
   /// This class implements generic array sort function. Takes an array as input
   /// and sorts it according to provided comparator |Cmp| as template parameter.
@@ -29,11 +28,10 @@ class ArraySort : public exec::VectorFunction {
   ///
   /// Sorts floating points as per following ascending order:
   /// -Inf < Inf < NaN
-  ///
-  /// Limitation: Does not support BOOLEAN and complex types.
 
  public:
-  explicit ArraySort(bool nullsFirst) : nullsFirst_(nullsFirst) {}
+  explicit ArraySort(bool ascending, bool nullsFirst)
+      : ascending_(ascending), nullsFirst_(nullsFirst) {}
 
   void apply(
       const SelectivityVector& rows,
@@ -43,6 +41,7 @@ class ArraySort : public exec::VectorFunction {
       VectorPtr* result) const override;
 
  private:
+  bool ascending_;
   bool nullsFirst_;
 };
 
