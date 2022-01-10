@@ -17,14 +17,25 @@
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/FileIds.h"
 
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+
+DECLARE_bool(velox_exception_stacktrace);
 
 using namespace facebook::velox;
 using namespace facebook::velox::cache;
 
 using facebook::velox::memory::MappedMemory;
+
+// Represents a planned load from a file. Many of these constitute a load plan.
+struct Request {
+  Request(uint64_t _offset, uint64_t _size) : offset(_offset), size(_size) {}
+
+  uint64_t offset;
+  uint64_t size;
+};
 
 class AsyncDataCacheTest : public testing::Test {
  protected:
@@ -38,10 +49,51 @@ class AsyncDataCacheTest : public testing::Test {
     }
   }
 
+  // Finds one entry from RAM, SSD or storage. Throws if the data
+  // cannot be read, otherwise request.pin is a loaded CachePin with
+  // the data for the range of 'request.size' bytes starting at
+  // 'request.offset'.
+  void loadOne(uint64_t fileNum, Request& request, bool injectError);
+
+  // Brings the data for the ranges in 'requests' into cache. The individual
+  // entries should be accessed with loadOne().
+  void
+  loadBatch(uint64_t fileNum, std::vector<Request>& requests, bool injectError);
+
+  // Gets a pin on each of 'requests'individually. This checks the
+  // contents via cache_'s verifyHook.
+  void checkBatch(
+      uint64_t fileNum,
+      std::vector<Request>& requests,
+      bool injectError) {
+    for (auto& request : requests) {
+      loadOne(fileNum, request, injectError);
+    }
+  }
+
   // Loads a sequence of entries from a number of files. Looks up a
   // number of entries, then loads the ones that nobody else is
-  // loading.
-  void loadLoop();
+  // loading. Stops after loading 'loadBytes' worth of entries. If
+  // 'errorEveryNBatches' is non-0, every nth load batch will have a
+  // bad read and wil be dropped. The entries of the failed batch read
+  // will still be accessed one by one.
+  void loadLoop(
+      int64_t startOffset,
+      int64_t loadBytes,
+      int32_t errorEveryNBatches = 0);
+
+  // Calls func on 'numThreads' in parallel.
+  template <typename Func>
+  void runThreads(int32_t numThreads, Func func) {
+    std::vector<std::thread> threads;
+    threads.reserve(numThreads);
+    for (int32_t i = 0; i < numThreads; ++i) {
+      threads.push_back(std::thread([this, i, func]() { func(i); }));
+    }
+    for (auto& thread : threads) {
+      thread.join();
+    }
+  }
 
  public:
   // Deterministically fills 'allocation'  based on 'sequence'
@@ -51,15 +103,43 @@ class AsyncDataCacheTest : public testing::Test {
     bool first = true;
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
       MappedMemory::PageRun run = alloc.runAt(i);
-      void** ptr = reinterpret_cast<void**>(run.data());
+      int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
       int32_t numWords =
           run.numPages() * MappedMemory::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
-          ptr[offset] = reinterpret_cast<void*>(sequence);
+          ptr[offset] = sequence;
           first = false;
         } else {
-          ptr[offset] = ptr + offset + sequence;
+          ptr[offset] = offset + sequence;
+        }
+      }
+    }
+  }
+
+  // Checks that the contents are consistent with what is set in
+  // initializeContents.
+  static void checkContents(
+      const MappedMemory::Allocation& alloc,
+      int32_t numBytes) {
+    bool first = true;
+    int64_t sequence;
+    int32_t bytesChecked = sizeof(int64_t);
+    for (int32_t i = 0; i < alloc.numRuns(); ++i) {
+      MappedMemory::PageRun run = alloc.runAt(i);
+      int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
+      int32_t numWords =
+          run.numPages() * MappedMemory::kPageSize / sizeof(void*);
+      for (int32_t offset = 0; offset < numWords; offset++) {
+        if (first) {
+          sequence = ptr[offset];
+          first = false;
+        } else {
+          bytesChecked += sizeof(int64_t);
+          if (bytesChecked >= numBytes) {
+            return;
+          }
+          ASSERT_EQ(ptr[offset], offset + sequence);
         }
       }
     }
@@ -80,78 +160,161 @@ class AsyncDataCacheTest : public testing::Test {
   }
 
  protected:
-  // Checks that the contents are consistent with what is set in
-  // initializeContents.
-  static void checkContents(MappedMemory::Allocation& alloc) {
-    bool first = true;
-    long sequence;
-    for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MappedMemory::PageRun run = alloc.runAt(i);
-      void** ptr = reinterpret_cast<void**>(run.data());
-      int32_t numWords =
-          run.numPages() * MappedMemory::kPageSize / sizeof(void*);
-      for (int32_t offset = 0; offset < numWords; offset++) {
-        if (first) {
-          sequence = reinterpret_cast<long>(ptr[offset]);
-          first = false;
-        } else {
-          ASSERT_EQ(ptr[offset], ptr + offset + sequence);
-        }
-      }
-    }
+  static folly::Executor* executor() {
+    static auto executor = std::make_unique<folly::IOThreadPoolExecutor>(4);
+    return executor.get();
   }
 
   std::shared_ptr<AsyncDataCache> cache_;
   std::vector<StringIdLease> filenames_;
 };
 
-class TestingFusedLoad : public FusedLoad {
+class TestingCoalescedLoad : public CoalescedLoad {
  public:
-  void loadData(bool /*isPrefetch*/) override {
-    for (auto& pin : pins_) {
+  TestingCoalescedLoad(
+      std::vector<RawFileCacheKey> keys,
+      std::vector<int32_t> sizes,
+      AsyncDataCache& cache)
+      : CoalescedLoad(std::move(keys), std::move(sizes)), cache_(cache) {}
+
+  void injectError(bool error) {
+    injectError_ = error;
+  }
+
+  std::vector<CachePin> loadData(bool /*isPrefetch*/) override {
+    std::vector<CachePin> pins;
+    cache_.makePins(
+        keys_,
+        [&](int32_t index) { return sizes_[index]; },
+        [&](int32_t /*index*/, CachePin pin) { pins.push_back(std::move(pin)); });
+    for (auto& pin : pins) {
       auto& buffer = pin.entry()->data();
       AsyncDataCacheTest::initializeContents(
           pin.entry()->key().offset + pin.entry()->key().fileNum.id(), buffer);
-      pin.entry()->setValid();
     }
+    VELOX_CHECK(!injectError_, "Testing error");
+    return pins;
   }
+
+ protected:
+  AsyncDataCache& cache_;
+  std::vector<Request> requests_;
+  bool injectError_{false};
 };
 
-void AsyncDataCacheTest::loadLoop() {
-  constexpr int32_t kBatch = 8;
-  std::vector<CachePin> batch;
+namespace {
+int64_t sizeAtOffset(int64_t offset) {
+  return offset % 100000;
+}
+} // namespace
+
+void AsyncDataCacheTest::loadOne(
+    uint64_t fileNum,
+    Request& request,
+    bool injectError) {
+  // Pattern for loading one pin.
+  RawFileCacheKey key{fileNum, request.offset};
+  for (;;) {
+    folly::SemiFuture<bool> loadFuture(false);
+    auto pin = cache_->findOrCreate(key, request.size, &loadFuture);
+    if (pin.empty()) {
+      // The pin was exclusive on another thread. Wait until it is no longer so
+      // and retry.
+      auto& exec = folly::QueuedImmediateExecutor::instance();
+      std::move(loadFuture).via(&exec).wait();
+      continue;
+    }
+    auto entry = pin.checkedEntry();
+    if (entry->isShared()) {
+      // The entry has data. In this case the entry was checked by verifyHook,
+      // so no action here.
+      VELOX_CHECK(!injectError, "Testing error");
+      return;
+    }
+    // We have an uninitialized entry in exclusive mode. We fill it with data
+    // and set it to shared. If we release this pin while still in exclusive
+    // mode, the entry will be erased.
+
+    // Load from storage.
+    initializeContents(
+        entry->key().offset + entry->key().fileNum.id(), entry->data());
+    // The entry is filled and will be made visible. 'pin' is released on
+    // return.
+    entry->setExclusiveToShared();
+    return;
+  }
+}
+
+void AsyncDataCacheTest::loadBatch(
+    uint64_t fileNum,
+    std::vector<Request>& requests,
+    bool injectError) {
+  // Pattern for loading a set of buffers from a file: Divide the requested
+  // ranges between already loaded and loadeable from
+  // storage.
+  std::vector<Request*> fromStorage;
+  for (auto& request : requests) {
+    RawFileCacheKey key{fileNum, request.offset};
+    if (cache_->exists(key)) {
+      continue;
+    }
+    // Schedule a CoalescedLoad with other keys that need loading from the same
+    // source.
+    fromStorage.push_back(&request);
+  }
+
+  // Make CoalescedLoads for pins from different sources.
+  if (!fromStorage.empty()) {
+    std::vector<CachePin> pins;
+    std::vector<RawFileCacheKey> keys;
+    std::vector<int32_t> sizes;
+    for (auto request : fromStorage) {
+      keys.push_back(RawFileCacheKey{fileNum, request->offset});
+      sizes.push_back(request->size);
+    }
+    auto load = std::make_shared<TestingCoalescedLoad>(
+        std::move(keys), std::move(sizes), *cache_);
+    load->injectError(injectError);
+    executor()->add([load]() { load->loadOrFuture(nullptr); });
+  }
+}
+
+void AsyncDataCacheTest::loadLoop(
+    int64_t startOffset,
+    int64_t loadBytes,
+    int32_t errorEveryNBatches) {
+  int64_t maxOffset =
+      std::max<int64_t>(100000, (startOffset + loadBytes) / filenames_.size());
+  int64_t skippedBytes = 0;
+  int32_t errorCounter = 0;
+  std::vector<Request> batch;
   for (auto file = 0; file < filenames_.size(); ++file) {
-    for (uint64_t offset = 100; offset < 10000000; offset += 100000) {
-      RawFileCacheKey key{filenames_[file].id(), offset};
-      for (;;) {
-        folly::SemiFuture<bool> wait(false);
-        auto pin = cache_->findOrCreate(key, offset % 1000000, &wait);
-        if (pin.empty()) {
-          // Another thread has the pin as exclusive.
-          auto& exec = folly::QueuedImmediateExecutor::instance();
-          std::move(wait).via(&exec).wait();
-          continue;
-        }
-        if (pin.entry()->isExclusive()) {
-          // Entry is new. This thread has it as exclusive.
-          batch.push_back(std::move(pin));
-          if (batch.size() < kBatch) {
-            break; // will load when we have enough entries for a batch.
+    auto fileNum = filenames_[file].id();
+    for (uint64_t offset = 100; offset < maxOffset;
+         offset += sizeAtOffset(offset)) {
+      auto size = sizeAtOffset(offset);
+      if (skippedBytes < startOffset) {
+        skippedBytes += size;
+        continue;
+      }
+
+      batch.emplace_back(offset, size);
+      if (batch.size() >= 8) {
+        for (;;) {
+          bool injectError =
+              errorEveryNBatches && (++errorCounter % errorEveryNBatches == 0);
+          loadBatch(fileNum, batch, injectError);
+          try {
+            checkBatch(fileNum, batch, injectError);
+          } catch (std::exception& e) {
+            continue;
           }
-          auto load = std::make_shared<TestingFusedLoad>();
-          load->initialize(std::move(batch));
-          // The batch is now loadable. Re-get so it loads.
-          continue;
-        } else {
-          // the pin is in shared mode. Ensure the data is loaded.
-          pin.entry()->ensureLoaded(true);
+          batch.clear();
           break;
         }
       }
     }
   }
-  // Drop possibly unloaded exclusive entries.
-  batch.clear();
 }
 
 TEST_F(AsyncDataCacheTest, pin) {
@@ -184,32 +347,30 @@ TEST_F(AsyncDataCacheTest, pin) {
   EXPECT_TRUE(otherPin.empty());
   bool noLongerExclusive = false;
   std::move(wait).via(&exec).thenValue([&](bool) { noLongerExclusive = true; });
-
-  std::vector<CachePin> pins;
-  pins.push_back(std::move(pin));
+  initializeContents(key.fileNum + key.offset, pin.checkedEntry()->data());
+  pin.checkedEntry()->setExclusiveToShared();
+  pin.clear();
   EXPECT_TRUE(pin.empty());
 
-  auto load = std::make_shared<TestingFusedLoad>();
-  load->initialize(std::move(pins));
   EXPECT_TRUE(noLongerExclusive);
 
-  pin.clear();
   pin = cache_->findOrCreate(key, kSize, &wait);
-  EXPECT_FALSE(pin.entry()->dataValid());
   EXPECT_TRUE(pin.entry()->isShared());
   EXPECT_TRUE(pin.entry()->getAndClearFirstUseFlag());
   EXPECT_FALSE(pin.entry()->getAndClearFirstUseFlag());
-  pin.entry()->ensureLoaded(true);
-  checkContents(pin.entry()->data());
+  checkContents(pin.entry()->data(), pin.entry()->size());
   otherPin = pin;
   EXPECT_EQ(2, pin.entry()->numPins());
   EXPECT_FALSE(pin.entry()->isPrefetch());
-  pin.entry()->setValid(false);
   pin.clear();
   otherPin.clear();
+  stats = cache_->refreshStats();
+  EXPECT_LE(kSize, stats.largeSize);
+  EXPECT_EQ(1, stats.numEntries);
+  EXPECT_EQ(0, stats.numShared);
+  EXPECT_EQ(0, stats.numExclusive);
 
-  // Since the pins were cleared with the data not valid, the entry is expected
-  // to be gone.
+  cache_->clear();
   stats = cache_->refreshStats();
   EXPECT_EQ(0, stats.largeSize);
   EXPECT_EQ(0, stats.numEntries);
@@ -218,8 +379,10 @@ TEST_F(AsyncDataCacheTest, pin) {
 
 TEST_F(AsyncDataCacheTest, replace) {
   constexpr int64_t kMaxBytes = 16 << 20;
+  FLAGS_velox_exception_stacktrace = false;
   initializeCache(kMaxBytes);
-  loadLoop();
+  // Load 10x the max size, inject an error every 21 batches.
+  loadLoop(0, kMaxBytes * 10, 21);
   auto stats = cache_->refreshStats();
   EXPECT_LT(0, stats.numEvict);
   EXPECT_GE(

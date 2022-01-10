@@ -26,7 +26,7 @@ TEST(SsdFileTrackerTest, tracker) {
   tracker.resize(kNumRegions);
   // Simulate a sequence of access that periodically adds a new region and keeps
   // accessing the 4 most recently added regions.
-  for (auto lastRegion = 0; lastRegion <= kNumRegions; ++lastRegion) {
+  for (auto lastRegion = 0; lastRegion < kNumRegions; ++lastRegion) {
     tracker.regionFilled(lastRegion);
     for (auto i = 0; i < 2000; ++i) {
       for (auto region = std::max(lastRegion - 3, 0); region <= lastRegion;

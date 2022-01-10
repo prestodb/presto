@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <mutex>
 
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::cache {
@@ -78,9 +79,20 @@ struct TrackingData {
   int64_t readBytes{};
   int32_t numReferences{};
   int32_t numReads{};
-  void incrementReference(uint64_t bytes) {
+
+  // Marks that 'bytes' worth of data in the tracked object has been
+  // referenced and may later be accessed. If 'bytes' is larger than a single
+  // 'oadQuantum', the reference counts for as many accesses as are needed to
+  // cover 'bytes'. When reading a large object, we will get a read per quantum.
+  // So then if the referenced and read counts match, we know that the object is
+  // densely read.
+  void incrementReference(uint64_t bytes, int32_t loadQuantum) {
     referencedBytes += bytes;
-    ++numReferences;
+    if (!loadQuantum) {
+      ++numReferences;
+    } else {
+      numReferences += bits::roundUp(bytes, loadQuantum) / loadQuantum;
+    }
   }
 
   void incrementRead(uint64_t bytes) {
@@ -98,16 +110,18 @@ struct TrackingData {
 // over multiple partitions.
 class ScanTracker {
  public:
-  ScanTracker() {}
+  ScanTracker() : loadQuantum_(1 /*not used*/) {}
 
   // Constructs a tracker with 'id'. The tracker will be owned by
   // shared_ptr and will be referenced from a map from id to weak_ptr
   // to 'this'. 'unregisterer' is supplied so that the destructor can
-  // remove the weak_ptr from the map of pending trackers.
+  // remove the weak_ptr from the map of pending trackers. 'loadQuantum' is the
+  // largest single IO size for read.
   ScanTracker(
       std::string_view id,
-      std::function<void(ScanTracker*)> unregisterer)
-      : id_(id), unregisterer_(unregisterer) {}
+      std::function<void(ScanTracker*)> unregisterer,
+      int32_t loadQuantum)
+      : id_(id), unregisterer_(unregisterer), loadQuantum_(loadQuantum) {}
 
   ~ScanTracker() {
     if (unregisterer_) {
@@ -134,6 +148,11 @@ class ScanTracker {
     return (100 * data.numReads) / data.numReferences >= minReadPct;
   }
 
+  TrackingData trackingData(TrackingId id) {
+    std::lock_guard<std::mutex> l(mutex_);
+    return data_[id];
+  }
+
   std::string_view id() const {
     return id_;
   }
@@ -147,6 +166,7 @@ class ScanTracker {
   std::function<void(ScanTracker*)> unregisterer_;
   folly::F14FastMap<TrackingId, TrackingData> data_;
   TrackingData sum_;
+  const int32_t loadQuantum_;
 };
 
 } // namespace facebook::velox::cache

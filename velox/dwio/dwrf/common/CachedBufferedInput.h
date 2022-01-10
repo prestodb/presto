@@ -20,8 +20,11 @@
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/dwrf/common/BufferedInput.h"
+#include "velox/dwio/dwrf/common/CacheInputStream.h"
 
 #include <folly/Executor.h>
+
+DECLARE_int32(cache_load_quantum);
 
 namespace facebook::velox::dwrf {
 
@@ -42,6 +45,27 @@ class AbstractInputStreamHolder {
 using StreamSource =
     std::function<std::unique_ptr<AbstractInputStreamHolder>()>;
 
+struct CacheRequest {
+  CacheRequest(
+      cache::RawFileCacheKey _key,
+      uint64_t _size,
+      cache::TrackingId _trackingId)
+      : key(_key), size(_size), trackingId(_trackingId) {}
+
+  cache::RawFileCacheKey key;
+  uint64_t size;
+  cache::TrackingId trackingId;
+  cache::CachePin pin;
+  bool processed{false};
+
+  // True if this should be coalesced into a CoalescedLoad with other
+  // nearby requests with a similar load probability. This is false
+  // for sparsely accessed large columns where hitting one piece
+  // should not load the adjacent pieces.
+  bool coalesces{true};
+  const SeekableInputStream* stream;
+};
+
 class CachedBufferedInput : public BufferedInput {
  public:
   CachedBufferedInput(
@@ -53,7 +77,9 @@ class CachedBufferedInput : public BufferedInput {
       uint64_t groupId,
       StreamSource streamSource,
       std::shared_ptr<dwio::common::IoStatistics> ioStats,
-      folly::Executor* executor)
+      folly::Executor* executor,
+      int32_t loadQuantum,
+      int32_t maxCoalesceDistance)
       : BufferedInput(input, pool, dataCacheConfig),
         cache_(cache),
         fileNum_(dataCacheConfig->filenum),
@@ -61,10 +87,13 @@ class CachedBufferedInput : public BufferedInput {
         groupId_(groupId),
         streamSource_(streamSource),
         ioStats_(std::move(ioStats)),
-        executor_(executor) {}
+        executor_(executor),
+        fileSize_(input.getLength()),
+        loadQuantum_(loadQuantum),
+        maxCoalesceDistance_(maxCoalesceDistance) {}
 
   ~CachedBufferedInput() override {
-    for (auto& load : fusedLoads_) {
+    for (auto& load : allCoalescedLoads_) {
       load->cancel();
     }
   }
@@ -92,28 +121,27 @@ class CachedBufferedInput : public BufferedInput {
     return true;
   }
 
+  cache::AsyncDataCache* cache() const {
+    return cache_;
+  }
+
+  // Returns the CoalescedLoad that contains the correlated loads for
+  // 'stream' or nullptr if none. Returns nullptr on all but first
+  // call for 'stream' since the load is to be triggered by the first
+  // access.
+  std::shared_ptr<cache::CoalescedLoad> coalescedLoad(
+      const SeekableInputStream* stream);
+
  private:
-  struct CacheRequest {
-    cache::RawFileCacheKey key;
-    uint64_t size;
-    cache::TrackingId trackingId;
-    cache::CachePin pin;
-  };
+  // Sorts requests and makes CoalescedLoads for nearby requests. If 'prefetch'
+  // is true, starts background loading.
+  void makeLoads(std::vector<CacheRequest*> requests, bool prefetch);
 
-  // Updates first  to include second if they are near enough to justify merging
-  // the IO.
-  bool tryMerge(
-      dwio::common::Region& first,
-      const dwio::common::Region& second);
-
-  // Schedules 'pins' to be read in a single IO covering
-  // 'region'. 'pins are sorted and non-overlapping and do not have
-  // excessive gaps between the end of one and the start of the next.
-  void readRegion(std::vector<cache::CachePin> pins);
-
-  // Removes the requests from 'toLoad' if they hit SSD cache. May start
-  // background load from SSD.
-  void loadFromSsd(std::vector<CacheRequest*> requests);
+  // Makes a CoalescedLoad for 'requests' to be read together, coalescing
+  // IO is appropriate. If 'prefetch' is set, schedules the CoalescedLoad
+  // on 'executor_'. Links the CoalescedLoad  to all CacheInputStreams that it
+  // concerns.
+  void readRegion(std::vector<CacheRequest*> requests, bool prefetch);
 
   cache::AsyncDataCache* cache_;
   const uint64_t fileNum_;
@@ -123,15 +151,21 @@ class CachedBufferedInput : public BufferedInput {
   std::shared_ptr<dwio::common::IoStatistics> ioStats_;
   folly::Executor* const executor_;
 
-  //  Percentage of reads over enqueues that qualifies a stream to be
-  //  coalesced with nearby streams and prefetched. Anything read less
-  //  frequently will be synchronously read on first use.
-  int32_t prefetchThreshold_ = 60;
-
   // Regions that are candidates for loading.
   std::vector<CacheRequest> requests_;
+
   // Coalesced loads spanning multiple cache entries in one IO.
-  std::vector<std::shared_ptr<cache::FusedLoad>> fusedLoads_;
+  folly::Synchronized<folly::F14FastMap<
+      const SeekableInputStream*,
+      std::shared_ptr<cache::CoalescedLoad>>>
+      coalescedLoads_;
+
+  // Distinct coalesced loads in 'coalescedLoads_'.
+  std::vector<std::shared_ptr<cache::CoalescedLoad>> allCoalescedLoads_;
+
+  const uint64_t fileSize_;
+  const int32_t loadQuantum_;
+  const int32_t maxCoalesceDistance_;
 };
 
 class CachedBufferedInputFactory : public BufferedInputFactory {
@@ -142,13 +176,16 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
       uint64_t groupId,
       StreamSource streamSource,
       std::shared_ptr<dwio::common::IoStatistics> ioStats,
-      folly::Executor* executor)
+      folly::Executor* executor,
+      const dwio::common::ReaderOptions& readerOpts)
       : cache_(cache),
         tracker_(std::move(tracker)),
         groupId_(groupId),
         streamSource_(streamSource),
         ioStats_(ioStats),
-        executor_(executor) {}
+        executor_(executor),
+        loadQuantum_(readerOpts.loadQuantum()),
+        maxCoalesceDistance_(readerOpts.maxCoalesceDistance()) {}
 
   std::unique_ptr<BufferedInput> create(
       dwio::common::InputStream& input,
@@ -163,7 +200,9 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
         groupId_,
         streamSource_,
         ioStats_,
-        executor_);
+        executor_,
+        loadQuantum_,
+        maxCoalesceDistance_);
   }
 
   std::string toString() const {
@@ -180,5 +219,7 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
   StreamSource streamSource_;
   std::shared_ptr<dwio::common::IoStatistics> ioStats_;
   folly::Executor* executor_;
+  int32_t loadQuantum_;
+  int32_t maxCoalesceDistance_;
 };
 } // namespace facebook::velox::dwrf

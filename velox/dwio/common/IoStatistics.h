@@ -87,6 +87,10 @@ class IoStatistics {
     return ramHit_;
   }
 
+  IoCounter& queryThreadIoLatency() {
+    return queryThreadIoLatency_;
+  }
+
   void incOperationCounters(
       const std::string& operation,
       const uint64_t resourceThrottleCount,
@@ -117,6 +121,10 @@ class IoStatistics {
   // Read from SSD cache instead of storage. Includes both random and planned
   // reads.
   IoCounter ssdRead_;
+
+  // Time spent by a query processing thread waiting for synchronously
+  // issued IO or for an in-progress read-ahead to finish.
+  IoCounter queryThreadIoLatency_;
 
   std::unordered_map<std::string, OperationCounters> operationStats_;
   mutable std::mutex operationStatsMutex_;

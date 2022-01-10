@@ -23,7 +23,9 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/CoalesceIo.h"
 #include "velox/common/base/SelectivityInfo.h"
+#include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/StringIdMap.h"
+#include "velox/common/file/File.h"
 #include "velox/common/memory/MappedMemory.h"
 
 namespace facebook::velox::cache {
@@ -59,6 +61,14 @@ struct AccessStats {
     return (now - lastUse) / (1 + numUses);
   }
 
+  // Resets the access tracking to not accessed. This is used after
+  // evicting the previous contents of the entry, so that the new data
+  // does not inherit the history of the previous.
+  void reset() {
+    lastUse = accessTime();
+    numUses = 0;
+  }
+
   // Updates the last access.
   void touch() {
     lastUse = accessTime();
@@ -66,7 +76,7 @@ struct AccessStats {
   }
 };
 
-// Owning reference to a file number and an offset.
+// Owning reference to a file id and an offset.
 struct FileCacheKey {
   StringIdLease fileNum;
   uint64_t offset;
@@ -106,8 +116,6 @@ struct hash<::facebook::velox::cache::RawFileCacheKey> {
 
 namespace facebook::velox::cache {
 
-class FusedLoad;
-
 // Represents a contiguous range of bytes cached from a file. This
 // is the primary unit of access. These are typically owned via
 // CachePin and can be in shared or exclusive mode. 'numPins_'
@@ -125,6 +133,11 @@ class AsyncDataCacheEntry {
   static constexpr int32_t kTinyDataSize = 2048;
 
   explicit AsyncDataCacheEntry(CacheShard* FOLLY_NONNULL shard);
+
+  // Sets the key and size and allocates the entry's memory.  Resets
+  //  all other state. The entry must be held exclusively and must
+  //  hold no memory when calling this.
+  void initialize(FileCacheKey key, int32_t size);
 
   memory::MappedMemory::Allocation& data() {
     return data_;
@@ -154,20 +167,6 @@ class AsyncDataCacheEntry {
     return size_;
   }
 
-  // Sets 'this' to loading state. Requires exclusive access on
-  // entry. Sets the access mode to shared after installing the load.
-  void setLoading(std::shared_ptr<FusedLoad> load) {
-    VELOX_CHECK(isExclusive());
-    load_ = std::move(load);
-  }
-
-  // Call this after loading the data and before releasing the pin.
-  void setValid(bool success = true) {
-    VELOX_CHECK_NE(0, numPins_);
-    dataValid_ = success;
-    load_.reset();
-  }
-
   void touch() {
     accessStats_.touch();
   }
@@ -188,16 +187,6 @@ class AsyncDataCacheEntry {
     return numPins_;
   }
 
-  // Checks that 'this' has valid data. If a load is scheduled,
-  // starts the load on the calling thread if the load is not yet
-  // started. If the load is in progress, waits for the load to
-  // complete if 'wait' is true. If wait is false and the load is in
-  // progress, returns immediately. If there is no scheduled IO and
-  // wait is true, checks that the data is valid and throws if it is
-  // not. Data might not be valid for example if we stopped to wait
-  // for a read and the read errored out.
-  void ensureLoaded(bool wait);
-
   // Sets the 'isPrefetch_' and updates the cache's total prefetch count.
   // Returns the new prefetch pages count.
   memory::MachinePageCount setPrefetch(bool flag = true);
@@ -215,11 +204,6 @@ class AsyncDataCacheEntry {
     return value;
   }
 
-  // True if 'data_' is fully loaded from the backing storage.
-  bool dataValid() const {
-    return dataValid_;
-  }
-
   void setExclusiveToShared();
 
   void setSsdFile(SsdFile* FOLLY_NULLABLE file, uint64_t offset) {
@@ -233,6 +217,14 @@ class AsyncDataCacheEntry {
 
   uint64_t ssdOffset() const {
     return ssdOffset_;
+  }
+
+  void setTrackingId(TrackingId id) {
+    trackingId_ = id;
+  }
+
+  void setGroupId(uint64_t groupId) {
+    groupId_ = groupId;
   }
 
  private:
@@ -260,18 +252,14 @@ class AsyncDataCacheEntry {
   // (kTinyDataSize).
   std::string tinyData_;
 
-  // true if 'data_' or 'tinyData_' correspond to the data in the
-  // file of 'key', starting at offset of 'key_', for 'size_'
-  // bytes. Releasing a pinned entry where 'dataValid_' is false
-  // removes the entry from 'shard_'.
-  bool dataValid_{false};
-
   std::unique_ptr<folly::SharedPromise<bool>> promise_;
   int32_t size_{0};
 
   // Setting this from 0 to 1 or to kExclusive requires owning shard_->mutex_.
   std::atomic<int32_t> numPins_{0};
+
   AccessStats accessStats_;
+
   // True if 'this' is speculatively loaded. This is reset on first
   // hit. Allows catching a situation where prefetched entries get
   // evicted before they are hit.
@@ -282,10 +270,11 @@ class AsyncDataCacheEntry {
   // statistics only.
   bool isFirstUse_{false};
 
-  // Represents a pending coalesced IO that is either loading this or
-  // scheduled to load this. Setting/clearing requires the shard
-  // mutex. If set, 'this' is pinned for either exclusive or shared.
-  std::shared_ptr<FusedLoad> load_;
+  // Group id. Used for deciding if 'this' should be written to SSD.
+  uint64_t groupId_{0};
+
+  // Tracking id. Used for deciding if this should be written to SSD.
+  TrackingId trackingId_;
 
   // SSD file from which this was loaded or nullptr if not backed by
   // SsdFile. Used to avoid re-adding items that already come from
@@ -379,94 +368,64 @@ class CachePin {
   friend class CacheShard;
 };
 
-// State of a FusedLoad
+// State of a CoalescedLoad
 enum class LoadState { kPlanned, kLoading, kCancelled, kLoaded };
 
 // Represents a possibly multi-entry load from a file system. The
 // cache expects to load multiple entries in most IOs. The IO is
 // either done by a background prefetch thread or if the query
 // thread gets there first, then the query thread will do the
-// IO. The IO is also cancelled as a unit. FusedLoad holds a pin on
-// all the entries it concerns. The pins are released after the IO
-// completes or is cancelled. An entry that references a FusedLoad
-// is not readable until the FusedLoad is complete.
-class FusedLoad : public std::enable_shared_from_this<FusedLoad> {
+// IO. The IO is also cancelled as a unit.
+class CoalescedLoad {
  public:
-  FusedLoad() : state_(LoadState::kPlanned) {}
+  CoalescedLoad(std::vector<RawFileCacheKey> keys, std::vector<int32_t> sizes)
+      : state_(LoadState::kPlanned),
+        keys_(std::move(keys)),
+        sizes_(std::move(sizes)) {}
 
-  // Registers 'pins' to be all loaded together by 'this' on first use
-  // of any. Ownership transfer of pins is required. This is not done
-  // in constructor due to shared_from_this not being defined during
-  // construction.
-  void initialize(std::vector<CachePin>&& pins) {
-    pins_ = std::move(pins);
-    for (auto& pin : pins_) {
-      pin.entry()->setLoading(shared_from_this());
-    }
-    // All pins to be loaded together must be set in place before we
-    // make any available for other threads to load. Else a partial
-    // load could result. Do this inside the mutex so that when a load
-    // begins we do not have a mix of shared and exclusive pins. Note
-    // that a second reader will be continued right after the pin goes
-    // shared. The just continued thread will still have to get
-    // 'mutex_' before it can start a load.
-    std::lock_guard<std::mutex> l(mutex_);
-    for (auto& pin : pins_) {
-      pin.entry()->setExclusiveToShared();
-    }
-  }
+  virtual ~CoalescedLoad();
 
-  virtual ~FusedLoad();
-
-  // Loads the pinned entries on first call. Returns true if the
-  // pins are loaded. If returns false, 'wait' is set to a future
-  // that is realized when the load is ready. The caller must
-  // further check that the pin it holds is in a valid state before
-  // using the data since the load may have failed.
+  // Makes entries for the keys that are not yet loaded and does a coalesced
+  // load of the entries that are not yet present. If another thread is in the
+  // process of doing this, returns immediately if 'wait' is false and waits for
+  // the other thread to be done if 'wait' is true.
   bool loadOrFuture(folly::SemiFuture<bool>* FOLLY_NULLABLE wait);
-
-  // Removes 'this' from the affected entries. If 'this' is already
-  // loading, takes no action since this indicates that another thread
-  // has control of 'this'.
-  void cancel();
 
   LoadState state() const {
     return state_;
   }
-  // Used for testing and server status.
-  static int32_t numFusedLoads() {
-    return numFusedLoads_;
+
+  void cancel() {
+    setEndState(LoadState::kCancelled);
+  }
+
+  virtual std::string toString() const {
+    return "<CoalescedLoad>";
   }
 
  protected:
-  // Performs the data transfer part of the load. Subclasses will
-  // specialize this. All pins will be referring to existing entries
-  // in shared state on entry and exit of this function. The contract
-  // is that a normal return will have filled all the pins with valid
-  // data. A throw means that the data in the pins is undefined.  The
-  // caller will release the pins in due time.
-  virtual void loadData(bool isPrefetch) = 0;
+  // Makes entries for 'keys_' and loads their content. Elements of
+  // 'keys' that are already loaded or loading are expected to be left
+  // out. The returned pins are expected to be exclusive with data
+  // loaded. The caller will set them to shared state on success. If
+  // loadData() throws, the pins it may have made will be destructed in
+  // their exclusive state so that they do not become visible to other
+  // users of the cache.
+  virtual std::vector<CachePin> loadData(bool isPrefetch) = 0;
 
   // Sets a final state and resumes waiting threads.
   void setEndState(LoadState endState);
 
-  // Serializes access to all members. Note that the cache pins will be in
-  // different shards and each shard has its own mutex.
+  // Serializes access to all members.
   std::mutex mutex_;
 
   LoadState state_;
+
   // Allows waiting for load or cancellation.
   std::unique_ptr<folly::SharedPromise<bool>> promise_;
 
-  // Non-overlapping entries in order of start offset, all in the same
-  // file. There may be gaps between the entries but the idea is that
-  // the gaps are small enough to make it worthwhile loading all the
-  // entries in a single IO. 'this' is installed on the entries when the
-  // entries are in exclusive mode. After setup, this continues to hold the
-  // entries in shared mode. The entries will block other readers until 'this'
-  // lets go of the entries because 'load_' of the entry is set.
-  std::vector<CachePin> pins_;
-  static std::atomic<int32_t> numFusedLoads_;
+  std::vector<RawFileCacheKey> keys_;
+  std::vector<int32_t> sizes_;
 };
 
 // Struct for CacheShard stats. Stats from all shards are added into
@@ -542,6 +501,9 @@ class CacheShard {
       uint64_t size,
       folly::SemiFuture<bool>* FOLLY_NULLABLE readyFuture);
 
+  // Returns true if there is an entry for 'key'. Updates access time.
+  bool exists(RawFileCacheKey key) const;
+
   AsyncDataCache* FOLLY_NONNULL cache() {
     return cache_;
   }
@@ -562,6 +524,10 @@ class CacheShard {
   // Adds the stats of 'this' to 'stats'.
   void updateStats(CacheStats& stats);
 
+  auto& allocClocks() {
+    return allocClocks_;
+  }
+
  private:
   static constexpr int32_t kNoThreshold = std::numeric_limits<int32_t>::max();
   void calibrateThreshold();
@@ -574,7 +540,7 @@ class CacheShard {
       AsyncDataCacheEntry* FOLLY_NONNULL entry,
       int64_t size);
 
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   folly::F14FastMap<RawFileCacheKey, AsyncDataCacheEntry * FOLLY_NONNULL>
       entryMap_;
   // Entries associated to a key.
@@ -633,6 +599,9 @@ class AsyncDataCache : public memory::MappedMemory,
       uint64_t size,
       folly::SemiFuture<bool>* FOLLY_NULLABLE waitFuture = nullptr);
 
+  // Returns true if there is an entry for 'key'. Updates access time.
+  bool exists(RawFileCacheKey key) const;
+
   bool allocate(
       memory::MachinePageCount numPages,
       int32_t owner,
@@ -688,6 +657,44 @@ class AsyncDataCache : public memory::MappedMemory,
     return maxBytes_;
   }
 
+  // Updates stats for creation of a new cache entry of 'size' bytes,
+  // i.e. a cache miss. Periodically updates SSD admission criteria,
+  // i.e. reconsider criteria every half cache capacity worth of misses.
+  void incrementNew(uint64_t size);
+
+  // Sets a callback applied to new entries at the point where
+  //  they are set to shared mode. Used for testing and can be used for
+  // e.g. checking checksums.
+  void setVerifyHook(std::function<void(const AsyncDataCacheEntry&)> hook) {
+    verifyHook_ = hook;
+  }
+
+  const auto& verifyHook() const {
+    return verifyHook_;
+  }
+
+  // Looks up a pin for each in 'keys' and skips all loading or
+  // loaded pins. Calls processPin for each exclusive
+  // pin. processPin must move its argument if it wants to use it
+  // afterwards. sizeFunc(i) returns the size of the ith item in
+  // 'keys'.
+  template <typename SizeFunc, typename ProcessPin>
+  void makePins(
+      const std::vector<RawFileCacheKey>& keys,
+      SizeFunc sizeFunc,
+      ProcessPin processPin) {
+    for (auto i = 0; i < keys.size(); ++i) {
+      auto pin = findOrCreate(keys[i], sizeFunc(i), nullptr);
+      if (pin.empty() || pin.checkedEntry()->isShared()) {
+        continue;
+      }
+      processPin(i, std::move(pin));
+    }
+  }
+
+  // Drops all unpinned entries. Pins stay valid.
+  void clear();
+
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
   static constexpr int32_t kShardMask = kNumShards - 1;
@@ -704,7 +711,20 @@ class AsyncDataCache : public memory::MappedMemory,
   // but not yet hit for the first time.
   std::atomic<memory::MachinePageCount> prefetchPages_{0};
   uint64_t maxBytes_;
+
+  // Approximate counter of bytes allocated to cover misses. When this
+  // exceeds 'nextSsdScoreSize_' we update the SSD admission criteria.
+  uint64_t newBytes_{0};
+
+  // 'newBytes_' value after which SSD admission should be reconsidered.
+  uint64_t nextSsdScoreSize_{};
+
+  // Approximate counter tracking new entries that could be saved to SSD.
+  uint64_t ssdSaveable_{0};
+
   CacheStats stats_;
+
+  std::function<void(const AsyncDataCacheEntry&)> verifyHook_;
 };
 
 // Samples a set of values T from 'numSamples' calls of
@@ -750,69 +770,5 @@ CoalesceIoStats readPins(
         int32_t end,
         uint64_t offset,
         const std::vector<folly::Range<char*>>& buffers)> readFunc);
-
-// Generic template for grouping IOs into batches of <
-// rangesPerIo ranges separated by gaps of size >= maxGap. Element
-// represents the object of the IO, Range is the type representing
-// the IO, e.g. pointer + size, offsetFunc and SizeFunc return the
-// offset and size of an Element, AddRange adds the ranges that
-// correspond to an Element, skipRange adds a gap between
-// neighboring items, ioFunc takes the items, the first item to
-// process, the first item not to process, the offset of the first
-// item and a vector of Ranges.
-template <
-    typename Item,
-    typename Range,
-    typename ItemOffset,
-    typename ItemSize,
-    typename ItemNumRanges,
-    typename AddRanges,
-    typename SkipRange,
-    typename IoFunc>
-CoalesceIoStats coalescedIo(
-    const std::vector<Item>& items,
-    int32_t maxGap,
-    int32_t rangesPerIo,
-    ItemOffset offsetFunc,
-    ItemSize sizeFunc,
-    ItemNumRanges numRanges,
-    AddRanges addRanges,
-    SkipRange skipRange,
-    IoFunc ioFunc) {
-  std::vector<Range> buffers;
-  auto start = offsetFunc(0);
-  auto lastOffset = start;
-  std::vector<Range> ranges;
-  CoalesceIoStats result;
-  int32_t firstItem = 0;
-  for (int32_t i = 0; i < items.size(); ++i) {
-    auto& item = items[i];
-    auto startOffset = offsetFunc(i);
-    auto size = sizeFunc(i);
-    result.payloadBytes += size;
-    bool enoughRanges =
-        ranges.size() + numRanges(item) >= rangesPerIo && !ranges.empty();
-    if (lastOffset != startOffset || enoughRanges) {
-      int64_t gap = startOffset - lastOffset;
-      if (gap > 0 && gap < maxGap && !enoughRanges) {
-        // The next one is after the previous and no farther than maxGap bytes,
-        // we read the gap but drop the bytes.
-        result.extraBytes += gap;
-        skipRange(gap, ranges);
-      } else {
-        ioFunc(items, firstItem, i, start, ranges);
-        ranges.clear();
-        firstItem = i;
-        ++result.numIos;
-        start = startOffset;
-      }
-    }
-    addRanges(item, ranges);
-    lastOffset = startOffset + size;
-  }
-  ioFunc(items, firstItem, items.size(), start, ranges);
-  ++result.numIos;
-  return result;
-}
 
 } // namespace facebook::velox::cache

@@ -15,6 +15,9 @@
  */
 
 #include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/caching/FileIds.h"
+#include "velox/common/caching/SsdFile.h"
+
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include "velox/common/caching/FileIds.h"
 
@@ -32,31 +35,39 @@ void AsyncDataCacheEntry::setExclusiveToShared() {
   std::unique_ptr<folly::SharedPromise<bool>> promise;
   {
     std::lock_guard<std::mutex> l(shard_->mutex());
+    // Enter the shard's mutex to make sure a promise is not being added during
+    // the move.
     promise = std::move(promise_);
   }
   if (promise) {
     promise->setValue(true);
   }
+
+  // The entry may now have other readers, It is safe to do read-only
+  // ops like integrity and notifying SSD cache of another candidate.
+  auto hook = shard_->cache()->verifyHook();
+  if (hook) {
+    hook(*this);
+  }
 }
 
 void AsyncDataCacheEntry::release() {
   VELOX_CHECK_NE(0, numPins_);
-  if (!dataValid_) {
-    shard_->removeEntry(this);
-  }
   if (numPins_ == kExclusive) {
-    if (promise_) {
-      promise_->setValue(true);
-      promise_.reset();
-    }
-    load_.reset();
+    // Dereferencing an exclusive entry without converting to shared
+    // means that the content could not be shared, e.g. error in
+    // loading.
+    shard_->removeEntry(this);
+    // After the entry is removed from the hash table, a promise can no longer
+    // be made. It is safe to move the promise and realize it.
+    auto promise = std::move(promise_);
     numPins_ = 0;
+    if (promise) {
+      promise->setValue(true);
+    }
   } else {
     auto oldPins = numPins_.fetch_add(-1);
-    VELOX_CHECK(oldPins >= 1, "Pin count goes negative");
-    if (oldPins == 1) {
-      load_.reset();
-    }
+    VELOX_CHECK_LE(1, oldPins, "pin count goes negative");
   }
 }
 
@@ -65,37 +76,42 @@ void AsyncDataCacheEntry::addReference() {
   ++numPins_;
 }
 
-void AsyncDataCacheEntry::ensureLoaded(bool wait) {
-  VELOX_CHECK(isShared());
-  if (dataValid_) {
-    return;
-  }
-  // Copy the shared_ptr to 'load_' so that another loader will not clear
-  // it if it gets in first. Competing loaders get serialized on the
-  // mutex of 'load'.
-  auto load = load_;
-  if (load) {
-    if (wait) {
-      folly::SemiFuture<bool> waitFuture(false);
-      if (!load->loadOrFuture(&waitFuture)) {
-        auto& exec = folly::QueuedImmediateExecutor::instance();
-        std::move(waitFuture).via(&exec).wait();
-        VELOX_CHECK(isShared());
-      }
-      if (!dataValid_) {
-        VELOX_FAIL("Waiting for failed load.");
-      }
-    } else {
-      load->loadOrFuture(nullptr);
-    }
-  }
-}
-
 memory::MachinePageCount AsyncDataCacheEntry::setPrefetch(bool flag) {
   isPrefetch_ = flag;
   auto numPages = bits::roundUp(size_, memory::MappedMemory::kPageSize) /
       memory::MappedMemory::kPageSize;
   return shard_->cache()->incrementPrefetchPages(flag ? numPages : -numPages);
+}
+
+void AsyncDataCacheEntry::initialize(FileCacheKey key, int32_t size) {
+  VELOX_CHECK(isExclusive());
+  VELOX_CHECK_EQ(0, size_);
+  setSsdFile(nullptr, 0);
+  accessStats_.reset();
+  key_ = std::move(key);
+  auto cache = shard_->cache();
+  ClockTimer t(shard_->allocClocks());
+  if (size < AsyncDataCacheEntry::kTinyDataSize) {
+    tinyData_.resize(size);
+  } else {
+    tinyData_.clear();
+    auto sizePages =
+        bits::roundUp(size, MappedMemory::kPageSize) / MappedMemory::kPageSize;
+    if (cache->allocate(sizePages, CacheShard::kCacheOwner, data_)) {
+      cache->incrementCachedPages(data().numPages());
+    } else {
+      // No memory to cover 'this'.
+      // Remove from 'shard_'s map and unpin.
+      shard_->removeEntry(this);
+      release();
+      _VELOX_THROW(
+          VeloxRuntimeError,
+          error_source::kErrorSourceRuntime.c_str(),
+          error_code::kNoCacheSpace.c_str(),
+          /* isRetriable */ true);
+    }
+  }
+  size_ = size;
 }
 
 std::unique_ptr<AsyncDataCacheEntry> CacheShard::getFreeEntryWithSize(
@@ -146,7 +162,6 @@ CachePin CacheShard::findOrCreate(
       // Initialize the members that must be set inside 'mutex_'.
       newEntry->numPins_ = AsyncDataCacheEntry::kExclusive;
       newEntry->promise_ = nullptr;
-      newEntry->dataValid_ = false;
       entryToInit = newEntry.get();
       entryMap_[key] = newEntry.get();
       if (emptySlots_.empty()) {
@@ -162,6 +177,16 @@ CachePin CacheShard::findOrCreate(
   return initEntry(key, entryToInit, size);
 }
 
+bool CacheShard::exists(RawFileCacheKey key) const {
+  std::lock_guard<std::mutex> l(mutex_);
+  auto it = entryMap_.find(key);
+  if (it != entryMap_.end()) {
+    it->second->touch();
+    return true;
+  }
+  return false;
+}
+
 CachePin CacheShard::initEntry(
     RawFileCacheKey key,
     AsyncDataCacheEntry* entry,
@@ -172,45 +197,20 @@ CachePin CacheShard::initEntry(
   // one has added. The new entry is otherwise volatile and
   // uninterpretable except for this thread. Non access serializing
   // members can be set outside of 'mutex_'.
-  entry->key_ = FileCacheKey{StringIdLease(fileIds(), key.fileNum), key.offset};
-  if (entry->size() < size) {
-    ClockTimer t(allocClocks_);
-    if (size < AsyncDataCacheEntry::kTinyDataSize) {
-      entry->tinyData_.resize(size);
-    } else {
-      auto sizePages = bits::roundUp(size, MappedMemory::kPageSize) /
-          MappedMemory::kPageSize;
-      if (cache_->allocate(sizePages, kCacheOwner, entry->data_)) {
-        cache_->incrementCachedPages(entry->data().numPages());
-      } else {
-        // No memory to cover the new entry. The entry is in exclusive
-        // mode. We remove it from the map and unpin.
-        removeEntry(entry);
-        entry->release();
-        _VELOX_THROW(
-            VeloxRuntimeError,
-            error_source::kErrorSourceRuntime.c_str(),
-            error_code::kNoCacheSpace.c_str(),
-            /* isRetriable */ true);
-      }
-    }
-  }
-  entry->touch();
-  entry->size_ = size;
+  entry->initialize(
+      FileCacheKey{StringIdLease(fileIds(), key.fileNum), key.offset}, size);
+  cache_->incrementNew(size);
   CachePin pin;
   pin.setEntry(entry);
   return pin;
 }
 
-//  static
-std::atomic<int32_t> FusedLoad::numFusedLoads_{0};
-
-FusedLoad::~FusedLoad() {
-  cancel();
-  --numFusedLoads_;
+CoalescedLoad::~CoalescedLoad() {
+  // Continue possibly waiting threads.
+  setEndState(LoadState::kCancelled);
 }
 
-bool FusedLoad::loadOrFuture(folly::SemiFuture<bool>* wait) {
+bool CoalescedLoad::loadOrFuture(folly::SemiFuture<bool>* wait) {
   {
     std::lock_guard<std::mutex> l(mutex_);
     if (state_ == LoadState::kCancelled || state_ == LoadState::kLoaded) {
@@ -231,47 +231,26 @@ bool FusedLoad::loadOrFuture(folly::SemiFuture<bool>* wait) {
   }
   // Outside of 'mutex_'.
   try {
-    // If wait is not set this counts as prefetch.
-    loadData(!wait);
-    for (auto& pin : pins_) {
-      pin.entry()->setValid();
-    }
-    {
-      std::lock_guard<std::mutex> l(mutex_);
-      pins_.clear();
+    auto pins = loadData(!wait);
+    for (auto& pin : pins) {
+      auto entry = pin.checkedEntry();
+      VELOX_CHECK(entry->key().fileNum.hasValue());
+      VELOX_CHECK(entry->isExclusive());
+      entry->setExclusiveToShared();
     }
     setEndState(LoadState::kLoaded);
-    return true;
-  } catch (const std::exception& e) {
-    cancel();
-    std::rethrow_exception(std::current_exception());
+  } catch (std::exception& e) {
+    try {
+      setEndState(LoadState::kCancelled);
+    } catch (std::exception& inner) {
+      // May not throw from inside catch.
+    }
+    throw;
   }
+  return true;
 }
 
-void FusedLoad::cancel() {
-  std::unique_ptr<folly::SharedPromise<bool>> promise;
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    if (state_ == LoadState::kLoading || state_ == LoadState::kCancelled) {
-      // Already cancelled or another thread is loading. If loading, we must let
-      // the load finish.
-      return;
-    }
-    state_ = LoadState::kCancelled;
-    promise = std::move(promise_);
-    for (auto& pin : pins_) {
-      if (!pin.empty()) {
-        pin.entry()->setValid(false);
-      }
-    }
-    pins_.clear();
-  }
-  if (promise) {
-    promise->setValue(true);
-  }
-}
-
-void FusedLoad::setEndState(LoadState endState) {
+void CoalescedLoad::setEndState(LoadState endState) {
   std::lock_guard<std::mutex> l(mutex_);
   state_ = endState;
   if (promise_) {
@@ -436,6 +415,11 @@ CachePin AsyncDataCache::findOrCreate(
   return shards_[shard]->findOrCreate(key, size, wait);
 }
 
+bool AsyncDataCache::exists(RawFileCacheKey key) const {
+  int shard = std::hash<RawFileCacheKey>()(key) & (kShardMask);
+  return shards_[shard]->exists(key);
+}
+
 bool AsyncDataCache::makeSpace(
     MachinePageCount numPages,
     std::function<bool()> allocate) {
@@ -482,12 +466,22 @@ bool AsyncDataCache::allocateContiguous(
   });
 }
 
+void AsyncDataCache::incrementNew(uint64_t size) {
+  newBytes_ += size;
+}
+
 CacheStats AsyncDataCache::refreshStats() const {
   CacheStats stats;
   for (auto& shard : shards_) {
     shard->updateStats(stats);
   }
   return stats;
+}
+
+void AsyncDataCache::clear() {
+  for (auto& shard : shards_) {
+    shard->evict(std::numeric_limits<int32_t>::max(), true);
+  }
 }
 
 std::string AsyncDataCache::toString() const {
@@ -499,8 +493,12 @@ std::string AsyncDataCache::toString() const {
       << " / " << maxBytes_ << " bytes\n"
       << "Miss: " << stats.numNew << " Hit " << stats.numHit << " evict "
       << stats.numEvict << "\n"
-      << " read pins " << stats.numShared << " unused prefetch "
-      << stats.numPrefetch << " Alloc Mclks " << (stats.allocClocks >> 20);
+      << " read pins " << stats.numShared << " write pins "
+      << stats.numExclusive << " unused prefetch " << stats.numPrefetch
+      << " Alloc Megaclocks " << (stats.allocClocks >> 20)
+      << " allocated pages " << numAllocated() << " cached pages "
+      << cachedPages_;
+  out << "\nBacking: " << mappedMemory_->toString();
   return out.str();
 }
 

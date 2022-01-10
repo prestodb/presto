@@ -21,9 +21,6 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-DECLARE_bool(ssd_odirect);
-DECLARE_bool(ssd_verify_write);
-
 using namespace facebook::velox;
 using namespace facebook::velox::cache;
 

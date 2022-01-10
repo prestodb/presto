@@ -236,8 +236,13 @@ class Connector {
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx) = 0;
 
+  // Returns a ScanTracker for 'id'. 'id' uniquely identifies the
+  // tracker and different threads will share the same
+  // instance. 'loadQuantum' is the largest single IO for the query
+  // being tracked.
   static std::shared_ptr<cache::ScanTracker> getTracker(
-      const std::string& scanId);
+      const std::string& scanId,
+      int32_t loadQuantum);
 
  private:
   static void unregisterTracker(cache::ScanTracker* tracker);
