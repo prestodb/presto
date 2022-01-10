@@ -321,7 +321,7 @@ const FilterTypePtr& ColumnSelector::process(const std::string& column, bool) {
   return findNode(column);
 }
 
-std::pair<std::string_view, std::string_view> ColumnSelector::extractColumnName(
+std::pair<std::string_view, std::string_view> extractColumnName(
     const std::string_view& name) {
   // right now this is the only supported expression for MAP key filter
   auto pos = name.find('#');

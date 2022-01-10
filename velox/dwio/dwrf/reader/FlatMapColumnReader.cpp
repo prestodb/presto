@@ -61,6 +61,16 @@ KeyValue<StringView> extractKey<StringView>(const proto::KeyInfo& info) {
 }
 
 template <typename T>
+KeyValue<T> parseKeyValue(std::string_view str) {
+  return KeyValue<T>(folly::to<T>(str));
+}
+
+template <>
+KeyValue<StringView> parseKeyValue<StringView>(std::string_view str) {
+  return KeyValue<StringView>(StringView(str));
+}
+
+template <typename T>
 struct KeyProjection {
   KeyProjectionMode mode = KeyProjectionMode::ALLOW;
   KeyValue<T> value;
@@ -74,11 +84,13 @@ KeyProjection<T> convertDynamic(const folly::dynamic& v) {
   if (!view.empty() && view.front() == reject_prefix) {
     return {
         .mode = KeyProjectionMode::REJECT,
-        .value = KeyValue<T>(folly::to<T>(view.substr(1)))};
+        .value = parseKeyValue<T>(view.substr(1)),
+    };
   } else {
     return {
         .mode = KeyProjectionMode::ALLOW,
-        .value = KeyValue<T>(folly::to<T>(view))};
+        .value = parseKeyValue<T>(view),
+    };
   }
 }
 
@@ -223,17 +235,19 @@ KeyPredicate<T> prepareKeyPredicate(
 template <typename T>
 std::vector<std::unique_ptr<KeyNode<T>>> rearrangeKeyNodesAsProjectedOrder(
     std::vector<std::unique_ptr<KeyNode<T>>>& availableKeyNodes,
-    const std::vector<KeyValue<T>>& keys) {
+    const std::vector<std::string>& keys) {
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes(keys.size());
 
   std::unordered_map<KeyValue<T>, size_t, KeyValueHash<T>> keyLookup;
   for (size_t i = 0; i < keys.size(); ++i) {
-    keyLookup[keys[i]] = i;
+    keyLookup[parseKeyValue<T>(keys[i])] = i;
   }
 
   for (auto& keyNode : availableKeyNodes) {
     const auto it = keyLookup.find(keyNode->getKey());
-    DWIO_ENSURE(it != keyLookup.end());
+    if (it == keyLookup.end()) {
+      continue;
+    }
     keyNodes[it->second] = std::move(keyNode);
   }
 
@@ -578,7 +592,6 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
   // If the key is not found in the stripe, the key node will be nullptr.
 
   auto parsedKeyFilter = parseKeyFilter<T>(requestedType, stripe);
-  DWIO_ENSURE_EQ(parsedKeyFilter.mode, KeyProjectionMode::ALLOW);
 
   const KeyPredicate<T> keyPredicate(
       parsedKeyFilter.mode,
@@ -592,8 +605,12 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
       stripe,
       memoryPool);
 
-  return rearrangeKeyNodesAsProjectedOrder<T>(
-      availableKeyNodes, parsedKeyFilter.keys);
+  const auto& mapColumnIdAsStruct =
+      stripe.getRowReaderOptions().getMapColumnIdAsStruct();
+  auto it = mapColumnIdAsStruct.find(requestedType->id);
+  DWIO_ENSURE(it != mapColumnIdAsStruct.end());
+
+  return rearrangeKeyNodesAsProjectedOrder<T>(availableKeyNodes, it->second);
 }
 
 template <typename T>

@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "folly/lang/Assume.h"
 #include "velox/common/base/test_utils/GTestUtils.h"
 #include "velox/common/caching/DataCache.h"
 #include "velox/dwio/common/MemoryInputStream.h"
@@ -440,29 +441,33 @@ TEST(TestReader, testReadFlatMapWithKeyRejectList) {
 }
 
 namespace {
-std::unordered_set<uint32_t> getNodeIdsFromColumnNames(
-    const std::vector<std::string>& columns,
-    const ColumnSelector& cs) {
+
+std::vector<std::string> stringify(const std::vector<int32_t>& values) {
+  std::vector<std::string> converted(values.size());
+  std::transform(
+      values.begin(), values.end(), converted.begin(), [](int32_t value) {
+        return folly::to<std::string>(value);
+      });
+  return converted;
+}
+
+std::unordered_map<uint32_t, std::vector<std::string>> makeStructEncodingOption(
+    const ColumnSelector& cs,
+    const std::string& columnName,
+    const std::vector<int32_t>& keys) {
   const auto schema = cs.getSchemaWithId();
   const auto names = schema->type->as<TypeKind::ROW>().names();
 
-  // Build name to id lookup
-  std::unordered_map<std::string, uint32_t> nameToIdLookup;
   for (uint32_t i = 0; i < names.size(); ++i) {
-    nameToIdLookup[names[i]] = schema->childAt(i)->id;
-  }
-
-  std::unordered_set<uint32_t> mapColumnIdAsStruct;
-
-  for (const auto& column : columns) {
-    const auto itName = nameToIdLookup.find(column);
-    if (itName != nameToIdLookup.end()) {
-      mapColumnIdAsStruct.insert(itName->second);
+    if (columnName == names[i]) {
+      std::unordered_map<uint32_t, std::vector<std::string>> config;
+      config[schema->childAt(i)->id] = stringify(keys);
+      return config;
     }
   }
 
-  return mapColumnIdAsStruct;
-};
+  folly::assume_unreachable();
+}
 
 void verifyMapColumnEqual(
     MapVector* mapVector,
@@ -496,15 +501,19 @@ void verifyMapColumnEqual(
 
 void verifyFlatmapStructEncoding(
     const std::string& filename,
+    const std::vector<int32_t>& keysAsFields,
+    const std::vector<int32_t>& keysToSelect,
     size_t batchSize = 1000) {
   ReaderOptions readerOpts;
   auto reader = DwrfReader::create(
       std::make_unique<FileInputStream>(filename), readerOpts);
 
-  const std::vector<int32_t> projections{
-      1, 2, 3, 4, 5, -99999999 /* does not exist */};
   const std::string projectedColumn = "map1";
   const vector_size_t projectedColumnIndex = 1;
+  const std::vector<std::string> columnSelections = keysToSelect.empty()
+      ? std::vector<std::string>{projectedColumn}
+      : std::vector<std::string>{
+            projectedColumn + "#[" + folly::join(", ", keysToSelect) + "]"};
 
   auto cs = std::make_shared<ColumnSelector>(
       std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
@@ -514,8 +523,7 @@ void verifyFlatmapStructEncoding(
       map3:map<int,int>,\
       map4:map<int,struct<field1:int,field2:float,field3:string>>,\
       memo:string>")),
-      std::vector<std::string>{
-          projectedColumn + "#[" + folly::join(", ", projections) + "]"});
+      columnSelections);
 
   RowReaderOptions rowReaderOpts;
   rowReaderOpts.select(cs);
@@ -523,7 +531,7 @@ void verifyFlatmapStructEncoding(
   auto mapEncodingReader = reader->createRowReader(rowReaderOpts);
 
   rowReaderOpts.setFlatmapNodeIdsAsStruct(
-      getNodeIdsFromColumnNames({"map1"}, *cs));
+      makeStructEncodingOption(*cs, "map1", keysAsFields));
   auto structEncodingReader = reader->createRowReader(rowReaderOpts);
 
   const auto compare = [&]() {
@@ -545,11 +553,11 @@ void verifyFlatmapStructEncoding(
 
       EXPECT_EQ(rowMapEncoding->size(), rowStructEncoding->size());
 
-      for (size_t i = 0; i < projections.size(); ++i) {
+      for (size_t i = 0; i < keysAsFields.size(); ++i) {
         verifyMapColumnEqual(
             rowMapEncoding->childAt(projectedColumnIndex)->as<MapVector>(),
             rowStructEncoding->childAt(projectedColumnIndex)->as<RowVector>(),
-            projections[i],
+            keysAsFields[i],
             i);
       }
     } while (true);
@@ -559,43 +567,40 @@ void verifyFlatmapStructEncoding(
 } // namespace
 
 TEST(TestReader, testFlatmapAsStructSmall) {
-  verifyFlatmapStructEncoding(getExampleFilePath("fm_small.orc"));
+  verifyFlatmapStructEncoding(
+      getExampleFilePath("fm_small.orc"),
+      {1, 2, 3, 4, 5, -99999999 /* does not exist */},
+      {} /* no key filtering */);
 }
 
 TEST(TestReader, testFlatmapAsStructSmallEmptyInmap) {
-  verifyFlatmapStructEncoding(getExampleFilePath("fm_small.orc"), 2);
+  verifyFlatmapStructEncoding(
+      getExampleFilePath("fm_small.orc"),
+      {1, 2, 3, 4, 5, -99999999 /* does not exist */},
+      {} /* no key filtering */,
+      2);
 }
 
 TEST(TestReader, testFlatmapAsStructLarge) {
-  verifyFlatmapStructEncoding(getExampleFilePath("fm_large.orc"));
+  verifyFlatmapStructEncoding(
+      getExampleFilePath("fm_large.orc"),
+      {1, 2, 3, 4, 5, -99999999 /* does not exist */},
+      {} /* no key filtering */);
 }
 
-TEST(TestReader, testFlatmapAsStructRequiringProjection) {
-  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+TEST(TestReader, testFlatmapAsStructWithKeyProjection) {
+  verifyFlatmapStructEncoding(
+      getExampleFilePath("fm_small.orc"),
+      {1, 2, 3, 4, 5, -99999999 /* does not exist */},
+      {3, 5} /* select only these to read */);
+}
 
-  ReaderOptions readerOpts;
-  auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(fmSmall), readerOpts);
-
-  auto cs = std::make_shared<ColumnSelector>(
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>")),
-      std::vector<std::string>{});
-
+TEST(TestReader, testFlatmapAsStructRequiringKeyList) {
+  const std::unordered_map<uint32_t, std::vector<std::string>> emptyKeys = {
+      {0, {}}};
   RowReaderOptions rowReaderOpts;
-  rowReaderOpts.select(cs);
-  rowReaderOpts.setFlatmapNodeIdsAsStruct(
-      getNodeIdsFromColumnNames({"map1"}, *cs));
-
-  auto rowReader = reader->createRowReader(rowReaderOpts);
-
-  VectorPtr batch;
-  EXPECT_THROW(rowReader->next(1000, batch), VeloxException);
+  EXPECT_THROW(
+      rowReaderOpts.setFlatmapNodeIdsAsStruct(emptyKeys), VeloxException);
 }
 
 // TODO: replace with mock

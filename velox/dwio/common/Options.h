@@ -96,7 +96,8 @@ class RowReaderOptions {
   ErrorTolerance errorTolerance_;
   std::shared_ptr<ColumnSelector> selector_;
   velox::common::ScanSpec* scanSpec_ = nullptr;
-  std::unordered_set<uint32_t> flatmapNodeIdAsStruct_;
+  // Node id for map column to a list of keys to be projected as a struct.
+  std::unordered_map<uint32_t, std::vector<std::string>> flatmapNodeIdAsStruct_;
 
  public:
   RowReaderOptions(const RowReaderOptions& other) {
@@ -236,11 +237,19 @@ class RowReaderOptions {
   }
 
   void setFlatmapNodeIdsAsStruct(
-      std::unordered_set<uint32_t> flatmapNodeIdsAsStruct) {
+      std::unordered_map<uint32_t, std::vector<std::string>>
+          flatmapNodeIdsAsStruct) {
+    VELOX_CHECK(
+        std::all_of(
+            flatmapNodeIdsAsStruct.begin(),
+            flatmapNodeIdsAsStruct.end(),
+            [](const auto& kv) { return !kv.second.empty(); }),
+        "To use struct encoding for flatmap, keys to project must be specified");
     flatmapNodeIdAsStruct_ = std::move(flatmapNodeIdsAsStruct);
   }
 
-  const std::unordered_set<uint32_t>& getMapColumnIdAsStruct() const {
+  const std::unordered_map<uint32_t, std::vector<std::string>>&
+  getMapColumnIdAsStruct() const {
     return flatmapNodeIdAsStruct_;
   }
 };
