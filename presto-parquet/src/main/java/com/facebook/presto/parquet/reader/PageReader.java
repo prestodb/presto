@@ -97,6 +97,23 @@ public class PageReader
         }
     }
 
+    public long getNextPageValueCount()
+    {
+        if (compressedPages.isEmpty()) {
+            return -1;
+        }
+        else {
+            return compressedPages.get(0).getValueCount();
+        }
+    }
+
+    public void skipPage()
+    {
+        assert !compressedPages.isEmpty();
+
+        compressedPages.remove(0);
+    }
+
     public DictionaryPage readDictionaryPage()
     {
         if (compressedDictionaryPage == null) {

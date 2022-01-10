@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.relation.RowExpression;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -37,11 +38,13 @@ public interface HiveSelectivePageSourceFactory
             long length,
             long fileSize,
             Storage storage,
+            SchemaTableName tableName,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,           // key is hiveColumnIndex
             Map<Integer, HiveCoercer> coercers,             // key is hiveColumnIndex
             Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,                    // element is hiveColumnIndex
+            Map<String, HiveColumnHandle> predicateColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,               // refers to columns by name; already optimized
             DateTimeZone hiveStorageTimeZone,

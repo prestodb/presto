@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.parquet.cache.MetadataReader;
-import com.facebook.presto.parquet.reader.ParquetReader;
+import com.facebook.presto.parquet.reader.ParquetLegacyReader;
 import com.google.common.base.Strings;
 import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -93,7 +93,7 @@ public class BenchmarkParquetReader
     private static Object read(BenchmarkData data)
             throws Exception
     {
-        try (ParquetReader recordReader = data.createRecordReader()) {
+        try (ParquetLegacyReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
             while (recordReader.nextBatch() > 0) {
                 Block block = recordReader.readBlock(data.getField());
@@ -268,7 +268,7 @@ public class BenchmarkParquetReader
             deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
         }
 
-        ParquetReader createRecordReader()
+        ParquetLegacyReader createRecordReader()
                 throws IOException
         {
             FileParquetDataSource dataSource = new FileParquetDataSource(file);
@@ -278,7 +278,7 @@ public class BenchmarkParquetReader
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
 
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification);
+            return new ParquetLegacyReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification);
         }
 
         protected boolean getNullability()

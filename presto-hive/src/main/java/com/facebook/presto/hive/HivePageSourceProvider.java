@@ -317,11 +317,13 @@ public class HivePageSourceProvider
                     split.getLength(),
                     split.getFileSize(),
                     split.getStorage(),
+                    layout.getSchemaTableName(),
                     toColumnHandles(columnMappings, true),
                     prefilledValues,
                     coercers,
                     bucketAdaptation,
                     outputColumns,
+                    layout.getPredicateColumns(),
                     splitContext.getDynamicFilterPredicate().map(filter -> filter.transform(
                             handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate())).orElse(layout.getDomainPredicate()),
                     optimizedRemainingPredicate,

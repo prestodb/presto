@@ -166,6 +166,7 @@ public class HiveClientConfig
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
+    private boolean parquetPushdownFilterEnabled;
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
@@ -1465,6 +1466,20 @@ public class HiveClientConfig
     public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
     {
         this.pushdownFilterEnabled = pushdownFilterEnabled;
+        return this;
+    }
+
+    @NotNull
+    public boolean isParquetPushdownFilterEnabled()
+    {
+        return parquetPushdownFilterEnabled;
+    }
+
+    @Config("hive.parquet.pushdown-filter-enabled")
+    @ConfigDescription("Experimental: enable complex filter pushdown for Aria Parquet")
+    public HiveClientConfig setParquetPushdownFilterEnabled(boolean parquetPushdownFilterEnabled)
+    {
+        this.parquetPushdownFilterEnabled = parquetPushdownFilterEnabled;
         return this;
     }
 

@@ -16,28 +16,42 @@ package com.facebook.presto.hive.parquet;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilterUtils;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.FileParquetDataSource;
+import com.facebook.presto.parquet.ParquetDataSource;
+import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.MetadataReader;
-import com.facebook.presto.parquet.reader.ParquetReader;
+import com.facebook.presto.parquet.reader.ParquetLegacyReader;
+import com.facebook.presto.parquet.reader.ParquetSelectiveReader;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.ColumnIOConverter;
 import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -66,6 +80,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.IntStream;
@@ -73,13 +88,16 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.predicate.Range.range;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.hive.parquet.AbstractTestParquetLegacyReader.intToSqlTimestamp;
 import static com.facebook.presto.hive.parquet.AbstractTestParquetReader.intToSqlTimestamp;
 import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -111,17 +129,43 @@ import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESS
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkParquetPageSource
 {
-    private static final int ROWS = 10_000_000;
+    private static final int ROWS = 10_000;
     private static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     private static final boolean batchReadEnabled = true;
     private static final boolean enableVerification = false;
 
     @Benchmark
-    public void readAllBlocksAndApplyFilters(BenchmarkData data)
+    public void legacyReadAllBlocksAndApplyFilters(BenchmarkData data)
             throws Exception
     {
         try (ParquetPageSource parquetPageSource = data.createParquetPageSource()) {
+            while (true) {
+                Page page = parquetPageSource.getNextPage();
+                if (page == null) {
+                    break;
+                }
+
+                data.process(page);
+            }
+        }
+    }
+
+    @Test
+    public void verifyLegacyReadAllBlocksAndApplyFilters()
+            throws Exception
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        BenchmarkParquetPageSource benchmarkSelectiveStreamReaders = new BenchmarkParquetPageSource();
+        benchmarkSelectiveStreamReaders.legacyReadAllBlocksAndApplyFilters(data);
+    }
+
+    @Benchmark
+    public void readAllBlocksAndApplyFilters(BenchmarkData data)
+            throws Exception
+    {
+        try (ParquetSelectivePageSource parquetPageSource = data.createSelectiveParquetPageSource()) {
             while (true) {
                 Page page = parquetPageSource.getNextPage();
                 if (page == null) {
@@ -153,6 +197,7 @@ public class BenchmarkParquetPageSource
         private final Metadata metadata = createTestMetadataManager();
         private final Session testSession = TestingSession.testSessionBuilder().build();
         private final FunctionAndTypeManager functionManager = metadata.getFunctionAndTypeManager();
+        private final TypeManager typeManager = createTestFunctionAndTypeManager();
 
         private List<String> columnNames = new ArrayList<>();
         private PageProcessor pageProcessor;
@@ -162,6 +207,7 @@ public class BenchmarkParquetPageSource
         private int channelCount;
         private List<Optional<RowExpression>> filters = new ArrayList<>();
         private ParquetMetadata parquetMetadata;
+        private List<Float> filterRates;
 
         @Param({
                 "boolean",
@@ -172,14 +218,14 @@ public class BenchmarkParquetPageSource
 
                 "varchar",
         })
-        private String typeSignature = "boolean";
+        private String typeSignature = "int64";
 
         @Param({
                 "PARTIAL",
                 "NONE",
                 "ALL"
         })
-        private Nulls withNulls = Nulls.PARTIAL;
+        private Nulls withNulls = Nulls.NONE;
 
         // 0 means no rows will be filtered out, 1 means all rows will be filtered out, -1 means no filter.
         // When withNulls is ALL, only -1, 0, 1 are meaningful. Other values are regarded as 1.
@@ -243,7 +289,7 @@ public class BenchmarkParquetPageSource
             parquetFile = new File(temporaryDirectory, randomUUID().toString());
             Type type = getTypeFromTypeSignature();
 
-            List<Float> filterRates = Arrays.stream(filterRateSignature.split("\\|")).map(r -> Float.parseFloat(r)).collect(toImmutableList());
+            filterRates = Arrays.stream(filterRateSignature.split("\\|")).map(r -> Float.parseFloat(r)).collect(toImmutableList());
             channelCount = filterRates.size();
 
             Iterator<?>[] values = new Iterator<?>[channelCount];
@@ -290,9 +336,58 @@ public class BenchmarkParquetPageSource
                 fields.add(ColumnIOConverter.constructField(getTypeFromTypeSignature(), messageColumnIO.getChild(i)));
             }
 
-            ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), batchReadEnabled, enableVerification);
+            ParquetLegacyReader parquetReader = new ParquetLegacyReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), batchReadEnabled, enableVerification);
 
             return new ParquetPageSource(parquetReader, Collections.nCopies(channelCount, type), fields, columnNames, new RuntimeStats());
+        }
+
+        ParquetSelectivePageSource createSelectiveParquetPageSource()
+                throws IOException
+        {
+            MessageType schema = parquetMetadata.getFileMetaData().getSchema();
+            MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
+
+            Type type = getTypeFromTypeSignature();
+
+            Field[] fields = new Field[channelCount];
+            ColumnDescriptor[] columnDescriptors = new ColumnDescriptor[channelCount];
+            ImmutableMap.Builder<Integer, Map<Subfield, TupleDomainFilter>> tupleDomainFiltersBuilder = ImmutableMap.builder();
+            ImmutableList.Builder<Integer> outputChannelsBuilder = ImmutableList.builder();
+            int[] hiveColumnIndexes = new int[channelCount];
+
+            for (int i = 0; i < channelCount; i++) {
+                int hiveColumnIndex = i;
+
+                Pair<Boolean, Float> filterInfoForNonNull = getFilterInfoForNonNull(filterRates.get(i));
+                Optional<Field> field = ColumnIOConverter.constructField(getTypeFromTypeSignature(), messageColumnIO.getChild(i));
+                String columnName = columnNames.get(i);
+                PrimitiveColumnIO primitiveColumnIO = messageColumnIO.getLeaves().get(i);
+                RichColumnDescriptor columnDescriptor = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getType().asPrimitiveType());
+                Domain domain = getDomain(primitiveColumnIO, type, filterRates.get(i), false, filterInfoForNonNull.getValue());
+                TupleDomainFilter tupleDomainFilter = TupleDomainFilterUtils.toFilter(domain);
+
+                hiveColumnIndexes[i] = hiveColumnIndex;
+                columnDescriptors[i] = columnDescriptor;
+                fields[i] = field.orElse(null);
+                outputChannelsBuilder.add(hiveColumnIndex);
+                tupleDomainFiltersBuilder.put(i, ImmutableMap.of(new Subfield(columnName), tupleDomainFilter));
+            }
+
+            ParquetDataSource dataSource = new FileParquetDataSource(parquetFile);
+            AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+
+            ParquetSelectiveReader parquetSelectiveReader = new ParquetSelectiveReader(
+                    dataSource,
+                    parquetMetadata.getBlocks(),
+                    fields,
+                    columnDescriptors,
+                    tupleDomainFiltersBuilder.build(),
+                    new ArrayList<>(),
+                    outputChannelsBuilder.build(),
+                    hiveColumnIndexes,
+                    memoryContext);
+
+            return new ParquetSelectivePageSource(parquetSelectiveReader, dataSource, memoryContext, new FileFormatDataSourceStats());
         }
 
         private Optional<RowExpression> filterConjunction()
@@ -353,6 +448,17 @@ public class BenchmarkParquetPageSource
             }
 
             return builder.build();
+        }
+
+        private Domain getDomain(PrimitiveColumnIO columnIO, Type type, float filterRate, boolean filterAllowNull, float selectionRateForNonNull)
+        {
+            Domain domain = null;
+            if (BIGINT.equals(type)) {
+                domain = Domain.create(
+                        ValueSet.ofRanges(range(BIGINT, (long) (Integer.MIN_VALUE * selectionRateForNonNull), true, (long) (Integer.MAX_VALUE * selectionRateForNonNull), true)),
+                        filterAllowNull);
+            }
+            return domain;
         }
 
         private Optional<RowExpression> getFilter(int columnIndex, Type type, float filterRate, boolean filterAllowNull, float selectionRateForNonNull)

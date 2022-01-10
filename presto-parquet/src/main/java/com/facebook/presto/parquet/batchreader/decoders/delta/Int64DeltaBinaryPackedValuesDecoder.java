@@ -46,6 +46,12 @@ public class Int64DeltaBinaryPackedValuesDecoder
     }
 
     @Override
+    public long readNext()
+    {
+        throw new UnsupportedOperationException("readNext is not supported in Int64DeltaBinaryPackedValuesDecoder");
+    }
+
+    @Override
     public void skip(int length)
     {
         while (length > 0) {

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
+import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64ValuesDecoder;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -77,6 +78,30 @@ public class Int64RLEDictionaryValuesDecoder
         }
 
         checkState(remainingToCopy == 0, "End of stream: Invalid read size request");
+    }
+
+    @Override
+    public long readNext()
+            throws IOException
+    {
+        if (currentCount == 0) {
+            if (!decode()) {
+                throw new ParquetCorruptionException("Error decoding");
+            }
+        }
+
+        currentCount--;
+
+        switch (mode) {
+            case RLE: {
+                return dictionary.decodeToLong(currentValue);
+            }
+            case PACKED: {
+                return dictionary.decodeToLong(currentBuffer[currentBuffer.length - currentCount - 1]);
+            }
+            default:
+                throw new ParquetDecodingException("not a valid mode " + mode);
+        }
     }
 
     @Override

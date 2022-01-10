@@ -34,7 +34,7 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
-import com.facebook.presto.parquet.reader.ParquetReader;
+import com.facebook.presto.parquet.reader.ParquetLegacyReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -265,7 +265,7 @@ public class ParquetPageSourceFactory
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = new ParquetReader(
+            ParquetLegacyReader parquetReader = new ParquetLegacyReader(
                     messageColumnIO,
                     blocks.build(),
                     dataSource,
