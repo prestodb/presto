@@ -148,3 +148,79 @@ TEST_F(S3FileSystemTest, fileHandle) {
   auto fileHandle = factory.generate(s3File);
   readData(fileHandle->file.get());
 }
+
+TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
+  {
+    const std::unordered_map<std::string, std::string> config(
+        {{"hive.s3.use-instance-credentials", "true"},
+         {"hive.s3.iam-role", "dummy-iam-role"}});
+    auto hiveConfig =
+        std::make_shared<const core::MemConfig>(std::move(config));
+    filesystems::S3FileSystem s3fs(hiveConfig);
+    // Both instance credentials and iam-role cannot be specified
+    try {
+      s3fs.initializeClient();
+      FAIL() << "Expected VeloxException";
+    } catch (VeloxException const& err) {
+      EXPECT_EQ(
+          err.message(),
+          std::string(
+              "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'"));
+    }
+  }
+  {
+    const std::unordered_map<std::string, std::string> config(
+        {{"hive.s3.aws-secret-key", "dummy-key"},
+         {"hive.s3.aws-access-key", "dummy-key"},
+         {"hive.s3.iam-role", "dummy-iam-role"}});
+    auto hiveConfig =
+        std::make_shared<const core::MemConfig>(std::move(config));
+    filesystems::S3FileSystem s3fs(hiveConfig);
+    // Both access/secret keys and iam-role cannot be specified
+    try {
+      s3fs.initializeClient();
+      FAIL() << "Expected VeloxException";
+    } catch (VeloxException const& err) {
+      EXPECT_EQ(
+          err.message(),
+          std::string(
+              "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'"));
+    }
+  }
+  {
+    const std::unordered_map<std::string, std::string> config(
+        {{"hive.s3.aws-secret-key", "dummy"},
+         {"hive.s3.aws-access-key", "dummy"},
+         {"hive.s3.use-instance-credentials", "true"}});
+    auto hiveConfig =
+        std::make_shared<const core::MemConfig>(std::move(config));
+    filesystems::S3FileSystem s3fs(hiveConfig);
+    // Both access/secret keys and instance credentials cannot be specified
+    try {
+      s3fs.initializeClient();
+      FAIL() << "Expected VeloxException";
+    } catch (VeloxException const& err) {
+      EXPECT_EQ(
+          err.message(),
+          std::string(
+              "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'"));
+    }
+  }
+  {
+    const std::unordered_map<std::string, std::string> config(
+        {{"hive.s3.aws-secret-key", "dummy"}});
+    auto hiveConfig =
+        std::make_shared<const core::MemConfig>(std::move(config));
+    filesystems::S3FileSystem s3fs(hiveConfig);
+    // Both access key and secret key must be specified
+    try {
+      s3fs.initializeClient();
+      FAIL() << "Expected VeloxException";
+    } catch (VeloxException const& err) {
+      EXPECT_EQ(
+          err.message(),
+          std::string(
+              "Invalid configuration: both access key and secret key must be specified"));
+    }
+  }
+}

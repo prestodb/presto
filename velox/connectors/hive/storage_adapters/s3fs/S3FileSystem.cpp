@@ -28,6 +28,7 @@
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
+#include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/HeadObjectRequest.h>
@@ -170,6 +171,18 @@ class S3Config {
     return {};
   }
 
+  std::optional<std::string> iamRole() const {
+    if (config_->isValueExists("hive.s3.iam-role")) {
+      return config_->get("hive.s3.iam-role").value();
+    }
+    return {};
+  }
+
+  std::string iamRoleSessionName() const {
+    return config_->get(
+        "hive.s3.iam-role-session-name", std::string("velox-session"));
+  }
+
  private:
   const Config* config_;
 };
@@ -194,19 +207,67 @@ class S3FileSystem::Impl {
     }
   }
 
-  // Configure default AWS credentials provider chain.
+  // Configure and return an AWSCredentialsProvider with access key and secret
+  // key.
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider>
-  getDefaultCredentialProvider() const {
-    return std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
-  }
-
-  // Configure with access and secret keys.
-  std::shared_ptr<Aws::Auth::AWSCredentialsProvider>
-  getAccessSecretCredentialProvider(
+  getAccessKeySecretKeyCredentialsProvider(
       const std::string& accessKey,
       const std::string& secretKey) const {
     return std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
-        awsString(accessKey), awsString(secretKey), awsString(""));
+        awsString(accessKey), awsString(secretKey));
+  }
+
+  // Return a default AWSCredentialsProvider.
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider>
+  getDefaultCredentialsProvider() const {
+    return std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
+  }
+
+  // Configure and return an AWSCredentialsProvider with S3 IAM Role.
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider>
+  getIAMRoleCredentialsProvider(
+      const std::string& s3IAMRole,
+      const std::string& sessionName) const {
+    return std::make_shared<Aws::Auth::STSAssumeRoleCredentialsProvider>(
+        awsString(s3IAMRole), awsString(sessionName));
+  }
+
+  // Return an AWSCredentialsProvider based on the config.
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider> getCredentialsProvider()
+      const {
+    auto accessKey = s3Config_.accessKey();
+    auto secretKey = s3Config_.secretKey();
+    const auto iamRole = s3Config_.iamRole();
+
+    int keyCount = accessKey.has_value() + secretKey.has_value();
+    // keyCount=0 means both are not specified
+    // keyCount=2 means both are specified
+    // keyCount=1 means only one of them is specified and is an error
+    VELOX_USER_CHECK(
+        (keyCount != 1),
+        "Invalid configuration: both access key and secret key must be specified");
+
+    int configCount = (accessKey.has_value() && secretKey.has_value()) +
+        iamRole.has_value() + s3Config_.useInstanceCredentials();
+    VELOX_USER_CHECK(
+        (configCount <= 1),
+        "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
+
+    if (accessKey.has_value() && secretKey.has_value()) {
+      return getAccessKeySecretKeyCredentialsProvider(
+          accessKey.value(), secretKey.value());
+    }
+
+    if (s3Config_.useInstanceCredentials()) {
+      return getDefaultCredentialsProvider();
+    }
+
+    if (iamRole.has_value()) {
+      return getIAMRoleCredentialsProvider(
+          iamRole.value(), s3Config_.iamRoleSessionName());
+    }
+
+    return getDefaultCredentialsProvider();
   }
 
   // Use the input Config parameters and initialize the S3Client.
@@ -221,16 +282,7 @@ class S3FileSystem::Impl {
       clientConfig.scheme = Aws::Http::Scheme::HTTP;
     }
 
-    std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentialsProvider;
-    auto accessKey = s3Config_.accessKey();
-    auto secretKey = s3Config_.secretKey();
-    if (accessKey.has_value() && secretKey.has_value() &&
-        !s3Config_.useInstanceCredentials()) {
-      credentialsProvider = getAccessSecretCredentialProvider(
-          accessKey.value(), secretKey.value());
-    } else {
-      credentialsProvider = getDefaultCredentialProvider();
-    }
+    auto credentialsProvider = getCredentialsProvider();
 
     client_ = std::make_shared<Aws::S3::S3Client>(
         credentialsProvider,

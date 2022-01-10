@@ -81,7 +81,7 @@ if(VELOX_ENABLE_S3)
   if(AWSSDK_ROOT_DIR)
     set(CMAKE_PREFIX_PATH ${AWSSDK_ROOT_DIR})
   endif()
-  find_package(AWSSDK REQUIRED COMPONENTS s3)
+  find_package(AWSSDK REQUIRED COMPONENTS s3;identity-management)
   add_definitions(-DVELOX_ENABLE_S3)
 endif()
 

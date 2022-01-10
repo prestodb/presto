@@ -32,7 +32,7 @@ function install_aws-sdk-cpp {
   cmake ../"${NAME}" \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DCMAKE_BUILD_TYPE=Debug \
-    -DBUILD_ONLY:STRING=s3 \
+    -DBUILD_ONLY:STRING="s3;identity-management" \
     -DBUILD_SHARED_LIBS:BOOL=OFF \
     -DMINIMIZE_SIZE:BOOL=ON \
     -DENABLE_TESTING:BOOL=OFF \
