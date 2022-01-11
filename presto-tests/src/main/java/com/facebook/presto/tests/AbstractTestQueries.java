@@ -55,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUN
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOPN_ROW_NUMBER;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -1705,9 +1706,23 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testRowNumberFilterAndLimit()
+    public void testRowNumberFilterAndLimitNoOpt()
     {
-        MaterializedResult actual = computeActual("" +
+        testRowNumberFilterAndLimit(getSession());
+    }
+
+    @Test
+    public void testRowNumberFilterAndLimitOpt()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_TOPN_ROW_NUMBER, "true")
+                .build();
+        testRowNumberFilterAndLimit(session);
+    }
+
+    private void testRowNumberFilterAndLimit(Session session)
+    {
+        MaterializedResult actual = computeActual(session, "" +
                 "SELECT * FROM (" +
                 "SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
                 "FROM (VALUES (1), (2), (1), (2)) t (a)) t WHERE rn < 2 LIMIT 2");
@@ -1718,7 +1733,7 @@ public abstract class AbstractTestQueries
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
-        actual = computeActual("" +
+        actual = computeActual(session, "" +
                 "SELECT * FROM (" +
                 "SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
                 "FROM (VALUES (1), (2), (1), (2), (1)) t (a)) t WHERE rn < 3 LIMIT 2");

@@ -220,6 +220,7 @@ public final class SystemSessionProperties
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
     public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
+    public static final String OPTIMIZE_TOPN_ROW_NUMBER = "optimize_topn_row_number";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1187,6 +1188,11 @@ public final class SystemSessionProperties
                         KEY_BASED_SAMPLING_FUNCTION,
                         "Sampling function for key based sampling",
                         "key_sampling_percent",
+                        false),
+                booleanProperty(
+                        OPTIMIZE_TOPN_ROW_NUMBER,
+                        "Optimize the TopNRowNumber operator",
+                        false,
                         false));
     }
 
@@ -1223,6 +1229,11 @@ public final class SystemSessionProperties
     public static String getKeyBasedSamplingFunction(Session session)
     {
         return session.getSystemProperty(KEY_BASED_SAMPLING_FUNCTION, String.class);
+    }
+
+    public static boolean isOptimizeTopnRowNumber(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_TOPN_ROW_NUMBER, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

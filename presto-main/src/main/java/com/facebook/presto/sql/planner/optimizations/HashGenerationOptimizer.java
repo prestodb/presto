@@ -111,7 +111,7 @@ public class HashGenerationOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
+            PlanWithProperties result = plan.accept(new Rewriter(session, idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -120,12 +120,14 @@ public class HashGenerationOptimizer
     private static class Rewriter
             extends InternalPlanVisitor<PlanWithProperties, HashComputationSet>
     {
+        private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final PlanVariableAllocator variableAllocator;
         private final FunctionAndTypeManager functionAndTypeManager;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
         {
+            this.session = session;
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
@@ -287,13 +289,31 @@ public class HashGenerationOptimizer
                     new HashComputationSet(hashComputation),
                     false,
                     parentPreference.withHashComputation(node, hashComputation));
+
+            PlanNode source = child.getNode();
             VariableReferenceExpression hashVariable = child.getRequiredHashVariable(hashComputation.get());
+
+            if (SystemSessionProperties.isOptimizeTopnRowNumber(session)) {
+                // For row_number() over(partition by x order by y) limit N, we make the source to be row_number() over(partition by x, y) limit N
+                // before the exchange to limit possible skewed order by keys
+                ImmutableList.Builder newPartitionColumns = ImmutableList.builder();
+                newPartitionColumns.addAll(node.getSpecification().getPartitionBy());
+                newPartitionColumns.addAll(node.getSpecification().getOrderingScheme().get().getOrderByVariables());
+                source = new RowNumberNode(
+                        node.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        source,
+                        newPartitionColumns.build(),
+                        variableAllocator.newVariable("row_number", BIGINT),
+                        Optional.of(node.getMaxRowCountPerPartition()),
+                        Optional.empty());
+            }
 
             return new PlanWithProperties(
                     new TopNRowNumberNode(
                             node.getSourceLocation(),
                             node.getId(),
-                            child.getNode(),
+                            source,
                             node.getSpecification(),
                             node.getRowNumberVariable(),
                             node.getMaxRowCountPerPartition(),
