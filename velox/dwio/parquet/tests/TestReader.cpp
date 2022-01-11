@@ -14,25 +14,19 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "velox/common/base/test_utils/GTestUtils.h"
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
 #include "velox/type/tests/FilterBuilder.h"
 #include "velox/vector/ComplexVector.h"
-#include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 #include <fmt/core.h>
 #include <array>
-#include <numeric>
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
-using namespace facebook::velox::dwio::type::fbhive;
 using namespace facebook::velox;
 using namespace facebook::velox::parquet;
 
