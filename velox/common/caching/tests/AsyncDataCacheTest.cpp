@@ -186,7 +186,9 @@ class TestingCoalescedLoad : public CoalescedLoad {
     cache_.makePins(
         keys_,
         [&](int32_t index) { return sizes_[index]; },
-        [&](int32_t /*index*/, CachePin pin) { pins.push_back(std::move(pin)); });
+        [&](int32_t /*index*/, CachePin pin) {
+          pins.push_back(std::move(pin));
+        });
     for (auto& pin : pins) {
       auto& buffer = pin.entry()->data();
       AsyncDataCacheTest::initializeContents(

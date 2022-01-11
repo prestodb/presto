@@ -252,7 +252,8 @@ class DwrfCoalescedLoadBase : public cache::CoalescedLoad {
   }
 
  protected:
-  void updateStats(const CoalesceIoStats& stats, bool isPrefetch, bool /*isSsd*/) {
+  void
+  updateStats(const CoalesceIoStats& stats, bool isPrefetch, bool /*isSsd*/) {
     if (ioStats_) {
       ioStats_->incRawOverreadBytes(stats.extraBytes);
       // Reading the file increments rawReadBytes. Reverse this
@@ -314,7 +315,9 @@ class DwrfCoalescedLoad : public DwrfCoalescedLoadBase {
     cache_.makePins(
         keys_,
         [&](int32_t index) { return sizes_[index]; },
-        [&](int32_t /*index*/, CachePin pin) { pins.push_back(std::move(pin)); });
+        [&](int32_t /*index*/, CachePin pin) {
+          pins.push_back(std::move(pin));
+        });
     if (pins.empty()) {
       return pins;
     }
