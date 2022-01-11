@@ -140,6 +140,7 @@ public class IcebergPlanOptimizer
                     oldTableHandle.getSnapshotId(),
                     simplifiedColumnDomain);
             TableScanNode newTableScan = new TableScanNode(
+                    tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(handle.getConnectorId(), newTableHandle, handle.getTransaction(), handle.getLayout()),
                     tableScan.getOutputVariables(),
@@ -150,7 +151,7 @@ public class IcebergPlanOptimizer
             if (TRUE_CONSTANT.equals(filterPredicate)) {
                 return newTableScan;
             }
-            return new FilterNode(idAllocator.getNextId(), newTableScan, filterPredicate);
+            return new FilterNode(filter.getSourceLocation(), idAllocator.getNextId(), newTableScan, filterPredicate);
         }
     }
 }
