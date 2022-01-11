@@ -229,22 +229,23 @@ mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be e
 Types not mentioned in the table above are not supported (e.g. tuple or UDT).
 
 Partition keys can only be of the following types:
-| ASCII
-| TEXT
-| VARCHAR
-| BIGINT
-| BOOLEAN
-| DOUBLE
-| INET
-| INT
-| FLOAT
-| DECIMAL
-| TIMESTAMP
-| UUID
-| TIMEUUID
-| SMALLINT
-| TINYINT
-| DATE
+
+* ASCII
+* TEXT
+* VARCHAR
+* BIGINT
+* BOOLEAN
+* DOUBLE
+* INET
+* INT
+* FLOAT
+* DECIMAL
+* TIMESTAMP
+* UUID
+* TIMEUUID
+* SMALLINT
+* TINYINT
+* DATE
 
 Limitations
 -----------
