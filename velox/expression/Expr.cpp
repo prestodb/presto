@@ -937,7 +937,15 @@ bool Expr::applyFunctionWithPeeling(
         continue;
       }
       if (numLevels == 0 && leaf->isConstant(rows)) {
-        setPeeledArg(leaf, i, numArgs, maybePeeled);
+        if (leaf->isConstantEncoding()) {
+          setPeeledArg(leaf, i, numArgs, maybePeeled);
+        } else {
+          setPeeledArg(
+              BaseVector::wrapInConstant(leaf->size(), rows.begin(), leaf),
+              i,
+              numArgs,
+              maybePeeled);
+        }
         constantArgs.resize(numArgs);
         constantArgs.at(i) = true;
         continue;

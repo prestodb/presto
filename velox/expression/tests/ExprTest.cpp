@@ -24,6 +24,7 @@
 
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/vector/VectorEncoding.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 using namespace facebook::velox;
@@ -2028,6 +2029,31 @@ class TestingSequenceFunction : public exec::VectorFunction {
   }
 };
 
+// Single-argument deterministic functions always receive their argument
+// vector as flat.
+class TestingSingleArgDeterministicFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& outputType,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::FLAT);
+    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
+    (*result)->copy(args[0].get(), rows, nullptr);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // T -> T
+    return {exec::FunctionSignatureBuilder()
+                .typeVariable("T")
+                .returnType("T")
+                .argumentType("T")
+                .build()};
+  }
+};
+
 } // namespace
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_testing_constant,
@@ -2044,12 +2070,19 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     TestingSequenceFunction::signatures(),
     std::make_unique<TestingSequenceFunction>());
 
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_testing_single_arg_deterministic,
+    TestingSingleArgDeterministicFunction::signatures(),
+    std::make_unique<TestingSingleArgDeterministicFunction>());
+
 TEST_F(ExprTest, peelArgs) {
   constexpr int32_t kSize = 100;
   constexpr int32_t kDistinct = 10;
   VELOX_REGISTER_VECTOR_FUNCTION(udf_testing_constant, "testing_constant");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_testing_dictionary, "testing_dictionary");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_testing_sequence, "testing_sequence");
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_testing_single_arg_deterministic, "testing_single_arg_deterministic");
 
   std::vector<int32_t> onesSource(kSize, 1);
   std::vector<int32_t> distinctSource(kDistinct);
@@ -2092,6 +2125,18 @@ TEST_F(ExprTest, peelArgs) {
     return 1 + distinctSource[row / (kSize / kDistinct)];
   });
 
+  assertEqualVectors(expected32, result);
+
+  // dictionary and single-argument deterministic
+  indices = makeFlatVector<int32_t>(kSize, [](auto) {
+    // having all indices to be the same makes DictionaryVector::isConstant()
+    // returns true
+    return 0;
+  });
+  result = evaluate(
+      "testing_single_arg_deterministic(testing_dictionary(c1, c0))",
+      makeRowVector({indices, distincts}));
+  expected32 = makeFlatVector<int32_t>(kSize, [](int32_t /*i*/) { return 11; });
   assertEqualVectors(expected32, result);
 }
 
