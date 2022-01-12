@@ -45,6 +45,13 @@ class UniqueValue {
     }
   }
 
+  explicit UniqueValue(Date value) {
+    // The number of valid bytes of Date stored in data_ is
+    // (int64_t)value.days().
+    size_ = sizeof(int64_t);
+    data_ = value.days();
+  }
+
   uint32_t size() const {
     return size_;
   }
@@ -253,6 +260,7 @@ class VectorHasher {
       case TypeKind::BIGINT:
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
+      case TypeKind::DATE:
         return true;
       default:
         return false;
@@ -276,6 +284,11 @@ class VectorHasher {
     int64_t word =
         bits::loadPartialWord(reinterpret_cast<const uint8_t*>(data), size);
     return size == 0 ? word : word + (1L << (size * 8));
+  }
+
+  template <typename T>
+  inline int64_t toInt64(T value) const {
+    return value;
   }
 
   template <TypeKind Kind>
@@ -311,7 +324,8 @@ class VectorHasher {
         if (id == kUnmappable) {
           return false;
         }
-        result[i] = multiplier_ == 1 ? id : result[i] + multiplier_ * id;
+        result[i] =
+            multiplier_ == 1 ? toInt64(id) : result[i] + multiplier_ * id;
       }
     }
     return true;
@@ -343,7 +357,7 @@ class VectorHasher {
 
   template <typename T>
   void analyzeValue(T value) {
-    auto normalized = static_cast<int64_t>(value);
+    auto normalized = toInt64(value);
     if (!rangeOverflow_) {
       updateRange(normalized);
     }
@@ -383,11 +397,12 @@ class VectorHasher {
 
     bool inRange = true;
     rows.template testSelected([&](vector_size_t row) {
-      if (values[row] > max_ || values[row] < min_) {
+      auto int64Value = toInt64(values[row]);
+      if (int64Value > max_ || int64Value < min_) {
         inRange = false;
         return false;
       }
-      auto hash = values[row] - min_ + 1;
+      auto hash = int64Value - min_ + 1;
       result[row] = multiplier_ == 1 ? hash : result[row] + multiplier_ * hash;
       return true;
     });
@@ -397,19 +412,21 @@ class VectorHasher {
 
   template <typename T>
   uint64_t valueId(T value) {
+    auto int64Value = toInt64(value);
     if (isRange_) {
-      if (value > max_ || value < min_) {
+      if (int64Value > max_ || int64Value < min_) {
         return kUnmappable;
       }
-      return value - min_ + 1;
+      return int64Value - min_ + 1;
     }
+
     UniqueValue unique(value);
     unique.setId(uniqueValues_.size() + 1);
     auto pair = uniqueValues_.insert(unique);
     if (!pair.second) {
       return pair.first->id();
     }
-    updateRange(value);
+    updateRange(int64Value);
     if (uniqueValues_.size() >= rangeSize_) {
       return kUnmappable;
     }
@@ -418,11 +435,12 @@ class VectorHasher {
 
   template <typename T>
   uint64_t lookupValueId(T value) const {
+    auto int64Value = toInt64(value);
     if (isRange_) {
-      if (value > max_ || value < min_) {
+      if (int64Value > max_ || int64Value < min_) {
         return kUnmappable;
       }
-      return value - min_ + 1;
+      return int64Value - min_ + 1;
     }
     UniqueValue unique(value);
     auto iter = uniqueValues_.find(unique);
@@ -497,6 +515,11 @@ class VectorHasher {
   std::vector<std::string> uniqueValuesStorage_;
   uint64_t distinctStringsBytes_ = 0;
 };
+
+template <>
+inline int64_t VectorHasher::toInt64(Date value) const {
+  return value.days();
+}
 
 template <>
 bool VectorHasher::makeValueIdsForRows<TypeKind::VARCHAR>(

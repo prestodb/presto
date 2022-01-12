@@ -407,6 +407,55 @@ TEST_F(VectorHasherTest, integerIds) {
   EXPECT_EQ(numDistinct, VectorHasher::kRangeTooLarge);
 }
 
+TEST_F(VectorHasherTest, dateIds) {
+  auto vector = BaseVector::create(DATE(), 100, pool_.get());
+  auto* dates = vector->as<FlatVector<Date>>();
+  static constexpr int32_t kMin = std::numeric_limits<int32_t>::min();
+  dates->setNull(0, true);
+  for (auto i = 0; i < 99; ++i) {
+    dates->set(i + 1, Date(kMin + i * 10));
+  }
+  auto hasher = exec::VectorHasher::create(DATE(), 1);
+  raw_vector<uint64_t> hashes(dates->size());
+  SelectivityVector rows(dates->size());
+  EXPECT_FALSE(hasher->computeValueIds(*vector, rows, hashes));
+  hasher->enableValueRange(1, 2000);
+  EXPECT_TRUE(hasher->computeValueIds(*vector, rows, hashes));
+  // Hash of null is always 0.
+  EXPECT_EQ(hashes[0], 0);
+  EXPECT_EQ(hashes[1], 1001);
+  EXPECT_EQ(hashes[11], 1101);
+
+  uint64_t numRange;
+  uint64_t numDistinct;
+  hasher->cardinality(numRange, numDistinct);
+  EXPECT_EQ(numDistinct, 100);
+  EXPECT_GT(numRange, 1001);
+
+  dates->set(10, 10000);
+  EXPECT_FALSE(hasher->computeValueIds(*vector, rows, hashes));
+  hasher->cardinality(numRange, numDistinct);
+  EXPECT_EQ(numRange, 2147494650);
+
+  hasher = exec::VectorHasher::create(DATE(), 1);
+  hasher->enableValueIds(1, 100000);
+  // We add values that are over 100K distinct and with max - min > int32_t max.
+  EXPECT_TRUE(hasher->computeValueIds(*vector, rows, hashes));
+  // Hash of null is still 0.
+  EXPECT_EQ(hashes[0], 0);
+  for (auto count = 0; count < 1000; ++count) {
+    vector_size_t index = 0;
+    for (int64_t value = count * 100; value < count * 100 + 100; ++value) {
+      dates->set(index++, Date(value));
+    }
+    hasher->computeValueIds(*vector, rows, hashes);
+  }
+
+  hasher->cardinality(numRange, numDistinct);
+  EXPECT_EQ(numRange, 2147583649);
+  EXPECT_EQ(numDistinct, VectorHasher::kRangeTooLarge);
+}
+
 TEST_F(VectorHasherTest, boolNoNulls) {
   auto vector = BaseVector::create(BOOLEAN(), 100, pool_.get());
   auto bools = vector->as<FlatVector<bool>>();
