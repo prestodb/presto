@@ -22,36 +22,4 @@ void FunctionBaseTest::SetUpTestCase() {
   exec::test::registerTypeResolver();
   functions::prestosql::registerAllFunctions();
 }
-
-BufferPtr FunctionBaseTest::makeOddIndices(vector_size_t size) {
-  return makeIndices(size, [](vector_size_t i) { return 2 * i + 1; });
-}
-
-BufferPtr FunctionBaseTest::makeEvenIndices(vector_size_t size) {
-  return makeIndices(size, [](vector_size_t i) { return 2 * i; });
-}
-
-// static
-VectorPtr FunctionBaseTest::wrapInDictionary(
-    BufferPtr indices,
-    vector_size_t size,
-    VectorPtr vector) {
-  return BaseVector::wrapInDictionary(
-      BufferPtr(nullptr), indices, size, vector);
-}
-
-// static
-BufferPtr FunctionBaseTest::makeIndices(
-    vector_size_t size,
-    std::function<vector_size_t(vector_size_t)> indexAt) {
-  BufferPtr indices =
-      AlignedBuffer::allocate<vector_size_t>(size, execCtx_.pool());
-  auto rawIndices = indices->asMutable<vector_size_t>();
-
-  for (vector_size_t i = 0; i < size; i++) {
-    rawIndices[i] = indexAt(i);
-  }
-
-  return indices;
-}
 } // namespace facebook::velox::functions::test

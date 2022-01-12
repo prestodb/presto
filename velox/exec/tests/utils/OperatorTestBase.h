@@ -24,9 +24,11 @@
 #include "velox/type/Variant.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/VectorTestBase.h"
 
 namespace facebook::velox::exec::test {
-class OperatorTestBase : public testing::Test {
+class OperatorTestBase : public testing::Test,
+                         public velox::test::VectorTestBase {
  protected:
   OperatorTestBase();
   ~OperatorTestBase() override;
@@ -98,122 +100,6 @@ class OperatorTestBase : public testing::Test {
         std::forward<std::vector<std::shared_ptr<const Type>>&&>(types));
   }
 
-  RowVectorPtr makeRowVector(const std::vector<VectorPtr>& children) {
-    return vectorMaker_.rowVector(children);
-  }
-
-  RowVectorPtr makeRowVector(
-      const std::vector<std::string>& childNames,
-      const std::vector<VectorPtr>& children) {
-    return vectorMaker_.rowVector(childNames, children);
-  }
-
-  template <typename T>
-  FlatVectorPtr<T> makeFlatVector(
-      vector_size_t size,
-      std::function<T(vector_size_t /*row*/)> valueAt,
-      std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr) {
-    return vectorMaker_.flatVector<T>(size, valueAt, isNullAt);
-  }
-
-  template <typename T>
-  FlatVectorPtr<T> makeFlatVector(const std::vector<T>& data) {
-    return vectorMaker_.flatVector<T>(data);
-  }
-
-  FlatVectorPtr<StringView> makeFlatVector(
-      const std::vector<std::string>& data) {
-    return vectorMaker_.flatVector(data);
-  }
-
-  template <typename T, int TupleIndex, typename TupleType>
-  FlatVectorPtr<T> makeFlatVector(const std::vector<TupleType>& data) {
-    return vectorMaker_.flatVector<T, TupleIndex, TupleType>(data);
-  }
-
-  template <typename T>
-  FlatVectorPtr<T> makeNullableFlatVector(
-      const std::vector<std::optional<T>>& data) {
-    return vectorMaker_.flatVectorNullable(data);
-  }
-
-  FlatVectorPtr<StringView> makeNullableFlatVector(
-      const std::vector<std::optional<std::string>>& data) {
-    return vectorMaker_.flatVectorNullable(data);
-  }
-
-  template <typename T>
-  ArrayVectorPtr makeArrayVector(
-      vector_size_t size,
-      std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
-      std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
-          valueAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr) {
-    return vectorMaker_.arrayVector<T>(size, sizeAt, valueAt, isNullAt);
-  }
-
-  template <typename TKey, typename TValue>
-  MapVectorPtr makeMapVector(
-      vector_size_t size,
-      std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
-      std::function<TKey(vector_size_t /* idx */)> keyAt,
-      std::function<TValue(vector_size_t /* idx */)> valueAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr,
-      std::function<bool(vector_size_t /*row */)> valueIsNullAt = nullptr) {
-    return vectorMaker_.mapVector(
-        size, sizeAt, keyAt, valueAt, isNullAt, valueIsNullAt);
-  }
-
-  static VectorPtr
-  wrapInDictionary(BufferPtr indices, vector_size_t size, VectorPtr vector) {
-    return BaseVector::wrapInDictionary(
-        BufferPtr(nullptr), std::move(indices), size, std::move(vector));
-  }
-
-  BufferPtr makeIndices(
-      vector_size_t size,
-      const std::function<vector_size_t(vector_size_t)>& indexAt) const {
-    BufferPtr indices =
-        AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
-    auto rawIndices = indices->asMutable<vector_size_t>();
-    for (int i = 0; i < size; i++) {
-      rawIndices[i] = indexAt(i);
-    }
-    return indices;
-  }
-
-  // Helper function for comparing vector results
-  template <typename T1, typename T2>
-  bool
-  compareValues(const T1& a, const std::optional<T2>& b, std::string& error) {
-    bool result = (a == b.value());
-    if (!result) {
-      error = " " + std::to_string(a) + " vs " + std::to_string(b.value());
-    } else {
-      error = "";
-    }
-    return result;
-  }
-
-  bool compareValues(
-      const StringView& a,
-      const std::optional<std::string>& b,
-      std::string& error) {
-    bool result = (a.getString() == b.value());
-    if (!result) {
-      error = " " + a.getString() + " vs " + b.value();
-    } else {
-      error = "";
-    }
-    return result;
-  }
-
-  static std::function<bool(vector_size_t /*row*/)> nullEvery(
-      int n,
-      int startingFrom = 0) {
-    return velox::test::VectorMaker::nullEvery(n, startingFrom);
-  }
-
   static std::shared_ptr<core::FieldAccessTypedExpr> toFieldExpr(
       const std::string& name,
       const std::shared_ptr<const RowType>& rowType);
@@ -222,10 +108,7 @@ class OperatorTestBase : public testing::Test {
       const std::string& text,
       std::shared_ptr<const RowType> rowType);
 
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
   DuckDbQueryRunner duckDbQueryRunner_;
-  velox::test::VectorMaker vectorMaker_{pool_.get()};
 
   // Parametrized subclasses set this to choose the cache code path.
   bool useAsyncCache_{true};
