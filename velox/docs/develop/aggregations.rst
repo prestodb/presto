@@ -86,7 +86,8 @@ Push-Down into Table Scan
 -------------------------
 
 HashAggregation operator supports pushing down aggregations into table scan.
-Pushdown is enabled when all of the following conditions are met: 
+Pushdown is enabled when all of the following conditions are met:
+
 * the aggregation function takes a single argument, 
 * the argument is a column read directly from the table without any transformations, 
 * that column is not used anywhere else in the query. 
