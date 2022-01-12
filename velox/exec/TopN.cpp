@@ -89,7 +89,7 @@ void TopN::addInput(RowVectorPtr input) {
 }
 
 RowVectorPtr TopN::getOutput() {
-  if (finished_ || !isFinishing_) {
+  if (finished_ || !noMoreInput_) {
     return nullptr;
   }
 
@@ -112,8 +112,8 @@ RowVectorPtr TopN::getOutput() {
   return result;
 }
 
-void TopN::finish() {
-  Operator::finish();
+void TopN::noMoreInput() {
+  Operator::noMoreInput();
   if (topRows_.empty()) {
     finished_ = true;
     return;
@@ -123,5 +123,9 @@ void TopN::finish() {
     rows_[i - 1] = topRows_.top();
     topRows_.pop();
   }
+}
+
+bool TopN::isFinished() {
+  return finished_;
 }
 } // namespace facebook::velox::exec

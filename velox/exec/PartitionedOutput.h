@@ -146,6 +146,8 @@ class PartitionedOutput : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool isFinished() override;
+
   void close() override {
     destinations_.clear();
   }
@@ -173,7 +175,7 @@ class PartitionedOutput : public Operator {
   const std::vector<ChannelIndex> outputChannels_;
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;
-  bool isFinished_{false};
+  bool finished_{false};
   // top-level row numbers used as input to
   // VectorStreamGroup::estimateSerializedSize member variable is used to avoid
   // re-allocating memory

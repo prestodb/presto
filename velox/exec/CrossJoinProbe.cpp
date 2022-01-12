@@ -74,7 +74,7 @@ BlockingReason CrossJoinProbe::isBlocked(ContinueFuture* future) {
   if (buildData_->empty()) {
     // Build side is empty. Return empty set of rows and  terminate the pipeline
     // early.
-    isFinishing_ = true;
+    buildSideEmpty_ = true;
   }
 
   return BlockingReason::kNotBlocked;
@@ -151,6 +151,10 @@ RowVectorPtr CrossJoinProbe::getOutput() {
     }
   }
   return output;
+}
+
+bool CrossJoinProbe::isFinished() {
+  return buildSideEmpty_ || (noMoreInput_ && input_ == nullptr);
 }
 
 void CrossJoinProbe::close() {

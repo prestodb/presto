@@ -32,16 +32,14 @@ class HashAggregation : public Operator {
   RowVectorPtr getOutput() override;
 
   bool needsInput() const override {
-    return !isFinishing_ && !partialFull_;
-  }
-
-  void finish() override {
-    Operator::finish();
+    return !noMoreInput_ && !partialFull_;
   }
 
   BlockingReason isBlocked(ContinueFuture* /* unused */) override {
     return BlockingReason::kNotBlocked;
   }
+
+  bool isFinished() override;
 
   void close() override {
     Operator::close();

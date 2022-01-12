@@ -28,18 +28,20 @@ class TopN : public Operator {
       const std::shared_ptr<const core::TopNNode>& topNNode);
 
   bool needsInput() const override {
-    return !isFinishing_;
+    return !noMoreInput_;
   }
 
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
 
-  void finish() override;
+  void noMoreInput() override;
 
   BlockingReason isBlocked(ContinueFuture* /*future*/) override {
     return BlockingReason::kNotBlocked;
   }
+
+  bool isFinished() override;
 
  private:
   static constexpr size_t kMaxNumRowsToReturn = 1024;

@@ -96,7 +96,7 @@ void TableWriter::addInput(RowVectorPtr input) {
 
 RowVectorPtr TableWriter::getOutput() {
   // Making sure the output is read only once after the write is fully done
-  if (!isFinishing_ || finished_) {
+  if (!noMoreInput_ || finished_) {
     return nullptr;
   }
   finished_ = true;

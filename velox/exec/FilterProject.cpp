@@ -107,6 +107,10 @@ bool FilterProject::allInputProcessed() {
   return false;
 }
 
+bool FilterProject::isFinished() {
+  return noMoreInput_ && allInputProcessed();
+}
+
 RowVectorPtr FilterProject::getOutput() {
   if (allInputProcessed()) {
     clearIdentityProjectedOutput();

@@ -99,6 +99,10 @@ BlockingReason Merge::ensureSourcesReady(ContinueFuture* future) {
   return BlockingReason::kNotBlocked;
 }
 
+bool Merge::isFinished() {
+  return blockingReason_ == BlockingReason::kNotBlocked && candidates_.empty();
+}
+
 RowVectorPtr Merge::getOutput() {
   blockingReason_ = ensureSourcesReady(&future_);
   if (blockingReason_ != BlockingReason::kNotBlocked) {
@@ -198,11 +202,6 @@ MergeExchange::MergeExchange(
           mergeExchangeNode->id(),
           "MergeExchange") {}
 
-void MergeExchange::finish() {
-  Merge::finish();
-  operatorCtx_->task()->multipleSplitsFinished(numSplits_);
-}
-
 BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
   if (operatorCtx_->driverCtx()->driverId != 0) {
     // When there are multiple pipelines, a single operator, the one from
@@ -227,6 +226,8 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
         ++numSplits_;
       } else {
         noMoreSplits_ = true;
+        // TODO Delay this call until all input data has been processed.
+        operatorCtx_->task()->multipleSplitsFinished(numSplits_);
         return BlockingReason::kNotBlocked;
       }
     } else {

@@ -48,6 +48,8 @@ class AssignUniqueId : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool isFinished() override;
+
  private:
   void generateIdColumn(vector_size_t size);
 

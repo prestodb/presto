@@ -249,7 +249,7 @@ RowVectorPtr MergeJoin::getOutput() {
   // Make sure to have is-blocked or needs-input as true if returning null
   // output. Otherwise, Driver assumes the operator is finished.
 
-  // Use Operator::isFinishing() as a no-more-input-on-the-left indicator and a
+  // Use Operator::noMoreInput() as a no-more-input-on-the-left indicator and a
   // noMoreRightInput_ flag as no-more-input-on-the-right indicator.
 
   // TODO Finish early if ran out of data on either side of the join.
@@ -312,7 +312,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
       if (leftMatch_->inputs.back() == input_) {
         index_ = leftMatch_->endIndex;
       }
-    } else if (isFinishing()) {
+    } else if (noMoreInput_) {
       leftMatch_->complete = true;
     } else {
       // Need more input.
@@ -367,16 +367,17 @@ RowVectorPtr MergeJoin::doGetOutput() {
         }
       }
 
-      if (isFinishing() && output_) {
+      if (noMoreInput_ && output_) {
         output_->resize(outputSize_);
         return std::move(output_);
       }
     } else {
-      if (isFinishing() || noMoreRightInput_) {
+      if (noMoreInput_ || noMoreRightInput_) {
         if (output_) {
           output_->resize(outputSize_);
           return std::move(output_);
         }
+        input_ = nullptr;
       }
     }
 
@@ -470,4 +471,9 @@ RowVectorPtr MergeJoin::doGetOutput() {
 
   VELOX_UNREACHABLE();
 }
+
+bool MergeJoin::isFinished() {
+  return noMoreInput_ && input_ == nullptr;
+}
+
 } // namespace facebook::velox::exec

@@ -165,6 +165,16 @@ BlockingReason LocalExchangeSource::isFinished(ContinueFuture* future) {
   });
 }
 
+bool LocalExchangeSource::isFinished() {
+  return queue_.withWLock([&](auto& queue) {
+    if (noMoreProducers_ && pendingProducers_ == 0 && queue.empty()) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
 LocalExchangeSourceOperator::LocalExchangeSourceOperator(
     int32_t operatorId,
     DriverCtx* ctx,
@@ -204,6 +214,10 @@ RowVectorPtr LocalExchangeSourceOperator::getOutput() {
     stats().inputBytes += data->retainedSize();
   }
   return data;
+}
+
+bool LocalExchangeSourceOperator::isFinished() {
+  return source_->isFinished();
 }
 
 LocalPartition::LocalPartition(
@@ -354,7 +368,7 @@ BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
     return blockingReasons_[numBlockedPartitions_];
   }
 
-  if (isFinishing()) {
+  if (noMoreInput_) {
     for (const auto& source : localExchangeSources_) {
       auto reason = source->isFinished(future);
       if (reason != BlockingReason::kNotBlocked) {
@@ -366,10 +380,24 @@ BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
   return BlockingReason::kNotBlocked;
 }
 
-void LocalPartition::finish() {
-  Operator::finish();
+void LocalPartition::noMoreInput() {
+  Operator::noMoreInput();
   for (const auto& source : localExchangeSources_) {
     source->noMoreData();
   }
+}
+
+bool LocalPartition::isFinished() {
+  if (numBlockedPartitions_ || !noMoreInput_) {
+    return false;
+  }
+
+  for (const auto& source : localExchangeSources_) {
+    if (!source->isFinished()) {
+      return false;
+    }
+  }
+
+  return true;
 }
 } // namespace facebook::velox::exec

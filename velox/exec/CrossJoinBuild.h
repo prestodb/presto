@@ -44,12 +44,14 @@ class CrossJoinBuild : public Operator {
   }
 
   bool needsInput() const override {
-    return !isFinishing_;
+    return !noMoreInput_;
   }
 
-  void finish() override;
+  void noMoreInput() override;
 
   BlockingReason isBlocked(ContinueFuture* future) override;
+
+  bool isFinished() override;
 
   void close() override {
     data_.clear();

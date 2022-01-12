@@ -142,4 +142,8 @@ RowVectorPtr Unnest::getOutput() {
   return std::make_shared<RowVector>(
       pool(), outputType_, BufferPtr(nullptr), numElements, std::move(outputs));
 }
+
+bool Unnest::isFinished() {
+  return noMoreInput_ && input_ == nullptr;
+}
 } // namespace facebook::velox::exec

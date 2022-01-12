@@ -408,12 +408,10 @@ StopReason Driver::runInternal(
                 guard.notThrown();
                 return StopReason::kBlock;
               }
-              if (op->isFinishing()) {
-                if (!nextOp->isFinishing()) {
-                  CpuWallTimer timer(nextOp->stats().finishTiming);
-                  nextOp->finish();
-                  break;
-                }
+              if (op->isFinished()) {
+                CpuWallTimer timer(nextOp->stats().finishTiming);
+                nextOp->noMoreInput();
+                break;
               }
             }
           }
@@ -426,19 +424,13 @@ StopReason Driver::runInternal(
             CpuWallTimer timer(op->stats().getOutputTiming);
             op->getOutput();
           }
-          pushdownFilters(i);
-          continue;
-        }
-        if (i == 0) {
-          // The source is not blocked and not interrupted.
-          if (op->isFinishing()) {
+          if (op->isFinished()) {
             guard.notThrown();
             close();
             return StopReason::kAtEnd;
           }
-          CpuWallTimer timer(op->stats().finishTiming);
-          op->finish();
-          break;
+          pushdownFilters(i);
+          continue;
         }
       }
     }

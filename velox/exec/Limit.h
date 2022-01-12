@@ -34,8 +34,13 @@ class Limit : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool isFinished() override {
+    return finished_ || (noMoreInput_ && input_ == nullptr);
+  }
+
  private:
   int32_t remainingOffset_;
   int32_t remainingLimit_;
+  bool finished_{false};
 };
 } // namespace facebook::velox::exec

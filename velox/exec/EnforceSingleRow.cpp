@@ -48,15 +48,15 @@ void EnforceSingleRow::addInput(RowVectorPtr input) {
 }
 
 RowVectorPtr EnforceSingleRow::getOutput() {
-  if (!isFinishing()) {
+  if (!noMoreInput_) {
     return nullptr;
   }
 
   return std::move(input_);
 }
 
-void EnforceSingleRow::finish() {
-  if (!isFinishing_ && input_ == nullptr) {
+void EnforceSingleRow::noMoreInput() {
+  if (!noMoreInput_ && input_ == nullptr) {
     // We have not seen any data. Return a single row of all nulls.
     input_ = std::dynamic_pointer_cast<RowVector>(
         BaseVector::create(outputType_, 1, pool()));
@@ -65,6 +65,10 @@ void EnforceSingleRow::finish() {
       child->setNull(0, true);
     }
   }
-  Operator::finish();
+  Operator::noMoreInput();
+}
+
+bool EnforceSingleRow::isFinished() {
+  return noMoreInput_ && input_ == nullptr;
 }
 } // namespace facebook::velox::exec

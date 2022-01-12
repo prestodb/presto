@@ -58,8 +58,8 @@ void OrderBy::addInput(RowVectorPtr input) {
   numRows_ += allRows.size();
 }
 
-void OrderBy::finish() {
-  Operator::finish();
+void OrderBy::noMoreInput() {
+  Operator::noMoreInput();
 
   // No data.
   if (numRows_ == 0) {
@@ -91,7 +91,7 @@ void OrderBy::finish() {
 }
 
 RowVectorPtr OrderBy::getOutput() {
-  if (finished_ || !isFinishing_ || returningRows_.size() == numRowsReturned_) {
+  if (finished_ || !noMoreInput_ || returningRows_.size() == numRowsReturned_) {
     return nullptr;
   }
 

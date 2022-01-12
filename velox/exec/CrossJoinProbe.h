@@ -31,10 +31,12 @@ class CrossJoinProbe : public Operator {
   RowVectorPtr getOutput() override;
 
   bool needsInput() const override {
-    return !isFinishing_ && !input_;
+    return !noMoreInput_ && !input_ && !buildSideEmpty_;
   }
 
   BlockingReason isBlocked(ContinueFuture* future) override;
+
+  bool isFinished() override;
 
   void close() override;
 
@@ -52,5 +54,7 @@ class CrossJoinProbe : public Operator {
 
   // Input row to process on next call to getOutput().
   vector_size_t probeRow_{0};
+
+  bool buildSideEmpty_{false};
 };
 } // namespace facebook::velox::exec

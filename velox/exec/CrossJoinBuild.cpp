@@ -67,8 +67,8 @@ BlockingReason CrossJoinBuild::isBlocked(ContinueFuture* future) {
   return BlockingReason::kWaitForJoinBuild;
 }
 
-void CrossJoinBuild::finish() {
-  Operator::finish();
+void CrossJoinBuild::noMoreInput() {
+  Operator::noMoreInput();
   std::vector<VeloxPromise<bool>> promises;
   std::vector<std::shared_ptr<Driver>> peers;
   // The last Driver to hit CrossJoinBuild::finish gathers the data from
@@ -99,5 +99,9 @@ void CrossJoinBuild::finish() {
   operatorCtx_->task()
       ->getCrossJoinBridge(planNodeId())
       ->setData(std::move(data_));
+}
+
+bool CrossJoinBuild::isFinished() {
+  return !hasFuture_ && noMoreInput_;
 }
 } // namespace facebook::velox::exec

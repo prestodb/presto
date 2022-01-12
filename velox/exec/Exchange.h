@@ -287,8 +287,6 @@ class Exchange : public SourceOperator {
     close();
   }
 
-  void finish() override;
-
   RowVectorPtr getOutput() override;
 
   void close() override {
@@ -298,6 +296,8 @@ class Exchange : public SourceOperator {
   }
 
   BlockingReason isBlocked(ContinueFuture* future) override;
+
+  bool isFinished() override;
 
  private:
   /// Fetches splits from the task until there are no more splits or task
@@ -322,7 +322,7 @@ class Exchange : public SourceOperator {
   std::shared_ptr<ExchangeClient> exchangeClient_;
   std::unique_ptr<SerializedPage> currentPage_;
   std::unique_ptr<ByteStream> inputStream_;
-  bool atEnd_ = false;
+  bool atEnd_{false};
   size_t numSplits_{0}; // Number of splits we took to process so far.
 };
 

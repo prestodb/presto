@@ -48,4 +48,8 @@ void Values::close() {
   current_ = values_.size();
 }
 
+bool Values::isFinished() {
+  return current_ >= values_.size();
+}
+
 } // namespace facebook::velox::exec

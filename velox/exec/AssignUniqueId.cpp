@@ -66,6 +66,10 @@ RowVectorPtr AssignUniqueId::getOutput() {
   return output;
 }
 
+bool AssignUniqueId::isFinished() {
+  return noMoreInput_ && input_ == nullptr;
+}
+
 void AssignUniqueId::generateIdColumn(vector_size_t size) {
   auto result = results_[0];
   if (!result || !BaseVector::isReusableFlatVector(result)) {

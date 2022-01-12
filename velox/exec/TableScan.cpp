@@ -113,6 +113,10 @@ RowVectorPtr TableScan::getOutput() {
   }
 }
 
+bool TableScan::isFinished() {
+  return noMoreSplits_;
+}
+
 void TableScan::setBatchSize() {
   constexpr int64_t kMB = 1 << 20;
   auto estimate = dataSource_->estimatedRowSize();

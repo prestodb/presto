@@ -254,6 +254,9 @@ bool Exchange::getSplits(ContinueFuture* future) {
       } else {
         exchangeClient_->noMoreRemoteTasks();
         noMoreSplits_ = true;
+        if (atEnd_) {
+          operatorCtx_->task()->multipleSplitsFinished(numSplits_);
+        }
         return false;
       }
     } else {
@@ -279,6 +282,9 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
   ContinueFuture dataFuture{false};
   currentPage_ = exchangeClient_->next(&atEnd_, &dataFuture);
   if (currentPage_ || atEnd_) {
+    if (atEnd_ && noMoreSplits_) {
+      operatorCtx_->task()->multipleSplitsFinished(numSplits_);
+    }
     return BlockingReason::kNotBlocked;
   }
 
@@ -302,9 +308,8 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
                          : BlockingReason::kWaitForExchange;
 }
 
-void Exchange::finish() {
-  Operator::finish();
-  operatorCtx_->task()->multipleSplitsFinished(numSplits_);
+bool Exchange::isFinished() {
+  return atEnd_;
 }
 
 RowVectorPtr Exchange::getOutput() {

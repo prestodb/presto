@@ -242,9 +242,13 @@ void StreamingAggregation::evaluateAggregates() {
   }
 }
 
+bool StreamingAggregation::isFinished() {
+  return noMoreInput_ && input_ == nullptr && numGroups_ == 0;
+}
+
 RowVectorPtr StreamingAggregation::getOutput() {
   if (!input_) {
-    if (isFinishing() && numGroups_ > 0) {
+    if (noMoreInput_ && numGroups_ > 0) {
       createOutput(numGroups_);
       numGroups_ = 0;
       return std::move(output_);

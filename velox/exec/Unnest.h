@@ -36,6 +36,8 @@ class Unnest : public Operator {
 
   RowVectorPtr getOutput() override;
 
+  bool isFinished() override;
+
  private:
   ChannelIndex unnestChannel_;
 

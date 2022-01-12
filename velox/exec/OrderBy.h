@@ -43,14 +43,18 @@ class OrderBy : public Operator {
     return !finished_;
   }
 
-  void finish() override;
-
   void addInput(RowVectorPtr input) override;
+
+  void noMoreInput() override;
 
   RowVectorPtr getOutput() override;
 
   BlockingReason isBlocked(ContinueFuture* /*future*/) override {
     return BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return finished_;
   }
 
  private:

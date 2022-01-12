@@ -38,7 +38,7 @@ Limit::Limit(
 }
 
 bool Limit::needsInput() const {
-  return (remainingOffset_ > 0 || remainingLimit_ > 0) && input_ == nullptr;
+  return !finished_ && input_ == nullptr;
 }
 
 void Limit::addInput(RowVectorPtr input) {
@@ -72,13 +72,13 @@ RowVectorPtr Limit::getOutput() {
     remainingLimit_ -= outputSize;
     input_ = nullptr;
     if (remainingLimit_ == 0) {
-      isFinishing_ = true;
+      finished_ = true;
     }
     return output;
   }
 
   if (remainingLimit_ <= inputSize) {
-    isFinishing_ = true;
+    finished_ = true;
   }
 
   if (remainingLimit_ >= inputSize) {

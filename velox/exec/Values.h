@@ -31,10 +31,12 @@ class Values : public SourceOperator {
     return BlockingReason::kNotBlocked;
   }
 
-  void finish() override {
-    Operator::finish();
+  void noMoreInput() override {
+    Operator::noMoreInput();
     close();
   }
+
+  bool isFinished() override;
 
   void close() override;
 

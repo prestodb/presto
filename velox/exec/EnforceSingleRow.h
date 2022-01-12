@@ -39,9 +39,11 @@ class EnforceSingleRow : public Operator {
 
   void addInput(RowVectorPtr input) override;
 
+  void noMoreInput() override;
+
   RowVectorPtr getOutput() override;
 
-  void finish() override;
+  bool isFinished() override;
 
   BlockingReason isBlocked(ContinueFuture* /*future*/) override {
     return BlockingReason::kNotBlocked;

@@ -38,6 +38,8 @@ class TableScan : public SourceOperator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool isFinished() override;
+
   bool canAddDynamicFilter() const override {
     // TODO Consult with the connector. Return true only if connector can accept
     // dynamic filters.

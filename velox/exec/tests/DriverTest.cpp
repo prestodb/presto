@@ -515,11 +515,16 @@ class TestingPauser : public Operator {
   }
 
   bool needsInput() const override {
-    return !isFinishing_ && !input_;
+    return !noMoreInput_ && !input_;
   }
 
   void addInput(RowVectorPtr input) override {
     input_ = std::move(input);
+  }
+
+  void noMoreInput() override {
+    test_->unregisterTask(operatorCtx_->task());
+    Operator::noMoreInput();
   }
 
   RowVectorPtr getOutput() override {
@@ -570,9 +575,8 @@ class TestingPauser : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
-  void finish() override {
-    test_->unregisterTask(operatorCtx_->task());
-    Operator::finish();
+  bool isFinished() override {
+    return noMoreInput_ && input_ == nullptr;
   }
 
  private:
@@ -580,14 +584,15 @@ class TestingPauser : public Operator {
     // NOLINT
     std::this_thread::sleep_for(std::chrono::milliseconds(units));
   }
+
   // The DriverTest under which this is running. Used for global context.
   DriverTest* test_;
+
   // Mutex to serialize the pause/restart exercise so that only one instance
   // does this at a time.
   static std::mutex pauseMutex_;
 
-  // Counter deciding
-  // the next action in getOutput().
+  // Counter deciding the next action in getOutput().
   int32_t counter_;
   bool hasFuture_{false};
   ContinueFuture future_;

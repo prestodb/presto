@@ -30,17 +30,19 @@ class HashProbe : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::HashJoinNode>& hashJoinNode);
 
+  bool needsInput() const override {
+    return !finished_ && !noMoreInput_ && !input_;
+  }
+
   void addInput(RowVectorPtr input) override;
+
+  void noMoreInput() override;
 
   RowVectorPtr getOutput() override;
 
-  bool needsInput() const override {
-    return !isFinishing_ && !input_;
-  }
-
   BlockingReason isBlocked(ContinueFuture* future) override;
 
-  void finish() override;
+  bool isFinished() override;
 
   void clearDynamicFilters() override;
 
@@ -230,6 +232,8 @@ class HashProbe : public Operator {
   // Input rows with a hash match. This is a subset of rows with no nulls in the
   // join keys and a superset of rows that have a match on the build side.
   SelectivityVector activeRows_;
+
+  bool finished_{false};
 };
 
 } // namespace facebook::velox::exec

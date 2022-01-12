@@ -33,6 +33,8 @@ class MergeJoin : public Operator {
 
   RowVectorPtr getOutput() override;
 
+  bool isFinished() override;
+
   void close() override {
     if (rightSource_) {
       rightSource_->close();

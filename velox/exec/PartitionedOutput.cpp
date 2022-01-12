@@ -211,7 +211,7 @@ void PartitionedOutput::collectNullRows() {
 }
 
 RowVectorPtr PartitionedOutput::getOutput() {
-  if (isFinished_) {
+  if (finished_) {
     return nullptr;
   }
 
@@ -262,7 +262,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
   // All of 'output_' is written into the destinations. We are finishing, hence
   // move all the destinations to the output queue. This will not grow memory
   // and hence does not need blocking.
-  if (isFinishing_) {
+  if (noMoreInput_) {
     for (auto& destination : destinations_) {
       if (destination->isFinished()) {
         continue;
@@ -272,12 +272,16 @@ RowVectorPtr PartitionedOutput::getOutput() {
     }
 
     bufferManager->noMoreData(operatorCtx_->task()->taskId());
-    isFinished_ = true;
+    finished_ = true;
   }
   // The input is fully processed, drop the reference to allow reuse.
   input_ = nullptr;
   output_ = nullptr;
   return nullptr;
+}
+
+bool PartitionedOutput::isFinished() {
+  return finished_;
 }
 
 } // namespace facebook::velox::exec

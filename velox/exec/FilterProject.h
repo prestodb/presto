@@ -49,6 +49,8 @@ class FilterProject : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool isFinished() override;
+
   void close() override {
     Operator::close();
     exprs_->clear();

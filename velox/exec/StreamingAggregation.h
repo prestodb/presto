@@ -43,6 +43,8 @@ class StreamingAggregation : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool isFinished() override;
+
  private:
   // Returns the rows to aggregate with masking applied if applicable.
   const SelectivityVector& getSelectivityVector(size_t aggregateIndex) const;

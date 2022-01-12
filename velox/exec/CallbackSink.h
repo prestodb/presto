@@ -41,8 +41,8 @@ class CallbackSink : public Operator {
     return callback_ != nullptr;
   }
 
-  void finish() override {
-    Operator::finish();
+  void noMoreInput() override {
+    Operator::noMoreInput();
     close();
   }
 
@@ -53,6 +53,10 @@ class CallbackSink : public Operator {
       return BlockingReason::kWaitForConsumer;
     }
     return BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return noMoreInput_;
   }
 
  private:

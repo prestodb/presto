@@ -37,8 +37,8 @@ class TableWriter : public Operator {
 
   void addInput(RowVectorPtr input) override;
 
-  void finish() override {
-    Operator::finish();
+  void noMoreInput() override {
+    Operator::noMoreInput();
     close();
   }
 
@@ -56,6 +56,10 @@ class TableWriter : public Operator {
   }
 
   RowVectorPtr getOutput() override;
+
+  bool isFinished() override {
+    return finished_;
+  }
 
  private:
   void createDataSink();
