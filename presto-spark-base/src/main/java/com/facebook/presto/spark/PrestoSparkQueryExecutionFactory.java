@@ -117,6 +117,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.Partitioner;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
@@ -125,6 +126,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.ShuffledRDD;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.CollectionAccumulator;
 import org.joda.time.DateTime;
 import scala.Option;
@@ -136,6 +138,7 @@ import java.net.URI;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -1224,7 +1227,16 @@ public class PrestoSparkQueryExecutionFactory
                 }
                 else {
                     RddAndMore<PrestoSparkMutableRow> childRdd = createRdd(child, PrestoSparkMutableRow.class);
-                    rddInputs.put(childFragment.getId(), partitionBy(childFragment.getId().getId(), childRdd.getRdd(), child.getFragment().getPartitioningScheme()));
+                    JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionedRdd = partitionBy(childFragment.getId().getId(), childRdd.getRdd(), child.getFragment().getPartitioningScheme());
+                    MapOutputStatistics mapOutputStatistics = RddAndMore.executeShuffleRDD(sparkContext.sc(), (ShuffledRDD) partitionedRdd.rdd());
+
+                    long totalStageOutputBytes = Arrays.stream(mapOutputStatistics.bytesByPartitionId()).sum();
+
+                    // Compute the shuffle partitions based on output bytes
+                    int numberOfShufflePartitions = Math.max(20, (int) (totalStageOutputBytes / DataSize.succinctDataSize(1, DataSize.Unit.GIGABYTE).toBytes()));
+
+                    JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> coalesceRDD = partitionedRdd.coalesce(numberOfShufflePartitions);
+                    rddInputs.put(childFragment.getId(), coalesceRDD);
                     broadcastDependencies.addAll(childRdd.getBroadcastDependencies());
                 }
             }
