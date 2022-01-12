@@ -45,5 +45,14 @@ void registerArrayFunctions() {
   registerArrayMinMaxFunctions<Varchar>();
   registerArrayMinMaxFunctions<Timestamp>();
   registerArrayMinMaxFunctions<Date>();
+
+  registerArrayJoinFunctions<int8_t>();
+  registerArrayJoinFunctions<int16_t>();
+  registerArrayJoinFunctions<int32_t>();
+  registerArrayJoinFunctions<int64_t>();
+  registerArrayJoinFunctions<float>();
+  registerArrayJoinFunctions<double>();
+  registerArrayJoinFunctions<bool>();
+  registerArrayJoinFunctions<Varchar>();
 }
 }; // namespace facebook::velox::functions

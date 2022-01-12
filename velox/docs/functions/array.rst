@@ -61,6 +61,14 @@ Array Functions
 
     If ``instance > 0``, returns the position of the ``instance``-th occurrence of the ``element`` in array ``x``. If ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``. If no matching element instance is found, 0 is returned.
 
+.. function:: array_join(x, delimiter, null_replacement) -> varchar
+
+    Concatenates the elements of the given array using the delimiter and an optional string to replace nulls. ::
+
+        SELECT array_join(ARRAY [1, 2, 3], ",") -- "1,2,3"
+        SELECT array_join(ARRAY [1, NULL, 2], ",") -- "1,2"
+        SELECT array_join(ARRAY [1, NULL, 2], ",", "0") -- "1,0,2"
+
 .. function:: cardinality(x) -> bigint
 
     Returns the cardinality (size) of the array ``x``.
