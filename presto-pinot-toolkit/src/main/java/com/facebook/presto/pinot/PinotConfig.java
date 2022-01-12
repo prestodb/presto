@@ -108,6 +108,7 @@ public class PinotConfig
     private boolean useHttpsForController;
     private boolean useHttpsForBroker;
     private boolean useHttpsForProxy;
+    private boolean useHttpsForGrpcProxy;
     private Map<String, String> extraGrpcMetadata = ImmutableMap.of();
     private String overrideDistinctCountFunction = PINOT_DISTINCT_COUNT_FUNCTION_NAME;
 
@@ -591,6 +592,18 @@ public class PinotConfig
     {
         this.proxyGrpcPort = proxyGrpcPort;
         return this;
+    }
+
+    @Config("pinot.use-https-for-grpc-proxy")
+    public PinotConfig setUseHttpsForGrpcProxy(boolean useHttpsForGrpcProxy)
+    {
+        this.useHttpsForGrpcProxy = useHttpsForGrpcProxy;
+        return this;
+    }
+
+    public boolean isUseHttpsForGrpcProxy()
+    {
+        return this.useHttpsForGrpcProxy;
     }
 
     public boolean isUseHttpsForController()
