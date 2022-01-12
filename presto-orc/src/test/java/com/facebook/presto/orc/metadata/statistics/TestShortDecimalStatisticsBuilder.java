@@ -62,13 +62,13 @@ public class TestShortDecimalStatisticsBuilder
     }
 
     @Test
-    public void testMinAverageValueBytes()
+    public void testTotalValueBytes()
     {
         long shortDecimalBytes = DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES;
-        assertMinAverageValueBytes(0L, ImmutableList.of());
-        assertMinAverageValueBytes(shortDecimalBytes, ImmutableList.of(0L));
-        assertMinAverageValueBytes(shortDecimalBytes, ImmutableList.of(42L));
-        assertMinAverageValueBytes(shortDecimalBytes, ImmutableList.of(0L, 1L, 42L, 44L, 52L));
+        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(shortDecimalBytes, ImmutableList.of(0L));
+        assertTotalValueBytes(shortDecimalBytes, ImmutableList.of(42L));
+        assertTotalValueBytes(5 * shortDecimalBytes, ImmutableList.of(0L, 1L, 42L, 44L, 52L));
     }
 
     @Override
