@@ -21,11 +21,17 @@
 namespace facebook::velox::exec {
 class FunctionSignature;
 
+template <typename T>
+std::shared_ptr<const T> GetSingletonUdfMetadata(
+    std::shared_ptr<const Type> returnType) {
+  static auto instance = std::make_shared<const T>(std::move(returnType));
+  return instance;
+}
+
 template <typename Function>
 class FunctionRegistry {
   using FunctionFactory = std::function<std::unique_ptr<Function>()>;
-  using FunctionEntry =
-      std::unordered_map<std::shared_ptr<FunctionSignature>, FunctionFactory>;
+  using FunctionEntry = std::unordered_map<FunctionSignature, FunctionFactory>;
   using FunctionMap = std::unordered_map<std::string, FunctionEntry>;
 
  public:
@@ -39,7 +45,7 @@ class FunctionRegistry {
         ? std::vector<std::string>{metadata->getName()}
         : aliases;
 
-    registerFunctionInternal(names, metadata->signature(), [metadata]() {
+    registerFunctionInternal(names, *metadata->signature(), [metadata]() {
       return CreateUdf<UDF>(metadata->returnType());
     });
   }
@@ -55,13 +61,13 @@ class FunctionRegistry {
     return result;
   }
 
-  std::vector<FunctionSignature*> getFunctionSignatures(
+  std::vector<const FunctionSignature*> getFunctionSignatures(
       const std::string& name) {
-    std::vector<FunctionSignature*> signatures;
+    std::vector<const FunctionSignature*> signatures;
     if (auto entry = getFunctionEntry(name)) {
       signatures.reserve(entry->size());
       for (const auto& pair : *entry) {
-        signatures.emplace_back(pair.first.get());
+        signatures.emplace_back(&pair.first);
       }
     }
 
@@ -73,7 +79,7 @@ class FunctionRegistry {
       const std::vector<TypePtr>& argTypes) {
     if (auto entry = getFunctionEntry(name)) {
       for (const auto& [candidateSignature, functionFactory] : *entry) {
-        if (SignatureBinder(*candidateSignature, argTypes).tryBind()) {
+        if (SignatureBinder(candidateSignature, argTypes).tryBind()) {
           return functionFactory();
         }
       }
@@ -84,26 +90,19 @@ class FunctionRegistry {
 
  private:
   template <typename T>
-  static std::shared_ptr<const Function> GetSingletonUdfMetadata(
-      std::shared_ptr<const Type> returnType) {
-    static auto instance = std::make_shared<const T>(std::move(returnType));
-    return instance;
-  }
-
-  template <typename T>
   static std::unique_ptr<T> CreateUdf(std::shared_ptr<const Type> returnType) {
     return std::make_unique<T>(std::move(returnType));
   }
 
   void registerFunctionInternal(
       const std::vector<std::string>& names,
-      const std::shared_ptr<exec::FunctionSignature>& signature,
+      const exec::FunctionSignature& signature,
       const FunctionFactory& factory) {
     for (const auto& name : names) {
       if (auto entry = getFunctionEntry(name)) {
         entry->insert({signature, factory});
       } else {
-        registeredFunctions_[name] = {{signature, factory}};
+        registeredFunctions_[name] = FunctionEntry{{signature, factory}};
       }
     }
   }

@@ -451,6 +451,9 @@ class VectorAdapter : public VectorFunction {
 template <typename FUNC>
 class VectorAdapterFactoryImpl : public VectorAdapterFactory {
  public:
+  // Exposed for use in FunctionRegistry
+  using Metadata = typename FUNC::Metadata;
+
   explicit VectorAdapterFactoryImpl(std::shared_ptr<const Type> returnType)
       : returnType_(std::move(returnType)) {}
 

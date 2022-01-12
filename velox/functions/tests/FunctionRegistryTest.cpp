@@ -396,4 +396,18 @@ TEST_F(FunctionRegistryTest, hasVectorFunctionSignatureWrongFunctionName) {
   testResolveVectorFunction("vector_method_one", {VARCHAR()}, nullptr);
 }
 
+TEST_F(FunctionRegistryTest, registerFunctionTwice) {
+  // For better or worse, there are code paths that depend on the ability to
+  // register the same functions repeatedly and have those repeated calls
+  // ignored.
+  registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
+  registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
+
+  auto& scalarFunctions = core::ScalarFunctions();
+  auto signatures = scalarFunctions.getFunctionSignatures("func_one");
+  // The function should only be registered once, despite the multiple calls to
+  // registerFunction.
+  ASSERT_EQ(signatures.size(), 1);
+}
+
 } // namespace facebook::velox

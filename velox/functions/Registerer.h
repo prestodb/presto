@@ -17,7 +17,8 @@
 
 #include "velox/core/ScalarFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorFunctionBindings.h"
+#include "velox/expression/VectorFunctionAdapter.h"
+#include "velox/expression/VectorFunctionRegistry.h"
 
 namespace facebook::velox {
 

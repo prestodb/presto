@@ -23,9 +23,8 @@
 
 namespace facebook::velox {
 
-using FunctionSignatureMap = std::unordered_map<
-    std::string,
-    std::vector<std::shared_ptr<exec::FunctionSignature>>>;
+using FunctionSignatureMap = std::
+    unordered_map<std::string, std::vector<const exec::FunctionSignature*>>;
 
 /// Returns a mapping of all Simple and Vector functions registered in Velox
 /// The mapping is function name -> list of function signatures
@@ -34,6 +33,12 @@ FunctionSignatureMap getFunctionSignatures();
 /// Given a function name and argument types, returns
 /// the return type if function exists otherwise returns nullptr
 std::shared_ptr<const Type> resolveFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes);
+
+/// Given name of scalar function and argument types, returns
+/// the return type if function exists otherwise returns nullptr
+std::shared_ptr<const Type> resolveScalarFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 

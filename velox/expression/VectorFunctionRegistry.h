@@ -16,15 +16,25 @@
 
 #pragma once
 
-#include "velox/common/serialization/Registry.h"
-#include "velox/core/ScalarFunction.h"
+#include "velox/expression/FunctionRegistry.h"
 #include "velox/expression/VectorFunctionAdapter.h"
 
 namespace facebook::velox::exec {
 
+// A registry for vector functions that are created from simple functions using
+// VectorFunctionAdapter.
 using AdaptedVectorFunctionRegistry =
-    Registry<core::FunctionKey, std::unique_ptr<const VectorAdapterFactory>()>;
+    exec::FunctionRegistry<VectorAdapterFactory>;
 
 AdaptedVectorFunctionRegistry& AdaptedVectorFunctions();
+
+// This function should be called once and alone.
+template <typename UDF>
+void registerVectorFunction(
+    const std::vector<std::string>& names,
+    std::shared_ptr<const Type> returnType) {
+  AdaptedVectorFunctions()
+      .registerFunction<exec::VectorAdapterFactoryImpl<UDF>>(names, returnType);
+}
 
 } // namespace facebook::velox::exec
