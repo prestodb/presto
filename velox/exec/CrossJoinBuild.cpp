@@ -59,11 +59,10 @@ void CrossJoinBuild::addInput(RowVectorPtr input) {
 }
 
 BlockingReason CrossJoinBuild::isBlocked(ContinueFuture* future) {
-  if (!hasFuture_) {
+  if (!future_.valid()) {
     return BlockingReason::kNotBlocked;
   }
   *future = std::move(future_);
-  hasFuture_ = false;
   return BlockingReason::kWaitForJoinBuild;
 }
 
@@ -78,7 +77,6 @@ void CrossJoinBuild::noMoreInput() {
   // build pipeline.
   if (!operatorCtx_->task()->allPeersFinished(
           planNodeId(), operatorCtx_->driver(), &future_, promises, peers)) {
-    hasFuture_ = true;
     return;
   }
 
@@ -102,6 +100,6 @@ void CrossJoinBuild::noMoreInput() {
 }
 
 bool CrossJoinBuild::isFinished() {
-  return !hasFuture_ && noMoreInput_;
+  return !future_.valid() && noMoreInput_;
 }
 } // namespace facebook::velox::exec

@@ -30,8 +30,7 @@ class TableScan : public SourceOperator {
   RowVectorPtr getOutput() override;
 
   BlockingReason isBlocked(ContinueFuture* future) override {
-    if (hasBlockingFuture_) {
-      hasBlockingFuture_ = false;
+    if (blockingFuture_.valid()) {
       *future = std::move(blockingFuture_);
       return BlockingReason::kWaitForSplit;
     }
@@ -61,8 +60,7 @@ class TableScan : public SourceOperator {
       unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
           columnHandles_;
   DriverCtx* driverCtx_;
-  ContinueFuture blockingFuture_;
-  bool hasBlockingFuture_ = false;
+  ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   bool needNewSplit_ = true;
   std::shared_ptr<connector::Connector> connector_;
   std::unique_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;

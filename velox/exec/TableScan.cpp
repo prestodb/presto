@@ -47,7 +47,6 @@ RowVectorPtr TableScan::getOutput() {
       auto reason = driverCtx_->task->getSplitOrFuture(
           planNodeId_, split, blockingFuture_);
       if (reason != BlockingReason::kNotBlocked) {
-        hasBlockingFuture_ = true;
         return nullptr;
       }
 

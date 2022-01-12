@@ -536,7 +536,6 @@ class TestingPauser : public Operator {
     // Block for a time quantum evern 10th time.
     if (counter_ % 10 == 0) {
       test_->registerForWakeup(&future_);
-      hasFuture_ = true;
       return nullptr;
     }
     {
@@ -567,8 +566,7 @@ class TestingPauser : public Operator {
 
   BlockingReason isBlocked(ContinueFuture* future) override {
     VELOX_CHECK(!operatorCtx_->driver()->state().isSuspended);
-    if (hasFuture_) {
-      hasFuture_ = false;
+    if (future_.valid()) {
       *future = std::move(future_);
       return BlockingReason::kWaitForConsumer;
     }
@@ -594,8 +592,7 @@ class TestingPauser : public Operator {
 
   // Counter deciding the next action in getOutput().
   int32_t counter_;
-  bool hasFuture_{false};
-  ContinueFuture future_;
+  ContinueFuture future_{ContinueFuture::makeEmpty()};
 };
 
 std::mutex TestingPauser ::pauseMutex_;

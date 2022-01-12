@@ -273,10 +273,8 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
   // Start fetching data right away. Do not wait for all
   // splits to be available.
 
-  if (!hasSplitFuture_) {
-    if (getSplits(&splitFuture_)) {
-      hasSplitFuture_ = true;
-    }
+  if (!splitFuture_.valid()) {
+    getSplits(&splitFuture_);
   }
 
   ContinueFuture dataFuture{false};
@@ -290,7 +288,7 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
 
   // We have a dataFuture and we may also have a splitFuture_.
 
-  if (hasSplitFuture_) {
+  if (splitFuture_.valid()) {
     // Block until data becomes available or more splits arrive.
     std::vector<ContinueFuture> futures;
     futures.push_back(std::move(splitFuture_));
@@ -298,8 +296,6 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
 
     *future = folly::collectAny(futures).deferValue(
         [](auto /*unused*/) { return true; });
-
-    hasSplitFuture_ = false;
   } else {
     // Block until data becomes available.
     *future = std::move(dataFuture);

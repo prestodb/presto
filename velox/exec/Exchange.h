@@ -312,11 +312,9 @@ class Exchange : public SourceOperator {
   const core::PlanNodeId planNodeId_;
   bool noMoreSplits_ = false;
 
-  /// Boolean indicating that we received a future from Task::getSplitOrFuture.
-  /// That future will be complete when there are more splits available or
-  /// no-more-splits signal has arrived.
-  bool hasSplitFuture_{false};
-  ContinueFuture splitFuture_{false};
+  /// A future received from Task::getSplitOrFuture(). It will be complete when
+  /// there are more splits available or no-more-splits signal has arrived.
+  ContinueFuture splitFuture_{ContinueFuture::makeEmpty()};
 
   RowVectorPtr result_;
   std::shared_ptr<ExchangeClient> exchangeClient_;
