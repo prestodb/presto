@@ -479,9 +479,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 RowVectorPtr HiveDataSource::next(uint64_t size) {
   VELOX_CHECK(split_ != nullptr, "No split to process. Call addSplit first.");
   if (emptySplit_) {
-    split_.reset();
-    reader_.reset();
-    rowReader_.reset();
+    resetSplit();
     return nullptr;
   }
 
@@ -538,10 +536,16 @@ RowVectorPtr HiveDataSource::next(uint64_t size) {
 
   rowReader_->updateRuntimeStats(runtimeStats_);
 
-  split_.reset();
-  reader_.reset();
-  rowReader_.reset();
+  resetSplit();
   return nullptr;
+}
+
+void HiveDataSource::resetSplit() {
+  split_.reset();
+  // Make sure to destroy Reader and RowReader in the opposite order of
+  // creation, e.g. destroy RowReader first, then destroy Reader.
+  rowReader_.reset();
+  reader_.reset();
 }
 
 vector_size_t HiveDataSource::evaluateRemainingFilter(RowVectorPtr& rowVector) {

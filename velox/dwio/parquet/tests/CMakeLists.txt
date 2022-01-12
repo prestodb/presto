@@ -51,3 +51,21 @@ target_link_libraries(
   ${ZSTD}
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_parquet_table_scan_test ParquetTableScanTest.cpp)
+add_test(
+  NAME velox_dwio_parquet_table_scan_test
+  COMMAND velox_dwio_parquet_table_scan_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  velox_dwio_parquet_table_scan_test
+  velox_vector_test_lib
+  velox_exec_test_util
+  velox_exec
+  velox_hive_connector
+  velox_aggregates
+  ${VELOX_LINK_LIBS}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FMT}
+  ${TEST_LINK_LIBS})

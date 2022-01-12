@@ -180,6 +180,9 @@ class HiveDataSource : public DataSource {
       const std::string& partitionKey,
       const std::optional<std::string>& value) const;
 
+  /// Clear split_, reader_ and rowReader_ after split has been fully processed.
+  void resetSplit();
+
   const std::shared_ptr<const RowType> outputType_;
   // Column handles for the partition key columns keyed on partition key column
   // name.
