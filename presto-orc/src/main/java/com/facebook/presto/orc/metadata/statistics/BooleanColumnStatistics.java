@@ -45,9 +45,9 @@ public class BooleanColumnStatistics
     }
 
     @Override
-    public long getMinAverageValueSizeInBytes()
+    public long getTotalValueSizeInBytes()
     {
-        return BOOLEAN_VALUE_BYTES;
+        return getNumberOfValues() * BOOLEAN_VALUE_BYTES;
     }
 
     @Override

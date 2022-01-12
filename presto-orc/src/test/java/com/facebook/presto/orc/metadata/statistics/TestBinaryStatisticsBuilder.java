@@ -94,12 +94,12 @@ public class TestBinaryStatisticsBuilder
     }
 
     @Test
-    public void testMinAverageValueBytes()
+    public void testTotalValueBytes()
     {
-        assertMinAverageValueBytes(0L, ImmutableList.of());
-        assertMinAverageValueBytes(BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
-        assertMinAverageValueBytes(FIRST_VALUE.length() + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE));
-        assertMinAverageValueBytes((FIRST_VALUE.length() + SECOND_VALUE.length()) / 2 + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE, SECOND_VALUE));
+        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
+        assertTotalValueBytes(FIRST_VALUE.length() + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE));
+        assertTotalValueBytes((FIRST_VALUE.length() + SECOND_VALUE.length()) + 2 * BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE, SECOND_VALUE));
     }
 
     private void assertMergedBinaryStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)
