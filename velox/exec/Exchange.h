@@ -281,7 +281,6 @@ class Exchange : public SourceOperator {
             exchangeNode->id(),
             "Exchange"),
         planNodeId_(exchangeNode->id()),
-        future_(false),
         exchangeClient_(std::move(exchangeClient)) {}
 
   ~Exchange() override {
@@ -301,12 +300,24 @@ class Exchange : public SourceOperator {
   BlockingReason isBlocked(ContinueFuture* future) override;
 
  private:
-  BlockingReason getSplits(ContinueFuture* future);
+  /// Fetches splits from the task until there are no more splits or task
+  /// returns a future that will be complete when more splits arrive. Adds
+  /// splits to exchangeClient_. Returns true if received a future from the task
+  /// and sets the 'future' parameter. Returns false if fetched all splits or if
+  /// this operator is not the first operator in the pipeline and therefore is
+  /// not responsible for fetching splits and adding them to the
+  /// exchangeClient_.
+  bool getSplits(ContinueFuture* future);
 
   const core::PlanNodeId planNodeId_;
   bool noMoreSplits_ = false;
-  BlockingReason blockingReason_{BlockingReason::kNotBlocked};
-  ContinueFuture future_;
+
+  /// Boolean indicating that we received a future from Task::getSplitOrFuture.
+  /// That future will be complete when there are more splits available or
+  /// no-more-splits signal has arrived.
+  bool hasSplitFuture_{false};
+  ContinueFuture splitFuture_{false};
+
   RowVectorPtr result_;
   std::shared_ptr<ExchangeClient> exchangeClient_;
   std::unique_ptr<SerializedPage> currentPage_;

@@ -500,3 +500,42 @@ TEST_F(MultiFragmentTest, replicateNullsAndAny) {
       finalAggTaskIds,
       "SELECT 3 * ceil(1000.0 / 7) /* number of null rows */, 1000 + 2 * ceil(1000.0 / 7) /* total number of rows */");
 }
+
+// Test query finishing before all splits have been scheduled.
+TEST_F(MultiFragmentTest, limit) {
+  auto data = makeRowVector({makeFlatVector<int32_t>(
+      1'000, [](auto row) { return row; }, nullEvery(7))});
+
+  // Make leaf task: Values -> PartialLimit(1) -> Repartitioning(0).
+  auto leafTaskId = makeTaskId("leaf", 0);
+  auto leafPlan = PlanBuilder()
+                      .values({data})
+                      .limit(0, 1, false)
+                      .partitionedOutput({}, 1)
+                      .planNode();
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+  Task::start(leafTask, 1);
+
+  // Make final task: Exchange -> FinalLimit(1).
+  auto plan = PlanBuilder()
+                  .exchange(leafPlan->outputType())
+                  .limit(0, 1, false)
+                  .planNode();
+
+  auto split =
+      exec::Split(std::make_shared<RemoteConnectorSplit>(leafTaskId), -1);
+
+  // Expect the task to produce results before receiving no-more-splits message.
+  bool splitAdded = false;
+  auto task = ::assertQuery(
+      plan,
+      [&](Task* task) {
+        if (splitAdded) {
+          return;
+        }
+        task->addSplit("0", std::move(split));
+        splitAdded = true;
+      },
+      "SELECT null",
+      duckDbQueryRunner_);
+}
