@@ -52,10 +52,6 @@ class S3FileSystemTest : public testing::Test {
     return minioServer_->path() + "/" + directory;
   }
 
-  std::string s3URI(const char* bucket) {
-    return std::string(kS3Scheme) + bucket;
-  }
-
   void writeData(WriteFile* writeFile) {
     writeFile->append("aaaaa");
     writeFile->append("bbbbb");
@@ -91,7 +87,7 @@ TEST_F(S3FileSystemTest, writeAndRead) {
   const char* bucketName = "data";
   const char* file = "test.txt";
   const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName) + "/" + file;
+  const std::string s3File = s3URI(bucketName, file);
   addBucket(bucketName);
   {
     LocalWriteFile writeFile(filename);
@@ -104,22 +100,11 @@ TEST_F(S3FileSystemTest, writeAndRead) {
   readData(readFile.get());
 }
 
-TEST_F(S3FileSystemTest, missingFile) {
-  const char* bucketName = "data1";
-  const char* file = "i-do-not-exist.txt";
-  const std::string s3File = s3URI(bucketName) + "/" + file;
-  addBucket(bucketName);
-  auto hiveConfig = minioServer_->hiveConfig();
-  filesystems::S3FileSystem s3fs(hiveConfig);
-  s3fs.initializeClient();
-  EXPECT_THROW(s3fs.openFileForRead(s3File), VeloxException);
-}
-
 TEST_F(S3FileSystemTest, viaRegistry) {
   const char* bucketName = "data2";
   const char* file = "test.txt";
   const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName) + "/" + file;
+  const std::string s3File = s3URI(bucketName, file);
   addBucket(bucketName);
   {
     LocalWriteFile writeFile(filename);
@@ -135,7 +120,7 @@ TEST_F(S3FileSystemTest, fileHandle) {
   const char* bucketName = "data3";
   const char* file = "test.txt";
   const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName) + "/" + file;
+  const std::string s3File = s3URI(bucketName, file);
   addBucket(bucketName);
   {
     LocalWriteFile writeFile(filename);
@@ -222,5 +207,95 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
           std::string(
               "Invalid configuration: both access key and secret key must be specified"));
     }
+  }
+}
+
+TEST_F(S3FileSystemTest, missingFile) {
+  const char* bucketName = "data1";
+  const char* file = "i-do-not-exist.txt";
+  const std::string s3File = s3URI(bucketName, file);
+  addBucket(bucketName);
+  auto hiveConfig = minioServer_->hiveConfig();
+  filesystems::S3FileSystem s3fs(hiveConfig);
+  s3fs.initializeClient();
+  try {
+    s3fs.openFileForRead(s3File);
+    FAIL() << "Expected VeloxException";
+  } catch (VeloxException const& err) {
+    EXPECT_EQ(
+        err.message(),
+        std::string(
+            "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://data1/i-do-not-exist.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'"));
+  }
+}
+
+TEST_F(S3FileSystemTest, missingBucket) {
+  auto hiveConfig = minioServer_->hiveConfig();
+  filesystems::S3FileSystem s3fs(hiveConfig);
+  s3fs.initializeClient();
+  try {
+    const char* s3File = "s3://dummy/foo.txt";
+    s3fs.openFileForRead(s3File);
+    FAIL() << "Expected VeloxException";
+  } catch (VeloxException const& err) {
+    EXPECT_EQ(
+        err.message(),
+        std::string(
+            "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://dummy/foo.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'"));
+  }
+}
+
+TEST_F(S3FileSystemTest, invalidAccessKey) {
+  auto hiveConfig =
+      minioServer_->hiveConfig({{"hive.s3.aws-access-key", "dummy-key"}});
+  filesystems::S3FileSystem s3fs(hiveConfig);
+  s3fs.initializeClient();
+  // Minio credentials are wrong and this should throw
+  try {
+    const char* s3File = "s3://dummy/foo.txt";
+    s3fs.openFileForRead(s3File);
+    FAIL() << "Expected VeloxException";
+  } catch (VeloxException const& err) {
+    EXPECT_EQ(
+        err.message(),
+        std::string(
+            "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'"));
+  }
+}
+
+TEST_F(S3FileSystemTest, invalidSecretKey) {
+  auto hiveConfig =
+      minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
+  filesystems::S3FileSystem s3fs(hiveConfig);
+  s3fs.initializeClient();
+  // Minio credentials are wrong and this should throw
+  try {
+    const char* s3File = "s3://dummy/foo.txt";
+    s3fs.openFileForRead(s3File);
+    FAIL() << "Expected VeloxException";
+  } catch (VeloxException const& err) {
+    EXPECT_EQ(
+        err.message(),
+        std::string(
+            "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'"));
+  }
+}
+
+TEST_F(S3FileSystemTest, noBackendServer) {
+  auto hiveConfig =
+      minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
+  filesystems::S3FileSystem s3fs(hiveConfig);
+  s3fs.initializeClient();
+  // stop Minio and check error
+  minioServer_->stop();
+  try {
+    const char* s3File = "s3://dummy/foo.txt";
+    s3fs.openFileForRead(s3File);
+    FAIL() << "Expected VeloxException";
+  } catch (VeloxException const& err) {
+    EXPECT_EQ(
+        err.message(),
+        std::string(
+            "Failed to get metadata for S3 object due to: 'Network connection'. Path:'s3://dummy/foo.txt', SDK Error Type:99, HTTP Status Code:-1, S3 Service:'Unknown', Message:'curlCode: 7, Couldn't connect to server'"));
   }
 }
