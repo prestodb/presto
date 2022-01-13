@@ -93,8 +93,9 @@ class FunctionBaseTest : public testing::Test,
     auto castedResult = std::dynamic_pointer_cast<T>(result);
     VELOX_CHECK(
         castedResult,
-        "Expression evaluation result is not of expected type: {} -> {}",
+        "Expression evaluation result is not of expected type: {} -> {} vector of type {}",
         expression,
+        result->encoding(),
         result->type()->toString());
     return castedResult;
   }
