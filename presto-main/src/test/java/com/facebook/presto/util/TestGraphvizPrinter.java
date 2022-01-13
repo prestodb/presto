@@ -64,7 +64,8 @@ public class TestGraphvizPrinter
             TupleDomain.all(),
             TupleDomain.all());
     private static final String TEST_TABLE_SCAN_NODE_INNER_OUTPUT = format(
-            "label=\"{TableScan[TableHandle \\{connectorId='%s', connectorHandle='%s', layout='Optional.empty'\\}]}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue",
+            "label=\"{TableScan | [TableHandle \\{connectorId='%s', connectorHandle='%s', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                    "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue",
             TEST_CONNECTOR_ID,
             TEST_CONNECTOR_TABLE_HANDLE);
 
@@ -146,9 +147,12 @@ public class TestGraphvizPrinter
         String expected = "digraph logical_plan {\n" +
                 "subgraph cluster_0 {\n" +
                 "label = \"SOURCE\"\n" +
-                "plannode_1[label=\"{CrossJoin[REPLICATED]}\", style=\"rounded, filled\", shape=record, fillcolor=orange];\n" + //no Criteria + no filter + INNER Join => CrossJoin
-                "plannode_2[label=\"{TableScan[TableHandle \\{connectorId='connector_id', connectorHandle='com.facebook.presto.testing.TestingMetadata$TestingTableHandle@1af56f7', layout='Optional.empty'\\}]}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
-                "plannode_3[label=\"{Values}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
+                "plannode_1[label=\"{CrossJoin[REPLICATED]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=orange];\n" +
+                "plannode_2[label=\"{TableScan | [TableHandle \\{connectorId='connector_id', connectorHandle='com.facebook.presto.testing.TestingMetadata$TestingTableHandle@1af56f7', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
+                "plannode_3[label=\"{Values|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
                 "}\n" +
                 "plannode_1 -> plannode_3 [label = \"Build\"];\n" + //valuesNode should be the Build side
                 "plannode_1 -> plannode_2 [label = \"Probe\"];\n" + //TEST_TABLE_SCAN_NODE should be the Probe side
