@@ -814,6 +814,22 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testViewWithReservedKeywords()
+    {
+        skipTestUnless(supportsViews());
+
+        assertUpdate("CREATE TABLE \"group\" AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+
+        assertUpdate("CREATE OR REPLACE VIEW test_view AS " + "SELECT orderkey, orderstatus, totalprice / 2 half FROM \"group\"");
+
+        assertQuery("SELECT * FROM test_view", query);
+
+        assertUpdate("DROP VIEW test_view");
+    }
+
+    @Test
     public void testViewCaseSensitivity()
     {
         skipTestUnless(supportsViews());

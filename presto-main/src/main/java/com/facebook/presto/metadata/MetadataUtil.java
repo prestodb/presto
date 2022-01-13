@@ -157,11 +157,6 @@ public final class MetadataUtil
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
-    public static QualifiedName createQualifiedName(QualifiedObjectName name)
-    {
-        return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
-    }
-
     public static Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, TransactionManager transactionManager, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
