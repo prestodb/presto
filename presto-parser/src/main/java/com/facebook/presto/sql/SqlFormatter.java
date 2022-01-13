@@ -1079,12 +1079,10 @@ public final class SqlFormatter
             return characteristic.name().replace("_", " ");
         }
 
-        private static String formatName(String name)
+        private static String formatName(Identifier name)
         {
-            if (NAME_PATTERN.matcher(name).matches()) {
-                return name;
-            }
-            return "\"" + name.replace("\"", "\"\"") + "\"";
+            String delimiter = name.isDelimited() ? "\"" : "";
+            return delimiter + name.getValue().replace("\"", "\"\"") + delimiter;
         }
 
         private static String formatName(QualifiedName name)
