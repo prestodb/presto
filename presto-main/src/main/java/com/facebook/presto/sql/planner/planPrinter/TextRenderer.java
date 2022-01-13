@@ -235,12 +235,12 @@ public class TextRenderer
         return output.toString();
     }
 
-    private static String formatEstimateAsDataSize(double value)
+    public static String formatEstimateAsDataSize(double value)
     {
         return isNaN(value) ? "?" : succinctBytes((long) value).toString();
     }
 
-    private static String formatAsLong(double value)
+    public static String formatAsLong(double value)
     {
         if (isFinite(value)) {
             return format(Locale.US, "%d", Math.round(value));
@@ -249,7 +249,7 @@ public class TextRenderer
         return "?";
     }
 
-    static String formatDouble(double value)
+    public static String formatDouble(double value)
     {
         if (isFinite(value)) {
             return format(Locale.US, "%.2f", value);
