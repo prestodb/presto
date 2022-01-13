@@ -60,7 +60,7 @@ public class PinotPageSourceProvider
                 pinotConfig.getMaxConnectionsPerServer()));
         this.pinotStreamingQueryClient = new PinotStreamingQueryClient(new PinotStreamingQueryClient.Config(
                 pinotConfig.getStreamingServerGrpcMaxInboundMessageBytes(),
-                pinotConfig.isUseHttpsForGrpcProxy()));
+                !pinotConfig.isUseHttpsForGrpcProxy()));
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
         this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
     }
