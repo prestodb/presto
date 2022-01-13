@@ -147,7 +147,8 @@ public class TestQueuesDb
         waitForCompleteQueryCount(queryRunner, 1);
     }
 
-    @Test(timeOut = 60_000)
+    //Disabling flaky test
+    @Test(timeOut = 60_000, enabled = false)
     public void testTwoQueriesAtSameTime()
             throws Exception
     {
