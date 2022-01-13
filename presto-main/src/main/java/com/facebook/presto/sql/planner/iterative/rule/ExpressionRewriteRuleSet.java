@@ -260,7 +260,8 @@ public class ExpressionRewriteRuleSet
                         joinNode.getLeftHashVariable(),
                         joinNode.getRightHashVariable(),
                         joinNode.getDistributionType(),
-                        joinNode.getDynamicFilters()));
+                        joinNode.getDynamicFilters(),
+                        joinNode.isMergeJoinEnabled()));
             }
             return Result.empty();
         }

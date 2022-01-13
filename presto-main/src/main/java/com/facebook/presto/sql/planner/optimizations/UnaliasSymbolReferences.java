@@ -562,7 +562,8 @@ public class UnaliasSymbolReferences
                     canonicalLeftHashVariable,
                     canonicalRightHashVariable,
                     node.getDistributionType(),
-                    canonicalDynamicFilters);
+                    canonicalDynamicFilters,
+                    node.isMergeJoinEnabled());
         }
 
         @Override

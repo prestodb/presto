@@ -64,6 +64,9 @@ public class JoinNode
     private final Optional<DistributionType> distributionType;
     private final Map<String, VariableReferenceExpression> dynamicFilters;
 
+    // TODO: Implement it as a separate node.
+    private final boolean mergeJoinEnabled;
+
     @JsonCreator
     public JoinNode(
             Optional<SourceLocation> sourceLocation,
@@ -77,7 +80,8 @@ public class JoinNode
             @JsonProperty("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
             @JsonProperty("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType,
-            @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters)
+            @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters,
+            @JsonProperty("mergeJoinEnabled") boolean mergeJoinEnabled)
     {
         super(sourceLocation, id);
         requireNonNull(type, "type is null");
@@ -101,6 +105,7 @@ public class JoinNode
         this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
         this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
+        this.mergeJoinEnabled = mergeJoinEnabled;
 
         Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(left.getOutputVariables())
@@ -136,6 +141,23 @@ public class JoinNode
         }
     }
 
+    public JoinNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Type type,
+            PlanNode left,
+            PlanNode right,
+            List<EquiJoinClause> criteria,
+            List<VariableReferenceExpression> outputVariables,
+            Optional<RowExpression> filter,
+            Optional<VariableReferenceExpression> leftHashVariable,
+            Optional<VariableReferenceExpression> rightHashVariable,
+            Optional<DistributionType> distributionType,
+            Map<String, VariableReferenceExpression> dynamicFilters)
+    {
+        this(sourceLocation, id, type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters, false);
+    }
+
     public JoinNode flipChildren()
     {
         return new JoinNode(
@@ -150,7 +172,8 @@ public class JoinNode
                 rightHashVariable,
                 leftHashVariable,
                 distributionType,
-                ImmutableMap.of()); // dynamicFilters are invalid after flipping children
+                ImmutableMap.of(),
+                mergeJoinEnabled); // dynamicFilters are invalid after flipping children
     }
 
     private static Type flipType(Type type)
@@ -314,6 +337,12 @@ public class JoinNode
         return dynamicFilters;
     }
 
+    @JsonProperty
+    public boolean isMergeJoinEnabled()
+    {
+        return mergeJoinEnabled;
+    }
+
     @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
@@ -324,12 +353,12 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
+        return new JoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters, mergeJoinEnabled);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getSourceLocation(), getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType), dynamicFilters);
+        return new JoinNode(getSourceLocation(), getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType), dynamicFilters, mergeJoinEnabled);
     }
 
     public boolean isCrossJoin()

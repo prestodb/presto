@@ -478,7 +478,8 @@ public class PlanPrinter
             else {
                 nodeOutput = addNode(node,
                         node.getType().getJoinLabel(),
-                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())));
+                        format("[%s]%s%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable()),
+                                node.isMergeJoinEnabled() ? "[PreferMergeJoin]" : ""));
             }
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));

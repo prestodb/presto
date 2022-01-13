@@ -166,7 +166,8 @@ public class PushAggregationThroughOuterJoin
                     join.getLeftHashVariable(),
                     join.getRightHashVariable(),
                     join.getDistributionType(),
-                    join.getDynamicFilters());
+                    join.getDynamicFilters(),
+                    false);
         }
         else {
             rewrittenJoin = new JoinNode(
@@ -184,7 +185,8 @@ public class PushAggregationThroughOuterJoin
                     join.getLeftHashVariable(),
                     join.getRightHashVariable(),
                     join.getDistributionType(),
-                    join.getDynamicFilters());
+                    join.getDynamicFilters(),
+                    false);
         }
 
         Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getVariableAllocator(), context.getIdAllocator(), context.getLookup());
@@ -265,7 +267,8 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
