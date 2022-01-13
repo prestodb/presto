@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "velox/dwio/parquet/reader/ParquetReader.h"
 #include <gtest/gtest.h>
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
-#include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/type/Type.h"
 #include "velox/type/tests/FilterBuilder.h"
 #include "velox/vector/ComplexVector.h"
@@ -114,7 +114,7 @@ VectorPtr ParquetReaderTest::rangeVector<Date>(size_t size, Date start) {
       size, [&](auto row) { return Date(start.days() + row); });
 }
 
-TEST_F(ParquetReaderTest, testReadSampleFull) {
+TEST_F(ParquetReaderTest, readSampleFull) {
   // sample.parquet holds two columns (a: BIGINT, b: DOUBLE) and
   // 20 rows (10 rows per group). Group offsets are 153 and 614.
   // Data is in plain uncompressed format:
@@ -144,7 +144,7 @@ TEST_F(ParquetReaderTest, testReadSampleFull) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testReadSampleRange1) {
+TEST_F(ParquetReaderTest, readSampleRange1) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
   ReaderOptions readerOptions;
@@ -159,7 +159,7 @@ TEST_F(ParquetReaderTest, testReadSampleRange1) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testReadSampleRange2) {
+TEST_F(ParquetReaderTest, readSampleRange2) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
   ReaderOptions readerOptions;
@@ -174,7 +174,7 @@ TEST_F(ParquetReaderTest, testReadSampleRange2) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testReadSampleEmptyRange) {
+TEST_F(ParquetReaderTest, readSampleEmptyRange) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
   ReaderOptions readerOptions;
@@ -189,7 +189,7 @@ TEST_F(ParquetReaderTest, testReadSampleEmptyRange) {
   EXPECT_EQ(rowReader->next(1000, result), 0);
 }
 
-TEST_F(ParquetReaderTest, testReadSampleBigintRangeFilter) {
+TEST_F(ParquetReaderTest, readSampleBigintRangeFilter) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
   ReaderOptions readerOptions;
@@ -208,7 +208,7 @@ TEST_F(ParquetReaderTest, testReadSampleBigintRangeFilter) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testReadSampleEqualFilter) {
+TEST_F(ParquetReaderTest, readSampleEqualFilter) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
   ReaderOptions readerOptions;
@@ -227,7 +227,7 @@ TEST_F(ParquetReaderTest, testReadSampleEqualFilter) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testDateRead) {
+TEST_F(ParquetReaderTest, dateRead) {
   // date.parquet holds a single column (date: DATE) and
   // 25 rows.
   // Data is in plain uncompressed format:
@@ -252,7 +252,7 @@ TEST_F(ParquetReaderTest, testDateRead) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testDateFilter) {
+TEST_F(ParquetReaderTest, dateFilter) {
   const std::string sample(getExampleFilePath("date.parquet"));
 
   ReaderOptions readerOptions;
@@ -270,7 +270,7 @@ TEST_F(ParquetReaderTest, testDateFilter) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testIntRead) {
+TEST_F(ParquetReaderTest, intRead) {
   // int.parquet holds integer columns (int: INTEGER, bigint: BIGINT)
   // and 10 rows.
   // Data is in plain uncompressed format:
@@ -299,7 +299,7 @@ TEST_F(ParquetReaderTest, testIntRead) {
   assertReadExpected(*rowReader, expected);
 }
 
-TEST_F(ParquetReaderTest, testIntMultipleFilters) {
+TEST_F(ParquetReaderTest, intMultipleFilters) {
   const std::string sample(getExampleFilePath("int.parquet"));
 
   ReaderOptions readerOptions;

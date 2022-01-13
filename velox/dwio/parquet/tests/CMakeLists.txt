@@ -34,7 +34,7 @@ set(VELOX_LINK_LIBS
 set(TEST_LINK_LIBS ${gflags_LIBRARIES} ${GTEST_BOTH_LIBRARIES} ${GMock} ${GLOG}
                    ${FILESYSTEM})
 
-add_executable(velox_dwio_parquet_reader_test TestReader.cpp)
+add_executable(velox_dwio_parquet_reader_test ParquetReaderTest.cpp)
 add_test(
   NAME velox_dwio_parquet_reader_test
   COMMAND velox_dwio_parquet_reader_test
