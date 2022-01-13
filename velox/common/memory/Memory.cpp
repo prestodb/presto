@@ -81,12 +81,12 @@ std::weak_ptr<MemoryPool> MemoryPoolBase::getWeakPtr() {
 }
 
 uint64_t MemoryPoolBase::getChildCount() const {
-  std::lock_guard<std::mutex> guard{childrenMutex_};
+  folly::SharedMutex::ReadHolder guard{childrenMutex_};
   return children_.size();
 }
 
 MemoryPool& MemoryPoolBase::getChildByName(const std::string& name) {
-  std::lock_guard<std::mutex> guard{childrenMutex_};
+  folly::SharedMutex::ReadHolder guard{childrenMutex_};
   // Implicitly synchronized in dtor of child so it's impossible for
   // MemoryManager to access after destruction of child.
   auto iter = std::find_if(
@@ -106,14 +106,14 @@ MemoryPool& MemoryPoolBase::getChildByName(const std::string& name) {
 
 void MemoryPoolBase::visitChildren(
     std::function<void(MemoryPool*)> visitor) const {
-  std::lock_guard<std::mutex> guard{childrenMutex_};
+  folly::SharedMutex::WriteHolder guard{childrenMutex_};
   for (const auto& child : children_) {
     visitor(child.get());
   }
 }
 
 MemoryPool& MemoryPoolBase::addChild(const std::string& name, int64_t cap) {
-  std::lock_guard<std::mutex> guard{childrenMutex_};
+  folly::SharedMutex::WriteHolder guard{childrenMutex_};
   // Upon name collision we would throw and not modify the map.
   auto child = genChild(getWeakPtr(), name, cap);
   if (isMemoryCapped()) {
@@ -134,7 +134,7 @@ std::unique_ptr<ScopedMemoryPool> MemoryPoolBase::addScopedChild(
 }
 
 void MemoryPoolBase::dropChild(const MemoryPool* child) {
-  std::lock_guard<std::mutex> guard{childrenMutex_};
+  folly::SharedMutex::WriteHolder guard{childrenMutex_};
   // Implicitly synchronized in dtor of child so it's impossible for
   // MemoryManager to access after destruction of child.
   auto iter = std::find_if(

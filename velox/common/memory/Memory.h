@@ -21,7 +21,6 @@
 #include <limits>
 #include <list>
 #include <memory>
-#include <mutex>
 #include <string>
 
 #include <fmt/format.h>
@@ -32,6 +31,7 @@
 #include "folly/CPortability.h"
 #include "folly/Likely.h"
 #include "folly/Random.h"
+#include "folly/SharedMutex.h"
 #include "folly/experimental/FunctionScheduler.h"
 #include "velox/common/memory/MemoryUsage.h"
 #include "velox/common/memory/MemoryUsageTracker.h"
@@ -296,7 +296,7 @@ class MemoryPoolBase : public std::enable_shared_from_this<MemoryPoolBase>,
   const std::string name_;
   std::weak_ptr<MemoryPool> parent_;
 
-  mutable std::mutex childrenMutex_;
+  mutable folly::SharedMutex childrenMutex_;
   std::list<std::shared_ptr<MemoryPool>> children_;
 };
 
@@ -446,7 +446,7 @@ class MemoryPoolImpl : public MemoryPoolBase {
   // Memory allocated attributed to the memory node.
   MemoryUsage localMemoryUsage_;
   std::shared_ptr<MemoryUsageTracker> memoryUsageTracker_;
-  mutable std::mutex subtreeUsageMutex_;
+  mutable folly::SharedMutex subtreeUsageMutex_;
   MemoryUsage subtreeMemoryUsage_;
   int64_t cap_;
   std::atomic_bool capped_{false};
@@ -542,7 +542,7 @@ class MemoryManager final : public IMemoryManager {
   std::shared_ptr<Allocator> allocator_;
   const int64_t memoryQuota_;
   std::shared_ptr<MemoryPool> root_;
-  mutable std::mutex mutex_;
+  mutable folly::SharedMutex mutex_;
   std::atomic_long totalBytes_{0};
 };
 
@@ -732,14 +732,14 @@ int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::getSubtreeMaxBytes() const {
 template <typename Allocator, uint16_t ALIGNMENT>
 void MemoryPoolImpl<Allocator, ALIGNMENT>::accessSubtreeMemoryUsage(
     std::function<void(const MemoryUsage&)> visitor) const {
-  std::lock_guard<std::mutex> memoryBarrier{subtreeUsageMutex_};
+  folly::SharedMutex::ReadHolder readLock{subtreeUsageMutex_};
   visitor(subtreeMemoryUsage_);
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
 void MemoryPoolImpl<Allocator, ALIGNMENT>::updateSubtreeMemoryUsage(
     std::function<void(MemoryUsage&)> visitor) {
-  std::lock_guard<std::mutex> memoryBarrier{subtreeUsageMutex_};
+  folly::SharedMutex::WriteHolder writeLock{subtreeUsageMutex_};
   visitor(subtreeMemoryUsage_);
 }
 
