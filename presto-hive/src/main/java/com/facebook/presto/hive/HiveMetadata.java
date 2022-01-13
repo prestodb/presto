@@ -2764,9 +2764,11 @@ public class HiveMetadata
                     localProperties.add(new SortingProperty<>(columnHandle, sortingColumn.getOrder().getSortOrder()));
                     streamPartitionColumnsBuilder.add(columnHandle);
                 });
-                if (bucketProperty.getSortedBy().stream().map(SortingColumn::getColumnName).collect(toImmutableList()).equals(bucketProperty.getBucketedBy())) {
+                List<String> sortColumns = bucketProperty.getSortedBy().stream().map(SortingColumn::getColumnName).collect(toImmutableList());
+                if (bucketProperty.getBucketedBy().size() <= sortColumns.size() &&
+                        bucketProperty.getBucketedBy().containsAll(sortColumns.subList(0, bucketProperty.getBucketedBy().size()))) {
                     // This should only be set when the all rows of the same value group are guaranteed to be in the same split. We only set this when the bucket columns are
-                    // the same as the sort columns in with case we disable splitting a file.
+                    // the same as the prefix of the sort columns. And we disable splitting a file when isOrderBasedExecutionEnabled() is set to true.
                     streamPartitionColumns = Optional.of(streamPartitionColumnsBuilder.build());
                 }
             }
