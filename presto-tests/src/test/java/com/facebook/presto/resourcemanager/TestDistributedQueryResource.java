@@ -173,7 +173,7 @@ public class TestDistributedQueryResource
         }
     }
 
-    @Test
+    @Test(timeOut = 60_000)
     public void testGetAllQueryInfoForLimits()
             throws InterruptedException
     {
