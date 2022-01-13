@@ -213,6 +213,7 @@ public class PrestoSparkQueryExecutionFactory
         implements IPrestoSparkQueryExecutionFactory
 {
     private static final Logger log = Logger.get(PrestoSparkQueryExecutionFactory.class);
+    public static final String PRESTO_QUERY_ID_CONFIG = "presto_query_id";
 
     private final QueryIdGenerator queryIdGenerator;
     private final QuerySessionSupplier sessionSupplier;
@@ -364,6 +365,8 @@ public class PrestoSparkQueryExecutionFactory
         QueryId queryId = queryIdGenerator.createNextQueryId();
         log.info("Starting execution for presto query: %s", queryId);
         System.out.printf("Query id: %s\n", queryId);
+
+        sparkContext.conf().set(PRESTO_QUERY_ID_CONFIG, queryId.getId());
 
         SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(
                 prestoSparkSession,
