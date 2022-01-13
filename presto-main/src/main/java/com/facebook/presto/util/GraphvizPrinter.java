@@ -14,6 +14,9 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanCostEstimate;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -79,6 +82,9 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.getDynamicFilterAssignments;
+import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatAsLong;
+import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
+import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatEstimateAsDataSize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
@@ -209,7 +215,7 @@ public final class GraphvizPrinter
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
-        plan.accept(new NodePrinter(output, idGenerator, session, functionAndTypeManager), null);
+        plan.accept(new NodePrinter(output, idGenerator, session, functionAndTypeManager, fragment.getStatsAndCosts()), null);
 
         output.append("}")
                 .append('\n');
@@ -222,14 +228,16 @@ public final class GraphvizPrinter
         private final StringBuilder output;
         private final PlanNodeIdGenerator idGenerator;
         private final Function<RowExpression, String> formatter;
+        StatsAndCosts estimatedStatsAndCosts;
 
-        public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, Session session, FunctionAndTypeManager functionAndTypeManager)
+        public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, Session session, FunctionAndTypeManager functionAndTypeManager, StatsAndCosts estimatedStatsAndCosts)
         {
             this.output = output;
             this.idGenerator = idGenerator;
             RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(functionAndTypeManager);
             ConnectorSession connectorSession = requireNonNull(session, "session is null").toConnectorSession();
             this.formatter = rowExpression -> rowExpressionFormatter.formatRowExpression(connectorSession, rowExpression);
+            this.estimatedStatsAndCosts = estimatedStatsAndCosts;
         }
 
         @Override
@@ -466,7 +474,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            printNode(node, format("TableScan[%s]", node.getTable()), NODE_COLORS.get(NodeType.TABLESCAN));
+            printNode(node, format("TableScan | [%s]", node.getTable()), NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 
@@ -603,10 +611,12 @@ public final class GraphvizPrinter
 
         private void printNode(PlanNode node, String label, String color)
         {
+            String nodeEstimate = addStatsEstimate(node);
             String nodeId = idGenerator.getNodeId(node);
             label = escapeSpecialCharacters(label);
+            nodeEstimate = escapeSpecialCharacters(nodeEstimate);
             output.append(nodeId)
-                    .append(format("[label=\"{%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, color))
+                    .append(format("[label=\"{%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, nodeEstimate, color))
                     .append(';')
                     .append('\n');
         }
@@ -617,14 +627,32 @@ public final class GraphvizPrinter
                 printNode(node, label, color);
             }
             else {
+                String nodeEstimate = addStatsEstimate(node);
                 String nodeId = idGenerator.getNodeId(node);
                 label = escapeSpecialCharacters(label);
                 details = escapeSpecialCharacters(details);
+                nodeEstimate = escapeSpecialCharacters(nodeEstimate);
                 output.append(nodeId)
-                        .append(format("[label=\"{%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, details, color))
+                        .append(format("[label=\"{%s|%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, details, nodeEstimate, color))
                         .append(';')
                         .append('\n');
             }
+        }
+
+        private String addStatsEstimate(PlanNode node)
+        {
+            PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
+            PlanCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
+            StringBuilder output = new StringBuilder();
+            output.append("Estimates: ");
+            output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+                    formatAsLong(stats.getOutputRowCount()),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputVariables())),
+                    formatDouble(cost.getCpuCost()),
+                    formatDouble(cost.getMaxMemory()),
+                    formatDouble(cost.getNetworkCost())));
+            output.append("\n");
+            return output.toString();
         }
 
         private static String getColumns(OutputNode node)
