@@ -43,7 +43,8 @@ public class PinotSessionProperties
     public static final String PUSHDOWN_TOPN_BROKER_QUERIES = "pushdown_topn_broker_queries";
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
     public static final String NUM_SEGMENTS_PER_SPLIT = "num_segments_per_split";
-    public static final String LIMIT_LARGER_FOR_SEGMENT = "limit_larger_for_segment";
+    public static final String TOPN_LARGE = "topn_large";
+    public static final String LIMIT_LARGE_FOR_SEGMENT = "limit_larger_for_segment";
     public static final String OVERRIDE_DISTINCT_COUNT_FUNCTION = "override_distinct_count_function";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -104,9 +105,14 @@ public class PinotSessionProperties
         return session.getProperty(PUSHDOWN_TOPN_BROKER_QUERIES, Boolean.class);
     }
 
+    public static int getTopNLarge(ConnectorSession session)
+    {
+        return session.getProperty(TOPN_LARGE, Integer.class);
+    }
+
     public static int getLimitLargerForSegment(ConnectorSession session)
     {
-        return session.getProperty(LIMIT_LARGER_FOR_SEGMENT, Integer.class);
+        return session.getProperty(LIMIT_LARGE_FOR_SEGMENT, Integer.class);
     }
 
     public static String getOverrideDistinctCountFunction(ConnectorSession session)
@@ -149,12 +155,17 @@ public class PinotSessionProperties
                         pinotConfig.getNonAggregateLimitForBrokerQueries(),
                         false),
                 integerProperty(
-                        LIMIT_LARGER_FOR_SEGMENT,
+                        LIMIT_LARGE_FOR_SEGMENT,
                         "Server query selection limit for large segment",
                         pinotConfig.getLimitLargeForSegment(),
                         false),
+                integerProperty(
+                        TOPN_LARGE,
+                        "Broker query group by limit",
+                        pinotConfig.getTopNLarge(),
+                        false),
                 stringProperty(
-                    OVERRIDE_DISTINCT_COUNT_FUNCTION,
+                        OVERRIDE_DISTINCT_COUNT_FUNCTION,
                         "Override distinct count function to another function name",
                         pinotConfig.getOverrideDistinctCountFunction(),
                         false),
