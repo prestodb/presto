@@ -375,7 +375,7 @@ public class PinotQueryGeneratorContext
                 }
             }
             else {
-                queryLimit = pinotConfig.getTopNLarge();
+                queryLimit = PinotSessionProperties.getTopNLarge(session);
             }
         }
         String limitClause = "";
@@ -461,7 +461,7 @@ public class PinotQueryGeneratorContext
                 queryLimit = limit.getAsInt();
             }
             else {
-                queryLimit = pinotConfig.getTopNLarge();
+                queryLimit = PinotSessionProperties.getTopNLarge(session);
             }
         }
         String limitClause = "";
