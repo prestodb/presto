@@ -22,33 +22,41 @@
 
 namespace facebook::velox::functions::sparksql {
 
-VELOX_UDF_BEGIN(ascii)
-FOLLY_ALWAYS_INLINE bool call(int32_t& result, const arg_type<Varchar>& s) {
-  result = s.empty() ? 0 : s.data()[0];
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct AsciiFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-VELOX_UDF_BEGIN(chr)
-FOLLY_ALWAYS_INLINE bool call(out_type<Varchar>& result, int64_t ord) {
-  if (ord < 0) {
-    result.resize(0);
-  } else {
-    result.resize(1);
-    *result.data() = ord;
+  FOLLY_ALWAYS_INLINE bool call(int32_t& result, const arg_type<Varchar>& s) {
+    result = s.empty() ? 0 : s.data()[0];
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
-template <typename To, typename From>
-VELOX_UDF_BEGIN(md5)
-FOLLY_ALWAYS_INLINE
-    bool call(out_type<To>& result, const arg_type<From>& input) {
-  stringImpl::md5_radix(result, input, 16);
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct ChrFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(out_type<Varchar>& result, int64_t ord) {
+    if (ord < 0) {
+      result.resize(0);
+    } else {
+      result.resize(1);
+      *result.data() = ord;
+    }
+    return true;
+  }
+};
+
+template <typename T>
+struct Md5Function {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TTo, typename TFrom>
+  FOLLY_ALWAYS_INLINE bool call(TTo& result, const TFrom& input) {
+    stringImpl::md5_radix(result, input, 16);
+    return true;
+  }
+};
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> instrSignatures();
 
@@ -66,59 +74,69 @@ std::shared_ptr<exec::VectorFunction> makeLength(
 /// contains(string, string) -> bool
 /// Searches the second argument in the first one.
 /// Returns true if it is found
-VELOX_UDF_BEGIN(contains)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<bool>& result,
-    const arg_type<Varchar>& str,
-    const arg_type<Varchar>& pattern) {
-  result = std::string_view(str).find(std::string_view(pattern)) !=
-      std::string_view::npos;
-  return true;
-}
-VELOX_UDF_END();
+template <typename T>
+struct ContainsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<bool>& result,
+      const arg_type<Varchar>& str,
+      const arg_type<Varchar>& pattern) {
+    result = std::string_view(str).find(std::string_view(pattern)) !=
+        std::string_view::npos;
+    return true;
+  }
+};
 
 /// startsWith function
 /// startsWith(string, string) -> bool
 /// Returns true if the first string starts with the second string
-VELOX_UDF_BEGIN(starts_with)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<bool>& result,
-    const arg_type<Varchar>& str,
-    const arg_type<Varchar>& pattern) {
-  auto str1 = std::string_view(str);
-  auto str2 = std::string_view(pattern);
-  // TODO: Once C++20 supported we may want to replace this with
-  // string_view::starts_with
+template <typename T>
+struct StartsWithFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  if (str2.length() > str1.length()) {
-    result = false;
-  } else {
-    result = str1.substr(0, str2.length()) == str2;
-    ;
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<bool>& result,
+      const arg_type<Varchar>& str,
+      const arg_type<Varchar>& pattern) {
+    auto str1 = std::string_view(str);
+    auto str2 = std::string_view(pattern);
+    // TODO: Once C++20 supported we may want to replace this with
+    // string_view::starts_with
+
+    if (str2.length() > str1.length()) {
+      result = false;
+    } else {
+      result = str1.substr(0, str2.length()) == str2;
+      ;
+    }
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
 /// endsWith function
 /// endsWith(string, string) -> bool
 /// Returns true if the first string ends with the second string
-VELOX_UDF_BEGIN(ends_with)
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<bool>& result,
-    const arg_type<Varchar>& str,
-    const arg_type<Varchar>& pattern) {
-  auto str1 = std::string_view(str);
-  auto str2 = std::string_view(pattern);
-  // TODO Once C++20 supported we may want to replace this with
-  // string_view::ends_with
-  if (str2.length() > str1.length()) {
-    result = false;
-  } else {
-    result = str1.substr(str1.length() - str2.length(), str2.length()) == str2;
+template <typename T>
+struct EndsWithFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<bool>& result,
+      const arg_type<Varchar>& str,
+      const arg_type<Varchar>& pattern) {
+    auto str1 = std::string_view(str);
+    auto str2 = std::string_view(pattern);
+    // TODO Once C++20 supported we may want to replace this with
+    // string_view::ends_with
+    if (str2.length() > str1.length()) {
+      result = false;
+    } else {
+      result =
+          str1.substr(str1.length() - str2.length(), str2.length()) == str2;
+    }
+    return true;
   }
-  return true;
-}
-VELOX_UDF_END();
+};
 
 } // namespace facebook::velox::functions::sparksql

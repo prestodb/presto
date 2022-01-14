@@ -70,8 +70,8 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "get_json_object"});
 
   // Register string functions.
-  registerFunction<udf_chr, Varchar, int64_t>();
-  registerFunction<udf_ascii, int32_t, Varchar>();
+  registerFunction<sparksql::ChrFunction, Varchar, int64_t>({prefix + "chr"});
+  registerFunction<AsciiFunction, int32_t, Varchar>({prefix + "ascii"});
 
   registerFunction<SubstrFunction, Varchar, Varchar, int32_t>(
       {prefix + "substring"});
@@ -82,8 +82,7 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       "length", lengthSignatures(), makeLength);
 
-  registerFunction<udf_md5<Varchar, Varbinary>, Varchar, Varbinary>(
-      {prefix + "md5"});
+  registerFunction<Md5Function, Varchar, Varbinary>({prefix + "md5"});
 
   exec::registerStatefulVectorFunction(
       prefix + "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
@@ -120,11 +119,12 @@ void registerFunctions(const std::string& prefix) {
   registerCompareFunctions(prefix);
 
   // String sreach function
-  registerFunction<udf_starts_with, bool, Varchar, Varchar>(
+  registerFunction<StartsWithFunction, bool, Varchar, Varchar>(
       {prefix + "startswith"});
-  registerFunction<udf_ends_with, bool, Varchar, Varchar>(
+  registerFunction<EndsWithFunction, bool, Varchar, Varchar>(
       {prefix + "endswith"});
-  registerFunction<udf_contains, bool, Varchar, Varchar>({prefix + "contains"});
+  registerFunction<ContainsFunction, bool, Varchar, Varchar>(
+      {prefix + "contains"});
 
   // Register array sort functions.
   exec::registerStatefulVectorFunction(
