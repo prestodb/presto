@@ -125,12 +125,10 @@ class DriverTest : public OperatorTestBase {
     }
 
     if (!project.empty()) {
-      auto projectNames = rowType->names();
-      auto expressions = projectNames;
-      projectNames.push_back("expr");
-      expressions.push_back(project);
+      auto expressions = rowType->names();
+      expressions.push_back(fmt::format("{} AS expr", project));
 
-      planBuilder.project(expressions, projectNames);
+      planBuilder.project(expressions);
     }
     if (addTestingPauser) {
       planBuilder.addNode(

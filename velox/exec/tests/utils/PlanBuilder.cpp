@@ -29,14 +29,6 @@ namespace facebook::velox::exec::test {
 
 namespace {
 
-std::vector<std::string> makeNames(const std::string& prefix, int size) {
-  std::vector<std::string> names;
-  for (int i = 0; i < size; i++) {
-    names.push_back(fmt::format("{}{}", prefix, i));
-  }
-  return names;
-}
-
 std::shared_ptr<const core::ITypedExpr> parseExpr(
     const std::string& text,
     RowTypePtr rowType,
@@ -105,20 +97,21 @@ PlanBuilder& PlanBuilder::mergeExchange(
   return *this;
 }
 
-PlanBuilder& PlanBuilder::project(
-    const std::vector<std::string>& projections,
-    const std::vector<std::string>& names) {
-  std::vector<std::string> projectNames;
-  if (names.empty()) {
-    projectNames = makeNames("p", projections.size());
-  } else {
-    VELOX_CHECK_EQ(names.size(), projections.size());
-    projectNames = names;
-  }
+PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
   std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
-  for (auto& projection : projections) {
-    expressions.push_back(
-        parseExpr(projection, planNode_->outputType(), pool_));
+  std::vector<std::string> projectNames;
+  for (auto i = 0; i < projections.size(); ++i) {
+    auto untypedExpr = parse::parseExpr(projections[i]);
+    expressions.push_back(inferTypes(untypedExpr));
+    if (untypedExpr->alias().has_value()) {
+      projectNames.push_back(untypedExpr->alias().value());
+    } else if (
+        auto fieldExpr =
+            dynamic_cast<const core::FieldAccessExpr*>(untypedExpr.get())) {
+      projectNames.push_back(fieldExpr->getFieldName());
+    } else {
+      projectNames.push_back(fmt::format("p{}", i));
+    }
   }
   planNode_ = std::make_shared<core::ProjectNode>(
       nextPlanNodeId(),
@@ -252,7 +245,6 @@ PlanBuilder::createIntermediateOrFinalAggregation(
   auto numAggregates = partialAggregates.size();
   auto numGroupingKeys = groupingKeys.size();
 
-  auto names = makeNames("a", numAggregates);
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> masks(
       numAggregates);
 
@@ -283,7 +275,7 @@ PlanBuilder::createIntermediateOrFinalAggregation(
         nextPlanNodeId(),
         step,
         groupingKeys,
-        names,
+        partialAggNode->aggregateNames(),
         aggregates,
         masks,
         partialAggNode->ignoreNullKeys(),
@@ -294,7 +286,7 @@ PlanBuilder::createIntermediateOrFinalAggregation(
         nextPlanNodeId(),
         step,
         groupingKeys,
-        names,
+        partialAggNode->aggregateNames(),
         aggregates,
         masks,
         partialAggNode->ignoreNullKeys(),
@@ -342,26 +334,36 @@ PlanBuilder& PlanBuilder::finalAggregation() {
   return *this;
 }
 
-std::vector<std::shared_ptr<const core::CallTypedExpr>>
-PlanBuilder::createAggregateExpressions(
+PlanBuilder::AggregateExpressionsAndNames
+PlanBuilder::createAggregateExpressionsAndNames(
     const std::vector<std::string>& aggregates,
     core::AggregationNode::Step step,
     const std::vector<TypePtr>& resultTypes) {
   AggregateTypeResolver resolver(step);
   std::vector<std::shared_ptr<const core::CallTypedExpr>> exprs;
+  std::vector<std::string> names;
   exprs.reserve(aggregates.size());
+  names.reserve(aggregates.size());
   for (auto i = 0; i < aggregates.size(); i++) {
     auto& agg = aggregates[i];
     if (i < resultTypes.size()) {
       resolver.setResultType(resultTypes[i]);
     }
 
+    auto untypedExpr = parse::parseExpr(agg);
+
     auto expr = std::dynamic_pointer_cast<const core::CallTypedExpr>(
-        parseExpr(agg, planNode_->outputType(), pool_));
+        inferTypes(untypedExpr));
     exprs.emplace_back(expr);
+
+    if (untypedExpr->alias().has_value()) {
+      names.push_back(untypedExpr->alias().value());
+    } else {
+      names.push_back(fmt::format("a{}", i));
+    }
   }
 
-  return exprs;
+  return {exprs, names};
 }
 
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
@@ -392,12 +394,14 @@ PlanBuilder& PlanBuilder::aggregation(
     bool ignoreNullKeys,
     const std::vector<TypePtr>& resultTypes) {
   auto numAggregates = aggregates.size();
+  auto aggregatesAndNames =
+      createAggregateExpressionsAndNames(aggregates, step, resultTypes);
   planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
-      makeNames("a", numAggregates),
-      createAggregateExpressions(aggregates, step, resultTypes),
+      aggregatesAndNames.names,
+      aggregatesAndNames.aggregates,
       createAggregateMasks(numAggregates, masks),
       ignoreNullKeys,
       planNode_);
@@ -412,12 +416,14 @@ PlanBuilder& PlanBuilder::streamingAggregation(
     bool ignoreNullKeys,
     const std::vector<TypePtr>& resultTypes) {
   auto numAggregates = aggregates.size();
+  auto aggregatesAndNames =
+      createAggregateExpressionsAndNames(aggregates, step, resultTypes);
   planNode_ = std::make_shared<core::StreamingAggregationNode>(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
-      makeNames("a", numAggregates),
-      createAggregateExpressions(aggregates, step, resultTypes),
+      aggregatesAndNames.names,
+      aggregatesAndNames.aggregates,
       createAggregateMasks(numAggregates, masks),
       ignoreNullKeys,
       planNode_);
@@ -811,5 +817,11 @@ PlanBuilder::fields(
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::fields(const std::vector<ChannelIndex>& indices) {
   return fields(planNode_->outputType(), indices);
+}
+
+std::shared_ptr<const core::ITypedExpr> PlanBuilder::inferTypes(
+    const std::shared_ptr<const core::IExpr>& untypedExpr) {
+  return core::Expressions::inferTypes(
+      untypedExpr, planNode_->outputType(), pool_);
 }
 } // namespace facebook::velox::exec::test

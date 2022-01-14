@@ -67,9 +67,7 @@ class StreamingAggregationTest : public OperatorTestBase {
     // mask, one with a different mask.
     plan = PlanBuilder()
                .values(data)
-               .project(
-                   {"c0", "c1", "c1 % 7 = 0", "c1 % 11 = 0"},
-                   {"c0", "c1", "m1", "m2"})
+               .project({"c0", "c1", "c1 % 7 = 0 AS m1", "c1 % 11 = 0 AS m2"})
                .partialStreamingAggregation(
                    {0},
                    {"count(1)", "min(c1)", "max(c1)", "sum(c1)"},

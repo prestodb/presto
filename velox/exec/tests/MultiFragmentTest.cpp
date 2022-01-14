@@ -176,13 +176,12 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
   auto leafTaskId = makeTaskId("leaf", 0);
   std::shared_ptr<core::PlanNode> partialAggPlan;
   {
-    partialAggPlan =
-        PlanBuilder()
-            .tableScan(rowType_)
-            .project(std::vector<std::string>{"c0 % 10", "c1"}, {"c0", "c1"})
-            .partialAggregation({0}, {"sum(c1)"})
-            .partitionedOutput({0}, 3)
-            .planNode();
+    partialAggPlan = PlanBuilder()
+                         .tableScan(rowType_)
+                         .project({"c0 % 10 AS c0", "c1"})
+                         .partialAggregation({0}, {"sum(c1)"})
+                         .partitionedOutput({0}, 3)
+                         .planNode();
 
     auto leafTask = makeTask(leafTaskId, partialAggPlan, 0);
     tasks.push_back(leafTask);
@@ -218,15 +217,12 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
   auto leafTaskId = makeTaskId("leaf", 0);
   std::shared_ptr<core::PlanNode> partialAggPlan;
   {
-    partialAggPlan =
-        PlanBuilder()
-            .tableScan(rowType_)
-            .project(
-                std::vector<std::string>{"c0 % 10", "c1 % 2", "c2"},
-                {"c0", "c1", "c2"})
-            .partialAggregation({0, 1}, {"sum(c2)"})
-            .partitionedOutput({0, 1}, 3)
-            .planNode();
+    partialAggPlan = PlanBuilder()
+                         .tableScan(rowType_)
+                         .project({"c0 % 10 AS c0", "c1 % 2 AS c1", "c2"})
+                         .partialAggregation({0, 1}, {"sum(c2)"})
+                         .partitionedOutput({0, 1}, 3)
+                         .planNode();
 
     auto leafTask = makeTask(leafTaskId, partialAggPlan, 0);
     tasks.push_back(leafTask);
@@ -267,11 +263,10 @@ TEST_F(MultiFragmentTest, distributedTableScan) {
     std::shared_ptr<core::PlanNode> leafPlan;
     {
       PlanBuilder builder;
-      leafPlan =
-          builder.tableScan(rowType_)
-              .project(std::vector<std::string>{"c0 % 10", "c1 % 2", "c2"})
-              .partitionedOutput({}, 1, {2, 1, 0})
-              .planNode();
+      leafPlan = builder.tableScan(rowType_)
+                     .project({"c0 % 10", "c1 % 2", "c2"})
+                     .partitionedOutput({}, 1, {2, 1, 0})
+                     .planNode();
 
       auto leafTask = makeTask(leafTaskId, leafPlan, 0);
       tasks.push_back(leafTask);
@@ -477,7 +472,7 @@ TEST_F(MultiFragmentTest, replicateNullsAndAny) {
     finalAggPlan =
         PlanBuilder()
             .exchange(leafPlan->outputType())
-            .project({"c0 is null"}, {"co_is_null"})
+            .project({"c0 is null AS co_is_null"})
             .partialAggregation({}, {"count_if(co_is_null)", "count(1)"})
             .partitionedOutput({}, 1)
             .planNode();

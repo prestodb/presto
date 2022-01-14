@@ -36,7 +36,7 @@ class FilterProjectTest : public OperatorTestBase {
   void assertProject(std::vector<RowVectorPtr>&& vectors) {
     auto plan = PlanBuilder()
                     .values(vectors)
-                    .project(std::vector<std::string>{"c0", "c1", "c0 + c1"})
+                    .project({"c0", "c1", "c0 + c1"})
                     .planNode();
 
     assertQuery(plan, "SELECT c0, c1, c0 + c1 FROM tmp");
@@ -212,7 +212,7 @@ TEST_F(FilterProjectTest, filterProject) {
   auto plan = PlanBuilder()
                   .values(vectors)
                   .filter("c1 % 10  > 0")
-                  .project(std::vector<std::string>{"c0", "c1", "c0 + c1"})
+                  .project({"c0", "c1", "c0 + c1"})
                   .planNode();
 
   assertQuery(plan, "SELECT c0, c1, c0 + c1 FROM tmp WHERE c1 % 10 > 0");
@@ -229,20 +229,16 @@ TEST_F(FilterProjectTest, dereference) {
 
   auto plan = PlanBuilder()
                   .values(vectors)
-                  .project(
-                      std::vector<std::string>{"row_constructor(c1, c2)"},
-                      std::vector<std::string>{"c1_c2"})
-                  .project(std::vector<std::string>{"c1_c2.c1", "c1_c2.c2"})
+                  .project({"row_constructor(c1, c2) AS c1_c2"})
+                  .project({"c1_c2.c1", "c1_c2.c2"})
                   .planNode();
   assertQuery(plan, "SELECT c1, c2 FROM tmp");
 
   plan = PlanBuilder()
              .values(vectors)
-             .project(
-                 std::vector<std::string>{"row_constructor(c1, c2)"},
-                 std::vector<std::string>{"c1_c2"})
+             .project({"row_constructor(c1, c2) AS c1_c2"})
              .filter("c1_c2.c1 % 10 = 5")
-             .project(std::vector<std::string>{"c1_c2.c1", "c1_c2.c2"})
+             .project({"c1_c2.c1", "c1_c2.c2"})
              .planNode();
   assertQuery(plan, "SELECT c1, c2 FROM tmp WHERE c1 % 10 = 5");
 }
@@ -289,22 +285,15 @@ TEST_F(FilterProjectTest, filterProjectFused) {
   }
   createDuckDbTable(vectors);
 
-  auto plan =
-      PlanBuilder()
-          .values(vectors)
-          .filter("c0 % 10 < 9")
-          .project(
-              std::vector<std::string>{"c0", "c1", "c0 % 100 + c1 % 50"},
-              std::vector<std::string>{"c0", "c1", "e1"})
-          .filter("c0 % 10 < 8")
-          .project(
-              std::vector<std::string>{"c0", "c1", "e1", "c0 % 100"},
-              std::vector<std::string>{"c0", "c1", "e1", "e2"})
-          .filter("c0 % 10 < 5")
-          .project(
-              std::vector<std::string>{"c0", "c1", "e1", "e2"},
-              std::vector<std::string>{"c0", "c1", "e1", "e2"})
-          .planNode();
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .filter("c0 % 10 < 9")
+                  .project({"c0", "c1", "c0 % 100 + c1 % 50 AS e1"})
+                  .filter("c0 % 10 < 8")
+                  .project({"c0", "c1", "e1", "c0 % 100 AS e2"})
+                  .filter("c0 % 10 < 5")
+                  .project({"c0", "c1", "e1", "e2"})
+                  .planNode();
 
   assertQuery(
       plan,

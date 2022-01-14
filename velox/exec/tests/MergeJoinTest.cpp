@@ -124,7 +124,7 @@ class MergeJoinTest : public OperatorTestBase {
                         {"u_c0"},
                         PlanBuilder()
                             .values(right)
-                            .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                            .project({"c0 AS u_c0", "c1 AS u_c1"})
                             .planNode(),
                         "",
                         {"c0", "c1", "u_c1"},
@@ -154,7 +154,7 @@ class MergeJoinTest : public OperatorTestBase {
                    {"u_c0"},
                    PlanBuilder()
                        .values(right)
-                       .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                       .project({"c0 as u_c0", "c1 as u_c1"})
                        .planNode(),
                    "",
                    {"c0", "c1", "u_c1"},

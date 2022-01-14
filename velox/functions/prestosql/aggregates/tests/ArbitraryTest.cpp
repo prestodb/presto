@@ -59,9 +59,7 @@ TEST_F(ArbitraryTest, noNulls) {
   // Group by partial aggregation.
   agg = PlanBuilder()
             .values(vectors)
-            .project(
-                {"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"},
-                {"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
+            .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
             .partialAggregation(
                 {0},
                 {"arbitrary(c1)",
@@ -97,9 +95,7 @@ TEST_F(ArbitraryTest, noNulls) {
   // Group by final aggregation.
   agg = PlanBuilder()
             .values(vectors)
-            .project(
-                {"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"},
-                {"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
+            .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
             .partialAggregation(
                 {0},
                 {"arbitrary(c1)",
@@ -119,9 +115,7 @@ TEST_F(ArbitraryTest, noNulls) {
   agg = PlanBuilder()
             .values(vectors)
             .filter("c0 % 2 = 0")
-            .project(
-                {"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"},
-                {"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
+            .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
             .partialAggregation(
                 {0},
                 {"arbitrary(c1)",
@@ -213,7 +207,7 @@ TEST_F(ArbitraryTest, varchar) {
 
   auto op = PlanBuilder()
                 .values(vectors)
-                .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
+                .project({"c0 % 11", "c1"})
                 .partialAggregation({0}, {"arbitrary(c1)"})
                 .planNode();
 
@@ -231,7 +225,7 @@ TEST_F(ArbitraryTest, varchar) {
   op = PlanBuilder()
            .values(vectors)
            .filter("c0 % 2 = 0")
-           .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
+           .project({"c0 % 11", "c1"})
            .partialAggregation({0}, {"arbitrary(c1)"})
            .planNode();
 

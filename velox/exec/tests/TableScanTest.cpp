@@ -1650,7 +1650,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
   // touch columns being aggregated
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
-           .project({"c0 % 5", "c1"}, {"c0_mod_5", "c1"})
+           .project({"c0 % 5", "c1"})
            .singleAggregation({0}, {"sum(c1)"})
            .planNode();
 
@@ -1679,7 +1679,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
-           .project({"c5", "c0", "c0 + c1"}, {"c5", "c0", "c0_plus_c1"})
+           .project({"c5", "c0", "c0 + c1 AS c0_plus_c1"})
            .singleAggregation({0}, {"min(c0)", "max(c0_plus_c1)"})
            .planNode();
   assertQuery(

@@ -69,9 +69,7 @@ TEST_F(BitwiseAggregationTest, bitwiseOr) {
   {
     auto agg = PlanBuilder()
                    .values(vectors)
-                   .project(
-                       {"c0 % 10", "c1", "c2", "c3", "c4"},
-                       {"c0 % 10", "c1", "c2", "c3", "c4"})
+                   .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                    .partialAggregation(
                        {0},
                        {"bitwise_or_agg(c1)",
@@ -88,9 +86,7 @@ TEST_F(BitwiseAggregationTest, bitwiseOr) {
   {
     auto finalAgg = PlanBuilder()
                         .values(vectors)
-                        .project(
-                            {"c0 % 10", "c1", "c2", "c3", "c4"},
-                            {"c0 % 10", "c1", "c2", "c3", "c4"})
+                        .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                         .partialAggregation(
                             {0},
                             {"bitwise_or_agg(c1)",
@@ -146,9 +142,7 @@ TEST_F(BitwiseAggregationTest, bitwiseAnd) {
   {
     auto agg = PlanBuilder()
                    .values(vectors)
-                   .project(
-                       {"c0 % 10", "c1", "c2", "c3", "c4"},
-                       {"c0 % 10", "c1", "c2", "c3", "c4"})
+                   .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                    .partialAggregation(
                        {0},
                        {"bitwise_and_agg(c1)",
@@ -165,9 +159,7 @@ TEST_F(BitwiseAggregationTest, bitwiseAnd) {
   {
     auto finalAgg = PlanBuilder()
                         .values(vectors)
-                        .project(
-                            {"c0 % 10", "c1", "c2", "c3", "c4"},
-                            {"c0 % 10", "c1", "c2", "c3", "c4"})
+                        .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                         .partialAggregation(
                             {0},
                             {"bitwise_and_agg(c1)",

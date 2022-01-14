@@ -254,13 +254,13 @@ TEST_F(HashJoinTest, joinSidesDifferentSchema) {
   auto planNode =
       PlanBuilder()
           .values({leftVectors})
-          .project({"c0", "c1", "c2"}, {"t_c0", "t_c1", "t_c2"})
+          .project({"c0 AS t_c0", "c1 AS t_c1", "c2 AS t_c2"})
           .hashJoin(
               {"t_c0"},
               {"u_c0"},
               PlanBuilder()
                   .values({rightVectors})
-                  .project({"c0", "c1", "c2"}, {"u_c0", "u_c1", "u_c2"})
+                  .project({"c0 AS u_c0", "c1 AS u_c1", "c2 AS u_c2"})
                   .planNode(),
               "u_c2 > 10 AND ltrim(t_c1) = 'a%'",
               {"t_c0", "t_c2"})
@@ -298,7 +298,7 @@ TEST_F(HashJoinTest, memory) {
                             PlanBuilder().values(rightBatches, true).planNode(),
                             "",
                             concat(leftType->names(), rightType->names()))
-                        .project({"t_k0 % 1000", "u_k0 % 1000"}, {"k1", "k2"})
+                        .project({"t_k0 % 1000 AS k1", "u_k0 % 1000 AS k2"})
                         .singleAggregation({}, {"sum(k1)", "sum(k2)"})
                         .planNode();
   params.queryCtx = core::QueryCtx::createForTest();
@@ -564,11 +564,11 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
   auto buildSide = PlanBuilder(0)
                        .values(rightVectors)
-                       .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                       .project({"c0 AS u_c0", "c1 AS u_c1"})
                        .planNode();
   auto keyOnlyBuildSide = PlanBuilder(0)
                               .values({makeRowVector({rightKey})})
-                              .project({"c0"}, {"u_c0"})
+                              .project({"c0 AS u_c0"})
                               .planNode();
 
   // Basic push-down.
@@ -769,9 +769,9 @@ TEST_F(HashJoinTest, dynamicFilters) {
   {
     auto op = PlanBuilder(10)
                   .tableScan(probeType)
-                  .project({"cast(c0 + 1 as integer)", "c1"})
-                  .hashJoin({"p0"}, {"u_c0"}, buildSide, "", {"p1"})
-                  .project({"p1 + 1"})
+                  .project({"cast(c0 + 1 as integer) AS t_key", "c1"})
+                  .hashJoin({"t_key"}, {"u_c0"}, buildSide, "", {"c1"})
+                  .project({"c1 + 1"})
                   .planNode();
 
     auto task = assertQuery(
@@ -822,7 +822,7 @@ TEST_F(HashJoinTest, leftJoin) {
 
   auto buildSide = PlanBuilder(0)
                        .values({rightVectors})
-                       .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                       .project({"c0 AS u_c0", "c1 AS u_c1"})
                        .planNode();
 
   auto op = PlanBuilder(10)
@@ -845,7 +845,7 @@ TEST_F(HashJoinTest, leftJoin) {
   auto emptyBuildSide = PlanBuilder(0)
                             .values({rightVectors})
                             .filter("c0 < 0")
-                            .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                            .project({"c0 AS u_c0", "c1 AS u_c1"})
                             .planNode();
 
   op = PlanBuilder(10)
@@ -941,7 +941,7 @@ TEST_F(HashJoinTest, leftJoinWithNullableFilter) {
   createDuckDbTable("u", rightVectors);
 
   auto buildSide =
-      PlanBuilder(0).values(rightVectors).project({"c0"}, {"u_c0"}).planNode();
+      PlanBuilder(0).values(rightVectors).project({"c0 AS u_c0"}).planNode();
 
   auto plan = PlanBuilder(10)
                   .values(leftVectors)
@@ -986,7 +986,7 @@ TEST_F(HashJoinTest, rightJoin) {
 
   auto buildSide = PlanBuilder(0)
                        .values({rightVectors})
-                       .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                       .project({"c0 AS u_c0", "c1 AS u_c1"})
                        .planNode();
 
   auto op = PlanBuilder(10)
@@ -1006,7 +1006,7 @@ TEST_F(HashJoinTest, rightJoin) {
   auto emptyBuildSide = PlanBuilder(0)
                             .values({rightVectors})
                             .filter("c0 > 100")
-                            .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                            .project({"c0 AS u_c0", "c1 AS u_c1"})
                             .planNode();
   op = PlanBuilder(10)
            .values(leftVectors)
@@ -1030,7 +1030,7 @@ TEST_F(HashJoinTest, rightJoin) {
                PlanBuilder(0)
                    .values({rightVectors})
                    .filter("c0 >= 0")
-                   .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                   .project({"c0 AS u_c0", "c1 AS u_c1"})
                    .planNode(),
                "",
                {"c0", "c1", "u_c1"},

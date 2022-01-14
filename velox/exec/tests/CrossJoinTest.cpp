@@ -64,7 +64,7 @@ TEST_F(CrossJoinTest, basic) {
                     PlanBuilder(0)
                         .values({rightVectors})
                         .filter("c0 < 13")
-                        .project({"c0"}, {"u_c0"})
+                        .project({"c0 AS u_c0"})
                         .planNode(),
                     {"c0", "u_c0"})
                 .planNode();
@@ -78,7 +78,7 @@ TEST_F(CrossJoinTest, basic) {
            .crossJoin(
                PlanBuilder(0)
                    .values({rightVectors})
-                   .project({"c0"}, {"u_c0"})
+                   .project({"c0 AS u_c0"})
                    .planNode(),
                {"c0", "u_c0"})
            .planNode();
@@ -119,7 +119,7 @@ TEST_F(CrossJoinTest, basic) {
                PlanBuilder(0)
                    .values({rightVectors})
                    .filter("c0 < 0")
-                   .project({"c0"}, {"u_c0"})
+                   .project({"c0 AS u_c0"})
                    .planNode(),
                {"c0", "u_c0"})
            .planNode();
@@ -136,7 +136,7 @@ TEST_F(CrossJoinTest, basic) {
                             PlanBuilder(0, pool_.get())
                                 .values({rightVectors}, true)
                                 .filter("c0 in (10, 17)")
-                                .project({"c0"}, {"u_c0"})
+                                .project({"c0 AS u_c0"})
                                 .planNode(),
                             {"c0", "u_c0"})
                         .limit(0, 100'000, false)
@@ -170,7 +170,7 @@ TEST_F(CrossJoinTest, lazyVectors) {
                 .crossJoin(
                     PlanBuilder(0)
                         .values({rightVectors})
-                        .project({"c0"}, {"u_c0"})
+                        .project({"c0 AS u_c0"})
                         .planNode(),
                     {"c0", "u_c0"})
                 .filter("c0 + u_c0 < 100")

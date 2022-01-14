@@ -31,14 +31,9 @@ class PlanNodeToStringTest : public OperatorTestBase {
     plan_ = exec::test::PlanBuilder()
                 .values(vectors_)
                 .filter("c0 % 10 < 9")
-                .project(
-                    {"c0", "c0 % 100 + c1 % 50"},
-                    {
-                        "out1",
-                        "out2",
-                    })
+                .project({"c0 AS out1", "c0 % 100 + c1 % 50 AS out2"})
                 .filter("out1 % 10 < 8")
-                .project({"out1 + 10"}, {"out3"})
+                .project({"out1 + 10 AS out3"})
                 .planNode();
   }
 

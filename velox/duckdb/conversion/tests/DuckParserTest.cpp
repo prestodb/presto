@@ -244,3 +244,14 @@ TEST(DuckParserTest, structExtract) {
   EXPECT_EQ("dot(dot(\"a\",\"b\"),\"c\")", parseExpr("(a).b.c")->toString());
   EXPECT_EQ("dot(dot(\"a\",\"b\"),\"c\")", parseExpr("(a.b).c")->toString());
 }
+
+TEST(DuckParserTest, alias) {
+  EXPECT_EQ("plus(\"a\",\"b\") AS sum", parseExpr("a + b AS sum")->toString());
+  EXPECT_EQ(
+      "gt(\"a\",\"b\") AS result", parseExpr("a > b AS result")->toString());
+  EXPECT_EQ("2 AS multiplier", parseExpr("2 AS multiplier")->toString());
+  EXPECT_EQ(
+      "cast(\"a\", DOUBLE) AS a_double",
+      parseExpr("cast(a AS DOUBLE) AS a_double")->toString());
+  EXPECT_EQ("\"a\" AS b", parseExpr("a AS b")->toString());
+}

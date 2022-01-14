@@ -130,7 +130,7 @@ TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroupsWrapped) {
   auto agg = PlanBuilder()
                  .values(vectors)
                  .filter("c0 % 2 = 0")
-                 .project({"c0 % 11", "c1", "c2"}, {"c0_mod_11", "c1", "c2"})
+                 .project({"c0 % 11 AS c0_mod_11", "c1", "c2"})
                  .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
                  .finalAggregation()
                  .planNode();

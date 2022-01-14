@@ -48,7 +48,7 @@ TEST_F(SumTest, sumTinyint) {
   // Group by partial aggregation.
   agg = PlanBuilder()
             .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
+            .project({"c0 % 10", "c1"})
             .partialAggregation({0}, {"sum(c1)"})
             .planNode();
   assertQuery(agg, "SELECT c0 % 10, sum(c1) FROM tmp GROUP BY 1");
@@ -56,7 +56,7 @@ TEST_F(SumTest, sumTinyint) {
   // Group by final aggregation.
   agg = PlanBuilder()
             .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
+            .project({"c0 % 10", "c1"})
             .partialAggregation({0}, {"sum(c1)"})
             .finalAggregation()
             .planNode();
@@ -66,7 +66,7 @@ TEST_F(SumTest, sumTinyint) {
   agg = PlanBuilder()
             .values(vectors)
             .filter("c0 % 2 = 0")
-            .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
+            .project({"c0 % 11", "c1"})
             .partialAggregation({0}, {"sum(c1)"})
             .planNode();
   assertQuery(
@@ -110,9 +110,7 @@ TEST_F(SumTest, sumWithMask) {
   // Global partial+final aggregation.
   op = PlanBuilder()
            .values(vectors)
-           .project(
-               {"c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
-               {"c0", "c1", "m0", "m1"})
+           .project({"c0", "c1", "c2 % 2 = 0 AS m0", "c3 % 3 = 0 AS m1"})
            .partialAggregation(
                {}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
            .finalAggregation()
@@ -128,9 +126,7 @@ TEST_F(SumTest, sumWithMask) {
   op = PlanBuilder()
            .values(vectors)
            .filter("c3 % 2 = 0")
-           .project(
-               {"c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
-               {"c0", "c1", "m0", "m1"})
+           .project({"c0", "c1", "c2 % 2 = 0 AS m0", "c3 % 3 = 0 AS m1"})
            .partialAggregation(
                {}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
            .finalAggregation()
@@ -144,9 +140,7 @@ TEST_F(SumTest, sumWithMask) {
   // Group by partial+final aggregation.
   op = PlanBuilder()
            .values(vectors)
-           .project(
-               {"c4", "c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
-               {"c4", "c0", "c1", "m0", "m1"})
+           .project({"c4", "c0", "c1", "c2 % 2 = 0 AS m0", "c3 % 3 = 0 AS m1"})
            .partialAggregation(
                {0}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
            .finalAggregation()
@@ -162,9 +156,7 @@ TEST_F(SumTest, sumWithMask) {
   op = PlanBuilder()
            .values(vectors)
            .filter("c3 % 2 = 0")
-           .project(
-               {"c4", "c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
-               {"c4", "c0", "c1", "m0", "m1"})
+           .project({"c4", "c0", "c1", "c2 % 2 = 0 AS m0", "c3 % 3 = 0 AS m1"})
            .partialAggregation(
                {0}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
            .finalAggregation()

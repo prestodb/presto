@@ -28,6 +28,9 @@ namespace core {
 /* an implicitly-typed expression, such as function call, literal, etc... */
 class IExpr : public ISerializable {
  public:
+  explicit IExpr(std::optional<std::string> alias = std::nullopt)
+      : alias_{std::move(alias)} {}
+
   virtual const std::vector<std::shared_ptr<const IExpr>>& getInputs()
       const = 0;
 
@@ -47,11 +50,25 @@ class IExpr : public ISerializable {
     return false;
   }
 
+  const std::optional<std::string>& alias() const {
+    return alias_;
+  }
+
  protected:
   static const std::vector<std::shared_ptr<const IExpr>>& EMPTY() {
     static const std::vector<std::shared_ptr<const IExpr>> empty{};
     return empty;
   }
+
+  std::string appendAliasIfExists(std::string s) const {
+    if (!alias_.has_value()) {
+      return s;
+    }
+
+    return fmt::format("{} AS {}", std::move(s), alias_.value());
+  }
+
+  std::optional<std::string> alias_;
 };
 
 } // namespace core

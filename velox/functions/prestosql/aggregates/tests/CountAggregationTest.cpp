@@ -73,7 +73,7 @@ TEST_F(CountAggregation, count) {
     // final count aggregation is a sum of partial counts
     auto agg = PlanBuilder()
                    .values(vectors)
-                   .project({"cast(c1 as bigint)"}, {"c1_bigint"})
+                   .project({"cast(c1 as bigint) AS c1_bigint"})
                    .finalAggregation({}, {"count(c1_bigint)"}, {BIGINT()})
                    .planNode();
     assertQuery(agg, "SELECT sum(c1) FROM tmp");
@@ -92,7 +92,7 @@ TEST_F(CountAggregation, count) {
   {
     auto agg = PlanBuilder()
                    .values(vectors)
-                   .project({"c0 % 10", "c7"}, {"c0_mod_10", "c7"})
+                   .project({"c0 % 10 AS c0_mod_10", "c7"})
                    .partialAggregation({0}, {"count(c7)"})
                    .planNode();
     assertQuery(agg, "SELECT c0 % 10, count(c7) FROM tmp GROUP BY 1");

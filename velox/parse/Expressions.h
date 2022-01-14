@@ -128,16 +128,18 @@ class FieldAccessExpr : public core::IExpr {
  public:
   explicit FieldAccessExpr(
       const std::string& name,
+      std::optional<std::string> alias,
       std::vector<std::shared_ptr<const IExpr>>&& inputs =
           std::vector<std::shared_ptr<const IExpr>>{
               std::make_shared<const InputExpr>()})
-      : name_{name}, inputs_{move(inputs)} {
+      : IExpr{std::move(alias)}, name_{name}, inputs_{move(inputs)} {
     CHECK_EQ(inputs_.size(), 1);
   }
 
   std::shared_ptr<const IExpr> withInputs(
       std::vector<std::shared_ptr<const IExpr>> inputs) const override {
-    return std::make_shared<FieldAccessExpr>(std::string{name_}, move(inputs));
+    return std::make_shared<FieldAccessExpr>(
+        std::string{name_}, alias_, move(inputs));
   }
 
   const std::string& getFieldName() const {
@@ -154,9 +156,10 @@ class FieldAccessExpr : public core::IExpr {
 
   std::string toString() const override {
     if (UNLIKELY(inputs_.empty())) {
-      return toStringForRootColumn();
+      return appendAliasIfExists(toStringForRootColumn());
     }
-    return isRootColumn() ? toStringForRootColumn() : toStringForMemberAccess();
+    return appendAliasIfExists(
+        isRootColumn() ? toStringForRootColumn() : toStringForMemberAccess());
   }
 
   folly::dynamic serialize() const override {
@@ -177,11 +180,12 @@ class FieldAccessExpr : public core::IExpr {
     auto inputs = ISerializable::deserialize<std::vector<IExpr>>(obj["inputs"]);
 
     return std::make_shared<const FieldAccessExpr>(
-        move(fieldName), move(inputs));
+        move(fieldName), std::nullopt, move(inputs));
   }
 
   static std::shared_ptr<const FieldAccessExpr> column(std::string columnName) {
-    return std::make_shared<const FieldAccessExpr>(move(columnName));
+    return std::make_shared<const FieldAccessExpr>(
+        move(columnName), std::nullopt);
   }
 
   bool equalsNonRecursive(const IExpr& other) const override {
@@ -270,8 +274,11 @@ class CallExpr : public core::IExpr {
  public:
   CallExpr(
       std::string&& funcName,
-      std::vector<std::shared_ptr<const IExpr>>&& inputs)
-      : name_{move(funcName)}, inputs_{move(inputs)} {
+      std::vector<std::shared_ptr<const IExpr>>&& inputs,
+      std::optional<std::string> alias)
+      : core::IExpr{std::move(alias)},
+        name_{move(funcName)},
+        inputs_{move(inputs)} {
     VELOX_CHECK(!name_.empty());
   }
 
@@ -281,7 +288,7 @@ class CallExpr : public core::IExpr {
 
   std::shared_ptr<const IExpr> withInputs(
       std::vector<std::shared_ptr<const IExpr>> inputs) const override {
-    return std::make_shared<CallExpr>(std::string{name_}, move(inputs));
+    return std::make_shared<CallExpr>(std::string{name_}, move(inputs), alias_);
   }
 
   std::string toString() const override {
@@ -295,7 +302,7 @@ class CallExpr : public core::IExpr {
       first = false;
     }
     buf += ")";
-    return buf;
+    return appendAliasIfExists(buf);
   }
 
   const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
@@ -316,7 +323,8 @@ class CallExpr : public core::IExpr {
         ISerializable::deserialize<std::string>(obj["functionName"]);
     auto inputs = ISerializable::deserialize<std::vector<IExpr>>(obj["inputs"]);
 
-    return std::make_shared<const CallExpr>(move(functionName), move(inputs));
+    return std::make_shared<const CallExpr>(
+        move(functionName), move(inputs), std::nullopt);
   }
 
   template <typename... T>
@@ -345,11 +353,13 @@ class ConstantExpr : public IExpr,
   const variant value_;
 
  public:
-  explicit ConstantExpr(variant value)
-      : type_{value.inferType()}, value_{std::move(value)} {}
+  explicit ConstantExpr(variant value, std::optional<std::string> alias)
+      : IExpr{std::move(alias)},
+        type_{value.inferType()},
+        value_{std::move(value)} {}
 
   std::string toString() const override {
-    return variant{value_}.toJson();
+    return appendAliasIfExists(variant{value_}.toJson());
   }
 
   const variant& value() const {
@@ -381,7 +391,7 @@ class ConstantExpr : public IExpr,
     VELOX_USER_CHECK_EQ(obj["name"], ConstantExpr::getClassName());
     auto v = ISerializable::deserialize<variant>(obj["value"]);
 
-    return std::make_shared<const ConstantExpr>(v);
+    return std::make_shared<const ConstantExpr>(v, std::nullopt);
   }
 
   VELOX_DEFINE_CLASS_NAME(ConstantExpr)
@@ -398,14 +408,17 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
   explicit CastExpr(
       const std::shared_ptr<const Type>& type,
       const std::shared_ptr<const IExpr>& expr,
-      bool nullOnFailure = false)
-      : type_(type),
+      bool nullOnFailure,
+      std::optional<std::string> alias)
+      : IExpr{std::move(alias)},
+        type_(type),
         expr_(expr),
         inputs_({expr}),
         nullOnFailure_(nullOnFailure) {}
 
   std::string toString() const override {
-    return "cast(" + expr_->toString() + ", " + type_->toString() + ")";
+    return appendAliasIfExists(
+        "cast(" + expr_->toString() + ", " + type_->toString() + ")");
   }
 
   const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
@@ -414,7 +427,7 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
 
   std::shared_ptr<const IExpr> withInputs(
       std::vector<std::shared_ptr<const IExpr>> /* unused */) const override {
-    return std::make_shared<CastExpr>(type_, expr_, nullOnFailure_);
+    return std::make_shared<CastExpr>(type_, expr_, nullOnFailure_, alias_);
   }
 
   folly::dynamic serialize() const override {
