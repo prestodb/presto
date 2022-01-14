@@ -176,9 +176,9 @@ void ParquetRowReader::resetFilterCaches() {
   VELOX_FAIL("ParquetRowReader::resetFilterCaches is NYI");
 }
 
-size_t ParquetRowReader::estimatedRowSize() const {
-  VELOX_FAIL("ParquetRowReader::estimatedRowSize is NYI");
-  return 0;
+std::optional<size_t> ParquetRowReader::estimatedRowSize() const {
+  // TODO Implement.
+  return std::nullopt;
 }
 
 ParquetReader::ParquetReader(

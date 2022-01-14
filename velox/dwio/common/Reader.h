@@ -66,9 +66,9 @@ class RowReader {
   /**
    * Get an estimated row size basing on available statistics. Can
    * differ from the actual row size due to variable-length values.
-   * @return estimated row size
+   * @return Estimate of the row size or std::nullopt if cannot estimate.
    */
-  virtual size_t estimatedRowSize() const = 0;
+  virtual std::optional<size_t> estimatedRowSize() const = 0;
 };
 
 /**

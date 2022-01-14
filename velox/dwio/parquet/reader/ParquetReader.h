@@ -39,7 +39,7 @@ class ParquetRowReader : public dwio::common::RowReader {
 
   void resetFilterCaches() override;
 
-  size_t estimatedRowSize() const override;
+  std::optional<size_t> estimatedRowSize() const override;
 
  private:
   ::duckdb::TableFilterSet filters_;
