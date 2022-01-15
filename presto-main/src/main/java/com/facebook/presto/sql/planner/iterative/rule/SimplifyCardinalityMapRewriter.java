@@ -56,9 +56,9 @@ public class SimplifyCardinalityMapRewriter
                         ((FunctionCall) argument).getName().equals(QualifiedName.of("map_values")) &&
                         ((FunctionCall) argument).getArguments().size() > 0) {
                     rewrittenArguments.add(treeRewriter.rewrite(((FunctionCall) argument).getArguments().get(0), context));
-                } else {
-                    rewrittenArguments.add(treeRewriter.rewrite(argument, context));
+                    continue;
                 }
+                rewrittenArguments.add(treeRewriter.rewrite(argument, context));
             }
             return new FunctionCall(node.getName(), rewrittenArguments);
         }
