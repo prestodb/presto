@@ -16,7 +16,9 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -37,7 +39,6 @@ import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
-import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -47,7 +48,6 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcSelectiveRecordReader;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
-import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -374,8 +374,8 @@ public class OrcSelectivePageSourceFactory
             // use column types from the current table schema; these types might be different from this partition's schema
             Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columnNames.keySet().stream()
                     .collect(toImmutableMap(
-                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
-                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
+                            hiveColumnIndex -> new VariableReferenceExpression(Optional.empty(), columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
+                            hiveColumnIndex -> new InputReferenceExpression(Optional.empty(), inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
 
             Optional<BucketAdapter> bucketAdapter = bucketAdaptation.map(adaptation -> new BucketAdapter(
                     Arrays.stream(adaptation.getBucketColumnIndices())

@@ -119,7 +119,7 @@ public class CreateEmptyPartitionProcedure
                 .map(String.class::cast)
                 .collect(toImmutableList());
 
-        if (metastore.getPartition(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), schema, table, partitionStringValues).isPresent()) {
+        if (metastore.getPartition(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER), schema, table, partitionStringValues).isPresent()) {
             throw new PrestoException(ALREADY_EXISTS, "Partition already exists");
         }
         String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionStringValues);

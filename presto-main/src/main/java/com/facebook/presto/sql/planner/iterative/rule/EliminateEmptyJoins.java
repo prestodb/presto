@@ -46,7 +46,7 @@ public class EliminateEmptyJoins
                 builder.put(variable, variable);
             }
             else {
-                builder.put(variable, constantNull(variable.getType()));
+                builder.put(variable, constantNull(variable.getSourceLocation(), variable.getType()));
             }
         }
         return builder.build();
@@ -82,7 +82,7 @@ public class EliminateEmptyJoins
                 || (leftChildEmpty && joinNode.getType() == JoinNode.Type.LEFT)
                 || (rightChildEmpty && joinNode.getType() == JoinNode.Type.RIGHT)) {
             return Result.ofPlanNode(
-                    new ValuesNode(joinNode.getId(), joinNode.getOutputVariables(), Collections.emptyList()));
+                    new ValuesNode(joinNode.getSourceLocation(), joinNode.getId(), joinNode.getOutputVariables(), Collections.emptyList()));
         }
 
         /*
@@ -106,7 +106,7 @@ public class EliminateEmptyJoins
             Assignments.Builder newProjections = Assignments.builder()
                     .putAll(buildAssignments(joinNode.getOutputVariables(), nonEmptyChild));
 
-            return Result.ofPlanNode(new ProjectNode(joinNode.getId(), nonEmptyChild, newProjections.build(), LOCAL));
+            return Result.ofPlanNode(new ProjectNode(joinNode.getSourceLocation(), joinNode.getId(), nonEmptyChild, newProjections.build(), LOCAL));
         }
         return Result.empty();
     }

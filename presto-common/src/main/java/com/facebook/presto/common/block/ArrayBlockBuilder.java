@@ -207,13 +207,24 @@ public class ArrayBlockBuilder
         return this;
     }
 
+    public BlockBuilder getElementBlockBuilder()
+    {
+        return values;
+    }
+
     @Override
-    public SingleArrayBlockWriter beginBlockEntry()
+    public void beginDirectEntry()
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
+    }
+
+    @Override
+    public SingleArrayBlockWriter beginBlockEntry()
+    {
+        beginDirectEntry();
         return new SingleArrayBlockWriter(values, values.getPositionCount());
     }
 

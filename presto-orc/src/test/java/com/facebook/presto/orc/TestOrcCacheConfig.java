@@ -43,6 +43,9 @@ public class TestOrcCacheConfig
                 .setStripeFooterCacheTtlSinceLastAccess(new Duration(0, SECONDS))
                 .setStripeStreamCacheSize(new DataSize(0, BYTE))
                 .setStripeStreamCacheTtlSinceLastAccess(new Duration(0, SECONDS))
+                .setRowGroupIndexCacheEnabled(false)
+                .setRowGroupIndexCacheSize(new DataSize(0, BYTE))
+                .setRowGroupIndexCacheTtlSinceLastAccess(new Duration(0, SECONDS))
                 .setDwrfStripeCacheEnabled(false)
                 .setExpectedFileTailSize(new DataSize(EXPECTED_FOOTER_SIZE_IN_BYTES, BYTE)));
     }
@@ -59,6 +62,9 @@ public class TestOrcCacheConfig
                 .put("orc.stripe-footer-cache-ttl-since-last-access", "5m")
                 .put("orc.stripe-stream-cache-size", "3GB")
                 .put("orc.stripe-stream-cache-ttl-since-last-access", "10m")
+                .put("orc.row-group-index-cache-enabled", "true")
+                .put("orc.row-group-index-cache-size", "4GB")
+                .put("orc.row-group-index-cache-ttl-since-last-access", "5m")
                 .put("orc.dwrf-stripe-cache-enabled", "true")
                 .put("orc.expected-file-tail-size", "8MB")
                 .build();
@@ -72,6 +78,9 @@ public class TestOrcCacheConfig
                 .setStripeFooterCacheTtlSinceLastAccess(new Duration(5, MINUTES))
                 .setStripeStreamCacheSize(new DataSize(3, GIGABYTE))
                 .setStripeStreamCacheTtlSinceLastAccess(new Duration(10, MINUTES))
+                .setRowGroupIndexCacheEnabled(true)
+                .setRowGroupIndexCacheSize(new DataSize(4, GIGABYTE))
+                .setRowGroupIndexCacheTtlSinceLastAccess(new Duration(5, MINUTES))
                 .setDwrfStripeCacheEnabled(true)
                 .setExpectedFileTailSize(new DataSize(8, MEGABYTE));
 

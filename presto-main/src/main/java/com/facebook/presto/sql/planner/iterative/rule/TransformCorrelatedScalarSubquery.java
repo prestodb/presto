@@ -31,7 +31,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 
@@ -41,6 +40,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
@@ -108,6 +108,7 @@ public class TransformCorrelatedScalarSubquery
 
         if (isAtMostScalar(rewrittenSubquery, context.getLookup())) {
             return Result.ofPlanNode(new LateralJoinNode(
+                    lateralJoinNode.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
                     lateralJoinNode.getInput(),
                     rewrittenSubquery,
@@ -119,8 +120,10 @@ public class TransformCorrelatedScalarSubquery
         VariableReferenceExpression unique = context.getVariableAllocator().newVariable("unique", BIGINT);
 
         LateralJoinNode rewrittenLateralJoinNode = new LateralJoinNode(
+                lateralJoinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 new AssignUniqueId(
+                        lateralJoinNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         lateralJoinNode.getInput(),
                         unique),
@@ -131,6 +134,7 @@ public class TransformCorrelatedScalarSubquery
 
         VariableReferenceExpression isDistinct = context.getVariableAllocator().newVariable("is_distinct", BooleanType.BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(
+                rewrittenLateralJoinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,
                 isDistinct,
@@ -138,10 +142,11 @@ public class TransformCorrelatedScalarSubquery
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(
+                markDistinctNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
                 castToRowExpression(new SimpleCaseExpression(
-                        new SymbolReference(isDistinct.getName()),
+                        createSymbolReference(isDistinct),
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                         Optional.of(new Cast(

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -24,6 +25,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,11 +39,12 @@ public class OffsetNode
 
     @JsonCreator
     public OffsetNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
@@ -83,6 +86,6 @@ public class OffsetNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OffsetNode(getId(), Iterables.getOnlyElement(newChildren), count);
+        return new OffsetNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), count);
     }
 }

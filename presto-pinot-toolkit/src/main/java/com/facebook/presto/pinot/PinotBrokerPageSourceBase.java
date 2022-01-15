@@ -256,6 +256,7 @@ public abstract class PinotBrokerPageSourceBase
             }
         }
     }
+
     protected static void handleCommonResponse(String pql, JsonNode jsonBody)
     {
         JsonNode numServersResponded = jsonBody.get("numServersResponded");

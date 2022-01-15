@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.predicate.Utils;
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;

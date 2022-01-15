@@ -54,7 +54,7 @@ public class FieldSetFilteringRecordSet
             for (int field : fieldSet) {
                 fieldSetBuilder.add(new Field(
                         field,
-                        functionAndTypeManager.getBuiltInScalarFunctionImplementation(
+                        functionAndTypeManager.getJavaScalarFunctionImplementation(
                                 functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
             }
             fieldSetsBuilder.add(fieldSetBuilder.build());

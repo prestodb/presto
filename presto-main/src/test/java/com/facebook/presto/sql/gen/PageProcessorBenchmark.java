@@ -111,7 +111,7 @@ public class PageProcessorBenchmark
         Type type = TYPE_MAP.get(this.type);
 
         for (int i = 0; i < columnCount; i++) {
-            VariableReferenceExpression variable = new VariableReferenceExpression(type.getDisplayName().toLowerCase(ENGLISH) + i, type);
+            VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), type.getDisplayName().toLowerCase(ENGLISH) + i, type);
             symbolTypes.put(variable.getName(), type);
             sourceLayout.put(variable, i);
         }

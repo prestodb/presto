@@ -36,6 +36,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingParti
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.METASTORE_HEADERS;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.USER_DEFINED_TYPE_ENCODING_ENABLED;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -103,6 +104,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_CREATE_EMPTY_BUCKET_FILES = "temporary_table_create_empty_bucket_files";
     private static final String USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE = "use_pagefile_for_hive_unsupported_type";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
+    public static final String PARQUET_PUSHDOWN_FILTER_ENABLED = "parquet_pushdown_filter_enabled";
     public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
@@ -129,6 +131,9 @@ public final class HiveSessionProperties
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_ENABLED = "dwrf_writer_stripe_cache_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
+    public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
+    public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    private static final String USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT = "use_record_page_source_for_custom_split";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -461,6 +466,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isPushdownFilterEnabled(),
                         false),
                 booleanProperty(
+                        PARQUET_PUSHDOWN_FILTER_ENABLED,
+                        "Experimental: enable complex filter pushdown for Parquet",
+                        hiveClientConfig.isParquetPushdownFilterEnabled(),
+                        false),
+                booleanProperty(
                         RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED,
                         "Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers",
                         hiveClientConfig.isRangeFiltersOnSubscriptsEnabled(),
@@ -609,6 +619,11 @@ public final class HiveSessionProperties
                         null,
                         false),
                 booleanProperty(
+                        USER_DEFINED_TYPE_ENCODING_ENABLED,
+                        "Enable user defined type",
+                        hiveClientConfig.isUserDefinedTypeEncodingEnabled(),
+                        false),
+                booleanProperty(
                         DWRF_WRITER_STRIPE_CACHE_ENABLED,
                         "Write stripe cache for the DWRF files.",
                         orcFileWriterConfig.isDwrfStripeCacheEnabled(),
@@ -617,6 +632,31 @@ public final class HiveSessionProperties
                         DWRF_WRITER_STRIPE_CACHE_SIZE,
                         "Maximum size of DWRF stripe cache to be held in memory",
                         orcFileWriterConfig.getDwrfStripeCacheMaxSize(),
+                        false),
+                booleanProperty(
+                        SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
+                        "Enable estimating split weights based on size in bytes",
+                        hiveClientConfig.isSizeBasedSplitWeightsEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        MINIMUM_ASSIGNED_SPLIT_WEIGHT,
+                        "Minimum assigned split weight when size based split weighting is enabled",
+                        DOUBLE,
+                        Double.class,
+                        hiveClientConfig.getMinimumAssignedSplitWeight(),
+                        false,
+                        value -> {
+                            double doubleValue = ((Number) value).doubleValue();
+                            if (!Double.isFinite(doubleValue) || doubleValue <= 0 || doubleValue > 1) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
+                            }
+                            return doubleValue;
+                        },
+                        value -> value),
+                booleanProperty(
+                        USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT,
+                        "Use record page source for custom split",
+                        hiveClientConfig.isUseRecordPageSourceForCustomSplit(),
                         false));
     }
 
@@ -917,6 +957,11 @@ public final class HiveSessionProperties
         return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
+    public static boolean isParquetPushdownFilterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_PUSHDOWN_FILTER_ENABLED, Boolean.class);
+    }
+
     public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
     {
         return session.getProperty(RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED, Boolean.class);
@@ -1076,5 +1121,20 @@ public final class HiveSessionProperties
     public static DataSize getDwrfWriterStripeCacheeMaxSize(ConnectorSession session)
     {
         return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
+    }
+
+    public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
+    }
+
+    public static double getMinimumAssignedSplitWeight(ConnectorSession session)
+    {
+        return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean isUseRecordPageSourceForCustomSplit(ConnectorSession session)
+    {
+        return session.getProperty(USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT, Boolean.class);
     }
 }

@@ -34,7 +34,8 @@ public class TestResourceManagerResourceGroupService
     {
         TestingResourceManagerClient resourceManagerClient = new TestingResourceManagerClient();
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        ResourceManagerResourceGroupService service = new ResourceManagerResourceGroupService((addressSelectionContext, headers) -> resourceManagerClient, nodeManager);
+        ResourceManagerConfig resourceManagerConfig = new ResourceManagerConfig();
+        ResourceManagerResourceGroupService service = new ResourceManagerResourceGroupService((addressSelectionContext, headers) -> resourceManagerClient, resourceManagerConfig, nodeManager);
         List<ResourceGroupRuntimeInfo> resourceGroupInfos = service.getResourceGroupInfo();
         assertNotNull(resourceGroupInfos);
         assertTrue(resourceGroupInfos.isEmpty());

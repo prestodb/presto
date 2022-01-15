@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -24,6 +25,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -44,12 +46,13 @@ public class SampleNode
 
     @JsonCreator
     public SampleNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("sampleRatio") double sampleRatio,
             @JsonProperty("sampleType") Type sampleType)
     {
-        super(id);
+        super(sourceLocation, id);
 
         checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
         checkArgument((sampleRatio <= 1.0), "sample ratio must be less than or equal to 1");
@@ -98,6 +101,6 @@ public class SampleNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new SampleNode(getId(), Iterables.getOnlyElement(newChildren), sampleRatio, sampleType);
+        return new SampleNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), sampleRatio, sampleType);
     }
 }

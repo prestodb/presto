@@ -770,10 +770,10 @@ public class PrestoConnection
 
     void updateSession(StatementClient client)
     {
-        client.getSetSessionProperties().forEach(sessionProperties::put);
+        sessionProperties.putAll(client.getSetSessionProperties());
         client.getResetSessionProperties().forEach(sessionProperties::remove);
 
-        client.getAddedPreparedStatements().forEach(preparedStatements::put);
+        preparedStatements.putAll(client.getAddedPreparedStatements());
         client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
 
         client.getSetCatalog().ifPresent(catalog::set);

@@ -271,8 +271,8 @@ public class HivePartialAggregationPushdown
                     oldTableHandle.getTransaction(),
                     Optional.of(newTableLayoutHandle));
 
-            return Optional.of(new
-                    TableScanNode(
+            return Optional.of(new TableScanNode(
+                    oldTableScanNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     newTableHandle,
                     ImmutableList.copyOf(partialAggregationNode.getOutputVariables()),

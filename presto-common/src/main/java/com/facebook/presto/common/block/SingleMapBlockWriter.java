@@ -30,7 +30,6 @@ public class SingleMapBlockWriter
     private final int offset;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
-    private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     private boolean writeToValueNext;
@@ -40,7 +39,6 @@ public class SingleMapBlockWriter
         this.offset = start;
         this.keyBlockBuilder = keyBlockBuilder;
         this.valueBlockBuilder = valueBlockBuilder;
-        this.initialBlockBuilderSize = keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes();
     }
 
     @Override
@@ -64,7 +62,13 @@ public class SingleMapBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() - initialBlockBuilderSize;
+        long size = keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes();
+        if (offset == 0) {
+            return size;
+        }
+
+        int numPositions = offset / 2;
+        return size - (keyBlockBuilder.getRegionSizeInBytes(0, numPositions) + valueBlockBuilder.getRegionSizeInBytes(0, numPositions));
     }
 
     @Override

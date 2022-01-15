@@ -25,6 +25,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestAlluxioCacheConfig
@@ -44,7 +45,9 @@ public class TestAlluxioCacheConfig
                 .setTimeoutDuration(new Duration(60, SECONDS))
                 .setTimeoutEnabled(true)
                 .setTimeoutThreads(64)
-                .setCacheQuotaEnabled(false));
+                .setCacheQuotaEnabled(false)
+                .setShadowCacheEnabled(false)
+                .setShadowCacheWindow(new Duration(7, DAYS)));
     }
 
     @Test
@@ -63,6 +66,8 @@ public class TestAlluxioCacheConfig
                 .put("cache.alluxio.timeout-enabled", "false")
                 .put("cache.alluxio.timeout-threads", "512")
                 .put("cache.alluxio.quota-enabled", "true")
+                .put("cache.alluxio.shadow-cache-enabled", "true")
+                .put("cache.alluxio.shadow-cache-window", "1d")
                 .build();
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
@@ -77,7 +82,9 @@ public class TestAlluxioCacheConfig
                 .setTimeoutDuration(new Duration(120, SECONDS))
                 .setTimeoutEnabled(false)
                 .setTimeoutThreads(512)
-                .setCacheQuotaEnabled(true);
+                .setCacheQuotaEnabled(true)
+                .setShadowCacheEnabled(true)
+                .setShadowCacheWindow(new Duration(1, DAYS));
 
         assertFullMapping(properties, expected);
     }

@@ -310,6 +310,7 @@ public class ReorderJoins
                     .collect(toImmutableList());
 
             return setJoinNodeProperties(new JoinNode(
+                    left.getSourceLocation(),
                     idAllocator.getNextId(),
                     INNER,
                     left,
@@ -363,7 +364,7 @@ public class ReorderJoins
                         .forEach(predicates::add);
                 RowExpression filter = logicalRowExpressions.combineConjuncts(predicates.build());
                 if (!TRUE_CONSTANT.equals(filter)) {
-                    planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
+                    planNode = new FilterNode(planNode.getSourceLocation(), idAllocator.getNextId(), planNode, filter);
                 }
                 return createJoinEnumerationResult(planNode);
             }

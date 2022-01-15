@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,10 +30,12 @@ import static java.util.Objects.requireNonNull;
 @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS, property = "@type")
 public abstract class PlanNode
 {
+    private final Optional<SourceLocation> sourceLocation;
     private final PlanNodeId id;
 
-    protected PlanNode(PlanNodeId id)
+    protected PlanNode(Optional<SourceLocation> sourceLocation, PlanNodeId id)
     {
+        this.sourceLocation = sourceLocation;
         requireNonNull(id, "id is null");
         this.id = id;
     }
@@ -40,6 +44,12 @@ public abstract class PlanNode
     public PlanNodeId getId()
     {
         return id;
+    }
+
+    @JsonProperty("sourceLocation")
+    public Optional<SourceLocation> getSourceLocation()
+    {
+        return sourceLocation;
     }
 
     /**

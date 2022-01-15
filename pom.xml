@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.266-SNAPSHOT</version>
+    <version>0.269-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -61,11 +61,11 @@
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.3</dep.logback.version>
-        <dep.parquet.version>1.11.1</dep.parquet.version>
+        <dep.parquet.version>1.12.0</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.6.1</dep.alluxio.version>
+        <dep.alluxio.version>2.7.0</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -173,6 +173,9 @@
         <module>presto-testng-services</module>
         <module>presto-node-ttl-fetchers</module>
         <module>presto-cluster-ttl-providers</module>
+        <module>presto-google-sheets</module>
+        <module>presto-hive-function-namespace</module>
+        <module>presto-delta</module>
     </modules>
 
     <dependencyManagement>
@@ -243,6 +246,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cluster-ttl-providers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hive-function-namespace</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1676,7 +1685,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.4.9-2</version>
+                <version>1.5.0-4</version>
             </dependency>
 
             <dependency>
@@ -1931,6 +1940,18 @@
                         <artifactId>RoaringBitmap</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.delta</groupId>
+                <artifactId>delta-standalone_2.12</artifactId>
+                <version>0.3.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-delta</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->

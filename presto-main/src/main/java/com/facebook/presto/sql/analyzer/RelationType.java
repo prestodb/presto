@@ -175,6 +175,7 @@ public class RelationType
             Optional<String> columnAlias = field.getName();
             if (columnAliases == null) {
                 fieldsBuilder.add(Field.newQualified(
+                        field.getNodeLocation(),
                         QualifiedName.of(relationAlias),
                         columnAlias,
                         field.getType(),
@@ -187,6 +188,7 @@ public class RelationType
                 // hidden fields are not exposed when there are column aliases
                 columnAlias = Optional.of(columnAliases.get(i));
                 fieldsBuilder.add(Field.newQualified(
+                        field.getNodeLocation(),
                         QualifiedName.of(relationAlias),
                         columnAlias,
                         field.getType(),

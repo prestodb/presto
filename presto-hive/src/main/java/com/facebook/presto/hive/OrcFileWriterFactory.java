@@ -246,7 +246,7 @@ public class OrcFileWriterFactory
                     dwrfWriterEncryption));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file", e);
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file. " + e.getMessage(), e);
         }
     }
 

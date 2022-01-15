@@ -156,6 +156,7 @@ users as owners of ``default`` schema and prevent user ``guest`` from ownership
 of any schema, you can use the following rules:
 
 .. code-block:: json
+
     {
       "catalogs": [
         {

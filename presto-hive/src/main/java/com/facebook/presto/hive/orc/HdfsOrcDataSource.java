@@ -69,12 +69,12 @@ public class HdfsOrcDataSource
             throw e;
         }
         catch (Exception e) {
-            String message = format("Error reading from %s at position %s", this, position);
+            String message = format("Error reading from %s at position %s. ", this, position);
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
             if (e instanceof IOException) {
-                throw new PrestoException(HIVE_FILESYSTEM_ERROR, message, e);
+                throw new PrestoException(HIVE_FILESYSTEM_ERROR, message + e.getMessage(), e);
             }
             throw new PrestoException(HIVE_UNKNOWN_ERROR, message, e);
         }

@@ -119,6 +119,7 @@ public final class SystemSessionProperties
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
+    public static final String OPTIMIZE_METADATA_QUERIES_IGNORE_STATS = "optimize_metadata_queries_ignore_stats";
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
@@ -211,7 +212,7 @@ public final class SystemSessionProperties
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
     public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
-    public static final String ENABLE_DISTRIBUTED_TRACING = "enable_distributed_tracing";
+    public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
@@ -516,8 +517,13 @@ public final class SystemSessionProperties
                         Duration::toString),
                 booleanProperty(
                         OPTIMIZE_METADATA_QUERIES,
-                        "Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)",
+                        "Enable optimization for metadata queries if the resulting partitions are not empty according to the partition stats",
                         featuresConfig.isOptimizeMetadataQueries(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_METADATA_QUERIES_IGNORE_STATS,
+                        "Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)",
+                        featuresConfig.isOptimizeMetadataQueriesIgnoreStats(),
                         false),
                 integerProperty(
                         QUERY_PRIORITY,
@@ -1118,10 +1124,10 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
-                booleanProperty(
-                        ENABLE_DISTRIBUTED_TRACING,
-                        "Enable distributed tracing of the query",
-                        tracingConfig.getEnableDistributedTracing(),
+                stringProperty(
+                        DISTRIBUTED_TRACING_MODE,
+                        "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",
+                        tracingConfig.getDistributedTracingMode().name(),
                         false),
                 booleanProperty(
                         VERBOSE_RUNTIME_STATS_ENABLED,
@@ -1360,6 +1366,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeMetadataQueries(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.class);
+    }
+
+    public static boolean isOptimizeMetadataQueriesIgnoreStats(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES_IGNORE_STATS, Boolean.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)

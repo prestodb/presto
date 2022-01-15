@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumnManager;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.writer.DictionaryColumnWriter;
@@ -892,8 +893,13 @@ public class TestDictionaryColumnWriter
                 else {
                     // Successful conversion to direct, changes the state of the dictionary compression
                     // optimizer and it should go only via dictionary compression optimizer.
-                    writer.getDictionaryCompressionOptimizer().convertLowCompressionStreams(bufferedBytes);
+                    List<DictionaryColumnManager> directConversionCandidates = writer.getDictionaryCompressionOptimizer().getDirectConversionCandidates();
+                    boolean contains = directConversionCandidates.stream().anyMatch(x -> x.getDictionaryColumn() == columnWriter);
+                    assertTrue(contains);
+                    writer.getDictionaryCompressionOptimizer().convertLowCompressionStreams(true, bufferedBytes);
                     assertTrue(columnWriter.isDirectEncoded(), "BatchId " + batchId + " bytes " + bufferedBytes);
+                    contains = directConversionCandidates.stream().anyMatch(x -> x.getDictionaryColumn() == columnWriter);
+                    assertFalse(contains);
                 }
                 index++;
             }

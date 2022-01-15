@@ -15,6 +15,15 @@ The driver is also available from Maven Central:
         <version>\ |version|\ </version>
     </dependency>
 
+Requirements
+------------
+
+The Presto JDBC driver has the following requirements:
+
+* Java version 8 or higher.
+* All users that connect to Presto with the JDBC driver must be granted access to
+  query tables in the ``system.jdbc`` schema.
+
 Connecting
 ----------
 
@@ -59,7 +68,7 @@ examples are equivalent:
     Connection connection = DriverManager.getConnection(url, properties);
 
     // properties
-    String url = "jdbc:presto://example.net:8080/hive/sales?user=test&password=secret&SSL=true";
+    String url = "jdbc:presto://example.net:8443/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
 These methods may be mixed; some parameters may be specified in the URL

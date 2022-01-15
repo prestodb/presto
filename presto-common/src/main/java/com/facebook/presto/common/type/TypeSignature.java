@@ -140,6 +140,11 @@ public class TypeSignature
         return isBigintEnum() || isVarcharEnum();
     }
 
+    public boolean isFunction()
+    {
+        return base.getStandardTypeBase().equals("function");
+    }
+
     public boolean isBigintEnum()
     {
         return parameters.size() == 1 && parameters.get(0).isLongEnum();

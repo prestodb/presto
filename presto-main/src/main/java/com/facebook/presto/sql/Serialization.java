@@ -122,7 +122,7 @@ public final class Serialization
             if (p <= 0 || key.charAt(key.length() - 1) != VARIABLE_TYPE_CLOSE_BRACKET) {
                 throw new IllegalArgumentException(format("Expect key to be of format 'name<type>', found %s", key));
             }
-            return new VariableReferenceExpression(key.substring(0, p), typeManager.getType(parseTypeSignature(key.substring(p + 1, key.length() - 1))));
+            return new VariableReferenceExpression(Optional.empty(), key.substring(0, p), typeManager.getType(parseTypeSignature(key.substring(p + 1, key.length() - 1))));
         }
     }
 }

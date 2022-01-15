@@ -180,6 +180,7 @@ public class PushDownDereferences
                     .build();
             ProjectNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), source, assignments);
             return new FilterNode(
+                    projectNode.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
                     projectNode,
                     replaceDereferences(node.getPredicate(), expressions));
@@ -213,6 +214,7 @@ public class PushDownDereferences
             PlanNode rightNode = createProject(joinNode.getRight(), rightSideDereferences.build(), context.getIdAllocator());
 
             return new JoinNode(
+                    joinNode.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
                     joinNode.getType(),
                     leftNode,
@@ -375,6 +377,7 @@ public class PushDownDereferences
             PlanNode rightNode = createProject(joinNode.getRight(), rightSideDereferences.build(), context.getIdAllocator());
 
             return Result.ofPlanNode(new JoinNode(
+                    joinNode.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
                     joinNode.getType(),
                     leftNode,
@@ -464,7 +467,9 @@ public class PushDownDereferences
             ProjectNode source = new ProjectNode(context.getIdAllocator().getNextId(), unnestNode.getSource(), assignments);
 
             return Result.ofPlanNode(
-                    new UnnestNode(context.getIdAllocator().getNextId(),
+                    new UnnestNode(
+                            unnestNode.getSourceLocation(),
+                            context.getIdAllocator().getNextId(),
                             source,
                             ImmutableList.<VariableReferenceExpression>builder()
                                     .addAll(unnestNode.getReplicateVariables())
@@ -506,7 +511,7 @@ public class PushDownDereferences
         public RowExpression rewriteSpecialForm(SpecialFormExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
             if (expressions.containsKey(node)) {
-                return new VariableReferenceExpression(expressions.get(node).getName(), node.getType());
+                return new VariableReferenceExpression(node.getSourceLocation(), expressions.get(node).getName(), node.getType());
             }
             return treeRewriter.defaultRewrite(node, context);
         }

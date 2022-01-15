@@ -16,6 +16,7 @@ package com.facebook.presto.druid;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -106,7 +107,7 @@ public class DruidSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         return address.map(ImmutableList::of).orElse(ImmutableList.of());
     }

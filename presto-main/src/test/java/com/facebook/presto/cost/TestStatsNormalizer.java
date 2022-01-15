@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -46,7 +47,7 @@ public class TestStatsNormalizer
     @Test
     public void testNoCapping()
     {
-        VariableReferenceExpression a = new VariableReferenceExpression("a", BIGINT);
+        VariableReferenceExpression a = new VariableReferenceExpression(Optional.empty(), "a", BIGINT);
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(30)
                 .setTotalSize(120)
@@ -61,9 +62,9 @@ public class TestStatsNormalizer
     @Test
     public void testDropNonOutputSymbols()
     {
-        VariableReferenceExpression a = new VariableReferenceExpression("a", BIGINT);
-        VariableReferenceExpression b = new VariableReferenceExpression("b", BIGINT);
-        VariableReferenceExpression c = new VariableReferenceExpression("c", BIGINT);
+        VariableReferenceExpression a = new VariableReferenceExpression(Optional.empty(), "a", BIGINT);
+        VariableReferenceExpression b = new VariableReferenceExpression(Optional.empty(), "b", BIGINT);
+        VariableReferenceExpression c = new VariableReferenceExpression(Optional.empty(), "c", BIGINT);
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(40)
                 .setTotalSize(160)
@@ -81,9 +82,9 @@ public class TestStatsNormalizer
     @Test
     public void tesCapDistinctValuesByOutputRowCount()
     {
-        VariableReferenceExpression a = new VariableReferenceExpression("a", BIGINT);
-        VariableReferenceExpression b = new VariableReferenceExpression("b", BIGINT);
-        VariableReferenceExpression c = new VariableReferenceExpression("c", BIGINT);
+        VariableReferenceExpression a = new VariableReferenceExpression(Optional.empty(), "a", BIGINT);
+        VariableReferenceExpression b = new VariableReferenceExpression(Optional.empty(), "b", BIGINT);
+        VariableReferenceExpression c = new VariableReferenceExpression(Optional.empty(), "c", BIGINT);
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .addVariableStatistics(a, VariableStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(20).build())
                 .addVariableStatistics(b, VariableStatsEstimate.builder().setNullsFraction(0.4).setDistinctValuesCount(20).build())
@@ -131,7 +132,7 @@ public class TestStatsNormalizer
 
     private void testCapDistinctValuesByToDomainRangeLength(Type type, double ndv, Object low, Object high, double expectedNormalizedNdv)
     {
-        VariableReferenceExpression variable = new VariableReferenceExpression("x", type);
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "x", type);
         VariableStatsEstimate symbolStats = VariableStatsEstimate.builder()
                 .setNullsFraction(0)
                 .setDistinctValuesCount(ndv)

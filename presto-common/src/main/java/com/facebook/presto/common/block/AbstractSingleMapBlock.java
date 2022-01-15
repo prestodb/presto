@@ -31,7 +31,7 @@ public abstract class AbstractSingleMapBlock
     private int getAbsolutePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
+            throw new IllegalArgumentException("position is not valid: " + position);
         }
         return position + getOffset();
     }
@@ -42,7 +42,7 @@ public abstract class AbstractSingleMapBlock
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
             if (getRawKeyBlock().isNull(position / 2)) {
-                throw new IllegalStateException("Map key is null");
+                throw new IllegalStateException("Map key is null at position: " + position);
             }
             return false;
         }
