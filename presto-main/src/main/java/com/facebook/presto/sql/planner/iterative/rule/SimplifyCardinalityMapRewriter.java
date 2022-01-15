@@ -13,29 +13,14 @@
  */
 
 package com.facebook.presto.sql.planner.iterative.rule;
-
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
-import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.stream.Collectors.toList;
 
 /**
  * Transforms:
