@@ -53,7 +53,8 @@ public class SimplifyCardinalityMapRewriter
             for (Expression argument : node.getArguments()) {
                 if (node.getName().equals(QualifiedName.of("cardinality")) &&
                         argument instanceof FunctionCall &&
-                        ((FunctionCall) argument).getName().equals(QualifiedName.of("map_values")) &&
+                        (((FunctionCall) argument).getName().equals(QualifiedName.of("map_values")) ||
+                         ((FunctionCall) argument).getName().equals(QualifiedName.of("map_keys"))) &&
                         ((FunctionCall) argument).getArguments().size() > 0) {
                     rewrittenArguments.add(treeRewriter.rewrite(((FunctionCall) argument).getArguments().get(0), context));
                     continue;
