@@ -161,7 +161,7 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
                         .put(PRESTO_CLIENT_INFO, "null")
-                        .put(PRESTO_PREPARED_STATEMENT, "query1=select * from tbl:ns")
+                        .put(PRESTO_PREPARED_STATEMENT, "query1=select * from \"tbl:ns\"")
                         .build(),
                 "testRemote");
         SqlParserOptions options = new SqlParserOptions();
