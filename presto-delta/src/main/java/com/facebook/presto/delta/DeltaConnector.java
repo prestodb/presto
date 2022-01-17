@@ -22,6 +22,9 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
@@ -70,19 +73,19 @@ public class DeltaConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
-        return metadata;
+        return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 
     @Override
     public ConnectorSplitManager getSplitManager()
     {
-        return splitManager;
+        return new ClassLoaderSafeConnectorSplitManager(splitManager, getClass().getClassLoader());
     }
 
     @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return pageSourceProvider;
+        return new ClassLoaderSafeConnectorPageSourceProvider(pageSourceProvider, getClass().getClassLoader());
     }
 
     @Override
