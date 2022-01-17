@@ -123,7 +123,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
@@ -138,7 +137,6 @@ import static java.util.stream.Collectors.joining;
 public final class SqlFormatter
 {
     private static final String INDENT = "   ";
-    private static final Pattern NAME_PATTERN = Pattern.compile("[a-z_][a-z0-9_]*");
 
     private SqlFormatter() {}
 
