@@ -45,10 +45,9 @@ public class BinaryColumnStatistics
     }
 
     @Override
-    public long getMinAverageValueSizeInBytes()
+    public long getTotalValueSizeInBytes()
     {
-        long numberOfValues = getNumberOfValues();
-        return BINARY_VALUE_BYTES_OVERHEAD + (numberOfValues > 0 ? binaryStatistics.getSum() / numberOfValues : 0);
+        return BINARY_VALUE_BYTES_OVERHEAD * getNumberOfValues() + binaryStatistics.getSum();
     }
 
     @Override

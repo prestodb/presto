@@ -248,12 +248,12 @@ public class TestStringStatisticsBuilder
     }
 
     @Test
-    public void testMinAverageValueBytes()
+    public void testTotalValueBytes()
     {
-        assertMinAverageValueBytes(0L, ImmutableList.of());
-        assertMinAverageValueBytes(STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
-        assertMinAverageValueBytes(LOW_BOTTOM_VALUE.length() + STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE));
-        assertMinAverageValueBytes((LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length()) / 2 + STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE, LOW_TOP_VALUE));
+        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
+        assertTotalValueBytes(LOW_BOTTOM_VALUE.length() + STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE));
+        assertTotalValueBytes((LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length()) + 2 * STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE, LOW_TOP_VALUE));
     }
 
     @Test
