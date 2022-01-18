@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.Unnest;
@@ -58,6 +59,24 @@ public class MaterializedViewPlanValidator
         }
 
         return super.visitTable(node, context);
+    }
+
+    @Override
+    protected Void visitQuery(Query node, MaterializedViewPlanValidatorContext context)
+    {
+        if (node.getLimit().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "LIMIT clause in materialized view is not supported.");
+        }
+        return super.visitQuery(node, context);
+    }
+
+    @Override
+    protected Void visitQuerySpecification(QuerySpecification node, MaterializedViewPlanValidatorContext context)
+    {
+        if (node.getLimit().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "LIMIT clause in materialized view is not supported.");
+        }
+        return super.visitQuerySpecification(node, context);
     }
 
     @Override
