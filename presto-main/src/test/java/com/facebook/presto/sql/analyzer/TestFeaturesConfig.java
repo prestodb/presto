@@ -182,7 +182,9 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
                 .setVerboseRuntimeStatsEnabled(false)
-                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED));
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
+                .setHashBasedDistinctLimitEnabled(false)
+                .setHashBasedDistinctLimitThreshold(10000));
     }
 
     @Test
@@ -316,6 +318,8 @@ public class TestFeaturesConfig
                 .put("query-optimization-with-materialized-view-enabled", "true")
                 .put("verbose-runtime-stats-enabled", "true")
                 .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
+                .put("hash-based-distinct-limit-enabled", "true")
+                .put("hash-based-distinct-limit-threshold", "500")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -446,7 +450,9 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
                 .setVerboseRuntimeStatsEnabled(true)
-                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF);
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
+                .setHashBasedDistinctLimitEnabled(true)
+                .setHashBasedDistinctLimitThreshold(500);
         assertFullMapping(properties, expected);
     }
 
