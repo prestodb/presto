@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.cache;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheFactory;
 import com.facebook.presto.cache.CacheManager;
@@ -23,6 +24,9 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -32,6 +36,8 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
@@ -42,10 +48,13 @@ import static java.util.Objects.requireNonNull;
 public class HiveCachingHdfsConfiguration
         implements HdfsConfiguration
 {
+    private final Logger log = Logger.get(HiveCachingHdfsConfiguration.class);
     private final HdfsConfiguration hiveHdfsConfiguration;
     private final CacheManager cacheManager;
     private final CacheConfig cacheConfig;
     private final CacheFactory cacheFactory;
+
+    private final LoadingCache<CacheKey, Configuration> configCache;
 
     @Inject
     public HiveCachingHdfsConfiguration(
@@ -58,10 +67,22 @@ public class HiveCachingHdfsConfiguration
         this.cacheManager = requireNonNull(cacheManager, "CacheManager is null");
         this.cacheConfig = requireNonNull(cacheConfig, "cacheConfig is null");
         this.cacheFactory = requireNonNull(cacheFactory, "CacheFactory is null");
+
+        configCache = CacheBuilder.newBuilder()
+                .maximumSize(10000)
+                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .build(
+                        new CacheLoader<CacheKey, Configuration>() {
+                            @Override
+                            public Configuration load(CacheKey key)
+                                    throws Exception
+                            {
+                                return generateConfiguration(key.hdfsContext, key.uri);
+                            }
+                        });
     }
 
-    @Override
-    public Configuration getConfiguration(HdfsContext context, URI uri)
+    public Configuration generateConfiguration(HdfsContext context, URI uri)
     {
         @SuppressWarnings("resource")
         Configuration config = new CachingJobConf((factoryConfig, factoryUri) -> {
@@ -87,6 +108,19 @@ public class HiveCachingHdfsConfiguration
         return config;
     }
 
+    @Override
+    public Configuration getConfiguration(HdfsContext context, URI uri)
+    {
+        try {
+            return configCache.get(new CacheKey(context, uri));
+        }
+        catch (ExecutionException e) {
+            log.warn("Failed to get configuration from cache");
+            e.printStackTrace();
+            return generateConfiguration(context, uri);
+        }
+    }
+
     private static class CachingJobConf
             extends JobConf
             implements FileSystemFactory
@@ -103,6 +137,41 @@ public class HiveCachingHdfsConfiguration
         public FileSystem createFileSystem(URI uri)
         {
             return factory.apply(this, uri);
+        }
+    }
+
+    private static class CacheKey
+    {
+        private final HdfsContext hdfsContext;
+        private final URI uri;
+
+        public CacheKey(HdfsContext hdfsContext, URI uri)
+        {
+            this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
+            this.uri = requireNonNull(uri, "uri is null");
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other || this.hashCode() == other.hashCode()) {
+                return true;
+            }
+
+            if (!(other instanceof CacheKey)) {
+                return false;
+            }
+
+            // Note that we only use query id and table path to index the configuration.
+            CacheKey otherKey = (CacheKey) other;
+            return hdfsContext.getQueryId().equals(otherKey.hdfsContext.getQueryId())
+                    && hdfsContext.getTablePath().equals(otherKey.hdfsContext.getTablePath());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return hdfsContext.getQueryId().hashCode() * 31 + hdfsContext.getTablePath().hashCode();
         }
     }
 }

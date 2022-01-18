@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.authentication.GenericExceptionAction;
 import com.facebook.presto.hive.authentication.HdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.HadoopExtendedFileSystemCache;
@@ -25,6 +29,8 @@ import org.apache.hadoop.fs.Path;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -35,9 +41,12 @@ public class HdfsEnvironment
         HadoopExtendedFileSystemCache.initialize();
     }
 
+    private final Logger log = Logger.get(HdfsEnvironment.class);
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
     private final boolean verifyChecksum;
+
+    private final LoadingCache<CacheKey, ExtendedFileSystem> fileSystemCache;
 
     @Inject
     public HdfsEnvironment(
@@ -51,6 +60,21 @@ public class HdfsEnvironment
         if (config.isRequireHadoopNative()) {
             HadoopNative.requireHadoopNative();
         }
+
+        fileSystemCache = CacheBuilder.newBuilder()
+                .maximumSize(10000)
+                .weakKeys()
+                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .build(
+                        new CacheLoader<CacheKey, ExtendedFileSystem>() {
+                            @Override
+                            public ExtendedFileSystem load(CacheKey key)
+                                    throws Exception
+                            {
+                                return getFileSystem(
+                                        key.context.getIdentity().getUser(), key.path, key.config);
+                            }
+                        });
     }
 
     public Configuration getConfiguration(HdfsContext context, Path path)
@@ -61,7 +85,14 @@ public class HdfsEnvironment
     public ExtendedFileSystem getFileSystem(HdfsContext context, Path path)
             throws IOException
     {
-        return getFileSystem(context.getIdentity().getUser(), path, getConfiguration(context, path));
+        try {
+            return fileSystemCache.get(new CacheKey(context, path, getConfiguration(context, path)));
+        }
+        catch (ExecutionException e) {
+            log.warn("Failed to get file system from cache");
+            e.printStackTrace();
+            return getFileSystem(context.getIdentity().getUser(), path, getConfiguration(context, path));
+        }
     }
 
     public ExtendedFileSystem getFileSystem(String user, Path path, Configuration configuration)
@@ -84,5 +115,41 @@ public class HdfsEnvironment
     public void doAs(String user, Runnable action)
     {
         hdfsAuthentication.doAs(user, action);
+    }
+
+    private static class CacheKey
+    {
+        private final Configuration config;
+        private final Path path;
+        private final HdfsContext context;
+
+        public CacheKey(HdfsContext context, Path path, Configuration config)
+        {
+            this.config = requireNonNull(config, "config is null");
+            this.path = requireNonNull(path, "path is null");
+            this.context = requireNonNull(context, "context is null");
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other || this.hashCode() == other.hashCode()) {
+                return true;
+            }
+
+            if (!(other instanceof CacheKey)) {
+                return false;
+            }
+
+            // Note that we only use configuration to index the file system.
+            CacheKey otherKey = (CacheKey) other;
+            return config.equals(otherKey.config);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return config.hashCode();
+        }
     }
 }
