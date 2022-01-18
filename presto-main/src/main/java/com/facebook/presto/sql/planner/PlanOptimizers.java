@@ -118,6 +118,7 @@ import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
+import com.facebook.presto.sql.planner.optimizations.HashBasedPartialDistinctLimit;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -623,6 +624,10 @@ public class PlanOptimizers
 
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer(metadata.getFunctionAndTypeManager()));
+
+        // Add some opportunistic optimizations for queries with limit to utilize precomputed hash from the previous step
+        builder.add(new HashBasedPartialDistinctLimit(metadata.getFunctionAndTypeManager()));
+
         builder.add(new MetadataDeleteOptimizer(metadata));
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
