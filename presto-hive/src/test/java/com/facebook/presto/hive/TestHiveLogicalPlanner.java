@@ -2506,6 +2506,26 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewWithLimit()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String view = "view_with_limit";
+        String table = "t1_with_limit";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS SELECT 1 as a, '2020-01-01' as ds", table));
+
+            assertQueryFails(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                            "AS SELECT a, ds FROM %s t1 LIMIT 10000", view, table),
+                    ".*LIMIT clause in materialized view is not supported.*");
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewForLeftOuterJoin()
     {
         QueryRunner queryRunner = getQueryRunner();
