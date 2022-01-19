@@ -17,6 +17,7 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 namespace {
@@ -145,4 +146,246 @@ TEST_F(VariadicViewTest, notNullContainer) {
   }
 }
 
+const auto null = "null"_sv;
+const auto callPrefix = "call "_sv;
+const auto callNullablePrefix = "callNullable "_sv;
+const auto callAsciiPrefix = "callAscii "_sv;
+
+void writeInputToOutput(
+    StringProxy<>& out,
+    const VariadicView<Varchar>* inputs) {
+  for (const auto& input : *inputs) {
+    out += input.has_value() ? input.value() : null;
+  }
+}
+
+// Function that uses a Variadic Type (it's essentially concat).
+template <typename T>
+struct VariadicArgsReaderFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& out,
+      const arg_type<Variadic<Varchar>>& inputs) {
+    writeInputToOutput(out, &inputs);
+
+    return true;
+  }
+};
+
+TEST_F(VariadicViewTest, variadicArgsReader) {
+  registerFunction<VariadicArgsReaderFunction, Varchar, Variadic<Varchar>>(
+      {"variadic_args_reader_func"});
+
+  auto arg1 = makeFlatVector<StringView>({"a"_sv, "b"_sv, "c"_sv});
+  auto arg2 = makeFlatVector<StringView>({"d"_sv, "e"_sv, "f"_sv});
+  auto arg3 = makeFlatVector<StringView>({"x"_sv, "y"_sv, "z"_sv});
+  auto result = evaluate<FlatVector<StringView>>(
+      "variadic_args_reader_func(c0, c1, c2)",
+      makeRowVector({arg1, arg2, arg3}));
+
+  ASSERT_EQ(result->valueAt(0).getString(), "adx");
+  ASSERT_EQ(result->valueAt(1).getString(), "bey");
+  ASSERT_EQ(result->valueAt(2).getString(), "cfz");
+}
+
+TEST_F(VariadicViewTest, variadicArgsReaderNoArgs) {
+  registerFunction<VariadicArgsReaderFunction, Varchar, Variadic<Varchar>>(
+      {"variadic_args_reader_func"});
+
+  auto result = evaluate<SimpleVector<StringView>>(
+      "variadic_args_reader_func()", makeRowVector(ROW({}), 3));
+
+  ASSERT_EQ(result->valueAt(0).getString(), "");
+  ASSERT_EQ(result->valueAt(1).getString(), "");
+  ASSERT_EQ(result->valueAt(2).getString(), "");
+}
+
+TEST_F(VariadicViewTest, variadicArgsReaderWithNull) {
+  registerFunction<VariadicArgsReaderFunction, Varchar, Variadic<Varchar>>(
+      {"variadic_args_reader_func"});
+
+  // There are nulls in at least one of the args under the VariadicArgs in the
+  // first two rows, so those should return null due to default null behavior.
+  // The third row doesn't have nulls so it should be computed as usual.
+  auto arg1 =
+      makeNullableFlatVector<StringView>({std::nullopt, "b"_sv, "c"_sv});
+  auto arg2 =
+      makeNullableFlatVector<StringView>({"d"_sv, std::nullopt, "f"_sv});
+  auto arg3 = makeFlatVector<StringView>({"x"_sv, "y"_sv, "z"_sv});
+  auto result = evaluate<FlatVector<StringView>>(
+      "variadic_args_reader_func(c0, c1, c2)",
+      makeRowVector({arg1, arg2, arg3}));
+
+  ASSERT_TRUE(result->isNullAt(0));
+  ASSERT_TRUE(result->isNullAt(1));
+  ASSERT_FALSE(result->isNullAt(2));
+  ASSERT_EQ(result->valueAt(2).getString(), "cfz");
+}
+
+// Function that uses a Variadic Type and doesn't have default null behavior.
+// Again, it's essentially concat, but uses the string "NULL" for nulls.
+// It also prefixes the result with call or callNullable, depending on which
+// version of call is executed.
+template <typename T>
+struct VariadicArgsReaderWithNullsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& out,
+      const arg_type<Varchar>& first,
+      const arg_type<Variadic<Varchar>>& inputs) {
+    out += callPrefix;
+    out += first;
+    writeInputToOutput(out, &inputs);
+
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool callNullable(
+      out_type<Varchar>& out,
+      const arg_type<Varchar>* first,
+      const arg_type<Variadic<Varchar>>* inputs) {
+    out += callNullablePrefix;
+    out += first ? *first : null;
+    writeInputToOutput(out, inputs);
+
+    return true;
+  }
+};
+
+TEST_F(VariadicViewTest, variadicArgsReaderCallNullable) {
+  registerFunction<
+      VariadicArgsReaderWithNullsFunction,
+      Varchar,
+      Varchar,
+      Variadic<Varchar>>({"variadic_args_reader_with_nulls_func"});
+
+  // The first argument, which is not part of the VariadicArgs, has a null
+  // so callNullable should be called.
+  auto arg1 =
+      makeNullableFlatVector<StringView>({std::nullopt, "b"_sv, "c"_sv});
+  auto arg2 =
+      makeNullableFlatVector<StringView>({"d"_sv, std::nullopt, "f"_sv});
+  auto arg3 =
+      makeNullableFlatVector<StringView>({"x"_sv, "y"_sv, std::nullopt});
+  auto result = evaluate<FlatVector<StringView>>(
+      "variadic_args_reader_with_nulls_func(c0, c1, c2)",
+      makeRowVector({arg1, arg2, arg3}));
+
+  ASSERT_EQ(result->valueAt(0).getString(), "callNullable nulldx");
+  ASSERT_EQ(result->valueAt(1).getString(), "callNullable bnully");
+  ASSERT_EQ(result->valueAt(2).getString(), "callNullable cfnull");
+}
+
+TEST_F(VariadicViewTest, variadicArgsReaderCallNullableNullVariadicArgs) {
+  registerFunction<
+      VariadicArgsReaderWithNullsFunction,
+      Varchar,
+      Varchar,
+      Variadic<Varchar>>({"variadic_args_reader_with_nulls_func"});
+
+  // The first argument, which is not part of the VariadicArgs, does not have
+  // nulls.  callNullable should be called anyway since there are nulls in the
+  // VariadicArgs.
+  auto arg1 = makeNullableFlatVector<StringView>({"a"_sv, "b"_sv, "c"_sv});
+  auto arg2 =
+      makeNullableFlatVector<StringView>({"d"_sv, std::nullopt, "f"_sv});
+  auto arg3 =
+      makeNullableFlatVector<StringView>({"x"_sv, "y"_sv, std::nullopt});
+  auto result = evaluate<FlatVector<StringView>>(
+      "variadic_args_reader_with_nulls_func(c0, c1, c2)",
+      makeRowVector({arg1, arg2, arg3}));
+
+  ASSERT_EQ(result->valueAt(0).getString(), "callNullable adx");
+  ASSERT_EQ(result->valueAt(1).getString(), "callNullable bnully");
+  ASSERT_EQ(result->valueAt(2).getString(), "callNullable cfnull");
+}
+
+TEST_F(VariadicViewTest, variadicArgsReaderCallNullableNoNulls) {
+  registerFunction<
+      VariadicArgsReaderWithNullsFunction,
+      Varchar,
+      Varchar,
+      Variadic<Varchar>>({"variadic_args_reader_with_nulls_func"});
+
+  // There are no nulls in the arguments, so call should be called.
+  auto arg1 = makeNullableFlatVector<StringView>({"a"_sv, "b"_sv, "c"_sv});
+  auto arg2 = makeNullableFlatVector<StringView>({"d"_sv, "e"_sv, "f"_sv});
+  auto arg3 = makeNullableFlatVector<StringView>({"x"_sv, "y"_sv, "z"_sv});
+  auto result = evaluate<FlatVector<StringView>>(
+      "variadic_args_reader_with_nulls_func(c0, c1, c2)",
+      makeRowVector({arg1, arg2, arg3}));
+
+  ASSERT_EQ(result->valueAt(0).getString(), "call adx");
+  ASSERT_EQ(result->valueAt(1).getString(), "call bey");
+  ASSERT_EQ(result->valueAt(2).getString(), "call cfz");
+}
+
+// Function that uses a Variadic Type and doesn't supports callAscii (though
+// the behavior isn't really any different).
+// It prefixes the result with call or callAscii, depending on which
+// version of call is executed.
+template <typename T>
+struct VariadicArgsReaderWithAsciiFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& out,
+      const arg_type<Variadic<Varchar>>& inputs) {
+    out += callPrefix;
+    writeInputToOutput(out, &inputs);
+
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool callAscii(
+      out_type<Varchar>& out,
+      const arg_type<Variadic<Varchar>>& inputs) {
+    out += callAsciiPrefix;
+    writeInputToOutput(out, &inputs);
+
+    return true;
+  }
+};
+
+TEST_F(VariadicViewTest, variadicArgsReaderCallNonAscii) {
+  registerFunction<
+      VariadicArgsReaderWithAsciiFunction,
+      Varchar,
+      Variadic<Varchar>>({"variadic_args_reader_with_ascii_func"});
+
+  // Some of the input arguments have non-ACII characters so call should be
+  // called.
+  auto arg1 = makeFlatVector<StringView>({"à"_sv, "b"_sv, "c"_sv});
+  auto arg2 = makeFlatVector<StringView>({"d"_sv, "ê"_sv, "f"_sv});
+  auto arg3 = makeFlatVector<StringView>({"x"_sv, "y"_sv, "ζ"_sv});
+  auto result = evaluate<FlatVector<StringView>>(
+      "variadic_args_reader_with_ascii_func(c0, c1, c2)",
+      makeRowVector({arg1, arg2, arg3}));
+
+  ASSERT_EQ(result->valueAt(0).getString(), "call àdx");
+  ASSERT_EQ(result->valueAt(1).getString(), "call bêy");
+  ASSERT_EQ(result->valueAt(2).getString(), "call cfζ");
+}
+
+TEST_F(VariadicViewTest, variadicArgsReaderCallAscii) {
+  registerFunction<
+      VariadicArgsReaderWithAsciiFunction,
+      Varchar,
+      Variadic<Varchar>>({"variadic_args_reader_with_ascii_func"});
+
+  // All of the input arguments are ASCII so callAscii should be
+  // called.
+  auto arg1 = makeFlatVector<StringView>({"a"_sv, "b"_sv, "c"_sv});
+  auto arg2 = makeFlatVector<StringView>({"d"_sv, "e"_sv, "f"_sv});
+  auto arg3 = makeFlatVector<StringView>({"x"_sv, "y"_sv, "z"_sv});
+  auto result = evaluate<FlatVector<StringView>>(
+      "variadic_args_reader_with_ascii_func(c0, c1, c2)",
+      makeRowVector({arg1, arg2, arg3}));
+
+  ASSERT_EQ(result->valueAt(0).getString(), "callAscii adx");
+  ASSERT_EQ(result->valueAt(1).getString(), "callAscii bey");
+  ASSERT_EQ(result->valueAt(2).getString(), "callAscii cfz");
+}
 } // namespace

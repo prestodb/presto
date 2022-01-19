@@ -83,6 +83,17 @@ struct FuncFive {
   }
 };
 
+template <typename T>
+struct VariadicFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<velox::Varchar>& /* result */,
+      const arg_type<Variadic<velox::Varchar>>& /* arg1 */) {
+    return true;
+  }
+};
+
 class VectorFuncOne : public velox::exec::VectorFunction {
  public:
   void apply(
@@ -202,6 +213,8 @@ inline void registerTestFunctions() {
   registerFunction<FuncFour, Varchar, Varchar>({"func_five"});
   registerFunction<FuncFive, int64_t, int64_t>({"func_four"});
 
+  registerFunction<VariadicFunc, Varchar, Variadic<Varchar>>({"variadic_func"});
+
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_one, "vector_func_one");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_two, "vector_func_two");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_three, "vector_func_three");
@@ -234,7 +247,7 @@ class FunctionRegistryTest : public ::testing::Test {
 
 TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   auto functionSignatures = getFunctionSignatures();
-  ASSERT_EQ(functionSignatures.size(), 10);
+  ASSERT_EQ(functionSignatures.size(), 11);
 
   ASSERT_EQ(functionSignatures.count("func_one"), 1);
   ASSERT_EQ(functionSignatures.count("func_two"), 1);
@@ -243,6 +256,7 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   ASSERT_EQ(functionSignatures.count("func_three_alias2"), 1);
   ASSERT_EQ(functionSignatures.count("func_four"), 1);
   ASSERT_EQ(functionSignatures.count("func_five"), 1);
+  ASSERT_EQ(functionSignatures.count("variadic_func"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_one"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_two"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_three"), 1);
@@ -321,6 +335,15 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
           ->toString());
 
   ASSERT_EQ(
+      functionSignatures["variadic_func"].at(0)->toString(),
+      exec::FunctionSignatureBuilder()
+          .returnType("varchar")
+          .argumentType("varchar")
+          .variableArity()
+          .build()
+          ->toString());
+
+  ASSERT_EQ(
       functionSignatures["vector_func_one"].at(0)->toString(),
       exec::FunctionSignatureBuilder()
           .returnType("bigint")
@@ -367,6 +390,20 @@ TEST_F(FunctionRegistryTest, hasScalarFunctionSignatureWrongArgType) {
 
 TEST_F(FunctionRegistryTest, hasScalarFunctionSignatureWrongFunctionName) {
   auto result = resolveFunction("method_one", {VARCHAR()});
+  ASSERT_EQ(result, nullptr);
+}
+
+TEST_F(FunctionRegistryTest, hasVariadicFunctionSignature) {
+  auto result = resolveFunction("variadic_func", {});
+  ASSERT_EQ(*result, *VARCHAR());
+
+  result = resolveFunction("variadic_func", {VARCHAR()});
+  ASSERT_EQ(*result, *VARCHAR());
+
+  result = resolveFunction("variadic_func", {VARCHAR(), VARCHAR()});
+  ASSERT_EQ(*result, *VARCHAR());
+
+  result = resolveFunction("variadic_func", {INTEGER()});
   ASSERT_EQ(result, nullptr);
 }
 

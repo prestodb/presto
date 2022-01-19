@@ -201,15 +201,36 @@ class VectorAdapter : public VectorFunction {
               bool allNotNull,
               const DecodedArgs& packed,
               TReader&... readers) const {
-    auto* oneUnpacked = packed.at(POSITION);
-    auto oneReader = VectorReader<arg_at<POSITION>>(oneUnpacked);
+    if constexpr (isVariadicType<arg_at<POSITION>>::value) {
+      // This should already be statically checked by the UDFHolder used to wrap
+      // the simple function, but checking again here just in case.
+      static_assert(
+          POSITION == FUNC::num_args - 1,
+          "Variadic args can only be used as the last argument to a function.");
+      auto oneReader = VectorReader<arg_at<POSITION>>(packed, POSITION);
 
-    // context->nullPruned() is true after rows with nulls have been
-    // pruned out of 'rows', so we won't be seeing any more nulls here.
-    bool nextNonNull = applyContext.context->nullsPruned() ||
-        (allNotNull && !oneUnpacked->mayHaveNulls());
-    unpack<POSITION + 1>(
-        applyContext, nextNonNull, packed, readers..., oneReader);
+      bool nextNonNull = applyContext.context->nullsPruned();
+      if (!nextNonNull && allNotNull) {
+        nextNonNull = true;
+        for (auto i = POSITION; i < packed.size(); i++) {
+          nextNonNull &= !packed.at(i)->mayHaveNulls();
+        }
+      }
+
+      unpack<POSITION + 1>(
+          applyContext, nextNonNull, packed, readers..., oneReader);
+    } else {
+      auto* oneUnpacked = packed.at(POSITION);
+      auto oneReader = VectorReader<arg_at<POSITION>>(oneUnpacked);
+
+      // context->nullPruned() is true after rows with nulls have been
+      // pruned out of 'rows', so we won't be seeing any more nulls here.
+      bool nextNonNull = applyContext.context->nullsPruned() ||
+          (allNotNull && !oneUnpacked->mayHaveNulls());
+
+      unpack<POSITION + 1>(
+          applyContext, nextNonNull, packed, readers..., oneReader);
+    }
   }
 
   // unpacking zips like const char* notnull, const T* values

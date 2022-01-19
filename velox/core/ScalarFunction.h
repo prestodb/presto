@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <boost/algorithm/string.hpp>
 #include "folly/Likely.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
@@ -100,6 +101,29 @@ struct udf_help<T, util::detail::void_t<decltype(T::help)>> {
   }
 };
 
+// Has the value true, unless a Variadic Type appears anywhere but at the end
+// of the parameters.
+template <typename... TArgs>
+struct ValidateVariadicArgs {
+  using arg_types = std::tuple<TArgs...>;
+  static constexpr int num_args = std::tuple_size<arg_types>::value;
+  template <int32_t POSITION>
+  using arg_at = typename std::tuple_element<POSITION, arg_types>::type;
+
+  template <int32_t POSITION, typename... Args>
+  static constexpr bool isValidArg() {
+    if constexpr (POSITION >= num_args - 1) {
+      return true;
+    } else {
+      return !isVariadicType<arg_at<POSITION>>::value &&
+          isValidArg<POSITION + 1, Args...>();
+    }
+  }
+
+ public:
+  static constexpr bool value = isValidArg<0, TArgs...>();
+};
+
 // This class is used as a key to resolve UDFs. UDF registry stores the function
 // implementation with the function signatures (FunctionKey) that it supports.
 // When it compiles the input expressions, expression engines evaluate the input
@@ -164,10 +188,9 @@ class IScalarFunction {
   virtual std::string getName() const = 0;
   virtual bool isDeterministic() const = 0;
   virtual int32_t reuseStringsFromArg() const = 0;
-
-  FunctionKey key() const;
-  std::shared_ptr<exec::FunctionSignature> signature() const;
-  std::string helpMessage(const std::string& name) const;
+  virtual FunctionKey key() const = 0;
+  virtual std::shared_ptr<exec::FunctionSignature> signature() const = 0;
+  virtual std::string helpMessage(const std::string& name) const = 0;
 
   virtual ~IScalarFunction() = default;
 };
@@ -177,6 +200,20 @@ struct udf_has_name : std::false_type {};
 
 template <typename T>
 struct udf_has_name<T, decltype(&T::name, 0)> : std::true_type {};
+
+template <typename Arg>
+struct CreateType {
+  static std::shared_ptr<const Type> create() {
+    return CppToType<Arg>::create();
+  }
+};
+
+template <typename Underlying>
+struct CreateType<Variadic<Underlying>> {
+  static std::shared_ptr<const Type> create() {
+    return CppToType<Underlying>::create();
+  }
+};
 
 template <typename Fun, typename TReturn, typename... Args>
 class ScalarFunctionMetadata : public IScalarFunction {
@@ -211,14 +248,28 @@ class ScalarFunctionMetadata : public IScalarFunction {
     return returnType_;
   }
 
+  // Will convert Args to std::shared_ptr<const Type>.
+  // Note that if the last arg is Variadic, this will return a
+  // std::shared_ptr<const Type> matching the underlying type for that
+  // argument.
+  // You can check if that argument is Variadic by calling isVariadic()
+  // on this object.
   std::vector<std::shared_ptr<const Type>> argTypes() const final {
     std::vector<std::shared_ptr<const Type>> args(num_args);
     auto it = args.begin();
-    ((*it++ = CppToType<Args>::create()), ...);
+    ((*it++ = CreateType<Args>::create()), ...);
     for (const auto& arg : args) {
       CHECK_NOTNULL(arg.get());
     }
     return args;
+  }
+
+  static constexpr bool isVariadic() {
+    if constexpr (num_args == 0) {
+      return false;
+    } else {
+      return isVariadicType<type_at<num_args - 1>>::value;
+    }
   }
 
   explicit ScalarFunctionMetadata(std::shared_ptr<const Type> returnType)
@@ -228,11 +279,68 @@ class ScalarFunctionMetadata : public IScalarFunction {
   }
   ~ScalarFunctionMetadata() override = default;
 
+  FunctionKey key() const final {
+    return FunctionKey{getName(), argTypes()};
+  }
+
+  std::shared_ptr<exec::FunctionSignature> signature() const final {
+    auto builder =
+        exec::FunctionSignatureBuilder().returnType(typeToString(returnType()));
+
+    for (const auto& arg : argTypes()) {
+      builder.argumentType(typeToString(arg));
+    }
+
+    if (isVariadic()) {
+      builder.variableArity();
+    }
+
+    return builder.build();
+  }
+
+  std::string helpMessage(const std::string& name) const final {
+    std::string s{name};
+    s.append("(");
+    bool first = true;
+    for (auto& arg : argTypes()) {
+      if (!first) {
+        s.append(", ");
+      }
+      first = false;
+      s.append(arg->toString());
+    }
+
+    if (isVariadic()) {
+      s.append("...");
+    }
+
+    s.append(")");
+    return s;
+  }
+
  private:
   void verifyReturnTypeCompatibility() {
     VELOX_USER_CHECK(
         CppToType<TReturn>::create()->kindEquals(returnType_),
         "return type override mismatch");
+  }
+
+  // convert type to a string representation that is recognized in
+  // FunctionSignature.
+  static std::string typeToString(const TypePtr& type) {
+    std::ostringstream out;
+    out << boost::algorithm::to_lower_copy(std::string(type->kindName()));
+    if (type->size()) {
+      out << "(";
+      for (auto i = 0; i < type->size(); i++) {
+        if (i > 0) {
+          out << ",";
+        }
+        out << typeToString(type->childAt(i));
+      }
+      out << ")";
+    }
+    return out.str();
   }
 
   const std::shared_ptr<const Type> returnType_;
@@ -296,6 +404,15 @@ class UDFHolder final
   static_assert(
       udf_has_call || udf_has_callNullable,
       "UDF must implement at least one of `call` or `callNullable`");
+
+  static_assert(
+      ValidateVariadicArgs<TArgs...>::value,
+      "Variadic can only be used as the last argument to a UDF");
+
+  // Initialize could be supported with variadicArgs
+  static_assert(
+      !(udf_has_initialize && Metadata::isVariadic()),
+      "Initialize is not supported for UDFs with VariadicArgs.");
 
   static constexpr bool is_default_null_behavior = !udf_has_callNullable;
   static constexpr bool has_ascii = udf_has_callAscii;
