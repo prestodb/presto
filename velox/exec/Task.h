@@ -86,22 +86,6 @@ class Task {
  public:
   Task(
       const std::string& taskId,
-      std::shared_ptr<const core::PlanNode> planNode,
-      int destination,
-      std::shared_ptr<core::QueryCtx> queryCtx,
-      Consumer consumer = nullptr,
-      std::function<void(std::exception_ptr)> onError = nullptr);
-
-  Task(
-      const std::string& taskId,
-      std::shared_ptr<const core::PlanNode> planNode,
-      int destination,
-      std::shared_ptr<core::QueryCtx> queryCtx,
-      ConsumerSupplier consumerSupplier,
-      std::function<void(std::exception_ptr)> onError = nullptr);
-
-  Task(
-      const std::string& taskId,
       core::PlanFragment planFragment,
       int destination,
       std::shared_ptr<core::QueryCtx> queryCtx,

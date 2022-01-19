@@ -42,7 +42,9 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
       int numDrivers) {
     auto queryCtx = core::QueryCtx::createForTest();
     bufferManager_->removeTask(taskId);
-    auto task = std::make_shared<Task>(taskId, nullptr, 0, std::move(queryCtx));
+    core::PlanFragment emptyPlanFragment;
+    auto task = std::make_shared<Task>(
+        taskId, std::move(emptyPlanFragment), 0, std::move(queryCtx));
 
     bufferManager_->initializeTask(task, false, numDestinations, numDrivers);
     return task;

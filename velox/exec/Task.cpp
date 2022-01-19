@@ -30,40 +30,6 @@ namespace facebook::velox::exec {
 
 Task::Task(
     const std::string& taskId,
-    std::shared_ptr<const core::PlanNode> planNode,
-    int destination,
-    std::shared_ptr<core::QueryCtx> queryCtx,
-    Consumer consumer,
-    std::function<void(std::exception_ptr)> onError)
-    : Task{
-          taskId,
-          std::move(planNode),
-          destination,
-          std::move(queryCtx),
-          (consumer ? [c = std::move(consumer)]() { return c; }
-                    : ConsumerSupplier{}),
-          std::move(onError)} {}
-
-Task::Task(
-    const std::string& taskId,
-    std::shared_ptr<const core::PlanNode> planNode,
-    int destination,
-    std::shared_ptr<core::QueryCtx> queryCtx,
-    ConsumerSupplier consumerSupplier,
-    std::function<void(std::exception_ptr)> onError)
-    : taskId_(taskId),
-      destination_(destination),
-      queryCtx_(std::move(queryCtx)),
-      consumerSupplier_(std::move(consumerSupplier)),
-      onError_(onError),
-      pool_(queryCtx_->pool()->addScopedChild("task_root")),
-      bufferManager_(
-          PartitionedOutputBufferManager::getInstance(queryCtx_->host())) {
-  planFragment_.planNode = std::move(planNode);
-}
-
-Task::Task(
-    const std::string& taskId,
     core::PlanFragment planFragment,
     int destination,
     std::shared_ptr<core::QueryCtx> queryCtx,

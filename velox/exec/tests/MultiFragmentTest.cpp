@@ -64,8 +64,9 @@ class MultiFragmentTest : public OperatorTestBase {
       int destination) {
     auto queryCtx = core::QueryCtx::createForTest(
         std::make_shared<core::MemConfig>(configSettings_));
+    core::PlanFragment planFragment{planNode};
     return std::make_shared<Task>(
-        taskId, planNode, destination, std::move(queryCtx));
+        taskId, std::move(planFragment), destination, std::move(queryCtx));
   }
 
   void writeToFile(const std::string& filePath, RowVectorPtr vector) {
