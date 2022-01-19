@@ -204,7 +204,7 @@ VectorPtr convert(
       if (child.GetType() == LogicalTypeId::HUGEINT ||
           child.GetType() == LogicalTypeId::TIMESTAMP ||
           child.GetType() == LogicalTypeId::VARCHAR) {
-        std::vector<uint8_t> validityVector((maxIndex + 7) / 8, 0);
+        std::vector<uint8_t> validityVector(bits::nbytes(maxIndex + 1), 0);
         auto validity_ptr = validityVector.data();
         for (auto i = 0; i < size; i++) {
           bits::setBit(validity_ptr, selection.get_index(i));

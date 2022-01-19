@@ -87,8 +87,12 @@ class ParquetReaderTest : public testing::Test {
     while (total < expected->size()) {
       auto part = reader.next(1000, result);
       EXPECT_GT(part, 0);
-      assertEqualVectorPart(expected, result, total);
-      total += part;
+      if (part > 0) {
+        assertEqualVectorPart(expected, result, total);
+        total += part;
+      } else {
+        break;
+      }
     }
     EXPECT_EQ(total, expected->size());
     EXPECT_EQ(reader.next(1000, result), 0);
@@ -355,4 +359,73 @@ TEST_F(ParquetReaderTest, doubleFilters) {
 
   assertReadWithFilters(
       "sample.parquet", sampleSchema(), std::move(filters), expected);
+}
+
+TEST_F(ParquetReaderTest, varcharFilters) {
+  // name < 'CANADA'
+  FilterMap filters;
+  filters.insert({"name", common::test::lessThan("CANADA")});
+
+  auto expected = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>({0, 1, 2}),
+      vectorMaker_->flatVector({"ALGERIA", "ARGENTINA", "BRAZIL"}),
+      vectorMaker_->flatVector<int64_t>({0, 1, 1}),
+  });
+
+  auto rowType =
+      ROW({"nationkey", "name", "regionkey"}, {BIGINT(), VARCHAR(), BIGINT()});
+
+  assertReadWithFilters(
+      "nation.parquet", rowType, std::move(filters), expected);
+
+  // name <= 'CANADA'
+  filters.insert({"name", common::test::lessThanOrEqual("CANADA")});
+
+  expected = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>({0, 1, 2, 3}),
+      vectorMaker_->flatVector({"ALGERIA", "ARGENTINA", "BRAZIL", "CANADA"}),
+      vectorMaker_->flatVector<int64_t>({0, 1, 1, 1}),
+  });
+
+  assertReadWithFilters(
+      "nation.parquet", rowType, std::move(filters), expected);
+
+  // name > UNITED KINGDOM
+  filters.insert({"name", common::test::greaterThan("UNITED KINGDOM")});
+
+  expected = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>({21, 24}),
+      vectorMaker_->flatVector({"VIETNAM", "UNITED STATES"}),
+      vectorMaker_->flatVector<int64_t>({2, 1}),
+  });
+
+  assertReadWithFilters(
+      "nation.parquet", rowType, std::move(filters), expected);
+
+  // name >= UNITED KINGDOM
+  filters.insert({"name", common::test::greaterThanOrEqual("UNITED KINGDOM")});
+
+  expected = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>({21, 23, 24}),
+      vectorMaker_->flatVector({"VIETNAM", "UNITED KINGDOM", "UNITED STATES"}),
+      vectorMaker_->flatVector<int64_t>({2, 3, 1}),
+  });
+
+  assertReadWithFilters(
+      "nation.parquet", rowType, std::move(filters), expected);
+
+  // name = 'CANADA'
+  filters.insert({"name", common::test::equal("CANADA")});
+
+  expected = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>({3}),
+      vectorMaker_->flatVector({"CANADA"}),
+      vectorMaker_->flatVector<int64_t>({1}),
+  });
+
+  assertReadWithFilters(
+      "nation.parquet", rowType, std::move(filters), expected);
+
+  // TODO Test name IN ('CANADA', 'UNITED KINGDOM') filter. Currently it doesn't
+  // work. The reader returns all rows instead of just 2.
 }
