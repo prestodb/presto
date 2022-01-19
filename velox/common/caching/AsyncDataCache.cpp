@@ -275,6 +275,15 @@ void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
     if (entry->isPrefetch()) {
       entry->setPrefetch(false);
     }
+    // An entry can have data allocated if we remove it after failing
+    // to fill it. Free the data and account for the difference. In
+    // eviction, the data of the evicted entries is moved away, so
+    // that freeing while holding the shard mutex is exceptional.
+    auto numPages = entry->data().numPages();
+    if (numPages) {
+      cache_->incrementCachedPages(-numPages);
+      cache_->free(entry->data());
+    }
   }
 }
 
@@ -319,13 +328,13 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
       if (candidate->numPins_ == 0 &&
           (!candidate->key_.fileNum.hasValue() || evictAllUnpinned ||
            (score = candidate->score(now)) >= evictionThreshold_)) {
+        largeFreed += candidate->data_.byteSize();
+        toFree.push_back(std::move(candidate->data()));
         removeEntryLocked(candidate);
         freeEntries_.push_back(std::move(*iter));
         emptySlots_.push_back(entryIndex);
         tinyFreed += candidate->tinyData_.size();
         candidate->tinyData_.clear();
-        largeFreed += candidate->data_.byteSize();
-        toFree.push_back(std::move(candidate->data()));
         candidate->size_ = 0;
         ++numEvict_;
         if (score) {

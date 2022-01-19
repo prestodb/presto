@@ -16,6 +16,7 @@
 
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/FileIds.h"
+#include "velox/common/memory/MmapAllocator.h"
 
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
@@ -40,9 +41,17 @@ struct Request {
 class AsyncDataCacheTest : public testing::Test {
  protected:
   static constexpr int32_t kNumFiles = 100;
-  void initializeCache(int64_t maxBytes) {
+
+  void TearDown() override {
+    if (executor_) {
+      executor_->join();
+    }
+  }
+
+  void initializeCache(uint64_t maxBytes) {
+    memory::MmapAllocatorOptions options = {maxBytes};
     cache_ = std::make_shared<AsyncDataCache>(
-        MappedMemory::createDefaultInstance(), maxBytes);
+        std::make_unique<memory::MmapAllocator>(options), maxBytes);
     for (auto i = 0; i < kNumFiles; ++i) {
       auto name = fmt::format("testing_file_{}", i);
       filenames_.push_back(StringIdLease(fileIds(), name));
@@ -160,13 +169,18 @@ class AsyncDataCacheTest : public testing::Test {
   }
 
  protected:
-  static folly::Executor* executor() {
-    static auto executor = std::make_unique<folly::IOThreadPoolExecutor>(4);
-    return executor.get();
+  folly::IOThreadPoolExecutor* FOLLY_NONNULL executor() {
+    static std::mutex mutex;
+    std::lock_guard<std::mutex> l(mutex);
+    if (!executor_) {
+      executor_ = std::make_unique<folly::IOThreadPoolExecutor>(4);
+    }
+    return executor_.get();
   }
 
   std::shared_ptr<AsyncDataCache> cache_;
   std::vector<StringIdLease> filenames_;
+  std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
 };
 
 class TestingCoalescedLoad : public CoalescedLoad {
@@ -380,11 +394,14 @@ TEST_F(AsyncDataCacheTest, pin) {
 }
 
 TEST_F(AsyncDataCacheTest, replace) {
-  constexpr int64_t kMaxBytes = 16 << 20;
+  constexpr int64_t kMaxBytes = 64 << 20;
   FLAGS_velox_exception_stacktrace = false;
   initializeCache(kMaxBytes);
   // Load 10x the max size, inject an error every 21 batches.
   loadLoop(0, kMaxBytes * 10, 21);
+  if (executor_) {
+    executor_->join();
+  }
   auto stats = cache_->refreshStats();
   EXPECT_LT(0, stats.numEvict);
   EXPECT_GE(
