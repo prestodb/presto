@@ -13,177 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
-#include "velox/functions/Macros.h"
+
+#include <velox/common/base/VeloxException.h>
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/benchmarks/ArrayMinMaxBasic.h"
+#include "velox/functions/prestosql/benchmarks/ArrayMinMaxBenchmark.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::exec;
+namespace facebook::velox::functions {
+
+void registerVectorFunctionFastPath() {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_min, "vector_fast_path");
+}
+
+void registerVectorFunctionBasic() {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_min_basic, "vector_basic");
+}
+
+void registerSimpleFunctions() {
+  registerFunction<ArrayMinSimpleFunction, int32_t, Array<int32_t>>(
+      {"array_min_simple"});
+
+  registerFunction<ArrayMinSimpleFunctionIterator, int32_t, Array<int32_t>>(
+      {"array_min_simple_iterator"});
+
+  registerFunction<
+      ArrayMinSimpleFunctionSkipNullIterator,
+      int32_t,
+      Array<int32_t>>({"array_min_simple_skip_null_iterator"});
+}
 
 namespace {
-
-template <typename T, typename Func>
-VectorPtr fastMinMax(const VectorPtr& in, const Func& func) {
-  const auto numRows = in->size();
-  auto result = std::static_pointer_cast<FlatVector<T>>(
-      BaseVector::create(in->type()->childAt(0), numRows, in->pool()));
-  auto rawResults = result->mutableRawValues();
-
-  auto arrayVector = in->as<ArrayVector>();
-  auto rawOffsets = arrayVector->rawOffsets();
-  auto rawSizes = arrayVector->rawSizes();
-  auto rawElements = arrayVector->elements()->as<FlatVector<T>>()->rawValues();
-  for (auto row = 0; row < numRows; ++row) {
-    const auto start = rawOffsets[row];
-    const auto end = start + rawSizes[row];
-    if (start == end) {
-      result->setNull(row, true); // NULL
-    } else {
-      rawResults[row] = *func(rawElements + start, rawElements + end);
-    }
-  }
-
-  return result;
-}
-
-template <typename T>
-VectorPtr fastMin(const VectorPtr& in) {
-  return fastMinMax<T, decltype(std::min_element<const T*>)>(
-      in, std::min_element<const T*>);
-}
-
-template <typename T>
-VectorPtr fastMax(const VectorPtr& in) {
-  return fastMinMax<T, decltype(std::max_element<const T*>)>(
-      in, std::max_element<const T*>);
-}
-
-template <typename T>
-struct ArrayMinSimpleFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(
-      TInput& out,
-      const arg_type<Array<TInput>>& array) {
-    if (array.size() == 0) {
-      return false; // NULL
-    }
-
-    auto min = INT32_MAX;
-    if (array.mayHaveNulls()) {
-      for (auto i = 0; i < array.size(); i++) {
-        if (!array[i].has_value()) {
-          return false; // NULL
-        }
-        if (array[i].value() < min) {
-          min = array[i].value();
-        }
-      }
-    } else {
-      for (auto i = 0; i < array.size(); i++) {
-        if (array[i].value() < min) {
-          min = array[i].value();
-        }
-      }
-    }
-    out = min;
-    return true;
-  }
-};
-
-template <typename T>
-struct ArrayMinSimpleFunctionIterator {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(
-      TInput& out,
-      const arg_type<Array<TInput>>& array) {
-    const auto size = array.size();
-    if (size == 0) {
-      return false; // NULL
-    }
-
-    auto min = INT32_MAX;
-    if (array.mayHaveNulls()) {
-      for (const auto& item : array) {
-        if (!item.has_value()) {
-          return false; // NULL
-        }
-        if (item.value() < min) {
-          min = item.value();
-        }
-      }
-    } else {
-      for (const auto& item : array) {
-        if (item.value() < min) {
-          min = item.value();
-        }
-      }
-    }
-
-    out = min;
-    return true;
-  }
-};
-
-// Returns the minimum value in an array ignoring nulls.
-// The point of this is to exercise SkipNullsIterator.
-template <typename T>
-struct ArrayMinSimpleFunctionSkipNullIterator {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(
-      TInput& out,
-      const arg_type<Array<TInput>>& array) {
-    const auto size = array.size();
-    if (size == 0) {
-      return false; // NULL
-    }
-
-    bool hasValue = false;
-    auto min = INT32_MAX;
-    for (const auto& item : array.skipNulls()) {
-      hasValue = true;
-      if (item < min) {
-        min = item;
-      }
-    }
-
-    if (!hasValue) {
-      return false;
-    }
-
-    out = min;
-    return true;
-  }
-};
-
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_array_min_basic,
-    functions::signatures(),
-    std::make_unique<functions::ArrayMinMaxFunctionBasic<std::less>>());
 
 class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   ArrayMinMaxBenchmark() : FunctionBenchmarkBase() {
     functions::prestosql::registerArrayFunctions();
-    VELOX_REGISTER_VECTOR_FUNCTION(udf_array_min_basic, "array_min_basic");
-
-    registerFunction<ArrayMinSimpleFunction, int32_t, Array<int32_t>>(
-        {"array_min_simple"});
-    registerFunction<ArrayMinSimpleFunctionIterator, int32_t, Array<int32_t>>(
-        {"array_min_simple_iterator"});
-    registerFunction<
-        ArrayMinSimpleFunctionSkipNullIterator,
-        int32_t,
-        Array<int32_t>>({"array_min_simple_skip_null_iterator"});
+    registerVectorFunctionBasic();
+    registerVectorFunctionFastPath();
+    registerSimpleFunctions();
   }
 
   RowVectorPtr makeData() {
@@ -196,7 +67,7 @@ class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
     return vectorMaker_.rowVector({arrayVector});
   }
 
-  void runInteger(const std::string& functionName) {
+  size_t runInteger(const std::string& functionName) {
     folly::BenchmarkSuspender suspender;
     auto arrayVector = makeData()->childAt(0);
     auto rowVector = vectorMaker_.rowVector({arrayVector});
@@ -204,19 +75,19 @@ class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
         fmt::format("{}(c0)", functionName), rowVector->type());
     suspender.dismiss();
 
-    doRun(exprSet, rowVector);
+    return doRun(exprSet, rowVector);
   }
 
-  void doRun(ExprSet& exprSet, const RowVectorPtr& rowVector) {
+  size_t doRun(exec::ExprSet& exprSet, const RowVectorPtr& rowVector) {
     int cnt = 0;
     for (auto i = 0; i < 100; i++) {
       cnt += evaluate(exprSet, rowVector)->size();
     }
-    folly::doNotOptimizeAway(cnt);
+    return cnt;
   }
 
   template <typename F>
-  void runFastInteger(F function) {
+  size_t runFastInteger(F function) {
     folly::BenchmarkSuspender suspender;
     auto arrayVector = makeData()->childAt(0);
     suspender.dismiss();
@@ -226,39 +97,48 @@ class ArrayMinMaxBenchmark : public functions::test::FunctionBenchmarkBase {
       cnt += function(arrayVector)->size();
     }
     folly::doNotOptimizeAway(cnt);
+    return cnt;
   }
 };
 
-BENCHMARK(fastMinInteger) {
+BENCHMARK_MULTI(fastMinInteger) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runFastInteger(fastMin<int32_t>);
+  return benchmark.runFastInteger(fastMin<int32_t>);
 }
 
-BENCHMARK_RELATIVE(vectorMinInteger) {
+BENCHMARK_MULTI(vectorNoFastPath) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runInteger("array_min");
+  return benchmark.runInteger("vector_basic");
 }
 
-BENCHMARK_RELATIVE(vectorMinIntegerNoFastPath) {
+BENCHMARK_MULTI(vectorFastPath) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runInteger("array_min_basic");
+  return benchmark.runInteger("vector_fast_path");
 }
 
-BENCHMARK_RELATIVE(simpleMinIntegerIterator) {
+BENCHMARK_MULTI(simpleMinIntegerSkipNullIterator) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runInteger("array_min_simple_iterator");
+  return benchmark.runInteger("array_min_simple_skip_null_iterator");
 }
 
-BENCHMARK_RELATIVE(simpleMinIntegerSkipNullIterator) {
+BENCHMARK_MULTI(simpleMinIntegerIterator) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runInteger("array_min_simple_skip_null_iterator");
+  return benchmark.runInteger("array_min_simple_iterator");
 }
 
-BENCHMARK_RELATIVE(simpleMinInteger) {
+BENCHMARK_MULTI(simpleMinInteger) {
   ArrayMinMaxBenchmark benchmark;
-  benchmark.runInteger("array_min_simple");
+  return benchmark.runInteger("array_min_simple");
 }
+
+// The function registred in prestoSQL.
+BENCHMARK_MULTI(prestoSQLArrayMin) {
+  ArrayMinMaxBenchmark benchmark;
+  return benchmark.runInteger("array_min");
+}
+
 } // namespace
+} // namespace facebook::velox::functions
 
 int main(int /*argc*/, char** /*argv*/) {
   folly::runBenchmarks();
