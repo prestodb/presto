@@ -32,6 +32,7 @@ add_library(
   MinMaxAggregates.cpp
   MinMaxByAggregates.cpp
   CountAggregate.cpp
+  PrestoHasher.cpp
   SingleValueAccumulator.cpp
   SumAggregate.cpp
   SumAggregate.h

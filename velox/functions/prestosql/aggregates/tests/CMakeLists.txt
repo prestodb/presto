@@ -30,6 +30,7 @@ add_executable(
   CovarianceAggregationTest.cpp
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp
+  PrestoHasherTest.cpp
   SumTest.cpp
   MapAggTest.cpp
   ValueListTest.cpp
