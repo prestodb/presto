@@ -362,8 +362,9 @@ ExprPtr compileExpression(
           resultType, std::move(compiledInputs), func, call->name());
     } else {
       VELOX_FAIL(
-          "Scalar function not registered: {}",
-          core::FunctionKey(call->name(), inputTypes).toString());
+          "Scalar function not registered: {} ({})",
+          call->name(),
+          folly::join(", ", inputTypes));
     }
   } else if (
       auto access =

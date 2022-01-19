@@ -27,35 +27,6 @@
 
 namespace facebook::velox::core {
 
-class ArgumentsCtx {
- public:
-  /* implicit */ ArgumentsCtx(std::vector<std::shared_ptr<const Type>> argTypes)
-      : types_(std::move(argTypes)) {}
-
-  const std::vector<std::shared_ptr<const Type>>& types() const {
-    return types_;
-  }
-
-  bool operator==(const ArgumentsCtx& rhs) const {
-    if (types_.size() != rhs.types_.size()) {
-      return false;
-    }
-    return std::equal(
-        std::begin(types_),
-        std::end(types_),
-        std::begin(rhs.types()),
-        [](const std::shared_ptr<const Type>& l,
-           const std::shared_ptr<const Type>& r) { return l->kindEquals(r); });
-  }
-
-  bool operator!=(const ArgumentsCtx& rhs) const {
-    return !(*this == rhs);
-  }
-
- private:
-  std::vector<std::shared_ptr<const Type>> types_;
-};
-
 // most UDFs are determinisic, hence this default value
 template <class T, class = void>
 struct udf_is_deterministic : std::true_type {};
@@ -124,57 +95,6 @@ struct ValidateVariadicArgs {
   static constexpr bool value = isValidArg<0, TArgs...>();
 };
 
-// This class is used as a key to resolve UDFs. UDF registry stores the function
-// implementation with the function signatures (FunctionKey) that it supports.
-// When it compiles the input expressions, expression engines evaluate the input
-// and construct FunctionKey with type resolving all inputs, to find a UDF
-// implementation that can handle this.
-class FunctionKey {
- public:
-  FunctionKey(std::string name, std::vector<std::shared_ptr<const Type>> params)
-      : name_{std::move(name)}, argumentsCtx_{std::move(params)} {
-    for (const auto& param : argumentsCtx_.types()) {
-      CHECK_NOTNULL(param.get());
-    }
-  }
-
-  std::string toString() const {
-    std::string buf{name_};
-    buf.append("( ");
-    for (const auto& type : argumentsCtx_.types()) {
-      buf.append(type->toString());
-      buf.append(" ");
-    }
-    buf.append(")");
-    return buf;
-  }
-
-  friend std::ostream& operator<<(std::ostream& stream, const FunctionKey& k) {
-    stream << k.toString();
-    return stream;
-  }
-
-  bool operator==(const FunctionKey& rhs) const {
-    auto& lhs = *this;
-    if (lhs.name_ != rhs.name_) {
-      return false;
-    }
-    return lhs.argumentsCtx_ == rhs.argumentsCtx_;
-  }
-
-  const std::string& name() const {
-    return name_;
-  }
-
-  const std::vector<std::shared_ptr<const Type>>& types() const {
-    return argumentsCtx_.types();
-  }
-
- private:
-  std::string name_;
-  ArgumentsCtx argumentsCtx_;
-};
-
 // todo(youknowjack): add a dynamic execution mode
 // todo(youknowjack): need a better story for types for UDFs. Mapping
 //                    c++ types <-> Velox types is imprecise (e.g. string vs
@@ -188,7 +108,6 @@ class IScalarFunction {
   virtual std::string getName() const = 0;
   virtual bool isDeterministic() const = 0;
   virtual int32_t reuseStringsFromArg() const = 0;
-  virtual FunctionKey key() const = 0;
   virtual std::shared_ptr<exec::FunctionSignature> signature() const = 0;
   virtual std::string helpMessage(const std::string& name) const = 0;
 
@@ -278,10 +197,6 @@ class ScalarFunctionMetadata : public IScalarFunction {
     verifyReturnTypeCompatibility();
   }
   ~ScalarFunctionMetadata() override = default;
-
-  FunctionKey key() const final {
-    return FunctionKey{getName(), argTypes()};
-  }
 
   std::shared_ptr<exec::FunctionSignature> signature() const final {
     auto builder =
@@ -487,57 +402,3 @@ class UDFHolder final
 };
 
 } // namespace facebook::velox::core
-
-namespace std {
-template <>
-struct hash<facebook::velox::core::ArgumentsCtx> {
-  using argument_type = facebook::velox::core::ArgumentsCtx;
-  using result_type = std::size_t;
-
-  result_type operator()(const argument_type& key) const noexcept {
-    size_t val = 0;
-    for (const auto& type : key.types()) {
-      val = val * 31 + type->hashKind();
-    }
-    return val;
-  }
-};
-
-template <>
-struct hash<facebook::velox::core::FunctionKey> {
-  using argument_type = facebook::velox::core::FunctionKey;
-  using result_type = std::size_t;
-  result_type operator()(const argument_type& key) const noexcept {
-    size_t val = std::hash<std::string>{}(key.name());
-    for (const auto& type : key.types()) {
-      val = val * 31 + type->hashKind();
-    }
-    return val;
-  }
-};
-
-template <>
-struct equal_to<facebook::velox::core::FunctionKey> {
-  using result_type = bool;
-  using first_argument_type = facebook::velox::core::FunctionKey;
-  using second_argument_type = first_argument_type;
-
-  bool operator()(
-      const first_argument_type& lhs,
-      const second_argument_type& rhs) const {
-    return lhs == rhs;
-  }
-};
-} // namespace std
-
-template <>
-struct fmt::formatter<facebook::velox::core::FunctionKey> {
-  constexpr auto parse(format_parse_context& ctx) {
-    return ctx.begin();
-  }
-
-  template <typename FormatContext>
-  auto format(const facebook::velox::core::FunctionKey& k, FormatContext& ctx) {
-    return format_to(ctx.out(), "{}", k.toString());
-  }
-};
