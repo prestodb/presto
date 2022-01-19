@@ -16,6 +16,7 @@
 #pragma once
 #include <velox/core/Expressions.h>
 #include <velox/core/ITypedExpr.h>
+#include <velox/core/PlanFragment.h>
 #include <velox/core/PlanNode.h>
 #include "velox/common/memory/Memory.h"
 
@@ -27,7 +28,7 @@ namespace facebook::velox::exec::test {
 
 class PlanBuilder {
  public:
-  PlanBuilder(int planNodeId = 0, memory::MemoryPool* pool = nullptr)
+  explicit PlanBuilder(int planNodeId = 0, memory::MemoryPool* pool = nullptr)
       : planNodeId_{planNodeId}, pool_{pool} {}
 
   explicit PlanBuilder(memory::MemoryPool* pool)
@@ -294,6 +295,10 @@ class PlanBuilder {
 
   const std::shared_ptr<core::PlanNode>& planNode() const {
     return planNode_;
+  }
+
+  core::PlanFragment planFragment() const {
+    return core::PlanFragment{planNode_};
   }
 
   // Adds a user defined PlanNode as the root of the plan. 'func' takes

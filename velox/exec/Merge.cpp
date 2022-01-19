@@ -213,8 +213,8 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
   }
   for (;;) {
     exec::Split split;
-    auto reason =
-        operatorCtx_->task()->getSplitOrFuture(planNodeId_, split, *future);
+    auto reason = operatorCtx_->task()->getSplitOrFuture(
+        operatorCtx_->driverCtx()->driverId, planNodeId_, split, *future);
     if (reason == BlockingReason::kNotBlocked) {
       if (split.hasConnectorSplit()) {
         auto remoteSplit = std::dynamic_pointer_cast<RemoteConnectorSplit>(

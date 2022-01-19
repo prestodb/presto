@@ -33,10 +33,60 @@ Task::Task(
     std::shared_ptr<const core::PlanNode> planNode,
     int destination,
     std::shared_ptr<core::QueryCtx> queryCtx,
+    Consumer consumer,
+    std::function<void(std::exception_ptr)> onError)
+    : Task{
+          taskId,
+          std::move(planNode),
+          destination,
+          std::move(queryCtx),
+          (consumer ? [c = std::move(consumer)]() { return c; }
+                    : ConsumerSupplier{}),
+          std::move(onError)} {}
+
+Task::Task(
+    const std::string& taskId,
+    std::shared_ptr<const core::PlanNode> planNode,
+    int destination,
+    std::shared_ptr<core::QueryCtx> queryCtx,
     ConsumerSupplier consumerSupplier,
     std::function<void(std::exception_ptr)> onError)
     : taskId_(taskId),
-      planNode_(planNode),
+      destination_(destination),
+      queryCtx_(std::move(queryCtx)),
+      consumerSupplier_(std::move(consumerSupplier)),
+      onError_(onError),
+      pool_(queryCtx_->pool()->addScopedChild("task_root")),
+      bufferManager_(
+          PartitionedOutputBufferManager::getInstance(queryCtx_->host())) {
+  planFragment_.planNode = std::move(planNode);
+}
+
+Task::Task(
+    const std::string& taskId,
+    core::PlanFragment planFragment,
+    int destination,
+    std::shared_ptr<core::QueryCtx> queryCtx,
+    Consumer consumer,
+    std::function<void(std::exception_ptr)> onError)
+    : Task{
+          taskId,
+          std::move(planFragment),
+          destination,
+          std::move(queryCtx),
+          (consumer ? [c = std::move(consumer)]() { return c; }
+                    : ConsumerSupplier{}),
+          std::move(onError)} {}
+
+Task::Task(
+    const std::string& taskId,
+    core::PlanFragment planFragment,
+    int destination,
+    std::shared_ptr<core::QueryCtx> queryCtx,
+    ConsumerSupplier consumerSupplier,
+    std::function<void(std::exception_ptr)> onError)
+    : taskId_(taskId),
+      planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
       consumerSupplier_(std::move(consumerSupplier)),
@@ -74,13 +124,16 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
     auto lazyLoading = config.codegenLazyLoading();
     codegen.initializeFromFile(
         config.codegenConfigurationFilePath(), lazyLoading);
-    auto newPlanNode = codegen.compile(*(self->planNode_));
-    self->planNode_ = newPlanNode != nullptr ? newPlanNode : self->planNode_;
+    auto newPlanNode = codegen.compile(*(self->planFragment_.planNode));
+    self->planFragment_.planNode =
+        newPlanNode != nullptr ? newPlanNode : self->planFragment_.planNode;
   }
 #endif
 
   LocalPlanner::plan(
-      self->planNode_, self->consumerSupplier(), &self->driverFactories_);
+      self->planFragment_.planNode,
+      self->consumerSupplier(),
+      &self->driverFactories_);
 
   for (auto& factory : self->driverFactories_) {
     self->numDrivers_ += std::min(factory->maxDrivers, maxDrivers);
@@ -321,6 +374,7 @@ bool Task::isAllSplitsFinishedLocked() {
 }
 
 BlockingReason Task::getSplitOrFuture(
+    int /*driverId*/,
     const core::PlanNodeId& planNodeId,
     exec::Split& split,
     ContinueFuture& future) {
@@ -650,8 +704,8 @@ std::string Task::toString() {
     out << "Error: " << errorMessage() << std::endl;
   }
 
-  if (planNode_) {
-    out << "Plan: " << planNode_->toString() << std::endl;
+  if (planFragment_.planNode) {
+    out << "Plan: " << planFragment_.planNode->toString() << std::endl;
   }
 
   out << " drivers:\n";
