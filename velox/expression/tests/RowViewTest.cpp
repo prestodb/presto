@@ -88,4 +88,20 @@ TEST_F(RowViewTest, encoded) {
   }
 }
 
+TEST_F(RowViewTest, get) {
+  auto rowVector = makeTestRowVector();
+  DecodedVector decoded;
+  exec::VectorReader<Row<int32_t, float>> reader(decode(decoded, *rowVector));
+
+  for (auto i = 0; i < rowVector->size(); ++i) {
+    auto isSet = reader.isSet(i);
+    ASSERT_EQ(isSet, i % 2 == 1);
+    if (isSet) {
+      auto&& r = reader[i];
+      ASSERT_EQ(*exec::get<0>(r), i);
+      ASSERT_EQ(*exec::get<1>(r), rowVector->size() - i);
+    }
+  }
+}
+
 } // namespace

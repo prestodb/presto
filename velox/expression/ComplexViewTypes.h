@@ -604,4 +604,9 @@ class RowView {
   vector_size_t offset_;
 };
 
+template <size_t I, class... Types>
+auto get(const RowView<Types...>& row) {
+  return row.template at<I>();
+}
+
 } // namespace facebook::velox::exec
