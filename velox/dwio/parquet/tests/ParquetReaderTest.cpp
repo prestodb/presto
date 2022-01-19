@@ -37,31 +37,23 @@ class ParquetReaderTest : public testing::Test {
         "velox/dwio/parquet/tests", "examples/" + fileName);
   }
 
-  RowReaderOptions getSampleReaderOpts() {
+  RowReaderOptions getReaderOpts(const RowTypePtr& rowType) {
     RowReaderOptions rowReaderOpts;
-    auto rowType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
-    auto cs = std::make_shared<ColumnSelector>(
-        rowType, std::vector<std::string>{"a", "b"});
-    rowReaderOpts.select(cs);
+    rowReaderOpts.select(
+        std::make_shared<ColumnSelector>(rowType, rowType->names()));
     return rowReaderOpts;
   }
 
-  RowReaderOptions getDateReaderOpts() {
-    RowReaderOptions rowReaderOpts;
-    auto rowType = ROW({"date"}, {DATE()});
-    auto cs = std::make_shared<ColumnSelector>(
-        rowType, std::vector<std::string>{"date"});
-    rowReaderOpts.select(cs);
-    return rowReaderOpts;
+  static RowTypePtr sampleSchema() {
+    return ROW({"a", "b"}, {BIGINT(), DOUBLE()});
   }
 
-  RowReaderOptions getIntReaderOpts() {
-    RowReaderOptions rowReaderOpts;
-    auto rowType = ROW({"int", "bigint"}, {INTEGER(), BIGINT()});
-    auto cs = std::make_shared<ColumnSelector>(
-        rowType, std::vector<std::string>{"int", "bigint"});
-    rowReaderOpts.select(cs);
-    return rowReaderOpts;
+  static RowTypePtr dateSchema() {
+    return ROW({"date"}, {DATE()});
+  }
+
+  static RowTypePtr intSchema() {
+    return ROW({"int", "bigint"}, {INTEGER(), BIGINT()});
   }
 
   template <typename T>
@@ -102,6 +94,32 @@ class ParquetReaderTest : public testing::Test {
     EXPECT_EQ(reader.next(1000, result), 0);
   }
 
+  using FilterMap =
+      std::unordered_map<std::string, std::unique_ptr<common::Filter>>;
+
+  void assertReadWithFilters(
+      const std::string& fileName,
+      const RowTypePtr& fileSchema,
+      FilterMap filters,
+      const RowVectorPtr& expected) {
+    const auto filePath(getExampleFilePath(fileName));
+
+    ReaderOptions readerOptions;
+    ParquetReader reader(
+        std::make_unique<FileInputStream>(filePath), readerOptions);
+
+    common::ScanSpec scanSpec("");
+    for (auto&& [column, filter] : filters) {
+      scanSpec.getOrCreateChild(common::Subfield(column))
+          ->setFilter(std::move(filter));
+    }
+
+    RowReaderOptions rowReaderOpts = getReaderOpts(fileSchema);
+    rowReaderOpts.setScanSpec(&scanSpec);
+    auto rowReader = reader.createRowReader(rowReaderOpts);
+    assertReadExpected(*rowReader, expected);
+  }
+
   std::unique_ptr<memory::ScopedMemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
   std::unique_ptr<test::VectorMaker> vectorMaker_{
@@ -137,7 +155,7 @@ TEST_F(ParquetReaderTest, readSampleFull) {
   EXPECT_EQ(type->childByName("a"), col0);
   EXPECT_EQ(type->childByName("b"), col1);
 
-  RowReaderOptions rowReaderOpts = getSampleReaderOpts();
+  RowReaderOptions rowReaderOpts = getReaderOpts(sampleSchema());
   auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(20, 1), rangeVector<double>(20, 1)});
@@ -151,7 +169,7 @@ TEST_F(ParquetReaderTest, readSampleRange1) {
   ParquetReader reader(
       std::make_unique<FileInputStream>(sample), readerOptions);
 
-  RowReaderOptions rowReaderOpts = getSampleReaderOpts();
+  RowReaderOptions rowReaderOpts = getReaderOpts(sampleSchema());
   rowReaderOpts.range(0, 200);
   auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
@@ -166,7 +184,7 @@ TEST_F(ParquetReaderTest, readSampleRange2) {
   ParquetReader reader(
       std::make_unique<FileInputStream>(sample), readerOptions);
 
-  RowReaderOptions rowReaderOpts = getSampleReaderOpts();
+  RowReaderOptions rowReaderOpts = getReaderOpts(sampleSchema());
   rowReaderOpts.range(200, 500);
   auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
@@ -181,7 +199,7 @@ TEST_F(ParquetReaderTest, readSampleEmptyRange) {
   ParquetReader reader(
       std::make_unique<FileInputStream>(sample), readerOptions);
 
-  RowReaderOptions rowReaderOpts = getSampleReaderOpts();
+  RowReaderOptions rowReaderOpts = getReaderOpts(sampleSchema());
   rowReaderOpts.range(300, 10);
   auto rowReader = reader.createRowReader(rowReaderOpts);
 
@@ -190,41 +208,27 @@ TEST_F(ParquetReaderTest, readSampleEmptyRange) {
 }
 
 TEST_F(ParquetReaderTest, readSampleBigintRangeFilter) {
-  const std::string sample(getExampleFilePath("sample.parquet"));
+  // a BETWEEN 16 AND 20
+  FilterMap filters;
+  filters.insert({"a", common::test::between(16, 20)});
 
-  ReaderOptions readerOptions;
-  ParquetReader reader(
-      std::make_unique<FileInputStream>(sample), readerOptions);
-
-  RowReaderOptions rowReaderOpts = getSampleReaderOpts();
-  common::ScanSpec scanSpec("");
-  scanSpec.getOrCreateChild(common::Subfield("a"))
-      ->setFilter(common::test::between(16, 20));
-  scanSpec.getOrCreateChild(common::Subfield("b"));
-  rowReaderOpts.setScanSpec(&scanSpec);
-  auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(5, 16), rangeVector<double>(5, 16)});
-  assertReadExpected(*rowReader, expected);
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
 }
 
 TEST_F(ParquetReaderTest, readSampleEqualFilter) {
-  const std::string sample(getExampleFilePath("sample.parquet"));
+  // a = 16
+  FilterMap filters;
+  filters.insert({"a", common::test::equal(16)});
 
-  ReaderOptions readerOptions;
-  ParquetReader reader(
-      std::make_unique<FileInputStream>(sample), readerOptions);
-
-  RowReaderOptions rowReaderOpts = getSampleReaderOpts();
-  common::ScanSpec scanSpec("");
-  scanSpec.getOrCreateChild(common::Subfield("a"))
-      ->setFilter(common::test::between(16, 16));
-  scanSpec.getOrCreateChild(common::Subfield("b"));
-  rowReaderOpts.setScanSpec(&scanSpec);
-  auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(1, 16), rangeVector<double>(1, 16)});
-  assertReadExpected(*rowReader, expected);
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
 }
 
 TEST_F(ParquetReaderTest, dateRead) {
@@ -245,7 +249,7 @@ TEST_F(ParquetReaderTest, dateRead) {
   auto col0 = type->childAt(0);
   EXPECT_EQ(col0->type->kind(), TypeKind::DATE);
 
-  RowReaderOptions rowReaderOpts = getDateReaderOpts();
+  RowReaderOptions rowReaderOpts = getReaderOpts(dateSchema());
   auto rowReader = reader.createRowReader(rowReaderOpts);
 
   auto expected = vectorMaker_->rowVector({rangeVector<Date>(25, -5)});
@@ -253,21 +257,14 @@ TEST_F(ParquetReaderTest, dateRead) {
 }
 
 TEST_F(ParquetReaderTest, dateFilter) {
-  const std::string sample(getExampleFilePath("date.parquet"));
-
-  ReaderOptions readerOptions;
-  ParquetReader reader(
-      std::make_unique<FileInputStream>(sample), readerOptions);
-
-  RowReaderOptions rowReaderOpts = getDateReaderOpts();
-  common::ScanSpec scanSpec("");
-  scanSpec.getOrCreateChild(common::Subfield("date"))
-      ->setFilter(common::test::between(5, 14));
-  rowReaderOpts.setScanSpec(&scanSpec);
-  auto rowReader = reader.createRowReader(rowReaderOpts);
+  // date BETWEEN 5 AND 14
+  FilterMap filters;
+  filters.insert({"date", common::test::between(5, 14)});
 
   auto expected = vectorMaker_->rowVector({rangeVector<Date>(10, 5)});
-  assertReadExpected(*rowReader, expected);
+
+  assertReadWithFilters(
+      "date.parquet", dateSchema(), std::move(filters), expected);
 }
 
 TEST_F(ParquetReaderTest, intRead) {
@@ -291,7 +288,7 @@ TEST_F(ParquetReaderTest, intRead) {
   auto col1 = type->childAt(1);
   EXPECT_EQ(col1->type->kind(), TypeKind::BIGINT);
 
-  RowReaderOptions rowReaderOpts = getIntReaderOpts();
+  RowReaderOptions rowReaderOpts = getReaderOpts(intSchema());
   auto rowReader = reader.createRowReader(rowReaderOpts);
 
   auto expected = vectorMaker_->rowVector(
@@ -300,22 +297,62 @@ TEST_F(ParquetReaderTest, intRead) {
 }
 
 TEST_F(ParquetReaderTest, intMultipleFilters) {
-  const std::string sample(getExampleFilePath("int.parquet"));
-
-  ReaderOptions readerOptions;
-  ParquetReader reader(
-      std::make_unique<FileInputStream>(sample), readerOptions);
-
-  RowReaderOptions rowReaderOpts = getIntReaderOpts();
-  common::ScanSpec scanSpec("");
-  scanSpec.getOrCreateChild(common::Subfield("int"))
-      ->setFilter(common::test::between(102, 120));
-  scanSpec.getOrCreateChild(common::Subfield("bigint"))
-      ->setFilter(common::test::between(900, 1006));
-  rowReaderOpts.setScanSpec(&scanSpec);
-  auto rowReader = reader.createRowReader(rowReaderOpts);
+  // int BETWEEN 102 AND 120 AND bigint BETWEEN 900 AND 1006
+  FilterMap filters;
+  filters.insert({"int", common::test::between(102, 120)});
+  filters.insert({"bigint", common::test::between(900, 1006)});
 
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int32_t>(5, 102), rangeVector<int64_t>(5, 1002)});
-  assertReadExpected(*rowReader, expected);
+
+  assertReadWithFilters(
+      "int.parquet", intSchema(), std::move(filters), expected);
+}
+
+TEST_F(ParquetReaderTest, doubleFilters) {
+  // b < 10.0
+  FilterMap filters;
+  filters.insert({"b", common::test::lessThanDouble(10.0)});
+
+  auto expected = vectorMaker_->rowVector(
+      {rangeVector<int64_t>(9, 1), rangeVector<double>(9, 1)});
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
+
+  // b <= 10.0
+  filters.insert({"b", common::test::lessThanOrEqualDouble(10.0)});
+
+  expected = vectorMaker_->rowVector(
+      {rangeVector<int64_t>(10, 1), rangeVector<double>(10, 1)});
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
+
+  // b between 10.0 and 14.0
+  filters.insert({"b", common::test::betweenDouble(10.0, 14.0)});
+
+  expected = vectorMaker_->rowVector(
+      {rangeVector<int64_t>(5, 10), rangeVector<double>(5, 10)});
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
+
+  // b > 14.0
+  filters.insert({"b", common::test::greaterThanDouble(14.0)});
+
+  expected = vectorMaker_->rowVector(
+      {rangeVector<int64_t>(6, 15), rangeVector<double>(6, 15)});
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
+
+  // b >= 14.0
+  filters.insert({"b", common::test::greaterThanOrEqualDouble(14.0)});
+
+  expected = vectorMaker_->rowVector(
+      {rangeVector<int64_t>(7, 14), rangeVector<double>(7, 14)});
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
 }
