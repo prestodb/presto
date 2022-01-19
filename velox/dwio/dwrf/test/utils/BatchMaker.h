@@ -34,7 +34,8 @@ struct BatchMaker {
       const std::shared_ptr<const Type>& type,
       uint64_t capacity,
       memory::MemoryPool& memoryPool,
-      std::function<bool(vector_size_t /*index*/)> isNullAt = nullptr);
+      std::function<bool(vector_size_t /*index*/)> isNullAt = nullptr,
+      std::mt19937::result_type seed = std::mt19937::default_seed);
 
   template <TypeKind KIND>
   static VectorPtr createVector(
@@ -49,8 +50,9 @@ struct BatchMaker {
       const std::shared_ptr<const Type>& type,
       size_t size,
       memory::MemoryPool& pool,
-      std::function<bool(vector_size_t /*index*/)> isNullAt = nullptr) {
-    std::mt19937 gen;
+      std::function<bool(vector_size_t /*index*/)> isNullAt = nullptr,
+      std::mt19937::result_type seed = std::mt19937::default_seed) {
+    std::mt19937 gen{seed};
     return createVector<KIND>(type, size, pool, gen, isNullAt);
   }
 };

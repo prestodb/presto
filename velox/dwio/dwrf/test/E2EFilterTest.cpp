@@ -89,7 +89,7 @@ class E2EFilterTest : public testing::Test {
     batches_.clear();
     for (size_t i = 0; i < batchCount; ++i) {
       batches_.push_back(std::static_pointer_cast<RowVector>(
-          BatchMaker::createBatch(rowType_, size, *pool_)));
+          BatchMaker::createBatch(rowType_, size, *pool_, nullptr, i)));
     }
     if (customizeData) {
       customizeData();

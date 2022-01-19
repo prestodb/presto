@@ -300,7 +300,7 @@ bool SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
   if (anyNulls_) {
     VELOX_CHECK(
         resultNulls_ && resultNulls_->as<uint64_t>() == rawResultNulls_);
-    VELOX_CHECK_GT(resultNulls_->capacity() * 8, rows.back());
+    VELOX_CHECK_GT(resultNulls_->capacity() * 8, rows.size());
     return true;
   }
   return false;
@@ -3730,7 +3730,6 @@ void SelectiveStringDictionaryColumnReader::read(
   bool isDense = rows.back() == rows.size() - 1;
   const auto* nullsPtr =
       nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
-  vector_size_t numRows = rows.back() + 1;
   // lazy loading dictionary data when first hit
   ensureInitialized();
 

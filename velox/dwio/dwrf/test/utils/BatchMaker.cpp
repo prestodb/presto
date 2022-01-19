@@ -17,6 +17,7 @@
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include <folly/Random.h>
 #include <algorithm>
+#include <random>
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -581,8 +582,9 @@ VectorPtr BatchMaker::createBatch(
     const std::shared_ptr<const Type>& type,
     uint64_t capacity,
     MemoryPool& memoryPool,
-    std::function<bool(vector_size_t /*index*/)> isNullAt) {
-  std::mt19937 gen;
+    std::function<bool(vector_size_t /*index*/)> isNullAt,
+    std::mt19937::result_type seed) {
+  std::mt19937 gen(seed);
   return createBatch(type, capacity, memoryPool, gen, isNullAt);
 }
 

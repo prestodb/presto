@@ -15,6 +15,7 @@
  */
 
 #include <folly/Random.h>
+#include <random>
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
@@ -79,7 +80,7 @@ TEST(E2EWriterTests, DISABLED_TestFileCreation) {
   auto& pool = *scopedPool;
   std::vector<VectorPtr> batches;
   for (size_t i = 0; i < batchCount; ++i) {
-    batches.push_back(BatchMaker::createBatch(type, size, pool));
+    batches.push_back(BatchMaker::createBatch(type, size, pool, nullptr, i));
   }
 
   auto sink = std::make_unique<FileSink>("/tmp/e2e_generated_file.orc");
@@ -141,7 +142,7 @@ TEST(E2EWriterTests, E2E) {
 
   std::vector<VectorPtr> batches;
   for (size_t i = 0; i < batchCount; ++i) {
-    batches.push_back(BatchMaker::createBatch(type, size, pool));
+    batches.push_back(BatchMaker::createBatch(type, size, pool, nullptr, i));
     size = 200;
   }
 
@@ -486,7 +487,7 @@ void testFlatMapConfig(
   Writer writer{options, std::move(sink), pool};
 
   for (size_t i = 0; i < stripes; ++i) {
-    writer.write(BatchMaker::createBatch(type, size, pool));
+    writer.write(BatchMaker::createBatch(type, size, pool, nullptr, i));
   }
 
   writer.close();
@@ -804,7 +805,7 @@ class E2EEncryptionTest : public Test {
     writer_ = std::make_unique<Writer>(options, std::move(sink), pool);
 
     for (size_t i = 0; i < batchCount_; ++i) {
-      auto batch = BatchMaker::createBatch(type, batchSize_, pool);
+      auto batch = BatchMaker::createBatch(type, batchSize_, pool, nullptr, i);
       writer_->write(batch);
       batches_.push_back(std::move(batch));
       if (i % flushInterval_ == flushInterval_ - 1) {
