@@ -475,6 +475,7 @@ public final class Session
                 .setSessionStartTime(getStartTime())
                 .setSessionLocale(getLocale())
                 .setSessionUser(getUser())
+                .setExtraCredentials(identity.getExtraCredentials())
                 .build();
     }
 
