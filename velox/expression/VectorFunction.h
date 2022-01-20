@@ -120,14 +120,13 @@ class VectorFunction {
   }
 };
 
-// Factory for functions which are template generated from scalar functions.
-class VectorAdapterFactory {
+// Factory for functions which are template generated from simple functions.
+class SimpleFunctionAdapterFactory {
  public:
-  virtual std::unique_ptr<VectorFunction> getVectorInterpreter(
+  virtual std::unique_ptr<VectorFunction> createVectorFunction(
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& constantInputs) const = 0;
-  virtual ~VectorAdapterFactory() = default;
-  virtual const TypePtr returnType() const = 0;
+  virtual ~SimpleFunctionAdapterFactory() = default;
 };
 
 /// Returns a list of signatures supported by VectorFunction with the specified

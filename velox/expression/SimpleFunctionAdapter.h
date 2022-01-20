@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <memory>
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
@@ -24,7 +25,7 @@
 namespace facebook::velox::exec {
 
 template <typename FUNC>
-class VectorAdapter : public VectorFunction {
+class SimpleFunctionAdapter : public VectorFunction {
   using T = typename FUNC::exec_return_type;
   using return_type_traits = CppToType<typename FUNC::return_type>;
   template <int32_t POSITION>
@@ -96,7 +97,7 @@ class VectorAdapter : public VectorFunction {
   }
 
  public:
-  explicit VectorAdapter(
+  explicit SimpleFunctionAdapter(
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& constantInputs,
       std::shared_ptr<const Type> returnType)
@@ -386,7 +387,7 @@ class VectorAdapter : public VectorFunction {
     }
   }
 
-  // For default null behavior, Terminate by with ScalarFunction::call.
+  // For default null behavior, Terminate by with UDFHolder::call.
   template <
       size_t POSITION,
       typename... Values,
@@ -398,7 +399,7 @@ class VectorAdapter : public VectorFunction {
     return (*fn_).call(target, values...);
   }
 
-  // For NOT default null behavior, terminate with ScalarFunction::callNullable.
+  // For NOT default null behavior, terminate with UDFHolder::callNullable.
   template <
       size_t POSITION,
       typename... Values,
@@ -433,7 +434,7 @@ class VectorAdapter : public VectorFunction {
     return doApplyNotNull<POSITION + 1>(idx, target, extra..., v0);
   }
 
-  // For default null behavior, Terminate by with ScalarFunction::call.
+  // For default null behavior, Terminate by with UDFHolder::call.
   template <
       size_t POSITION,
       typename... Values,
@@ -469,32 +470,21 @@ class VectorAdapter : public VectorFunction {
   }
 };
 
-template <typename FUNC>
-class VectorAdapterFactoryImpl : public VectorAdapterFactory {
+template <typename UDFHolder>
+class SimpleFunctionAdapterFactoryImpl : public SimpleFunctionAdapterFactory {
  public:
   // Exposed for use in FunctionRegistry
-  using Metadata = typename FUNC::Metadata;
+  using Metadata = typename UDFHolder::Metadata;
 
-  explicit VectorAdapterFactoryImpl(std::shared_ptr<const Type> returnType)
+  explicit SimpleFunctionAdapterFactoryImpl(
+      std::shared_ptr<const Type> returnType)
       : returnType_(std::move(returnType)) {}
 
-  std::unique_ptr<VectorFunction> getVectorInterpreter(
+  std::unique_ptr<VectorFunction> createVectorFunction(
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& constantInputs) const override {
-    return std::make_unique<VectorAdapter<FUNC>>(
+    return std::make_unique<SimpleFunctionAdapter<UDFHolder>>(
         config, constantInputs, returnType_);
-  }
-
-  const std::shared_ptr<const Type> returnType() const override {
-    return returnType_;
-  }
-
-  bool isDeterministic() {
-    return FUNC::isDeterministic;
-  }
-
-  bool isDefaultNullBehavior() {
-    return FUNC::is_default_null_behavior;
   }
 
  private:

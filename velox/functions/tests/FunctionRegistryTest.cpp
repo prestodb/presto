@@ -378,17 +378,17 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
           ->toString());
 }
 
-TEST_F(FunctionRegistryTest, hasScalarFunctionSignature) {
+TEST_F(FunctionRegistryTest, hasSimpleFunctionSignature) {
   auto result = resolveFunction("func_one", {VARCHAR()});
   ASSERT_EQ(*result, *VARCHAR());
 }
 
-TEST_F(FunctionRegistryTest, hasScalarFunctionSignatureWrongArgType) {
+TEST_F(FunctionRegistryTest, hasSimpleFunctionSignatureWrongArgType) {
   auto result = resolveFunction("func_one", {INTEGER()});
   ASSERT_EQ(result, nullptr);
 }
 
-TEST_F(FunctionRegistryTest, hasScalarFunctionSignatureWrongFunctionName) {
+TEST_F(FunctionRegistryTest, hasSimpleFunctionSignatureWrongFunctionName) {
   auto result = resolveFunction("method_one", {VARCHAR()});
   ASSERT_EQ(result, nullptr);
 }
@@ -440,8 +440,8 @@ TEST_F(FunctionRegistryTest, registerFunctionTwice) {
   registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
   registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
 
-  auto& scalarFunctions = core::ScalarFunctions();
-  auto signatures = scalarFunctions.getFunctionSignatures("func_one");
+  auto& simpleFunctions = exec::SimpleFunctions();
+  auto signatures = simpleFunctions.getFunctionSignatures("func_one");
   // The function should only be registered once, despite the multiple calls to
   // registerFunction.
   ASSERT_EQ(signatures.size(), 1);

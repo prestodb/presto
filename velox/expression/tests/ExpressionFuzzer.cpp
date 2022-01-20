@@ -19,10 +19,10 @@
 #include <exception>
 
 #include "velox/common/base/Exceptions.h"
-#include "velox/core/ScalarFunctionRegistry.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/expression/tests/VectorFuzzer.h"
@@ -146,9 +146,9 @@ std::optional<bool> isDeterministic(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
   // Check if this is a simple function.
-  if (auto simpleFunction =
-          core::ScalarFunctions().createFunction(functionName, argTypes)) {
-    return simpleFunction->isDeterministic();
+  if (auto simpleFunctionEntry =
+          exec::SimpleFunctions().resolveFunction(functionName, argTypes)) {
+    return simpleFunctionEntry->getMetadata()->isDeterministic();
   }
 
   // Vector functions are a bit more complicated. We need to fetch the list of

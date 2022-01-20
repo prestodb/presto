@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include "velox/core/ScalarFunctionRegistry.h"
+#include "velox/core/SimpleFunctionMetadata.h"
+#include "velox/expression/SimpleFunctionAdapter.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorFunctionAdapter.h"
-#include "velox/expression/VectorFunctionRegistry.h"
 
 namespace facebook::velox {
 
@@ -27,13 +27,9 @@ void registerFunction(
     const std::vector<std::string>& aliases = {},
     std::shared_ptr<const Type> returnType = nullptr) {
   using funcClass = typename Func::template udf<exec::VectorExec>;
-  // register basic
   using holderClass =
       core::UDFHolder<funcClass, exec::VectorExec, TReturn, TArgs...>;
-  core::registerFunction<holderClass>(aliases, returnType);
-
-  // register Vector
-  exec::registerVectorFunction<holderClass>(aliases, move(returnType));
+  exec::registerSimpleFunction<holderClass>(aliases, move(returnType));
 }
 
 // New registration function; mostly a copy from the function above, but taking
@@ -47,8 +43,7 @@ void registerFunction(
   using funcClass = Func<exec::VectorExec>;
   using holderClass =
       core::UDFHolder<funcClass, exec::VectorExec, TReturn, TArgs...>;
-  core::registerFunction<holderClass>(aliases, returnType);
-  exec::registerVectorFunction<holderClass>(aliases, move(returnType));
+  exec::registerSimpleFunction<holderClass>(aliases, move(returnType));
 }
 
 } // namespace facebook::velox

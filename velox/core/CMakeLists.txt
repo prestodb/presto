@@ -18,7 +18,7 @@ endif()
 add_library(velox_config Context.cpp)
 target_link_libraries(velox_config ${FOLLY_WITH_DEPENDENCIES})
 
-add_library(velox_core PlanNode.cpp ScalarFunctionRegistry.cpp)
+add_library(velox_core PlanNode.cpp)
 
 target_link_libraries(
   velox_core

@@ -16,7 +16,7 @@
 #include "Expressions.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/Expressions.h"
-#include "velox/core/ScalarFunctionRegistry.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/parse/VariantToVector.h"
 #include "velox/type/Type.h"
 #include "velox/vector/ConstantVector.h"
@@ -57,9 +57,9 @@ std::shared_ptr<const Type> resolveTypeImpl(
   }
 
   // Check simple functions.
-  auto fun = ScalarFunctions().createFunction(
+  auto fun = exec::SimpleFunctions().resolveFunction(
       expr->getFunctionName(), getTypes(inputs));
-  return fun == nullptr ? nullptr : fun->returnType();
+  return fun == nullptr ? nullptr : fun->getMetadata()->returnType();
 }
 
 namespace {

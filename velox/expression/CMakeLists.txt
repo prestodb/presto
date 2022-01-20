@@ -25,7 +25,7 @@ add_library(
   Expr.cpp
   ExprCompiler.cpp
   VectorFunction.cpp
-  VectorFunctionRegistry.cpp)
+  SimpleFunctionRegistry.cpp)
 
 target_link_libraries(velox_expression velox_core velox_vector
                       velox_common_base velox_expression_functions)

@@ -13,29 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
-#include "velox/core/ScalarFunction.h"
+#include "velox/core/SimpleFunctionMetadata.h"
 #include "velox/expression/FunctionRegistry.h"
+#include "velox/expression/SimpleFunctionAdapter.h"
 
-namespace facebook {
-namespace velox {
-namespace core {
+namespace facebook::velox::exec {
 
-// This is a registry used for registering simple functions (along with
-// AdaptedVectorFunctionRegistry).
-using ScalarFunctionRegistry = exec::FunctionRegistry<IScalarFunction>;
+// The registry for simple functions.  These functions are converted to vector
+// functions via the SimpleFunctionAdapter.
+using SimpleFunctionRegistry = exec::FunctionRegistry<
+    SimpleFunctionAdapterFactory,
+    core::ISimpleFunctionMetadata>;
 
-ScalarFunctionRegistry& ScalarFunctions();
+SimpleFunctionRegistry& SimpleFunctions();
 
 // This function should be called once and alone.
-template <typename UDF>
-void registerFunction(
+template <typename UDFHolder>
+void registerSimpleFunction(
     const std::vector<std::string>& names,
     std::shared_ptr<const Type> returnType) {
-  ScalarFunctions().registerFunction<UDF>(names, returnType);
+  SimpleFunctions()
+      .registerFunction<SimpleFunctionAdapterFactoryImpl<UDFHolder>>(
+          names, returnType);
 }
 
-} // namespace core
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::exec

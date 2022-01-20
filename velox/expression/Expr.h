@@ -225,7 +225,7 @@ class Expr {
       VectorPtr* result);
 
   // Calls the function of 'this' on arguments in
-  // 'inputValues_'. Handles cases of VectorFunction and VectorAdapter.
+  // 'inputValues_'. Handles cases of VectorFunction and SimpleFunction.
   void applyFunction(
       const SelectivityVector& rows,
       EvalCtx* context,

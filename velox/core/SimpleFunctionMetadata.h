@@ -95,13 +95,10 @@ struct ValidateVariadicArgs {
   static constexpr bool value = isValidArg<0, TArgs...>();
 };
 
-// todo(youknowjack): add a dynamic execution mode
 // todo(youknowjack): need a better story for types for UDFs. Mapping
 //                    c++ types <-> Velox types is imprecise (e.g. string vs
 //                    binary) and difficult to change.
-// TODO: separate metadata and execution parts of this class so that metadata
-// could be accessed without instantiating UDF object.
-class IScalarFunction {
+class ISimpleFunctionMetadata {
  public:
   virtual std::shared_ptr<const Type> returnType() const = 0;
   virtual std::vector<std::shared_ptr<const Type>> argTypes() const = 0;
@@ -111,7 +108,7 @@ class IScalarFunction {
   virtual std::shared_ptr<exec::FunctionSignature> signature() const = 0;
   virtual std::string helpMessage(const std::string& name) const = 0;
 
-  virtual ~IScalarFunction() = default;
+  virtual ~ISimpleFunctionMetadata() = default;
 };
 
 template <typename T, typename = int32_t>
@@ -135,7 +132,7 @@ struct CreateType<Variadic<Underlying>> {
 };
 
 template <typename Fun, typename TReturn, typename... Args>
-class ScalarFunctionMetadata : public IScalarFunction {
+class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
  public:
   using return_type = TReturn;
   using arg_types = std::tuple<Args...>;
@@ -191,12 +188,12 @@ class ScalarFunctionMetadata : public IScalarFunction {
     }
   }
 
-  explicit ScalarFunctionMetadata(std::shared_ptr<const Type> returnType)
+  explicit SimpleFunctionMetadata(std::shared_ptr<const Type> returnType)
       : returnType_(
             returnType ? std::move(returnType) : CppToType<TReturn>::create()) {
     verifyReturnTypeCompatibility();
   }
-  ~ScalarFunctionMetadata() override = default;
+  ~SimpleFunctionMetadata() override = default;
 
   std::shared_ptr<exec::FunctionSignature> signature() const final {
     auto builder =
@@ -265,11 +262,11 @@ class ScalarFunctionMetadata : public IScalarFunction {
 // this is basically just boilerplate-avoidance
 template <typename Fun, typename Exec, typename TReturn, typename... TArgs>
 class UDFHolder final
-    : public core::ScalarFunctionMetadata<Fun, TReturn, TArgs...> {
+    : public core::SimpleFunctionMetadata<Fun, TReturn, TArgs...> {
   Fun instance_;
 
  public:
-  using Metadata = core::ScalarFunctionMetadata<Fun, TReturn, TArgs...>;
+  using Metadata = core::SimpleFunctionMetadata<Fun, TReturn, TArgs...>;
 
   using exec_return_type = typename Exec::template resolver<TReturn>::out_type;
   using optional_exec_return_type = std::optional<exec_return_type>;

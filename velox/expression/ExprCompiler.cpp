@@ -15,12 +15,12 @@
  */
 
 #include "velox/expression/ExprCompiler.h"
-#include "velox/core/ScalarFunction.h"
+#include "velox/core/SimpleFunctionMetadata.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorFunctionRegistry.h"
 
 namespace facebook::velox::exec {
 
@@ -341,17 +341,18 @@ ExprPtr compileExpression(
             call->name(), resultType, std::move(compiledInputs))) {
       result = specialForm;
     } else if (
-        auto adapterFunc =
-            AdaptedVectorFunctions().createFunction(call->name(), inputTypes)) {
+        auto simpleFunctionEntry =
+            SimpleFunctions().resolveFunction(call->name(), inputTypes)) {
+      auto metadata = simpleFunctionEntry->getMetadata();
       VELOX_USER_CHECK(
-          resultType->kindEquals(adapterFunc->returnType()),
+          resultType->kindEquals(metadata->returnType()),
           "Found incompatible return types for '{}' ({} vs. {}) "
           "for input types ({}).",
           call->name(),
-          adapterFunc->returnType(),
+          metadata->returnType(),
           resultType,
           folly::join(", ", inputTypes));
-      auto func = adapterFunc->getVectorInterpreter(
+      auto func = simpleFunctionEntry->createFunction()->createVectorFunction(
           config, getConstantInputs(compiledInputs));
       result = std::make_shared<Expr>(
           resultType, std::move(compiledInputs), std::move(func), call->name());

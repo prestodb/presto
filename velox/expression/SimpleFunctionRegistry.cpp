@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "VectorFunctionRegistry.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 
 namespace facebook::velox::exec {
 
-AdaptedVectorFunctionRegistry& AdaptedVectorFunctions() {
-  static AdaptedVectorFunctionRegistry instance;
+SimpleFunctionRegistry& SimpleFunctions() {
+  static SimpleFunctionRegistry instance;
   return instance;
 }
 

@@ -36,9 +36,9 @@ std::shared_ptr<const Type> resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
-/// Given name of scalar function and argument types, returns
+/// Given name of simple function and argument types, returns
 /// the return type if function exists otherwise returns nullptr
-std::shared_ptr<const Type> resolveScalarFunction(
+std::shared_ptr<const Type> resolveSimpleFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 

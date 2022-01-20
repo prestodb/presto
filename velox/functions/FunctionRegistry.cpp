@@ -21,10 +21,10 @@
 #include <optional>
 #include <sstream>
 #include "velox/common/base/Exceptions.h"
-#include "velox/core/ScalarFunction.h"
-#include "velox/core/ScalarFunctionRegistry.h"
+#include "velox/core/SimpleFunctionMetadata.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/type/Type.h"
 
@@ -45,9 +45,10 @@ exec::TypeSignature typeToTypeSignature(std::shared_ptr<const Type> type) {
 }
 
 void populateSimpleFunctionSignatures(FunctionSignatureMap& map) {
-  auto& scalarFunctions = core::ScalarFunctions();
-  for (const auto& functionName : scalarFunctions.getFunctionNames()) {
-    auto signatures = scalarFunctions.getFunctionSignatures(functionName);
+  auto& simpleFunctions = exec::SimpleFunctions();
+  auto functionNames = simpleFunctions.getFunctionNames();
+  for (const auto& functionName : functionNames) {
+    auto signatures = simpleFunctions.getFunctionSignatures(functionName);
     map[functionName] = signatures;
   }
 }
@@ -80,8 +81,8 @@ FunctionSignatureMap getFunctionSignatures() {
 std::shared_ptr<const Type> resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  // Check if ScalarFunctions has this function name + signature.
-  if (auto returnType = resolveScalarFunction(functionName, argTypes)) {
+  // Check if this is a simple function.
+  if (auto returnType = resolveSimpleFunction(functionName, argTypes)) {
     return returnType;
   }
 
@@ -89,12 +90,12 @@ std::shared_ptr<const Type> resolveFunction(
   return resolveVectorFunction(functionName, argTypes);
 }
 
-std::shared_ptr<const Type> resolveScalarFunction(
+std::shared_ptr<const Type> resolveSimpleFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  auto scalarFunctionSignatures =
-      core::ScalarFunctions().getFunctionSignatures(functionName);
-  for (const auto* signature : scalarFunctionSignatures) {
+  auto simpleFunctionSignatures =
+      exec::SimpleFunctions().getFunctionSignatures(functionName);
+  for (const auto* signature : simpleFunctionSignatures) {
     exec::SignatureBinder binder(*signature, argTypes);
     if (binder.tryBind()) {
       return binder.tryResolveReturnType();
