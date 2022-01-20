@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/base/Portability.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
@@ -83,7 +84,7 @@ class EvalCtx {
   /// vector_size_t and return void.
   template <typename Callable>
   void applyToSelectedNoThrow(const SelectivityVector& rows, Callable func) {
-    rows.template applyToSelected([&](auto row) {
+    rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
       try {
         func(row);
       } catch (const std::exception& e) {

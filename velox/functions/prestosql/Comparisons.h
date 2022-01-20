@@ -18,7 +18,6 @@
 #include "velox/functions/Macros.h"
 
 namespace facebook::velox::functions {
-
 #define VELOX_GEN_BINARY_EXPR(Name, Expr, TResult)                \
   template <typename T>                                           \
   struct Name {                                                   \

@@ -17,6 +17,8 @@
 #pragma once
 
 #include <memory>
+
+#include "velox/common/base/Portability.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
@@ -266,7 +268,7 @@ class SimpleFunctionAdapter : public VectorFunction {
       uint64_t* nn = nullptr;
       auto* data = applyContext.result->mutableRawValues();
       if (allNotNull) {
-        applyContext.applyToSelectedNoThrow([&](auto row) {
+        applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
           bool notNull = doApplyNotNull<0>(row, data[row], readers...);
           if (!notNull) {
             if (!nn) {
@@ -283,7 +285,7 @@ class SimpleFunctionAdapter : public VectorFunction {
           }
         });
       } else {
-        applyContext.applyToSelectedNoThrow([&](auto row) {
+        applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
           bool notNull = doApply<0>(row, data[row], readers...);
           if (!notNull) {
             if (!nn) {
@@ -303,14 +305,14 @@ class SimpleFunctionAdapter : public VectorFunction {
     } else {
       if (allNotNull) {
         if (applyContext.allAscii) {
-          applyContext.applyToSelectedNoThrow([&](auto row) {
+          applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
             applyContext.resultWriter.setOffset(row);
             applyContext.resultWriter.commit(
                 static_cast<char>(doApplyAsciiNotNull<0>(
                     row, applyContext.resultWriter.current(), readers...)));
           });
         } else {
-          applyContext.applyToSelectedNoThrow([&](auto row) {
+          applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
             applyContext.resultWriter.setOffset(row);
             applyContext.resultWriter.commit(
                 static_cast<char>(doApplyNotNull<0>(
@@ -318,7 +320,7 @@ class SimpleFunctionAdapter : public VectorFunction {
           });
         }
       } else {
-        applyContext.applyToSelectedNoThrow([&](auto row) {
+        applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
           applyContext.resultWriter.setOffset(row);
           applyContext.resultWriter.commit(static_cast<char>(doApply<0>(
               row, applyContext.resultWriter.current(), readers...)));
