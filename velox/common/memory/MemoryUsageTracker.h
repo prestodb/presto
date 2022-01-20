@@ -92,6 +92,23 @@ struct MemoryUsageConfigBuilder {
 class MemoryUsageTracker
     : public std::enable_shared_from_this<MemoryUsageTracker> {
  public:
+  enum class UsageType : int { kUserMem = 0, kSystemMem = 1, kTotalMem = 2 };
+
+  // Function to increase a MemoryUsageTracker's limits. This is called when an
+  // allocation would exceed the tracker's size limit. The usage in
+  // 'tracker' at the time of call is as if the allocation had
+  // succeeded.
+  // If this returns true, this must set
+  // the limits to be >= the usage in 'tracker'. If this returns
+  // false, this should not modify 'tracker'. The caller will revert
+  // the allocation that invoked this and signal an error.
+  //
+  // This may be called on one tracker from several threads. This is responsible
+  // for serializing these. When this is called, the 'tracker's 'mutex_' must
+  // not be held by the caller. A GrowCallback must not throw.
+  using GrowCallback = std::function<
+      bool(UsageType type, int64_t size, MemoryUsageTracker& tracker)>;
+
   // Create default usage tracker. It aggregates both 'user' and 'system' memory
   // from its children and tracks the allocations as 'user' memory. It returns a
   // 'root' tracker.
@@ -116,34 +133,39 @@ class MemoryUsageTracker
             .build());
   }
 
-  // Increments the reservation for 'this' so that we can allocate
-  // at least 'size' bytes on top of the current allocation. This is
-  // used when an a memory user needs to allocate more memory and
-  // needs a guarantee of at least 'size' being available. If less
-  // memory ends up being needed, the unused reservation should be released with
-  // release().
-  //   If the new reserved amount exceeds the
-  // usage limit, an exception will be thrown.  Note that this
-  // function is not thread-safe. We reserve on a
-  // leaf memory pool or mapped memory, which is accessed within a
-  // single thread.
+  // Increments the reservation for 'this' so that we can allocate at
+  // least 'size' bytes on top of the current allocation. This is used
+  // when an a memory user needs to allocate more memory and needs a
+  // guarantee of at least 'size' being available. If less memory ends
+  // up being needed, the unused reservation should be released with
+  // release().  If the new reserved amount exceeds the usage limit,
+  // an exception will be thrown.
   void reserve(int64_t size) {
-    std::lock_guard<std::mutex> l(mutex_);
-
-    minReservation_ += reserveLocked(size);
+    int64_t increment;
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      increment = reserveLocked(size);
+      minReservation_ += increment;
+    }
+    if (increment) {
+      checkAndPropagateReservationIncrement(increment, true);
+    }
   }
 
   // Release unused reservation. Used reservation will be released as the
   // allocations are freed.
   void release() {
-    std::lock_guard<std::mutex> l(mutex_);
-    int64_t remaining = reservation_ - usedReservation_;
-    if (remaining) {
-      updateInternal(type_, -remaining);
+    int64_t remaining;
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      remaining = reservation_ - usedReservation_;
+      reservation_ = 0;
+      minReservation_ = 0;
+      usedReservation_ = 0;
     }
-    reservation_ = 0;
-    minReservation_ = 0;
-    usedReservation_ = 0;
+    if (remaining) {
+      decrementUsage(type_, remaining);
+    }
   }
 
   // Increments outstanding memory by 'size', which is positive for
@@ -151,23 +173,33 @@ class MemoryUsageTracker
   // the new allocated amount exceeds the reservation, propagates the
   // change upward.
   void update(int64_t size) {
-    std::lock_guard<std::mutex> l(mutex_);
     if (size > 0) {
-      if (usedReservation_ + size > reservation_) {
-        reserveLocked(size);
+      int64_t increment = 0;
+      {
+        std::lock_guard<std::mutex> l(mutex_);
+        if (usedReservation_ + size > reservation_) {
+          increment = reserveLocked(size);
+        }
       }
-      usedReservation_ += size;
+      checkAndPropagateReservationIncrement(increment, false);
+      usedReservation_.fetch_add(size);
       return;
     }
-    auto newUsed = usedReservation_ + size;
-    auto newCap = std::max(minReservation_, newUsed);
-    auto newQuantized = quantizedSize(newCap);
-    if (newQuantized != reservation_) {
-      auto increment = newQuantized - reservation_;
-      updateInternal(type_, increment);
-      reservation_ = newQuantized;
+    // Decreasing usage. See if need to propagate upward.
+    int64_t decrement = 0;
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      auto newUsed = usedReservation_ += size;
+      auto newCap = std::max(minReservation_, newUsed);
+      auto newQuantized = quantizedSize(newCap);
+      if (newQuantized != reservation_) {
+        decrement = reservation_ - newQuantized;
+        reservation_ = newQuantized;
+      }
     }
-    usedReservation_ += size;
+    if (decrement) {
+      decrementUsage(type_, decrement);
+    }
   }
 
   int64_t getCurrentUserBytes() const {
@@ -203,6 +235,11 @@ class MemoryUsageTracker
     return total(cumulativeBytes_);
   }
 
+  // Returns the total size including unused reservation.
+  int64_t totalReservedBytes() {
+    return user(currentUsageInBytes_) + system(currentUsageInBytes_);
+  }
+
   std::shared_ptr<MemoryUsageTracker> addChild(
       bool trackSystemMem = false,
       const MemoryUsageConfig& config = MemoryUsageConfig()) {
@@ -216,10 +253,28 @@ class MemoryUsageTracker
     return user(maxMemory_);
   }
 
+  void updateConfig(const MemoryUsageConfig& config) {
+    if (config.maxUserMemory.has_value()) {
+      usage(maxMemory_, UsageType::kUserMem) = config.maxUserMemory.value();
+    }
+    if (config.maxSystemMemory.has_value()) {
+      usage(maxMemory_, UsageType::kSystemMem) = config.maxSystemMemory.value();
+    }
+    if (config.maxTotalMemory.has_value()) {
+      usage(maxMemory_, UsageType::kTotalMem) = config.maxTotalMemory.value();
+    }
+  }
+
+  int maxTotalBytes() const {
+    return usage(maxMemory_, UsageType::kTotalMem);
+  }
+
+  void setGrowCallback(GrowCallback func) {
+    growCallback_ = func;
+  }
+
  private:
   static constexpr int64_t kMB = 1 << 20;
-
-  enum class UsageType : int { kUserMem = 0, kSystemMem = 1, kTotalMem = 2 };
 
   template <typename T, size_t size>
   static T& usage(std::array<T, size>& array, UsageType type) {
@@ -265,7 +320,6 @@ class MemoryUsageTracker
     int64_t neededSize = size - (reservation_ - usedReservation_);
     if (neededSize > 0) {
       auto increment = roundedDelta(reservation_, neededSize);
-      updateInternal(type_, increment);
       reservation_ += increment;
       return increment;
     }
@@ -297,7 +351,15 @@ class MemoryUsageTracker
         : std::max<int64_t>(0, total);
   }
 
-  // Serializes update(). UpdateInternal works based on atomics so
+  // Increments usage of 'this' and parents. Must be called without
+  // holding 'mutex_'. Reverts the increment of reservation on before
+  // rethrowing the error. If 'updateMinReservation' is true, also
+  // decrements 'minReservation_' on error.
+  void checkAndPropagateReservationIncrement(
+      int64_t increment,
+      bool updateMinReservation);
+
+  // Serializes update(). decrease/increaseUsage work based on atomics so
   // children updating the same parent do not have to be serialized
   // but multiple threads updating the same leaf must be serialized
   // because the reservation decision needs a consistent read/write of
@@ -316,6 +378,8 @@ class MemoryUsageTracker
   // Minimum amount of reserved memory to hold until explicit release().
   int64_t minReservation_{0};
   std::atomic<int64_t> usedReservation_{};
+
+  GrowCallback growCallback_{};
 
   explicit MemoryUsageTracker(
       const std::shared_ptr<MemoryUsageTracker>& parent,
@@ -342,7 +406,15 @@ class MemoryUsageTracker
     }
   }
 
-  void updateInternal(UsageType type, int64_t size);
+  // Incrementss the reservation of 'type' and checks against
+  // limits. Calls 'growCallback_' if this is set and limit
+  // exceeded. Should be called without holding 'mutex_'. This throws if a limit
+  // is exceeded and there is no corresponding GrowCallback or the GrowCallback
+  // fails.
+  void incrementUsage(UsageType type, int64_t size);
+
+  //  Decrements usage in 'this' and parents.
+  void decrementUsage(UsageType type, int64_t size) noexcept;
 
   void checkNonNegativeSizes(const char* message) const {
     if (user(currentUsageInBytes_) < 0 || system(currentUsageInBytes_) < 0 ||

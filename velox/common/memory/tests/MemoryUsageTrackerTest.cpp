@@ -107,3 +107,81 @@ TEST(MemoryUsageTrackerTest, reserve) {
   child->release();
   EXPECT_EQ(0, parent->getCurrentTotalBytes());
 }
+
+namespace {
+// Model implementation of a GrowCallback.
+bool grow(
+    MemoryUsageTracker::UsageType /*type*/,
+    int64_t /*size*/,
+    int64_t hardLimit,
+    MemoryUsageTracker& tracker) {
+  static std::mutex mutex;
+  // The calls from different threads on the same tracker must be serialized.
+  std::lock_guard<std::mutex> l(mutex);
+  // The total includes the allocation that exceeded the limit. This function's
+  // job is to raise the limit to >= current.
+  auto current = tracker.totalReservedBytes();
+  auto limit = tracker.maxTotalBytes();
+  if (current <= limit) {
+    // No need to increase. It could be another thread already
+    // increased the cap far enough while this thread was waiting to
+    // enter the lock_guard.
+    return true;
+  }
+  if (current > hardLimit) {
+    // The caller will revert the allocation that called this and signal an
+    // error.
+    return false;
+  }
+  // We set the new limit to be the requested size.
+  auto config = MemoryUsageConfigBuilder().maxTotalMemory(current).build();
+  tracker.updateConfig(config);
+  return true;
+}
+} // namespace
+
+TEST(MemoryUsageTrackerTest, grow) {
+  constexpr int64_t kMB = 1 << 20;
+  auto config = MemoryUsageConfigBuilder().maxTotalMemory(10 * kMB).build();
+  auto parent = MemoryUsageTracker::create(config);
+
+  auto child = parent->addChild();
+  auto childConfig = MemoryUsageConfigBuilder().maxTotalMemory(5 * kMB).build();
+  child->updateConfig(childConfig);
+  int64_t parentLimit = 100 * kMB;
+  int64_t childLimit = 150 * kMB;
+  parent->setGrowCallback([&](MemoryUsageTracker::UsageType type,
+                              int64_t size,
+                              MemoryUsageTracker& tracker) {
+    return grow(type, size, parentLimit, tracker);
+  });
+  child->setGrowCallback([&](MemoryUsageTracker::UsageType type,
+                             int64_t size,
+                             MemoryUsageTracker& tracker) {
+    return grow(type, size, childLimit, tracker);
+  });
+
+  child->update(10 * kMB);
+  EXPECT_EQ(10 * kMB, parent->getCurrentTotalBytes());
+  EXPECT_EQ(10 * kMB, child->maxTotalBytes());
+  EXPECT_THROW(child->update(100 * kMB), VeloxRuntimeError);
+  EXPECT_EQ(10 * kMB, child->getCurrentTotalBytes());
+  // The parent failed to increase limit, the child'd limit should be unchanged.
+  EXPECT_EQ(10 * kMB, child->maxTotalBytes());
+  EXPECT_EQ(10 * kMB, parent->maxTotalBytes());
+
+  // We pass the parent limit but fail te child limit. leaves a raised
+  // limit on the parent. Rolling back the increment of parent limit
+  // is not deterministic if other threads are running at the same
+  // time. Lowering a tracker's limits requires stopping the threads
+  // that may be using the tracker.  Expected uses have one level of
+  // trackers with a limit but we cover this for documentation.
+  parentLimit = 200 * kMB;
+  EXPECT_THROW(child->update(160 * kMB);, VeloxException);
+  EXPECT_EQ(10 * kMB, parent->getCurrentTotalBytes());
+  EXPECT_EQ(10 * kMB, child->getCurrentTotalBytes());
+  // The child limit could not be raised.
+  EXPECT_EQ(10 * kMB, child->maxTotalBytes());
+  // The parent limit got set to 170, rounded up to 176
+  EXPECT_EQ(176 * kMB, parent->maxTotalBytes());
+}
