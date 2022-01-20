@@ -35,6 +35,21 @@ workflows:
     jobs:
       - doc-gen-job
 
+  # Hourly build on weekdays
+  weekday:
+    triggers:
+      - schedule:
+          cron: "0 0,4,8,12,16,20 * * 1-5"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - linux-build
+      - linux-build-options
+      - linux-parquet-s3-build
+      - macos-build
+
 executors:
   build:
     docker:
