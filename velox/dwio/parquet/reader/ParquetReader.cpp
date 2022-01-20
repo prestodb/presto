@@ -230,7 +230,7 @@ uint64_t ParquetRowReader::next(uint64_t /*size*/, velox::VectorPtr& result) {
         &pool_,
         rowType_,
         BufferPtr(nullptr),
-        columns[0]->size(),
+        output.size(),
         columns,
         std::nullopt);
   }

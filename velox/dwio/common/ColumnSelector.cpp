@@ -248,7 +248,6 @@ void ColumnSelector::setReadAll() {
 }
 
 const ColumnFilter& ColumnSelector::getProjection() const {
-  DWIO_ENSURE(!filter_.empty(), "need a valid filter");
   return filter_;
 }
 

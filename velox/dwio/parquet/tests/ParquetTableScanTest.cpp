@@ -36,6 +36,11 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     parquet::registerParquetReaderFactory();
   }
 
+  void TearDown() override {
+    parquet::unregisterParquetReaderFactory();
+    HiveConnectorTestBase::TearDown();
+  }
+
   std::string getExampleFilePath(const std::string& fileName) {
     return facebook::velox::test::getDataFilePath(
         "velox/dwio/parquet/tests", "examples/" + fileName);
@@ -85,4 +90,20 @@ TEST_F(ParquetTableScanTest, basic) {
              .planNode();
 
   assertQuery(plan, {split}, "SELECT min(a), max(b) FROM tmp");
+}
+
+TEST_F(ParquetTableScanTest, countStar) {
+  // sample.parquet holds two columns (a: BIGINT, b: DOUBLE) and
+  // 20 rows
+  auto filePath = getExampleFilePath("sample.parquet");
+  auto split = makeSplit(filePath);
+
+  // Output type does not have any columns
+  auto rowType = ROW({}, {});
+  auto plan = PlanBuilder()
+                  .tableScan(rowType)
+                  .singleAggregation({}, {"count(0)"})
+                  .planNode();
+
+  assertQuery(plan, {split}, "SELECT 20");
 }

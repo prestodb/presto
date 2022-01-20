@@ -33,8 +33,6 @@ class HiveConnectorTestBase : public OperatorTestBase {
  public:
   HiveConnectorTestBase();
   void SetUp() override;
-
- public:
   void TearDown() override;
 
   void writeToFile(
