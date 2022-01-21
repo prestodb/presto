@@ -81,32 +81,49 @@ class MapFunction : public exec::VectorFunction {
             kArrayLengthsMismatch);
       });
 
+      vector_size_t totalElements = 0;
+      rows.applyToSelected([&](auto row) {
+        totalElements += keysArray->sizeAt(keyIndices[row]);
+      });
+
       BufferPtr offsets = allocateOffsets(rows.size(), context->pool());
       auto rawOffsets = offsets->asMutable<vector_size_t>();
 
       BufferPtr sizes = allocateSizes(rows.size(), context->pool());
       auto rawSizes = sizes->asMutable<vector_size_t>();
 
-      BufferPtr valuesIndices =
-          allocateIndices(keysArray->elements()->size(), context->pool());
+      BufferPtr valuesIndices = allocateIndices(totalElements, context->pool());
       auto rawValuesIndices = valuesIndices->asMutable<vector_size_t>();
 
+      BufferPtr keysIndices = allocateIndices(totalElements, context->pool());
+      auto rawKeysIndices = keysIndices->asMutable<vector_size_t>();
+
+      vector_size_t offset = 0;
       rows.applyToSelected([&](vector_size_t row) {
-        auto offset = keysArray->offsetAt(keyIndices[row]);
         auto size = keysArray->sizeAt(keyIndices[row]);
         rawOffsets[row] = offset;
         rawSizes[row] = size;
 
+        auto keysOffset = keysArray->offsetAt(keyIndices[row]);
         auto valuesOffset = valuesArray->offsetAt(valueIndices[row]);
         for (vector_size_t i = 0; i < size; i++) {
+          rawKeysIndices[offset + i] = keysOffset + i;
           rawValuesIndices[offset + i] = valuesOffset + i;
         }
+
+        offset += size;
       });
+
+      auto wrappedKeys = BaseVector::wrapInDictionary(
+          BufferPtr(nullptr),
+          keysIndices,
+          totalElements,
+          keysArray->elements());
 
       auto wrappedValues = BaseVector::wrapInDictionary(
           BufferPtr(nullptr),
           valuesIndices,
-          valuesArray->elements()->size(),
+          totalElements,
           valuesArray->elements());
 
       mapVector = std::make_shared<MapVector>(
@@ -116,7 +133,7 @@ class MapFunction : public exec::VectorFunction {
           rows.size(),
           offsets,
           sizes,
-          keysArray->elements(),
+          wrappedKeys,
           wrappedValues);
     }
 
