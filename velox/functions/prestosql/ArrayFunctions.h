@@ -60,8 +60,8 @@ struct ArrayMinMaxFunction {
     if (!array.mayHaveNulls()) {
       // Input array does not have nulls.
       auto currentValue = *array[0];
-      for (const auto& item : array) {
-        update(currentValue, item.value());
+      for (auto i = 1; i < array.size(); i++) {
+        update(currentValue, array[i].value());
       }
       assign(out, currentValue);
       return true;
@@ -74,13 +74,13 @@ struct ArrayMinMaxFunction {
     }
 
     auto currentValue = it->value();
-    it++;
+    ++it;
     while (it != array.end()) {
       if (!it->has_value()) {
         return false;
       }
       update(currentValue, it->value());
-      it++;
+      ++it;
     }
 
     assign(out, currentValue);
@@ -156,17 +156,4 @@ FOLLY_ALWAYS_INLINE bool call(
 
 VELOX_UDF_END();
 
-template <typename T>
-inline void registerArrayMinMaxFunctions() {
-  registerFunction<ArrayMinFunction, T, Array<T>>({"array_min"});
-  registerFunction<ArrayMaxFunction, T, Array<T>>({"array_max"});
-}
-
-template <typename T>
-inline void registerArrayJoinFunctions() {
-  registerFunction<udf_array_join<T>, Varchar, Array<T>, Varchar>(
-      {"array_join"});
-  registerFunction<udf_array_join<T>, Varchar, Array<T>, Varchar, Varchar>(
-      {"array_join"});
-}
 } // namespace facebook::velox::functions

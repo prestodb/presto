@@ -19,6 +19,19 @@
 #include "velox/functions/prestosql/WidthBucketArray.h"
 
 namespace facebook::velox::functions {
+template <typename T>
+inline void registerArrayMinMaxFunctions() {
+  registerFunction<ArrayMinFunction, T, Array<T>>({"array_min"});
+  registerFunction<ArrayMaxFunction, T, Array<T>>({"array_max"});
+}
+
+template <typename T>
+inline void registerArrayJoinFunctions() {
+  registerFunction<udf_array_join<T>, Varchar, Array<T>, Varchar>(
+      {"array_join"});
+  registerFunction<udf_array_join<T>, Varchar, Array<T>, Varchar, Varchar>(
+      {"array_join"});
+}
 
 void registerArrayFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, "array_constructor");
