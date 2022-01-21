@@ -42,7 +42,7 @@ function run_and_time {
 function prompt {
   (
     while true; do
-      local input="${PROMPT_ALWAYS_RESPOND}"
+      local input="${PROMPT_ALWAYS_RESPOND:-}"
       echo -n "$(tput bold)$* [Y, n]$(tput sgr0) "
       [[ -z "${input}" ]] && read input
       if [[ "${input}" == "Y" || "${input}" == "y" || "${input}" == "" ]]; then
