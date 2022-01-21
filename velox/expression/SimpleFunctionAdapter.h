@@ -264,42 +264,40 @@ class SimpleFunctionAdapter : public VectorFunction {
         return_type_traits::isPrimitiveType &&
         return_type_traits::isFixedWidth &&
         return_type_traits::typeKind != TypeKind::BOOLEAN) {
-      // "writer" gets in the way for primitives, so we specialize
-      uint64_t* nn = nullptr;
+      uint64_t* nullBuffer = nullptr;
       auto* data = applyContext.result->mutableRawValues();
+      auto writeResult = [&applyContext, &nullBuffer, &data](
+                             auto row, bool notNull, auto out) INLINE_LAMBDA {
+        if (notNull) {
+          data[row] = out;
+          if (applyContext.result->rawNulls()) {
+            if (!nullBuffer) {
+              nullBuffer = applyContext.result->mutableRawNulls();
+            }
+            bits::clearNull(nullBuffer, row);
+          }
+        } else {
+          if (!nullBuffer) {
+            nullBuffer = applyContext.result->mutableRawNulls();
+          }
+          bits::setNull(nullBuffer, row);
+        }
+      };
       if (allNotNull) {
         applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-          bool notNull = doApplyNotNull<0>(row, data[row], readers...);
-          if (!notNull) {
-            if (!nn) {
-              nn = applyContext.result->mutableRawNulls();
-            }
-            bits::setNull(nn, row);
-          } else {
-            if (applyContext.result->rawNulls()) {
-              if (!nn) {
-                nn = applyContext.result->mutableRawNulls();
-              }
-              bits::clearNull(nn, row);
-            }
-          }
+          // Passing a stack variable have shown to be boost the performance of
+          // functions that repeatedly update the output.
+          // The opposite optimization (eliminating the temp) is easier to do
+          // by the compiler (assuming the function call is inlined).
+          typename return_type_traits::NativeType out;
+          bool notNull = doApplyNotNull<0>(row, out, readers...);
+          writeResult(row, notNull, out);
         });
       } else {
         applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-          bool notNull = doApply<0>(row, data[row], readers...);
-          if (!notNull) {
-            if (!nn) {
-              nn = applyContext.result->mutableRawNulls();
-            }
-            bits::setNull(nn, row);
-          } else {
-            if (applyContext.result->rawNulls()) {
-              if (!nn) {
-                nn = applyContext.result->mutableRawNulls();
-              }
-              bits::clearNull(nn, row);
-            }
-          }
+          typename return_type_traits::NativeType out;
+          bool notNull = doApply<0>(row, out, readers...);
+          writeResult(row, notNull, out);
         });
       }
     } else {
