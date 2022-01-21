@@ -176,8 +176,15 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
   // cancellations and pauses have well
   // defined timing. For example, do not pause and restart a task
   // while it is still adding Drivers.
-  std::lock_guard<std::mutex> l(self->mutex_);
+  // If the given execuor is folly::InlineLikeExecutor (or it's child), since
+  // the drivers will be executed synchronously on the same thread as the
+  // current task, so we need release the lock to avoid the deadlock.
+  std::unique_lock<std::mutex> l(self->mutex_);
   self->drivers_ = std::move(drivers);
+  if (dynamic_cast<const folly::InlineLikeExecutor*>(
+          self->queryCtx()->executor())) {
+    l.unlock();
+  }
   for (auto& driver : self->drivers_) {
     if (driver) {
       Driver::enqueue(driver);
