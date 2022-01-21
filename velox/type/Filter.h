@@ -527,7 +527,7 @@ class BoolValue final : public Filter {
 class BigintRange final : public Filter {
  public:
   /// @param lower Lower end of the range, inclusive.
-  /// @param lower Upper end of the range, inclusive.
+  /// @param upper Upper end of the range, inclusive.
   /// @param nullAllowed Null values are passing the filter if true.
   BigintRange(int64_t lower, int64_t upper, bool nullAllowed)
       : Filter(true, nullAllowed, FilterKind::kBigintRange),

@@ -485,7 +485,7 @@ class E2EFilterTest : public testing::Test {
   void testFilterSpecs(const std::vector<FilterSpec>& filterSpecs) {
     std::vector<uint32_t> hitRows;
     auto filters =
-        FilterGenerator::makeSubfieldFilters(filterSpecs, batches_, hitRows);
+        filterGenerator->makeSubfieldFilters(filterSpecs, batches_, hitRows);
     auto spec = filterGenerator->makeScanSpec(std::move(filters));
     uint64_t timeWithFilter = 0;
     readWithFilter(spec.get(), batches_, hitRows, timeWithFilter, false);
@@ -563,7 +563,7 @@ class E2EFilterTest : public testing::Test {
         makeDataset(customize);
         for (auto i = 0; i < numCombinations; ++i) {
           std::vector<FilterSpec> specs =
-              filterGenerator->makeRandomSpecs(filterable);
+              filterGenerator->makeRandomSpecs(filterable, 125);
           std::cout << i << ": Testing "
                     << FilterGenerator::specsToString(specs) << std::endl;
           testFilterSpecs(specs);

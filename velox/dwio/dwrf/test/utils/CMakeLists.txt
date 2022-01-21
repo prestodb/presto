@@ -19,6 +19,7 @@ target_link_libraries(
   velox_dwrf_test_utils
   ${FOLLY_WITH_DEPENDENCIES}
   velox_dwio_common
+  velox_dwio_common_exception
   velox_dwio_dwrf_reader
   velox_dwio_dwrf_writer
   velox_exception

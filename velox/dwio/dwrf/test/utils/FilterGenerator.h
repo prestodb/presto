@@ -17,9 +17,11 @@
 #pragma once
 
 #include <folly/Random.h>
+#include <memory>
 
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ScanSpec.h"
+#include "velox/dwio/common/exception/Exception.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
 #include "velox/vector/ComplexVector.h"
@@ -45,14 +47,18 @@ struct FilterSpec {
 uint32_t batchPosition(uint32_t batchNumber, vector_size_t batchRow);
 uint32_t batchNumber(uint32_t position);
 vector_size_t batchRow(uint32_t position);
-VectorPtr getChildBySubfield(RowVector* rowVector, const Subfield& subfield);
+VectorPtr getChildBySubfield(
+    RowVector* rowVector,
+    const Subfield& subfield,
+    const RowTypePtr& rowType = nullptr);
 
 class AbstractColumnStats {
  public:
   // ASCII string greater than test data values. Used for row group skipping
   // tests.
   static constexpr const char* kMaxString = "~~~~~";
-  explicit AbstractColumnStats(TypePtr type) : type_(type) {}
+  AbstractColumnStats(TypePtr type, RowTypePtr rootType)
+      : type_(type), rootType_(rootType) {}
 
   virtual ~AbstractColumnStats() = default;
 
@@ -78,6 +84,7 @@ class AbstractColumnStats {
 
  protected:
   const TypePtr type_;
+  const RowTypePtr rootType_;
   int32_t numDistinct_ = 0;
   int32_t numNulls_ = 0;
   int32_t numSamples_ = 0;
@@ -88,7 +95,8 @@ class AbstractColumnStats {
 template <typename T>
 class ColumnStats : public AbstractColumnStats {
  public:
-  explicit ColumnStats(TypePtr type) : AbstractColumnStats(type) {}
+  explicit ColumnStats(TypePtr type, RowTypePtr rootTypePtr)
+      : AbstractColumnStats(type, rootTypePtr) {}
 
   void sample(
       const std::vector<RowVectorPtr>& batches,
@@ -101,8 +109,8 @@ class ColumnStats : public AbstractColumnStats {
       if (batch != previousBatch) {
         previousBatch = batch;
         auto vector = batches[batch];
-        values = getChildBySubfield(vector.get(), subfield)
-                     ->asUnchecked<SimpleVector<T>>();
+        values = getChildBySubfield(vector.get(), subfield, rootType_)
+                     ->template asUnchecked<SimpleVector<T>>();
       }
 
       addSample(values, batchRow(row));
@@ -138,8 +146,8 @@ class ColumnStats : public AbstractColumnStats {
       if (batch != previousBatch) {
         previousBatch = batch;
         auto vector = batches[batch];
-        values = getChildBySubfield(batches[batch].get(), subfield)
-                     ->as<SimpleVector<T>>();
+        values = getChildBySubfield(batches[batch].get(), subfield, rootType_)
+                     ->template as<SimpleVector<T>>();
       }
       auto row = batchRow(hit);
       if (values->isNullAt(row)) {
@@ -170,8 +178,8 @@ class ColumnStats : public AbstractColumnStats {
       if (batch != previousBatch) {
         previousBatch = batch;
         auto vector = batches[batch];
-        values = getChildBySubfield(batches[batch].get(), subfield)
-                     ->as<SimpleVector<T>>();
+        values = getChildBySubfield(batches[batch].get(), subfield, rootType_)
+                     ->template as<SimpleVector<T>>();
       }
       auto row = batchRow(hit);
       if (values->isNullAt(row)) {
@@ -240,9 +248,14 @@ class ColumnStats : public AbstractColumnStats {
     T max;
     bool hasMax = false;
     for (auto batch : batches) {
-      auto values =
-          getChildBySubfield(batch.get(), subfield)->as<SimpleVector<T>>();
-
+      auto values = getChildBySubfield(batch.get(), subfield, rootType_)
+                        ->template as<SimpleVector<T>>();
+      DWIO_ENSURE_NOT_NULL(
+          values,
+          "Failed to convert to SimpleVector<",
+          typeid(T).name(),
+          "> for batch of kind ",
+          batch->type()->kindName());
       for (auto i = 0; i < values->size(); ++i) {
         if (values->isNullAt(i)) {
           continue;
@@ -289,26 +302,30 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRowGroupSkipRangeFilter(
     const Subfield& /*subfield*/);
 
 template <TypeKind Kind>
-std::unique_ptr<AbstractColumnStats> makeStats(TypePtr type) {
+std::unique_ptr<AbstractColumnStats> makeStats(
+    TypePtr type,
+    RowTypePtr rootType) {
   using T = typename TypeTraits<Kind>::NativeType;
-  return std::make_unique<ColumnStats<T>>(type);
+  return std::make_unique<ColumnStats<T>>(type, rootType);
 }
 
 class FilterGenerator {
  public:
   static std::string specsToString(const std::vector<FilterSpec>& specs);
-  static SubfieldFilters makeSubfieldFilters(
-      const std::vector<FilterSpec>& filterSpecs,
-      const std::vector<RowVectorPtr>& batches,
-      std::vector<uint32_t>& hitRows);
 
   explicit FilterGenerator(std::shared_ptr<const RowType>& rowType)
       : rowType_(rowType) {
     reseedRng();
   }
 
+  SubfieldFilters makeSubfieldFilters(
+      const std::vector<FilterSpec>& filterSpecs,
+      const std::vector<RowVectorPtr>& batches,
+      std::vector<uint32_t>& hitRows);
+  std::vector<std::string> makeFilterables(uint32_t count, float pct);
   std::vector<FilterSpec> makeRandomSpecs(
-      const std::vector<std::string>& filterable);
+      const std::vector<std::string>& filterable,
+      int32_t countX100);
   std::unique_ptr<ScanSpec> makeScanSpec(SubfieldFilters filters);
 
   inline folly::Random::DefaultGenerator& rng() {
@@ -331,6 +348,9 @@ class FilterGenerator {
       const std::shared_ptr<const Type>& type,
       ScanSpec* spec);
 
+  static void collectFilterableSubFields(
+      const RowType* rowType,
+      std::vector<std::string>& subFields);
   folly::Random::DefaultGenerator rng_;
   std::shared_ptr<const RowType> rowType_;
   std::unordered_map<std::string, std::array<int32_t, 2>> filterCoverage_;

@@ -15,6 +15,11 @@
  */
 
 #include "velox/dwio/dwrf/test/utils/FilterGenerator.h"
+
+#include <algorithm>
+#include <memory>
+#include <typeinfo>
+
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::dwio::dwrf {
@@ -34,22 +39,36 @@ vector_size_t batchRow(uint32_t position) {
   return position & 0xffff;
 }
 
-VectorPtr getChildBySubfield(RowVector* rowVector, const Subfield& subfield) {
+VectorPtr getChildBySubfield(
+    RowVector* rowVector,
+    const Subfield& subfield,
+    const RowTypePtr& type) {
   auto& path = subfield.path();
   auto container = rowVector;
+  auto parentType = type.get();
   for (int i = 0; i < path.size(); ++i) {
     auto nestedField =
         dynamic_cast<const Subfield::NestedField*>(path[i].get());
     VELOX_CHECK(nestedField, "Path does not consist of nested fields");
 
-    auto rowType = container->type()->as<TypeKind::ROW>();
-    auto child = rowVector->childAt(rowType.getChildIdx(nestedField->name()));
+    auto rowType = parentType == nullptr
+        ? container->type()->as<TypeKind::ROW>()
+        : *parentType;
+    auto childIdx = rowType.getChildIdx(nestedField->name());
+    auto child = rowVector->childAt(childIdx);
 
     if (i == path.size() - 1) {
       return child;
     }
     VELOX_CHECK(child->typeKind() == TypeKind::ROW);
     container = child->as<RowVector>();
+    parentType =
+        dynamic_cast<const RowType*>(parentType->childAt(childIdx).get());
+    VELOX_CHECK_NOT_NULL(
+        parentType,
+        "Expecting child to be row type",
+        subfield.toString().c_str(),
+        i);
   }
   // Never reached.
   VELOX_CHECK(false);
@@ -132,7 +151,7 @@ void FilterGenerator::makeFieldSpecs(
     case TypeKind::ROW: {
       VELOX_CHECK_EQ(type->kind(), velox::TypeKind::ROW);
       auto rowType = dynamic_cast<const RowType*>(type.get());
-      VELOX_CHECK_NOT_NULL(rowType, "");
+      VELOX_CHECK_NOT_NULL(rowType, "Expecting a row type", type->kindName());
       for (auto i = 0; i < type->size(); ++i) {
         std::string path = level == 0 ? rowType->nameOf(i)
                                       : pathPrefix + "." + rowType->nameOf(i);
@@ -194,6 +213,98 @@ std::string FilterGenerator::specsToString(
   return out.str();
 }
 
+void FilterGenerator::collectFilterableSubFields(
+    const RowType* rowType,
+    std::vector<std::string>& subFields) {
+  for (int i = 0; i < rowType->size(); ++i) {
+    auto kind = rowType->childAt(i)->kind();
+    switch (kind) {
+      // ignore these types for filtering
+      case TypeKind::ARRAY:
+      case TypeKind::MAP:
+      case TypeKind::UNKNOWN:
+      case TypeKind::FUNCTION:
+      case TypeKind::OPAQUE:
+      case TypeKind::VARBINARY:
+      case TypeKind::TIMESTAMP:
+      case TypeKind::ROW:
+      case TypeKind::INVALID:
+        continue;
+
+      default:
+        subFields.push_back(rowType->nameOf(i));
+    }
+  }
+}
+
+std::vector<std::string> FilterGenerator::makeFilterables(
+    uint32_t count,
+    float pct) {
+  std::vector<std::string> filterables;
+  filterables.reserve(rowType_->size());
+  collectFilterableSubFields(rowType_.get(), filterables);
+  uint32_t countTotal = filterables.size();
+  uint32_t countSelect = std::min(count, countTotal);
+  if (countSelect == 0) {
+    countSelect = std::max(1, (int)(countTotal * pct) / 100);
+  }
+
+  // probability of selection = (number needed)/(candidates left)
+  for (int i = 0, j = 0; i < countTotal && j < countSelect; ++i) {
+    if (folly::Random::rand32(countTotal - i, rng_) < countSelect - j) {
+      filterables[j++] = filterables[i];
+    }
+  }
+  filterables.resize(countSelect);
+  return filterables;
+}
+
+std::vector<FilterSpec> FilterGenerator::makeRandomSpecs(
+    const std::vector<std::string>& filterable,
+    int32_t countX100) {
+  std::vector<FilterSpec> specs;
+  auto deck = filterable;
+  for (size_t i = 0; i < filterable.size(); ++i) {
+    if (countX100 > 0) {
+      // We aim at picking countX100 / 100 fields
+      if (folly::Random::rand32(rng_) % (100 * filterable.size()) >=
+          countX100) {
+        continue;
+      }
+    }
+
+    auto idx = folly::Random::rand32(rng_) % deck.size();
+    auto name = deck[idx];
+    if (specs.empty()) {
+      ++filterCoverage_[name][0];
+    } else {
+      ++filterCoverage_[name][1];
+    }
+    deck.erase(deck.begin() + idx);
+    specs.emplace_back();
+    specs.back().field = name;
+    auto category = folly::Random::rand32(rng_) % 13;
+    if (category == 0) {
+      specs.back().selectPct = 1;
+    } else if (category < 4) {
+      specs.back().selectPct = category * 10;
+    } else if (category == 11) {
+      specs.back().filterKind = FilterKind::kIsNull;
+    } else if (category == 12) {
+      specs.back().filterKind = FilterKind::kIsNotNull;
+    } else {
+      specs.back().selectPct = 60 + category * 4;
+    }
+
+    specs.back().startPct = specs.back().selectPct < 100
+        ? folly::Random::rand32(rng_) %
+            static_cast<int32_t>(100 - specs.back().selectPct)
+        : 0;
+  }
+
+  return specs;
+}
+
 std::unique_ptr<ScanSpec> FilterGenerator::makeScanSpec(
     SubfieldFilters filters) {
   auto spec = std::make_unique<ScanSpec>("root");
@@ -227,36 +338,39 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
   SubfieldFilters filters;
   for (auto& filterSpec : filterSpecs) {
     Subfield subfield(filterSpec.field);
-    auto vector = getChildBySubfield(first, subfield);
+    auto vector = getChildBySubfield(first, subfield, rowType_);
     std::unique_ptr<AbstractColumnStats> stats;
     switch (vector->typeKind()) {
       case TypeKind::BOOLEAN:
-        stats = makeStats<TypeKind::BOOLEAN>(vector->type());
+        stats = makeStats<TypeKind::BOOLEAN>(vector->type(), rowType_);
         break;
       case TypeKind::TINYINT:
-        stats = makeStats<TypeKind::TINYINT>(vector->type());
+        stats = makeStats<TypeKind::TINYINT>(vector->type(), rowType_);
         break;
       case TypeKind::SMALLINT:
-        stats = makeStats<TypeKind::SMALLINT>(vector->type());
+        stats = makeStats<TypeKind::SMALLINT>(vector->type(), rowType_);
         break;
       case TypeKind::INTEGER:
-        stats = makeStats<TypeKind::INTEGER>(vector->type());
+        stats = makeStats<TypeKind::INTEGER>(vector->type(), rowType_);
         break;
       case TypeKind::BIGINT:
-        stats = makeStats<TypeKind::BIGINT>(vector->type());
+        stats = makeStats<TypeKind::BIGINT>(vector->type(), rowType_);
         break;
       case TypeKind::VARCHAR:
-        stats = makeStats<TypeKind::VARCHAR>(vector->type());
+        stats = makeStats<TypeKind::VARCHAR>(vector->type(), rowType_);
         break;
-
       case TypeKind::REAL:
-        stats = makeStats<TypeKind::REAL>(vector->type());
+        stats = makeStats<TypeKind::REAL>(vector->type(), rowType_);
         break;
       case TypeKind::DOUBLE:
-        stats = makeStats<TypeKind::DOUBLE>(vector->type());
+        stats = makeStats<TypeKind::DOUBLE>(vector->type(), rowType_);
         break;
+        // TODO:
+        // Add support for TTypeKind::IMESTAMP and TypeKind::ROW
       default:
-        VELOX_CHECK(false, "Type not supported");
+        VELOX_CHECK(
+            false,
+            std::string("Type not supported: ") + vector->type()->kindName());
     }
 
     stats->sample(batches, subfield, hitRows);
@@ -276,45 +390,6 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
   }
 
   return filters;
-}
-
-std::vector<FilterSpec> FilterGenerator::makeRandomSpecs(
-    const std::vector<std::string>& filterable) {
-  std::vector<FilterSpec> specs;
-  auto deck = filterable;
-  for (int i = 0; i < filterable.size(); ++i) {
-    // We aim at 1.5
-    if (folly::Random::rand32(rng_) % (100 * filterable.size()) < 125) {
-      auto idx = folly::Random::rand32(rng_) % deck.size();
-      auto name = deck[idx];
-      if (specs.empty()) {
-        ++filterCoverage_[name][0];
-      } else {
-        ++filterCoverage_[name][1];
-      }
-      deck.erase(deck.begin() + idx);
-      specs.emplace_back();
-      specs.back().field = name;
-      auto category = folly::Random::rand32(rng_) % 13;
-      if (category == 0) {
-        specs.back().selectPct = 1;
-      } else if (category < 4) {
-        specs.back().selectPct = category * 10;
-      } else if (category == 11) {
-        specs.back().filterKind = FilterKind::kIsNull;
-      } else if (category == 12) {
-        specs.back().filterKind = FilterKind::kIsNotNull;
-      } else {
-        specs.back().selectPct = 60 + category * 4;
-      }
-      specs.back().startPct = specs.back().selectPct < 100
-          ? folly::Random::rand32(rng_) %
-              static_cast<int32_t>(100 - specs.back().selectPct)
-          : 0;
-    }
-  }
-
-  return specs;
 }
 
 } // namespace facebook::velox::dwio::dwrf
