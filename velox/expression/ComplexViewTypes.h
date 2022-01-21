@@ -17,6 +17,7 @@
 #pragma once
 #include <iterator>
 #include <optional>
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/vector/TypeAliases.h"

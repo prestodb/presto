@@ -20,6 +20,7 @@ add_executable(
   SignatureBinderTest.cpp
   SimpleFunctionTest.cpp
   ArrayViewTest.cpp
+  ArrayProxyTest.cpp
   MapViewTest.cpp
   RowViewTest.cpp
   VariadicViewTest.cpp)
