@@ -67,12 +67,15 @@ public class TestTimeZoneUtils
                 continue;
             }
 
-            if (zoneId.equals("Pacific/Kanton")) {
-                // TODO: remove Once Joda version supports this Timezone.
-                // JDK supported this timezone, but not Joda and was resulting in the test failure.
-                // https://www.joda.org/joda-time/timezones.html
+            if (zoneId.equals("Pacific/Enderbury")) {
+                // Pacific/Enderbury is mapped to Pacific/Kanton
+                // Pacific/Kanton is only available in newer JDKs. This will pass
+                // in the CI machines, but all developers need to upgrade to newer JDK
+                // for the tests to pass.
                 continue;
             }
+
+            System.out.println("Processing timeZone " + zoneId);
 
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
