@@ -36,13 +36,13 @@ class VariadicView {
 
   using Element = VectorOptionalValueAccessor<reader_t>;
 
-  class Iterator : public IndexBasedIterator<Element> {
+  class Iterator : public IndexBasedIterator<Element, int> {
    public:
     Iterator(
         const std::vector<std::unique_ptr<reader_t>>* readers,
         size_t readerIndex,
         vector_size_t offset)
-        : IndexBasedIterator<Element>(readerIndex),
+        : IndexBasedIterator<Element, int>(readerIndex),
           readers_(readers),
           offset_(offset) {}
 
