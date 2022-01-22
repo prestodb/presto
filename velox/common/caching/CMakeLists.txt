@@ -18,11 +18,18 @@ add_library(
   FileIds.cpp
   StringIdMap.cpp
   AsyncDataCache.cpp
+  ScanTracker.cpp
+  SsdCache.cpp
   SsdFile.cpp
-  SsdFileTracker.cpp
-  ScanTracker.cpp)
-target_link_libraries(velox_caching velox_memory velox_exception velox_file
-                      glog::glog ${FOLLY_WITH_DEPENDENCIES})
+  SsdFileTracker.cpp)
+target_link_libraries(
+  velox_caching
+  velox_memory
+  velox_exception
+  velox_file
+  velox_time
+  glog::glog
+  ${FOLLY_WITH_DEPENDENCIES})
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

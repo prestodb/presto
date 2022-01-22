@@ -16,8 +16,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
-
-#include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/caching/SsdCache.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"

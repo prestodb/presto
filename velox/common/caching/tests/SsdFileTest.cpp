@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/common/caching/SsdFile.h"
 #include "velox/common/caching/FileIds.h"
+#include "velox/common/caching/SsdCache.h"
 
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <glog/logging.h>

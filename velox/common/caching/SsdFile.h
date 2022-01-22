@@ -88,6 +88,9 @@ class SsdPin {
 
   ~SsdPin();
 
+  // Resets 'this' to default-constructed state.
+  void clear();
+
   void operator=(SsdPin&&);
 
   bool empty() const {
@@ -100,6 +103,8 @@ class SsdPin {
   SsdRun run() const {
     return run_;
   }
+
+  std::string toString() const;
 
  private:
   SsdFile* file_;
@@ -114,6 +119,7 @@ struct SsdCacheStats {
   uint64_t bytesRead{0};
   uint64_t entriesCached{0};
   uint64_t bytesCached{0};
+  int32_t numPins{0};
 };
 
 // A shard of SsdCache. Corresponds to one file on SSD.  The data
@@ -139,6 +145,9 @@ class SsdFile {
 
   // Finds an entry for 'key'. If no entry is found, the returned pin is empty.
   SsdPin find(RawFileCacheKey key);
+
+  // Erases 'key'
+  bool erase(RawFileCacheKey key);
 
   // Copies the data in 'ssdPins' into 'pins'. Coalesces IO for nearby
   // entries if they are in ascending order and near enough.

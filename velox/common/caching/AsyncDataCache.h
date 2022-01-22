@@ -23,6 +23,7 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/CoalesceIo.h"
 #include "velox/common/base/SelectivityInfo.h"
+#include "velox/common/caching/FileGroupStats.h"
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/StringIdMap.h"
 #include "velox/common/file/File.h"
@@ -32,6 +33,7 @@ namespace facebook::velox::cache {
 
 class AsyncDataCache;
 class CacheShard;
+class SsdCache;
 class SsdFile;
 
 // Type for tracking last access. This is based on CPU clock and
@@ -134,10 +136,10 @@ class AsyncDataCacheEntry {
 
   explicit AsyncDataCacheEntry(CacheShard* FOLLY_NONNULL shard);
 
-  // Sets the key and size and allocates the entry's memory.  Resets
+  // Sets the key and allocates the entry's memory.  Resets
   //  all other state. The entry must be held exclusively and must
   //  hold no memory when calling this.
-  void initialize(FileCacheKey key, int32_t size);
+  void initialize(FileCacheKey key);
 
   memory::MappedMemory::Allocation& data() {
     return data_;
@@ -209,6 +211,7 @@ class AsyncDataCacheEntry {
   void setSsdFile(SsdFile* FOLLY_NULLABLE file, uint64_t offset) {
     ssdFile_ = file;
     ssdOffset_ = offset;
+    ssdSaveable_ = false;
   }
 
   SsdFile* FOLLY_NULLABLE ssdFile() const {
@@ -285,6 +288,9 @@ class AsyncDataCacheEntry {
 
   // Offset in 'ssdFile_'.
   uint64_t ssdOffset_{0};
+
+  // True if this should be saved to SSD.
+  bool ssdSaveable_{false};
 
   friend class CacheShard;
   friend class CachePin;
@@ -524,6 +530,13 @@ class CacheShard {
   // Adds the stats of 'this' to 'stats'.
   void updateStats(CacheStats& stats);
 
+  // Appends a batch of non-saved SSD saveable entries in 'this' to
+  // 'pins'. This may have to be called several times since this keeps
+  // limits on the batch to write at one time. The saveable entries
+  // are pinned for read. 'pins' should be written or dropped before
+  // calling this a second time.
+  void appendSsdSaveable(std::vector<CachePin>& pins);
+
   auto& allocClocks() {
     return allocClocks_;
   }
@@ -537,8 +550,7 @@ class CacheShard {
   std::unique_ptr<AsyncDataCacheEntry> getFreeEntryWithSize(uint64_t sizeHint);
   CachePin initEntry(
       RawFileCacheKey key,
-      AsyncDataCacheEntry* FOLLY_NONNULL entry,
-      int64_t size);
+      AsyncDataCacheEntry* FOLLY_NONNULL entry);
 
   mutable std::mutex mutex_;
   folly::F14FastMap<RawFileCacheKey, AsyncDataCacheEntry * FOLLY_NONNULL>
@@ -581,7 +593,8 @@ class AsyncDataCache : public memory::MappedMemory,
  public:
   AsyncDataCache(
       std::unique_ptr<memory::MappedMemory> mappedMemory,
-      uint64_t maxBytes);
+      uint64_t maxBytes,
+      std::unique_ptr<SsdCache> ssdCache = nullptr);
 
   // Finds or creates a cache entry corresponding to 'key'. The entry
   // is returned in 'pin'. If the entry is new, it is pinned in
@@ -657,10 +670,19 @@ class AsyncDataCache : public memory::MappedMemory,
     return maxBytes_;
   }
 
+  SsdCache* FOLLY_NULLABLE ssdCache() const {
+    return ssdCache_.get();
+  }
+
   // Updates stats for creation of a new cache entry of 'size' bytes,
   // i.e. a cache miss. Periodically updates SSD admission criteria,
   // i.e. reconsider criteria every half cache capacity worth of misses.
   void incrementNew(uint64_t size);
+
+  // Updates statistics after bringing in 'bytes' worth of data that
+  // qualifies for SSD save and is not backed by SSD. Periodically
+  // triggers a background write of eligible entries to SSD.
+  void possibleSsdSave(uint64_t bytes);
 
   // Sets a callback applied to new entries at the point where
   //  they are set to shared mode. Used for testing and can be used for
@@ -695,15 +717,34 @@ class AsyncDataCache : public memory::MappedMemory,
   // Drops all unpinned entries. Pins stay valid.
   void clear();
 
+  // Saves all entries with 'ssdSaveable_' to 'ssdCache_'.
+  void saveToSsd();
+
+  int32_t& numSkippedSaves() {
+    return numSkippedSaves_;
+  }
+
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
   static constexpr int32_t kShardMask = kNumShards - 1;
 
+  // Waits a pseudorandom delay times 'counter'.
+  void backoff(int32_t counter);
+
+  // Calls 'allocate' until this returns true. Returns true if
+  // allocate returns true. and Tries to evict at least 'numPages' of
+  // cache after each failed call to 'allocate'.  May pause to wait
+  // for SSD cache flush if ''ssdCache_' is set and is busy
+  // writing. Does random back-off after several failures and
+  // eventually gives up. Allocation must not be serialized by a mutex
+  // for memory arbitration to work.
   bool makeSpace(
       memory::MachinePageCount numPages,
+
       std::function<bool()> allocate);
 
   std::unique_ptr<memory::MappedMemory> mappedMemory_;
+  std::unique_ptr<SsdCache> ssdCache_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
   int32_t shardCounter_{};
   std::atomic<memory::MachinePageCount> cachedPages_{0};
@@ -725,6 +766,18 @@ class AsyncDataCache : public memory::MappedMemory,
   CacheStats stats_;
 
   std::function<void(const AsyncDataCacheEntry&)> verifyHook_;
+  // Count of skipped saves to 'ssdCache_' due to 'ssdCache_' being
+  // busy with write.
+  int32_t numSkippedSaves_{0};
+
+  // Used for pseudorandom backoff after failed allocation
+  // attempts. Serialization with a mutex is not allowed for
+  // allocations, so use backoff.
+  std::atomic<uint16_t> backoffCounter_{0};
+
+  // Counter of threads competing for allocation in makeSpace(). Used
+  // for setting staggered backoff. Mutexes are not allowed for this.
+  std::atomic<int32_t> numThreadsInAllocate_{0};
 };
 
 // Samples a set of values T from 'numSamples' calls of
