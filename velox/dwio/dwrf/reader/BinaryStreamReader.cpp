@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/reader/BinaryStreamReader.h"
+#include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::dwrf::detail {
 
@@ -101,12 +102,28 @@ BinaryStreamReader::getStatistics() const {
   std::unordered_map<uint32_t, proto::ColumnStatistics> stats;
   auto footerStatsSize =
       stripeReaderBase_.getReader().getFooter().statistics_size();
+  auto typesSize = stripeReaderBase_.getReader().getFooter().types_size();
 
-  // Node 0 is always selected by ColumnSelector, though this can be
-  // disabled for the current use cases.
-  for (auto node = 0; node < footerStatsSize; node++) {
-    if (columnSelector_.shouldReadNode(node)) {
-      stats[node] = stripeReaderBase_.getReader().getFooter().statistics(node);
+  if (footerStatsSize == 0) {
+    DWIO_ENSURE_EQ(
+        numStripes,
+        0,
+        "Corrupted file detected, Footer stats are missing, but stripes are present");
+    for (auto node = 0; node < typesSize; node++) {
+      if (columnSelector_.shouldReadNode(node)) {
+        stats[node] = proto::ColumnStatistics();
+      }
+    }
+  } else {
+    DWIO_ENSURE_EQ(
+        footerStatsSize, typesSize, "different number of nodes and statistics");
+    // Node 0 is always selected by ColumnSelector, though this can be
+    // disabled for the current use cases.
+    for (auto node = 0; node < footerStatsSize; node++) {
+      if (columnSelector_.shouldReadNode(node)) {
+        stats[node] =
+            stripeReaderBase_.getReader().getFooter().statistics(node);
+      }
     }
   }
   return stats;
