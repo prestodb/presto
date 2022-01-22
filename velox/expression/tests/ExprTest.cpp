@@ -2418,3 +2418,9 @@ TEST_F(ExprTest, accessNestedConstantEncoding) {
 
   assertEqualVectors(makeConstantVector(3, 5), result);
 }
+
+TEST_F(ExprTest, testEmptyVectors) {
+  auto a = makeFlatVector<int32_t>({});
+  auto result = evaluate("c0 + c0", makeRowVector({a, a}));
+  assertEqualVectors(a, result);
+}

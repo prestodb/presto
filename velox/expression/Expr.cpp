@@ -168,6 +168,8 @@ void Expr::evalSimplifiedImpl(
     EvalCtx* context,
     VectorPtr* result) {
   if (!rows.hasSelections()) {
+    // empty input, return an empty vector of the right type
+    *result = BaseVector::createNullConstant(type(), 0, context->pool());
     return;
   }
 
@@ -219,6 +221,8 @@ void Expr::eval(
     EvalCtx* context,
     VectorPtr* result) {
   if (!rows.hasSelections()) {
+    // empty input, return an empty vector of the right type
+    *result = BaseVector::createNullConstant(type(), 0, context->pool());
     return;
   }
 
@@ -638,6 +642,8 @@ void Expr::evalWithNulls(
     EvalCtx* context,
     VectorPtr* result) {
   if (!rows.hasSelections()) {
+    // empty input, return an empty vector of the right type
+    *result = BaseVector::createNullConstant(type(), 0, context->pool());
     return;
   }
 
@@ -854,6 +860,8 @@ void Expr::evalAll(
     EvalCtx* context,
     VectorPtr* result) {
   if (!rows.hasSelections()) {
+    // empty input, return an empty vector of the right type
+    *result = BaseVector::createNullConstant(type(), 0, context->pool());
     return;
   }
   if (isSpecialForm()) {
