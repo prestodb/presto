@@ -14,69 +14,19 @@
  * limitations under the License.
  */
 #pragma once
-#include <limits>
 #include "velox/core/PlanFragment.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/LocalPartition.h"
 #include "velox/exec/MergeSource.h"
 #include "velox/exec/Split.h"
+#include "velox/exec/TaskStructs.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec {
 
 class PartitionedOutputBufferManager;
 
-// Corresponds to Presto TaskState, needed for reporting query completion.
-enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
-
-struct PipelineStats {
-  // Cumulative OperatorStats for finished Drivers. The subscript is the
-  // operator id, which is the initial ordinal position of the
-  // operator in the DriverFactory.
-  std::vector<OperatorStats> operatorStats;
-
-  // True if contains the source node for the task.
-  bool inputPipeline;
-
-  // True if contains the sync node for the task.
-  bool outputPipeline;
-
-  PipelineStats(bool _inputPipeline, bool _outputPipeline)
-      : inputPipeline{_inputPipeline}, outputPipeline{_outputPipeline} {}
-};
-
-struct TaskStats {
-  int32_t numTotalSplits{0};
-  int32_t numFinishedSplits{0};
-  int32_t numRunningSplits{0};
-  int32_t numQueuedSplits{0};
-  std::unordered_set<int32_t> completedSplitGroups;
-
-  // The subscript is given by each Operator's
-  // DriverCtx::pipelineId. This is a sum total reflecting fully
-  // processed Splits for Drivers of this pipeline.
-  std::vector<PipelineStats> pipelineStats;
-
-  // Epoch time (ms) when task starts to run
-  uint64_t executionStartTimeMs{0};
-
-  // Epoch time (ms) when last split is processed. For some tasks there might be
-  // some additional time to send buffered results before the task finishes.
-  uint64_t executionEndTimeMs{0};
-
-  // Epoch time (ms) when first split is fetched from the task by an operator.
-  uint64_t firstSplitStartTimeMs{0};
-
-  // Epoch time (ms) when last split is fetched from the task by an operator.
-  uint64_t lastSplitStartTimeMs{0};
-
-  // Epoch time (ms) when the task completed, e.g. all splits were processed and
-  // results have been consumed.
-  uint64_t endTimeMs{0};
-};
-
-class JoinBridge;
 class HashJoinBridge;
 class CrossJoinBridge;
 
@@ -106,22 +56,10 @@ class Task {
     return taskId_;
   }
 
-  velox::memory::MemoryPool* FOLLY_NONNULL addDriverPool() {
-    childPools_.push_back(pool_->addScopedChild("driver_root"));
-    auto* driverPool = childPools_.back().get();
-    auto parentTracker = pool_->getMemoryUsageTracker();
-    if (parentTracker) {
-      driverPool->setMemoryUsageTracker(parentTracker->addChild());
-    }
-
-    return driverPool;
-  }
+  velox::memory::MemoryPool* FOLLY_NONNULL addDriverPool();
 
   velox::memory::MemoryPool* FOLLY_NONNULL
-  addOperatorPool(velox::memory::MemoryPool* FOLLY_NONNULL driverPool) {
-    childPools_.push_back(driverPool->addScopedChild("operator_ctx"));
-    return childPools_.back().get();
-  }
+  addOperatorPool(velox::memory::MemoryPool* FOLLY_NONNULL driverPool);
 
   static void start(std::shared_ptr<Task> self, uint32_t maxDrivers);
 
@@ -191,10 +129,7 @@ class Task {
       const std::shared_ptr<const RowType>& rowType,
       memory::MappedMemory* FOLLY_NONNULL mappedMemory);
 
-  std::shared_ptr<MergeSource> getLocalMergeSource(int sourceId) {
-    VELOX_CHECK_LT(sourceId, localMergeSources_.size(), "Incorrect source id ");
-    return localMergeSources_[sourceId];
-  }
+  std::shared_ptr<MergeSource> getLocalMergeSource(int sourceId);
 
   void createMergeJoinSource(const core::PlanNodeId& planNodeId);
 
@@ -218,48 +153,11 @@ class Task {
     return exception_;
   }
 
-  void setError(std::exception_ptr exception) {
-    bool isFirstError = false;
-    {
-      std::lock_guard<std::mutex> l(mutex_);
-      if (state_ != kRunning) {
-        return;
-      }
-      if (!exception_) {
-        exception_ = exception;
-        isFirstError = true;
-      }
-    }
-    if (isFirstError) {
-      terminate(kFailed);
-    }
-    if (isFirstError && onError_) {
-      onError_(exception_);
-    }
-  }
+  void setError(const std::exception_ptr& exception);
 
-  void setError(const std::string& message) {
-    // The only way to acquire an std::exception_ptr is via throw and
-    // std::current_exception().
-    try {
-      throw std::runtime_error(message);
-    } catch (const std::runtime_error& e) {
-      setError(std::current_exception());
-    }
-  }
+  void setError(const std::string& message);
 
-  std::string errorMessage() {
-    if (!exception_) {
-      return "";
-    }
-    std::string message;
-    try {
-      std::rethrow_exception(exception_);
-    } catch (const std::exception& e) {
-      message = e.what();
-    }
-    return message;
-  }
+  std::string errorMessage();
 
   std::shared_ptr<core::QueryCtx> queryCtx() const {
     return queryCtx_;
@@ -365,10 +263,6 @@ class Task {
     return pool_.get();
   }
 
-  // Returns the Driver running on the current thread or nullptr if the current
-  // thread is not running a Driver of 'this'.
-  Driver* FOLLY_NULLABLE thisDriver() const;
-
   // Returns kNone if no pause or terminate is requested. The thread count is
   // incremented if kNone is returned. If something else is returned the
   // calling thread should unwind and return itself to its pool.
@@ -398,22 +292,11 @@ class Task {
   StopReason enterSuspended(ThreadState& state);
 
   StopReason leaveSuspended(ThreadState& state);
+
   // Returns a stop reason without synchronization. If the stop reason
   // is yield, then atomically decrements the count of threads that
   // are to yield.
-  StopReason shouldStop() {
-    if (terminateRequested_) {
-      return StopReason::kTerminate;
-    }
-    if (pauseRequested_) {
-      return StopReason::kPause;
-    }
-    if (toYield_) {
-      std::lock_guard<std::mutex> l(mutex_);
-      return shouldStopLocked();
-    }
-    return StopReason::kNone;
-  }
+  StopReason shouldStop();
 
   void requestPause(bool pause) {
     std::lock_guard<std::mutex> l(mutex_);
@@ -451,41 +334,6 @@ class Task {
   }
 
  private:
-  struct BarrierState {
-    int32_t numRequested;
-    std::vector<std::shared_ptr<Driver>> drivers;
-    std::vector<VeloxPromise<bool>> promises;
-  };
-
-  // Map for bucketed group id -> group splits info.
-  struct GroupSplitsInfo {
-    int32_t numIncompleteSplits{0};
-    bool noMoreSplits{false};
-  };
-
-  // Structure contains the current info on splits.
-  struct SplitsState {
-    // Arrived (added), but not distributed yet, splits.
-    std::deque<exec::Split> splits;
-
-    // Blocking promises given out when out of splits to distribute.
-    std::vector<VeloxPromise<bool>> splitPromises;
-
-    // Singnal, that no more splits will arrive.
-    bool noMoreSplits{false};
-
-    // For splits, coming with group ids, we keep track of them.
-    std::unordered_map<int32_t, GroupSplitsInfo> groupSplits;
-
-    // Keep the max added split's sequence id to deduplicate incoming splits.
-    long maxSequenceId{std::numeric_limits<long>::min()};
-
-    // We need these due to having promises in the structure.
-    SplitsState() = default;
-    SplitsState(SplitsState const&) = delete;
-    SplitsState& operator=(SplitsState const&) = delete;
-  };
-
   void driverClosedLocked();
 
   std::shared_ptr<ExchangeClient> addExchangeClient();
@@ -505,6 +353,11 @@ class Task {
       SplitsState& splitsState,
       exec::Split&& split);
 
+  void finished();
+
+  StopReason shouldStopLocked();
+
+ private:
   const std::string taskId_;
   core::PlanFragment planFragment_;
   const int destination_;
@@ -568,27 +421,6 @@ class Task {
   std::unordered_map<core::PlanNodeId, LocalExchange> localExchanges_;
 
   std::weak_ptr<PartitionedOutputBufferManager> bufferManager_;
-
-  void finished() {
-    for (auto& promise : finishPromises_) {
-      promise.setValue(true);
-    }
-    finishPromises_.clear();
-  }
-
-  StopReason shouldStopLocked() {
-    if (terminateRequested_) {
-      return StopReason::kTerminate;
-    }
-    if (pauseRequested_) {
-      return StopReason::kPause;
-    }
-    if (toYield_) {
-      --toYield_;
-      return StopReason::kYield;
-    }
-    return StopReason::kNone;
-  }
 
   // Thread counts and cancellation -related state.
   //

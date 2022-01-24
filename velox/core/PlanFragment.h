@@ -40,7 +40,11 @@ struct PlanFragment {
   ExecutionStrategy executionStrategy{ExecutionStrategy::kUngrouped};
   int numSplitGroups{0};
 
-  PlanFragment() {}
+  inline bool isGroupedExecution() const {
+    return executionStrategy == ExecutionStrategy::kGrouped;
+  }
+
+  PlanFragment() = default;
 
   explicit PlanFragment(std::shared_ptr<const core::PlanNode> topNode)
       : planNode(std::move(topNode)) {}

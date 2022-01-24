@@ -73,6 +73,23 @@ Task::~Task() {
   }
 }
 
+velox::memory::MemoryPool* FOLLY_NONNULL Task::addDriverPool() {
+  childPools_.push_back(pool_->addScopedChild("driver_root"));
+  auto* driverPool = childPools_.back().get();
+  auto parentTracker = pool_->getMemoryUsageTracker();
+  if (parentTracker) {
+    driverPool->setMemoryUsageTracker(parentTracker->addChild());
+  }
+
+  return driverPool;
+}
+
+velox::memory::MemoryPool* FOLLY_NONNULL
+Task::addOperatorPool(velox::memory::MemoryPool* FOLLY_NONNULL driverPool) {
+  childPools_.push_back(driverPool->addScopedChild("operator_ctx"));
+  return childPools_.back().get();
+}
+
 void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
   VELOX_CHECK(self->drivers_.empty());
   {
@@ -90,9 +107,9 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
     auto lazyLoading = config.codegenLazyLoading();
     codegen.initializeFromFile(
         config.codegenConfigurationFilePath(), lazyLoading);
-    auto newPlanNode = codegen.compile(*(self->planFragment_.planNode));
-    self->planFragment_.planNode =
-        newPlanNode != nullptr ? newPlanNode : self->planFragment_.planNode;
+    if (auto newPlanNode = codegen.compile(*(self->planFragment_.planNode))) {
+      self->planFragment_.planNode = newPlanNode;
+    }
   }
 #endif
 
@@ -729,6 +746,11 @@ void Task::createLocalMergeSources(
   }
 }
 
+std::shared_ptr<MergeSource> Task::getLocalMergeSource(int sourceId) {
+  VELOX_CHECK_LT(sourceId, localMergeSources_.size(), "Incorrect source id ");
+  return localMergeSources_[sourceId];
+}
+
 void Task::createMergeJoinSource(const core::PlanNodeId& planNodeId) {
   VELOX_CHECK(
       mergeJoinSources_.find(planNodeId) == mergeJoinSources_.end(),
@@ -797,6 +819,49 @@ Task::getLocalExchangeSources(const core::PlanNodeId& planNodeId) {
       "Incorrect local exchange ID: {}",
       planNodeId);
   return it->second.sources;
+}
+
+void Task::setError(const std::exception_ptr& exception) {
+  bool isFirstError = false;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    if (state_ != kRunning) {
+      return;
+    }
+    if (!exception_) {
+      exception_ = exception;
+      isFirstError = true;
+    }
+  }
+  if (isFirstError) {
+    terminate(kFailed);
+  }
+  if (isFirstError && onError_) {
+    onError_(exception_);
+  }
+}
+
+void Task::setError(const std::string& message) {
+  // The only way to acquire an std::exception_ptr is via throw and
+  // std::current_exception().
+  try {
+    throw std::runtime_error(message);
+  } catch (const std::runtime_error& e) {
+    setError(std::current_exception());
+  }
+}
+
+std::string Task::errorMessage() {
+  if (!exception_) {
+    return "";
+  }
+  std::string message;
+  try {
+    std::rethrow_exception(exception_);
+  } catch (const std::exception& e) {
+    message = e.what();
+  }
+  return message;
 }
 
 StopReason Task::enter(ThreadState& state) {
@@ -904,6 +969,20 @@ StopReason Task::leaveSuspended(ThreadState& state) {
   }
 }
 
+StopReason Task::shouldStop() {
+  if (terminateRequested_) {
+    return StopReason::kTerminate;
+  }
+  if (pauseRequested_) {
+    return StopReason::kPause;
+  }
+  if (toYield_) {
+    std::lock_guard<std::mutex> l(mutex_);
+    return shouldStopLocked();
+  }
+  return StopReason::kNone;
+}
+
 folly::SemiFuture<bool> Task::finishFuture() {
   auto [promise, future] =
       makeVeloxPromiseContract<bool>("CancelPool::finishFuture");
@@ -914,6 +993,27 @@ folly::SemiFuture<bool> Task::finishFuture() {
   }
   finishPromises_.push_back(std::move(promise));
   return std::move(future);
+}
+
+void Task::finished() {
+  for (auto& promise : finishPromises_) {
+    promise.setValue(true);
+  }
+  finishPromises_.clear();
+}
+
+StopReason Task::shouldStopLocked() {
+  if (terminateRequested_) {
+    return StopReason::kTerminate;
+  }
+  if (pauseRequested_) {
+    return StopReason::kPause;
+  }
+  if (toYield_) {
+    --toYield_;
+    return StopReason::kYield;
+  }
+  return StopReason::kNone;
 }
 
 } // namespace facebook::velox::exec

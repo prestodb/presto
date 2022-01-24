@@ -625,4 +625,22 @@ std::string Driver::label() const {
   return fmt::format("<Driver {}:{}>", ctx_->task->taskId(), ctx_->driverId);
 }
 
+std::string BlockingReasonToString(BlockingReason reason) {
+  switch (reason) {
+    case BlockingReason::kNotBlocked:
+      return "kNotBlocked";
+    case BlockingReason::kWaitForConsumer:
+      return "kWaitForConsumer";
+    case BlockingReason::kWaitForSplit:
+      return "kWaitForSplit";
+    case BlockingReason::kWaitForExchange:
+      return "kWaitForExchange";
+    case BlockingReason::kWaitForJoinBuild:
+      return "kWaitForJoinBuild";
+    case BlockingReason::kWaitForMemory:
+      return "kWaitForMemory";
+  }
+  return "<Unknown Blocking Reason>";
+};
+
 } // namespace facebook::velox::exec

@@ -65,7 +65,7 @@ enum class StopReason {
 // states are blocked, terminated, suspended, enqueued.
 //
 //  Blocked - The Driver is not on thread and is waiting for an external event.
-//  Next states are terminated, enqueud.
+//  Next states are terminated, enqueued.
 //
 // Suspended - The Driver is on thread, 'thread' and 'isSuspended' are set. The
 // thread does not manipulate the Driver's state and is suspended as in waiting
@@ -126,6 +126,8 @@ enum class BlockingReason {
   kWaitForJoinBuild,
   kWaitForMemory
 };
+
+std::string BlockingReasonToString(BlockingReason reason);
 
 using ContinueFuture = folly::SemiFuture<bool>;
 
@@ -193,11 +195,6 @@ class Driver {
   static void run(std::shared_ptr<Driver> self);
 
   static void enqueue(std::shared_ptr<Driver> instance);
-
-  // Waits for activity on 'executor_' to finish and then makes a new
-  // executor. Testing uses this to ensure that there are no live
-  // references to memory pools before deleting the pools.
-  static void testingJoinAndReinitializeExecutor(int32_t threads = 0);
 
   bool isOnThread() const {
     return state_.isOnThread();
