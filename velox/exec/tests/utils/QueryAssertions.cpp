@@ -117,7 +117,8 @@ velox::variant variantAt<TypeKind::VARCHAR>(
     ::duckdb::DataChunk* dataChunk,
     int32_t row,
     int32_t column) {
-  return velox::variant(StringView(dataChunk->GetValue(column, row).str_value));
+  return velox::variant(
+      StringView(::duckdb::StringValue::Get(dataChunk->GetValue(column, row))));
 }
 
 template <>
@@ -125,7 +126,8 @@ velox::variant variantAt<TypeKind::VARBINARY>(
     ::duckdb::DataChunk* dataChunk,
     int32_t row,
     int32_t column) {
-  return velox::variant(StringView(dataChunk->GetValue(column, row).str_value));
+  return velox::variant(
+      StringView(::duckdb::StringValue::Get(dataChunk->GetValue(column, row))));
 }
 
 template <>
@@ -156,10 +158,11 @@ velox::variant rowVariantAt(
     const ::duckdb::Value& vector,
     const std::shared_ptr<const Type>& rowType) {
   std::vector<velox::variant> values;
-  for (size_t i = 0; i < vector.struct_value.size(); ++i) {
-    auto currChild = vector.struct_value[i];
+  const auto& structValue = ::duckdb::StructValue::GetChildren(vector);
+  for (size_t i = 0; i < structValue.size(); ++i) {
+    auto currChild = structValue[i];
     auto currType = rowType->childAt(i)->kind();
-    if (currChild.is_null) {
+    if (currChild.IsNull()) {
       values.push_back(variant(currType));
     } else if (currType == TypeKind::ROW) {
       values.push_back(rowVariantAt(currChild, rowType->childAt(i)));
@@ -187,7 +190,7 @@ std::vector<MaterializedRow> materialize(
     row.reserve(rowType->size());
     for (size_t j = 0; j < rowType->size(); ++j) {
       auto typeKind = rowType->childAt(j)->kind();
-      if (dataChunk->GetValue(j, i).is_null) {
+      if (dataChunk->GetValue(j, i).IsNull()) {
         row.push_back(variant(typeKind));
       } else if (typeKind == TypeKind::ROW) {
         row.push_back(

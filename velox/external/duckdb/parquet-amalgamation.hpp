@@ -1,5 +1,5 @@
 /*
-Copyright 2018 DuckDB Contributors (see https://github.com/duckdb/duckdb/graphs/contributors)
+Copyright 2018-2022 Stichting DuckDB Foundation
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -735,7 +735,7 @@ protected:
 
 #ifdef _WIN32
 // Need to come before any Windows.h includes
-#include <Winsock2.h>
+#include <winsock2.h>
 #endif
 
 
@@ -7069,6 +7069,57 @@ private:
 
 
 
+
+
+namespace duckdb {
+class ParquetDecodeUtils {
+
+public:
+	template <class T>
+	static T ZigzagToInt(const T n) {
+		return (n >> 1) ^ -(n & 1);
+	}
+
+	static const uint32_t BITPACK_MASKS[];
+	static const uint8_t BITPACK_DLEN;
+
+	template <typename T>
+	static uint32_t BitUnpack(ByteBuffer &buffer, uint8_t &bitpack_pos, T *dest, uint32_t count, uint8_t width) {
+		auto mask = BITPACK_MASKS[width];
+
+		for (uint32_t i = 0; i < count; i++) {
+			T val = (buffer.get<uint8_t>() >> bitpack_pos) & mask;
+			bitpack_pos += width;
+			while (bitpack_pos > BITPACK_DLEN) {
+				buffer.inc(1);
+				val |= (buffer.get<uint8_t>() << (BITPACK_DLEN - (bitpack_pos - width))) & mask;
+				bitpack_pos -= BITPACK_DLEN;
+			}
+			dest[i] = val;
+		}
+		return count;
+	}
+
+	template <class T>
+	static T VarintDecode(ByteBuffer &buf) {
+		T result = 0;
+		uint8_t shift = 0;
+		while (true) {
+			auto byte = buf.read<uint8_t>();
+			result |= (byte & 127) << shift;
+			if ((byte & 128) == 0)
+				break;
+			shift += 7;
+			if (shift > sizeof(T) * 8) {
+				throw std::runtime_error("Varint-decoding found too large number");
+			}
+		}
+		return result;
+	}
+};
+} // namespace duckdb
+
+
 namespace duckdb {
 
 class RleBpDecoder {
@@ -7098,7 +7149,8 @@ public:
 				values_read += repeat_batch;
 			} else if (literal_count_ > 0) {
 				uint32_t literal_batch = MinValue(batch_size - values_read, static_cast<uint32_t>(literal_count_));
-				uint32_t actual_read = BitUnpack<T>(values + values_read, literal_batch);
+				uint32_t actual_read = ParquetDecodeUtils::BitUnpack<T>(buffer_, bitpack_pos, values + values_read,
+				                                                        literal_batch, bit_width_);
 				if (literal_batch != actual_read) {
 					throw std::runtime_error("Did not find enough values");
 				}
@@ -7140,26 +7192,7 @@ private:
 	uint8_t byte_encoded_len;
 	uint32_t max_val;
 
-	int8_t bitpack_pos = 0;
-
-	// this is slow but whatever, calls are rare
-	uint32_t VarintDecode() {
-		uint32_t result = 0;
-		uint8_t shift = 0;
-		uint8_t len = 0;
-		while (true) {
-			auto byte = buffer_.read<uint8_t>();
-			len++;
-			result |= (byte & 127) << shift;
-			if ((byte & 128) == 0)
-				break;
-			shift += 7;
-			if (shift > 32) {
-				throw std::runtime_error("Varint-decoding found too large number");
-			}
-		}
-		return result;
-	}
+	uint8_t bitpack_pos = 0;
 
 	/// Fills literal_count_ and repeat_count_ with next values. Returns false if there
 	/// are no more.
@@ -7171,7 +7204,7 @@ private:
 			buffer_.inc(1);
 			bitpack_pos = 0;
 		}
-		auto indicator_value = VarintDecode();
+		auto indicator_value = ParquetDecodeUtils::VarintDecode<uint32_t>(buffer_);
 
 		// lsb indicates if it is a literal run or repeated run
 		bool is_literal = indicator_value & 1;
@@ -7192,28 +7225,121 @@ private:
 		// TODO complain if we run out of buffer
 		return true;
 	}
+};
+} // namespace duckdb
 
-	// somewhat optimized implementation that avoids non-alignment
 
-	static const uint32_t BITPACK_MASKS[];
-	static const uint8_t BITPACK_DLEN;
+
+
+namespace duckdb {
+class DbpDecoder {
+public:
+	DbpDecoder(const uint8_t *buffer, uint32_t buffer_len) : buffer_((char *)buffer, buffer_len) {
+
+		//<block size in values> <number of miniblocks in a block> <total value count> <first value>
+		// overall header
+		block_value_count = ParquetDecodeUtils::VarintDecode<uint64_t>(buffer_);
+		miniblocks_per_block = ParquetDecodeUtils::VarintDecode<uint64_t>(buffer_);
+		total_value_count = ParquetDecodeUtils::VarintDecode<uint64_t>(buffer_);
+		start_value = ParquetDecodeUtils::ZigzagToInt(ParquetDecodeUtils::VarintDecode<int64_t>(buffer_));
+
+		// some derivatives
+		values_per_miniblock = block_value_count / miniblocks_per_block;
+		miniblock_bit_widths = std::unique_ptr<uint8_t[]>(new data_t[miniblocks_per_block]);
+
+		// init state to something sane
+		values_left_in_block = 0;
+		values_left_in_miniblock = 0;
+		miniblock_offset = 0;
+		min_delta = 0;
+		bitpack_pos = 0;
+		is_first_value = true;
+	};
+
+	ByteBuffer BufferPtr() {
+		if (bitpack_pos != 0) {
+			buffer_.inc(1);
+			bitpack_pos = 0;
+		}
+		return buffer_;
+	}
 
 	template <typename T>
-	uint32_t BitUnpack(T *dest, uint32_t count) {
-		auto mask = BITPACK_MASKS[bit_width_];
+	void GetBatch(char *values_target_ptr, uint32_t batch_size) {
+		auto values = (T *)values_target_ptr;
 
-		for (uint32_t i = 0; i < count; i++) {
-			T val = (buffer_.get<uint8_t>() >> bitpack_pos) & mask;
-			bitpack_pos += bit_width_;
-			while (bitpack_pos > BITPACK_DLEN) {
-				buffer_.inc(1);
-				val |= (buffer_.get<uint8_t>() << (BITPACK_DLEN - (bitpack_pos - bit_width_))) & mask;
-				bitpack_pos -= BITPACK_DLEN;
-			}
-			dest[i] = val;
+		if (batch_size == 0) {
+			return;
 		}
-		return count;
+		idx_t value_offset = 0;
+
+		if (is_first_value) {
+			values[0] = start_value;
+			value_offset++;
+			is_first_value = false;
+		}
+
+		if (total_value_count == 1) { // I guess it's a special case
+			if (batch_size > 1) {
+				throw std::runtime_error("DBP decode did not find enough values (have 1)");
+			}
+			return;
+		}
+
+		while (value_offset < batch_size) {
+			if (values_left_in_block == 0) { // need to open new block
+				if (bitpack_pos > 0) {       // have to eat the leftovers if any
+					buffer_.inc(1);
+				}
+				min_delta = ParquetDecodeUtils::ZigzagToInt(ParquetDecodeUtils::VarintDecode<uint64_t>(buffer_));
+				for (idx_t miniblock_idx = 0; miniblock_idx < miniblocks_per_block; miniblock_idx++) {
+					miniblock_bit_widths[miniblock_idx] = buffer_.read<uint8_t>();
+					// TODO what happens if width is 0?
+				}
+				values_left_in_block = block_value_count;
+				miniblock_offset = 0;
+				bitpack_pos = 0;
+				values_left_in_miniblock = values_per_miniblock;
+			}
+			if (values_left_in_miniblock == 0) {
+				miniblock_offset++;
+				values_left_in_miniblock = values_per_miniblock;
+			}
+
+			auto read_now = MinValue(values_left_in_miniblock, (idx_t)batch_size - value_offset);
+			ParquetDecodeUtils::BitUnpack<T>(buffer_, bitpack_pos, &values[value_offset], read_now,
+			                                 miniblock_bit_widths[miniblock_offset]);
+			for (idx_t i = value_offset; i < value_offset + read_now; i++) {
+				values[i] = ((i == 0) ? start_value : values[i - 1]) + min_delta + values[i];
+			}
+			value_offset += read_now;
+			values_left_in_miniblock -= read_now;
+			values_left_in_block -= read_now;
+		}
+
+		if (value_offset != batch_size) {
+			throw std::runtime_error("DBP decode did not find enough values");
+		}
+		start_value = values[batch_size - 1];
 	}
+
+private:
+	ByteBuffer buffer_;
+	idx_t block_value_count;
+	idx_t miniblocks_per_block;
+	idx_t total_value_count;
+	int64_t start_value;
+	idx_t values_per_miniblock;
+
+	std::unique_ptr<uint8_t[]> miniblock_bit_widths;
+	idx_t values_left_in_block;
+	idx_t values_left_in_miniblock;
+	idx_t miniblock_offset;
+	int64_t min_delta;
+
+	bool is_first_value;
+
+	uint8_t bitpack_pos;
 };
 } // namespace duckdb
 
@@ -7232,8 +7358,14 @@ using duckdb_parquet::format::SchemaElement;
 
 struct LogicalType;
 
-unique_ptr<BaseStatistics> ParquetTransformColumnStatistics(const SchemaElement &s_ele, const LogicalType &type,
-                                                            const ColumnChunk &column_chunk);
+struct ParquetStatisticsUtils {
+
+	static unique_ptr<BaseStatistics> TransformColumnStatistics(const SchemaElement &s_ele, const LogicalType &type,
+	                                                            const ColumnChunk &column_chunk);
+
+	static Value ConvertValue(const LogicalType &type, const duckdb_parquet::format::SchemaElement &schema_ele,
+	                          const std::string &stats);
+};
 
 } // namespace duckdb
 
@@ -7264,80 +7396,38 @@ typedef std::bitset<STANDARD_VECTOR_SIZE> parquet_filter_t;
 
 class ColumnReader {
 public:
+	ColumnReader(ParquetReader &reader, LogicalType type_p, const SchemaElement &schema_p, idx_t file_idx_p,
+	             idx_t max_define_p, idx_t max_repeat_p);
+	virtual ~ColumnReader();
+
+public:
 	static unique_ptr<ColumnReader> CreateReader(ParquetReader &reader, const LogicalType &type_p,
 	                                             const SchemaElement &schema_p, idx_t schema_idx_p, idx_t max_define,
 	                                             idx_t max_repeat);
-
-	ColumnReader(ParquetReader &reader, LogicalType type_p, const SchemaElement &schema_p, idx_t file_idx_p,
-	             idx_t max_define_p, idx_t max_repeat_p);
-
-	virtual void InitializeRead(const std::vector<ColumnChunk> &columns, TProtocol &protocol_p) {
-		D_ASSERT(file_idx < columns.size());
-		chunk = &columns[file_idx];
-		protocol = &protocol_p;
-		D_ASSERT(chunk);
-		D_ASSERT(chunk->__isset.meta_data);
-
-		if (chunk->__isset.file_path) {
-			throw std::runtime_error("Only inlined data files are supported (no references)");
-		}
-
-		// ugh. sometimes there is an extra offset for the dict. sometimes it's wrong.
-		chunk_read_offset = chunk->meta_data.data_page_offset;
-		if (chunk->meta_data.__isset.dictionary_page_offset && chunk->meta_data.dictionary_page_offset >= 4) {
-			// this assumes the data pages follow the dict pages directly.
-			chunk_read_offset = chunk->meta_data.dictionary_page_offset;
-		}
-		group_rows_available = chunk->meta_data.num_values;
-	}
-	virtual ~ColumnReader();
-
+	virtual void InitializeRead(const std::vector<ColumnChunk> &columns, TProtocol &protocol_p);
 	virtual idx_t Read(uint64_t num_values, parquet_filter_t &filter, uint8_t *define_out, uint8_t *repeat_out,
 	                   Vector &result_out);
 
 	virtual void Skip(idx_t num_values);
 
-	const LogicalType &Type() {
-		return type;
-	}
+	const LogicalType &Type();
+	const SchemaElement &Schema();
 
-	const SchemaElement &Schema() {
-		return schema;
-	}
+	virtual idx_t GroupRowsAvailable();
 
-	virtual idx_t GroupRowsAvailable() {
-		return group_rows_available;
-	}
-
-	unique_ptr<BaseStatistics> Stats(const std::vector<ColumnChunk> &columns) {
-		if (Type().id() == LogicalTypeId::LIST || Type().id() == LogicalTypeId::STRUCT ||
-		    Type().id() == LogicalTypeId::MAP) {
-			return nullptr;
-		}
-		return ParquetTransformColumnStatistics(Schema(), Type(), columns[file_idx]);
-	}
+	unique_ptr<BaseStatistics> Stats(const std::vector<ColumnChunk> &columns);
 
 protected:
 	// readers that use the default Read() need to implement those
 	virtual void Plain(shared_ptr<ByteBuffer> plain_data, uint8_t *defines, idx_t num_values, parquet_filter_t &filter,
-	                   idx_t result_offset, Vector &result) {
-		throw NotImplementedException("Plain");
-	}
-
-	virtual void Dictionary(shared_ptr<ByteBuffer> dictionary_data, idx_t num_entries) {
-		throw NotImplementedException("Dictionary");
-	}
-
+	                   idx_t result_offset, Vector &result);
+	virtual void Dictionary(shared_ptr<ByteBuffer> dictionary_data, idx_t num_entries);
 	virtual void Offsets(uint32_t *offsets, uint8_t *defines, idx_t num_values, parquet_filter_t &filter,
-	                     idx_t result_offset, Vector &result) {
-		throw NotImplementedException("Offsets");
-	}
+	                     idx_t result_offset, Vector &result);
 
 	// these are nops for most types, but not for strings
-	virtual void DictReference(Vector &result) {
-	}
-	virtual void PlainReference(shared_ptr<ByteBuffer>, Vector &result) {
-	}
+	virtual void DictReference(Vector &result);
+	virtual void PlainReference(shared_ptr<ByteBuffer>, Vector &result);
 
 	bool HasDefines() {
 		return max_define > 0;
@@ -7361,6 +7451,7 @@ private:
 	void PrepareRead(parquet_filter_t &filter);
 	void PreparePage(idx_t compressed_page_size, idx_t uncompressed_page_size);
 	void PrepareDataPage(PageHeader &page_hdr);
+	void PreparePageV2(PageHeader &page_hdr);
 
 	const duckdb_parquet::format::ColumnChunk *chunk;
 
@@ -7376,6 +7467,7 @@ private:
 	unique_ptr<RleBpDecoder> dict_decoder;
 	unique_ptr<RleBpDecoder> defined_decoder;
 	unique_ptr<RleBpDecoder> repeated_decoder;
+	unique_ptr<DbpDecoder> dbp_decoder;
 
 	// dummies for Skip()
 	parquet_filter_t none_filter;
@@ -7509,6 +7601,7 @@ public:
 
 	static unique_ptr<BaseStatistics> ReadStatistics(ParquetReader &reader, LogicalType &type, column_t column_index,
 	                                                 const duckdb_parquet::format::FileMetaData *file_meta_data);
+	static LogicalType DeriveLogicalType(const SchemaElement &s_ele, bool binary_as_string);
 
 private:
 	void InitializeSchema(const vector<LogicalType> &expected_types_p, const string &initial_filename_p);
@@ -7570,6 +7663,7 @@ namespace duckdb {
 class BufferedSerializer;
 class ParquetWriter;
 class ColumnWriterPageState;
+class StandardColumnWriterState;
 
 class ColumnWriterState {
 public:
@@ -7580,29 +7674,44 @@ public:
 	vector<bool> is_empty;
 };
 
+class ColumnWriterStatistics {
+public:
+	virtual ~ColumnWriterStatistics();
+
+	virtual string GetMin();
+	virtual string GetMax();
+	virtual string GetMinValue();
+	virtual string GetMaxValue();
+};
+
 class ColumnWriter {
 	//! We limit the uncompressed page size to 100MB
 	// The max size in Parquet is 2GB, but we choose a more conservative limit
 	static constexpr const idx_t MAX_UNCOMPRESSED_PAGE_SIZE = 100000000;
 
 public:
-	ColumnWriter(ParquetWriter &writer, idx_t schema_idx, idx_t max_repeat, idx_t max_define);
+	ColumnWriter(ParquetWriter &writer, idx_t schema_idx, vector<string> schema_path, idx_t max_repeat,
+	             idx_t max_define, bool can_have_nulls);
 	virtual ~ColumnWriter();
 
 	ParquetWriter &writer;
 	idx_t schema_idx;
+	vector<string> schema_path;
 	idx_t max_repeat;
 	idx_t max_define;
+	bool can_have_nulls;
+	// collected stats
+	idx_t null_count;
 
 public:
 	//! Create the column writer for a specific type recursively
 	static unique_ptr<ColumnWriter> CreateWriterRecursive(vector<duckdb_parquet::format::SchemaElement> &schemas,
 	                                                      ParquetWriter &writer, const LogicalType &type,
-	                                                      const string &name, idx_t max_repeat = 0,
-	                                                      idx_t max_define = 1);
+	                                                      const string &name, vector<string> schema_path,
+	                                                      idx_t max_repeat = 0, idx_t max_define = 1,
+	                                                      bool can_have_nulls = true);
 
-	virtual unique_ptr<ColumnWriterState> InitializeWriteState(duckdb_parquet::format::RowGroup &row_group,
-	                                                           vector<string> schema_path);
+	virtual unique_ptr<ColumnWriterState> InitializeWriteState(duckdb_parquet::format::RowGroup &row_group);
 	virtual void Prepare(ColumnWriterState &state, ColumnWriterState *parent, Vector &vector, idx_t count);
 
 	virtual void BeginWrite(ColumnWriterState &state);
@@ -7617,14 +7726,22 @@ protected:
 	void WriteLevels(Serializer &temp_writer, const vector<uint16_t> &levels, idx_t max_value, idx_t start_offset,
 	                 idx_t count);
 
+	virtual duckdb_parquet::format::Encoding::type GetEncoding();
+
 	void NextPage(ColumnWriterState &state_p);
 	void FlushPage(ColumnWriterState &state_p);
+	void WriteDictionary(ColumnWriterState &state_p, unique_ptr<BufferedSerializer> temp_writer, idx_t row_count);
 
+	virtual void FlushDictionary(ColumnWriterState &state, ColumnWriterStatistics *stats);
+
+	//! Initializes the state used to track statistics during writing. Only used for scalar types.
+	virtual unique_ptr<ColumnWriterStatistics> InitializeStatsState();
 	//! Retrieves the row size of a vector at the specified location. Only used for scalar types.
-	virtual idx_t GetRowSize(Vector &vector, idx_t index) = 0;
+	virtual idx_t GetRowSize(Vector &vector, idx_t index);
 	//! Writes a (subset of a) vector to the specified serializer. Only used for scalar types.
-	virtual void WriteVector(Serializer &temp_writer, ColumnWriterPageState *page_state, Vector &vector,
-	                         idx_t chunk_start, idx_t chunk_end) = 0;
+	virtual void WriteVector(Serializer &temp_writer, ColumnWriterStatistics *stats, ColumnWriterPageState *page_state,
+	                         Vector &vector, idx_t chunk_start, idx_t chunk_end);
+
 	//! Initialize the writer for a specific page. Only used for scalar types.
 	virtual unique_ptr<ColumnWriterPageState> InitializePageState();
 	//! Flushes the writer for a specific page. Only used for scalar types.
@@ -7632,6 +7749,8 @@ protected:
 
 	void CompressPage(BufferedSerializer &temp_writer, size_t &compressed_size, data_ptr_t &compressed_data,
 	                  unique_ptr<data_t[]> &compressed_buf);
+
+	void SetParquetStatistics(StandardColumnWriterState &state, duckdb_parquet::format::ColumnChunk &column);
 };
 
 } // namespace duckdb
@@ -7656,8 +7775,7 @@ public:
 	void Finalize();
 
 	static duckdb_parquet::format::Type::type DuckDBTypeToParquetType(const LogicalType &duckdb_type);
-	static bool DuckDBTypeToConvertedType(const LogicalType &duckdb_type,
-	                                      duckdb_parquet::format::ConvertedType::type &result);
+	static void SetSchemaProperties(const LogicalType &duckdb_type, duckdb_parquet::format::SchemaElement &schema_ele);
 
 private:
 	string file_name;

@@ -39,6 +39,7 @@ using ::duckdb::LogicalTypeIdToString;
 using ::duckdb::OperatorExpression;
 using ::duckdb::ParsedExpression;
 using ::duckdb::Parser;
+using ::duckdb::ParserOptions;
 using ::duckdb::StringUtil;
 using ::duckdb::Value;
 
@@ -384,7 +385,9 @@ std::shared_ptr<const core::IExpr> parseExpr(ParsedExpression& expr) {
 } // namespace
 
 std::shared_ptr<const core::IExpr> parseExpr(const std::string& exprString) {
-  auto parsedExpressions = Parser::ParseExpressionList(exprString);
+  ParserOptions options;
+  options.preserve_identifier_case = false;
+  auto parsedExpressions = Parser::ParseExpressionList(exprString, options);
   if (parsedExpressions.size() != 1) {
     throw std::invalid_argument(folly::sformat(
         "Expecting exactly one input expression, found {}.",
