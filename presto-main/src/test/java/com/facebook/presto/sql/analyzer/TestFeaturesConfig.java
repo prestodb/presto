@@ -184,7 +184,7 @@ public class TestFeaturesConfig
                 .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
                 .setHashBasedDistinctLimitEnabled(false)
-                .setHashBasedDistinctLimitThreshold(10000));
+                .setHashBasedLimitThreshold(10000));
     }
 
     @Test
@@ -319,7 +319,7 @@ public class TestFeaturesConfig
                 .put("verbose-runtime-stats-enabled", "true")
                 .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
                 .put("hash-based-distinct-limit-enabled", "true")
-                .put("hash-based-distinct-limit-threshold", "500")
+                .put("hash-based-limit-threshold", "500")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -452,7 +452,7 @@ public class TestFeaturesConfig
                 .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
                 .setHashBasedDistinctLimitEnabled(true)
-                .setHashBasedDistinctLimitThreshold(500);
+                .setHashBasedLimitThreshold(500);
         assertFullMapping(properties, expected);
     }
 

@@ -14,8 +14,11 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNode;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkState;
 
 public class ChildReplacer
 {
@@ -34,5 +37,11 @@ public class ChildReplacer
             }
         }
         return node;
+    }
+
+    public static PlanNode replaceChild(PlanNode node, PlanNode newChild)
+    {
+        checkState(node.getSources().size() == 1);
+        return replaceChildren(node, ImmutableList.of(newChild));
     }
 }

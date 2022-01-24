@@ -117,6 +117,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLater
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
+import com.facebook.presto.sql.planner.optimizations.AddTopKGroupsFilter;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.HashBasedPartialDistinctLimit;
@@ -351,6 +352,7 @@ public class PlanOptimizers
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(metadata.getFunctionAndTypeManager()),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+                new AddTopKGroupsFilter(metadata.getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 inlineProjections,
                 new IterativeOptimizer(
@@ -606,6 +608,7 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager()),
                         new PruneJoinColumns())));
 
+        builder.add();
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

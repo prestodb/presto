@@ -55,7 +55,10 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENA
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_GROUPBY_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
+import static com.facebook.presto.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -992,7 +995,7 @@ public abstract class AbstractTestQueries
         assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 2");
         assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
 
-        assertQuery(session, "" +
+        assertQuery("" +
                         "SELECT DISTINCT x " +
                         "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
                         "LIMIT 100",
@@ -5929,5 +5932,47 @@ public abstract class AbstractTestQueries
         assertTrue(plan.contains("expr := (orderkey) + (BIGINT'1') (1:88)"));
         assertTrue(plan.contains("m := max (1:34)"));
         assertTrue(plan.contains("max := max(expr) RANGE UNBOUNDED_PRECEDING CURRENT_ROW (1:34)"));
+    }
+
+    @Test
+    public void testTopKGroups()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_GROUPBY_LIMIT, "true")
+                .build();
+
+        assertQuery(session, "select count() from (select orderdate o2, count(1) c2 from orders group by 1) join (select orderdate o1, count(1) c1 from orders group by 1 limit 10) on o1=o2 and c1=c2", "select 10");
+        assertQuery(session, "select count() from (select custkey o2, count(1) c2 from orders group by 1) join (select custkey o1, count(1) c1 from orders group by 1 limit 10) on o1=o2 and c1=c2", "select 10");
+
+        session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_GROUPBY_LIMIT, "true")
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "false")
+                .build();
+
+        assertQuery(session, "select count() from (select orderdate o2, count(1) c2 from orders group by 1) join (select orderdate o1, count(1) c1 from orders group by 1 limit 10) on o1=o2 and c1=c2", "select 10");
+        assertQuery(session, "select count() from (select custkey o2, count(1) c2 from orders group by 1) join (select custkey o1, count(1) c1 from orders group by 1 limit 10) on o1=o2 and c1=c2", "select 10");
+        session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_GROUPBY_LIMIT, "true")
+                .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
+                .build();
+        assertQuery(session, "select count() from (select orderdate o2, count(1) c2 from orders group by 1) join (select orderdate o1, count(1) c1 from orders group by 1 limit 10) on o1=o2 and c1=c2", "select 10");
+        assertQuery(session, "select count() from (select custkey o2, count(1) c2 from orders group by 1) join (select custkey o1, count(1) c1 from orders group by 1 limit 10) on o1=o2 and c1=c2", "select 10");
+    }
+
+    @Test
+    public void testTopKGroupsWithJoin()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_GROUPBY_LIMIT, "true")
+                .build();
+
+        //assertQuery(session, "explain(type distributed) select t2.orderkey, t1.orderdate o2, count(1) c2 from orders t1 left join lineitem t2 on t1.orderkey = t2.orderkey group by t2.orderkey, t1.orderdate limit 10", "select ''");
+        assertQuery(session, "select count(1) from (select t2.orderkey, t1.orderdate o2, count(1) c2 from orders t1 join lineitem t2 on t1.orderkey = t2.orderkey group by t2.orderkey, t1.orderdate intersect " +
+                "select t2.orderkey, t1.orderdate o2, count(1) c2 from orders t1 join lineitem t2 on t1.orderkey = t2.orderkey group by t2.orderkey, t1.orderdate limit 10)", "select 10");
+        assertQuery(session, "select count(1) from (select t2.orderkey, t1.orderdate o2, count(1) c2 from orders t1 left join lineitem t2 on t1.orderkey = t2.orderkey group by t2.orderkey, t1.orderdate intersect " +
+                "select t2.orderkey, t1.orderdate o2, count(1) c2 from orders t1 left join lineitem t2 on t1.orderkey = t2.orderkey group by t2.orderkey, t1.orderdate limit 10)", "select 10");
+        assertQuery(session, "select count(1) from (select orderkey k1, orderdate k2, count(1) c2 from orders join lineitem using(orderkey) group by 1, 2 intersect " +
+                "select orderkey k1, orderdate k2, count(1) c2 from orders join lineitem using(orderkey) group by 1, 2 limit 10)", "select 10");
+        assertQuery(session, "select count(1) from (select custkey o2, count(1) c2 from orders group by 1 intersect select custkey o1, count(1) c1 from orders group by 1 limit 10)", "select 10");
     }
 }

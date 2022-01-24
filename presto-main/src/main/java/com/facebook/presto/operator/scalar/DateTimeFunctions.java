@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.type.TimestampOperators;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -962,6 +963,42 @@ public final class DateTimeFunctions
     public static long dayFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
         return milliseconds / MILLISECONDS_IN_DAY;
+    }
+
+    @Description("last day of the month of the given timestamp")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    {
+        ISOChronology isoChronology = unpackChronology(timestampWithTimeZone);
+        long millis = unpackMillisUtc(timestampWithTimeZone);
+        // Calculate point in time corresponding to midnight (00:00) of first day of next month in the given zone.
+        millis = isoChronology.monthOfYear().roundCeiling(millis + 1);
+        // Convert to UTC and take the previous day
+        millis = isoChronology.getZone().convertUTCToLocal(millis) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("last day of the month of the given timestamp")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    {
+        if (properties.isLegacyTimestamp()) {
+            long date = TimestampOperators.castToDate(properties, timestamp);
+            return lastDayOfMonthFromDate(date);
+        }
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp + 1) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("last day of the month of the given date")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
+    {
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
     }
 
     @Description("day of the year of the given timestamp")

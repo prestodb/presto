@@ -221,7 +221,8 @@ public final class SystemSessionProperties
     public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
-    public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
+    public static final String HASH_BASED_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
+    public static final String OPTIMIZE_GROUPBY_LIMIT = "optimize_groupby_limit";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1191,16 +1192,21 @@ public final class SystemSessionProperties
                         "key_sampling_percent",
                         false),
                 integerProperty(
-                        HASH_BASED_DISTINCT_LIMIT_THRESHOLD,
-                        "Threshold for doing hash based distinct",
+                        HASH_BASED_LIMIT_THRESHOLD,
+                        "Threshold for doing hash based distinct/group by LIMIT",
                         // 10k is a decent-sized limit that guarantees almost no collisions if the # distinct < 10k according to:
                         //   https://stackoverflow.com/questions/22029012/probability-of-64bit-hash-code-collisions
-                        featuresConfig.getHashBasedDistinctLimitThreshold(),
+                        featuresConfig.getHashBasedLimitThreshold(),
                         false),
                 booleanProperty(
                         HASH_BASED_DISTINCT_LIMIT_ENABLED,
                         "Hash based distinct limit enabled",
                         featuresConfig.isHashBasedDistinctLimitEnabled(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_GROUPBY_LIMIT,
+                        "Optimize group by limit with no ordering",
+                        false,
                         false));
     }
 
@@ -1229,6 +1235,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(KEY_BASED_SAMPLING_ENABLED, Boolean.class);
     }
 
+    public static boolean isOptimizeGroupbyLimit(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_GROUPBY_LIMIT, Boolean.class);
+    }
+
     public static double getKeyBasedSamplingPercentage(Session session)
     {
         return session.getSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, Double.class);
@@ -1244,9 +1255,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HASH_BASED_DISTINCT_LIMIT_ENABLED, Boolean.class);
     }
 
-    public static int getHashBasedDistinctLimitThreshold(Session session)
+    public static int getHashBasedLimitThreshold(Session session)
     {
-        return session.getSystemProperty(HASH_BASED_DISTINCT_LIMIT_THRESHOLD, Integer.class);
+        return session.getSystemProperty(HASH_BASED_LIMIT_THRESHOLD, Integer.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

@@ -114,6 +114,7 @@ public class HashGenerationOptimizer
             PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
             return result.getNode();
         }
+
         return plan;
     }
 
@@ -639,7 +640,7 @@ public class HashGenerationOptimizer
                 RowExpression hashExpression;
                 if (hashVariable == null) {
                     hashVariable = variableAllocator.newHashVariable();
-                    hashExpression = hashComputation.getHashExpression();
+                    hashExpression = getHashExpression(functionAndTypeManager, hashComputation.fields);
                 }
                 else {
                     hashExpression = hashVariable;
@@ -766,7 +767,7 @@ public class HashGenerationOptimizer
             // add new projections for hash variables needed by the parent
             for (HashComputation hashComputation : requiredHashes.getHashes()) {
                 if (!planWithProperties.getHashVariables().containsKey(hashComputation)) {
-                    RowExpression hashExpression = hashComputation.getHashExpression();
+                    RowExpression hashExpression = getHashExpression(functionAndTypeManager, hashComputation.fields);
                     VariableReferenceExpression hashVariable = variableAllocator.newHashVariable();
                     assignments.put(hashVariable, hashExpression);
                     outputHashVariables.put(hashComputation, hashVariable);
@@ -786,6 +787,21 @@ public class HashGenerationOptimizer
                     result.getNode().getClass().getSimpleName());
             return result;
         }
+    }
+
+    public static RowExpression getHashExpression(FunctionAndTypeManager functionAndTypeManager, Iterable<VariableReferenceExpression> fields)
+    {
+        RowExpression hashExpression = constant(INITIAL_HASH_VALUE, BIGINT);
+        for (VariableReferenceExpression field : fields) {
+            hashExpression = getHashFunctionCall(functionAndTypeManager, hashExpression, field);
+        }
+        return hashExpression;
+    }
+
+    private static RowExpression getHashFunctionCall(FunctionAndTypeManager functionAndTypeManager, RowExpression previousHashValue, VariableReferenceExpression variable)
+    {
+        CallExpression functionCall = call(functionAndTypeManager, HASH_CODE, BIGINT, variable);
+        return call(functionAndTypeManager, "combine_hash", BIGINT, previousHashValue, orNullHashCode(functionCall));
     }
 
     private static class HashComputationSet
@@ -865,21 +881,6 @@ public class HashGenerationOptimizer
         return Optional.of(new HashComputation(fields, functionAndTypeManager));
     }
 
-    public static Optional<RowExpression> getHashExpression(FunctionAndTypeManager functionAndTypeManager, List<VariableReferenceExpression> variables)
-    {
-        if (variables.isEmpty()) {
-            return Optional.empty();
-        }
-
-        RowExpression result = constant(INITIAL_HASH_VALUE, BIGINT);
-        for (VariableReferenceExpression variable : variables) {
-            RowExpression hashField = call(functionAndTypeManager, HASH_CODE, BIGINT, variable);
-            hashField = orNullHashCode(hashField);
-            result = call(functionAndTypeManager, "combine_hash", BIGINT, result, hashField);
-        }
-        return Optional.of(result);
-    }
-
     private static RowExpression orNullHashCode(RowExpression expression)
     {
         checkArgument(BIGINT.equals(expression.getType()), "expression should be BIGINT type");
@@ -915,21 +916,6 @@ public class HashGenerationOptimizer
         public boolean canComputeWith(Set<VariableReferenceExpression> availableFields)
         {
             return availableFields.containsAll(fields);
-        }
-
-        private RowExpression getHashExpression()
-        {
-            RowExpression hashExpression = constant(INITIAL_HASH_VALUE, BIGINT);
-            for (VariableReferenceExpression field : fields) {
-                hashExpression = getHashFunctionCall(hashExpression, field);
-            }
-            return hashExpression;
-        }
-
-        private RowExpression getHashFunctionCall(RowExpression previousHashValue, VariableReferenceExpression variable)
-        {
-            CallExpression functionCall = call(functionAndTypeManager, HASH_CODE, BIGINT, variable);
-            return call(functionAndTypeManager, "combine_hash", BIGINT, previousHashValue, orNullHashCode(functionCall));
         }
 
         @Override

@@ -211,7 +211,7 @@ public class FeaturesConfig
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private boolean verboseRuntimeStatsEnabled;
     private boolean hashBasedDistinctLimitEnabled;
-    private int hashBasedDistinctLimitThreshold = 10000;
+    private int hashBasedLimitThreshold = 10000;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1903,16 +1903,16 @@ public class FeaturesConfig
         return this;
     }
 
-    @Config("hash-based-distinct-limit-threshold")
+    @Config("hash-based-limit-threshold")
     @ConfigDescription("Threshold for fast hash-based distinct limit")
-    public FeaturesConfig setHashBasedDistinctLimitThreshold(int hashBasedDistinctLimitThreshold)
+    public FeaturesConfig setHashBasedLimitThreshold(int hashBasedLimitThreshold)
     {
-        this.hashBasedDistinctLimitThreshold = hashBasedDistinctLimitThreshold;
+        this.hashBasedLimitThreshold = hashBasedLimitThreshold;
         return this;
     }
 
-    public int getHashBasedDistinctLimitThreshold()
+    public int getHashBasedLimitThreshold()
     {
-        return hashBasedDistinctLimitThreshold;
+        return hashBasedLimitThreshold;
     }
 }

@@ -362,6 +362,7 @@ import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.TopKGroup.TOPK_GROUP;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
@@ -825,6 +826,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST)
+                .functions(TOPK_GROUP)
                 .function(APPROXIMATE_MOST_FREQUENT)
                 .function(K_DISTINCT)
                 .aggregate(MergeSetDigestAggregation.class)

@@ -25,7 +25,7 @@ import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
-import static com.facebook.presto.SystemSessionProperties.getHashBasedDistinctLimitThreshold;
+import static com.facebook.presto.SystemSessionProperties.getHashBasedLimitThreshold;
 import static com.facebook.presto.SystemSessionProperties.isHashBasedDistinctLimitEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
@@ -71,7 +71,7 @@ public class HashBasedPartialDistinctLimit
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            if (node.isPartial() && node.getLimit() <= getHashBasedDistinctLimitThreshold(session)) {
+            if (node.isPartial() && node.getLimit() <= getHashBasedLimitThreshold(session)) {
                 VariableReferenceExpression hashVariable;
 
                 if (node.getHashVariable().isPresent()) {

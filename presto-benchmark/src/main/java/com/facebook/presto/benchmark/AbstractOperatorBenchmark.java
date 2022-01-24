@@ -78,7 +78,6 @@ import static com.facebook.presto.sql.relational.VariableToChannelTranslator.tra
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -222,9 +221,8 @@ public abstract class AbstractOperatorBenchmark
             projections.add(new PageProjectionWithOutputs(new InputPageProjection(channel), new int[] {channel}));
         }
 
-        Optional<RowExpression> hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionAndTypeManager(), variables.build());
-        verify(hashExpression.isPresent());
-        RowExpression translatedHashExpression = translate(hashExpression.get(), variableToInputMapping.build());
+        RowExpression hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionAndTypeManager(), variables.build());
+        RowExpression translatedHashExpression = translate(hashExpression, variableToInputMapping.build());
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
         projections.add(new PageProjectionWithOutputs(functionCompiler.compileProjection(session.getSqlFunctionProperties(), translatedHashExpression, Optional.empty()).get(), new int[] {types.size()}));
