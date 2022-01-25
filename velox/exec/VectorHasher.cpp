@@ -585,6 +585,10 @@ void VectorHasher::cardinality(uint64_t& asRange, uint64_t& asDistincts) {
 }
 
 uint64_t VectorHasher::enableValueIds(uint64_t multiplier, int64_t reserve) {
+  VELOX_CHECK_NE(
+      typeKind_,
+      TypeKind::BOOLEAN,
+      "A boolean VectorHasher should  always be by range");
   multiplier_ = multiplier;
   rangeSize_ = uniqueValues_.size() + 1 + reserve;
   isRange_ = false;
@@ -614,7 +618,11 @@ uint64_t VectorHasher::enableValueRange(uint64_t multiplier, int64_t reserve) {
   }
   isRange_ = true;
   // No overflow because max range is under 63 bits.
-  rangeSize_ = (max_ - min_) + 2;
+  if (typeKind_ == TypeKind::BOOLEAN) {
+    rangeSize_ = 3;
+  } else {
+    rangeSize_ = (max_ - min_) + 2;
+  }
   uint64_t result;
   if (__builtin_mul_overflow(multiplier_, rangeSize_, &result)) {
     return kRangeTooLarge;

@@ -586,10 +586,17 @@ TEST_F(VectorHasherTest, computeValueIdsBoolDictionary) {
 
   SelectivityVector allRows(size);
   auto hasher = exec::VectorHasher::create(BOOLEAN(), 0);
+  uint64_t rangeSize;
+  uint64_t distinctSize;
+  hasher->cardinality(rangeSize, distinctSize);
+  EXPECT_EQ(3, rangeSize);
+  EXPECT_EQ(3, distinctSize);
   raw_vector<uint64_t> result(size);
   std::fill(result.begin(), result.end(), 0);
   auto ok = hasher->computeValueIds(*vector, allRows, result);
   ASSERT_TRUE(ok);
+  // A boolean counts as as a range of 3 and the extra margin has no effect.
+  EXPECT_EQ(6, hasher->enableValueRange(2, 11));
 }
 
 TEST_F(VectorHasherTest, computeValueIdsStrings) {
