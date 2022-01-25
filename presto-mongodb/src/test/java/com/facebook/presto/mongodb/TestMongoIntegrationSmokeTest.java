@@ -76,7 +76,8 @@ public class TestMongoIntegrationSmokeTest
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
-                ", ObjectId('ffffffffffffffffffffffff') _objectid";
+                ", ObjectId('ffffffffffffffffffffffff') _objectid" +
+                ", cast(ObjectId('ffffffffffffffffffffffff') as string) _objectid_string";
 
         assertUpdate(query, 1);
 
@@ -90,6 +91,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(4), true);
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertEquals(row.getField(8), "ffffffffffffffffffffffff");
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
