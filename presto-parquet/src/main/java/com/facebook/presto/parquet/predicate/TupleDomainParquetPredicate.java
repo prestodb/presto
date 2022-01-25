@@ -67,7 +67,7 @@ public class TupleDomainParquetPredicate
     }
 
     @Override
-    public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
+    public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
         if (numberOfRows == 0) {
@@ -97,8 +97,7 @@ public class TupleDomainParquetPredicate
                                     effectivePredicateDomain.getType(),
                                     numberOfRows,
                                     columnStatistics,
-                                    id,
-                                    failOnCorruptedParquetStatistics);
+                                    id);
                 if (effectivePredicateDomain.intersect(domain).isNone()) {
                     return false;
                 }
@@ -134,8 +133,7 @@ public class TupleDomainParquetPredicate
             Type type,
             long rowCount,
             Statistics<?> statistics,
-            ParquetDataSourceId id,
-            boolean failOnCorruptedParquetStatistics)
+            ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
         if (statistics == null || statistics.isEmpty()) {
@@ -282,7 +280,6 @@ public class TupleDomainParquetPredicate
         catch (Exception e) {
             // In case of exception, just continue reading the data, not using dictionary page at all
             // OK to ignore exception when reading dictionaries
-            // TODO take failOnCorruptedParquetStatistics parameter and handle appropriately
             return Domain.all(type);
         }
 

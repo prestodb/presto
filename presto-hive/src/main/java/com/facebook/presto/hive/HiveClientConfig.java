@@ -49,6 +49,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "hive.max-global-split-iterator-threads",
         "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
+        "hive.parquet.fail-on-corrupted-statistics",
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
@@ -101,7 +102,6 @@ public class HiveClientConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
-    private boolean failOnCorruptedParquetStatistics = true;
     private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean assumeCanonicalPartitionKeys;
@@ -932,19 +932,6 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
-        return this;
-    }
-
-    public boolean isFailOnCorruptedParquetStatistics()
-    {
-        return failOnCorruptedParquetStatistics;
-    }
-
-    @Config("hive.parquet.fail-on-corrupted-statistics")
-    @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
-    public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
-    {
-        this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
         return this;
     }
 
