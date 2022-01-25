@@ -18,6 +18,7 @@
 
 #include <deque>
 
+#include <fmt/format.h>
 #include <folly/chrono/Hardware.h>
 #include <folly/futures/SharedPromise.h>
 #include "velox/common/base/BitUtil.h"
@@ -825,3 +826,10 @@ CoalesceIoStats readPins(
         const std::vector<folly::Range<char*>>& buffers)> readFunc);
 
 } // namespace facebook::velox::cache
+
+template <>
+struct fmt::formatter<facebook::velox::cache::LoadState> : formatter<int> {
+  auto format(facebook::velox::cache::LoadState s, format_context& ctx) {
+    return formatter<int>::format(underlying(s), ctx);
+  }
+};
