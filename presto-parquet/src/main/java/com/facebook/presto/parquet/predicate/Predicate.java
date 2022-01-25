@@ -25,7 +25,7 @@ public interface Predicate
     Predicate TRUE = new Predicate()
     {
         @Override
-        public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
+        public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
                 throws ParquetCorruptionException
         {
             return true;
@@ -45,9 +45,8 @@ public interface Predicate
      * Statistics to determine if a column is only null
      * @param statistics column statistics
      * @param id Parquet file name
-     * @param failOnCorruptedParquetStatistics whether to fail query when scanning a Parquet file with corrupted statistics
      */
-    boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
+    boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
             throws ParquetCorruptionException;
 
     /**

@@ -85,12 +85,12 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(PrimitiveTypeName.BOOLEAN, "BooleanColumn");
-        assertEquals(getDomain(columnDescriptor, BOOLEAN, 0, null, ID, true), Domain.all(BOOLEAN));
+        assertEquals(getDomain(columnDescriptor, BOOLEAN, 0, null, ID), Domain.all(BOOLEAN));
 
-        assertEquals(getDomain(columnDescriptor, BOOLEAN, 10, booleanColumnStats(true, true), ID, true), singleValue(BOOLEAN, true));
-        assertEquals(getDomain(columnDescriptor, BOOLEAN, 10, booleanColumnStats(false, false), ID, true), singleValue(BOOLEAN, false));
+        assertEquals(getDomain(columnDescriptor, BOOLEAN, 10, booleanColumnStats(true, true), ID), singleValue(BOOLEAN, true));
+        assertEquals(getDomain(columnDescriptor, BOOLEAN, 10, booleanColumnStats(false, false), ID), singleValue(BOOLEAN, false));
 
-        assertEquals(getDomain(columnDescriptor, BOOLEAN, 20, booleanColumnStats(false, true), ID, true), Domain.all(BOOLEAN));
+        assertEquals(getDomain(columnDescriptor, BOOLEAN, 20, booleanColumnStats(false, true), ID), Domain.all(BOOLEAN));
     }
 
     private static BooleanStatistics booleanColumnStats(boolean minimum, boolean maximum)
@@ -105,16 +105,16 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT64, "BigintColumn");
-        assertEquals(getDomain(columnDescriptor, BIGINT, 0, null, ID, true), Domain.all(BIGINT));
+        assertEquals(getDomain(columnDescriptor, BIGINT, 0, null, ID), Domain.all(BIGINT));
 
-        assertEquals(getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 100L), ID, true), singleValue(BIGINT, 100L));
+        assertEquals(getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 100L), ID), singleValue(BIGINT, 100L));
 
-        assertEquals(getDomain(columnDescriptor, BIGINT, 10, longColumnStats(0L, 100L), ID, true), create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(columnDescriptor, BIGINT, 10, longColumnStats(0L, 100L), ID), create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), false));
 
-        assertEquals(getDomain(columnDescriptor, BIGINT, 20, longOnlyNullsStats(10), ID, true), create(ValueSet.all(BIGINT), true));
+        assertEquals(getDomain(columnDescriptor, BIGINT, 20, longOnlyNullsStats(10), ID), create(ValueSet.all(BIGINT), true));
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 10L), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 10L), ID))
                 .withMessage("Corrupted statistics for column \"[] required int64 BigintColumn\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
     }
 
@@ -123,18 +123,18 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "IntegerColumn");
-        assertEquals(getDomain(columnDescriptor, INTEGER, 0, null, ID, true), Domain.all(INTEGER));
+        assertEquals(getDomain(columnDescriptor, INTEGER, 0, null, ID), Domain.all(INTEGER));
 
-        assertEquals(getDomain(columnDescriptor, INTEGER, 10, longColumnStats(100, 100), ID, true), singleValue(INTEGER, 100L));
+        assertEquals(getDomain(columnDescriptor, INTEGER, 10, longColumnStats(100, 100), ID), singleValue(INTEGER, 100L));
 
-        assertEquals(getDomain(columnDescriptor, INTEGER, 10, longColumnStats(0, 100), ID, true), create(ValueSet.ofRanges(range(INTEGER, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(columnDescriptor, INTEGER, 10, longColumnStats(0, 100), ID), create(ValueSet.ofRanges(range(INTEGER, 0L, true, 100L, true)), false));
 
-        assertEquals(getDomain(columnDescriptor, INTEGER, 20, longColumnStats(0, 2147483648L), ID, true), notNull(INTEGER));
+        assertEquals(getDomain(columnDescriptor, INTEGER, 20, longColumnStats(0, 2147483648L), ID), notNull(INTEGER));
 
-        assertEquals(getDomain(columnDescriptor, INTEGER, 20, longOnlyNullsStats(10), ID, true), create(ValueSet.all(INTEGER), true));
+        assertEquals(getDomain(columnDescriptor, INTEGER, 20, longOnlyNullsStats(10), ID), create(ValueSet.all(INTEGER), true));
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, INTEGER, 10, longColumnStats(2147483648L, 10), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, INTEGER, 10, longColumnStats(2147483648L, 10), ID))
                 .withMessage("Corrupted statistics for column \"[] required int32 IntegerColumn\" in Parquet file \"testFile\": [min: 2147483648, max: 10, num_nulls: 0]");
     }
 
@@ -143,18 +143,18 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "SmallintColumn");
-        assertEquals(getDomain(columnDescriptor, SMALLINT, 0, null, ID, true), Domain.all(SMALLINT));
+        assertEquals(getDomain(columnDescriptor, SMALLINT, 0, null, ID), Domain.all(SMALLINT));
 
-        assertEquals(getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(100, 100), ID, true), singleValue(SMALLINT, 100L));
+        assertEquals(getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(100, 100), ID), singleValue(SMALLINT, 100L));
 
-        assertEquals(getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(0, 100), ID, true), create(ValueSet.ofRanges(range(SMALLINT, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(0, 100), ID), create(ValueSet.ofRanges(range(SMALLINT, 0L, true, 100L, true)), false));
 
-        assertEquals(getDomain(columnDescriptor, SMALLINT, 20, longColumnStats(0, 2147483648L), ID, true), notNull(SMALLINT));
+        assertEquals(getDomain(columnDescriptor, SMALLINT, 20, longColumnStats(0, 2147483648L), ID), notNull(SMALLINT));
 
-        assertEquals(getDomain(columnDescriptor, SMALLINT, 20, longOnlyNullsStats(10), ID, true), create(ValueSet.all(SMALLINT), true));
+        assertEquals(getDomain(columnDescriptor, SMALLINT, 20, longOnlyNullsStats(10), ID), create(ValueSet.all(SMALLINT), true));
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(2147483648L, 10), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(2147483648L, 10), ID))
                 .withMessage("Corrupted statistics for column \"[] required int32 SmallintColumn\" in Parquet file \"testFile\": [min: 2147483648, max: 10, num_nulls: 0]");
     }
 
@@ -163,18 +163,18 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "TinyintColumn");
-        assertEquals(getDomain(columnDescriptor, TINYINT, 0, null, ID, true), Domain.all(TINYINT));
+        assertEquals(getDomain(columnDescriptor, TINYINT, 0, null, ID), Domain.all(TINYINT));
 
-        assertEquals(getDomain(columnDescriptor, TINYINT, 10, longColumnStats(100, 100), ID, true), singleValue(TINYINT, 100L));
+        assertEquals(getDomain(columnDescriptor, TINYINT, 10, longColumnStats(100, 100), ID), singleValue(TINYINT, 100L));
 
-        assertEquals(getDomain(columnDescriptor, TINYINT, 10, longColumnStats(0, 100), ID, true), create(ValueSet.ofRanges(range(TINYINT, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(columnDescriptor, TINYINT, 10, longColumnStats(0, 100), ID), create(ValueSet.ofRanges(range(TINYINT, 0L, true, 100L, true)), false));
 
-        assertEquals(getDomain(columnDescriptor, TINYINT, 20, longColumnStats(0, 2147483648L), ID, true), notNull(TINYINT));
+        assertEquals(getDomain(columnDescriptor, TINYINT, 20, longColumnStats(0, 2147483648L), ID), notNull(TINYINT));
 
-        assertEquals(getDomain(columnDescriptor, TINYINT, 20, longOnlyNullsStats(10), ID, true), create(ValueSet.all(TINYINT), true));
+        assertEquals(getDomain(columnDescriptor, TINYINT, 20, longOnlyNullsStats(10), ID), create(ValueSet.all(TINYINT), true));
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, TINYINT, 10, longColumnStats(2147483648L, 10), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, TINYINT, 10, longColumnStats(2147483648L, 10), ID))
                 .withMessage("Corrupted statistics for column \"[] required int32 TinyintColumn\" in Parquet file \"testFile\": [min: 2147483648, max: 10, num_nulls: 0]");
     }
 
@@ -183,19 +183,19 @@ public class TestTupleDomainParquetPredicate
             throws Exception
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(PrimitiveTypeName.DOUBLE, "DoubleColumn");
-        assertEquals(getDomain(columnDescriptor, DOUBLE, 0, null, ID, true), Domain.all(DOUBLE));
+        assertEquals(getDomain(columnDescriptor, DOUBLE, 0, null, ID), Domain.all(DOUBLE));
 
-        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 42.24), ID, true), singleValue(DOUBLE, 42.24));
+        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 42.24), ID), singleValue(DOUBLE, 42.24));
 
-        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, 42.24), ID, true), create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), false));
+        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, 42.24), ID), create(ValueSet.ofRanges(range(DOUBLE, 3.3, true, 42.24, true)), false));
 
-        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(NaN, NaN), ID, true), Domain.notNull(DOUBLE));
+        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(NaN, NaN), ID), Domain.notNull(DOUBLE));
 
-        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(NaN, NaN, true), ID, true), Domain.all(DOUBLE));
+        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(NaN, NaN, true), ID), Domain.all(DOUBLE));
 
-        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, NaN), ID, true), Domain.notNull(DOUBLE));
+        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, NaN), ID), Domain.notNull(DOUBLE));
 
-        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, NaN, true), ID, true), Domain.all(DOUBLE));
+        assertEquals(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(3.3, NaN, true), ID), Domain.all(DOUBLE));
 
         assertEquals(getDomain(DOUBLE, doubleDictionaryDescriptor(NaN)), Domain.all(DOUBLE));
 
@@ -203,7 +203,7 @@ public class TestTupleDomainParquetPredicate
 
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 3.3), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 3.3), ID))
                 .withMessage("Corrupted statistics for column \"[] required double DoubleColumn\" in Parquet file \"testFile\": [min: 42.24, max: 3.3, num_nulls: 0]");
     }
 
@@ -212,17 +212,17 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(BINARY, "StringColumn");
-        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 0, null, ID, true), Domain.all(createUnboundedVarcharType()));
+        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 0, null, ID), Domain.all(createUnboundedVarcharType()));
 
-        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("taco", "taco"), ID, true), singleValue(createUnboundedVarcharType(), utf8Slice("taco")));
+        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("taco", "taco"), ID), singleValue(createUnboundedVarcharType(), utf8Slice("taco")));
 
-        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("apple", "taco"), ID, true), create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
+        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("apple", "taco"), ID), create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
 
-        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("中国", "美利坚"), ID, true), create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("中国"), true, utf8Slice("美利坚"), true)), false));
+        assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("中国", "美利坚"), ID), create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("中国"), true, utf8Slice("美利坚"), true)), false));
 
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("taco", "apple"), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("taco", "apple"), ID))
                 .withMessage("Corrupted statistics for column \"[] required binary StringColumn\" in Parquet file \"testFile\": [min: taco, max: apple, num_nulls: 0]");
     }
 
@@ -240,24 +240,24 @@ public class TestTupleDomainParquetPredicate
             throws Exception
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(FLOAT, "FloatColumn");
-        assertEquals(getDomain(columnDescriptor, REAL, 0, null, ID, true), Domain.all(REAL));
+        assertEquals(getDomain(columnDescriptor, REAL, 0, null, ID), Domain.all(REAL));
 
         float minimum = 4.3f;
         float maximum = 40.3f;
 
-        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, minimum), ID, true), singleValue(REAL, (long) floatToRawIntBits(minimum)));
+        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, minimum), ID), singleValue(REAL, (long) floatToRawIntBits(minimum)));
 
         assertEquals(
-                getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, maximum), ID, true),
+                getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, maximum), ID),
                 create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false));
 
-        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(NaN, NaN), ID, true), Domain.notNull(REAL));
+        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(NaN, NaN), ID), Domain.notNull(REAL));
 
-        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(NaN, NaN, true), ID, true), Domain.all(REAL));
+        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(NaN, NaN, true), ID), Domain.all(REAL));
 
-        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, NaN), ID, true), Domain.notNull(REAL));
+        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, NaN), ID), Domain.notNull(REAL));
 
-        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, NaN, true), ID, true), Domain.all(REAL));
+        assertEquals(getDomain(columnDescriptor, REAL, 10, floatColumnStats(minimum, NaN, true), ID), Domain.all(REAL));
 
         assertEquals(getDomain(REAL, floatDictionaryDescriptor(NaN)), Domain.all(REAL));
 
@@ -265,7 +265,7 @@ public class TestTupleDomainParquetPredicate
 
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, REAL, 10, floatColumnStats(maximum, minimum), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, REAL, 10, floatColumnStats(maximum, minimum), ID))
                 .withMessage("Corrupted statistics for column \"[] required float FloatColumn\" in Parquet file \"testFile\": [min: 40.3, max: 4.3, num_nulls: 0]");
     }
 
@@ -274,13 +274,13 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "DateColumn");
-        assertEquals(getDomain(columnDescriptor, DATE, 0, null, ID, true), Domain.all(DATE));
-        assertEquals(getDomain(columnDescriptor, DATE, 10, intColumnStats(100, 100), ID, true), singleValue(DATE, 100L));
-        assertEquals(getDomain(columnDescriptor, DATE, 10, intColumnStats(0, 100), ID, true), create(ValueSet.ofRanges(range(DATE, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(columnDescriptor, DATE, 0, null, ID), Domain.all(DATE));
+        assertEquals(getDomain(columnDescriptor, DATE, 10, intColumnStats(100, 100), ID), singleValue(DATE, 100L));
+        assertEquals(getDomain(columnDescriptor, DATE, 10, intColumnStats(0, 100), ID), create(ValueSet.ofRanges(range(DATE, 0L, true, 100L, true)), false));
 
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(columnDescriptor, DATE, 10, intColumnStats(200, 100), ID, true))
+                .isThrownBy(() -> getDomain(columnDescriptor, DATE, 10, intColumnStats(200, 100), ID))
                 .withMessage("Corrupted statistics for column \"[] required int32 DateColumn\" in Parquet file \"testFile\": [min: 200, max: 100, num_nulls: 0]");
     }
 
@@ -296,7 +296,7 @@ public class TestTupleDomainParquetPredicate
         Statistics<?> stats = getStatsBasedOnType(column.getType());
         stats.setNumNulls(1L);
         stats.setMinMaxFromBytes(value.getBytes(), value.getBytes());
-        assertTrue(parquetPredicate.matches(2, singletonMap(column, stats), ID, true));
+        assertTrue(parquetPredicate.matches(2, singletonMap(column, stats), ID));
     }
 
     @Test(dataProvider = "typeForParquetInt32")
@@ -311,9 +311,9 @@ public class TestTupleDomainParquetPredicate
                 Domain.create(ValueSet.of(typeForParquetInt32, 42L, 43L, 44L, 112L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
 
-        assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(32, 42)), ID, true));
-        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(30, 40)), ID, true));
-        assertEquals(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(1024, 0x10000 + 42)), ID, true), (typeForParquetInt32 != INTEGER)); // stats invalid for smallint/tinyint
+        assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(32, 42)), ID));
+        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(30, 40)), ID));
+        assertEquals(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(1024, 0x10000 + 42)), ID), (typeForParquetInt32 != INTEGER)); // stats invalid for smallint/tinyint
     }
 
     @DataProvider
@@ -338,9 +338,9 @@ public class TestTupleDomainParquetPredicate
                 Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
 
-        assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(32, 42)), ID, true));
-        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(30, 40)), ID, true));
-        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(1024, 0x10000 + 42)), ID, true));
+        assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(32, 42)), ID));
+        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(30, 40)), ID));
+        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(1024, 0x10000 + 42)), ID));
     }
 
     @Test

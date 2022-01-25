@@ -79,7 +79,6 @@ import static com.facebook.presto.delta.DeltaErrorCode.DELTA_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_MISSING_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_PARQUET_SCHEMA_MISMATCH;
 import static com.facebook.presto.delta.DeltaSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.delta.DeltaSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
@@ -160,7 +159,6 @@ public class DeltaPageSourceProvider
                 deltaSplit.getFileSize(),
                 regularColumnHandles,
                 deltaTableHandle.toSchemaTableName(),
-                isFailOnCorruptedParquetStatistics(session),
                 getParquetMaxReadBlockSize(session),
                 isParquetBatchReadsEnabled(session),
                 isParquetBatchReaderVerificationEnabled(session),
@@ -204,7 +202,6 @@ public class DeltaPageSourceProvider
             long fileSize,
             List<DeltaColumnHandle> columns,
             SchemaTableName tableName,
-            boolean failOnCorruptedParquetStatistics,
             DataSize maxReadBlockSize,
             boolean batchReaderEnabled,
             boolean verificationEnabled,
@@ -247,7 +244,7 @@ public class DeltaPageSourceProvider
             final ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
                 }
             }
