@@ -110,6 +110,10 @@ Mathematical Functions
 
     Returns the square root of ``x`` . If ``x`` is negative, ``NaN`` is returned.
 
+.. function:: to_base(x, radix) -> varchar
+
+    Returns the base-``radix`` representation of ``x``. ``radix`` must be between 2 and 36.
+
 .. function:: width_bucket(x, bound1, bound2, n) -> bigint
 
     Returns the bin number of ``x`` in an equi-width histogram with the

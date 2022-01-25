@@ -17,6 +17,8 @@
 
 #include <gmock/gmock.h>
 
+#include <velox/common/base/VeloxException.h>
+#include <velox/vector/SimpleVector.h>
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 namespace facebook::velox {
@@ -529,6 +531,37 @@ TEST_F(ArithmeticTest, fromBase) {
       {"1111111111111111111111111111111111111111111111111111111111111111111111"_sv},
       {2},
       "1111111111111111111111111111111111111111111111111111111111111111111111 is out of range.");
+}
+
+TEST_F(ArithmeticTest, toBase) {
+  const auto to_base = [&](std::optional<int64_t> value,
+                           std::optional<int64_t> radix) {
+    auto valueVector = makeNullableFlatVector<int64_t>(
+        std::vector<std::optional<int64_t>>{value});
+    auto radixVector = makeNullableFlatVector<int64_t>(
+        std::vector<std::optional<int64_t>>{radix});
+    auto result = evaluate<SimpleVector<StringView>>(
+        "to_base(c0, c1)", makeRowVector({valueVector, radixVector}));
+    return result->valueAt(0).getString();
+  };
+
+  for (auto i = 0; i < 10; i++) {
+    std::string expected(1, (char)((int)'0' + i));
+    EXPECT_EQ(expected, to_base(i, 36));
+  }
+
+  for (auto i = 10; i < 36; i++) {
+    std::string expected(1, (char)((int)'a' + i - 10));
+    EXPECT_EQ(expected, to_base(i, 36));
+  }
+
+  EXPECT_EQ("110111111010", to_base(3578, 2));
+  EXPECT_EQ("313322", to_base(3578, 4));
+  EXPECT_EQ("6772", to_base(3578, 8));
+  EXPECT_EQ("20a2", to_base(3578, 12));
+  EXPECT_EQ("-20a2", to_base(-3578, 12));
+
+  ASSERT_THROW(to_base(1, 37), velox::VeloxUserError);
 }
 
 } // namespace

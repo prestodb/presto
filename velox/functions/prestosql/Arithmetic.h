@@ -33,6 +33,11 @@ namespace facebook::velox::functions {
 inline constexpr int kMinRadix = 2;
 inline constexpr int kMaxRadix = 36;
 
+inline constexpr char digits[36] = {
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
+    'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+    'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
+
 template <typename T>
 struct PlusFunction {
   template <typename TInput>
@@ -403,24 +408,28 @@ struct NanFunction {
   }
 };
 
+FOLLY_ALWAYS_INLINE void checkRadix(int64_t radix) {
+  VELOX_USER_CHECK_GE(
+      radix,
+      kMinRadix,
+      "Radix must be between {} and {}.",
+      kMinRadix,
+      kMaxRadix);
+  VELOX_USER_CHECK_LE(
+      radix,
+      kMaxRadix,
+      "Radix must be between {} and {}.",
+      kMinRadix,
+      kMaxRadix);
+}
+
 template <typename T>
 struct FromBaseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE bool
   call(int64_t& result, const arg_type<Varchar>& input, int64_t radix) {
-    VELOX_USER_CHECK_GE(
-        radix,
-        kMinRadix,
-        "Radix must be between {} and {}.",
-        kMinRadix,
-        kMaxRadix);
-    VELOX_USER_CHECK_LE(
-        radix,
-        kMaxRadix,
-        "Radix must be between {} and {}.",
-        kMinRadix,
-        kMaxRadix);
+    checkRadix(radix);
 
     auto begin = input.begin();
     if (input.size() > 0 && (*input.begin()) == '+')
@@ -443,4 +452,40 @@ struct FromBaseFunction {
   }
 };
 
+template <typename T>
+struct ToBaseFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool
+  call(out_type<Varchar>& result, const int64_t& value, const int64_t& radix) {
+    checkRadix(radix);
+
+    if (value == 0) {
+      result.resize(1);
+      result.data()[0] = '0';
+    } else {
+      int64_t runningValue = std::abs(value);
+      int64_t remainder;
+      char* resultPtr;
+      int64_t resultSize =
+          (int64_t)std::floor(std::log(runningValue) / std::log(radix)) + 1;
+      if (value < 0) {
+        resultSize += 1;
+        result.resize(resultSize);
+        resultPtr = result.data();
+        resultPtr[0] = '-';
+      } else {
+        result.resize(resultSize);
+        resultPtr = result.data();
+      }
+      int64_t index = resultSize;
+      while (runningValue > 0) {
+        remainder = runningValue % radix;
+        resultPtr[--index] = digits[remainder];
+        runningValue /= radix;
+      }
+    }
+    return true;
+  }
+};
 } // namespace facebook::velox::functions
