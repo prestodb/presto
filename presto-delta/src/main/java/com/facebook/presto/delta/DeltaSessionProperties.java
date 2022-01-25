@@ -30,7 +30,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 public final class DeltaSessionProperties
 {
     private static final String CACHE_ENABLED = "cache_enabled";
-    private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
@@ -49,11 +48,6 @@ public final class DeltaSessionProperties
                         CACHE_ENABLED,
                         "Enable cache for Delta tables",
                         cacheConfig.isCachingEnabled(),
-                        false),
-                booleanProperty(
-                        PARQUET_FAIL_WITH_CORRUPTED_STATISTICS,
-                        "Parquet: Fail when scanning Parquet files with corrupted statistics",
-                        hiveClientConfig.isFailOnCorruptedParquetStatistics(),
                         false),
                 dataSizeSessionProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
@@ -85,11 +79,6 @@ public final class DeltaSessionProperties
     public static boolean isCacheEnabled(ConnectorSession session)
     {
         return session.getProperty(CACHE_ENABLED, Boolean.class);
-    }
-
-    public static boolean isFailOnCorruptedParquetStatistics(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_FAIL_WITH_CORRUPTED_STATISTICS, Boolean.class);
     }
 
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
