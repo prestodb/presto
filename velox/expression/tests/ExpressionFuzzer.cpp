@@ -320,6 +320,8 @@ class ExpressionFuzzer {
     registerFuncOverride(&ExpressionFuzzer::generateLikeArgs, "like");
     registerFuncOverride(
         &ExpressionFuzzer::generateEmptyApproxSetArgs, "empty_approx_set");
+    registerFuncOverride(
+        &ExpressionFuzzer::generateRegexpReplaceArgs, "regexp_replace");
   }
 
   template <typename TFunc>
@@ -440,6 +442,18 @@ class ExpressionFuzzer {
       return {};
     }
     return {generateArgConstant(input.args[0])};
+  }
+
+  // Specialization for the "regexp_replace" function: second and third
+  // (optional) parameters always need to be constant.
+  std::vector<core::TypedExprPtr> generateRegexpReplaceArgs(
+      const CallableSignature& input) {
+    std::vector<core::TypedExprPtr> inputExpressions = {
+        generateArg(input.args[0]), generateArgConstant(input.args[1])};
+    if (input.args.size() == 3) {
+      inputExpressions.emplace_back(generateArgConstant(input.args[2]));
+    }
+    return inputExpressions;
   }
 
   core::TypedExprPtr generateExpression(const TypePtr& returnType) {

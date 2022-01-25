@@ -41,6 +41,23 @@ See https://github.com/google/re2/wiki/Syntax for more information.
 
         SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
 
+.. function:: regexp_replace(string, pattern) -> varchar
+
+    Removes every instance of the substring matched by the regular expression
+    ``pattern`` from ``string``::
+
+        SELECT regexp_replace('1a 2b 14m', '\d+[ab] '); -- '14m'
+
+.. function:: regexp_replace(string, pattern, replacement) -> varchar
+
+    Replaces every instance of the substring matched by the regular expression
+    ``pattern`` in ``string`` with ``replacement``. Capturing groups can be referenced in
+    ``replacement`` using ``$g`` for a numbered group or ``${name}`` for a named group. A
+    dollar sign (``$``) may be included in the replacement by escaping it with a
+    backslash (``\$``)::
+
+        SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
+
 .. function:: like(string, pattern) -> boolean
               like(string, pattern, escape) -> boolean
 

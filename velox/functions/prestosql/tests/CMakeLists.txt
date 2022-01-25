@@ -47,6 +47,7 @@ add_executable(
   MapTest.cpp
   NotTest.cpp
   ReduceTest.cpp
+  RegexpReplaceTest.cpp
   ReverseTest.cpp
   RoundTest.cpp
   SliceTest.cpp
