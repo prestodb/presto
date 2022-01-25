@@ -38,7 +38,6 @@
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
-        <air.check.skip-jacoco>true</air.check.skip-jacoco>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
 
         <air.java.version>1.8.0-151</air.java.version>
@@ -181,6 +180,7 @@
         <module>presto-grpc-api</module>
         <module>presto-grpc-testing-udf-server</module>
         <module>presto-lark-sheets</module>
+        <module>presto-test-coverage</module>
     </modules>
 
     <dependencyManagement>
@@ -2375,6 +2375,18 @@
                         </DynamicDependency>
                     </dynamicDependencies>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.7</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
