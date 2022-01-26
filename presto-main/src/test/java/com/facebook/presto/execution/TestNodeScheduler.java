@@ -94,6 +94,7 @@ import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -611,11 +612,11 @@ public class TestNodeScheduler
         // In setup node 1-3 are added to node manager
         SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
         assertEquals(splitPlacementResult.getAssignments().keySet().size(), 3);
-        // node1: split 2, 3, 5, 6, 9
+        // node1: split 1, 3, 4, 5, 6, 7, 8, 9
         Collection<ConnectorSplit> node1Splits = splitPlacementResult.getAssignments().get(node1).stream().map(Split::getConnectorSplit).collect(toImmutableSet());
-        // node2: split 1, 7
+        // node2: 0
         Collection<Object> node2Splits = splitPlacementResult.getAssignments().get(node2).stream().map(Split::getConnectorSplit).collect(toImmutableSet());
-        // node3: split 0, 4, 8
+        // node3: split 2
         Collection<Object> node3Splits = splitPlacementResult.getAssignments().get(node3).stream().map(Split::getConnectorSplit).collect(toImmutableSet());
 
         // Scheduling the same splits on the same set of nodes should give the same assignment
@@ -669,22 +670,22 @@ public class TestNodeScheduler
         // entry5 ( 2145381619): node1
         SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
         // hashing value for splits:
-        // 0: -1879591379 -> entry1 -> node3
-        // 1: -2031875777 -> entry0 -> node2
-        // 2:  -163077544 -> entry3 -> node3
-        // 3:   749129358 -> entry3 -> node3
-        // 4: -1784631546 -> entry1 -> node3
-        // 5:  -118156056 -> entry3 -> node3
-        // 6:   388471277 -> entry3 -> node3
-        // 7: -2084245305 -> entry0 -> node2
-        // 8: -1127017311 -> entry1 -> node3
-        // 9:  1305218356 -> entry5 -> node1
+        // 0: -1962219106 -> entry0 -> node2
+        // 1:   145569539 -> entry3 -> node3
+        // 2: -1599101205 -> entry1 -> node3
+        // 3:  -165119218 -> entry3 -> node3
+        // 4:  1142216720 -> entry4 -> node1
+        // 5:  1347620135 -> entry5 -> node1
+        // 6:  1232195252 -> entry5 -> node1
+        // 7:   427886318 -> entry3 -> node3
+        // 8:  1469878697 -> entry5 -> node1
+        // 9:   296801082 -> entry3 -> node3
         assertEquals(splitPlacementResult.getAssignments().keySet().size(), 3);
-        // node1: split 9
+        // node1: split 4, 5, 6, 8
         Collection<ConnectorSplit> node1Splits = splitPlacementResult.getAssignments().get(node1).stream().map(Split::getConnectorSplit).collect(toImmutableSet());
-        // node2: split 1, 7
+        // node2: split 0
         Collection<Object> node2Splits = splitPlacementResult.getAssignments().get(node2).stream().map(Split::getConnectorSplit).collect(toImmutableSet());
-        // node3: split 0, 2, 3, 4, 5, 6, 8
+        // node3: split 1, 2, 3, 7, 9
         Collection<Object> node3Splits = splitPlacementResult.getAssignments().get(node3).stream().map(Split::getConnectorSplit).collect(toImmutableSet());
 
         // Scheduling the same splits on the same set of nodes should give the same assignment
@@ -707,21 +708,21 @@ public class TestNodeScheduler
         nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
         splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
         // hashing value for splits:
-        // 0: -1879591379 -> entry1 -> node4
-        // 1: -2031875777 -> entry0 -> node2
-        // 2:  -163077544 -> entry4 -> node3
-        // 3:   749129358 -> entry4 -> node3
-        // 4: -1784631546 -> entry1 -> node4
-        // 5:  -118156056 -> entry4 -> node3
-        // 6:   388471277 -> entry4 -> node3
-        // 7: -2084245305 -> entry0 -> node2
-        // 8: -1127017311 -> entry2 -> node3
-        // 9:  1305218356 -> entry6 -> node4
-        assertEquals(splitPlacementResult.getAssignments().keySet().size(), 3);
-        assertEquals(splitPlacementResult.getAssignments().get(node1), ImmutableSet.of());
+        // 0: -1962219106 -> entry0 -> node2
+        // 1:   145569539 -> entry4 -> node3
+        // 2: -1599101205 -> entry2 -> node3
+        // 3:  -165119218 -> entry4 -> node3
+        // 4:  1142216720 -> entry5 -> node1
+        // 5:  1347620135 -> entry6 -> node4
+        // 6:  1232195252 -> entry6 -> node4
+        // 7:   427886318 -> entry4 -> node3
+        // 8:  1469878697 -> entry6 -> node4
+        // 9:   296801082 -> entry4 -> node3
+        assertEquals(splitPlacementResult.getAssignments().keySet().size(), 4);
+        assertEquals(splitPlacementResult.getAssignments().get(node1).stream().map(Split::getConnectorSplit).map(ConnectorSplit::getSplitIdentifier).collect(toImmutableSet()), ImmutableSet.of(4));
         assertEquals(splitPlacementResult.getAssignments().get(node2).stream().map(Split::getConnectorSplit).collect(toImmutableSet()), node2Splits);
-        assertEquals(splitPlacementResult.getAssignments().get(node3).stream().map(Split::getConnectorSplit).map(ConnectorSplit::getSplitIdentifier).collect(toImmutableSet()), ImmutableSet.of(2, 3, 5, 6, 8));
-        assertEquals(splitPlacementResult.getAssignments().get(node4).stream().map(Split::getConnectorSplit).map(ConnectorSplit::getSplitIdentifier).collect(toImmutableSet()), ImmutableSet.of(0, 4, 9));
+        assertEquals(splitPlacementResult.getAssignments().get(node3).stream().map(Split::getConnectorSplit).map(ConnectorSplit::getSplitIdentifier).collect(toImmutableSet()), ImmutableSet.of(1, 2, 3, 7, 9));
+        assertEquals(splitPlacementResult.getAssignments().get(node4).stream().map(Split::getConnectorSplit).map(ConnectorSplit::getSplitIdentifier).collect(toImmutableSet()), ImmutableSet.of(5, 6, 8));
     }
 
     @Test
@@ -1315,7 +1316,7 @@ public class TestNodeScheduler
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return nodeProvider.get(String.valueOf(scheduleIdentifierId), 1);
+            return nodeProvider.get(format("split%d", scheduleIdentifierId), 1);
         }
 
         @Override
