@@ -79,6 +79,8 @@ class AverageAggregate : public exec::Aggregate {
     auto countVector = rowVector->childAt(1)->asFlatVector<int64_t>();
 
     rowVector->resize(numGroups);
+    sumVector->resize(numGroups);
+    countVector->resize(numGroups);
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     int64_t* rawCounts = countVector->mutableRawValues();

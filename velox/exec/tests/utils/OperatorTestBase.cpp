@@ -131,4 +131,23 @@ void OperatorTestBase::assertEqualVectors(
   }
 }
 
+RowVectorPtr OperatorTestBase::getResults(
+    std::shared_ptr<const core::PlanNode> planNode) {
+  CursorParameters params;
+  params.planNode = std::move(planNode);
+  auto [cursor, results] = readCursor(params, [](auto) {});
+
+  auto totalCount = 0;
+  for (const auto& result : results) {
+    totalCount += result->size();
+  }
+
+  auto copy = std::dynamic_pointer_cast<RowVector>(
+      BaseVector::create(params.planNode->outputType(), totalCount, pool()));
+  for (const auto& result : results) {
+    copy->copy(result.get(), 0, 0, result->size());
+  }
+  return copy;
+}
+
 } // namespace facebook::velox::exec::test

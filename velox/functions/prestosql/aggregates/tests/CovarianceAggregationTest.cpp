@@ -46,6 +46,21 @@ class CovarianceAggregationTest
              .planNode();
 
     assertQuery(op, sql);
+
+    op = PlanBuilder()
+             .values({data})
+             .partialAggregation({0}, {partialAgg})
+             .planNode();
+
+    auto partialResults = getResults(op);
+
+    op =
+        PlanBuilder()
+            .values({partialResults})
+            .finalAggregation({0}, {fmt::format("{}(a0)", aggName)}, {DOUBLE()})
+            .project({"c0", "round(a0, cast(2 as integer))"})
+            .planNode();
+    assertQuery(op, sql);
   }
 
   void testGlobalAgg(const std::string& aggName, const RowVectorPtr& data) {
@@ -64,6 +79,21 @@ class CovarianceAggregationTest
     op = PlanBuilder()
              .values({data})
              .singleAggregation({}, {partialAgg})
+             .project({"round(a0, cast(2 as integer))"})
+             .planNode();
+
+    assertQuery(op, sql);
+
+    op = PlanBuilder()
+             .values({data})
+             .partialAggregation({}, {partialAgg})
+             .planNode();
+
+    auto partialResults = getResults(op);
+
+    op = PlanBuilder()
+             .values({partialResults})
+             .finalAggregation({}, {fmt::format("{}(a0)", aggName)}, {DOUBLE()})
              .project({"round(a0, cast(2 as integer))"})
              .planNode();
 

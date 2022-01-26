@@ -160,6 +160,9 @@ class VarianceAggregate : public exec::Aggregate {
     auto m2Vector = rowVector->childAt(kM2Idx)->asFlatVector<double>();
 
     rowVector->resize(numGroups);
+    for (auto& child : rowVector->children()) {
+      child->resize(numGroups);
+    }
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     int64_t* rawCounts = countVector->mutableRawValues();

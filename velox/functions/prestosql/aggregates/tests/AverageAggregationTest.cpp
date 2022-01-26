@@ -22,14 +22,14 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class AverageAggregation : public AggregationTestBase {
+class AverageAggregationTest : public AggregationTestBase {
  protected:
   std::shared_ptr<const RowType> rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT(), REAL(), DOUBLE()})};
 };
 
-TEST_F(AverageAggregation, avgConst) {
+TEST_F(AverageAggregationTest, avgConst) {
   // Have two row vectors a lest as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -85,7 +85,7 @@ TEST_F(AverageAggregation, avgConst) {
   }
 }
 
-TEST_F(AverageAggregation, avgConstNull) {
+TEST_F(AverageAggregationTest, avgConstNull) {
   // Have two row vectors a lest as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -130,7 +130,7 @@ TEST_F(AverageAggregation, avgConstNull) {
   }
 }
 
-TEST_F(AverageAggregation, avgNulls) {
+TEST_F(AverageAggregationTest, avgNulls) {
   // Have two row vectors a lest as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -166,7 +166,7 @@ TEST_F(AverageAggregation, avgNulls) {
   }
 }
 
-TEST_F(AverageAggregation, avg) {
+TEST_F(AverageAggregationTest, avg) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
 
@@ -282,5 +282,16 @@ TEST_F(AverageAggregation, avg) {
   }
 }
 
+TEST_F(AverageAggregationTest, partialResults) {
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>(100, [](auto row) { return row; })});
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .partialAggregation({}, {"avg(c0)"})
+                  .planNode();
+
+  assertQuery(plan, "SELECT row(4950, 100)");
+}
 } // namespace
 } // namespace facebook::velox::aggregate::test

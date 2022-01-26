@@ -224,8 +224,24 @@ TEST_F(VarianceAggregationTest, variance) {
                   {},
                   {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
               .planNode();
-    sql = genAggrQuery(
-        "SELECT {0}(c1), {0}(c2), {0}(c4), {0}(c5) FROM tmp", aggrName);
+    assertQuery(agg, sql);
+
+    agg = PlanBuilder()
+              .values(vectors)
+              .partialAggregation(
+                  {},
+                  {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
+              .planNode();
+
+    auto partialResults = getResults(agg);
+
+    agg = PlanBuilder()
+              .values({partialResults})
+              .finalAggregation(
+                  {},
+                  {GEN_AGG("a0"), GEN_AGG("a1"), GEN_AGG("a2"), GEN_AGG("a3")},
+                  {DOUBLE(), DOUBLE(), DOUBLE(), DOUBLE(), DOUBLE()})
+              .planNode();
     assertQuery(agg, sql);
 
     agg = PlanBuilder()

@@ -93,6 +93,8 @@ class OperatorTestBase : public testing::Test,
       const std::string& duckDbSql,
       std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
 
+  RowVectorPtr getResults(std::shared_ptr<const core::PlanNode> planNode);
+
   static std::shared_ptr<const RowType> makeRowType(
       std::vector<std::shared_ptr<const Type>>&& types) {
     return velox::test::VectorMaker::rowType(
