@@ -22,7 +22,11 @@ import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.Ordering;
@@ -33,6 +37,8 @@ import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
+import static com.facebook.presto.SystemSessionProperties.isValuesJoinBroadcastRewriteEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.REWRITE_VALUES_JOIN_BROADCAST_APPLIED;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
@@ -132,7 +138,22 @@ public class DetermineJoinDistributionType
         if (joinNode.getType().mustReplicate(joinNode.getCriteria())) {
             return true;
         }
+        if (isValuesJoinBroadcastRewriteEnabled(context.getSession()) && isValuesNode(joinNode.getRight(), context.getLookup())) {
+            context.getSession().getRuntimeStats().addMetricValue(REWRITE_VALUES_JOIN_BROADCAST_APPLIED, 1);
+            return true;
+        }
         return isAtMostScalar(joinNode.getRight(), context.getLookup());
+    }
+
+    private static boolean isValuesNode(PlanNode node, Lookup lookup)
+    {
+        if (node instanceof GroupReference) {
+            node = lookup.resolve(node);
+        }
+        if (node instanceof ProjectNode && node.getSources().size() == 1) {
+            node = lookup.resolve(node.getSources().get(0));
+        }
+        return node instanceof ValuesNode;
     }
 
     private PlanNodeWithCost getJoinNodeWithCost(Context context, JoinNode possibleJoinNode)

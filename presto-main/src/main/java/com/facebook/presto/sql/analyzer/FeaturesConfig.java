@@ -209,6 +209,7 @@ public class FeaturesConfig
 
     private boolean queryOptimizationWithMaterializedViewEnabled;
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
+    private boolean valuesJoinBroadcastRewriteEnabled;
     private boolean verboseRuntimeStatsEnabled;
     private boolean hashBasedDistinctLimitEnabled;
     private int hashBasedDistinctLimitThreshold = 10000;
@@ -1887,6 +1888,19 @@ public class FeaturesConfig
     public FeaturesConfig setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy strategy)
     {
         this.aggregationIfToFilterRewriteStrategy = strategy;
+        return this;
+    }
+
+    public boolean isValuesJoinBroadcastRewriteEnabled()
+    {
+        return valuesJoinBroadcastRewriteEnabled;
+    }
+
+    @Config("optimizer.values-join-broadcast-rewrite-enabled")
+    @ConfigDescription("Enable broadcast rewrite when joining values.")
+    public FeaturesConfig setValuesJoinBroadcastRewriteEnabled(boolean valuesJoinBroadcastRewriteEnabled)
+    {
+        this.valuesJoinBroadcastRewriteEnabled = valuesJoinBroadcastRewriteEnabled;
         return this;
     }
 
