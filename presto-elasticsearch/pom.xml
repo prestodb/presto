@@ -12,7 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.log4j.version>2.9.1</dep.log4j.version>
+        <dep.log4j.version>2.16.0</dep.log4j.version>
         <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
     </properties>
 
