@@ -937,6 +937,7 @@ struct VectorWriter<
 template <typename T>
 struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
   using vector_t = typename TypeToFlatVector<T>::type;
+  using exec_out_t = bool;
 
   void init(vector_t& vector) {
     vector_ = &vector;

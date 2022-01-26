@@ -236,13 +236,46 @@ TEST_F(ArrayProxyTest, multipleRows) {
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, e2e) {
+TEST_F(ArrayProxyTest, e2ePrimitives) {
   testE2E<int8_t>("f_int6");
   testE2E<int16_t>("f_int16");
   testE2E<int32_t>("f_int32");
   testE2E<int64_t>("f_int64");
   testE2E<float>("f_float");
   testE2E<double>("f_double");
+  testE2E<bool>("f_bool");
+}
+
+TEST_F(ArrayProxyTest, testTimeStamp) {
+  auto result =
+      prepareResult(std::make_shared<ArrayType>(ArrayType(TIMESTAMP())));
+
+  exec::VectorWriter<ArrayProxyT<Timestamp>> writer;
+  writer.init(*result.get()->as<ArrayVector>());
+  writer.setOffset(0);
+  auto& arrayProxy = writer.current();
+  // General interface.
+  auto& timeStamp = arrayProxy.add_item();
+  timeStamp = Timestamp::fromMillis(1);
+  arrayProxy.add_null();
+
+  // STD like interface.
+  arrayProxy.push_back(Timestamp::fromMillis(2));
+  arrayProxy.push_back(std::nullopt);
+  arrayProxy.resize(6);
+  arrayProxy[4] = std::nullopt;
+  arrayProxy[5] = Timestamp::fromMillis(3);
+
+  writer.commit();
+
+  auto expected = std::vector<std::vector<std::optional<Timestamp>>>{
+      {Timestamp::fromMillis(1),
+       std::nullopt,
+       Timestamp::fromMillis(2),
+       std::nullopt,
+       std::nullopt,
+       Timestamp::fromMillis(3)}};
+  assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 } // namespace
 } // namespace facebook::velox

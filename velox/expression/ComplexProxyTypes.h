@@ -19,6 +19,7 @@
 #include <iterator>
 #include <optional>
 
+#include <velox/common/base/Exceptions.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/vector/TypeAliases.h"
@@ -88,9 +89,11 @@ class ArrayProxy {
 
   ArrayProxy<V>& operator=(const ArrayProxy<V>&) = delete;
 
-  // String and bool not yet supported, this probably wont work for string.
-  static bool constexpr provide_std_interface = CppToType<V>::isPrimitiveType &&
-      !std::is_same<Varchar, V>::value && !std::is_same<bool, V>::value;
+  static bool constexpr provide_std_interface =
+      CppToType<V>::isPrimitiveType && !std::is_same<Varchar, V>::value;
+
+  static bool constexpr requires_commit = !CppToType<V>::isPrimitiveType ||
+      std::is_same<Varchar, V>::value || std::is_same<bool, V>::value;
 
   // Note: size is with respect to the current size of this array being written.
   FOLLY_ALWAYS_INLINE void reserve(vector_size_t size) {
@@ -109,13 +112,14 @@ class ArrayProxy {
     length_++;
     reserve(length_);
 
-    if constexpr (!provide_std_interface) {
-      childWriter_->setOffset(index);
-      needCommit_ = true;
-      return childWriter_->current();
-    } else {
+    if constexpr (!requires_commit) {
+      VELOX_DCHECK(provide_std_interface);
       childWriter_->vector().setNull(index, false);
       return childWriter_->data_[index];
+    } else {
+      needCommit_ = true;
+      childWriter_->setOffset(index);
+      return childWriter_->current();
     }
   }
 
@@ -189,7 +193,7 @@ class ArrayProxy {
   ArrayProxy<V>() {}
 
   FOLLY_ALWAYS_INLINE void commitMostRecentChildItem() {
-    if constexpr (!provide_std_interface) {
+    if constexpr (requires_commit) {
       if (needCommit_) {
         childWriter_->commit(true);
         needCommit_ = false;
