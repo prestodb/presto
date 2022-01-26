@@ -73,6 +73,10 @@ Mathematical Functions
 
     Returns the additive inverse of x, e.g. the number that, when added to x, yields zero.
 
+.. function:: pi() -> double
+
+    Returns the value of Pi.
+
 .. function:: plus(x, y) -> [same as x]
 
     Returns the result of adding x to y. The types of x and y must be the same.

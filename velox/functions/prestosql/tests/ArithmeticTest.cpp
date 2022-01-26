@@ -564,5 +564,13 @@ TEST_F(ArithmeticTest, toBase) {
   ASSERT_THROW(to_base(1, 37), velox::VeloxUserError);
 }
 
+TEST_F(ArithmeticTest, pi) {
+  const auto piValue = [&]() {
+    return evaluateOnce<double>("pi()", makeRowVector(ROW({}), 1));
+  };
+
+  EXPECT_EQ(piValue(), M_PI);
+}
+
 } // namespace
 } // namespace facebook::velox

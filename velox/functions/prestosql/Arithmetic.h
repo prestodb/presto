@@ -488,4 +488,12 @@ struct ToBaseFunction {
     return true;
   }
 };
+
+template <typename T>
+struct PiFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result) {
+    result = M_PI;
+    return true;
+  }
+};
 } // namespace facebook::velox::functions
