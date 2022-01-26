@@ -832,6 +832,6 @@ CoalesceIoStats readPins(
 template <>
 struct fmt::formatter<facebook::velox::cache::LoadState> : formatter<int> {
   auto format(facebook::velox::cache::LoadState s, format_context& ctx) {
-    return formatter<int>::format(underlying(s), ctx);
+    return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };
