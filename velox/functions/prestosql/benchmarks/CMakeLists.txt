@@ -11,17 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-set(BENCHMARK_DEPENDENCIES
+
+set(BENCHMARK_DEPENDENCIES_NO_FUNC
     velox_functions_test_lib
     velox_exec
-    velox_functions_prestosql
-    velox_functions_lib
     velox_exec_test_util
-    velox_vector_fuzzer
     ${GTEST_BOTH_LIBRARIES}
     ${gflags_LIBRARIES}
     ${FOLLY_WITH_DEPENDENCIES}
     ${FOLLY_BENCHMARK})
+
+set(BENCHMARK_DEPENDENCIES
+    velox_functions_prestosql velox_functions_lib velox_vector_fuzzer
+    ${BENCHMARK_DEPENDENCIES_NO_FUNC})
 
 add_executable(velox_functions_prestosql_benchmarks_array_contains
                ArrayContainsBenchmark.cpp)
@@ -73,3 +75,17 @@ target_link_libraries(velox_functions_benchmarks_url ${BENCHMARK_DEPENDENCIES})
 add_executable(velox_functions_benchmarks_compare CompareBenchmark.cpp)
 target_link_libraries(velox_functions_benchmarks_compare
                       ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_benchmark_array_proxy_with_nulls ArrayProxyBenchmark.cpp)
+target_link_libraries(velox_benchmark_array_proxy_with_nulls
+                      ${BENCHMARK_DEPENDENCIES_NO_FUNC})
+
+add_executable(velox_benchmark_array_proxy_no_nulls ArrayProxyBenchmark.cpp)
+target_link_libraries(velox_benchmark_array_proxy_no_nulls
+                      ${BENCHMARK_DEPENDENCIES_NO_FUNC})
+
+target_compile_definitions(velox_benchmark_array_proxy_with_nulls
+                           PUBLIC WITH_NULLS=true)
+
+target_compile_definitions(velox_benchmark_array_proxy_no_nulls
+                           PUBLIC WITH_NULLS=false)

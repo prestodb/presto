@@ -116,7 +116,7 @@ struct VectorWriter {
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
       vector_->resize(size, /*setNotNull*/ false);
-      init(*vector_);
+      data_ = vector_->mutableRawValues();
     }
   }
 
