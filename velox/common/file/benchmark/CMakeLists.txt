@@ -12,22 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# for generated headers
-include_directories(.)
-add_library(velox_file File.cpp FileSystems.cpp FileSystems.h)
-target_link_libraries(velox_file PUBLIC Folly::folly)
+add_executable(velox_read_benchmark ReadBenchmark.cpp ReadBenchmarkMain.cpp)
 
-if(${VELOX_BUILD_TESTING})
-  add_executable(velox_file_test FileTest.cpp)
-  add_test(velox_file_test velox_file_test)
-  target_link_libraries(
-    velox_file_test
-    velox_file
-    velox_exception
-    velox_exec_test_util
-    ${FMT}
-    ${FOLLY_WITH_DEPENDENCIES}
-    ${GTEST_BOTH_LIBRARIES})
-
-  add_subdirectory(benchmark)
-endif()
+target_link_libraries(velox_read_benchmark velox_file velox_exception
+                      velox_exec_test_util ${FMT} ${FOLLY_WITH_DEPENDENCIES})
