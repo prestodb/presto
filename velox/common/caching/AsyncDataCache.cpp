@@ -123,6 +123,15 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
   }
 }
 
+std::string AsyncDataCacheEntry::toString() const {
+  return fmt::format(
+      "<entry key:{}:{} size {} pins {}>",
+      key_.fileNum.id(),
+      key_.offset,
+      size_,
+      numPins_);
+}
+
 std::unique_ptr<AsyncDataCacheEntry> CacheShard::getFreeEntryWithSize(
     uint64_t /*sizeHint*/) {
   std::unique_ptr<AsyncDataCacheEntry> newEntry;
@@ -194,6 +203,7 @@ CachePin CacheShard::findOrCreate(
     // Inside the shard mutex.
     VELOX_CHECK_EQ(0, entryToInit->size_);
     entryToInit->size_ = size;
+    entryToInit->isFirstUse_ = true;
   }
   return initEntry(key, entryToInit);
 }

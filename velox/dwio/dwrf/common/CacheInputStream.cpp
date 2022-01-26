@@ -62,7 +62,7 @@ bool CacheInputStream::Next(const void** buffer, int32_t* size) {
   offsetInRun_ += *size;
   position_ += *size;
   if (tracker_) {
-    tracker_->recordRead(trackingId_, *size, groupId_);
+    tracker_->recordRead(trackingId_, *size, fileNum_, groupId_);
   }
   return true;
 }
@@ -133,6 +133,7 @@ std::vector<folly::Range<char*>> makeRanges(
 void CacheInputStream::loadSync(dwio::common::Region region) {
   // rawBytesRead is the number of bytes touched. Whether they come
   // from disk, ssd or memory is itemized in different counters. A
+  process::TraceContext trace("loadSync");
   // coalesced read ofrom InputStream removes itself from this count
   // so as not to double count when the individual parts are
   // hit.
@@ -157,6 +158,9 @@ void CacheInputStream::loadSync(dwio::common::Region region) {
     if (entry->isExclusive()) {
       entry->setGroupId(groupId_);
       entry->setTrackingId(trackingId_);
+      if (loadFromSsd(region, *entry)) {
+        return;
+      }
       auto ranges = makeRanges(entry, region.length);
       uint64_t usec = 0;
       {
@@ -176,6 +180,62 @@ void CacheInputStream::loadSync(dwio::common::Region region) {
       return;
     }
   } while (pin_.empty());
+}
+
+bool CacheInputStream::loadFromSsd(
+    dwio::common::Region region,
+    cache::AsyncDataCacheEntry& entry) {
+  auto ssdCache = cache_->ssdCache();
+  if (!ssdCache) {
+    return false;
+  }
+  auto& file = ssdCache->file(fileNum_);
+  auto ssdPin = file.find(cache::RawFileCacheKey{fileNum_, region.offset});
+
+  if (ssdPin.empty()) {
+    return false;
+  }
+  if (ssdPin.run().size() < entry.size()) {
+    LOG(INFO) << fmt::format(
+        "IOERR: Ssd entry for {} shorter than requested {}",
+        entry.toString(),
+        ssdPin.run().size());
+    return false;
+  }
+  uint64_t usec = 0;
+  // SsdFile::load wants vectors of pins. Put the pins in a
+  // temp vector and then put 'pin_' back in 'this'. 'pin_'
+  // is exclusive and not movable.
+  std::vector<cache::SsdPin> ssdPins;
+  ssdPins.push_back(std::move(ssdPin));
+  std::vector<cache::CachePin> pins;
+  pins.push_back(std::move(pin_));
+  try {
+    MicrosecondTimer timer(&usec);
+    file.load(ssdPins, pins);
+  } catch (const std::exception& e) {
+    try {
+      LOG(ERROR) << "IOERR: Failed SSD loadSync " << entry.toString()
+                 << e.what() << process::TraceContext::statusLine()
+                 << fmt::format(
+                        "stream region {} {}b, start of load {} file {}",
+                        region_.offset,
+                        region_.length,
+                        region.offset - region_.offset,
+                        fileIds().string(fileNum_));
+      // Remove the non-loadable entry so that next access goes to
+      // storage.
+      file.erase(cache::RawFileCacheKey{fileNum_, region.offset});
+    } catch (const std::exception&) {
+      // Ignore error inside logging the error.
+    }
+    throw;
+  }
+  pin_ = std::move(pins[0]);
+  ioStats_->ssdRead().increment(entry.size());
+  ioStats_->queryThreadIoLatency().increment(usec);
+  entry.setExclusiveToShared();
+  return true;
 }
 
 void CacheInputStream::loadPosition() {

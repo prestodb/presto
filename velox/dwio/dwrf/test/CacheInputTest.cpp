@@ -118,10 +118,21 @@ class CacheTest : public testing::Test {
     executor_->join();
   }
 
-  void initializeCache(uint64_t maxBytes) {
+  void initializeCache(
+      uint64_t maxBytes,
+      const std::string& file = "",
+      uint64_t ssdBytes = 0) {
+    std::unique_ptr<SsdCache> ssd;
+    if (!file.empty()) {
+      FLAGS_ssd_odirect = false;
+      ssd = std::make_unique<SsdCache>(file, ssdBytes, 1, executor_.get());
+      groupStats_ = &ssd->groupStats();
+    }
     memory::MmapAllocatorOptions options = {maxBytes};
     cache_ = std::make_unique<AsyncDataCache>(
-        std::make_unique<memory::MmapAllocator>(options), maxBytes);
+        std::make_unique<memory::MmapAllocator>(options),
+        maxBytes,
+        std::move(ssd));
     cache_->setVerifyHook(checkEntry);
     for (auto i = 0; i < kMaxStreams; ++i) {
       streamIds_.push_back(std::make_unique<dwrf::StreamIdentifier>(
@@ -326,38 +337,37 @@ class CacheTest : public testing::Test {
     auto tracker = std::make_shared<ScanTracker>(
         "testTracker",
         nullptr,
-        dwio::common::ReaderOptions::kDefaultLoadQuantum);
-    std::deque<std::unique_ptr<StripeData>> stripes;
+        dwio::common::ReaderOptions::kDefaultLoadQuantum,
+        groupStats_);
+    std::vector<std::unique_ptr<StripeData>> stripes;
     uint64_t fileId;
     uint64_t groupId;
     std::shared_ptr<facebook::velox::dwio::common::InputStream> input =
         inputByPath(filename, fileId, groupId);
+    if (groupStats_) {
+      groupStats_->recordFile(fileId, groupId, numStripes);
+    }
     for (auto stripeIndex = 0; stripeIndex < numStripes; ++stripeIndex) {
-      stripes.push_back(makeStripeData(
-          input,
-          numColumns,
-          tracker,
-          fileId,
-          groupId,
-          stripeIndex * streamStarts_[kMaxStreams - 1]));
-      stripes.back()->input->load(facebook::velox::dwio::common::LogType::TEST);
-      if (stripeIndex > 0) {
-        while (stripes.size() < stripeWindow) {
-          stripes.push_back(makeStripeData(
-              input,
-              numColumns,
-              tracker,
-              fileId,
-              groupId,
-              stripeIndex * streamStarts_[kMaxStreams - 1]));
-          if (stripes.back()->input->shouldPreload()) {
-            stripes.back()->input->load(
-                facebook::velox::dwio::common::LogType::TEST);
-          }
+      auto firstPrefetchStripe = stripeIndex + stripes.size();
+      auto window = std::min(stripeIndex + 1, stripeWindow);
+      auto lastPrefetchStripe = std::min(numStripes, stripeIndex + window);
+      for (auto prefetchStripeIndex = firstPrefetchStripe;
+           prefetchStripeIndex < lastPrefetchStripe;
+           ++prefetchStripeIndex) {
+        stripes.push_back(makeStripeData(
+            input,
+            numColumns,
+            tracker,
+            fileId,
+            groupId,
+            prefetchStripeIndex * streamStarts_[kMaxStreams - 1]));
+        if (stripes.back()->input->shouldPreload()) {
+          stripes.back()->input->load(
+              facebook::velox::dwio::common::LogType::TEST);
         }
       }
       auto currentStripe = std::move(stripes.front());
-      stripes.pop_front();
+      stripes.erase(stripes.begin());
       currentStripe->input->load(facebook::velox::dwio::common::LogType::TEST);
       for (auto columnIndex = 0; columnIndex < numColumns; ++columnIndex) {
         if (shouldRead(columnIndex, readPct, readPctModulo)) {
@@ -389,6 +399,15 @@ class CacheTest : public testing::Test {
     }
   }
 
+  void waitForWrite() {
+    auto ssd = cache_->ssdCache();
+    if (ssd) {
+      while (ssd->writeInProgress()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // NOLINT
+      }
+    }
+  }
+
   // Serializes 'pathToInput_' and 'fileIds_' in multithread test.
   std::mutex mutex_;
   std::vector<StringIdLease> fileIds_;
@@ -397,6 +416,7 @@ class CacheTest : public testing::Test {
       std::shared_ptr<facebook::velox::dwio::common::InputStream>>
       pathToInput_;
   facebook::velox::dwio::common::DataCacheConfig config_;
+  cache::FileGroupStats* FOLLY_NULLABLE groupStats_ = nullptr;
   std::unique_ptr<AsyncDataCache> cache_;
   std::shared_ptr<facebook::velox::dwio::common::IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
@@ -423,6 +443,76 @@ TEST_F(CacheTest, bufferedInput) {
   readLoop("testfile2", 30, 70, 70, 20);
 }
 
+// Calibrates the data read for a densely and sparsely read stripe of
+// test data. Fills the SSD cache with test data. Reads 2x cache size
+// worth of data and checks that the cache population settles to a
+// stable state.  Shifts the reading pattern so that half the working
+// set drops out and another half is added. Checks that the
+// working set stabilizes again.
+TEST_F(CacheTest, ssd) {
+  constexpr int64_t kSsdBytes = 256 << 20;
+  // 128MB RAM, 256MB SSD
+  initializeCache(128 << 20, "/tmp/ssd", kSsdBytes);
+  testRandomSeek_ = false;
+
+  // We read one stripe with all columns.
+  readLoop("testfile", 30, 100, 1, 1);
+  // This is a cold read, so expect no hits.
+  EXPECT_EQ(0, ioStats_->ramHit().bytes());
+  // Expect some extra reading from coalescing.
+  EXPECT_LT(0, ioStats_->rawOverreadBytes());
+  auto fullStripeBytes = ioStats_->rawBytesRead();
+  auto bytes = ioStats_->rawBytesRead();
+  cache_->clear();
+  // We read 10 stripes with some columns sparsely accessed.
+  readLoop("testfile", 30, 70, 10, 10, 1);
+  auto sparseStripeBytes = (ioStats_->rawBytesRead() - bytes) / 10;
+  EXPECT_LT(sparseStripeBytes, fullStripeBytes / 4);
+  // Expect the dense fraction of columns to have read ahead.
+  EXPECT_LT(1000000, ioStats_->prefetch().bytes());
+
+  constexpr int32_t kStripesPerFile = 10;
+  auto bytesPerFile = fullStripeBytes * kStripesPerFile;
+  // Read kSsdBytes worth of files to prime SSD cache.
+  readFiles(
+      "prefix1_", 0, kSsdBytes / bytesPerFile, 30, 100, 1, kStripesPerFile, 4);
+
+  LOG(INFO) << cache_->toString();
+
+  waitForWrite();
+  cache_->clear();
+  // Read double this to get some eviction from SSD.
+  readFiles(
+      "prefix1_",
+      0,
+      kSsdBytes * 2 / bytesPerFile,
+      30,
+      100,
+      1,
+      kStripesPerFile,
+      4);
+  // Expect some hits from SSD.
+  EXPECT_LE(kSsdBytes / 8, ioStats_->ssdRead().bytes());
+  // We expec some prefetch but the quantity is nondeterminstic
+  // because cases where the main thread reads the data ahead of
+  // background reader does not count as prefetch even if prefetch was
+  // issued. Also, the head of each file does not get prefetched
+  // because each file has its own tracker.
+  EXPECT_LE(kSsdBytes / 8, ioStats_->prefetch().bytes());
+  LOG(INFO) << cache_->toString();
+
+  readFiles(
+      "prefix1_",
+      kSsdBytes / bytesPerFile,
+      4 * kSsdBytes / bytesPerFile,
+      30,
+      100,
+      1,
+      kStripesPerFile,
+      4);
+  LOG(INFO) << cache_->toString();
+}
+
 TEST_F(CacheTest, singleFileThreads) {
   initializeCache(1 << 30);
 
@@ -434,7 +524,27 @@ TEST_F(CacheTest, singleFileThreads) {
       readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20);
     }));
   }
+  for (auto i = 0; i < numThreads; ++i) {
+    threads[i].join();
+  }
+}
+
+TEST_F(CacheTest, ssdThreads) {
+  initializeCache(64 << 20, "/tmp/ssdThreads", 1024 << 20);
+
+  const int numThreads = 4;
+  std::vector<std::thread> threads;
+  threads.reserve(numThreads);
+  for (int i = 0; i < numThreads; ++i) {
+    threads.push_back(std::thread([this, i]() {
+      for (auto counter = 0; counter < 4; ++counter) {
+        readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20);
+      }
+    }));
+  }
   for (int i = 0; i < numThreads; ++i) {
     threads[i].join();
   }
+  executor_->join();
+  LOG(INFO) << cache_->toString();
 }

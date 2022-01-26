@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/caching/ScanTracker.h"
+#include "velox/common/caching/FileGroupStats.h"
 
 #include <sstream>
 
@@ -25,7 +26,11 @@ namespace facebook::velox::cache {
 void ScanTracker::recordReference(
     const TrackingId id,
     uint64_t bytes,
-    uint64_t /*groupId*/) {
+    uint64_t fileId,
+    uint64_t groupId) {
+  if (fileGroupStats_) {
+    fileGroupStats_->recordReference(fileId, groupId, id, bytes);
+  }
   std::lock_guard<std::mutex> l(mutex_);
   data_[id].incrementReference(bytes, loadQuantum_);
   sum_.incrementReference(bytes, loadQuantum_);
@@ -34,7 +39,11 @@ void ScanTracker::recordReference(
 void ScanTracker::recordRead(
     const TrackingId id,
     uint64_t bytes,
-    uint64_t /*groupId*/) {
+    uint64_t fileId,
+    uint64_t groupId) {
+  if (fileGroupStats_) {
+    fileGroupStats_->recordRead(fileId, groupId, id, bytes);
+  }
   std::lock_guard<std::mutex> l(mutex_);
   data_[id].incrementRead(bytes);
   sum_.incrementRead(bytes);

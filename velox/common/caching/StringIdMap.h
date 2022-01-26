@@ -55,6 +55,14 @@ class StringIdMap {
   // Increments the use count of 'id'.
   void addReference(uint64_t id);
 
+  // Returns a copy of the string associated with id or empty string if id has
+  // no string.
+  std::string string(uint64_t id) {
+    std::lock_guard<std::mutex> l(mutex_);
+    auto it = idToString_.find(id);
+    return it == idToString_.end() ? "" : it->second.string;
+  }
+
  private:
   struct Entry {
     std::string string;
