@@ -114,7 +114,7 @@ TEST_F(JodaDateTimeTest, invalid) {
   EXPECT_THROW(parse("", " "), VeloxUserError);
 }
 
-TEST_F(JodaDateTimeTest, parseYear) {
+TEST_F(JodaDateTimeTest, parseYearOfEra) {
   // By the default, assume epoch.
   EXPECT_EQ(util::fromTimestampString("1970-01-01"), parse(" ", " "));
 
@@ -125,7 +125,7 @@ TEST_F(JodaDateTimeTest, parseYear) {
   // Probe the year range. Joda only supports positive years.
   EXPECT_EQ(util::fromTimestampString("294247-01-01"), parse("294247", "Y"));
   EXPECT_EQ(util::fromTimestampString("0001-01-01"), parse("1", "Y"));
-  EXPECT_THROW(parse("294248", "Y"), VeloxUserError);
+  EXPECT_THROW(parse("292278994", "Y"), VeloxUserError);
   EXPECT_THROW(parse("0", "Y"), VeloxUserError);
   EXPECT_THROW(parse("-1", "Y"), VeloxUserError);
   EXPECT_THROW(parse("  ", " Y "), VeloxUserError);
@@ -134,6 +134,19 @@ TEST_F(JodaDateTimeTest, parseYear) {
   // Last token read overwrites:
   EXPECT_EQ(
       util::fromTimestampString("0005-01-01"), parse("1 2 3 4 5", "Y Y Y Y Y"));
+}
+
+// Same semantic as YEAR_OF_ERA, except that it accepts zero and negative years.
+TEST_F(JodaDateTimeTest, parseYear) {
+  EXPECT_EQ(util::fromTimestampString("123-01-01"), parse("123", "y"));
+  EXPECT_EQ(util::fromTimestampString("321-01-01"), parse("321", "yyyyyyyy"));
+
+  EXPECT_EQ(util::fromTimestampString("0-01-01"), parse("0", "y"));
+  EXPECT_EQ(util::fromTimestampString("-1-01-01"), parse("-1", "y"));
+  EXPECT_EQ(util::fromTimestampString("-1234-01-01"), parse("-1234", "y"));
+
+  // Last token read overwrites:
+  EXPECT_EQ(util::fromTimestampString("0-01-01"), parse("123 0", "Y y"));
 }
 
 TEST_F(JodaDateTimeTest, parseMonth) {

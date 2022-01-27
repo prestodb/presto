@@ -65,6 +65,15 @@ inline JodaFormatSpecifier getSpecifier(char c) {
   return it->second;
 }
 
+bool specAllowsNegative(JodaFormatSpecifier s) {
+  switch (s) {
+    case JodaFormatSpecifier::YEAR:
+      return true;
+    default:
+      return false;
+  }
+}
+
 } // namespace
 
 void JodaFormatter::initialize() {
@@ -119,9 +128,12 @@ void JodaFormatter::initialize() {
 namespace {
 
 struct JodaDate {
-  int32_t year = -1;
+  int32_t year = 1970;
   int32_t month = 1;
   int32_t day = 1;
+
+  bool isYearOfEra = false; // Year of era cannot be zero or negative.
+  bool hasYear = false; // Whether year was explicitly specified.
 
   int32_t hour = 0;
   int32_t minute = 0;
@@ -200,7 +212,14 @@ JodaResult JodaFormatter::parse(const std::string& input) {
 
       // For now, timezone offset is the only non-numeric token supported.
       if (curPattern != JodaFormatSpecifier::TIMEZONE_OFFSET_ID) {
-        uint64_t number = 0;
+        int64_t number = 0;
+        bool negative = false;
+
+        if (cur < end && specAllowsNegative(curPattern) && *cur == '-') {
+          negative = true;
+          ++cur;
+        }
+
         auto startPos = cur;
 
         while (cur < end && characterIsDigit(*cur)) {
@@ -213,8 +232,16 @@ JodaResult JodaFormatter::parse(const std::string& input) {
           parseFail(input, cur, end);
         }
 
+        if (negative) {
+          number *= -1L;
+        }
+
         switch (curPattern) {
+          case JodaFormatSpecifier::YEAR:
           case JodaFormatSpecifier::YEAR_OF_ERA:
+            jodaDate.isYearOfEra =
+                (curPattern == JodaFormatSpecifier::YEAR_OF_ERA);
+            jodaDate.hasYear = true;
             jodaDate.year = number;
             break;
 
@@ -224,14 +251,16 @@ JodaResult JodaFormatter::parse(const std::string& input) {
             // Joda has this weird behavior where it returns 1970 as the year by
             // default (if no year is specified), but if either day or month are
             // specified, it fallsback to 2000.
-            if (jodaDate.year == -1) {
+            if (!jodaDate.hasYear) {
+              jodaDate.hasYear = true;
               jodaDate.year = 2000;
             }
             break;
 
           case JodaFormatSpecifier::DAY_OF_MONTH:
             jodaDate.day = number;
-            if (jodaDate.year == -1) {
+            if (!jodaDate.hasYear) {
+              jodaDate.hasYear = true;
               jodaDate.year = 2000;
             }
             break;
@@ -266,16 +295,11 @@ JodaResult JodaFormatter::parse(const std::string& input) {
     parseFail(input, cur, end);
   }
 
-  // Date time validations for Joda compatibility. Additional date checks will
-  // be performed below when converting it to timestamp.
-  if (jodaDate.year == -1) {
-    jodaDate.year = 1970;
-  }
-
-  // Enforce Joda's year range.
-  if (jodaDate.year > 294247 || jodaDate.year < 1) {
+  // Enforce Joda's year range if year was specified as "year of era".
+  if (jodaDate.isYearOfEra &&
+      (jodaDate.year > 292278993 || jodaDate.year < 1)) {
     VELOX_USER_FAIL(
-        "Value {} for yearOfEra must be in the range [1,294247]",
+        "Value {} for yearOfEra must be in the range [1,292278993]",
         jodaDate.year);
   }
 
