@@ -140,8 +140,8 @@ inline const char* errorMessage(const char* s) {
 }
 
 template <typename... Args>
-std::string errorMessage(const Args&... args) {
-  return fmt::format(args...);
+std::string errorMessage(fmt::string_view fmt, const Args&... args) {
+  return fmt::vformat(fmt, fmt::make_format_args(args...));
 }
 
 } // namespace detail
