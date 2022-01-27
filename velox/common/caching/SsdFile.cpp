@@ -73,7 +73,7 @@ SsdFile::SsdFile(
 #ifdef linux
   oDirect = FLAGS_ssd_odirect ? O_DIRECT : 0;
 #endif
-  fd_ = open(filename.c_str(), O_CREAT | O_RDWR | oDirect, S_IRUSR | S_IWUSR);
+  fd_ = open(filename_.c_str(), O_CREAT | O_RDWR | oDirect, S_IRUSR | S_IWUSR);
   if (fd_ < 0) {
     LOG(ERROR) << "Cannot open or create " << filename << " error " << errno;
     exit(1);
@@ -423,6 +423,17 @@ void SsdFile::clear() {
   std::fill(regionSize_.begin(), regionSize_.end(), 0);
   writableRegions_.resize(numRegions_);
   std::iota(writableRegions_.begin(), writableRegions_.end(), 0);
+}
+
+void SsdFile::deleteFile() {
+  if (fd_) {
+    close(fd_);
+    fd_ = 0;
+  }
+  auto rc = unlink(filename_.c_str());
+  if (rc < 0) {
+    LOG(ERROR) << "Error deleting cache file " << filename_ << " rc: " << rc;
+  }
 }
 
 } // namespace facebook::velox::cache

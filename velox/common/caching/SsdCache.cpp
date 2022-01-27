@@ -131,4 +131,10 @@ std::string SsdCache::toString() const {
   return out.str();
 }
 
+void SsdCache::deleteFiles() {
+  for (auto& file : files_) {
+    file->deleteFile();
+  }
+}
+
 } // namespace facebook::velox::cache

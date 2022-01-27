@@ -16,6 +16,7 @@
 
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <glog/logging.h>
@@ -40,6 +41,12 @@ class SsdFileTest : public testing::Test {
  protected:
   static constexpr int64_t kMB = 1 << 20;
 
+  void TearDown() override {
+    if (ssdFile_) {
+      ssdFile_->deleteFile();
+    }
+  }
+
   void initializeCache(int64_t maxBytes, int64_t ssdBytes = 0) {
     // tmpfs does not support O_DIRECT, so turn this off for testing.
     FLAGS_ssd_odirect = false;
@@ -48,8 +55,9 @@ class SsdFileTest : public testing::Test {
 
     fileName_ = StringIdLease(fileIds(), "fileInStorage");
 
+    tempDirectory_ = exec::test::TempDirectoryPath::create();
     ssdFile_ = std::make_unique<SsdFile>(
-        "/tmp/ssdtest",
+        fmt::format("{}/ssdtest", tempDirectory_->path),
         0,
         bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize);
   }
@@ -207,6 +215,8 @@ class SsdFileTest : public testing::Test {
     pins = makePins(fileName_.id(), ssdSize, 4096, 2048 * 1025, 62 * kMB);
     readAndCheckPins(pins);
   }
+
+  std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
 
   std::shared_ptr<AsyncDataCache> cache_;
   StringIdLease fileName_;

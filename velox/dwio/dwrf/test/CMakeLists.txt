@@ -122,8 +122,9 @@ target_link_libraries(velox_dwio_dwrf_buffered_input_test ${VELOX_LINK_LIBS}
 add_executable(velox_dwio_dwrf_cache_input_test CacheInputTest.cpp)
 add_test(velox_dwio_dwrf_cache_input_test velox_dwio_dwrf_cache_input_test)
 
-target_link_libraries(velox_dwio_dwrf_cache_input_test ${VELOX_LINK_LIBS}
-                      ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
+target_link_libraries(
+  velox_dwio_dwrf_cache_input_test ${VELOX_LINK_LIBS} velox_temp_path
+  ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
 
 add_executable(velox_dwio_dwrf_dictionary_encoder_test
                TestIntegerDictionaryEncoder.cpp TestStringDictionaryEncoder.cpp)

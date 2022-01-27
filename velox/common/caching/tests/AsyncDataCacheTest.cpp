@@ -17,6 +17,7 @@
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
@@ -47,6 +48,10 @@ class AsyncDataCacheTest : public testing::Test {
     if (executor_) {
       executor_->join();
     }
+    auto ssdCache = cache_->ssdCache();
+    if (ssdCache) {
+      ssdCache->deleteFiles();
+    }
   }
 
   void initializeCache(uint64_t maxBytes, int64_t ssdBytes = 0) {
@@ -54,8 +59,12 @@ class AsyncDataCacheTest : public testing::Test {
     if (ssdBytes) {
       // tmpfs does not support O_DIRECT, so turn this off for testing.
       FLAGS_ssd_odirect = false;
-      ssdCache =
-          std::make_unique<SsdCache>("/tmp/testcache", ssdBytes, 1, executor());
+      tempDirectory_ = exec::test::TempDirectoryPath::create();
+      ssdCache = std::make_unique<SsdCache>(
+          fmt::format("{}/cache", tempDirectory_->path),
+          ssdBytes,
+          1,
+          executor());
     }
     memory::MmapAllocatorOptions options = {maxBytes};
     cache_ = std::make_shared<AsyncDataCache>(
@@ -137,9 +146,10 @@ class AsyncDataCacheTest : public testing::Test {
 
   // Checks that the contents are consistent with what is set in
   // initializeContents.
-  static void checkContents(
-      const MappedMemory::Allocation& alloc,
-      int32_t numBytes) {
+  static void checkContents(const AsyncDataCacheEntry& entry) {
+    const auto& alloc = entry.data();
+    int32_t numBytes = entry.size();
+    int64_t expectedSequence = entry.key().fileNum.id() + entry.offset();
     bool first = true;
     int64_t sequence;
     int32_t bytesChecked = sizeof(int64_t);
@@ -151,13 +161,16 @@ class AsyncDataCacheTest : public testing::Test {
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           sequence = ptr[offset];
+          ASSERT_EQ(expectedSequence, sequence)
+              << entry.toString() << " " << entry.ssdOffset();
           first = false;
         } else {
           bytesChecked += sizeof(int64_t);
           if (bytesChecked >= numBytes) {
             return;
           }
-          ASSERT_EQ(ptr[offset], offset + sequence);
+          ASSERT_EQ(ptr[offset], offset + sequence)
+              << fmt::format("{} {} + {}", entry.toString(), sequence, offset);
         }
       }
     }
@@ -182,11 +195,14 @@ class AsyncDataCacheTest : public testing::Test {
     static std::mutex mutex;
     std::lock_guard<std::mutex> l(mutex);
     if (!executor_) {
-      executor_ = std::make_unique<folly::IOThreadPoolExecutor>(4);
+      // We have up to 20 threads. Some tests run at max 16 threads so
+      // that there are threads left over for SSD background write.
+      executor_ = std::make_unique<folly::IOThreadPoolExecutor>(20);
     }
     return executor_.get();
   }
 
+  std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
   std::shared_ptr<AsyncDataCache> cache_;
   std::vector<StringIdLease> filenames_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
@@ -297,8 +313,8 @@ void AsyncDataCacheTest::loadOne(
     }
     auto entry = pin.checkedEntry();
     if (entry->isShared()) {
-      // The entry has data. In this case the entry was checked by verifyHook,
-      // so no action here.
+      // Already in RAM. Check the data.
+      checkContents(*entry);
       VELOX_CHECK(!injectError, "Testing error");
       return;
     }
@@ -474,7 +490,7 @@ TEST_F(AsyncDataCacheTest, pin) {
   EXPECT_TRUE(pin.entry()->isShared());
   EXPECT_TRUE(pin.entry()->getAndClearFirstUseFlag());
   EXPECT_FALSE(pin.entry()->getAndClearFirstUseFlag());
-  checkContents(pin.entry()->data(), pin.entry()->size());
+  checkContents(*pin.entry());
   otherPin = pin;
   EXPECT_EQ(2, pin.entry()->numPins());
   EXPECT_FALSE(pin.entry()->isPrefetch());
@@ -561,20 +577,22 @@ TEST_F(AsyncDataCacheTest, ssd) {
   constexpr uint64_t kSsdBytes = 512UL << 20;
   FLAGS_velox_exception_stacktrace = false;
   initializeCache(kRamBytes, kSsdBytes);
-  cache_->setVerifyHook([&](const AsyncDataCacheEntry& entry) {
-    checkContents(entry.data(), entry.size());
-  });
+  cache_->setVerifyHook(
+      [&](const AsyncDataCacheEntry& entry) { checkContents(entry); });
 
   // Read back all writes. This increases the chance of writes falling behind
   // new entry creation.
   FLAGS_ssd_verify_write = true;
 
-  // We read kSsdBytes worth of data on 4
+  // We read kSsdBytes worth of data on 16
   // threads. The same data will
   // be hit by all threads. The expectation is that most of the data
   // ends up on SSD. All data may not get written if reading is faster than
   // writing. Error out once every 11 load batches.
-  runThreads(4, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 11); });
+  //
+  // Note that executor() must have more threads so that background
+  // write does not wait for the workload.
+  runThreads(16, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 11); });
   LOG(INFO) << "Stats after first pass: " << cache_->toString();
   auto stats = cache_->ssdCache()->stats();
 
@@ -584,7 +602,7 @@ TEST_F(AsyncDataCacheTest, ssd) {
   EXPECT_LE(kRamBytes, stats.bytesWritten);
   // We read the data back. The verify hook checks correct values. Error every
   // 13 batch loads.
-  runThreads(4, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 13); });
+  runThreads(16, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 13); });
 
   LOG(INFO) << "Stats after second pass:" << cache_->toString();
   stats = cache_->ssdCache()->stats();
@@ -594,7 +612,7 @@ TEST_F(AsyncDataCacheTest, ssd) {
   // entries. We expect some of the oldest entries to get evicted. Error every
   // 17 batch loads.
   runThreads(
-      4, [&](int32_t /*i*/) { loadLoop(kSsdBytes / 2, kSsdBytes * 1.5, 17); });
+      16, [&](int32_t /*i*/) { loadLoop(kSsdBytes / 2, kSsdBytes * 1.5, 17); });
 
   LOG(INFO) << "Stats after third pass:" << cache_->toString();
   // Join for possibly pending writes.

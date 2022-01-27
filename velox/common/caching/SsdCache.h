@@ -72,6 +72,9 @@ class SsdCache {
   // until new content is stored.
   void clear();
 
+  // Deletes backing files. Used in testing.
+  void deleteFiles();
+
   std::string toString() const;
 
  private:

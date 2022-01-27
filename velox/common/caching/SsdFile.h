@@ -192,6 +192,9 @@ class SsdFile {
   // Resets this' to a post-construction empty state. See SsdCache::clear().
   void clear();
 
+  // Deletes the backing file. Used in testing.
+  void deleteFile();
+
  private:
   // Increments the pin count of the region of 'offset'. Caller must hold
   // 'mutex_'.
@@ -260,8 +263,8 @@ class SsdFile {
   // Name of backing file.
   const std::string filename_;
 
-  // File descriptor.
-  int32_t fd_;
+  // File descriptor. 0 (stdin) means file not open.
+  int32_t fd_{0};
 
   // Size of the backing file in bytes. Must be multiple of kRegionSize.
   uint64_t fileSize_{0};

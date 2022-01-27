@@ -25,6 +25,7 @@ target_link_libraries(
   velox_caching
   velox_memory
   velox_exception
+  velox_temp_path
   ${GTEST_BOTH_LIBRARIES}
   glog::glog
   ${gflags_LIBRARIES}

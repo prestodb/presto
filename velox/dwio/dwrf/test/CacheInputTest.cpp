@@ -20,6 +20,7 @@
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/dwio/dwrf/common/CachedBufferedInput.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <gtest/gtest.h>
 
@@ -116,16 +117,22 @@ class CacheTest : public testing::Test {
 
   void TearDown() override {
     executor_->join();
+    auto ssdCache = cache_->ssdCache();
+    if (ssdCache) {
+      ssdCache->deleteFiles();
+    }
   }
 
-  void initializeCache(
-      uint64_t maxBytes,
-      const std::string& file = "",
-      uint64_t ssdBytes = 0) {
+  void initializeCache(uint64_t maxBytes, uint64_t ssdBytes = 0) {
     std::unique_ptr<SsdCache> ssd;
-    if (!file.empty()) {
+    if (ssdBytes) {
       FLAGS_ssd_odirect = false;
-      ssd = std::make_unique<SsdCache>(file, ssdBytes, 1, executor_.get());
+      tempDirectory_ = exec::test::TempDirectoryPath::create();
+      ssd = std::make_unique<SsdCache>(
+          fmt::format("{}/cache", tempDirectory_->path),
+          ssdBytes,
+          1,
+          executor_.get());
       groupStats_ = &ssd->groupStats();
     }
     memory::MmapAllocatorOptions options = {maxBytes};
@@ -415,6 +422,7 @@ class CacheTest : public testing::Test {
       uint64_t,
       std::shared_ptr<facebook::velox::dwio::common::InputStream>>
       pathToInput_;
+  std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
   facebook::velox::dwio::common::DataCacheConfig config_;
   cache::FileGroupStats* FOLLY_NULLABLE groupStats_ = nullptr;
   std::unique_ptr<AsyncDataCache> cache_;
@@ -452,7 +460,7 @@ TEST_F(CacheTest, bufferedInput) {
 TEST_F(CacheTest, ssd) {
   constexpr int64_t kSsdBytes = 256 << 20;
   // 128MB RAM, 256MB SSD
-  initializeCache(128 << 20, "/tmp/ssd", kSsdBytes);
+  initializeCache(128 << 20, kSsdBytes);
   testRandomSeek_ = false;
 
   // We read one stripe with all columns.
@@ -530,8 +538,7 @@ TEST_F(CacheTest, singleFileThreads) {
 }
 
 TEST_F(CacheTest, ssdThreads) {
-  initializeCache(64 << 20, "/tmp/ssdThreads", 1024 << 20);
-
+  initializeCache(64 << 20, 1024 << 20);
   const int numThreads = 4;
   std::vector<std::thread> threads;
   threads.reserve(numThreads);
