@@ -326,8 +326,8 @@ public class TestJsonOperators
         assertFunction("cast(JSON 'null' as VARCHAR)", VARCHAR, null);
         assertFunction("cast(JSON '128' as VARCHAR)", VARCHAR, "128");
         assertFunction("cast(JSON '12345678901234567890' as VARCHAR)", VARCHAR, "12345678901234567890"); // overflow, no loss of precision
-        assertFunction("cast(JSON '128.9' as VARCHAR)", VARCHAR, "128.9");
-        assertFunction("cast(JSON '1e-324' as VARCHAR)", VARCHAR, "0.0"); // smaller than minimum subnormal positive
+        assertFunction("cast(JSON '128.9' as VARCHAR)", VARCHAR, "1.289E2");
+        assertFunction("cast(JSON '1e-324' as VARCHAR)", VARCHAR, "0E0"); // smaller than minimum subnormal positive
         assertFunction("cast(JSON '1e309' as VARCHAR)", VARCHAR, "Infinity"); // overflow
         assertFunction("cast(JSON '-1e309' as VARCHAR)", VARCHAR, "-Infinity"); // underflow
         assertFunction("cast(JSON 'true' as VARCHAR)", VARCHAR, "true");
