@@ -51,12 +51,14 @@ import static com.facebook.presto.common.function.OperatorType.SATURATED_FLOOR_C
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.math.RoundingMode.FLOOR;
 
 public final class RealOperators
@@ -185,9 +187,15 @@ public final class RealOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.REAL) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.REAL) long value)
     {
-        return utf8Slice(String.valueOf(intBitsToFloat((int) value)));
+        String stringValue = String.valueOf(intBitsToFloat((int) value));
+        // String is all-ASCII, so String.length() here returns actual code points count
+        if (stringValue.length() <= x) {
+            return utf8Slice(stringValue);
+        }
+
+        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, x));
     }
 
     @ScalarOperator(CAST)
