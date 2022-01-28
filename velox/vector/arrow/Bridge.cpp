@@ -18,6 +18,7 @@
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox {
@@ -55,6 +56,27 @@ class VeloxToArrowBridgeHolder {
     return buffers_;
   }
 
+  // Allocates space for `numChildren` ArrowArray pointers.
+  void resizeChildren(size_t numChildren) {
+    childrenPtrs_.resize(numChildren);
+    children_ = (numChildren > 0)
+        ? std::make_unique<ArrowArray*[]>(sizeof(ArrowArray*) * numChildren)
+        : nullptr;
+  }
+
+  // Allocates and properly acquires buffers for a child ArrowArray structure.
+  ArrowArray* allocateChild(size_t i) {
+    VELOX_CHECK_LT(i, childrenPtrs_.size());
+    childrenPtrs_[i] = std::make_unique<ArrowArray>();
+    children_[i] = childrenPtrs_[i].get();
+    return children_[i];
+  }
+
+  // Returns the pointer to be used in the parent ArrowArray structure.
+  ArrowArray** getChildrenArrays() {
+    return children_.get();
+  }
+
  private:
   // Holds the pointers to the arrow buffers.
   const void* buffers_[kMaxBuffers];
@@ -62,6 +84,13 @@ class VeloxToArrowBridgeHolder {
   // Holds ownership over the Buffers being referenced by the buffers vector
   // above.
   BufferPtr bufferPtrs_[kMaxBuffers];
+
+  // Auxiliary buffers to hold ownership over ArrowArray children structures.
+  std::vector<std::unique_ptr<ArrowArray>> childrenPtrs_;
+
+  // Array that will hold pointers to the structures above - to be used by
+  // ArrowArray.children
+  std::unique_ptr<ArrowArray*[]> children_;
 };
 
 // Structure that will hold buffers needed by ArrowSchema. This is opaquely
@@ -220,6 +249,25 @@ void exportFlatVector(
   }
 }
 
+void exportRowVector(
+    const RowVectorPtr& rowVector,
+    ArrowArray& arrowArray,
+    VeloxToArrowBridgeHolder& bridgeHolder,
+    memory::MemoryPool* pool) {
+  const size_t numChildren = rowVector->childrenSize();
+  bridgeHolder.resizeChildren(numChildren);
+
+  // Convert each child.
+  for (size_t i = 0; i < numChildren; ++i) {
+    auto childVector = rowVector->loadedChildAt(i);
+    exportToArrow(childVector, *bridgeHolder.allocateChild(i), pool);
+  }
+
+  // Acquire children ArrowArray pointers.
+  arrowArray.n_children = numChildren;
+  arrowArray.children = bridgeHolder.getChildrenArrays();
+}
+
 // Returns the Arrow C data interface format type for a given Velox type.
 const char* exportArrowFormatStr(const TypePtr& type) {
   switch (type->kind()) {
@@ -282,31 +330,45 @@ void exportToArrow(
   arrowArray.buffers = bridgeHolder->getArrowBuffers();
   arrowArray.release = bridgeRelease;
   arrowArray.length = vector->size();
-
-  // getNullCount() returns a std::optional. -1 means we don't have the count
-  // available yet (and we don't want to count it here).
-  arrowArray.null_count = vector->getNullCount().value_or(-1);
+  arrowArray.n_buffers = 0;
+  arrowArray.n_children = 0;
+  arrowArray.children = nullptr;
 
   // Velox does not support offset'ed vectors yet.
   arrowArray.offset = 0;
 
   // Setting up buffer pointers. First one is always nulls.
-  bridgeHolder->setBuffer(0, vector->nulls());
+  if (vector->nulls()) {
+    bridgeHolder->setBuffer(0, vector->nulls());
+    arrowArray.n_buffers = 1;
 
-  // Second buffer is values. Only support flat for now.
+    // getNullCount() returns a std::optional. -1 means we don't have the count
+    // available yet (and we don't want to count it here).
+    arrowArray.null_count = vector->getNullCount().value_or(-1);
+  } else {
+    // If no nulls buffer, it means we have exactly zero nulls.
+    arrowArray.null_count = 0;
+  }
+
   switch (vector->encoding()) {
     case VectorEncoding::Simple::FLAT:
       exportFlatVector(vector, arrowArray, *bridgeHolder, pool);
       break;
 
+    case VectorEncoding::Simple::ROW:
+      exportRowVector(
+          std::dynamic_pointer_cast<RowVector>(vector),
+          arrowArray,
+          *bridgeHolder,
+          pool);
+      break;
+
     default:
-      VELOX_NYI("Only FlatVectors can be exported to Arrow for now.");
+      VELOX_NYI("{} cannot be exported to Arrow yet.", vector->encoding());
       break;
   }
 
-  // TODO: No nested types or dictionaries for now.
-  arrowArray.n_children = 0;
-  arrowArray.children = nullptr;
+  // TODO: No dictionaries for now.
   arrowArray.dictionary = nullptr;
 
   // We release the unique_ptr since bridgeHolder will now be carried inside

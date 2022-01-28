@@ -45,9 +45,10 @@ RowVectorPtr VectorMaker::rowVector(
     childTypes[i] = children[i]->type();
   }
   auto rowType = ROW(std::move(childNames), std::move(childTypes));
+  const size_t vectorSize = children.empty() ? 0 : children.front()->size();
 
   return std::make_shared<RowVector>(
-      pool_, rowType, BufferPtr(nullptr), children[0]->size(), children);
+      pool_, rowType, BufferPtr(nullptr), vectorSize, children);
 }
 
 RowVectorPtr VectorMaker::rowVector(
