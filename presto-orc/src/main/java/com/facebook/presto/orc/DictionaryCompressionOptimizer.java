@@ -76,6 +76,15 @@ public class DictionaryCompressionOptimizer
 
     static final DataSize DIRECT_COLUMN_SIZE_RANGE = new DataSize(4, MEGABYTE);
 
+    // Dictionary writer stores nulls in rowGroupIndex (min 1 byte to max 4 bytes), direct writer uses bit.
+    // Dictionary column's nulls are not included in dictionary bytes or Index bytes.
+    // But nulls are stored in the rowGroupIndexes and the null memory is unaccounted for and causes OOMs.
+    // This constant defines how many nulls in a dictionary column to be counted as 1 byte.
+    // Setting this to 1 means, 1 null will be counted as 1 dictionary byte and might abandon some dictionary
+    // prematurely. Setting to 8 means, 8 nulls will count as 1 bit, but most likely will result in OOM.
+    // For the few files that were having issues, 4 worked the best, so starting this value with 4.
+    static final int NUMBER_OF_NULLS_FOR_DICTIONARY_BYTE = 4;
+
     private final List<DictionaryColumnManager> allWriters;
     private final List<DictionaryColumnManager> directConversionCandidates = new ArrayList<>();
 
@@ -176,15 +185,16 @@ public class DictionaryCompressionOptimizer
     {
         // recompute the dictionary memory usage
         int totalDictionaryBytes = 0;
+        long totalNullBytes = 0;
         for (DictionaryColumnManager writer : allWriters) {
             if (!writer.isDirectEncoded()) {
                 totalDictionaryBytes += writer.getDictionaryBytes();
+                totalNullBytes += writer.getDictionaryColumn().getNullValueCount();
                 writer.updateHistory(stripeRowCount);
             }
         }
         dictionaryMemoryBytes = totalDictionaryBytes;
-
-        boolean isDictionaryAlmostFull = dictionaryMemoryBytes > dictionaryMemoryMaxBytesLow;
+        boolean isDictionaryAlmostFull = dictionaryMemoryBytes + (totalNullBytes / NUMBER_OF_NULLS_FOR_DICTIONARY_BYTE) > dictionaryMemoryMaxBytesLow;
 
         if (isDictionaryAlmostFull || isUsefulCheckRequired(dictionaryMemoryBytes)) {
             updateDirectConversionCandidates();
@@ -422,6 +432,8 @@ public class DictionaryCompressionOptimizer
         long getValueCount();
 
         long getNonNullValueCount();
+
+        long getNullValueCount();
 
         long getRawBytes();
 

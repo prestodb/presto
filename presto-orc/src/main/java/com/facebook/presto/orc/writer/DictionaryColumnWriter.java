@@ -62,6 +62,9 @@ import static java.util.stream.Collectors.toList;
 public abstract class DictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
+    // In theory, nulls are stored using bit fields with 1 bit per entry
+    // In code, though they use Byte RLE, using 8 is a good heuristic and close to worst case.
+    public static final int NUMBER_OF_NULLS_PER_BYTE = 8;
     private static final int EXPECTED_ROW_GROUP_SEGMENT_SIZE = 10_000;
 
     protected final int column;
@@ -204,6 +207,13 @@ public abstract class DictionaryColumnWriter
     {
         checkState(!directEncoded);
         return totalNonNullValueCount;
+    }
+
+    @Override
+    public long getNullValueCount()
+    {
+        checkState(!directEncoded);
+        return totalValueCount - totalNonNullValueCount;
     }
 
     private boolean tryConvertRowGroupToDirect(byte[][] byteSegments, short[][] shortSegments, int[][] intSegments, int maxDirectBytes)
@@ -513,7 +523,8 @@ public abstract class DictionaryColumnWriter
             return getDirectColumnWriter().getBufferedBytes();
         }
         // for dictionary columns we report the data we expect to write to the output stream
-        return getIndexBytes() + getDictionaryBytes();
+        long numberOfNullBytes = getNullValueCount() / NUMBER_OF_NULLS_PER_BYTE;
+        return getIndexBytes() + getDictionaryBytes() + numberOfNullBytes;
     }
 
     @VisibleForTesting
