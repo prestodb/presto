@@ -103,7 +103,6 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -237,7 +236,6 @@ public class IcebergPageSourceProvider
                         tableName,
                         dataColumns,
                         isUseParquetColumnNames(session),
-                        isFailOnCorruptedParquetStatistics(session),
                         getParquetMaxReadBlockSize(session),
                         isParquetBatchReadsEnabled(session),
                         isParquetBatchReaderVerificationEnabled(session),
@@ -298,7 +296,6 @@ public class IcebergPageSourceProvider
             SchemaTableName tableName,
             List<IcebergColumnHandle> regularColumns,
             boolean useParquetColumnNames,
-            boolean failOnCorruptedParquetStatistics,
             DataSize maxReadBlockSize,
             boolean batchReaderEnabled,
             boolean verificationEnabled,

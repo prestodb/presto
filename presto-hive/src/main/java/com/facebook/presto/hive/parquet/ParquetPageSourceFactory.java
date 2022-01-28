@@ -102,7 +102,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -187,7 +186,6 @@ public class ParquetPageSourceFactory
                 columns,
                 tableName,
                 isUseParquetColumnNames(session),
-                isFailOnCorruptedParquetStatistics(session),
                 getParquetMaxReadBlockSize(session),
                 isParquetBatchReadsEnabled(session),
                 isParquetBatchReaderVerificationEnabled(session),
@@ -211,7 +209,6 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             SchemaTableName tableName,
             boolean useParquetColumnNames,
-            boolean failOnCorruptedParquetStatistics,
             DataSize maxReadBlockSize,
             boolean batchReaderEnabled,
             boolean verificationEnabled,
