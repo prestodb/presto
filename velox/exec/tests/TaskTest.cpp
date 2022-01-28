@@ -19,7 +19,18 @@
 
 using namespace facebook::velox;
 
-class TaskTest : public testing::Test {};
+class TaskTest : public testing::Test {
+ protected:
+  void useOneSplit(
+      exec::Task& task,
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId) {
+    exec::Split splitOut;
+    exec::ContinueFuture futureOut{true};
+    task.getSplitOrFuture(splitGroupId, planNodeId, splitOut, futureOut);
+    task.splitFinished(planNodeId, splitGroupId);
+  }
+};
 
 // Test if the Task correctly handles split groups.
 TEST_F(TaskTest, splitGroup) {
@@ -32,8 +43,9 @@ TEST_F(TaskTest, splitGroup) {
       100);
   core::PlanNodeId planNodeId{"0"};
   auto queryCtx = core::QueryCtx::createForTest();
-  core::PlanFragment emptyPlanFragment;
-  exec::Task task("0", std::move(emptyPlanFragment), 0, std::move(queryCtx));
+  core::PlanFragment planFragment{
+      nullptr, core::ExecutionStrategy::kGrouped, 3};
+  exec::Task task("0", std::move(planFragment), 0, std::move(queryCtx));
 
   // This is the set of completed groups we expect.
   std::unordered_set<int32_t> completedSplitGroups;
@@ -41,10 +53,10 @@ TEST_F(TaskTest, splitGroup) {
   // Add and complete 3 splits for group 0.
   task.addSplit(planNodeId, exec::Split(folly::copy(connectorSplit), 0));
   task.addSplit(planNodeId, exec::Split(folly::copy(connectorSplit), 0));
-  task.splitFinished(planNodeId, 0);
-  task.splitFinished(planNodeId, 0);
+  useOneSplit(task, 0, planNodeId);
+  useOneSplit(task, 0, planNodeId);
   task.addSplit(planNodeId, exec::Split(folly::copy(connectorSplit), 0));
-  task.splitFinished(planNodeId, 0);
+  useOneSplit(task, 0, planNodeId);
   EXPECT_EQ(completedSplitGroups, task.taskStats().completedSplitGroups);
 
   // Declare 'no more splits' for group 0.
@@ -58,8 +70,8 @@ TEST_F(TaskTest, splitGroup) {
   task.addSplit(planNodeId, exec::Split(folly::copy(connectorSplit), 1));
   task.addSplit(planNodeId, exec::Split(folly::copy(connectorSplit), 1));
   task.noMoreSplitsForGroup(planNodeId, 1);
-  task.splitFinished(planNodeId, 1);
-  task.splitFinished(planNodeId, 1);
+  useOneSplit(task, 1, planNodeId);
+  useOneSplit(task, 1, planNodeId);
   EXPECT_EQ(completedSplitGroups, task.taskStats().completedSplitGroups);
 
   // Add 2 splits for group 2, declare 'no more splits' for group 2.
@@ -69,13 +81,13 @@ TEST_F(TaskTest, splitGroup) {
   EXPECT_EQ(completedSplitGroups, task.taskStats().completedSplitGroups);
 
   // Finish the last split for group 1
-  task.splitFinished(planNodeId, 1);
+  useOneSplit(task, 1, planNodeId);
   completedSplitGroups.insert(1);
   EXPECT_EQ(completedSplitGroups, task.taskStats().completedSplitGroups);
 
   // Finish the 2 split for group 2
-  task.splitFinished(planNodeId, 2);
-  task.splitFinished(planNodeId, 2);
+  useOneSplit(task, 2, planNodeId);
+  useOneSplit(task, 2, planNodeId);
   completedSplitGroups.insert(2);
   EXPECT_EQ(completedSplitGroups, task.taskStats().completedSplitGroups);
 }

@@ -188,9 +188,10 @@ LocalExchangeSourceOperator::LocalExchangeSourceOperator(
           planNodeId,
           "LocalExchangeSource"),
       partition_{partition},
-      source_{
-          operatorCtx_->task()->getLocalExchangeSource(planNodeId, partition)} {
-}
+      source_{operatorCtx_->task()->getLocalExchangeSource(
+          ctx->splitGroupId,
+          planNodeId,
+          partition)} {}
 
 BlockingReason LocalExchangeSourceOperator::isBlocked(ContinueFuture* future) {
   if (blockingReason_ != BlockingReason::kNotBlocked) {
@@ -230,7 +231,9 @@ LocalPartition::LocalPartition(
           operatorId,
           planNode->id(),
           "LocalPartition"),
-      localExchangeSources_{ctx->task->getLocalExchangeSources(planNode->id())},
+      localExchangeSources_{ctx->task->getLocalExchangeSources(
+          ctx->splitGroupId,
+          planNode->id())},
       numPartitions_{localExchangeSources_.size()},
       partitionFunction_(
           numPartitions_ == 1

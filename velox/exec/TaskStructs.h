@@ -24,9 +24,10 @@ class Driver;
 class JoinBridge;
 class MergeSource;
 
-// Corresponds to Presto TaskState, needed for reporting query completion.
+/// Corresponds to Presto TaskState, needed for reporting query completion.
 enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
 
+/// Stores execution stats per pipeline.
 struct PipelineStats {
   // Cumulative OperatorStats for finished Drivers. The subscript is the
   // operator id, which is the initial ordinal position of the
@@ -43,6 +44,7 @@ struct PipelineStats {
       : inputPipeline{_inputPipeline}, outputPipeline{_outputPipeline} {}
 };
 
+/// Stores execution stats per task.
 struct TaskStats {
   int32_t numTotalSplits{0};
   int32_t numFinishedSplits{0};
@@ -79,33 +81,78 @@ struct BarrierState {
   std::vector<VeloxPromise<bool>> promises;
 };
 
-// Map for bucketed group id -> group splits info.
-struct GroupSplitsInfo {
-  int32_t numIncompleteSplits{0};
+/// Structure to accumulate splits for distribution.
+struct SplitsStore {
+  /// Arrived (added), but not distributed yet, splits.
+  std::deque<exec::Split> splits;
+  /// Signal, that no more splits will arrive.
   bool noMoreSplits{false};
+  /// Blocking promises given out when out of splits to distribute.
+  std::vector<VeloxPromise<bool>> splitPromises;
 };
 
-// Structure contains the current info on splits.
+/// Structure contains the current info on splits.
 struct SplitsState {
-  // Arrived (added), but not distributed yet, splits.
-  std::deque<exec::Split> splits;
+  /// For ungrouped (usual) execution, we store splits here.
+  /// Also, we use 'noMoreSplits' member here in grouped execution as well.
+  SplitsStore splitsStore;
 
-  // Blocking promises given out when out of splits to distribute.
-  std::vector<VeloxPromise<bool>> splitPromises;
-
-  // Singnal, that no more splits will arrive.
-  bool noMoreSplits{false};
-
-  // For splits, coming with group ids, we keep track of them.
-  std::unordered_map<int32_t, GroupSplitsInfo> groupSplits;
-
-  // Keep the max added split's sequence id to deduplicate incoming splits.
+  /// Keep the max added split's sequence id to deduplicate incoming splits.
   long maxSequenceId{std::numeric_limits<long>::min()};
 
-  // We need these due to having promises in the structure.
+  /// Ensure we always have allocated entries when accessing group stores.
+  std::vector<SplitsStore>& groupSplitsStores(uint32_t numGroups) {
+    if (groupSplitsStores_.size() == numGroups) {
+      return groupSplitsStores_;
+    }
+    // This member will be called only once and resize from 0 to 'numGroups'.
+    // Use swap, as promises are not copyable and 'resize' wouldn't compile.
+    std::vector<SplitsStore> tmp{numGroups};
+    groupSplitsStores_.swap(tmp);
+    return groupSplitsStores_;
+  }
+
+  /// We need these due to having promises in the structure.
   SplitsState() = default;
   SplitsState(SplitsState const&) = delete;
   SplitsState& operator=(SplitsState const&) = delete;
+
+ private:
+  /// For grouped execution we store splits in this vector, separately for
+  /// each group.
+  std::vector<SplitsStore> groupSplitsStores_;
+};
+
+/// Stores local exchange sources with the memory manager.
+struct LocalExchange {
+  std::unique_ptr<LocalExchangeMemoryManager> memoryManager;
+  std::vector<std::shared_ptr<LocalExchangeSource>> sources;
+};
+
+/// Stores inter-operator state (exchange, bridges) for split groups.
+struct SplitGroupState {
+  /// Map from the plan node id of the join to the corresponding JoinBridge.
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<JoinBridge>> bridges;
+
+  std::vector<std::shared_ptr<MergeSource>> localMergeSources;
+
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<MergeJoinSource>>
+      mergeJoinSources;
+
+  /// Map of local exchanges keyed on LocalPartition plan node ID.
+  std::unordered_map<core::PlanNodeId, LocalExchange> localExchanges;
+
+  /// Drivers created and still running for this split group.
+  /// The split group is finished when this numbers reaches zero.
+  uint32_t activeDrivers{0};
+
+  /// Clears the state.
+  void clear() {
+    bridges.clear();
+    localMergeSources.clear();
+    mergeJoinSources.clear();
+    localExchanges.clear();
+  }
 };
 
 } // namespace facebook::velox::exec

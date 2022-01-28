@@ -113,7 +113,7 @@ class Task {
   // kWaitForSplit and sets a future that will complete when split becomes
   // available or no-more-splits signal is received.
   BlockingReason getSplitOrFuture(
-      int driverId,
+      uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId,
       exec::Split& split,
       ContinueFuture& future);
@@ -124,30 +124,41 @@ class Task {
 
   void updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
 
+  bool isGroupedExecution() const;
+
   void createLocalMergeSources(
+      uint32_t splitGroupId,
       unsigned numSources,
       const std::shared_ptr<const RowType>& rowType,
       memory::MappedMemory* FOLLY_NONNULL mappedMemory);
 
-  std::shared_ptr<MergeSource> getLocalMergeSource(int sourceId);
+  std::shared_ptr<MergeSource> getLocalMergeSource(
+      uint32_t splitGroupId,
+      int sourceId);
 
-  void createMergeJoinSource(const core::PlanNodeId& planNodeId);
+  void createMergeJoinSource(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
 
   std::shared_ptr<MergeJoinSource> getMergeJoinSource(
+      uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
   void createLocalExchangeSources(
       const core::PlanNodeId& planNodeId,
       int numPartitions);
 
-  void noMoreLocalExchangeProducers();
+  void noMoreLocalExchangeProducers(uint32_t splitGroupId);
 
   std::shared_ptr<LocalExchangeSource> getLocalExchangeSource(
+      uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId,
       int partition);
 
   const std::vector<std::shared_ptr<LocalExchangeSource>>&
-  getLocalExchangeSources(const core::PlanNodeId& planNodeId);
+  getLocalExchangeSources(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
 
   std::exception_ptr error() const {
     return exception_;
@@ -199,10 +210,12 @@ class Task {
   // separate probe and build. 'id' is the PlanNodeId shared between
   // the probe and build Operators of the join.
   std::shared_ptr<HashJoinBridge> getHashJoinBridge(
+      uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
   // Returns a CrossJoinBridge for 'planNodeId'.
   std::shared_ptr<CrossJoinBridge> getCrossJoinBridge(
+      uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
   // Sets this to a terminate requested
@@ -255,8 +268,28 @@ class Task {
   // timeout.
   ContinueFuture stateChangeFuture(uint64_t maxWaitMicros);
 
-  int32_t numDrivers() const {
-    return numDrivers_;
+  /// Returns the number of running drivers.
+  // TODO(spershin): Deprecate this method gradually.
+  uint32_t numDrivers() const {
+    std::lock_guard<std::mutex> taskLock(mutex_);
+    return numRunningDrivers_;
+  }
+
+  /// Returns the number of running drivers.
+  uint32_t numRunningDrivers() const {
+    std::lock_guard<std::mutex> taskLock(mutex_);
+    return numRunningDrivers_;
+  }
+
+  /// Returns the total number of drivers the task needs to run.
+  uint32_t numTotalDrivers() const {
+    return numTotalDrivers_;
+  }
+
+  /// Returns the number of finished drivers so far.
+  uint32_t numFinishedDrivers() const {
+    std::lock_guard<std::mutex> taskLock(mutex_);
+    return numFinishedDrivers_;
   }
 
   velox::memory::MemoryPool* FOLLY_NONNULL pool() const {
@@ -334,9 +367,33 @@ class Task {
   }
 
  private:
-  void driverClosedLocked();
+  template <class TBridgeType>
+  std::shared_ptr<TBridgeType> getJoinBridgeInternal(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
 
-  std::shared_ptr<ExchangeClient> addExchangeClient();
+  /// Retrieve a split or split future from the given split store structure.
+  BlockingReason getSplitOrFutureLocked(
+      SplitsStore& splitsStore,
+      exec::Split& split,
+      ContinueFuture& future);
+
+  /// Creates a bunch of drivers for the 'nextSplitGroupId_' and advances the
+  /// latter.
+  void createDrivers(
+      std::vector<std::shared_ptr<Driver>>& out,
+      std::shared_ptr<Task>& self);
+
+  /// Safely returns reference to the group splits store, ensuring before
+  /// accessing it that it is created.
+  inline SplitsStore& groupSplitsStoreSafe(
+      SplitsState& splitsState,
+      uint32_t splitGroupId) {
+    return splitsState.groupSplitsStores(
+        planFragment_.numSplitGroups)[splitGroupId];
+  }
+
+  void driverClosedLocked();
 
   void stateChangedLocked();
 
@@ -344,18 +401,26 @@ class Task {
   // splits coming for the task.
   bool isAllSplitsFinishedLocked();
 
+  /// See if we need to register a split group as completed.
   void checkGroupSplitsCompleteLocked(
-      std::unordered_map<int32_t, GroupSplitsInfo>& mapGroupSplits,
       int32_t splitGroupId,
-      std::unordered_map<int32_t, GroupSplitsInfo>::iterator it);
+      const SplitsStore& splitsStore);
 
   std::unique_ptr<ContinuePromise> addSplitLocked(
       SplitsState& splitsState,
       exec::Split&& split);
 
+  std::unique_ptr<ContinuePromise> addSplitToStoreLocked(
+      SplitsStore& splitsStore,
+      exec::Split&& split);
+
   void finished();
 
   StopReason shouldStopLocked();
+
+  void checkSplitGroupIndex(
+      uint32_t splitGroupId,
+      const char* FOLLY_NONNULL context);
 
  private:
   const std::string taskId_;
@@ -371,7 +436,8 @@ class Task {
   // kFinished.
   bool partitionedOutputConsumed_ = false;
 
-  // Exchange clients. One per pipeline / source.
+  /// Exchange clients. One per pipeline / source.
+  /// Null for pipelines, which don't need it.
   std::vector<std::shared_ptr<ExchangeClient>> exchangeClients_;
 
   // Set if terminated by an error. This is the first error reported
@@ -384,14 +450,30 @@ class Task {
 
   std::vector<std::unique_ptr<DriverFactory>> driverFactories_;
   std::vector<std::shared_ptr<Driver>> drivers_;
-  int32_t numDrivers_ = 0;
+  /// The total number of running drivers in all pipelines.
+  /// This number changes over time as drivers finish their work and maybe new
+  /// get created.
+  uint32_t numRunningDrivers_{0};
+  /// The total number of drivers we need to run in all pipelines. In normal
+  /// execution it is the sum of number of drivers for all pipelines. In grouped
+  /// execution we multiply that by the number of split groups.
+  uint32_t numTotalDrivers_{0};
+  /// The number of completed drivers so far.
+  /// This number increases over time as drivers finish their work.
+  /// We use this number to detect when the Task is completed.
+  uint32_t numFinishedDrivers_{0};
+  /// Reflects number of drivers required to process single split group during
+  /// grouped execution or the whole plan fragment during normal execution.
+  uint32_t numDriversPerSplitGroup_{0};
+  /// Used during grouped execution, indicates the next split group to process.
+  uint32_t nextSplitGroupId_{0};
+
   TaskState state_ = kRunning;
 
-  // We store separate splits state for each plan node.
+  /// Stores separate splits state for each plan node.
   std::unordered_map<core::PlanNodeId, SplitsState> splitsStates_;
 
-  // Holds states for pipelineBarrier(). Guarded by
-  // 'mutex_'.
+  // Holds states for pipelineBarrier(). Guarded by 'mutex_'.
   std::unordered_map<std::string, BarrierState> barriers_;
 
   std::vector<VeloxPromise<bool>> stateChangePromises_;
@@ -403,22 +485,9 @@ class Task {
   // allow for sharing vectors across drivers without copy.
   std::vector<std::unique_ptr<velox::memory::MemoryPool>> childPools_;
 
-  // Map from the plan node id of the join to the corresponding JoinBridge.
-  // Guarded by 'mutex_'.
-  std::unordered_map<core::PlanNodeId, std::shared_ptr<JoinBridge>> bridges_;
-
-  std::vector<std::shared_ptr<MergeSource>> localMergeSources_;
-
-  std::unordered_map<core::PlanNodeId, std::shared_ptr<MergeJoinSource>>
-      mergeJoinSources_;
-
-  struct LocalExchange {
-    std::unique_ptr<LocalExchangeMemoryManager> memoryManager;
-    std::vector<std::shared_ptr<LocalExchangeSource>> sources;
-  };
-
-  /// Map of local exchanges keyed on LocalPartition plan node ID.
-  std::unordered_map<core::PlanNodeId, LocalExchange> localExchanges_;
+  /// Stores inter-operator state (exchange, bridges) per split group.
+  /// During ungrouped execution we use the 1st entry in this vector.
+  std::vector<SplitGroupState> splitGroupStates_;
 
   std::weak_ptr<PartitionedOutputBufferManager> bufferManager_;
 

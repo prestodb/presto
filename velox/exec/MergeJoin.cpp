@@ -262,7 +262,8 @@ RowVectorPtr MergeJoin::getOutput() {
     // Check if we need to get more data from the right side.
     if (!noMoreRightInput_ && !future_.valid() && !rightInput_) {
       if (!rightSource_) {
-        rightSource_ = operatorCtx_->task()->getMergeJoinSource(planNodeId());
+        rightSource_ = operatorCtx_->task()->getMergeJoinSource(
+            operatorCtx_->driverCtx()->splitGroupId, planNodeId());
       }
       auto blockingReason = rightSource_->next(&future_, &rightInput_);
       if (blockingReason != BlockingReason::kNotBlocked) {

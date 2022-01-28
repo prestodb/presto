@@ -358,7 +358,7 @@ TEST_F(DriverTest, cancel) {
   auto future = tasks_[0]->finishFuture().via(&executor);
   future.wait();
   EXPECT_TRUE(stateFutures_.at(0).isReady());
-  EXPECT_EQ(tasks_[0]->numDrivers(), 0);
+  EXPECT_EQ(tasks_[0]->numRunningDrivers(), 0);
 }
 
 TEST_F(DriverTest, terminate) {
@@ -404,7 +404,7 @@ TEST_F(DriverTest, slow) {
   future.wait();
   // Note that the driver count drops after the last thread stops and
   // realizes the future.
-  EXPECT_WITH_DELAY(tasks_[0]->numDrivers() == 0);
+  EXPECT_WITH_DELAY(tasks_[0]->numRunningDrivers() == 0);
   const auto stats = tasks_[0]->taskStats().pipelineStats;
   ASSERT_TRUE(!stats.empty() && !stats[0].operatorStats.empty());
   // Check that the blocking of the CallbackSink at the end of the pipeline is
@@ -436,7 +436,7 @@ TEST_F(DriverTest, pause) {
   auto state = std::move(stateFuture).via(&executor);
   state.wait();
   EXPECT_EQ(state.value(), TaskState::kFinished);
-  EXPECT_EQ(tasks_[0]->numDrivers(), 0);
+  EXPECT_EQ(tasks_[0]->numRunningDrivers(), 0);
   const auto taskStats = tasks_[0]->taskStats();
   ASSERT_EQ(taskStats.pipelineStats.size(), 1);
   const auto& operators = taskStats.pipelineStats[0].operatorStats;

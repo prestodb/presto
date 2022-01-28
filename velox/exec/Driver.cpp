@@ -61,7 +61,8 @@ DriverCtx::DriverCtx(
     std::shared_ptr<Task> _task,
     int _driverId,
     int _pipelineId,
-    int32_t _numDrivers)
+    uint32_t _splitGroupId,
+    uint32_t _partitionId)
     : task(_task),
       execCtx(std::make_unique<core::ExecCtx>(
           task->addDriverPool(),
@@ -70,7 +71,8 @@ DriverCtx::DriverCtx(
           std::make_unique<SimpleExpressionEvaluator>(execCtx.get())),
       driverId(_driverId),
       pipelineId(_pipelineId),
-      numDrivers(_numDrivers) {}
+      splitGroupId(_splitGroupId),
+      partitionId(_partitionId) {}
 
 velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool() {
   return task->addOperatorPool(execCtx->pool());
@@ -625,7 +627,7 @@ std::string Driver::label() const {
   return fmt::format("<Driver {}:{}>", ctx_->task->taskId(), ctx_->driverId);
 }
 
-std::string BlockingReasonToString(BlockingReason reason) {
+std::string blockingReasonToString(BlockingReason reason) {
   switch (reason) {
     case BlockingReason::kNotBlocked:
       return "kNotBlocked";
@@ -640,7 +642,8 @@ std::string BlockingReasonToString(BlockingReason reason) {
     case BlockingReason::kWaitForMemory:
       return "kWaitForMemory";
   }
-  return "<Unknown Blocking Reason>";
+  VELOX_UNREACHABLE();
+  return "";
 };
 
 } // namespace facebook::velox::exec

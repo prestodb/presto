@@ -62,9 +62,11 @@ BlockingReason CrossJoinProbe::isBlocked(ContinueFuture* future) {
     return BlockingReason::kNotBlocked;
   }
 
-  auto buildData = operatorCtx_->task()
-                       ->getCrossJoinBridge(planNodeId())
-                       ->dataOrFuture(future);
+  auto buildData =
+      operatorCtx_->task()
+          ->getCrossJoinBridge(
+              operatorCtx_->driverCtx()->splitGroupId, planNodeId())
+          ->dataOrFuture(future);
   if (!buildData.has_value()) {
     return BlockingReason::kWaitForJoinBuild;
   }

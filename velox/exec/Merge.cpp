@@ -183,7 +183,8 @@ BlockingReason LocalMerge::addMergeSources(ContinueFuture* /* future */) {
   if (sources_.size() != numSources_) {
     sources_.reserve(numSources_);
     for (auto i = 0; i < numSources_; ++i) {
-      sources_.emplace_back(operatorCtx_->task()->getLocalMergeSource(i));
+      sources_.emplace_back(operatorCtx_->task()->getLocalMergeSource(
+          operatorCtx_->driverCtx()->splitGroupId, i));
     }
   }
   return BlockingReason::kNotBlocked;
@@ -214,7 +215,7 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
   for (;;) {
     exec::Split split;
     auto reason = operatorCtx_->task()->getSplitOrFuture(
-        operatorCtx_->driverCtx()->driverId, planNodeId_, split, *future);
+        operatorCtx_->driverCtx()->splitGroupId, planNodeId_, split, *future);
     if (reason == BlockingReason::kNotBlocked) {
       if (split.hasConnectorSplit()) {
         auto remoteSplit = std::dynamic_pointer_cast<RemoteConnectorSplit>(

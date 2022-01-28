@@ -166,9 +166,11 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
     return BlockingReason::kNotBlocked;
   }
 
-  auto hashBuildResult = operatorCtx_->task()
-                             ->getHashJoinBridge(planNodeId())
-                             ->tableOrFuture(future);
+  auto hashBuildResult =
+      operatorCtx_->task()
+          ->getHashJoinBridge(
+              operatorCtx_->driverCtx()->splitGroupId, planNodeId())
+          ->tableOrFuture(future);
   if (!hashBuildResult.has_value()) {
     return BlockingReason::kWaitForJoinBuild;
   }

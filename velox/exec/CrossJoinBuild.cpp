@@ -95,7 +95,8 @@ void CrossJoinBuild::noMoreInput() {
   }
 
   operatorCtx_->task()
-      ->getCrossJoinBridge(planNodeId())
+      ->getCrossJoinBridge(
+          operatorCtx_->driverCtx()->splitGroupId, planNodeId())
       ->setData(std::move(data_));
 }
 

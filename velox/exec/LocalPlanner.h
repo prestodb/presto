@@ -15,16 +15,20 @@
  */
 #pragma once
 
-#include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
+
+namespace facebook::velox::core {
+struct PlanFragment;
+} // namespace facebook::velox::core
 
 namespace facebook::velox::exec {
 
 class LocalPlanner {
  public:
   static void plan(
-      const std::shared_ptr<const core::PlanNode>& planNode,
+      const core::PlanFragment& planFragment,
       ConsumerSupplier consumerSupplier,
-      std::vector<std::unique_ptr<DriverFactory>>* driverFactories);
+      std::vector<std::unique_ptr<DriverFactory>>* driverFactories,
+      uint32_t maxDrivers);
 };
 } // namespace facebook::velox::exec
