@@ -45,7 +45,7 @@ target_link_libraries(
   ${FMT}
   dl)
 
-add_executable(simple_vector_test SimpleVectorTest.cpp)
+add_executable(simple_vector_test SimpleVectorTest.cpp ToStringUtilityTest.cpp)
 
 add_test(simple_vector_test simple_vector_test)
 

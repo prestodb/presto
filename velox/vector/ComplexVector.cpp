@@ -15,10 +15,48 @@
  */
 
 #include "velox/vector/ComplexVector.h"
+#include <sstream>
 #include "velox/vector/SimpleVector.h"
 
 namespace facebook {
 namespace velox {
+
+// Up to # of elements to show as debug string for `toString()`.
+constexpr vector_size_t LIMIT_ELEMENTS_TO_SHOW = 5;
+
+std::string stringifyTruncatedElementList(
+    vector_size_t start,
+    vector_size_t size,
+    vector_size_t limit,
+    std::string_view delimiter,
+    const std::function<void(std::stringstream&, vector_size_t)>&
+        stringifyElementCB) {
+  std::stringstream out;
+  if (size == 0) {
+    return "<empty>";
+  }
+  out << size << " elements starting at " << start << " {";
+
+  bool first = true;
+  const vector_size_t limitedSize = std::min(size, limit);
+  for (vector_size_t i = 0; i < limitedSize; ++i) {
+    if (first) {
+      first = false;
+    } else {
+      out << delimiter;
+    }
+    stringifyElementCB(out, start + i);
+  }
+
+  if (size > limitedSize) {
+    if (!first) {
+      out << delimiter;
+    }
+    out << "...";
+  }
+  out << "}";
+  return out.str();
+}
 
 // static
 std::shared_ptr<RowVector> RowVector::createEmpty(
@@ -487,21 +525,15 @@ std::string ArrayVector::toString(vector_size_t index) const {
   if (isNullAt(index)) {
     return "null";
   }
-  auto childIndex = rawOffsets_[index];
-  std::stringstream out;
-  auto size = rawSizes_[index];
-  out << size << " elements starting at " << childIndex << " {";
 
-  for (int32_t i = 0; i < size; ++i) {
-    out << elements_->toString(childIndex + i)
-        << ((i == 5)             ? "...}"
-                : (i < size - 1) ? ", "
-                                 : "}");
-    if (i == 5) {
-      break;
-    }
-  }
-  return out.str();
+  return stringifyTruncatedElementList(
+      rawOffsets_[index],
+      rawSizes_[index],
+      LIMIT_ELEMENTS_TO_SHOW,
+      ", ",
+      [this](std::stringstream& ss, vector_size_t index) {
+        ss << elements_->toString(index);
+      });
 }
 
 void ArrayVector::ensureWritable(const SelectivityVector& rows) {
@@ -825,22 +857,14 @@ std::string MapVector::toString(vector_size_t index) const {
   if (isNullAt(index)) {
     return "null";
   }
-  auto size = rawSizes_[index];
-  if (size == 0) {
-    return "<empty>";
-  }
-  auto childIndex = rawOffsets_[index];
-  std::stringstream out;
-  out << size << " elements starting at " << childIndex << " {";
-  for (int32_t i = 0; i < size; ++i) {
-    out << keys_->toString(childIndex + i) << " = "
-        << values_->toString(childIndex + i);
-    out << ((i == 5) ? "...}" : (i < size - 1) ? ",\n " : "}");
-    if (i == 5) {
-      break;
-    }
-  }
-  return out.str();
+  return stringifyTruncatedElementList(
+      rawOffsets_[index],
+      rawSizes_[index],
+      LIMIT_ELEMENTS_TO_SHOW,
+      ",\n ",
+      [this](std::stringstream& ss, vector_size_t index) {
+        ss << keys_->toString(index) << " = " << values_->toString(index);
+      });
 }
 
 void MapVector::ensureWritable(const SelectivityVector& rows) {
