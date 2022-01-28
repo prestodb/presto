@@ -35,7 +35,6 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private CatalogType catalogType = HIVE;
     private String catalogWarehouse;
-    private String catalogUri;
     private int catalogCacheSize = 10;
     private List<String> hadoopConfigResources = ImmutableList.of();
 
@@ -89,19 +88,6 @@ public class IcebergConfig
     public IcebergConfig setCatalogWarehouse(String catalogWarehouse)
     {
         this.catalogWarehouse = catalogWarehouse;
-        return this;
-    }
-
-    public String getCatalogUri()
-    {
-        return catalogUri;
-    }
-
-    @Config("iceberg.catalog.uri")
-    @ConfigDescription("Iceberg catalog connection URI")
-    public IcebergConfig setCatalogUri(String catalogUri)
-    {
-        this.catalogUri = catalogUri;
         return this;
     }
 
