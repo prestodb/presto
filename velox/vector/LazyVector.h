@@ -240,6 +240,10 @@ class LazyVector : public BaseVector {
     return loadedVector()->mayHaveNulls();
   }
 
+  bool mayHaveNullsRecursive() const override {
+    return loadedVector()->mayHaveNullsRecursive();
+  }
+
   bool isNullAt(vector_size_t index) const override {
     return loadedVector()->isNullAt(index);
   }

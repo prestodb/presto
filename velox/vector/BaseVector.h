@@ -95,6 +95,14 @@ class BaseVector {
     return rawNulls_;
   }
 
+  // Returns false if this vector and all of its children have no nulls. Returns
+  // true if this vector or any of its children may have nulls.
+  // When this method returns true, flatRawNulls called on this vector or any
+  // of its children is guaranteed to return non-null.
+  virtual bool mayHaveNullsRecursive() const {
+    return mayHaveNulls();
+  }
+
   // Returns raw nulls or nullptr with one bit per logical position in
   // the vector, with valid values at least for the rows selected in
   // 'rows'. Dictionaries, sequences and constants may calculate this on

@@ -22,6 +22,7 @@
 #include <folly/hash/Hash.h>
 #include <glog/logging.h>
 
+#include <velox/vector/BaseVector.h>
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/LazyVector.h"
@@ -141,6 +142,20 @@ class RowVector : public BaseVector {
   std::string toString(vector_size_t index) const override;
 
   void ensureWritable(const SelectivityVector& rows) override;
+
+  bool mayHaveNullsRecursive() const override {
+    if (BaseVector::mayHaveNullsRecursive()) {
+      return true;
+    }
+
+    for (const auto& child : children_) {
+      if (child->mayHaveNullsRecursive()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
  private:
   vector_size_t childSize() const {
@@ -350,6 +365,11 @@ class ArrayVector : public BaseVector {
 
   void ensureWritable(const SelectivityVector& rows) override;
 
+  bool mayHaveNullsRecursive() const override {
+    return BaseVector::mayHaveNullsRecursive() ||
+        elements_->mayHaveNullsRecursive();
+  }
+
  private:
   BufferPtr offsets_;
   const vector_size_t* rawOffsets_;
@@ -525,6 +545,11 @@ class MapVector : public BaseVector {
   std::vector<vector_size_t> sortedKeyIndices(vector_size_t index) const;
 
   void ensureWritable(const SelectivityVector& rows) override;
+
+  bool mayHaveNullsRecursive() const override {
+    return BaseVector::mayHaveNullsRecursive() ||
+        keys_->mayHaveNullsRecursive() || values_->mayHaveNullsRecursive();
+  }
 
  private:
   // Returns true if the keys for map at 'index' are sorted from first

@@ -277,7 +277,8 @@ class VectorMaker {
       vector_size_t size,
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<T(vector_size_t /* idx */)> valueAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr) {
+      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr,
+      std::function<bool(vector_size_t /* idx */)> valueIsNullAt = nullptr) {
     BufferPtr nulls;
     BufferPtr offsets;
     BufferPtr sizes;
@@ -291,7 +292,7 @@ class VectorMaker {
         size,
         offsets,
         sizes,
-        flatVector<T>(numElements, valueAt),
+        flatVector<T>(numElements, valueAt, valueIsNullAt),
         BaseVector::countNulls(nulls, 0, size));
   }
 

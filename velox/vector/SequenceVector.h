@@ -63,6 +63,10 @@ class SequenceVector : public SimpleVector<T> {
     return sequenceValues_->mayHaveNulls();
   }
 
+  bool mayHaveNullsRecursive() const override {
+    return sequenceValues_->mayHaveNullsRecursive();
+  }
+
   const uint64_t* flatRawNulls(const SelectivityVector& rows) override {
     if (flatNullsBuffer_) {
       return flatNullsBuffer_->as<uint64_t>();

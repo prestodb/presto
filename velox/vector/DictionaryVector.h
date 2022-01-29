@@ -74,6 +74,12 @@ class DictionaryVector : public SimpleVector<T> {
     return BaseVector::nulls() || dictionaryValues_->mayHaveNulls();
   }
 
+  bool mayHaveNullsRecursive() const override {
+    VELOX_DCHECK(initialized_);
+    return BaseVector::mayHaveNullsRecursive() ||
+        dictionaryValues_->mayHaveNullsRecursive();
+  }
+
   bool isNullAt(vector_size_t idx) const override;
 
   const uint64_t* flatRawNulls(const SelectivityVector& rows) override;

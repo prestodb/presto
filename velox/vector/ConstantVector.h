@@ -159,6 +159,11 @@ class ConstantVector final : public SimpleVector<T> {
     return isNull_;
   }
 
+  bool mayHaveNullsRecursive() const override {
+    VELOX_DCHECK(initialized_);
+    return isNull_ || (valueVector_ && valueVector_->mayHaveNullsRecursive());
+  }
+
   const uint64_t* flatRawNulls(const SelectivityVector& rows) override {
     VELOX_DCHECK(initialized_);
     if (isNull_) {
