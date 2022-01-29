@@ -40,11 +40,11 @@ class PathGenerator {
       const std::string& extension) {
     fmt::memory_buffer stringBuffer;
 
-    fmt::format_to(
-        stringBuffer,
+    fmt::vformat_to(
+        std::back_insert_iterator(stringBuffer),
         (rootDir / fileNameFormat).string(),
-        fmt::arg("prefix", prefix),
-        fmt::arg("ext", extension));
+        fmt::make_format_args(
+            fmt::arg("prefix", prefix), fmt::arg("ext", extension)));
 
     // mkstemps expects a null terminated string.
     stringBuffer.push_back('\0');
