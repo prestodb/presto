@@ -261,7 +261,7 @@ public class ParquetPageSourceFactory
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
                 ColumnIndexStore columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, columnIndexStore, readColumnIndexFilter)) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, readColumnIndexFilter)) {
                     blocks.add(block);
                     hiveFileContext.incrementCounter("parquet.blocksRead", 1);
                     hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());

@@ -346,7 +346,7 @@ public class IcebergPageSourceProvider
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 ColumnIndexStore ciStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
                 if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, ciStore, readColumnIndexFilter)) {
+                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, ciStore, readColumnIndexFilter)) {
                     blocks.add(block);
                 }
                 else {

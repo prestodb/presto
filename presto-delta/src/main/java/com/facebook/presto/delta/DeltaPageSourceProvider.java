@@ -256,7 +256,7 @@ public class DeltaPageSourceProvider
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
                 ColumnIndexStore ciStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, ciStore, readColumnIndexFilter)) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, ciStore, readColumnIndexFilter)) {
                     blocks.add(block);
                 }
                 else {

@@ -39,8 +39,7 @@ public interface Predicate
         }
 
         @Override
-        public boolean matches(long numberOfRows, ColumnIndexStore ciStore, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
-                throws ParquetCorruptionException
+        public boolean matches(long numberOfRows, ColumnIndexStore ciStore)
         {
             return true;
         }
@@ -72,9 +71,6 @@ public interface Predicate
      * @param numberOfRows the number of rows in the segment; this can be used with
      * Statistics to determine if a column is only null
      * @param ciStore column index (statistics) store
-     * @param id Parquet file name
-     * @param failOnCorruptedParquetStatistics whether to fail query when scanning a Parquet file with corrupted statistics
      */
-    boolean matches(long numberOfRows, ColumnIndexStore ciStore, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
-            throws ParquetCorruptionException;
+    boolean matches(long numberOfRows, ColumnIndexStore ciStore);
 }
