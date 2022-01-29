@@ -163,7 +163,7 @@ size_t MemoryPoolBase::getPreferredSize(size_t size) {
     return 8;
   }
   int32_t bits = 63 - bits::countLeadingZeros(size);
-  size_t lower = 1U << bits;
+  size_t lower = 1ULL << bits;
   // Size is a power of 2.
   if (lower == size) {
     return size;
