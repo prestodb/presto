@@ -94,7 +94,7 @@ class ICompiledCall : public core::CallTypedExpr {
   // it self chose a random name, instead of us guessing.
   std::string insertFunction(std::unique_ptr<GeneratedVectorFunctionBase>
                                  generatedVectorFunction) const {
-    constexpr auto compiledFunctionNameFormat = "compiledFunction_{}";
+    const char* compiledFunctionNameFormat = "compiledFunction_{}";
     static const size_t kMaxRegistrationTry = 100;
     static const size_t kMaxRegisteredFunction = 10000;
     // Seed with a real random value, if available
