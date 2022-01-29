@@ -72,10 +72,8 @@ std::ostream& printReference(
   } else {
     referenceStream << value.value();
   }
-  const std::string format =
-      "ReferenceType [ rowIndex {}, vector address {}, value {} ]";
   out << fmt::format(
-      format,
+      "ReferenceType [ rowIndex {}, vector address {}, value {} ]",
       reference.rowIndex_,
       static_cast<void*>(reference.reader_.vector_.get()),
       referenceStream.str());
@@ -90,8 +88,7 @@ std::ostream& printValue(std::ostream& out, const ValType& value) {
   } else {
     referenceStream << value.value();
   }
-  const std::string format = "[ value {} ]";
-  out << fmt::format(format, referenceStream.str());
+  out << fmt::format("[ value {} ]", referenceStream.str());
   return out;
 }
 

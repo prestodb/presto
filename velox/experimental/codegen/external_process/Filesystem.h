@@ -42,7 +42,7 @@ class PathGenerator {
 
     fmt::format_to(
         stringBuffer,
-        (rootDir / fileNameFormat).string(),
+        fmt::runtime((rootDir / fileNameFormat).string()),
         fmt::arg("prefix", prefix),
         fmt::arg("ext", extension));
 
@@ -57,7 +57,7 @@ class PathGenerator {
       throw std::logic_error(fmt::format(
           "Creating temp file failed with error code {}, and error message {}",
           errorCode,
-          buffer));
+          fmt::string_view(buffer)));
     };
     return std::filesystem::path(stringBuffer.begin());
   }

@@ -247,7 +247,7 @@ class CompiledExpressionTransformVisitor {
       const std::string& columnName,
       const size_t outputIndex,
       std::stringstream& out) {
-    static const std::string formatString = R"(
+    constexpr auto formatString = R"(
         {generatedStructCode}
         using {usingDeclName} = std::tuple<{className},{inputMap},
                   std::index_sequence<{outputIndex}>>;
@@ -476,7 +476,7 @@ class CompiledExpressionTransformVisitor {
       includes << fmt::format("#include {}\n", includePath);
     };
     const std::string fileString = fmt::format(
-        fileFormat(),
+        fmt::runtime(fileFormat()),
         fmt::arg("includes", includes.str()),
         fmt::arg("GeneratedCode", genCode),
         fmt::arg("GeneratedCodeClass", "FilterExpr"),
@@ -575,7 +575,7 @@ class CompiledExpressionTransformVisitor {
     }
 
     const std::string fileString = fmt::format(
-        fileFormat(),
+        fmt::runtime(fileFormat()),
         fmt::arg("includes", includes.str()),
         fmt::arg("GeneratedCode", genCode),
         fmt::arg("GeneratedCodeClass", "ProjectExpr"),
