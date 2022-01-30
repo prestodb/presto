@@ -120,7 +120,7 @@ public class ParquetReader
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
 
-    private final boolean readColumnIndexFilter;
+    private final boolean columnIndexFilterEnabled;
 
     public ParquetReader(MessageColumnIO
             messageColumnIO,
@@ -132,7 +132,7 @@ public class ParquetReader
             boolean enableVerification,
             Predicate parquetPredicate,
             List<ColumnIndexStore> blockIndexStores,
-            boolean readColumnIndexFilter)
+            boolean columnIndexFilterEnabled)
     {
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -151,14 +151,14 @@ public class ParquetReader
             ColumnDescriptor columnDescriptor = column.getColumnDescriptor();
             this.paths.put(ColumnPath.get(columnDescriptor.getPath()), columnDescriptor);
         }
-        if (parquetPredicate != null && readColumnIndexFilter && parquetPredicate instanceof TupleDomainParquetPredicate) {
-            this.filter = ((TupleDomainParquetPredicate) parquetPredicate).convertToParquetUdp();
+        if (parquetPredicate != null && columnIndexFilterEnabled && parquetPredicate instanceof TupleDomainParquetPredicate) {
+            this.filter = ((TupleDomainParquetPredicate) parquetPredicate).getParquetUserDefinedPredicate();
         }
         else {
             this.filter = null;
         }
         this.currentBlock = -1; // Set it as invalid block
-        this.readColumnIndexFilter = readColumnIndexFilter;
+        this.columnIndexFilterEnabled = columnIndexFilterEnabled;
     }
 
     @Override
@@ -208,9 +208,9 @@ public class ParquetReader
         }
         currentBlockMetadata = blocks.get(currentBlock);
 
-        if (filter != null && readColumnIndexFilter) {
-            ColumnIndexStore ciStore = blockIndexStores.get(currentBlock);
-            if (ciStore != null) {
+        if (filter != null && columnIndexFilterEnabled) {
+            ColumnIndexStore columnIndexStore = blockIndexStores.get(currentBlock);
+            if (columnIndexStore != null) {
                 currentGroupRowRanges = getRowRanges(currentBlock);
                 long rowCount = currentGroupRowRanges.rowCount();
                 if (rowCount == 0) {
@@ -351,7 +351,7 @@ public class ParquetReader
     private boolean shouldUseColumnIndex(ColumnPath path)
     {
         return filter != null &&
-                readColumnIndexFilter &&
+                columnIndexFilterEnabled &&
                 currentGroupRowRanges != null &&
                 currentGroupRowRanges.rowCount() < currentGroupRowCount &&
                 blockIndexStores.get(currentBlock) != null &&

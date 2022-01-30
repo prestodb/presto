@@ -39,7 +39,7 @@ public interface Predicate
         }
 
         @Override
-        public boolean matches(long numberOfRows, ColumnIndexStore ciStore)
+        public boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore)
         {
             return true;
         }
@@ -70,7 +70,7 @@ public interface Predicate
      *
      * @param numberOfRows the number of rows in the segment; this can be used with
      * Statistics to determine if a column is only null
-     * @param ciStore column index (statistics) store
+     * @param columnIndexStore column index (statistics) store
      */
-    boolean matches(long numberOfRows, ColumnIndexStore ciStore);
+    boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore);
 }

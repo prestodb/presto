@@ -34,8 +34,7 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
-import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
-import com.facebook.presto.parquet.reader.ColumnIndexStoreImpl;
+import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -52,8 +51,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
@@ -69,7 +66,6 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -101,11 +97,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveSessionProperties.columnIndexFilterEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static com.facebook.presto.hive.HiveSessionProperties.readColumnIndexFilter;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
@@ -195,7 +191,7 @@ public class ParquetPageSourceFactory
                 stats,
                 hiveFileContext,
                 parquetMetadataSource,
-                readColumnIndexFilter(session)));
+                columnIndexFilterEnabled(session)));
     }
 
     public static ConnectorPageSource createParquetPageSource(
@@ -218,7 +214,7 @@ public class ParquetPageSourceFactory
             FileFormatDataSourceStats stats,
             HiveFileContext hiveFileContext,
             ParquetMetadataSource parquetMetadataSource,
-            boolean readColumnIndexFilter)
+            boolean columnIndexFilterEnabled)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -260,9 +256,10 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
-                ColumnIndexStore columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, readColumnIndexFilter)) {
+                ColumnIndexStore columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
                     blocks.add(block);
+                    blockIndexStores.add(columnIndexStore);
                     hiveFileContext.incrementCounter("parquet.blocksRead", 1);
                     hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
                     hiveFileContext.incrementCounter("parquet.totalBytesRead", block.getTotalByteSize());
@@ -271,8 +268,6 @@ public class ParquetPageSourceFactory
                     hiveFileContext.incrementCounter("parquet.blocksSkipped", 1);
                     hiveFileContext.incrementCounter("parquet.rowsSkipped", block.getRowCount());
                     hiveFileContext.incrementCounter("parquet.totalBytesSkipped", block.getTotalByteSize());
-                    //what if columnIndexStore is null
-                    blockIndexStores.add(columnIndexStore);
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
@@ -286,7 +281,7 @@ public class ParquetPageSourceFactory
                     verificationEnabled,
                     parquetPredicate,
                     blockIndexStores,
-                    readColumnIndexFilter);
+                    columnIndexFilterEnabled);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -348,24 +343,6 @@ public class ParquetPageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
-    }
-
-    private static ColumnIndexStore getColumnIndexStore(Predicate parquetPredicate, ParquetDataSource dataSource, BlockMetaData blockMetadata, Map<List<String>, RichColumnDescriptor> descriptorsByPath, boolean readColumnIndexFilter)
-    {
-        if (!readColumnIndexFilter || parquetPredicate == null || !(parquetPredicate instanceof TupleDomainParquetPredicate)) {
-            return null;
-        }
-
-        for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
-            if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
-                Set<ColumnPath> paths = new HashSet<>();
-                for (List<String> path : descriptorsByPath.keySet()) {
-                    paths.add(ColumnPath.get(path.toArray(new String[0])));
-                }
-                return ColumnIndexStoreImpl.create(dataSource, blockMetadata, paths);
-            }
-        }
-        return null;
     }
 
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<HiveColumnHandle> effectivePredicate)

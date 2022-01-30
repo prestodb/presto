@@ -279,7 +279,7 @@ public class TestHiveClientConfig
                 .put("hive.loose-memory-accounting-enabled", "true")
                 .put("hive.verbose-runtime-stats-enabled", "true")
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
-                .put("hive.parquet-use-column-index-filter", "true")
+                .put("hive.parquet-column-index-filter-enabled", "true")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.user-defined-type-encoding-enabled", "true")
                 .put("hive.minimum-assigned-split-weight", "1.0")

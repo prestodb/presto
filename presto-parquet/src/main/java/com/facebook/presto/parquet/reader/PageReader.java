@@ -77,7 +77,8 @@ public class PageReader
         }
         DataPage compressedPage = compressedPages.removeFirst();
         try {
-            long firstRowIndex = getFirstRowIndex(pageIndex++, offsetIndex);
+            long firstRowIndex = getFirstRowIndex(pageIndex, offsetIndex);
+            pageIndex = pageIndex + 1;
             if (compressedPage instanceof DataPageV1) {
                 DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
                 Slice slice = decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize());

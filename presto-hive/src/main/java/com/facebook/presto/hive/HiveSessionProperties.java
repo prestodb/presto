@@ -1118,7 +1118,7 @@ public final class HiveSessionProperties
         return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
     }
 
-    public static boolean readColumnIndexFilter(ConnectorSession session)
+    public static boolean columnIndexFilterEnabled(ConnectorSession session)
     {
         return session.getProperty(USE_COLUMN_INDEX_FILTER, Boolean.class);
     }

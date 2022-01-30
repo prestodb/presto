@@ -96,12 +96,12 @@ public class ParquetColumnChunk
                 case DATA_PAGE:
                     firstRowIndex = PageReader.getFirstRowIndex(dataPageCount, offsetIndex);
                     valueCount += readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, firstRowIndex, pages);
-                    ++dataPageCount;
+                    dataPageCount = dataPageCount + 1;
                     break;
                 case DATA_PAGE_V2:
                     firstRowIndex = PageReader.getFirstRowIndex(dataPageCount, offsetIndex);
                     valueCount += readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, firstRowIndex, pages);
-                    ++dataPageCount;
+                    dataPageCount = dataPageCount + 1;
                     break;
                 default:
                     stream.skipFully(compressedPageSize);
@@ -181,9 +181,9 @@ public class ParquetColumnChunk
         return dataHeaderV2.getNum_values();
     }
 
-    private boolean hasMorePages(long valuesCountReadSoFar, int dataPageCountReadSoFar)
+    private boolean hasMorePages(long valuesCount, int pagesCount)
     {
-        return offsetIndex == null ? valuesCountReadSoFar < descriptor.getColumnChunkMetaData().getValueCount()
-                : dataPageCountReadSoFar < offsetIndex.getPageCount();
+        return offsetIndex == null ? valuesCount < descriptor.getColumnChunkMetaData().getValueCount()
+                : pagesCount < offsetIndex.getPageCount();
     }
 }

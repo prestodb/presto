@@ -74,7 +74,8 @@ public class HdfsParquetDataSource
     }
 
     @Override
-    public ColumnIndex readColumnIndex(ColumnChunkMetaData column) throws IOException
+    public ColumnIndex readColumnIndex(ColumnChunkMetaData column)
+            throws IOException
     {
         IndexReference indexRef = column.getColumnIndexReference();
         if (indexRef == null) {
@@ -85,7 +86,8 @@ public class HdfsParquetDataSource
     }
 
     @Override
-    public OffsetIndex readOffsetIndex(ColumnChunkMetaData column) throws IOException
+    public OffsetIndex readOffsetIndex(ColumnChunkMetaData column)
+            throws IOException
     {
         IndexReference indexRef = column.getOffsetIndexReference();
         if (indexRef == null) {

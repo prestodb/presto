@@ -39,6 +39,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -64,6 +65,10 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class TupleDomainParquetPredicate
         implements Predicate
@@ -136,9 +141,9 @@ public class TupleDomainParquetPredicate
     }
 
     @Override
-    public boolean matches(long numberOfRows, ColumnIndexStore ciStore)
+    public boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore)
     {
-        if (numberOfRows == 0 || ciStore == null) {
+        if (numberOfRows == 0 || columnIndexStore == null) {
             return false;
         }
 
@@ -154,7 +159,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            ColumnIndex columnIndex = ciStore.getColumnIndex(ColumnPath.get(column.getPath()));
+            ColumnIndex columnIndex = columnIndexStore.getColumnIndex(ColumnPath.get(column.getPath()));
             if (columnIndex == null || columnIndex.getMinValues().size() == 0 || columnIndex.getMaxValues().size() == 0 || columnIndex.getMinValues().size() != columnIndex.getMaxValues().size()) {
                 continue;
             }
@@ -370,7 +375,7 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        if (descriptor.getType().equals(PrimitiveTypeName.INT32) || descriptor.getType().equals(PrimitiveTypeName.INT64) || descriptor.getType().equals(PrimitiveTypeName.FLOAT)) {
+        if (descriptor.getType().equals(INT32) || descriptor.getType().equals(INT64) || descriptor.getType().equals(FLOAT)) {
             List<Long> mins = converter.getMinValuesAsLong(type, columnIndex, columnName);
             List<Long> maxs = converter.getMaxValuesAsLong(type, columnIndex, columnName);
             return createDomain(type, columnIndex, hasNullValue, mins, maxs);
@@ -382,7 +387,7 @@ public class TupleDomainParquetPredicate
             return createDomain(type, columnIndex, hasNullValue, mins, maxs);
         }
 
-        if (descriptor.getType().equals(PrimitiveTypeName.BINARY)) {
+        if (descriptor.getType().equals(BINARY)) {
             List<Slice> mins = converter.getMinValuesAsSlice(type, columnIndex);
             List<Slice> maxs = converter.getMaxValuesAsSlice(type, columnIndex);
             return createDomain(type, columnIndex, hasNullValue, mins, maxs);
@@ -487,7 +492,7 @@ public class TupleDomainParquetPredicate
         return columnIndex.getMaxValues().size() == 0;
     }
 
-    public FilterPredicate convertToParquetUdp()
+    public FilterPredicate getParquetUserDefinedPredicate()
     {
         FilterPredicate filter = null;
 
@@ -504,7 +509,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            FilterPredicate columnFilter = FilterApi.userDefined(FilterApi.intColumn(ColumnPath.get(column.getPath()).toDotString()), new DomainUserDefinedPredicate(domain));
+            FilterPredicate columnFilter = FilterApi.userDefined(FilterApi.intColumn(ColumnPath.get(column.getPath()).toDotString()), new ParquetUserDefinedPredicateTupleDomain(domain));
             if (filter == null) {
                 filter = columnFilter;
             }
@@ -519,13 +524,13 @@ public class TupleDomainParquetPredicate
     /**
      * This class implements methods defined in UserDefinedPredicate based on the page statistic and tuple domain(for a column).
      */
-    static class DomainUserDefinedPredicate<T extends Comparable<T>>
+    static class ParquetUserDefinedPredicateTupleDomain<T extends Comparable<T>>
             extends UserDefinedPredicate<T>
             implements Serializable
     {
         private Domain columnDomain;
 
-        DomainUserDefinedPredicate(Domain domain)
+        ParquetUserDefinedPredicateTupleDomain(Domain domain)
         {
             this.columnDomain = domain;
         }
@@ -614,50 +619,50 @@ public class TupleDomainParquetPredicate
 
         private List<Long> getValuesAsLong(Type type, String column, int pageCount, List<ByteBuffer> values)
         {
-            List<Long> ret = new ArrayList<>();
+            List<Long> result = new ArrayList<>();
             if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type)) {
                 for (int i = 0; i < pageCount; i++) {
-                    ret.add((long) converter.convert(values.get(i), column));
+                    result.add((long) converter.convert(values.get(i), column));
                 }
             }
             else if (BIGINT.equals(type)) {
                 for (int i = 0; i < pageCount; i++) {
-                    ret.add((long) converter.convert(values.get(i), column));
+                    result.add((long) converter.convert(values.get(i), column));
                 }
             }
             else if (REAL.equals(type)) {
                 for (int i = 0; i < pageCount; i++) {
-                    ret.add((long) floatToRawIntBits(converter.convert(values.get(i), column)));
+                    result.add((long) floatToRawIntBits(converter.convert(values.get(i), column)));
                 }
             }
-            return ret;
+            return result;
         }
 
         private List<Double> getValuesAsDouble(Type type, String column, int pageCount, List<ByteBuffer> values)
         {
-            List<Double> ret = new ArrayList<>();
+            List<Double> result = new ArrayList<>();
             if (DOUBLE.equals(type)) {
                 for (int i = 0; i < pageCount; i++) {
-                    ret.add(converter.convert(values.get(i), column));
+                    result.add(converter.convert(values.get(i), column));
                 }
             }
-            return ret;
+            return result;
         }
 
         private List<Slice> getValuesAsSlice(Type type, int pageCount, List<ByteBuffer> values)
         {
-            List<Slice> ret = new ArrayList<>();
+            List<Slice> result = new ArrayList<>();
             if (isVarcharType(type)) {
                 for (int i = 0; i < pageCount; i++) {
-                    ret.add(Slices.wrappedBuffer(values.get(i)));
+                    result.add(Slices.wrappedBuffer(values.get(i)));
                 }
             }
-            return ret;
+            return result;
         }
 
-        private <T> T convert(ByteBuffer buf, String name)
+        private <T> T convert(ByteBuffer buffer, String name)
         {
-            return (T) ciConversions.get(name).apply(buf);
+            return (T) ciConversions.get(name).apply(buffer);
         }
 
         private Function<Object, Object> getColumnIndexConversions(PrimitiveType type)
@@ -678,9 +683,8 @@ public class TupleDomainParquetPredicate
                 case INT96:
                     return binary -> ByteBuffer.wrap(((Binary) binary).getBytes());
                 default:
+                    throw new NotImplementedException();
             }
-
-            return obj -> obj;
         }
     }
 }

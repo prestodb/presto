@@ -31,7 +31,7 @@ import static java.util.Collections.emptySet;
 /**
  * Internal implementation of {@link ColumnIndexStore}.
  */
-public class ColumnIndexStoreImpl
+public class ParquetColumnIndexStore
         implements ColumnIndexStore
 {
     private interface IndexStore
@@ -41,30 +41,25 @@ public class ColumnIndexStoreImpl
         OffsetIndex getOffsetIndex();
     }
 
-    private class IndexStoreImpl
+    private class PageIndexStore
             implements IndexStore
     {
-        private final ColumnChunkMetaData meta;
+        private final ColumnChunkMetaData columnChunkMetadata;
         private ColumnIndex columnIndex;
         private boolean columnIndexRead;
         private final OffsetIndex offsetIndex;
 
-        IndexStoreImpl(ColumnChunkMetaData meta)
+        PageIndexStore(ColumnChunkMetaData meta)
         {
-            this.meta = meta;
-            OffsetIndex oi;
+            this.columnChunkMetadata = meta;
             try {
-                oi = dataSource.readOffsetIndex(meta);
+                this.offsetIndex = dataSource.readOffsetIndex(meta);
             }
             catch (IOException e) {
                 // If the I/O issue still stands it will fail the reading later;
                 // otherwise we fail the filtering only with a missing offset index.
-                oi = null;
-            }
-            if (oi == null) {
                 throw new MissingOffsetIndexException(meta.getPath());
             }
-            offsetIndex = oi;
         }
 
         @Override
@@ -72,7 +67,7 @@ public class ColumnIndexStoreImpl
         {
             if (!columnIndexRead) {
                 try {
-                    columnIndex = dataSource.readColumnIndex(meta);
+                    columnIndex = dataSource.readColumnIndex(columnChunkMetadata);
                 }
                 catch (IOException e) {
                     // If the I/O issue still stands it will fail the reading later;
@@ -91,7 +86,7 @@ public class ColumnIndexStoreImpl
     }
 
     // Used for columns are not in this parquet file
-    private static final ColumnIndexStoreImpl.IndexStore MISSING_INDEX_STORE = new IndexStore()
+    private static final ParquetColumnIndexStore.IndexStore MISSING_INDEX_STORE = new IndexStore()
     {
         @Override
         public ColumnIndex getColumnIndex()
@@ -106,7 +101,7 @@ public class ColumnIndexStoreImpl
         }
     };
 
-    private static final ColumnIndexStoreImpl EMPTY = new ColumnIndexStoreImpl(null, new BlockMetaData(), emptySet())
+    private static final ParquetColumnIndexStore EMPTY = new ParquetColumnIndexStore(null, new BlockMetaData(), emptySet())
     {
         @Override
         public ColumnIndex getColumnIndex(ColumnPath column)
@@ -122,7 +117,7 @@ public class ColumnIndexStoreImpl
     };
 
     private final ParquetDataSource dataSource;
-    private final Map<ColumnPath, ColumnIndexStoreImpl.IndexStore> store;
+    private final Map<ColumnPath, ParquetColumnIndexStore.IndexStore> store;
 
     /*
      * Creates a column index store which lazily reads column/offset indexes for the columns in paths. (paths are the set
@@ -131,21 +126,21 @@ public class ColumnIndexStoreImpl
     public static ColumnIndexStore create(ParquetDataSource dataSource, BlockMetaData block, Set<ColumnPath> paths)
     {
         try {
-            return new ColumnIndexStoreImpl(dataSource, block, paths);
+            return new ParquetColumnIndexStore(dataSource, block, paths);
         }
         catch (MissingOffsetIndexException e) {
             return EMPTY;
         }
     }
 
-    private ColumnIndexStoreImpl(ParquetDataSource dataSource, BlockMetaData block, Set<ColumnPath> paths)
+    private ParquetColumnIndexStore(ParquetDataSource dataSource, BlockMetaData block, Set<ColumnPath> paths)
     {
         this.dataSource = dataSource;
-        Map<ColumnPath, ColumnIndexStoreImpl.IndexStore> store = new HashMap<>();
+        Map<ColumnPath, ParquetColumnIndexStore.IndexStore> store = new HashMap<>();
         for (ColumnChunkMetaData column : block.getColumns()) {
             ColumnPath path = column.getPath();
             if (paths.contains(path)) {
-                store.put(path, new ColumnIndexStoreImpl.IndexStoreImpl(column));
+                store.put(path, new ParquetColumnIndexStore.PageIndexStore(column));
             }
         }
         this.store = store;

@@ -68,7 +68,7 @@ public abstract class AbstractColumnReader
     private DataPage page;
     private int remainingValueCountInPage;
     private int readOffset;
-    private PrimitiveIterator.OfLong indexIter;
+    private PrimitiveIterator.OfLong indexIterator;
     private long currentRow;
     private long targetRow;
 
@@ -86,7 +86,7 @@ public abstract class AbstractColumnReader
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
         pageReader = null;
         this.targetRow = Long.MIN_VALUE;
-        this.indexIter = null;
+        this.indexIterator = null;
     }
 
     @Override
@@ -115,7 +115,7 @@ public abstract class AbstractColumnReader
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         totalValueCount = pageReader.getTotalValueCount();
-        indexIter = (rowRanges == null) ? null : rowRanges.iterator();
+        indexIterator = (rowRanges == null) ? null : rowRanges.iterator();
     }
 
     @Override
@@ -153,7 +153,7 @@ public abstract class AbstractColumnReader
 
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
-        if (indexIter == null) {
+        if (indexIterator == null) {
             processValues(valuesToRead, ignored -> {
                 readValue(blockBuilder, type);
                 definitionLevels.add(definitionLevel);
@@ -379,16 +379,16 @@ public abstract class AbstractColumnReader
         }
     }
 
-    private boolean skipRL(int rl)
+    private boolean skipRL(int repetitionLevels)
     {
-        if (indexIter == null) {
+        if (indexIterator == null) {
             return false;
         }
 
-        if (rl == 0) {
+        if (repetitionLevels == 0) {
             ++currentRow;
             if (currentRow > targetRow) {
-                targetRow = indexIter.hasNext() ? indexIter.nextLong() : Long.MAX_VALUE;
+                targetRow = indexIterator.hasNext() ? indexIterator.nextLong() : Long.MAX_VALUE;
             }
         }
 

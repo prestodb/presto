@@ -13,21 +13,31 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.parquet.ParquetDataSource;
+import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
+import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Formatter;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Internal utility class to help at column index based filtering.
  */
-class ColumnIndexFilterUtils
+public class ColumnIndexFilterUtils
 {
     private ColumnIndexFilterUtils() {}
 
@@ -169,5 +179,23 @@ class ColumnIndexFilterUtils
             }
         }
         return ranges;
+    }
+
+    public static ColumnIndexStore getColumnIndexStore(Predicate parquetPredicate, ParquetDataSource dataSource, BlockMetaData blockMetadata, Map<List<String>, RichColumnDescriptor> descriptorsByPath, boolean columnIndexFilterEnabled)
+    {
+        if (!columnIndexFilterEnabled || parquetPredicate == null || !(parquetPredicate instanceof TupleDomainParquetPredicate)) {
+            return null;
+        }
+
+        for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
+            if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
+                Set<ColumnPath> paths = new HashSet<>();
+                for (List<String> path : descriptorsByPath.keySet()) {
+                    paths.add(ColumnPath.get(path.toArray(new String[0])));
+                }
+                return ParquetColumnIndexStore.create(dataSource, blockMetadata, paths);
+            }
+        }
+        return null;
     }
 }
