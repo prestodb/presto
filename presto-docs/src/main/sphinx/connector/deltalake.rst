@@ -91,6 +91,7 @@ To query a specific snapshot of the Delta Lake table use the snapshot identifier
 as suffix to the table name.
 
 .. code-block:: sql
+
     SELECT * FROM sales.apac."sales_data@v4" LIMIT 200;
 
 Above query reads data from snapshot version ``4`` of the table ``sales.apac.sales_data``.
@@ -99,6 +100,7 @@ To query the snapshot of the Delta Lake table as of particular time, specify the
 as suffix to the table name.
 
 .. code-block:: sql
+
     SELECT * FROM sales.apac."sales_data@t2021-11-18 09:45" LIMIT 200;
 
 Above query reads data from the latest snapshot as of timestamp ``2021-11-18 09:45:00``
