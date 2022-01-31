@@ -24,8 +24,6 @@ import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-// TODO this class is not memory efficient.  We can bypass all of the Presto type and block code
-// since we are only interested in a hash of byte arrays.
 public class SliceDictionaryBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBuilder.class).instanceSize();
@@ -91,12 +89,6 @@ public class SliceDictionaryBuilder
     public int getRawSliceOffset(int position)
     {
         return segmentedSliceBuilder.getPositionOffset(position);
-    }
-
-    public void clear()
-    {
-        slicePositionByHash.fill(EMPTY_SLOT);
-        segmentedSliceBuilder.reset();
     }
 
     public int getEntryCount()

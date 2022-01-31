@@ -47,10 +47,11 @@ public class LongDictionaryColumnWriter
 {
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongDictionaryColumnWriter.class).instanceSize();
     private static final int NULL_INDEX = -1;
+    private static final int EXPECTED_ENTRIES = 10_000;
 
-    private final LongOutputStream dictionaryDataStream;
     private final int typeSize;
 
+    private LongOutputStream dictionaryDataStream;
     private LongDictionaryBuilder dictionary;
     private IntegerStatisticsBuilder statisticsBuilder;
     private ColumnEncoding columnEncoding;
@@ -69,9 +70,10 @@ public class LongDictionaryColumnWriter
         super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         checkArgument(orcEncoding == DWRF, "Long dictionary encoding is only supported in DWRF");
         checkArgument(type instanceof FixedWidthType, "Not a fixed width type");
-        this.dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
-        this.dictionary = new LongDictionaryBuilder(10_000);
         this.typeSize = ((FixedWidthType) type).getFixedSize();
+
+        this.dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
+        this.dictionary = new LongDictionaryBuilder(EXPECTED_ENTRIES);
         this.statisticsBuilder = new IntegerStatisticsBuilder();
     }
 
@@ -336,8 +338,8 @@ public class LongDictionaryColumnWriter
     protected void resetDictionary()
     {
         columnEncoding = null;
-        dictionary = new LongDictionaryBuilder(10_000);
-        dictionaryDataStream.reset();
+        dictionary = new LongDictionaryBuilder(EXPECTED_ENTRIES);
+        dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
         statisticsBuilder = new IntegerStatisticsBuilder();
         directValues = null;
         directNulls = null;
