@@ -213,6 +213,16 @@ std::string FilterGenerator::specsToString(
   return out.str();
 }
 
+SubfieldFilters FilterGenerator::cloneSubfieldFilters(
+    const SubfieldFilters& src) {
+  SubfieldFilters copy;
+  for (const auto& sf : src) {
+    copy[Subfield(sf.first.toString())] = sf.second->clone();
+  }
+
+  return copy;
+}
+
 void FilterGenerator::collectFilterableSubFields(
     const RowType* rowType,
     std::vector<std::string>& subFields) {

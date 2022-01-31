@@ -312,6 +312,7 @@ std::unique_ptr<AbstractColumnStats> makeStats(
 class FilterGenerator {
  public:
   static std::string specsToString(const std::vector<FilterSpec>& specs);
+  static SubfieldFilters cloneSubfieldFilters(const SubfieldFilters& src);
 
   explicit FilterGenerator(std::shared_ptr<const RowType>& rowType)
       : rowType_(rowType) {
