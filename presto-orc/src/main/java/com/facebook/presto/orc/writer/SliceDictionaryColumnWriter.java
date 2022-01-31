@@ -51,13 +51,14 @@ public class SliceDictionaryColumnWriter
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
     private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(new DataSize(32, MEGABYTE).toBytes());
     private static final int NULL_INDEX = -1;
+    private static final int EXPECTED_ENTRIES = 1_024;
 
-    private final ByteArrayOutputStream dictionaryDataStream;
-    private final LongOutputStream dictionaryLengthStream;
-    private final SliceDictionaryBuilder dictionary = new SliceDictionaryBuilder(1_024);
+    private ByteArrayOutputStream dictionaryDataStream;
+    private LongOutputStream dictionaryLengthStream;
     private final int stringStatisticsLimitInBytes;
     private final boolean sortDictionaryKeys;
 
+    private SliceDictionaryBuilder dictionary = new SliceDictionaryBuilder(EXPECTED_ENTRIES);
     private StringStatisticsBuilder statisticsBuilder;
     private ColumnEncoding columnEncoding;
     private SliceDirectColumnWriter directColumnWriter;
@@ -207,9 +208,7 @@ public class SliceDictionaryColumnWriter
     @Override
     protected void closeDictionary()
     {
-        // free the dictionary memory
-        dictionary.clear();
-
+        dictionary = null;
         dictionaryDataStream.close();
         dictionaryLengthStream.close();
     }
@@ -397,9 +396,9 @@ public class SliceDictionaryColumnWriter
     protected void resetDictionary()
     {
         columnEncoding = null;
-        dictionary.clear();
-        dictionaryDataStream.reset();
-        dictionaryLengthStream.reset();
+        dictionary = new SliceDictionaryBuilder(EXPECTED_ENTRIES);
+        dictionaryDataStream = new ByteArrayOutputStream(columnWriterOptions, dwrfEncryptor, Stream.StreamKind.DICTIONARY_DATA);
+        dictionaryLengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
         statisticsBuilder = newStringStatisticsBuilder();
     }
 

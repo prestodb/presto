@@ -81,7 +81,7 @@ public class DictionaryCompressionOptimizer
     // But nulls are stored in the rowGroupIndexes and the null memory is unaccounted for and causes OOMs.
     // This constant defines how many nulls in a dictionary column to be counted as 1 byte.
     // Setting this to 1 means, 1 null will be counted as 1 dictionary byte and might abandon some dictionary
-    // prematurely. Setting to 8 means, 8 nulls will count as 1 bit, but most likely will result in OOM.
+    // prematurely. Setting to 8 means, 8 nulls will count as 1 byte, but most likely will result in OOM.
     // For the few files that were having issues, 4 worked the best, so starting this value with 4.
     static final int NUMBER_OF_NULLS_FOR_DICTIONARY_BYTE = 4;
 

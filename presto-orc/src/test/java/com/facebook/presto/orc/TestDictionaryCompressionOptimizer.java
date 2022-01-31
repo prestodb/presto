@@ -740,7 +740,7 @@ public class TestDictionaryCompressionOptimizer
             int dictionaryEntries = getDictionaryEntries();
             int bytesPerValue = estimateIndexBytesPerValue(dictionaryEntries);
             return (dictionaryEntries * bytesPerEntry) + (getNonNullValueCount() * bytesPerValue)
-                    + getNullValueCount() / NUMBER_OF_NULLS_PER_BYTE;
+                    + (getNullValueCount() / NUMBER_OF_NULLS_PER_BYTE);
         }
 
         @Override
