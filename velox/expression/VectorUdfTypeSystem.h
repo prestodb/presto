@@ -16,9 +16,13 @@
 
 #pragma once
 
+#include <velox/vector/BaseVector.h>
+#include <velox/vector/TypeAliases.h>
 #include <algorithm>
 #include <cstring>
 #include <string_view>
+#include <type_traits>
+
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/expression/ComplexProxyTypes.h"
 #include "velox/expression/ComplexViewTypes.h"
@@ -93,6 +97,12 @@ template <typename T>
 struct resolver<Variadic<T>> {
   using in_type = VariadicView<T>;
   // Variadic cannot be used as an out_type
+};
+
+template <>
+struct resolver<Generic> {
+  using in_type = GenericView;
+  using out_type = void; // Not supported as output type yet.
 };
 } // namespace detail
 
@@ -322,7 +332,6 @@ struct VectorReader<Map<K, V>> {
 template <typename V>
 struct VectorReader<Array<V>> {
   using in_vector_t = typename TypeToFlatVector<Array<V>>::type;
-  using child_vector_t = typename TypeToFlatVector<V>::type;
   using exec_in_t = typename VectorExec::template resolver<Array<V>>::in_type;
   using exec_in_child_t = typename VectorExec::template resolver<V>::in_type;
 
@@ -1034,6 +1043,30 @@ struct VectorWriter<std::shared_ptr<T>> {
   exec_out_t proxy_;
   vector_t* vector_;
   size_t offset_ = 0;
+};
+
+template <>
+struct VectorReader<Generic> {
+  using exec_in_t = GenericView;
+
+  explicit VectorReader(const DecodedVector* decoded)
+      : decoded_(*decoded), base_(decoded->base()) {}
+
+  explicit VectorReader(const VectorReader<Generic>&) = delete;
+
+  VectorReader<Generic>& operator=(const VectorReader<Generic>&) = delete;
+
+  bool isSet(size_t offset) const {
+    return !decoded_.isNullAt(offset);
+  }
+
+  exec_in_t operator[](size_t offset) const {
+    auto index = decoded_.index(offset);
+    return GenericView{base_, index};
+  }
+
+  const DecodedVector& decoded_;
+  const BaseVector* base_;
 };
 
 } // namespace facebook::velox::exec

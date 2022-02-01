@@ -20,11 +20,16 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
+#include "velox/type/Type.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/DecodedVector.h"
 #include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox::exec {
+
 template <typename T>
 struct VectorReader;
+
 // Pointer wrapper used to convert r-values to valid return type for operator->.
 template <typename T>
 class PointerWrapper {
@@ -611,4 +616,34 @@ auto get(const RowView<Types...>& row) {
   return row.template at<I>();
 }
 
+class GenericView {
+ public:
+  GenericView(const BaseVector* baseVector, vector_size_t index)
+      : baseVector_(baseVector), index_(index) {}
+
+  uint64_t hash() const {
+    return baseVector_->hashValueAt(index_);
+  }
+
+  bool operator==(const GenericView& other) const {
+    static constexpr auto kConfig = CompareFlags{true, true, true};
+    return baseVector_->compare(
+               other.baseVector_, index_, other.index_, kConfig) == 0;
+  }
+
+ private:
+  // Represent the decoded vector of the represented element.
+  const BaseVector* baseVector_;
+  vector_size_t index_;
+};
+
 } // namespace facebook::velox::exec
+
+namespace std {
+template <>
+struct hash<facebook::velox::exec::GenericView> {
+  size_t operator()(const facebook::velox::exec::GenericView& x) const {
+    return x.hash();
+  }
+};
+} // namespace std

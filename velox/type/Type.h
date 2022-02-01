@@ -1262,8 +1262,12 @@ template <typename UNDERLYING_TYPE>
 struct Variadic {
   using underlying_type = UNDERLYING_TYPE;
 
- private:
-  Variadic() {}
+  Variadic() = delete;
+};
+
+// A type that can be used in simple function to represent any type.
+struct Generic {
+  Generic() = delete;
 };
 
 template <typename>
