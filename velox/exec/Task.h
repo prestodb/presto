@@ -269,13 +269,6 @@ class Task {
   ContinueFuture stateChangeFuture(uint64_t maxWaitMicros);
 
   /// Returns the number of running drivers.
-  // TODO(spershin): Deprecate this method gradually.
-  uint32_t numDrivers() const {
-    std::lock_guard<std::mutex> taskLock(mutex_);
-    return numRunningDrivers_;
-  }
-
-  /// Returns the number of running drivers.
   uint32_t numRunningDrivers() const {
     std::lock_guard<std::mutex> taskLock(mutex_);
     return numRunningDrivers_;
