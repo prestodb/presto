@@ -442,13 +442,18 @@ struct VectorWriter<ArrayProxyT<V>> {
   void init(vector_t& vector) {
     arrayVector_ = &vector;
     childWriter_.init(static_cast<child_vector_t&>(*vector.elements().get()));
-    proxy_.setChildWriter(&childWriter_);
+    proxy_.initialize(this);
+  }
+
+  // This should be called once all rows are proccessed.
+  void finish() {
+    proxy_.elementsVector_->resize(proxy_.valuesOffset_);
+    arrayVector_ = nullptr;
   }
 
   VectorWriter() = default;
 
   exec_out_t& current() {
-    proxy_.init(currentValueOffset_);
     return proxy_;
   }
 
@@ -466,11 +471,12 @@ struct VectorWriter<ArrayProxyT<V>> {
 
   // Commit a not null value.
   void commit() {
-    proxy_.finalize();
-    arrayVector_->setOffsetAndSize(offset_, currentValueOffset_, proxy_.size());
-    // Next array will be written at the new currentValueOffset_.
-    currentValueOffset_ += proxy_.size();
+    arrayVector_->setOffsetAndSize(
+        offset_, proxy_.valuesOffset_, proxy_.length_);
     arrayVector_->setNull(offset_, false);
+    // Will reset length to 0 and prepare proxy_.valuesOffset_ for the next
+    // item.
+    proxy_.finalize();
   }
 
   // Commit a null value.
@@ -492,7 +498,7 @@ struct VectorWriter<ArrayProxyT<V>> {
   }
 
   void reset() {
-    currentValueOffset_ = 0;
+    proxy_.valuesOffset_ = 0;
   }
 
   vector_t* arrayVector_ = nullptr;
@@ -503,9 +509,6 @@ struct VectorWriter<ArrayProxyT<V>> {
 
   // The index being written in the array vector.
   vector_size_t offset_ = 0;
-
-  // The offset of the current array being written in the child vector.
-  vector_size_t currentValueOffset_ = 0;
 };
 
 template <typename... T>

@@ -15,9 +15,7 @@
  */
 
 #pragma once
-#include <algorithm>
-#include <iterator>
-#include <optional>
+#include <folly/Likely.h>
 
 #include <velox/common/base/Exceptions.h>
 #include "velox/common/base/Exceptions.h"
@@ -53,7 +51,7 @@ struct PrimitiveWriterProxy {
 
   void operator=(const std::optional<element_t>& value) {
     if (value.has_value()) {
-      flatVector_->set(index_, value);
+      flatVector_->set(index_, value.value());
     } else {
       flatVector_->setNull(index_, true);
     }
@@ -85,10 +83,6 @@ class ArrayProxy {
   using element_t = typename child_writer_t::exec_out_t;
 
  public:
-  ArrayProxy<V>(const ArrayProxy<V>&) = delete;
-
-  ArrayProxy<V>& operator=(const ArrayProxy<V>&) = delete;
-
   static bool constexpr provide_std_interface =
       CppToType<V>::isPrimitiveType && !std::is_same<Varchar, V>::value;
 
@@ -97,20 +91,20 @@ class ArrayProxy {
 
   // Note: size is with respect to the current size of this array being written.
   void reserve(vector_size_t size) {
-    if (size > capacity_) {
-      while (capacity_ < size) {
-        capacity_ = 2 * capacity_ + 1;
+    auto currentSize = size + valuesOffset_;
+
+    if (UNLIKELY(currentSize > elementsVectorCapacity_)) {
+      while (currentSize > elementsVectorCapacity_) {
+        elementsVectorCapacity_ = elementsVectorCapacity_ * 2;
       }
-      childWriter_->ensureSize(valuesOffset_ + capacity_);
+      childWriter_->ensureSize(elementsVectorCapacity_);
     }
   }
 
   // Add a new not null item to the array, increasing its size by 1.
   element_t& add_item() {
-    commitMostRecentChildItem();
-    auto index = valuesOffset_ + length_;
-    length_++;
-    reserve(length_);
+    resize(length_ + 1);
+    auto index = valuesOffset_ + length_ - 1;
 
     if constexpr (!requires_commit) {
       VELOX_DCHECK(provide_std_interface);
@@ -125,10 +119,8 @@ class ArrayProxy {
 
   // Add a new null item to the array.
   void add_null() {
-    commitMostRecentChildItem();
-    auto index = valuesOffset_ + length_;
-    length_++;
-    reserve(length_);
+    resize(length_ + 1);
+    auto index = valuesOffset_ + length_ - 1;
     elementsVector_->setNull(index, true);
     // Note: no need to commit the null item.
   }
@@ -137,9 +129,8 @@ class ArrayProxy {
   // last item if needed.
   void finalize() {
     commitMostRecentChildItem();
-    // Downsize to the actual size used in the underlying vector.
-    // Some vector-writer's logic depend on the previous size to append data.
-    elementsVector_->resize(valuesOffset_ + length_);
+    valuesOffset_ += length_;
+    length_ = 0;
   }
 
   vector_size_t size() {
@@ -159,22 +150,20 @@ class ArrayProxy {
 
   typename std::enable_if<provide_std_interface>::type push_back(
       element_t value) {
-    auto& item = add_item();
-    item = value;
+    resize(length_ + 1);
+    back() = value;
   }
 
   typename std::enable_if<provide_std_interface>::type push_back(
       std::nullopt_t) {
-    add_null();
+    resize(length_ + 1);
+    back() = std::nullopt;
   }
 
   typename std::enable_if<provide_std_interface>::type push_back(
       const std::optional<element_t>& value) {
-    if (value) {
-      push_back(*value);
-    } else {
-      add_null();
-    }
+    resize(length_ + 1);
+    back() = value;
   }
 
   typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<V>>::type
@@ -189,7 +178,10 @@ class ArrayProxy {
   }
 
  private:
-  ArrayProxy<V>() {}
+  // Make sure user do not use those.
+  ArrayProxy<V>() = default;
+  ArrayProxy<V>(const ArrayProxy<V>&) = default;
+  ArrayProxy<V>& operator=(const ArrayProxy<V>&) = default;
 
   void commitMostRecentChildItem() {
     if constexpr (requires_commit) {
@@ -200,17 +192,11 @@ class ArrayProxy {
     }
   }
 
-  // Prepare the proxy for a new element.
-  void init(vector_size_t valuesOffset) {
-    valuesOffset_ = valuesOffset;
-    length_ = 0;
-    capacity_ = 0;
-    needCommit_ = false;
-  }
-
-  void setChildWriter(child_writer_t* childWriter) {
-    childWriter_ = childWriter;
-    elementsVector_ = childWriter->vector_;
+  void initialize(VectorWriter<ArrayProxyT<V>, void>* writer) {
+    childWriter_ = &writer->childWriter_;
+    elementsVector_ = childWriter_->vector_;
+    childWriter_->ensureSize(1);
+    elementsVectorCapacity_ = elementsVector_->size();
   }
 
   typename child_writer_t::vector_t* elementsVector_ = nullptr;
@@ -228,12 +214,13 @@ class ArrayProxy {
   // The offset within the child vector at which this array starts.
   vector_size_t valuesOffset_ = 0;
 
-  // Virtual capacity for the current array.
-  // childWriter guaranteed to be safely writable at indices [valuesOffset_,
-  // valuesOffset_ + capacity_).
-  vector_size_t capacity_ = 0;
+  // Tracks the capacity of elements vector.
+  vector_size_t elementsVectorCapacity_ = 0;
 
   template <typename A, typename B>
   friend struct VectorWriter;
+
+  template <typename T>
+  friend class SimpleFunctionAdapter;
 };
 } // namespace facebook::velox::exec

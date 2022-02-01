@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include <velox/expression/ComplexProxyTypes.h>
 #include "velox/common/base/Portability.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
@@ -25,6 +26,16 @@
 #include "velox/vector/VectorTypeUtils.h"
 
 namespace facebook::velox::exec {
+
+template <typename T>
+struct IsArrayProxy {
+  static constexpr bool value = false;
+};
+
+template <typename T>
+struct IsArrayProxy<ArrayProxy<T>> {
+  static constexpr bool value = true;
+};
 
 template <typename FUNC>
 class SimpleFunctionAdapter : public VectorFunction {
@@ -303,27 +314,44 @@ class SimpleFunctionAdapter : public VectorFunction {
     } else {
       if (allNotNull) {
         if (applyContext.allAscii) {
-          applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-            applyContext.resultWriter.setOffset(row);
-            applyContext.resultWriter.commit(
-                static_cast<char>(doApplyAsciiNotNull<0>(
-                    row, applyContext.resultWriter.current(), readers...)));
+          applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
+            return doApplyAsciiNotNull<0>(row, out, readers...);
           });
         } else {
-          applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-            applyContext.resultWriter.setOffset(row);
-            applyContext.resultWriter.commit(
-                static_cast<char>(doApplyNotNull<0>(
-                    row, applyContext.resultWriter.current(), readers...)));
+          applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
+            return doApplyNotNull<0>(row, out, readers...);
           });
         }
       } else {
-        applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-          applyContext.resultWriter.setOffset(row);
-          applyContext.resultWriter.commit(static_cast<char>(doApply<0>(
-              row, applyContext.resultWriter.current(), readers...)));
+        applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
+          return doApply<0>(row, out, readers...);
         });
       }
+    }
+  }
+
+  template <typename Func>
+  void applyUdf(ApplyContext& applyContext, Func func) const {
+    if constexpr (IsArrayProxy<T>::value) {
+      // An optimization for arrayProxy that force the localization of the
+      // output proxy.
+      auto& writerProxy = applyContext.resultWriter.proxy_;
+
+      applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
+        applyContext.resultWriter.setOffset(row);
+        // Force local copy of proxy.
+        auto localProxy = writerProxy;
+        auto notNull = func(localProxy, row);
+        writerProxy = localProxy;
+        applyContext.resultWriter.commit(notNull);
+      });
+      applyContext.resultWriter.finish();
+    } else {
+      applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
+        applyContext.resultWriter.setOffset(row);
+        applyContext.resultWriter.commit(
+            func(applyContext.resultWriter.current(), row));
+      });
     }
   }
 
