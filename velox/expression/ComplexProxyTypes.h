@@ -96,7 +96,7 @@ class ArrayProxy {
       std::is_same<Varchar, V>::value || std::is_same<bool, V>::value;
 
   // Note: size is with respect to the current size of this array being written.
-  FOLLY_ALWAYS_INLINE void reserve(vector_size_t size) {
+  void reserve(vector_size_t size) {
     if (size > capacity_) {
       while (capacity_ < size) {
         capacity_ = 2 * capacity_ + 1;
@@ -106,7 +106,7 @@ class ArrayProxy {
   }
 
   // Add a new not null item to the array, increasing its size by 1.
-  FOLLY_ALWAYS_INLINE element_t& add_item() {
+  element_t& add_item() {
     commitMostRecentChildItem();
     auto index = valuesOffset_ + length_;
     length_++;
@@ -114,7 +114,7 @@ class ArrayProxy {
 
     if constexpr (!requires_commit) {
       VELOX_DCHECK(provide_std_interface);
-      childWriter_->vector().setNull(index, false);
+      elementsVector_->setNull(index, false);
       return childWriter_->data_[index];
     } else {
       needCommit_ = true;
@@ -124,12 +124,12 @@ class ArrayProxy {
   }
 
   // Add a new null item to the array.
-  FOLLY_ALWAYS_INLINE void add_null() {
+  void add_null() {
     commitMostRecentChildItem();
     auto index = valuesOffset_ + length_;
     length_++;
     reserve(length_);
-    childWriter_->vector().setNull(index, true);
+    elementsVector_->setNull(index, true);
     // Note: no need to commit the null item.
   }
 
@@ -139,7 +139,7 @@ class ArrayProxy {
     commitMostRecentChildItem();
     // Downsize to the actual size used in the underlying vector.
     // Some vector-writer's logic depend on the previous size to append data.
-    childWriter_->vector().resize(valuesOffset_ + length_);
+    elementsVector_->resize(valuesOffset_ + length_);
   }
 
   vector_size_t size() {
@@ -150,26 +150,26 @@ class ArrayProxy {
   // the array element is primitive that is not string or bool.
 
   // 'size' is with respect to the current size of the array being written.
-  FOLLY_ALWAYS_INLINE typename std::enable_if<provide_std_interface>::type
-  resize(vector_size_t size) {
+  typename std::enable_if<provide_std_interface>::type resize(
+      vector_size_t size) {
     commitMostRecentChildItem();
     reserve(size);
     length_ = size;
   }
 
-  typename std::enable_if<provide_std_interface>::type FOLLY_ALWAYS_INLINE
-  push_back(element_t value) {
+  typename std::enable_if<provide_std_interface>::type push_back(
+      element_t value) {
     auto& item = add_item();
     item = value;
   }
 
-  typename std::enable_if<provide_std_interface>::type FOLLY_ALWAYS_INLINE
-  push_back(std::nullopt_t) {
+  typename std::enable_if<provide_std_interface>::type push_back(
+      std::nullopt_t) {
     add_null();
   }
 
-  typename std::enable_if<provide_std_interface>::type FOLLY_ALWAYS_INLINE
-  push_back(const std::optional<element_t>& value) {
+  typename std::enable_if<provide_std_interface>::type push_back(
+      const std::optional<element_t>& value) {
     if (value) {
       push_back(*value);
     } else {
@@ -179,20 +179,19 @@ class ArrayProxy {
 
   typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<V>>::type
   operator[](vector_size_t index_) {
-    return PrimitiveWriterProxy<V>{
-        &childWriter_->vector(), valuesOffset_ + index_};
+    return PrimitiveWriterProxy<V>{elementsVector_, valuesOffset_ + index_};
   }
 
   typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<V>>::type
   back() {
     return PrimitiveWriterProxy<V>{
-        &childWriter_->vector(), valuesOffset_ + size() - 1};
+        elementsVector_, valuesOffset_ + length_ - 1};
   }
 
  private:
   ArrayProxy<V>() {}
 
-  FOLLY_ALWAYS_INLINE void commitMostRecentChildItem() {
+  void commitMostRecentChildItem() {
     if constexpr (requires_commit) {
       if (needCommit_) {
         childWriter_->commit(true);
@@ -202,7 +201,7 @@ class ArrayProxy {
   }
 
   // Prepare the proxy for a new element.
-  FOLLY_ALWAYS_INLINE void init(vector_size_t valuesOffset) {
+  void init(vector_size_t valuesOffset) {
     valuesOffset_ = valuesOffset;
     length_ = 0;
     capacity_ = 0;
@@ -211,7 +210,10 @@ class ArrayProxy {
 
   void setChildWriter(child_writer_t* childWriter) {
     childWriter_ = childWriter;
+    elementsVector_ = childWriter->vector_;
   }
+
+  typename child_writer_t::vector_t* elementsVector_ = nullptr;
 
   // Pointer to child vector writer.
   child_writer_t* childWriter_ = nullptr;
