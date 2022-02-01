@@ -52,15 +52,15 @@ public class ValidateStreamingAggregations
     private static final class Visitor
             extends InternalPlanVisitor<Void, Void>
     {
-        private final Session sesstion;
+        private final Session session;
         private final Metadata metadata;
         private final SqlParser sqlParser;
         private final TypeProvider types;
         private final WarningCollector warningCollector;
 
-        private Visitor(Session sesstion, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
         {
-            this.sesstion = sesstion;
+            this.session = session;
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.types = types;
@@ -81,7 +81,7 @@ public class ValidateStreamingAggregations
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, sesstion, types, sqlParser);
+            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, session, types, sqlParser);
 
             List<LocalProperty<VariableReferenceExpression>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedVariables()));
             Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();
