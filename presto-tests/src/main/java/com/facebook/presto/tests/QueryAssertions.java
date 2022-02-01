@@ -42,7 +42,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -332,37 +331,91 @@ public final class QueryAssertions
             Session session,
             Iterable<TpchTable<?>> tables)
     {
-        copyTpchTables(queryRunner, sourceCatalog, sourceSchema, session, tables, false);
+        copyTables(
+                queryRunner,
+                sourceCatalog,
+                sourceSchema,
+                session,
+                Iterables.transform(tables, table -> table.getTableName()),
+                false,
+                false);
     }
 
-    public static void copyTpchTables(
+    public static void copyTables(
             QueryRunner queryRunner,
             String sourceCatalog,
             String sourceSchema,
             Session session,
-            Iterable<TpchTable<?>> tables,
-            boolean ifNotExists)
+            Iterable<String> tables,
+            boolean ifNotExists,
+            boolean bucketed)
     {
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
-        for (TpchTable<?> table : tables) {
-            copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), session, ifNotExists);
+        for (String table : tables) {
+            copyTable(queryRunner, sourceCatalog, sourceSchema, session, table, ifNotExists, bucketed);
         }
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    private static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session, boolean ifNotExists)
+    public static void copyTable(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            String sourceTable,
+            boolean ifNotExists,
+            boolean bucketed)
     {
         QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
-        copyTable(queryRunner, table, session, ifNotExists);
-    }
 
-    private static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session, boolean ifNotExists)
-    {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getObjectName());
-        @Language("SQL") String sql = format("CREATE TABLE %s %s AS SELECT * FROM %s", ifNotExists ? "IF NOT EXISTS" : "", table.getObjectName(), table);
+
+        @Language("SQL") String sql = getCopyTableSql(sourceCatalog, table, ifNotExists, bucketed);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
+
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    private static String getCopyTableSql(String sourceCatalog, QualifiedObjectName table, boolean ifNotExists, boolean bucketed)
+    {
+        if (!bucketed) {
+            return format("CREATE TABLE %s %s AS SELECT * FROM %s", ifNotExists ? "IF NOT EXISTS" : "", table.getObjectName(), table);
+        }
+        else {
+            switch (sourceCatalog) {
+                case "tpch":
+                    return getTpchCopyTableSqlBucketed(table);
+                default:
+                    throw new UnsupportedOperationException();
+            }
+        }
+    }
+
+    private static String getTpchCopyTableSqlBucketed(QualifiedObjectName table)
+    {
+        @Language("SQL") String sql;
+        switch (table.getObjectName()) {
+            case "part":
+            case "partsupp":
+            case "supplier":
+            case "nation":
+            case "region":
+                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "lineitem":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "customer":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "orders":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
+        return sql;
     }
 }
