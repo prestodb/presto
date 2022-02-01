@@ -341,6 +341,7 @@ class BaseVector {
   // Sets null when 'nulls' has null value for a row in 'rows'
   virtual void addNulls(const uint64_t* bits, const SelectivityVector& rows);
 
+  // Clears null when 'nulls' has non-null value for a row in 'rows'
   virtual void clearNulls(const SelectivityVector& rows);
 
   virtual void clearNulls(vector_size_t begin, vector_size_t end);

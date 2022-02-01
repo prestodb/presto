@@ -378,7 +378,7 @@ void BaseVector::clearNulls(const SelectivityVector& rows) {
   }
 
   auto rawNulls = nulls_->asMutable<uint64_t>();
-  bits::orWithNegatedBits(
+  bits::orBits(
       rawNulls,
       rows.asRange().bits(),
       std::min(length_, rows.begin()),

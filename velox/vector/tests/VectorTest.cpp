@@ -1409,3 +1409,52 @@ TEST_F(VectorTest, constantDictionary) {
     ASSERT_TRUE(dictionaryVector->isConstant(rows));
   }
 }
+
+TEST_F(VectorTest, clearNulls) {
+  auto vectorSize = 100;
+  auto vector = BaseVector::create(INTEGER(), vectorSize, pool_.get());
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  // No op if doesn't have nulls
+  SelectivityVector selection{vectorSize};
+  vector->clearNulls(selection);
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  // De-allocate nulls if all selected
+  auto rawNulls = vector->mutableRawNulls();
+  ASSERT_EQ(bits::countNulls(rawNulls, 0, vectorSize), 0);
+  bits::setNull(rawNulls, 50);
+  ASSERT_TRUE(vector->isNullAt(50));
+  ASSERT_EQ(bits::countNulls(rawNulls, 0, vectorSize), 1);
+  vector->clearNulls(selection);
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  // Clear within vectorSize
+  rawNulls = vector->mutableRawNulls();
+  bits::setNull(rawNulls, 50);
+  bits::setNull(rawNulls, 70);
+  selection.clearAll();
+  selection.setValidRange(40, 60, true);
+  selection.updateBounds();
+  vector->clearNulls(selection);
+  ASSERT_TRUE(!vector->isNullAt(50));
+  ASSERT_TRUE(vector->isNullAt(70));
+
+  // Clear with end > vector size
+  selection.resize(120);
+  selection.clearAll();
+  selection.setValidRange(60, 120, true);
+  selection.updateBounds();
+  vector->clearNulls(selection);
+  ASSERT_TRUE(!vector->isNullAt(70));
+  ASSERT_TRUE(vector->mayHaveNulls());
+
+  // Clear with begin > vector size
+  rawNulls = vector->mutableRawNulls();
+  bits::setNull(rawNulls, 70);
+  selection.clearAll();
+  selection.setValidRange(100, 120, true);
+  selection.updateBounds();
+  vector->clearNulls(selection);
+  ASSERT_TRUE(vector->isNullAt(70));
+}
