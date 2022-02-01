@@ -247,7 +247,7 @@ class CompiledExpressionTransformVisitor {
       const std::string& columnName,
       const size_t outputIndex,
       std::stringstream& out) {
-    static const std::string formatString = R"(
+    constexpr auto formatString = R"(
         {generatedStructCode}
         using {usingDeclName} = std::tuple<{className},{inputMap},
                   std::index_sequence<{outputIndex}>>;
