@@ -32,6 +32,9 @@ class WriterBase {
   virtual ~WriterBase() = default;
 
   virtual void close() {
+    if (writerSink_) {
+      writerSink_->flush();
+    }
     sink_->close();
   }
 
@@ -155,6 +158,7 @@ class WriterBase {
   void writeUserMetadata(uint32_t writerVersion);
 
   friend class WriterTest;
+  FRIEND_TEST(WriterBaseTest, FlushWriterSinkUponClose);
 };
 
 } // namespace facebook::velox::dwrf

@@ -60,7 +60,11 @@ class WriterSink {
     addBuffer(pool, ORC_MAGIC.data(), ORC_MAGIC_LEN);
   }
 
-  ~WriterSink() = default;
+  ~WriterSink() {
+    if (!buffers_.empty() || size_ != 0) {
+      LOG(WARNING) << "Unflushed data in writer sink!";
+    }
+  }
 
   uint64_t size() const {
     return sink_.size() + size_;
