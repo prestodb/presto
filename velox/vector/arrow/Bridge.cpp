@@ -644,15 +644,52 @@ VectorPtr importFromArrowImpl(
     const ArrowSchema& arrowSchema,
     const ArrowArray& arrowArray,
     memory::MemoryPool* pool,
+    bool isViewer,
+    WrapInBufferViewFunc wrapInBufferView);
+
+RowVectorPtr createRowVector(
+    memory::MemoryPool* pool,
+    const RowTypePtr& rowType,
+    BufferPtr nulls,
+    const ArrowSchema& arrowSchema,
+    const ArrowArray& arrowArray,
+    bool isViewer) {
+  VELOX_CHECK_EQ(arrowArray.n_children, rowType->size());
+
+  // Recursively create the children vectors.
+  std::vector<VectorPtr> childrenVector;
+  childrenVector.reserve(arrowArray.n_children);
+
+  for (size_t i = 0; i < arrowArray.n_children; ++i) {
+    childrenVector.emplace_back(
+        isViewer
+            ? importFromArrowAsViewer(
+                  *arrowSchema.children[i], *arrowArray.children[i], pool)
+            : importFromArrowAsOwner(
+                  *arrowSchema.children[i], *arrowArray.children[i], pool));
+  }
+  return std::make_shared<RowVector>(
+      pool,
+      rowType,
+      nulls,
+      arrowArray.length,
+      std::move(childrenVector),
+      arrowArray.null_count == -1
+          ? std::nullopt
+          : std::optional<int64_t>(arrowArray.null_count));
+}
+
+VectorPtr importFromArrowImpl(
+    const ArrowSchema& arrowSchema,
+    const ArrowArray& arrowArray,
+    memory::MemoryPool* pool,
+    bool isViewer,
     WrapInBufferViewFunc wrapInBufferView) {
   VELOX_USER_CHECK_NOT_NULL(arrowSchema.release, "arrowSchema was released.");
   VELOX_USER_CHECK_NOT_NULL(arrowArray.release, "arrowArray was released.");
   VELOX_USER_CHECK_NULL(
       arrowArray.dictionary,
       "Dictionary encoded arrowArrays not supported yet.");
-  VELOX_USER_CHECK(
-      (arrowArray.n_children == 0) && (arrowArray.children == nullptr),
-      "Only flat buffers are supported for now.");
   VELOX_USER_CHECK_EQ(
       arrowArray.offset,
       0,
@@ -661,9 +698,12 @@ VectorPtr importFromArrowImpl(
 
   // First parse and generate a Velox type.
   auto type = importFromArrow(arrowSchema);
+
+  // Only primitive types and row/struct supported for now.
   VELOX_CHECK(
-      type->isPrimitiveType(),
-      "Only conversion of primitive types is supported for now.");
+      type->isPrimitiveType() || type->isRow(),
+      "Conversion of '{}' from arrow not supported yet.",
+      type->toString());
 
   // Wrap the nulls buffer into a Velox BufferView (zero-copy). Null buffer size
   // needs to be at least one bit per element.
@@ -698,6 +738,16 @@ VectorPtr importFromArrowImpl(
         arrowArray.null_count,
         wrapInBufferView);
   }
+  // Row/structs.
+  else if (type->isRow()) {
+    return createRowVector(
+        pool,
+        std::dynamic_pointer_cast<const RowType>(type),
+        nulls,
+        arrowSchema,
+        arrowArray,
+        isViewer);
+  }
   // Other primitive types.
   else {
     // Wrap the values buffer into a Velox BufferView - zero-copy.
@@ -727,7 +777,11 @@ VectorPtr importFromArrowAsViewer(
     const ArrowArray& arrowArray,
     memory::MemoryPool* pool) {
   return importFromArrowImpl(
-      arrowSchema, arrowArray, pool, wrapInBufferViewAsViewer);
+      arrowSchema,
+      arrowArray,
+      pool,
+      /*isViewer=*/true,
+      wrapInBufferViewAsViewer);
 }
 
 VectorPtr importFromArrowAsOwner(
@@ -761,6 +815,7 @@ VectorPtr importFromArrowAsOwner(
       arrowSchema,
       arrowArray,
       pool,
+      /*isViewer=*/false,
       [&schemaReleaser, &arrayReleaser](const void* buffer, size_t length) {
         return wrapInBufferViewAsOwner(
             buffer, length, schemaReleaser, arrayReleaser);

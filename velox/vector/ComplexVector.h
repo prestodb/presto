@@ -45,7 +45,7 @@ class RowVector : public BaseVector {
         childrenSize_(children.size()),
         children_(std::move(children)) {
     // Some columns may not be projected out
-    VELOX_CHECK(children_.size() <= type->size());
+    VELOX_CHECK_LE(children_.size(), type->size());
     const auto* rowType = dynamic_cast<const RowType*>(type.get());
 
     // Check child vector types.
