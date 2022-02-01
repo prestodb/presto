@@ -30,26 +30,114 @@ DecodedVector* decode(DecodedVector& decoder, const BaseVector& vector) {
   return &decoder;
 }
 
+template <bool returnsOptionalValues>
 class ArrayViewTest : public functions::test::FunctionBaseTest {
+  template <typename T>
+  exec::ArrayView<returnsOptionalValues, T> read(
+      exec::VectorReader<Array<T>>& reader,
+      size_t offset) {
+    if constexpr (returnsOptionalValues) {
+      return reader[offset];
+    } else {
+      return reader.readNullFree(offset);
+    }
+  }
+
  protected:
+  // What value to use for NULL in the test data.  If the view type is
+  // not returnsOptionalValues, we use 0 as an arbitrary value.
+  std::optional<int64_t> nullValue =
+      returnsOptionalValues ? std::nullopt : std::make_optional(0);
   std::vector<std::vector<std::optional<int64_t>>> arrayDataBigInt = {
       {},
-      {std::nullopt},
-      {std::nullopt, 1},
-      {std::nullopt, std::nullopt, std::nullopt},
+      {nullValue},
+      {nullValue, 1},
+      {nullValue, nullValue, nullValue},
       {0, 1, 2, 4},
       {99, 98},
-      {101, std::nullopt},
-      {10001, 12345676, std::nullopt},
+      {101, nullValue},
+      {10001, 12345676, nullValue},
   };
+
+  void intArrayTest(
+      std::function<void(
+          int,
+          int,
+          typename exec::ArrayView<returnsOptionalValues, int64_t>::Element)>
+          testItem) {
+    auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
+    DecodedVector decoded;
+    exec::VectorReader<Array<int64_t>> reader(
+        decode(decoded, *arrayVector.get()));
+
+    for (auto i = 0; i < arrayVector->size(); i++) {
+      auto arrayView = read(reader, i);
+      auto j = 0;
+
+      // Test iterate loop.
+      for (auto item : arrayView) {
+        testItem(i, j, item);
+        j++;
+      }
+      ASSERT_EQ(j, arrayDataBigInt[i].size());
+
+      // Test iterate loop 2.
+      auto it = arrayView.begin();
+      j = 0;
+      while (it != arrayView.end()) {
+        testItem(i, j, *it);
+        j++;
+        ++it;
+      }
+      ASSERT_EQ(j, arrayDataBigInt[i].size());
+
+      // Test index based loop.
+      for (j = 0; j < arrayView.size(); j++) {
+        testItem(i, j, arrayView[j]);
+      }
+      ASSERT_EQ(j, arrayDataBigInt[i].size());
+
+      // Test loop iterator with <.
+      j = 0;
+      for (it = arrayView.begin(); it < arrayView.end(); it++) {
+        testItem(i, j, *it);
+        j++;
+      }
+      ASSERT_EQ(j, arrayDataBigInt[i].size());
+    }
+  }
+
+  void encodedTest() {
+    std::vector<std::vector<std::optional<int32_t>>> intArray = {
+        {1},
+        {2, 3},
+    };
+    VectorPtr arrayVector = makeNullableArrayVector(intArray);
+    // Wrap in dictionary.
+    auto vectorSize = arrayVector->size();
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(vectorSize, pool_.get());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    // Assign indices such that array is reversed.
+    for (size_t i = 0; i < vectorSize; ++i) {
+      rawIndices[i] = vectorSize - 1 - i;
+    }
+    arrayVector = BaseVector::wrapInDictionary(
+        BufferPtr(nullptr), indices, vectorSize, arrayVector);
+
+    DecodedVector decoded;
+    exec::VectorReader<Array<int32_t>> reader(decode(decoded, *arrayVector));
+
+    ASSERT_EQ(read(reader, 0).size(), 2);
+    ASSERT_EQ(read(reader, 1).size(), 1);
+  }
 };
 
-TEST_F(ArrayViewTest, intArray) {
-  auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
-  DecodedVector decoded;
-  exec::VectorReader<Array<int64_t>> reader(
-      decode(decoded, *arrayVector.get()));
+class NullableArrayViewTest : public ArrayViewTest<true> {};
 
+class NullFreeArrayViewTest : public ArrayViewTest<false> {};
+
+TEST_F(NullableArrayViewTest, intArray) {
   auto testItem = [&](int i, int j, auto item) {
     // Test has_value.
     ASSERT_EQ(arrayDataBigInt[i][j].has_value(), item.has_value());
@@ -67,69 +155,14 @@ TEST_F(ArrayViewTest, intArray) {
     ASSERT_TRUE(item == arrayDataBigInt[i][j]);
   };
 
-  for (auto i = 0; i < arrayVector->size(); i++) {
-    auto arrayView = reader[i];
-    auto j = 0;
-
-    // Test iterate loop.
-    for (auto item : arrayView) {
-      testItem(i, j, item);
-      j++;
-    }
-    ASSERT_EQ(j, arrayDataBigInt[i].size());
-
-    // Test iterate loop 2.
-    auto it = arrayView.begin();
-    j = 0;
-    while (it != arrayView.end()) {
-      testItem(i, j, *it);
-      j++;
-      ++it;
-    }
-    ASSERT_EQ(j, arrayDataBigInt[i].size());
-
-    // Test index based loop.
-    for (j = 0; j < arrayView.size(); j++) {
-      testItem(i, j, arrayView[j]);
-    }
-    ASSERT_EQ(j, arrayDataBigInt[i].size());
-
-    // Test loop iterator with <.
-    j = 0;
-    for (auto it = arrayView.begin(); it < arrayView.end(); it++) {
-      testItem(i, j, *it);
-      j++;
-    }
-    ASSERT_EQ(j, arrayDataBigInt[i].size());
-  }
+  intArrayTest(testItem);
 }
 
-TEST_F(ArrayViewTest, encoded) {
-  std::vector<std::vector<std::optional<int32_t>>> intArray = {
-      {1},
-      {2, 3},
-  };
-  VectorPtr arrayVector = makeNullableArrayVector(intArray);
-  // Wrap in dictionary.
-  auto vectorSize = arrayVector->size();
-  BufferPtr indices =
-      AlignedBuffer::allocate<vector_size_t>(vectorSize, pool_.get());
-  auto rawIndices = indices->asMutable<vector_size_t>();
-  // Assign indices such that array is reversed.
-  for (size_t i = 0; i < vectorSize; ++i) {
-    rawIndices[i] = vectorSize - 1 - i;
-  }
-  arrayVector = BaseVector::wrapInDictionary(
-      BufferPtr(nullptr), indices, vectorSize, arrayVector);
-
-  DecodedVector decoded;
-  exec::VectorReader<Array<int32_t>> reader(decode(decoded, *arrayVector));
-
-  ASSERT_EQ(reader[0].size(), 2);
-  ASSERT_EQ(reader[1].size(), 1);
+TEST_F(NullableArrayViewTest, encoded) {
+  encodedTest();
 }
 
-TEST_F(ArrayViewTest, notNullContainer) {
+TEST_F(NullableArrayViewTest, notNullContainer) {
   auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
   DecodedVector decoded;
   exec::VectorReader<Array<int64_t>> reader(
@@ -149,7 +182,7 @@ TEST_F(ArrayViewTest, notNullContainer) {
   }
 }
 
-TEST_F(ArrayViewTest, arrowOperatorForOptional) {
+TEST_F(NullableArrayViewTest, arrowOperatorForOptional) {
   std::vector<std::vector<StringView>> data = {
       {""_sv, "a"_sv, "aa"_sv, "aaa"_sv},
       {""_sv, "b"_sv, "bb"_sv},
@@ -168,7 +201,7 @@ TEST_F(ArrayViewTest, arrowOperatorForOptional) {
   ASSERT_EQ(totalSize, 6);
 }
 
-TEST_F(ArrayViewTest, itIncrementSafe) {
+TEST_F(NullableArrayViewTest, itIncrementSafe) {
   auto arrayVector = makeNullableArrayVector(arrayDataBigInt);
   DecodedVector decoded;
   exec::VectorReader<Array<int64_t>> reader(
@@ -256,7 +289,7 @@ struct NestedArrayF {
   }
 };
 
-TEST_F(ArrayViewTest, nestedArray) {
+TEST_F(NullableArrayViewTest, nestedArray) {
   registerFunction<NestedArrayF, int64_t, Array<Array<int64_t>>>({"func"});
   std::vector<std::vector<int64_t>> arrayData = {
       {0, 1, 2, 4},
@@ -275,6 +308,18 @@ TEST_F(ArrayViewTest, nestedArray) {
   });
 
   assertEqualVectors(expected, result);
+}
+
+TEST_F(NullFreeArrayViewTest, intArray) {
+  auto testItem = [&](int i, int j, auto item) {
+    ASSERT_TRUE(item == arrayDataBigInt[i][j]);
+  };
+
+  intArrayTest(testItem);
+}
+
+TEST_F(NullFreeArrayViewTest, encoded) {
+  encodedTest();
 }
 
 } // namespace

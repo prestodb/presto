@@ -23,10 +23,13 @@ struct VectorReader;
 
 // Represents an arbitrary number of arguments of the same type with an
 // interface similar to std::vector.
-template <typename T>
+template <bool returnsOptionalValues, typename T>
 class VariadicView {
   using reader_t = VectorReader<T>;
-  using element_t = typename reader_t::exec_in_t;
+  using element_t = typename std::conditional<
+      returnsOptionalValues,
+      typename reader_t::exec_in_t,
+      typename reader_t::exec_null_free_in_t>::type;
 
  public:
   VariadicView(
@@ -34,7 +37,10 @@ class VariadicView {
       vector_size_t offset)
       : readers_(readers), offset_(offset) {}
 
-  using Element = VectorOptionalValueAccessor<reader_t>;
+  using Element = typename std::conditional<
+      returnsOptionalValues,
+      VectorOptionalValueAccessor<reader_t>,
+      element_t>::type;
 
   class Iterator : public IndexBasedIterator<Element, int> {
    public:
@@ -47,11 +53,20 @@ class VariadicView {
           offset_(offset) {}
 
     PointerWrapper<Element> operator->() const {
-      return PointerWrapper(Element{(*readers_)[this->index_].get(), offset_});
+      if constexpr (returnsOptionalValues) {
+        return PointerWrapper(
+            Element{(*readers_)[this->index_].get(), offset_});
+      } else {
+        return PointerWrapper((*readers_)[this->index_]->readNullFree(offset_));
+      }
     }
 
     Element operator*() const {
-      return Element{(*readers_)[this->index_].get(), offset_};
+      if constexpr (returnsOptionalValues) {
+        return Element{(*readers_)[this->index_].get(), offset_};
+      } else {
+        return (*readers_)[this->index_]->readNullFree(offset_);
+      }
     }
 
    protected:
@@ -87,7 +102,7 @@ class VariadicView {
       }
     };
 
-    explicit SkipNullsContainer(const VariadicView<T>* view) : view_(view) {}
+    explicit SkipNullsContainer(const VariadicView* view) : view_(view) {}
 
     SkipNullsIterator<SkipNullsBaseIterator> begin() {
       return SkipNullsIterator<SkipNullsBaseIterator>::initialize(
@@ -105,15 +120,17 @@ class VariadicView {
     }
 
    private:
-    const VariadicView<T>* view_;
+    const VariadicView* view_;
   };
 
   // Returns true if any of the arguments in the vector might have null
   // element.
   bool mayHaveNulls() const {
-    for (const auto* reader : readers_) {
-      if (reader->mayHaveNulls()) {
-        return true;
+    if constexpr (returnsOptionalValues) {
+      for (const auto* reader : readers_) {
+        if (reader->mayHaveNulls()) {
+          return true;
+        }
       }
     }
 
@@ -121,7 +138,11 @@ class VariadicView {
   }
 
   Element operator[](size_t index) const {
-    return Element{(*readers_)[index].get(), offset_};
+    if constexpr (returnsOptionalValues) {
+      return Element{(*readers_)[index].get(), offset_};
+    } else {
+      return (*readers_)[index]->readNullFree(offset_);
+    }
   }
 
   Element at(size_t index) const {
@@ -133,7 +154,14 @@ class VariadicView {
   }
 
   SkipNullsContainer skipNulls() {
-    return SkipNullsContainer{this};
+    if constexpr (returnsOptionalValues) {
+      return SkipNullsContainer{this};
+    }
+
+    VELOX_UNSUPPORTED(
+        "VariadicViews over NULL-free data do not support skipNulls().  It's "
+        "already been checked that this object contains no NULLs, it's more "
+        "efficient to use the standard iterator interface.");
   }
 
  private:

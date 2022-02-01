@@ -20,23 +20,38 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
-namespace {
-
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
+template <bool returnsOptionalValues>
 class VariadicViewTest : public functions::test::FunctionBaseTest {
  protected:
+  using ViewType = exec::VariadicView<returnsOptionalValues, int64_t>;
+
+  // What value to use for NULL in the test data.  If the view type is
+  // not returnsOptionalValues, we use 0 as an arbitrary value.
+  std::optional<int64_t> nullValue =
+      returnsOptionalValues ? std::nullopt : std::make_optional(0);
   std::vector<std::vector<std::optional<int64_t>>> bigIntVectors = {
-      {std::nullopt, std::nullopt, std::nullopt},
+      {nullValue, nullValue, nullValue},
       {0, 1, 2},
-      {99, 98, std::nullopt},
-      {101, std::nullopt, 102},
-      {std::nullopt, 10001, 12345676},
-      {std::nullopt, std::nullopt, 3},
-      {std::nullopt, 4, std::nullopt},
-      {5, std::nullopt, std::nullopt},
+      {99, 98, nullValue},
+      {101, nullValue, 102},
+      {nullValue, 10001, 12345676},
+      {nullValue, nullValue, 3},
+      {nullValue, 4, nullValue},
+      {5, nullValue, nullValue},
   };
+
+  ViewType read(exec::VectorReader<Variadic<int64_t>>& reader, size_t offset) {
+    if constexpr (returnsOptionalValues) {
+      return reader[offset];
+    } else {
+      return reader.readNullFree(offset);
+    }
+  }
+
+  virtual void testItem(int row, int arg, typename ViewType::Element item) = 0;
 
   void testVariadicView(const std::vector<VectorPtr>& additionalVectors = {}) {
     std::vector<VectorPtr> vectors(
@@ -51,26 +66,8 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     size_t startIndex = additionalVectors.size();
     VectorReader<Variadic<int64_t>> reader(args, startIndex);
 
-    auto testItem = [&](int row, int arg, auto item) {
-      // Test has_value.
-      ASSERT_EQ(bigIntVectors[arg][row].has_value(), item.has_value());
-
-      // Test bool implicit cast.
-      ASSERT_EQ(bigIntVectors[arg][row].has_value(), static_cast<bool>(item));
-
-      if (bigIntVectors[arg][row].has_value()) {
-        // Test * operator.
-        ASSERT_EQ(bigIntVectors[arg][row].value(), *item);
-
-        // Test value().
-        ASSERT_EQ(bigIntVectors[arg][row].value(), item.value());
-      }
-      // Test == with std::optional
-      ASSERT_EQ(item, bigIntVectors[arg][row]);
-    };
-
     for (auto row = 0; row < vectors[0]->size(); ++row) {
-      auto variadicView = reader[row];
+      auto variadicView = read(reader, row);
       auto arg = 0;
 
       // Test iterate loop.
@@ -107,11 +104,38 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
   }
 };
 
-TEST_F(VariadicViewTest, variadicInt) {
+class NullableVariadicViewTest : public VariadicViewTest<true> {
+ public:
+  void testItem(int row, int arg, typename ViewType::Element item) override {
+    // Test has_value.
+    ASSERT_EQ(bigIntVectors[arg][row].has_value(), item.has_value());
+
+    // Test bool implicit cast.
+    ASSERT_EQ(bigIntVectors[arg][row].has_value(), static_cast<bool>(item));
+
+    if (bigIntVectors[arg][row].has_value()) {
+      // Test * operator.
+      ASSERT_EQ(bigIntVectors[arg][row].value(), *item);
+
+      // Test value().
+      ASSERT_EQ(bigIntVectors[arg][row].value(), item.value());
+    }
+    // Test == with std::optional
+    ASSERT_EQ(item, bigIntVectors[arg][row]);
+  }
+};
+
+class NullFreeVariadicViewTest : public VariadicViewTest<false> {
+  void testItem(int row, int arg, typename ViewType::Element item) override {
+    ASSERT_EQ(item, bigIntVectors[arg][row]);
+  }
+};
+
+TEST_F(NullableVariadicViewTest, variadicInt) {
   testVariadicView();
 }
 
-TEST_F(VariadicViewTest, variadicIntMoreArgs) {
+TEST_F(NullableVariadicViewTest, variadicIntMoreArgs) {
   // Test accessing Variadic args when there are other args before it.
   testVariadicView(
       {makeNullableFlatVector(std::vector<std::optional<int64_t>>{-1, -2, -3}),
@@ -121,7 +145,7 @@ TEST_F(VariadicViewTest, variadicIntMoreArgs) {
            std::nullopt, std::nullopt, std::nullopt})});
 }
 
-TEST_F(VariadicViewTest, notNullContainer) {
+TEST_F(NullableVariadicViewTest, notNullContainer) {
   std::vector<VectorPtr> vectors;
   for (const auto& vector : bigIntVectors) {
     vectors.emplace_back(makeNullableFlatVector(vector));
@@ -146,6 +170,20 @@ TEST_F(VariadicViewTest, notNullContainer) {
   }
 }
 
+TEST_F(NullFreeVariadicViewTest, variadicInt) {
+  testVariadicView();
+}
+
+TEST_F(NullFreeVariadicViewTest, variadicIntMoreArgs) {
+  // Test accessing Variadic args when there are other args before it.
+  testVariadicView(
+      {makeNullableFlatVector(std::vector<std::optional<int64_t>>{-1, -2, -3}),
+       makeNullableFlatVector(
+           std::vector<std::optional<int64_t>>{-4, std::nullopt, -6}),
+       makeNullableFlatVector(std::vector<std::optional<int64_t>>{
+           std::nullopt, std::nullopt, std::nullopt})});
+}
+
 const auto null = "null"_sv;
 const auto callPrefix = "call "_sv;
 const auto callNullablePrefix = "callNullable "_sv;
@@ -153,7 +191,7 @@ const auto callAsciiPrefix = "callAscii "_sv;
 
 void writeInputToOutput(
     StringProxy<>& out,
-    const VariadicView<Varchar>* inputs) {
+    const VariadicView<true, Varchar>* inputs) {
   for (const auto& input : *inputs) {
     out += input.has_value() ? input.value() : null;
   }
@@ -173,7 +211,7 @@ struct VariadicArgsReaderFunction {
   }
 };
 
-TEST_F(VariadicViewTest, variadicArgsReader) {
+TEST_F(NullableVariadicViewTest, basic) {
   registerFunction<VariadicArgsReaderFunction, Varchar, Variadic<Varchar>>(
       {"variadic_args_reader_func"});
 
@@ -189,7 +227,7 @@ TEST_F(VariadicViewTest, variadicArgsReader) {
   ASSERT_EQ(result->valueAt(2).getString(), "cfz");
 }
 
-TEST_F(VariadicViewTest, variadicArgsReaderNoArgs) {
+TEST_F(NullableVariadicViewTest, noArgs) {
   registerFunction<VariadicArgsReaderFunction, Varchar, Variadic<Varchar>>(
       {"variadic_args_reader_func"});
 
@@ -201,7 +239,7 @@ TEST_F(VariadicViewTest, variadicArgsReaderNoArgs) {
   ASSERT_EQ(result->valueAt(2).getString(), "");
 }
 
-TEST_F(VariadicViewTest, variadicArgsReaderWithNull) {
+TEST_F(NullableVariadicViewTest, withNull) {
   registerFunction<VariadicArgsReaderFunction, Varchar, Variadic<Varchar>>(
       {"variadic_args_reader_func"});
 
@@ -254,7 +292,7 @@ struct VariadicArgsReaderWithNullsFunction {
   }
 };
 
-TEST_F(VariadicViewTest, variadicArgsReaderCallNullable) {
+TEST_F(NullableVariadicViewTest, callNullable) {
   registerFunction<
       VariadicArgsReaderWithNullsFunction,
       Varchar,
@@ -278,7 +316,9 @@ TEST_F(VariadicViewTest, variadicArgsReaderCallNullable) {
   ASSERT_EQ(result->valueAt(2).getString(), "callNullable cfnull");
 }
 
-TEST_F(VariadicViewTest, variadicArgsReaderCallNullableNullVariadicArgs) {
+TEST_F(
+    NullableVariadicViewTest,
+    variadicArgsReaderCallNullableNullVariadicArgs) {
   registerFunction<
       VariadicArgsReaderWithNullsFunction,
       Varchar,
@@ -302,7 +342,7 @@ TEST_F(VariadicViewTest, variadicArgsReaderCallNullableNullVariadicArgs) {
   ASSERT_EQ(result->valueAt(2).getString(), "callNullable cfnull");
 }
 
-TEST_F(VariadicViewTest, variadicArgsReaderCallNullableNoNulls) {
+TEST_F(NullableVariadicViewTest, callNullableNoNulls) {
   registerFunction<
       VariadicArgsReaderWithNullsFunction,
       Varchar,
@@ -349,7 +389,7 @@ struct VariadicArgsReaderWithAsciiFunction {
   }
 };
 
-TEST_F(VariadicViewTest, variadicArgsReaderCallNonAscii) {
+TEST_F(NullableVariadicViewTest, callNonAscii) {
   registerFunction<
       VariadicArgsReaderWithAsciiFunction,
       Varchar,
@@ -369,7 +409,7 @@ TEST_F(VariadicViewTest, variadicArgsReaderCallNonAscii) {
   ASSERT_EQ(result->valueAt(2).getString(), "call cfζ");
 }
 
-TEST_F(VariadicViewTest, variadicArgsReaderCallAscii) {
+TEST_F(NullableVariadicViewTest, callAscii) {
   registerFunction<
       VariadicArgsReaderWithAsciiFunction,
       Varchar,
@@ -388,4 +428,3 @@ TEST_F(VariadicViewTest, variadicArgsReaderCallAscii) {
   ASSERT_EQ(result->valueAt(1).getString(), "callAscii bey");
   ASSERT_EQ(result->valueAt(2).getString(), "callAscii cfz");
 }
-} // namespace

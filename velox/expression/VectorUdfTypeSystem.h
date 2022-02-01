@@ -52,7 +52,8 @@ struct resolver {
 
 template <typename K, typename V>
 struct resolver<Map<K, V>> {
-  using in_type = MapView<K, V>;
+  using in_type = MapView<true, K, V>;
+  using null_free_in_type = MapView<false, K, V>;
   using out_type = core::SlowMapWriter<
       typename resolver<K>::out_type,
       typename resolver<V>::out_type>;
@@ -60,13 +61,15 @@ struct resolver<Map<K, V>> {
 
 template <typename... T>
 struct resolver<Row<T...>> {
-  using in_type = RowView<T...>;
+  using in_type = RowView<true, T...>;
+  using null_free_in_type = RowView<false, T...>;
   using out_type = core::RowWriter<typename resolver<T>::out_type...>;
 };
 
 template <typename V>
 struct resolver<Array<V>> {
-  using in_type = ArrayView<V>;
+  using in_type = ArrayView<true, V>;
+  using null_free_in_type = ArrayView<false, V>;
   using out_type = core::ArrayValWriter<typename resolver<V>::out_type>;
 };
 
@@ -95,7 +98,8 @@ struct resolver<std::shared_ptr<T>> {
 
 template <typename T>
 struct resolver<Variadic<T>> {
-  using in_type = VariadicView<T>;
+  using in_type = VariadicView<true, T>;
+  using null_free_in_type = VariadicView<false, T>;
   // Variadic cannot be used as an out_type
 };
 
@@ -173,6 +177,10 @@ struct VectorWriter {
 template <typename T>
 struct VectorReader {
   using exec_in_t = typename VectorExec::template resolver<T>::in_type;
+  // Types without views cannot contain null, they can only be null, so they're
+  // in_type is already null_free.
+  using exec_null_free_in_t =
+      typename VectorExec::template resolver<T>::in_type;
 
   explicit VectorReader(const DecodedVector* decoded) : decoded_(*decoded) {}
 
@@ -181,6 +189,10 @@ struct VectorReader {
 
   exec_in_t operator[](size_t offset) const {
     return decoded_.template valueAt<exec_in_t>(offset);
+  }
+
+  exec_null_free_in_t readNullFree(size_t offset) const {
+    return decoded_.template valueAt<exec_null_free_in_t>(offset);
   }
 
   bool isSet(size_t offset) const {
@@ -297,6 +309,8 @@ template <typename K, typename V>
 struct VectorReader<Map<K, V>> {
   using in_vector_t = typename TypeToFlatVector<Map<K, V>>::type;
   using exec_in_t = typename VectorExec::template resolver<Map<K, V>>::in_type;
+  using exec_null_free_in_t =
+      typename VectorExec::template resolver<Map<K, V>>::null_free_in_type;
 
   explicit VectorReader(const DecodedVector* decoded)
       : decoded_{*decoded},
@@ -311,7 +325,12 @@ struct VectorReader<Map<K, V>> {
 
   exec_in_t operator[](size_t offset) const {
     auto index = decoded_.index(offset);
-    return MapView{&keyReader_, &valReader_, offsets_[index], lengths_[index]};
+    return {&keyReader_, &valReader_, offsets_[index], lengths_[index]};
+  }
+
+  exec_null_free_in_t readNullFree(size_t offset) const {
+    auto index = decoded_.index(offset);
+    return {&keyReader_, &valReader_, offsets_[index], lengths_[index]};
   }
 
   bool isSet(size_t offset) const {
@@ -333,6 +352,8 @@ template <typename V>
 struct VectorReader<Array<V>> {
   using in_vector_t = typename TypeToFlatVector<Array<V>>::type;
   using exec_in_t = typename VectorExec::template resolver<Array<V>>::in_type;
+  using exec_null_free_in_t =
+      typename VectorExec::template resolver<Array<V>>::null_free_in_type;
   using exec_in_child_t = typename VectorExec::template resolver<V>::in_type;
 
   explicit VectorReader(const DecodedVector* decoded)
@@ -352,7 +373,12 @@ struct VectorReader<Array<V>> {
 
   exec_in_t operator[](size_t offset) const {
     auto index = decoded_.index(offset);
-    return ArrayView{&childReader_, offsets_[index], lengths_[index]};
+    return {&childReader_, offsets_[index], lengths_[index]};
+  }
+
+  exec_null_free_in_t readNullFree(size_t offset) const {
+    auto index = decoded_.index(offset);
+    return {&childReader_, offsets_[index], lengths_[index]};
   }
 
   DecodedVector arrayValuesDecoder_;
@@ -524,6 +550,8 @@ template <typename... T>
 struct VectorReader<Row<T...>> {
   using in_vector_t = typename TypeToFlatVector<Row<T...>>::type;
   using exec_in_t = typename VectorExec::resolver<Row<T...>>::in_type;
+  using exec_null_free_in_t =
+      typename VectorExec::template resolver<Row<T...>>::null_free_in_type;
 
   explicit VectorReader(const DecodedVector* decoded)
       : decoded_(*decoded),
@@ -535,7 +563,12 @@ struct VectorReader<Row<T...>> {
 
   exec_in_t operator[](size_t offset) const {
     auto index = decoded_.index(offset);
-    return RowView{&childReaders_, index};
+    return {&childReaders_, index};
+  }
+
+  exec_null_free_in_t readNullFree(size_t offset) const {
+    auto index = decoded_.index(offset);
+    return {&childReaders_, index};
   }
 
   bool isSet(size_t offset) const {
@@ -684,13 +717,19 @@ struct VectorWriter<Row<T...>> {
 template <typename T>
 struct VectorReader<Variadic<T>> {
   using in_vector_t = typename TypeToFlatVector<T>::type;
-  using exec_in_t = VariadicView<T>;
+  using exec_in_t = typename VectorExec::resolver<Variadic<T>>::in_type;
+  using exec_null_free_in_t =
+      typename VectorExec::template resolver<Variadic<T>>::null_free_in_type;
 
   explicit VectorReader(const DecodedArgs& decodedArgs, int32_t startPosition)
       : childReaders_{prepareChildReaders(decodedArgs, startPosition)} {}
 
   exec_in_t operator[](vector_size_t offset) const {
-    return VariadicView<T>{&childReaders_, offset};
+    return {&childReaders_, offset};
+  }
+
+  exec_null_free_in_t readNullFree(vector_size_t offset) const {
+    return {&childReaders_, offset};
   }
 
   bool isSet(size_t /*unused*/) const {

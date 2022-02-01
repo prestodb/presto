@@ -194,10 +194,6 @@ class SkipNullsIterator {
   const BaseIterator end_;
 };
 
-// TODO: evaluate wrapping primitives with lazy access using benchmarks
-template <typename T>
-using VectorValueAccessor = typename T::exec_in_t;
-
 // Given a vectorReader T, this class represents a lazy access optional wrapper
 // around an element in the vectorReader with interface similar to
 // std::optional<T::exec_in_t>. This is used to represent elements of ArrayView
@@ -268,16 +264,16 @@ class VectorOptionalValueAccessor {
   // Index of element within the reader.
   int64_t index_;
 
-  template <typename V>
+  template <bool nullable, typename V>
   friend class ArrayView;
 
-  template <typename K, typename V>
+  template <bool nullable, typename K, typename V>
   friend class MapView;
 
-  template <typename... U>
+  template <bool nullable, typename... U>
   friend class RowView;
 
-  template <typename U>
+  template <bool nullable, typename U>
   friend class VariadicView;
 };
 
@@ -383,16 +379,25 @@ operator!=(const VectorOptionalValueAccessor<U>& lhs, const T& rhs) {
 }
 
 // Represents an array of elements with an interface similar to std::vector.
-template <typename V>
+// When returnsOptionalValues is true, the interface is like
+// std::vector<std::optional<V>>.
+// When returnsOptionalValues is false, the interface is like std::vector<V>.
+template <bool returnsOptionalValues, typename V>
 class ArrayView {
   using reader_t = VectorReader<V>;
-  using element_t = typename reader_t::exec_in_t;
+  using element_t = typename std::conditional<
+      returnsOptionalValues,
+      typename reader_t::exec_in_t,
+      typename reader_t::exec_null_free_in_t>::type;
 
  public:
   ArrayView(const reader_t* reader, vector_size_t offset, vector_size_t size)
       : reader_(reader), offset_(offset), size_(size) {}
 
-  using Element = VectorOptionalValueAccessor<reader_t>;
+  using Element = typename std::conditional<
+      returnsOptionalValues,
+      VectorOptionalValueAccessor<reader_t>,
+      element_t>::type;
 
   class Iterator : public IndexBasedIterator<Element, vector_size_t> {
    public:
@@ -400,11 +405,19 @@ class ArrayView {
         : IndexBasedIterator<Element, vector_size_t>(index), reader_(reader) {}
 
     PointerWrapper<Element> operator->() const {
-      return PointerWrapper(Element{reader_, this->index_});
+      if constexpr (returnsOptionalValues) {
+        return PointerWrapper(Element{reader_, this->index_});
+      } else {
+        return PointerWrapper(reader_->readNullFree(this->index_));
+      }
     }
 
     Element operator*() const {
-      return Element{reader_, this->index_};
+      if constexpr (returnsOptionalValues) {
+        return Element{reader_, this->index_};
+      } else {
+        return reader_->readNullFree(this->index_);
+      }
     }
 
    protected:
@@ -458,11 +471,19 @@ class ArrayView {
   // Returns true if any of the arrayViews in the vector might have null
   // element.
   bool mayHaveNulls() const {
-    return reader_->mayHaveNulls();
+    if constexpr (returnsOptionalValues) {
+      return reader_->mayHaveNulls();
+    } else {
+      return false;
+    }
   }
 
   Element operator[](vector_size_t index) const {
-    return Element{reader_, index + offset_};
+    if constexpr (returnsOptionalValues) {
+      return Element{reader_, index + offset_};
+    } else {
+      return reader_->readNullFree(index + offset_);
+    }
   }
 
   Element at(vector_size_t index) const {
@@ -474,7 +495,14 @@ class ArrayView {
   }
 
   SkipNullsContainer skipNulls() const {
-    return SkipNullsContainer{this};
+    if constexpr (returnsOptionalValues) {
+      return SkipNullsContainer{this};
+    }
+
+    VELOX_UNSUPPORTED(
+        "ArrayViews over NULL-free data do not support skipNulls().  It's "
+        "already been checked that this object contains no NULLs, it's more "
+        "efficient to use the standard iterator interface.");
   }
 
  private:
@@ -485,7 +513,10 @@ class ArrayView {
 
 // This class is used to represent map inputs in simple functions with an
 // interface similar to std::map.
-template <typename K, typename V>
+// When returnsOptionalValues is true, the interface is like std::map<K,
+// std::optional<V>>.
+// When returnsOptionalValues is false, the interface is like std::map<K, V>.
+template <bool returnsOptionalValues, typename K, typename V>
 class MapView {
  public:
   using key_reader_t = VectorReader<K>;
@@ -502,8 +533,15 @@ class MapView {
         offset_(offset),
         size_(size) {}
 
-  using ValueAccessor = VectorOptionalValueAccessor<value_reader_t>;
-  using KeyAccessor = VectorValueAccessor<key_reader_t>;
+  using ValueAccessor = typename std::conditional<
+      returnsOptionalValues,
+      VectorOptionalValueAccessor<value_reader_t>,
+      typename value_reader_t::exec_null_free_in_t>::type;
+
+  using KeyAccessor = typename std::conditional<
+      returnsOptionalValues,
+      typename key_reader_t::exec_in_t,
+      typename key_reader_t::exec_null_free_in_t>::type;
 
   class Element {
    public:
@@ -511,7 +549,8 @@ class MapView {
         const key_reader_t* keyReader,
         const value_reader_t* valueReader,
         int64_t index)
-        : first((*keyReader)[index]), second(valueReader, index) {}
+        : first(getFirst(keyReader, index)),
+          second(getSecond(valueReader, index)) {}
     const KeyAccessor first;
     const ValueAccessor second;
 
@@ -529,6 +568,25 @@ class MapView {
     template <typename T>
     bool operator!=(const T& other) const {
       return !(*this == other);
+    }
+
+   private:
+    // Helper functions to allow us to use "if constexpr" when initializing the
+    // values.
+    KeyAccessor getFirst(const key_reader_t* keyReader, int64_t index) {
+      if constexpr (returnsOptionalValues) {
+        return (*keyReader)[index];
+      } else {
+        return keyReader->readNullFree(index);
+      }
+    }
+
+    ValueAccessor getSecond(const value_reader_t* valueReader, int64_t index) {
+      if constexpr (returnsOptionalValues) {
+        return ValueAccessor(valueReader, index);
+      } else {
+        return valueReader->readNullFree(index);
+      }
     }
   };
 
@@ -590,12 +648,16 @@ class MapView {
   vector_size_t size_;
 };
 
-template <typename... T>
+template <bool returnsOptionalValues, typename... T>
 class RowView {
   using reader_t = std::tuple<std::unique_ptr<VectorReader<T>>...>;
   template <size_t N>
-  using elem_n_t = VectorOptionalValueAccessor<
-      typename std::tuple_element<N, reader_t>::type::element_type>;
+  using elem_n_t = typename std::conditional<
+      returnsOptionalValues,
+      VectorOptionalValueAccessor<
+          typename std::tuple_element<N, reader_t>::type::element_type>,
+      typename std::tuple_element<N, reader_t>::type::element_type::
+          exec_null_free_in_t>::type;
 
  public:
   RowView(const reader_t* childReaders, vector_size_t offset)
@@ -603,7 +665,11 @@ class RowView {
 
   template <size_t N>
   elem_n_t<N> at() const {
-    return elem_n_t<N>{std::get<N>(*childReaders_).get(), offset_};
+    if constexpr (returnsOptionalValues) {
+      return elem_n_t<N>{std::get<N>(*childReaders_).get(), offset_};
+    } else {
+      return std::get<N>(*childReaders_)->readNullFree(offset_);
+    }
   }
 
  private:
@@ -611,8 +677,8 @@ class RowView {
   vector_size_t offset_;
 };
 
-template <size_t I, class... Types>
-auto get(const RowView<Types...>& row) {
+template <size_t I, bool returnsOptionalValues, class... Types>
+auto get(const RowView<returnsOptionalValues, Types...>& row) {
   return row.template at<I>();
 }
 
