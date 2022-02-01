@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.Failures.checkArgument;
 
 /**
  * Verifies that input of streaming aggregations is grouped on the grouping keys
