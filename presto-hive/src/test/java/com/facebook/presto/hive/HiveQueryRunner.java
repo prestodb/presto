@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -26,20 +25,20 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchTable;
-import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -53,12 +52,8 @@ import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
+import static com.facebook.presto.tests.QueryAssertions.copyTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.units.Duration.nanosSince;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public final class HiveQueryRunner
@@ -76,6 +71,8 @@ public final class HiveQueryRunner
     public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+
+    private static List<String> tpchTables;
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -187,14 +184,15 @@ public final class HiveQueryRunner
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
+            setupTpchTables(tables);
             if (!metastore.getDatabase(METASTORE_CONTEXT, TPCH_SCHEMA).isPresent()) {
                 metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TPCH_SCHEMA));
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
+                copyTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tpchTables, true, false);
             }
 
             if (!metastore.getDatabase(METASTORE_CONTEXT, TPCH_BUCKETED_SCHEMA).isPresent()) {
                 metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
+                copyTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tpchTables, true, true);
             }
 
             if (!metastore.getDatabase(METASTORE_CONTEXT, TEMPORARY_TABLE_SCHEMA).isPresent()) {
@@ -207,6 +205,13 @@ public final class HiveQueryRunner
             queryRunner.close();
             throw e;
         }
+    }
+
+    private static void setupTpchTables(Iterable<TpchTable<?>> tables)
+    {
+        ImmutableList.Builder<String> tpchtableNames = ImmutableList.builder();
+        tables.forEach(table -> tpchtableNames.add(table.getTableName().toLowerCase(Locale.ENGLISH)));
+        tpchTables = tpchtableNames.build();
     }
 
     public static DistributedQueryRunner createMaterializingQueryRunner(Iterable<TpchTable<?>> tables)
@@ -316,50 +321,6 @@ public final class HiveQueryRunner
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
-    }
-
-    public static void copyTpchTablesBucketed(
-            QueryRunner queryRunner,
-            String sourceCatalog,
-            String sourceSchema,
-            Session session,
-            Iterable<TpchTable<?>> tables)
-    {
-        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
-        long startTime = System.nanoTime();
-        for (TpchTable<?> table : tables) {
-            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), session);
-        }
-        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
-    }
-
-    private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName table, Session session)
-    {
-        long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
-        @Language("SQL") String sql;
-        switch (table.getObjectName()) {
-            case "part":
-            case "partsupp":
-            case "supplier":
-            case "nation":
-            case "region":
-                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
-                break;
-            case "lineitem":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
-                break;
-            case "customer":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
-                break;
-            case "orders":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
-                break;
-            default:
-                throw new UnsupportedOperationException();
-        }
-        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public static void main(String[] args)
