@@ -364,5 +364,105 @@ TEST_F(ArrayProxyTest, testVarBinary) {
   }
 }
 
+TEST_F(ArrayProxyTest, nestedArray) {
+  auto elementType =
+      ArrayType(std::make_shared<ArrayType>(ArrayType(INTEGER())));
+  auto result = prepareResult(std::make_shared<ArrayType>(elementType));
+
+  exec::VectorWriter<ArrayProxyT<ArrayProxyT<int32_t>>> writer;
+  writer.init(*result.get()->as<ArrayVector>());
+  writer.setOffset(0);
+  auto& arrayProxy = writer.current();
+  // Only general interface is allowed for nested arrays.
+  {
+    auto& array = arrayProxy.add_item();
+    array.resize(2);
+    array[0] = 1;
+    array[1] = 2;
+  }
+
+  arrayProxy.add_null();
+
+  {
+    auto& array = arrayProxy.add_item();
+    array.resize(3);
+    array[0] = 1;
+    array[1] = std::nullopt;
+    array[2] = 2;
+  }
+
+  writer.commit();
+  using array_type = std::optional<std::vector<std::optional<int32_t>>>;
+  array_type array1 = {{1, 2}};
+  array_type array2 = std::nullopt;
+  array_type array3 = {{1, std::nullopt, 2}};
+
+  assertEqualVectors(
+      result, makeNestedArrayVector<int32_t>({{array1, array2, array3}}));
+}
+
+// Creates a matrix of size n*n with numbers 1 to n^2-1 for every input n,
+// and nulls in the diagonal.
+template <typename T>
+struct MakeMatrixFunc {
+  template <typename TOut>
+  bool call(TOut& out, const int64_t& n) {
+    int count = 0;
+    for (auto i = 0; i < n; i++) {
+      auto& matrixRow = out.add_item();
+      matrixRow.resize(n);
+      for (auto j = 0; j < n; j++) {
+        if (i == j) {
+          matrixRow[j] = std::nullopt;
+        } else {
+          matrixRow[j] = count;
+        }
+        count++;
+      }
+    }
+    VELOX_DCHECK(count == n * n);
+    return true;
+  }
+};
+
+TEST_F(ArrayProxyTest, nestedArrayE2E) {
+  registerFunction<MakeMatrixFunc, ArrayProxyT<ArrayProxyT<int64_t>>, int64_t>(
+      {"func"});
+
+  auto result = evaluate(
+      "func(c0)",
+      makeRowVector(
+          {makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})}));
+
+  // Build the expected output.
+  using matrix_row = std::vector<std::optional<int64_t>>;
+  using matrix_type = std::vector<std::optional<matrix_row>>;
+  std::vector<matrix_type> expected;
+  for (auto k = 1; k <= 10; k++) {
+    auto& expectedMatrix = *expected.insert(expected.end(), matrix_type());
+    auto n = k;
+    int count = 0;
+
+    // This is the same loop from NestedArrayFunc.
+    for (auto i = 0; i < n; i++) {
+      // The only line that is different from NestedArrayFunc.
+      auto& matrixRow =
+          **expectedMatrix.insert(expectedMatrix.end(), matrix_row());
+
+      matrixRow.resize(n);
+      for (auto j = 0; j < n; j++) {
+        if (i == j) {
+          matrixRow[j] = std::nullopt;
+        } else {
+          matrixRow[j] = count;
+        }
+        count++;
+      }
+    }
+  }
+
+  assertEqualVectors(result, makeNestedArrayVector<int64_t>(expected));
+}
+
 } // namespace
 } // namespace facebook::velox

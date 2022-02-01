@@ -465,7 +465,7 @@ struct VectorWriter<ArrayProxyT<V>> {
     if (size > arrayVector_->size()) {
       arrayVector_->resize(size);
       childWriter_.init(
-          static_cast<child_vector_t&>(arrayVector_->elements().get()));
+          static_cast<child_vector_t&>(*arrayVector_->elements()));
     }
   }
 

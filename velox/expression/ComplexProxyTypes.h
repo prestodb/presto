@@ -199,7 +199,7 @@ class ArrayProxy {
 
   void initialize(VectorWriter<ArrayProxyT<V>, void>* writer) {
     childWriter_ = &writer->childWriter_;
-    elementsVector_ = childWriter_->vector_;
+    elementsVector_ = &childWriter_->vector();
     childWriter_->ensureSize(1);
     elementsVectorCapacity_ = elementsVector_->size();
   }
