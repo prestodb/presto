@@ -669,17 +669,17 @@ VectorPtr importFromArrowImpl(
   // needs to be at least one bit per element.
   BufferPtr nulls = nullptr;
 
-  // If either greater than zero or -1 (unknown).
+  // If null_count is greater than zero or -1 (unknown), nulls buffer has to
+  // present.
+  // Otherwise, when null_count is zero, it's legit for the arrow array to have
+  // non-null nulls buffer, in that case the converted Velox vector will not
+  // have null buffer.
   if (arrowArray.null_count != 0) {
     VELOX_USER_CHECK_NOT_NULL(
         arrowArray.buffers[0],
         "Nulls buffer can't be null unless null_count is zero.");
     nulls = wrapInBufferView(
         arrowArray.buffers[0], bits::nbytes(arrowArray.length));
-  } else {
-    VELOX_USER_CHECK_NULL(
-        arrowArray.buffers[0],
-        "Nulls buffer must be nullptr when null_count is zero.");
   }
 
   // String data types (VARCHAR and VARBINARY).

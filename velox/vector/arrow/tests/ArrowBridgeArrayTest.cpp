@@ -470,7 +470,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
       }
     }
 
-    holder.buffers[0] = (nullCount == 0) ? nullptr : (const void*)rawNulls;
+    holder.buffers[0] = (length == 0) ? nullptr : (const void*)rawNulls;
     holder.buffers[1] = (length == 0) ? nullptr : (const void*)rawValues;
     return makeArrowArray(holder.buffers, 2, length, nullCount);
   }
@@ -518,7 +518,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
       }
     }
 
-    holder.buffers[0] = (nullCount == 0) ? nullptr : (const void*)rawNulls;
+    holder.buffers[0] = (length == 0) ? nullptr : (const void*)rawNulls;
     return makeArrowArray(holder.buffers, 3, length, nullCount);
   }
 
@@ -589,6 +589,44 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     testArrowImport<double>("g", {std::nullopt});
     testArrowImport<double>("g", {-99.9, 4.3, 31.1, 129.11, -12});
     testArrowImport<float>("f", {-99.9, 4.3, 31.1, 129.11, -12});
+  }
+
+  void testImportWithoutNullsBuffer() {
+    std::vector<std::optional<int64_t>> inputValues = {1, 2, 3, 4, 5};
+    auto length = inputValues.size();
+
+    // Construct Arrow array without nulls value and nulls buffer
+    ArrowContextHolder holder1;
+    holder1.values = AlignedBuffer::allocate<int64_t>(length, pool_.get());
+    auto rawValues1 = holder1.values->asMutable<int64_t>();
+    for (size_t i = 0; i < length; ++i) {
+      rawValues1[i] = *inputValues[i];
+    }
+
+    holder1.buffers[0] = nullptr;
+    holder1.buffers[1] = (const void*)rawValues1;
+    auto arrowArray1 = makeArrowArray(holder1.buffers, 2, length, 0);
+    auto arrowSchema1 = makeArrowSchema("l");
+
+    auto output = importFromArrow(arrowSchema1, arrowArray1, pool_.get());
+    assertVectorContent(inputValues, output, arrowArray1.null_count);
+
+    // However, convert from an Arrow array without nulls buffer but non-zero
+    // null count should fail
+    ArrowContextHolder holder2;
+    holder2.values = AlignedBuffer::allocate<int64_t>(length, pool_.get());
+    auto rawValues2 = holder2.values->asMutable<int64_t>();
+    for (size_t i = 0; i < length; ++i) {
+      rawValues2[i] = *inputValues[i];
+    }
+
+    holder2.buffers[0] = nullptr;
+    holder2.buffers[1] = (const void*)rawValues2;
+    auto arrowSchema2 = makeArrowSchema("l");
+    auto arrowArray2 = makeArrowArray(holder2.buffers, 2, length, 1);
+    EXPECT_THROW(
+        importFromArrow(arrowSchema2, arrowArray2, pool_.get()),
+        VeloxUserError);
   }
 
   void testImportString() {
@@ -705,6 +743,10 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, scalar) {
   testImportScalar();
 }
 
+TEST_F(ArrowBridgeArrayImportAsViewerTest, without_nulls_buffer) {
+  testImportWithoutNullsBuffer();
+}
+
 TEST_F(ArrowBridgeArrayImportAsViewerTest, string) {
   testImportString();
 }
@@ -726,6 +768,10 @@ class ArrowBridgeArrayImportAsOwnerTest
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, scalar) {
   testImportScalar();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, without_nulls_buffer) {
+  testImportWithoutNullsBuffer();
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, string) {
