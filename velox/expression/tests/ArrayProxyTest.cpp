@@ -15,12 +15,13 @@
  */
 
 #include <fmt/core.h>
-#include "glog/logging.h"
-#include "gtest/gtest.h"
+#include <glog/logging.h>
+#include <gtest/gtest.h>
 
 #include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/type/StringView.h"
 
 namespace facebook::velox {
 namespace {
@@ -111,7 +112,7 @@ class ArrayProxyTest : public functions::test::FunctionBaseTest {
 
     writer.result =
         prepareResult(std::make_shared<ArrayType>(ArrayType(BIGINT())));
-    writer.writer->init(*writer.result.get()->as<ArrayVector>());
+    writer.writer->init(*writer.result->as<ArrayVector>());
     writer.writer->setOffset(0);
     return writer;
   }
@@ -220,7 +221,7 @@ TEST_F(ArrayProxyTest, multipleRows) {
       std::make_shared<ArrayType>(ArrayType(BIGINT())), expected.size());
 
   exec::VectorWriter<ArrayProxyT<int64_t>> writer;
-  writer.init(*result.get()->as<ArrayVector>());
+  writer.init(*result->as<ArrayVector>());
 
   for (auto i = 0; i < expected.size(); i++) {
     writer.setOffset(i);
@@ -251,7 +252,7 @@ TEST_F(ArrayProxyTest, testTimeStamp) {
       prepareResult(std::make_shared<ArrayType>(ArrayType(TIMESTAMP())));
 
   exec::VectorWriter<ArrayProxyT<Timestamp>> writer;
-  writer.init(*result.get()->as<ArrayVector>());
+  writer.init(*result->as<ArrayVector>());
   writer.setOffset(0);
   auto& arrayProxy = writer.current();
   // General interface.
@@ -277,5 +278,91 @@ TEST_F(ArrayProxyTest, testTimeStamp) {
        Timestamp::fromMillis(3)}};
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
+
+TEST_F(ArrayProxyTest, testVarChar) {
+  auto result =
+      prepareResult(std::make_shared<ArrayType>(ArrayType(VARCHAR())));
+
+  exec::VectorWriter<ArrayProxyT<Varchar>> writer;
+  writer.init(*result->as<ArrayVector>());
+  writer.setOffset(0);
+  auto& arrayProxy = writer.current();
+  // General interface is allowed only for arrays of strings.
+  {
+    auto& string = arrayProxy.add_item();
+    string.resize(2);
+    string.data()[0] = 'h';
+    string.data()[1] = 'i';
+  }
+
+  arrayProxy.add_null();
+
+  {
+    auto& string = arrayProxy.add_item();
+    UDFOutputString::assign(string, "welcome");
+  }
+
+  {
+    auto& string = arrayProxy.add_item();
+    UDFOutputString::assign(
+        string,
+        "test a long string, a bit longer than that, longer, and longer");
+  }
+  writer.commit();
+  auto expected = std::vector<std::vector<std::optional<StringView>>>{
+      {"hi"_sv,
+       std::nullopt,
+       "welcome"_sv,
+       "test a long string, a bit longer than that, longer, and longer"_sv}};
+  assertEqualVectors(result, makeNullableArrayVector(expected));
+}
+
+TEST_F(ArrayProxyTest, testVarBinary) {
+  auto result =
+      prepareResult(std::make_shared<ArrayType>(ArrayType(VARBINARY())));
+
+  exec::VectorWriter<ArrayProxyT<Varbinary>> writer;
+  writer.init(*result->as<ArrayVector>());
+  writer.setOffset(0);
+  auto& arrayProxy = writer.current();
+  // General interface is allowed only for arrays of strings.
+  {
+    auto& string = arrayProxy.add_item();
+    string.resize(2);
+    string.data()[0] = 'h';
+    string.data()[1] = 'i';
+  }
+
+  arrayProxy.add_null();
+
+  {
+    auto& string = arrayProxy.add_item();
+    UDFOutputString::assign(string, "welcome");
+  }
+
+  {
+    auto& string = arrayProxy.add_item();
+    UDFOutputString::assign(
+        string,
+        "test a long string, a bit longer than that, longer, and longer");
+  }
+  writer.commit();
+  auto expected = std::vector<std::vector<std::optional<StringView>>>{
+      {"hi"_sv,
+       std::nullopt,
+       "welcome"_sv,
+       "test a long string, a bit longer than that, longer, and longer"_sv}};
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(result->size());
+  decoded.decode(*result, rows);
+  exec::VectorReader<Array<Varbinary>> reader(&decoded);
+  ASSERT_EQ(reader[0].size(), expected[0].size());
+  for (auto i = 0; i < reader[0].size(); i++) {
+    ASSERT_EQ(reader[0][i], expected[0][i]);
+  }
+}
+
 } // namespace
 } // namespace facebook::velox

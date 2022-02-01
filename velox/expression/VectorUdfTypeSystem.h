@@ -882,7 +882,7 @@ struct VectorWriter<
     std::enable_if_t<
         std::is_same_v<T, Varchar> | std::is_same_v<T, Varbinary>>> {
   using vector_t = typename TypeToFlatVector<T>::type;
-  using proxy_t = StringProxy<FlatVector<StringView>, false>;
+  using exec_out_t = StringProxy<FlatVector<StringView>, false>;
 
   void init(vector_t& vector) {
     vector_ = &vector;
@@ -896,12 +896,12 @@ struct VectorWriter<
 
   VectorWriter() {}
 
-  proxy_t& current() {
-    proxy_ = proxy_t(vector_, offset_);
+  exec_out_t& current() {
+    proxy_ = exec_out_t(vector_, offset_);
     return proxy_;
   }
 
-  void copyCommit(const proxy_t& data) {
+  void copyCommit(const exec_out_t& data) {
     // If not initialized for zero-copy writes, copy the value into the vector.
     if (!proxy_.initialized()) {
       vector_->set(offset_, StringView(data.value()));
@@ -932,7 +932,7 @@ struct VectorWriter<
     return *vector_;
   }
 
-  proxy_t proxy_;
+  exec_out_t proxy_;
   vector_t* vector_;
   size_t offset_ = 0;
 };

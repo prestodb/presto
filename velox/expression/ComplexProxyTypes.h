@@ -17,9 +17,9 @@
 #pragma once
 #include <folly/Likely.h>
 
-#include <velox/common/base/Exceptions.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
+#include "velox/type/Type.h"
 #include "velox/vector/TypeAliases.h"
 #include "velox/vector/VectorTypeUtils.h"
 
@@ -83,11 +83,12 @@ class ArrayProxy {
   using element_t = typename child_writer_t::exec_out_t;
 
  public:
-  static bool constexpr provide_std_interface =
-      CppToType<V>::isPrimitiveType && !std::is_same<Varchar, V>::value;
+  static bool constexpr provide_std_interface = CppToType<V>::isPrimitiveType &&
+      !std::is_same<Varchar, V>::value && !std::is_same<Varbinary, V>::value;
 
   static bool constexpr requires_commit = !CppToType<V>::isPrimitiveType ||
-      std::is_same<Varchar, V>::value || std::is_same<bool, V>::value;
+      std::is_same<Varchar, V>::value || std::is_same<bool, V>::value ||
+      std::is_same<Varbinary, V>::value;
 
   // Note: size is with respect to the current size of this array being written.
   void reserve(vector_size_t size) {
@@ -137,41 +138,45 @@ class ArrayProxy {
     return length_;
   }
 
-  // Functions below provide an std::like interface, and are enabled only when
-  // the array element is primitive that is not string or bool.
-
   // 'size' is with respect to the current size of the array being written.
-  typename std::enable_if<provide_std_interface>::type resize(
-      vector_size_t size) {
+  void resize(vector_size_t size) {
     commitMostRecentChildItem();
     reserve(size);
     length_ = size;
   }
 
-  typename std::enable_if<provide_std_interface>::type push_back(
-      element_t value) {
+  // Functions below provide an std::like interface, and are enabled only when
+  // the array element is primitive that is not string or bool.
+
+  void push_back(element_t value) {
+    static_assert(
+        provide_std_interface, "push_back not allowed for this array");
     resize(length_ + 1);
     back() = value;
   }
 
-  typename std::enable_if<provide_std_interface>::type push_back(
-      std::nullopt_t) {
+  void push_back(std::nullopt_t) {
+    static_assert(
+        provide_std_interface, "push_back not allowed for this array");
     resize(length_ + 1);
     back() = std::nullopt;
   }
 
-  typename std::enable_if<provide_std_interface>::type push_back(
-      const std::optional<element_t>& value) {
+  void push_back(const std::optional<element_t>& value) {
+    static_assert(
+        provide_std_interface, "push_back not allowed for this array");
     resize(length_ + 1);
     back() = value;
   }
 
-  typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<V>>::type
+  template <typename T = V>
+  typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<T>>::type
   operator[](vector_size_t index_) {
     return PrimitiveWriterProxy<V>{elementsVector_, valuesOffset_ + index_};
   }
 
-  typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<V>>::type
+  template <typename T = V>
+  typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<T>>::type
   back() {
     return PrimitiveWriterProxy<V>{
         elementsVector_, valuesOffset_ + length_ - 1};
