@@ -415,11 +415,19 @@ class Task {
       uint32_t splitGroupId,
       const char* FOLLY_NONNULL context);
 
- private:
+  /// Checks that specified plan node ID refers to a source plan node. Throws if
+  /// that's not the case.
+  void checkPlanNodeIdForSplit(const core::PlanNodeId& id) const;
+
   const std::string taskId_;
   core::PlanFragment planFragment_;
   const int destination_;
   std::shared_ptr<core::QueryCtx> queryCtx_;
+
+  /// A set of source plan node IDs. Used to check plan node IDs specified in
+  /// split management methods.
+  const std::unordered_set<core::PlanNodeId> sourcePlanNodeIds_;
+
   // True if produces output via PartitionedOutputBufferManager.
   bool hasPartitionedOutput_ = false;
   // Set to true by PartitionedOutputBufferManager when all output is

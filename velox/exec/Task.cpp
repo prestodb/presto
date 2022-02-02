@@ -28,6 +28,28 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+void collectSourcePlanNodeIds(
+    const core::PlanNode* planNode,
+    std::unordered_set<core::PlanNodeId>& ids) {
+  if (planNode->sources().empty()) {
+    ids.insert(planNode->id());
+  }
+
+  for (const auto& child : planNode->sources()) {
+    collectSourcePlanNodeIds(child.get(), ids);
+  }
+}
+
+std::unordered_set<core::PlanNodeId> collectSourcePlanNodeIds(
+    const std::shared_ptr<const core::PlanNode>& planNode) {
+  std::unordered_set<core::PlanNodeId> ids;
+  collectSourcePlanNodeIds(planNode.get(), ids);
+  return ids;
+}
+
+} // namespace
+
 // The number of splits groups we run concurrently.
 // TODO(spershin): We need to expose this as some kind of setting/parameter.
 static constexpr uint32_t kNumConcurrentSplitGroups = 1;
@@ -59,6 +81,7 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
+      sourcePlanNodeIds_(collectSourcePlanNodeIds(planFragment_.planNode)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
       pool_(queryCtx_->pool()->addScopedChild("task_root")),
@@ -347,6 +370,8 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
 void Task::setMaxSplitSequenceId(
     const core::PlanNodeId& planNodeId,
     long maxSequenceId) {
+  checkPlanNodeIdForSplit(planNodeId);
+
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(state_ == kRunning);
 
@@ -361,6 +386,7 @@ bool Task::addSplitWithSequence(
     const core::PlanNodeId& planNodeId,
     exec::Split&& split,
     long sequenceId) {
+  checkPlanNodeIdForSplit(planNodeId);
   std::unique_ptr<ContinuePromise> promise;
   bool added = false;
   {
@@ -383,6 +409,7 @@ bool Task::addSplitWithSequence(
 }
 
 void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
+  checkPlanNodeIdForSplit(planNodeId);
   std::unique_ptr<ContinuePromise> promise;
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -393,6 +420,13 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
   if (promise) {
     promise->setValue(false);
   }
+}
+
+void Task::checkPlanNodeIdForSplit(const core::PlanNodeId& id) const {
+  VELOX_USER_CHECK(
+      sourcePlanNodeIds_.find(id) != sourcePlanNodeIds_.end(),
+      "Splits can be associated only with source plan nodes. Plan node ID {} doesn't refer to a source node.",
+      id);
 }
 
 std::unique_ptr<ContinuePromise> Task::addSplitLocked(
@@ -429,6 +463,7 @@ std::unique_ptr<ContinuePromise> Task::addSplitToStoreLocked(
 void Task::noMoreSplitsForGroup(
     const core::PlanNodeId& planNodeId,
     int32_t splitGroupId) {
+  checkPlanNodeIdForSplit(planNodeId);
   std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -445,6 +480,7 @@ void Task::noMoreSplitsForGroup(
 }
 
 void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
+  checkPlanNodeIdForSplit(planNodeId);
   std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
