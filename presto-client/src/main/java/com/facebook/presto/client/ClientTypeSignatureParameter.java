@@ -14,6 +14,9 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
@@ -37,6 +40,7 @@ import static java.lang.String.format;
 
 @Immutable
 @JsonDeserialize(using = ClientTypeSignatureParameter.ClientTypeSignatureParameterDeserializer.class)
+@ThriftStruct
 public class ClientTypeSignatureParameter
 {
     private final ParameterKind kind;
@@ -67,6 +71,7 @@ public class ClientTypeSignatureParameter
     }
 
     @JsonCreator
+    @ThriftConstructor
     public ClientTypeSignatureParameter(
             @JsonProperty("kind") ParameterKind kind,
             @JsonProperty("value") Object value)
@@ -76,12 +81,14 @@ public class ClientTypeSignatureParameter
     }
 
     @JsonProperty
+    @ThriftField(1)
     public ParameterKind getKind()
     {
         return kind;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Object getValue()
     {
         return value;
