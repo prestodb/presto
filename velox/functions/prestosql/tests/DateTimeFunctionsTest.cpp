@@ -316,8 +316,10 @@ TEST_F(DateTimeFunctionsTest, hour) {
   EXPECT_EQ(std::nullopt, hour(std::nullopt));
   EXPECT_EQ(13, hour(Timestamp(0, 0)));
   EXPECT_EQ(12, hour(Timestamp(-1, 12300000000)));
-  EXPECT_EQ(21, hour(Timestamp(4000000000, 0)));
-  EXPECT_EQ(21, hour(Timestamp(4000000000, 123000000)));
+  // Disabled for now because the TZ for Pacific/Apia in 2096 varies between
+  // systems.
+  // EXPECT_EQ(21, hour(Timestamp(4000000000, 0)));
+  // EXPECT_EQ(21, hour(Timestamp(4000000000, 123000000)));
   EXPECT_EQ(23, hour(Timestamp(998474645, 321000000)));
   EXPECT_EQ(8, hour(Timestamp(998423705, 321000000)));
 }

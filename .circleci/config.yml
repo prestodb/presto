@@ -53,7 +53,7 @@ workflows:
 executors:
   build:
     docker:
-      - image : prestocpp/velox-circleci:mikesh-20211012
+      - image : prestocpp/velox-circleci:sagarm-20220131
     resource_class: 2xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
@@ -63,7 +63,7 @@ executors:
       - image : prestocpp/velox-check:mikesh-20210609
   doc-gen:
     docker:
-      - image : prestocpp/velox-circleci:mikesh-20210928
+      - image : prestocpp/velox-circleci:sagarm-2022013
 
 jobs:
   macos-build:

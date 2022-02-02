@@ -13,6 +13,6 @@
 # limitations under the License.
 # Build the test and build container for presto_cpp
 #
-FROM centos:centos8
+FROM quay.io/centos/centos:stream8
 COPY setup-circleci.sh /
 RUN mkdir build && ( cd build && bash /setup-circleci.sh ) && rm -rf build
