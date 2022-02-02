@@ -526,7 +526,6 @@ public class TestHiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),

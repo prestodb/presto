@@ -87,6 +87,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveSessionProperties.getHiveMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getLeaseDuration;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
@@ -138,7 +139,6 @@ public class HiveSplitManager
     private final DataSize maxOutstandingSplitsSize;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
-    private final int maxInitialSplits;
     private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
@@ -169,7 +169,6 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 cacheQuotaRequirementProvider,
@@ -188,7 +187,6 @@ public class HiveSplitManager
             DataSize maxOutstandingSplitsSize,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
-            int maxInitialSplits,
             int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled,
             CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
@@ -206,7 +204,6 @@ public class HiveSplitManager
         this.maxOutstandingSplitsSize = maxOutstandingSplitsSize;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
-        this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.cacheQuotaRequirementProvider = requireNonNull(cacheQuotaRequirementProvider, "cacheQuotaRequirementProvider is null");
@@ -305,7 +302,7 @@ public class HiveSplitManager
                         table.getDatabaseName(),
                         table.getTableName(),
                         cacheQuotaRequirement,
-                        maxInitialSplits,
+                        getHiveMaxInitialSplitSize(session),
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
@@ -318,7 +315,7 @@ public class HiveSplitManager
                         table.getDatabaseName(),
                         table.getTableName(),
                         cacheQuotaRequirement,
-                        maxInitialSplits,
+                        getHiveMaxInitialSplitSize(session),
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
@@ -331,7 +328,7 @@ public class HiveSplitManager
                         table.getDatabaseName(),
                         table.getTableName(),
                         cacheQuotaRequirement,
-                        maxInitialSplits,
+                        getHiveMaxInitialSplitSize(session),
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
                         executor,

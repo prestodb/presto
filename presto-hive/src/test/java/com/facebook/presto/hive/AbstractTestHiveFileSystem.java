@@ -227,7 +227,6 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxOutstandingSplitsSize(),
                 config.getMinPartitionBatchSize(),
                 config.getMaxPartitionBatchSize(),
-                config.getMaxInitialSplits(),
                 config.getSplitLoaderConcurrency(),
                 config.getRecursiveDirWalkerEnabled(),
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
