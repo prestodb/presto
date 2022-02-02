@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -28,6 +31,7 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryProgressStats.createQueryProgressStats;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class QueryStateInfo
 {
     private final QueryState queryState;
@@ -44,6 +48,7 @@ public class QueryStateInfo
     private final Optional<QueryProgressStats> progress;
 
     @JsonCreator
+    @ThriftConstructor
     public QueryStateInfo(
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("queryState") QueryState queryState,
@@ -109,72 +114,84 @@ public class QueryStateInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public QueryId getQueryId()
     {
         return queryId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public QueryState getQueryState()
     {
         return queryState;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public String getQuery()
     {
         return query;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public String getUser()
     {
         return user;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public Optional<String> getSource()
     {
         return source;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public Optional<String> getClientInfo()
     {
         return clientInfo;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public Optional<String> getCatalog()
     {
         return catalog;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public Optional<String> getSchema()
     {
         return schema;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public Optional<List<ResourceGroupInfo>> getPathToRoot()
     {
         return pathToRoot;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public DateTime getCreateTime()
     {
         return createTime;
     }
 
     @JsonProperty
+    @ThriftField(12)
     public Optional<QueryProgressStats> getProgress()
     {
         return progress;
