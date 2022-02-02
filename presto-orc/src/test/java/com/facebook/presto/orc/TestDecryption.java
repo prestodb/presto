@@ -493,6 +493,7 @@ public class TestDecryption
                         MAX_BLOCK_SIZE,
                         false,
                         false,
+                        false,
                         false),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()),

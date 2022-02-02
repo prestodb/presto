@@ -847,7 +847,8 @@ public class TestDictionaryColumnWriter
                     OrcPredicate.TRUE,
                     type,
                     INITIAL_BATCH_SIZE,
-                    true)) {
+                    true,
+                    false)) {
                 while (index < values.size()) {
                     Page page = reader.getNextPage();
                     if (page == null) {
