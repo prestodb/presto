@@ -300,7 +300,7 @@ class Task {
   // Driver was not on thread. When this happens, the Driver is on the
   // caller thread wit isTerminated set and the caller is responsible
   // for freeing resources.
-  StopReason enterForTerminate(ThreadState& state);
+  StopReason enterForTerminateLocked(ThreadState& state);
 
   // Marks that the Driver is not on thread. If no more Drivers in the
   // CancelPool are on thread, this realizes any finishFutures. The

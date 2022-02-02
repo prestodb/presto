@@ -315,7 +315,8 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
         splitGroupState.clear();
 
         // Create a bunch of drivers for the next split, if there is one.
-        if (self->nextSplitGroupId_ < self->planFragment_.numSplitGroups) {
+        if (self->state_ == TaskState::kRunning &&
+            self->nextSplitGroupId_ < self->planFragment_.numSplitGroups) {
           std::vector<std::shared_ptr<Driver>> drivers;
           drivers.reserve(self->numDriversPerSplitGroup_);
           self->createDrivers(drivers, self);
@@ -340,7 +341,7 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
 
     return;
   }
-  VELOX_FAIL("Trying to delete a Driver twice from its Task");
+  LOG(WARNING) << "Trying to remove a Driver twice from its Task";
 }
 
 void Task::setMaxSplitSequenceId(
@@ -713,6 +714,7 @@ static void movePromisesOut(
 }
 
 void Task::terminate(TaskState terminalState) {
+  std::vector<std::shared_ptr<Driver>> offThreadDrivers;
   {
     std::lock_guard<std::mutex> l(mutex_);
     if (taskStats_.executionEndTimeMs == 0) {
@@ -722,17 +724,30 @@ void Task::terminate(TaskState terminalState) {
       return;
     }
     state_ = terminalState;
-  }
-  requestTerminate();
-  for (auto& driver : drivers_) {
-    // 'driver' is a  copy of the shared_ptr in
-    // 'drivers_'. This is safe against a concurrent remove of the
-    // Driver.
-    if (driver) {
-      driver->terminate();
+    // Drivers that are on thread will see this at latest when they go off
+    // thread.
+    terminateRequested_ = true;
+    for (auto& driver : drivers_) {
+      if (driver) {
+        if (enterForTerminateLocked(driver->state()) ==
+            StopReason::kTerminate) {
+          offThreadDrivers.push_back(std::move(driver));
+          driverClosedLocked();
+        }
+      }
     }
   }
-  // We continue all Drivers waiting for splits or space in exchange buffers.
+
+  // Get the stats and free the resources of Drivers that were not on
+  // thread.
+  for (auto& driver : offThreadDrivers) {
+    driver->closeByTask();
+  }
+
+  // We continue all Drivers waiting for promises known to the
+  // Task. The Drivers are now detached from Task and therefore will
+  // not go on thread. The reference in the future callback is
+  // typically the last one.
   if (hasPartitionedOutput_) {
     if (auto bufferManager = bufferManager_.lock()) {
       bufferManager->removeTask(taskId_);
@@ -1065,8 +1080,7 @@ StopReason Task::enter(ThreadState& state) {
   return reason;
 }
 
-StopReason Task::enterForTerminate(ThreadState& state) {
-  std::lock_guard<std::mutex> l(mutex_);
+StopReason Task::enterForTerminateLocked(ThreadState& state) {
   if (state.isOnThread() || state.isTerminated) {
     state.isTerminated = true;
     return StopReason::kAlreadyOnThread;
