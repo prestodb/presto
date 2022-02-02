@@ -1,17 +1,16 @@
 /*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.facebook.presto.execution;
 
 import com.facebook.drift.codec.ThriftCodec;
@@ -125,8 +124,7 @@ public class TestThriftResourceGroupInfo
         resourceGroupInfo = getResourceGroupInfo(
                 FAKE_RESOURCE_GROUP_ID,
                 subGroups,
-                queryStateInfoList
-        );
+                queryStateInfoList);
     }
 
     @DataProvider
@@ -233,11 +231,10 @@ public class TestThriftResourceGroupInfo
         assertEquals(actualInfo.getNumEligibleSubGroups(), FAKE_ELIGIBLE_SUB_GROUPS);
     }
 
-
     private ResourceGroupInfo getRoundTripSerialize(
             ThriftCodec<ResourceGroupInfo> readCodec,
             ThriftCodec<ResourceGroupInfo> writeCodec, Function<TTransport, TProtocol> protocolFactory)
-        throws Exception
+            throws Exception
     {
         TProtocol protocol = protocolFactory.apply(transport);
         writeCodec.write(resourceGroupInfo, protocol);
@@ -259,8 +256,7 @@ public class TestThriftResourceGroupInfo
                 Optional.of(FAKE_QUERY_CATALOG),
                 Optional.of(FAKE_QUERY_SCHEMA),
                 Optional.of(new ArrayList<ResourceGroupInfo>()),
-                Optional.of(queryProgressStats.get(0))
-        ));
+                Optional.of(queryProgressStats.get(0))));
     }
 
     private void setUpQueryProgressStats()
@@ -278,15 +274,13 @@ public class TestThriftResourceGroupInfo
                 FAKE_INPUT_ROWS,
                 FAKE_INPUT_BYTES,
                 FAKE_BLOCKED,
-                FAKE_PROGRESS_PERCENTAGE
-        ));
+                FAKE_PROGRESS_PERCENTAGE));
     }
 
     private ResourceGroupInfo getResourceGroupInfo(
             ResourceGroupId rgID,
             List<ResourceGroupInfo> subGroups,
-            List<QueryStateInfo> runningQueries
-            )
+            List<QueryStateInfo> runningQueries)
     {
         return new ResourceGroupInfo(
                 rgID,
@@ -302,14 +296,6 @@ public class TestThriftResourceGroupInfo
                 FAKE_RUNNING_QUERIES,
                 FAKE_ELIGIBLE_SUB_GROUPS,
                 subGroups,
-                runningQueries
-        );
+                runningQueries);
     }
 }
-
-
-
-
-
-
-
