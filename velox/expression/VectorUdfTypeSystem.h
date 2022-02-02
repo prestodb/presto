@@ -1087,6 +1087,7 @@ struct VectorWriter<std::shared_ptr<T>> {
 template <>
 struct VectorReader<Generic> {
   using exec_in_t = GenericView;
+  using exec_null_free_in_t = exec_in_t;
 
   explicit VectorReader(const DecodedVector* decoded)
       : decoded_(*decoded), base_(decoded->base()) {}
@@ -1102,6 +1103,10 @@ struct VectorReader<Generic> {
   exec_in_t operator[](size_t offset) const {
     auto index = decoded_.index(offset);
     return GenericView{base_, index};
+  }
+
+  exec_null_free_in_t readNullFree(vector_size_t offset) const {
+    return operator[](offset);
   }
 
   const DecodedVector& decoded_;
