@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.drift.annotations.ThriftField;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Optional;
 
+@ThriftEnum
 public enum ParameterKind
 {
     TYPE(Optional.of("TYPE_SIGNATURE")),
@@ -38,6 +42,7 @@ public enum ParameterKind
     }
 
     @JsonValue
+    @ThriftEnumValue
     public String jsonName()
     {
         return oldName.orElse(name());

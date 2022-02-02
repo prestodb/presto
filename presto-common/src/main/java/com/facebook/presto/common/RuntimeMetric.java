@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * A metric exposed by a presto operator or connector. It will be aggregated at the query level.
  */
+@ThriftStruct
 public class RuntimeMetric
 {
     private final String name;
@@ -48,6 +52,7 @@ public class RuntimeMetric
     }
 
     @JsonCreator
+    @ThriftConstructor
     public RuntimeMetric(
             @JsonProperty("name") String name,
             @JsonProperty("sum") long sum,
@@ -74,6 +79,7 @@ public class RuntimeMetric
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getName()
     {
         return name;
@@ -118,24 +124,28 @@ public class RuntimeMetric
     }
 
     @JsonProperty
+    @ThriftField(2)
     public long getSum()
     {
         return sum.get();
     }
 
     @JsonProperty
+    @ThriftField(3)
     public long getCount()
     {
         return count.get();
     }
 
     @JsonProperty
+    @ThriftField(4)
     public long getMax()
     {
         return max.get();
     }
 
     @JsonProperty
+    @ThriftField(5)
     public long getMin()
     {
         return min.get();
