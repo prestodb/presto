@@ -25,10 +25,24 @@ public class OrcReaderOptions
     private final boolean zstdJniDecompressionEnabled;
     private final boolean mapNullKeysEnabled;
     private final boolean enableTimestampMicroPrecision;
+    // if the option is set to true, OrcSelectiveReader will append a row number block at the end of the page
+    private final boolean appendRowNumber;
 
-    public OrcReaderOptions(DataSize maxMergeDistance, DataSize tinyStripeThreshold, DataSize maxBlockSize, boolean zstdJniDecompressionEnabled)
+    public OrcReaderOptions(DataSize maxMergeDistance,
+            DataSize tinyStripeThreshold,
+            DataSize maxBlockSize,
+            boolean zstdJniDecompressionEnabled)
     {
-        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false);
+        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false, false);
+    }
+
+    public OrcReaderOptions(DataSize maxMergeDistance,
+            DataSize tinyStripeThreshold,
+            DataSize maxBlockSize,
+            boolean zstdJniDecompressionEnabled,
+            boolean appendRowNumber)
+    {
+        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false, appendRowNumber);
     }
 
     public OrcReaderOptions(
@@ -37,7 +51,8 @@ public class OrcReaderOptions
             DataSize maxBlockSize,
             boolean zstdJniDecompressionEnabled,
             boolean mapNullKeysEnabled,
-            boolean enableTimestampMicroPrecision)
+            boolean enableTimestampMicroPrecision,
+            boolean appendRowNumber)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -45,6 +60,7 @@ public class OrcReaderOptions
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         this.mapNullKeysEnabled = mapNullKeysEnabled;
         this.enableTimestampMicroPrecision = enableTimestampMicroPrecision;
+        this.appendRowNumber = appendRowNumber;
     }
 
     public DataSize getMaxMergeDistance()
@@ -75,5 +91,10 @@ public class OrcReaderOptions
     public boolean enableTimestampMicroPrecision()
     {
         return enableTimestampMicroPrecision;
+    }
+
+    public boolean appendRowNumber()
+    {
+        return appendRowNumber;
     }
 }

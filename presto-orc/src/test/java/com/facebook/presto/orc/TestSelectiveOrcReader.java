@@ -978,7 +978,8 @@ public class TestSelectiveOrcReader
                 includedColumns,
                 outputColumns,
                 false,
-                systemMemoryUsage)) {
+                systemMemoryUsage,
+                false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1040,7 +1041,8 @@ public class TestSelectiveOrcReader
                 includedColumns,
                 outputColumns,
                 false,
-                new TestingHiveOrcAggregatedMemoryContext())) {
+                new TestingHiveOrcAggregatedMemoryContext(),
+                false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1095,7 +1097,7 @@ public class TestSelectiveOrcReader
         System.out.println(System.currentTimeMillis() - start);
         writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, ImmutableList.of(values), new OrcWriterStats());
 
-        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, OrcEncoding.DWRF, OrcPredicate.TRUE, type, MAX_BATCH_SIZE, false)) {
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, OrcEncoding.DWRF, OrcPredicate.TRUE, type, MAX_BATCH_SIZE, false, false)) {
             assertEquals(recordReader.getFileRowCount(), rowCount);
             assertEquals(recordReader.getReaderRowCount(), rowCount);
             assertEquals(recordReader.getFilePosition(), 0);
@@ -1162,7 +1164,8 @@ public class TestSelectiveOrcReader
                 includedColumns,
                 outputColumns,
                 false,
-                systemMemoryUsage)) {
+                systemMemoryUsage,
+                false)) {
             Page page = recordReader.getNextPage();
             assertEquals(page.getPositionCount(), 1);
 
