@@ -40,7 +40,6 @@ sudo apt install -y \
   libgtest-dev \
   libgmock-dev \
   libevent-dev \
-  libfmt-dev \
   libprotobuf-dev \
   liblz4-dev \
   libzstd-dev \
@@ -110,12 +109,20 @@ function cmake_install {
   ninja -C "${BINARY_DIR}" install
 }
 
+function install_fmt {
+  github_checkout fmtlib/fmt 7.1.3
+  cmake_install -DFMT_TEST=OFF
+}
+
 function install_folly {
   github_checkout facebook/folly "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
 }
 
 function install_velox_deps {
+  run_and_time install_fmt
+  sudo ln -s /usr/local/lib/libfmt.a /usr/lib/x86_64-linux-gnu/libfmt.a
+
   run_and_time install_folly
 }
 
