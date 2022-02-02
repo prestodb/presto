@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Propagate errors and improve debugging.
+set -eufx -o pipefail
+
 function install_aws-sdk-cpp {
   local NAME="aws-sdk-cpp"
   local AWS_SDK_VERSION="1.9.96"
@@ -50,7 +53,6 @@ function install_aws-sdk-cpp {
 
 cd "${DEPENDENCY_DIR}" || exit
 # aws-sdk-cpp missing dependencies
-# TODO: Bake them into the docker image
 yum install -y curl-devel
 
 install_aws-sdk-cpp
