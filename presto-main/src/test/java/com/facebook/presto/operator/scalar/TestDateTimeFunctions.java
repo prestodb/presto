@@ -93,4 +93,11 @@ public class TestDateTimeFunctions
             localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 14:30:00.000 " + DATE_TIME_ZONE.getID());
         }
     }
+
+    @Test
+    public void testNotSupportedTimeZone()
+    {
+        String sql = "FROM_UNIXTIME(a.column1, 'yyyy-mm-dd') FROM (VALUES (1)) a (column1)";
+        assertNotSupported(sql, "Time zone not supported: yyyy-mm-dd");
+    }
 }

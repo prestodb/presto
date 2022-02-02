@@ -71,6 +71,7 @@ public class TestRewriteFilterWithExternalFunctionToProject
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
+                                null,
                                 null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(FUNCTION_TANGENT, true);

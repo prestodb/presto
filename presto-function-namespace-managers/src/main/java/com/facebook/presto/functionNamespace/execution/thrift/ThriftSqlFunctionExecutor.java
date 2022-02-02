@@ -22,10 +22,10 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
 import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
@@ -81,7 +81,7 @@ public class ThriftSqlFunctionExecutor
 
     public CompletableFuture<SqlFunctionResult> executeFunction(
             String source,
-            ThriftScalarFunctionImplementation functionImplementation,
+            RemoteScalarFunctionImplementation functionImplementation,
             Page input,
             List<Integer> channels,
             List<Type> argumentTypes,
@@ -142,7 +142,7 @@ public class ThriftSqlFunctionExecutor
         return resultFuture;
     }
 
-    private ThriftUdfPage buildThriftPage(ThriftScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes)
+    private ThriftUdfPage buildThriftPage(RemoteScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes)
     {
         ThriftUdfPageFormat pageFormat = executionConfigs.get(functionImplementation.getLanguage()).getThriftPageFormat();
         Block[] blocks = new Block[channels.size()];

@@ -112,6 +112,7 @@ public class TestPlanRemoteProjections
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
+                                null,
                                 null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
@@ -279,6 +280,7 @@ public class TestPlanRemoteProjections
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
+                                null,
                                 null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_1, true);

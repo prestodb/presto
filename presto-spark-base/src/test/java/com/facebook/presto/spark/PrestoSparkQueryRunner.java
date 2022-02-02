@@ -316,6 +316,7 @@ public class PrestoSparkQueryRunner
                         "unittest",
                         new SqlFunctionExecutors(
                                 ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                                null,
                                 null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
