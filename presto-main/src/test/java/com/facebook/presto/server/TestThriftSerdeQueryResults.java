@@ -83,12 +83,12 @@ public class TestThriftSerdeQueryResults
     private static final String UPDATE_TYPE = "update";
     private static final Long UPDATE_COUNT = 1L;
 
-    private QueryResults QueryResults;
+    private QueryResults queryResults;
 
     @BeforeMethod
     public void setUp()
     {
-        QueryResults = getQueryResults();
+        queryResults = getQueryResults();
     }
 
     @DataProvider
@@ -106,29 +106,28 @@ public class TestThriftSerdeQueryResults
     public void testRoundTripSerializeBinaryProtocol(ThriftCodec<QueryResults> readCodec, ThriftCodec<QueryResults> writeCodec)
             throws Exception
     {
-        QueryResults QueryResults = getRoundTripSerialize(readCodec, writeCodec, TBinaryProtocol::new);
-        assertSerde(QueryResults);
+        QueryResults queryResults = getRoundTripSerialize(readCodec, writeCodec, TBinaryProtocol::new);
+        assertSerde(queryResults);
     }
 
     @Test(dataProvider = "codecCombinations")
     public void testRoundTripSerializeTCompactProtocol(ThriftCodec<QueryResults> readCodec, ThriftCodec<QueryResults> writeCodec)
             throws Exception
     {
-        QueryResults QueryResults = getRoundTripSerialize(readCodec, writeCodec, TCompactProtocol::new);
-        assertSerde(QueryResults);
+        QueryResults queryResults = getRoundTripSerialize(readCodec, writeCodec, TCompactProtocol::new);
+        assertSerde(queryResults);
     }
 
     @Test(dataProvider = "codecCombinations")
     public void testRoundTripSerializeTFacebookCompactProtocol(ThriftCodec<QueryResults> readCodec, ThriftCodec<QueryResults> writeCodec)
             throws Exception
     {
-        QueryResults QueryResults = getRoundTripSerialize(readCodec, writeCodec, TFacebookCompactProtocol::new);
-        assertSerde(QueryResults);
+        QueryResults queryResults = getRoundTripSerialize(readCodec, writeCodec, TFacebookCompactProtocol::new);
+        assertSerde(queryResults);
     }
 
     private void assertSerde(QueryResults queryResults)
     {
-        // new QueryResults(QUERY_ID, INFO_URI, PARTIAL_CANCEL_URI, NEXT_URI, ImmutableList.of(column), data, stats, error, ImmutableList.of(warning), UPDATE_TYPE, UPDATE_COUNT);
         assertEquals(queryResults.getId(), QUERY_ID);
         assertEquals(queryResults.getInfoUri(), INFO_URI);
         assertEquals(queryResults.getPartialCancelUri(), PARTIAL_CANCEL_URI);
@@ -179,7 +178,7 @@ public class TestThriftSerdeQueryResults
             throws Exception
     {
         TProtocol protocol = protocolFactory.apply(transport);
-        writeCodec.write(QueryResults, protocol);
+        writeCodec.write(queryResults, protocol);
         return readCodec.read(protocol);
     }
 
