@@ -99,6 +99,12 @@ public class MockQueryExecution
     }
 
     @Override
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return null;
+    }
+
+    @Override
     public int getRunningTaskCount()
     {
         return 0;

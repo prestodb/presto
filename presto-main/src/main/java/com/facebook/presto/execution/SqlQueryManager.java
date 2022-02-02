@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.ExceededOutputSizeLimitException;
+import com.facebook.presto.ExceededPhysicalWrittenSizeLimitException;
 import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.QueryMonitor;
@@ -55,6 +56,7 @@ import java.util.function.Consumer;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputSize;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxPhysicalWrittenSize;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxScanRawInputBytes;
 import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
 import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
@@ -82,6 +84,7 @@ public class SqlQueryManager
     private final Duration maxQueryCpuTime;
     private final DataSize maxQueryScanPhysicalBytes;
     private final DataSize maxQueryOutputSize;
+    private final DataSize maxQueryPhysicalWrittenSize;
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
@@ -98,6 +101,7 @@ public class SqlQueryManager
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanRawInputBytes();
         this.maxQueryOutputSize = queryManagerConfig.getQueryMaxOutputSize();
+        this.maxQueryPhysicalWrittenSize = queryManagerConfig.getQueryMaxPhysicalWrittenSize();
 
         this.queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
         this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
@@ -136,6 +140,13 @@ public class SqlQueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query output size limits");
+            }
+
+            try {
+                enforcePhsysicalWrittenSizeLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query written output size limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -379,6 +390,21 @@ public class SqlQueryManager
             DataSize limit = Ordering.natural().min(maxQueryOutputSize, sessionlimit);
             if (outputSize.compareTo(limit) >= 0) {
                 query.fail(new ExceededOutputSizeLimitException(limit));
+            }
+        }
+    }
+
+    /**
+     * Enforce query written output size limits
+     */
+    private void enforcePhsysicalWrittenSizeLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            DataSize outputSize = query.getPhysicalWrittenDataSize();
+            DataSize sessionlimit = getQueryMaxPhysicalWrittenSize(query.getSession());
+            DataSize limit = Ordering.natural().min(maxQueryPhysicalWrittenSize, sessionlimit);
+            if (outputSize.compareTo(limit) >= 0) {
+                query.fail(new ExceededPhysicalWrittenSizeLimitException(limit));
             }
         }
     }

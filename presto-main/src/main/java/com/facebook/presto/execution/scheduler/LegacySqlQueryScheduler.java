@@ -829,6 +829,12 @@ public class LegacySqlQueryScheduler
         return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputDataSize();
     }
 
+    @Override
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getPhysicalWrittenDataSize();
+    }
+
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()

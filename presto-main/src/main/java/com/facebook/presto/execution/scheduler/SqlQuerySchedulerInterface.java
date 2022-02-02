@@ -34,6 +34,8 @@ public interface SqlQuerySchedulerInterface
 
     DataSize getOutputDataSize();
 
+    DataSize getPhysicalWrittenDataSize();
+
     BasicStageExecutionStats getBasicStageStats();
 
     StageInfo getStageInfo();

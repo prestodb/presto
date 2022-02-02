@@ -774,6 +774,12 @@ public class SqlQueryScheduler
     }
 
     @Override
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return getStageInfo().getLatestAttemptExecutionInfo().getStats().getPhysicalWrittenDataSize();
+    }
+
+    @Override
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = getAllStagesExecutions()
