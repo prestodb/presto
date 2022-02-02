@@ -426,6 +426,31 @@ TEST_F(ParquetReaderTest, varcharFilters) {
   assertReadWithFilters(
       "nation.parquet", rowType, std::move(filters), expected);
 
-  // TODO Test name IN ('CANADA', 'UNITED KINGDOM') filter. Currently it doesn't
-  // work. The reader returns all rows instead of just 2.
+  // name IN ('CANADA', 'UNITED KINGDOM')
+  filters.insert(
+      {"name", common::test::in({std::string("CANADA"), "UNITED KINGDOM"})});
+
+  expected = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>({3, 23}),
+      vectorMaker_->flatVector({"CANADA", "UNITED KINGDOM"}),
+      vectorMaker_->flatVector<int64_t>({1, 3}),
+  });
+
+  assertReadWithFilters(
+      "nation.parquet", rowType, std::move(filters), expected);
+
+  // name IN ('UNITED STATES', 'CANADA', 'INDIA', 'RUSSIA')
+  filters.insert(
+      {"name",
+       common::test::in(
+           {std::string("UNITED STATES"), "INDIA", "CANADA", "RUSSIA"})});
+
+  expected = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>({3, 8, 22, 24}),
+      vectorMaker_->flatVector({"CANADA", "INDIA", "RUSSIA", "UNITED STATES"}),
+      vectorMaker_->flatVector<int64_t>({1, 2, 3, 1}),
+  });
+
+  assertReadWithFilters(
+      "nation.parquet", rowType, std::move(filters), expected);
 }
