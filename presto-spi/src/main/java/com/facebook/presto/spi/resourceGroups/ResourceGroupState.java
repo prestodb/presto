@@ -13,9 +13,26 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum ResourceGroupState
 {
-    CAN_RUN,
-    CAN_QUEUE,
-    FULL
+    CAN_RUN(1),
+    CAN_QUEUE(2),
+    FULL(3);
+
+    private final int value;
+
+    ResourceGroupState(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
+    }
 }
