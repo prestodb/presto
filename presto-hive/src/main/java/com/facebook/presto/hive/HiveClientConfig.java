@@ -205,6 +205,7 @@ public class HiveClientConfig
 
     private boolean userDefinedTypeEncodingEnabled;
 
+    @Min(0)
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
