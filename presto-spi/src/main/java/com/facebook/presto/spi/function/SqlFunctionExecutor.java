@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.execution;
+package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.FunctionImplementationType;
-import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

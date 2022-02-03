@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionExecutor;
 import com.google.inject.Inject;
 
 import java.util.List;
