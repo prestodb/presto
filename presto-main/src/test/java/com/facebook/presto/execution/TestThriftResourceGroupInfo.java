@@ -30,17 +30,20 @@ import com.facebook.presto.server.QueryProgressStats;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.jsonwebtoken.lang.Collections;
 import org.joda.time.DateTime;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -67,8 +70,10 @@ public class TestThriftResourceGroupInfo
     private static final TMemoryBuffer transport = new TMemoryBuffer(100 * 1024);
 
     // Dummy values for fake ResourceGroupInfo
-    private static final ResourceGroupId FAKE_RESOURCE_GROUP_ID = new ResourceGroupId("rg");
-    private static final ResourceGroupId FAKE_SUB_RESOURCE_GROUP_ID = new ResourceGroupId("sub_rg");
+    private static final ResourceGroupId FAKE_RESOURCE_GROUP_ID_PARENT = new ResourceGroupId(Arrays.asList("global", "pipeline", "ns"));
+    private static final ResourceGroupId FAKE_SUB_RESOURCE_GROUP_ID_1 = new ResourceGroupId(Arrays.asList("global", "pipeline", "ns", "ads_metrics"));
+    private static final ResourceGroupId FAKE_SUB_RESOURCE_GROUP_ID_2 = new ResourceGroupId(Arrays.asList("global", "pipeline", "ns", "platform"));
+    private static final ResourceGroupId FAKE_SUB_RESOURCE_GROUP_ID_3 = new ResourceGroupId(Arrays.asList("global", "pipeline", "ns", "deltoid3"));
     private static final ResourceGroupState FAKE_RESOURCE_GROUP_STATE = ResourceGroupState.CAN_QUEUE;
     private static final SchedulingPolicy FAKE_SCHEDULING_POLICY = SchedulingPolicy.FAIR;
     private static final int FAKE_SCHEDULING_WEIGHT = 100;
@@ -82,9 +87,11 @@ public class TestThriftResourceGroupInfo
     private static final int FAKE_ELIGIBLE_SUB_GROUPS = 3;
 
     // Dummy values for fake QueryStateInfo
-    private static final QueryId FAKE_QUERY_ID = new QueryId("123");
+    private static final QueryId FAKE_QUERY_ID_1 = new QueryId("20220202_215711_00938_kvz6g");
+    private static final QueryId FAKE_QUERY_ID_2 = new QueryId("20220202_215711_00938_ks4fq");
+    private static final ResourceGroupId FAKE_QUERY_RESOURCE_GROUP_ID = new ResourceGroupId(Arrays.asList("global", "pipeline", "ns", "ads_metrics", "scheduled", "callsite:shenderson_platform.header_bidding.an_g_bidding_funnel.create_files_from_funnel_data.subtasks"));
     private static final QueryState FAKE_QUERY_STATE = QueryState.DISPATCHING;
-    private static final String FAKE_QUERY = "FakeQuery";
+    private static final String FAKE_QUERY = "SELECT something FROM somewhere";
     private static final DateTime FAKE_CREATE_TIME = new DateTime("2000-01-01T01:00:00Z");
     private static final String FAKE_QUERY_REQUESTER = "DummyUser";
     private static final String FAKE_QUERY_SOURCE = "DummySource";
@@ -104,7 +111,8 @@ public class TestThriftResourceGroupInfo
     private static final long FAKE_INPUT_ROWS = 5L;
     private static final long FAKE_INPUT_BYTES = 1024L;
     private static final boolean FAKE_BLOCKED = true;
-    private static final OptionalDouble FAKE_PROGRESS_PERCENTAGE = OptionalDouble.empty();
+    private static final OptionalDouble FAKE_PROGRESS_PERCENTAGE_1 = OptionalDouble.empty();
+    private static final OptionalDouble FAKE_PROGRESS_PERCENTAGE_2 = OptionalDouble.of(98.235);
 
     private ResourceGroupInfo resourceGroupInfo;
     private List<QueryStateInfo> queryStateInfoList;
@@ -116,13 +124,23 @@ public class TestThriftResourceGroupInfo
         setUpQueryProgressStats();
         setUpQueryStateInfoList();
         List<ResourceGroupInfo> subGroups = new ArrayList<>();
-        ResourceGroupInfo subResourceGroupInfo = getResourceGroupInfo(
-                FAKE_SUB_RESOURCE_GROUP_ID,
-                new ArrayList<>(),
+        ResourceGroupInfo subResourceGroupInfo1 = getResourceGroupInfo(
+                FAKE_SUB_RESOURCE_GROUP_ID_1,
+                null,
                 null);
-        subGroups.add(subResourceGroupInfo);
+        ResourceGroupInfo subResourceGroupInfo2 = getResourceGroupInfo(
+                FAKE_SUB_RESOURCE_GROUP_ID_2,
+                null,
+                null);
+        ResourceGroupInfo subResourceGroupInfo3 = getResourceGroupInfo(
+                FAKE_SUB_RESOURCE_GROUP_ID_3,
+                null,
+                null);
+        subGroups.add(subResourceGroupInfo1);
+        subGroups.add(subResourceGroupInfo2);
+        subGroups.add(subResourceGroupInfo3);
         resourceGroupInfo = getResourceGroupInfo(
-                FAKE_RESOURCE_GROUP_ID,
+                FAKE_RESOURCE_GROUP_ID_PARENT,
                 subGroups,
                 queryStateInfoList);
     }
@@ -164,29 +182,37 @@ public class TestThriftResourceGroupInfo
 
     private void assertSerde(ResourceGroupInfo actualInfo)
     {
-        assertEquals(actualInfo.getId(), FAKE_RESOURCE_GROUP_ID);
+        assertEquals(actualInfo.getId(), FAKE_RESOURCE_GROUP_ID_PARENT);
         assertSerdeRGInfoCommonProperties(actualInfo);
 
         List<ResourceGroupInfo> actualSubGroupList = actualInfo.getSubGroups();
         assertNotNull(actualSubGroupList);
-        assertEquals(actualSubGroupList.size(), 1);
-        ResourceGroupInfo actualSubgroupInfo = actualSubGroupList.get(0);
-        assertEquals(actualSubgroupInfo.getId(), FAKE_SUB_RESOURCE_GROUP_ID);
-        assertSerdeRGInfoCommonProperties(actualSubgroupInfo);
+        assertEquals(actualSubGroupList.size(), 3);
+        assertEquals(actualSubGroupList.get(0).getId(), FAKE_SUB_RESOURCE_GROUP_ID_1);
+        assertSerdeRGInfoCommonProperties(actualSubGroupList.get(0));
+
+        assertEquals(actualSubGroupList.get(1).getId(), FAKE_SUB_RESOURCE_GROUP_ID_2);
+        assertSerdeRGInfoCommonProperties(actualSubGroupList.get(1));
+
+        assertEquals(actualSubGroupList.get(2).getId(), FAKE_SUB_RESOURCE_GROUP_ID_3);
+        assertSerdeRGInfoCommonProperties(actualSubGroupList.get(2));
 
         List<QueryStateInfo> actualQueryStateInfoList = actualInfo.getRunningQueries();
         assertNotNull(actualQueryStateInfoList);
-        assertEquals(actualQueryStateInfoList.size(), 1);
-        QueryStateInfo actualQueryInfo = actualQueryStateInfoList.get(0);
-        asserSerdeQueryState(actualQueryInfo);
+        assertEquals(actualQueryStateInfoList.size(), 2);
+
+        assertEquals(actualQueryStateInfoList.get(0).getQueryId(), FAKE_QUERY_ID_1);
+        asserSerdeQueryState(actualQueryStateInfoList.get(0), FAKE_PROGRESS_PERCENTAGE_1);
+
+        assertEquals(actualQueryStateInfoList.get(1).getQueryId(), FAKE_QUERY_ID_2);
+        asserSerdeQueryState(actualQueryStateInfoList.get(1), FAKE_PROGRESS_PERCENTAGE_2);
     }
 
-    private void asserSerdeQueryState(QueryStateInfo actualInfo)
+    private void asserSerdeQueryState(QueryStateInfo actualInfo, OptionalDouble expectedProgress)
     {
-        assertEquals(actualInfo.getQueryId(), FAKE_QUERY_ID);
         assertEquals(actualInfo.getQueryState(), FAKE_QUERY_STATE);
         assertTrue(actualInfo.getResourceGroupId().isPresent());
-        assertEquals(actualInfo.getResourceGroupId().get(), FAKE_RESOURCE_GROUP_ID);
+        assertEquals(actualInfo.getResourceGroupId().get(), FAKE_QUERY_RESOURCE_GROUP_ID);
         assertEquals(actualInfo.getQuery(), FAKE_QUERY);
         assertEquals(actualInfo.getCreateTime(), FAKE_CREATE_TIME);
         assertEquals(actualInfo.getUser(), FAKE_QUERY_REQUESTER);
@@ -213,7 +239,7 @@ public class TestThriftResourceGroupInfo
         assertEquals(queryProgressStats.getPeakTaskTotalMemoryBytes(), FAKE_PEAK_TASK_TOTAL_MEMORY_BYTES);
         assertEquals(queryProgressStats.getInputRows(), FAKE_INPUT_ROWS);
         assertEquals(queryProgressStats.getInputBytes(), FAKE_INPUT_BYTES);
-        assertEquals(queryProgressStats.getProgressPercentage(), FAKE_PROGRESS_PERCENTAGE);
+        assertEquals(queryProgressStats.getProgressPercentage(), expectedProgress);
     }
 
     private void assertSerdeRGInfoCommonProperties(ResourceGroupInfo actualInfo)
@@ -245,9 +271,9 @@ public class TestThriftResourceGroupInfo
     {
         queryStateInfoList = new ArrayList<>();
         queryStateInfoList.add(new QueryStateInfo(
-                FAKE_QUERY_ID,
+                FAKE_QUERY_ID_1,
                 FAKE_QUERY_STATE,
-                Optional.of(FAKE_RESOURCE_GROUP_ID),
+                Optional.of(FAKE_QUERY_RESOURCE_GROUP_ID),
                 FAKE_QUERY,
                 FAKE_CREATE_TIME,
                 FAKE_QUERY_REQUESTER,
@@ -255,8 +281,21 @@ public class TestThriftResourceGroupInfo
                 Optional.of(FAKE_QUERY_CLIENT_INFO),
                 Optional.of(FAKE_QUERY_CATALOG),
                 Optional.of(FAKE_QUERY_SCHEMA),
-                Optional.of(new ArrayList<ResourceGroupInfo>()),
+                Optional.of(new ArrayList<>()),
                 Optional.of(queryProgressStats.get(0))));
+        queryStateInfoList.add(new QueryStateInfo(
+                FAKE_QUERY_ID_2,
+                FAKE_QUERY_STATE,
+                Optional.of(FAKE_QUERY_RESOURCE_GROUP_ID),
+                FAKE_QUERY,
+                FAKE_CREATE_TIME,
+                FAKE_QUERY_REQUESTER,
+                Optional.of(FAKE_QUERY_SOURCE),
+                Optional.of(FAKE_QUERY_CLIENT_INFO),
+                Optional.of(FAKE_QUERY_CATALOG),
+                Optional.of(FAKE_QUERY_SCHEMA),
+                Optional.of(new ArrayList<>()),
+                Optional.of(queryProgressStats.get(1))));
     }
 
     private void setUpQueryProgressStats()
@@ -274,7 +313,20 @@ public class TestThriftResourceGroupInfo
                 FAKE_INPUT_ROWS,
                 FAKE_INPUT_BYTES,
                 FAKE_BLOCKED,
-                FAKE_PROGRESS_PERCENTAGE));
+                FAKE_PROGRESS_PERCENTAGE_1));
+        queryProgressStats.add(new QueryProgressStats(
+                FAKE_ELAPSED_TIME_MILLIS,
+                FAKE_QUEUED_TIME_MILLIS,
+                FAKE_CPU_TIME_MILLS,
+                FAKE_SCHEDULED_TIME_MILLIS,
+                FAKE_CURRENT_MEMORY_BYTES,
+                FAKE_PEAK_MEMORY_BYTES,
+                FAKE_PEAK_TOTAL_MEMORY_BYTES,
+                FAKE_PEAK_TASK_TOTAL_MEMORY_BYTES,
+                FAKE_INPUT_ROWS,
+                FAKE_INPUT_BYTES,
+                FAKE_BLOCKED,
+                FAKE_PROGRESS_PERCENTAGE_2));
     }
 
     private ResourceGroupInfo getResourceGroupInfo(
