@@ -297,13 +297,6 @@ uint64_t FlatMapColumnReader<T>::skip(uint64_t numValues) {
 }
 
 template <typename T>
-void resetIfWrongVectorType(VectorPtr& result) {
-  if (result && !result->as<T>()) {
-    result.reset();
-  }
-}
-
-template <typename T>
 void FlatMapColumnReader<T>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
@@ -329,27 +322,32 @@ void FlatMapColumnReader<T>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
-  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
-  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
-  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
-
-  resetIfWrongVectorType<MapVector>(result);
-
-  // reuse key/value vectors when possible
+  auto mapVector = resetIfWrongVectorType<MapVector>(result);
   VectorPtr keysVector;
   VectorPtr valuesVector;
   BufferPtr offsets;
   BufferPtr lengths;
-  if (result) {
-    auto mapVector = result->as<MapVector>();
+  if (mapVector) {
     keysVector = mapVector->mapKeys();
     if (returnFlatVector_) {
       valuesVector = mapVector->mapValues();
     }
     offsets = mapVector->mutableOffsets(numValues);
     lengths = mapVector->mutableSizes(numValues);
-  } else {
+  }
+
+  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
+  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
+  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
+
+  if (mapVector) {
+    resetIfNotWritable(result, offsets, lengths);
+  }
+
+  if (!offsets) {
     offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
+  }
+  if (!lengths) {
     lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
   }
 
@@ -654,21 +652,27 @@ void FlatMapStructEncodingColumnReader<T>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* FOLLY_NULLABLE incomingNulls) {
+  auto rowVector = resetIfWrongVectorType<RowVector>(result);
+  std::vector<VectorPtr> children;
+  if (rowVector) {
+    // Track children vectors in a local variable because readNulls may reset
+    // the parent vector.
+    children = rowVector->children();
+    DWIO_ENSURE_EQ(children.size(), keyNodes_.size());
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   const uint64_t nullCount =
       nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
   const auto nonNullMaps = numValues - nullCount;
 
-  resetIfWrongVectorType<RowVector>(result);
-
-  std::vector<VectorPtr> children;
   std::vector<VectorPtr>* childrenPtr = nullptr;
-
   if (result) {
-    auto* rowVector = result->as<RowVector>();
+    // Parent vector still exist, so there is no need to double reference
+    // children vectors.
     childrenPtr = &rowVector->children();
-    DWIO_ENSURE_EQ(childrenPtr->size(), keyNodes_.size());
+    children.clear();
   } else {
     children.resize(keyNodes_.size());
     childrenPtr = &children;

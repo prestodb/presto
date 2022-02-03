@@ -56,17 +56,8 @@ inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {
 }
 
 template <typename T>
-void resetIfWrongVectorType(VectorPtr& result) {
-  if (result && !result->as<T>()) {
-    result.reset();
-  }
-}
-
-template <typename T>
-void resetIfWrongFlatVectorType(VectorPtr& result) {
-  if (result && !result->asFlatVector<T>()) {
-    result.reset();
-  }
+FlatVector<T>* resetIfWrongFlatVectorType(VectorPtr& result) {
+  return resetIfWrongVectorType<FlatVector<T>>(result);
 }
 
 BufferPtr ColumnReader::readNulls(
@@ -93,7 +84,9 @@ void ColumnReader::readNulls(
   auto numBytes = bits::nbytes(numValues);
   if (result && *result) {
     nulls = (*result)->mutableNulls(numValues + (simd::kPadding * 8));
-  } else if (!nulls || nulls->capacity() < numBytes + simd::kPadding) {
+    resetIfNotWritable(*result, nulls);
+  }
+  if (!nulls || nulls->capacity() < numBytes + simd::kPadding) {
     nulls =
         AlignedBuffer::allocate<char>(numBytes + simd::kPadding, &memoryPool_);
   }
@@ -173,12 +166,6 @@ class ByteRleColumnReader : public ColumnReader {
  private:
   std::unique_ptr<ByteRleDecoder> rle;
 
-  void readBytes(
-      uint64_t numValues,
-      BufferPtr nulls,
-      uint64_t nullCount,
-      VectorPtr& result);
-
  public:
   ByteRleColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
@@ -223,24 +210,38 @@ VectorPtr makeFlatVector(
 }
 
 template <typename DataType, typename RequestedType>
-void ByteRleColumnReader<DataType, RequestedType>::readBytes(
+void ByteRleColumnReader<DataType, RequestedType>::next(
     uint64_t numValues,
-    BufferPtr nulls,
-    uint64_t nullCount,
-    VectorPtr& result) {
-  resetIfWrongFlatVectorType<RequestedType>(result);
-
+    VectorPtr& result,
+    const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<RequestedType>(result);
   BufferPtr values;
-  if (result) {
-    values = result->asFlatVector<RequestedType>()->mutableValues(numValues);
-  } else {
+  if (flatVector) {
+    values = flatVector->mutableValues(numValues);
+  }
+
+  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
+  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
+  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
+
+  if (flatVector) {
+    resetIfNotWritable(result, values);
+  }
+  if (!values) {
     values = AlignedBuffer::allocate<RequestedType>(numValues, &memoryPool_);
   }
   values->setSize(BaseVector::byteSize<RequestedType>(numValues));
 
+  if (result) {
+    result->setSize(numValues);
+    result->setNullCount(nullCount);
+  } else {
+    result = makeFlatVector<RequestedType>(
+        &memoryPool_, nulls, nullCount, numValues, values);
+  }
+
   // Since the byte rle places the output in a char* instead of long*,
   // we cheat here and use the long* and then expand it in a second pass.
-  auto nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   auto valuesPtr = values->asMutable<RequestedType>();
   rle->next(reinterpret_cast<char*>(valuesPtr), numValues, nullsPtr);
 
@@ -251,28 +252,6 @@ void ByteRleColumnReader<DataType, RequestedType>::readBytes(
        sizeof(DataType) < sizeof(RequestedType))) {
     expandBytes<DataType>(valuesPtr, numValues);
   }
-
-  if (!result) {
-    result = makeFlatVector<RequestedType>(
-        &memoryPool_, nulls, nullCount, numValues, values);
-  }
-}
-
-template <typename DataType, typename RequestedType>
-void ByteRleColumnReader<DataType, RequestedType>::next(
-    uint64_t numValues,
-    VectorPtr& result,
-    const uint64_t* incomingNulls) {
-  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
-  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
-  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
-
-  if (result) {
-    result->setSize(numValues);
-    result->setNullCount(nullCount);
-  }
-
-  readBytes(numValues, nulls, nullCount, result);
 }
 
 namespace {
@@ -329,8 +308,6 @@ class IntegerDirectColumnReader : public ColumnReader {
  private:
   std::unique_ptr<IntDecoder</*isSigned*/ true>> ints;
 
-  BufferPtr allocateValues(uint64_t numValues, VectorPtr& result);
-
  public:
   IntegerDirectColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
@@ -367,41 +344,36 @@ uint64_t IntegerDirectColumnReader<ReqT>::skip(uint64_t numValues) {
 }
 
 template <class ReqT>
-BufferPtr IntegerDirectColumnReader<ReqT>::allocateValues(
-    uint64_t numValues,
-    VectorPtr& result) {
-  resetIfWrongFlatVectorType<ReqT>(result);
-
-  BufferPtr values;
-  if (result) {
-    values = result->asFlatVector<ReqT>()->mutableValues(numValues);
-  } else {
-    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool_);
-  }
-  return values;
-}
-
-template <class ReqT>
 void IntegerDirectColumnReader<ReqT>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<ReqT>(result);
+  BufferPtr values;
+  if (flatVector) {
+    values = flatVector->mutableValues(numValues);
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
+  if (flatVector) {
+    resetIfNotWritable(result, values);
+  }
+  if (!values) {
+    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool_);
+  }
+
   if (result) {
     result->setSize(numValues);
     result->setNullCount(nullCount);
-  }
-
-  BufferPtr values;
-  values = allocateValues(numValues, result);
-  nextValues(*ints, values->asMutable<ReqT>(), numValues, nullsPtr);
-  if (!result) {
+  } else {
     result =
         makeFlatVector<ReqT>(&memoryPool_, nulls, nullCount, numValues, values);
   }
+
+  nextValues(*ints, values->asMutable<ReqT>(), numValues, nullsPtr);
 }
 
 template <class ReqT>
@@ -512,32 +484,33 @@ uint64_t IntegerDictionaryColumnReader<ReqT>::skip(uint64_t numValues) {
 }
 
 template <class ReqT>
-BufferPtr IntegerDictionaryColumnReader<ReqT>::allocateValues(
-    uint64_t numValues,
-    VectorPtr& result) {
-  resetIfWrongFlatVectorType<ReqT>(result);
-
-  BufferPtr values;
-  if (result) {
-    values = result->asFlatVector<ReqT>()->mutableValues(numValues);
-  } else {
-    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool_);
-  }
-  return values;
-}
-
-template <class ReqT>
 void IntegerDictionaryColumnReader<ReqT>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<ReqT>(result);
+  BufferPtr values;
+  if (result) {
+    values = flatVector->mutableValues(numValues);
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
+  if (flatVector) {
+    resetIfNotWritable(result, values);
+  }
+  if (!values) {
+    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool_);
+  }
+
   if (result) {
     result->setSize(numValues);
     result->setNullCount(nullCount);
+  } else {
+    result =
+        makeFlatVector<ReqT>(&memoryPool_, nulls, nullCount, numValues, values);
   }
 
   // read the stream of booleans indicating whether a given data entry
@@ -553,16 +526,10 @@ void IntegerDictionaryColumnReader<ReqT>::next(
   // lazy load dictionary only when it's needed
   ensureInitialized();
 
-  BufferPtr values;
   auto dict = dictionary->as<int64_t>();
-  values = allocateValues(numValues, result);
   auto* valuesPtr = values->asMutable<ReqT>();
   nextValues(*dataReader, valuesPtr, numValues, nullsPtr);
   populateOutput(dict, valuesPtr, numValues, nullsPtr, inDict);
-  if (!result) {
-    result =
-        makeFlatVector<ReqT>(&memoryPool_, nulls, nullCount, numValues, values);
-  }
 }
 
 template <class ReqT>
@@ -628,14 +595,29 @@ void TimestampColumnReader::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<Timestamp>(result);
+  BufferPtr values;
+  if (flatVector) {
+    values = flatVector->mutableValues(numValues);
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
-  resetIfWrongFlatVectorType<Timestamp>(result);
+
+  if (flatVector) {
+    resetIfNotWritable(result, values);
+  }
+  if (!values) {
+    values = AlignedBuffer::allocate<Timestamp>(numValues, &memoryPool_);
+  }
 
   if (result) {
     result->setSize(numValues);
     result->setNullCount(nullCount);
+  } else {
+    result = makeFlatVector<Timestamp>(
+        &memoryPool_, nulls, nullCount, numValues, values);
   }
 
   ensureCapacity<int64_t>(secondsBuffer_, numValues, &memoryPool_);
@@ -660,15 +642,6 @@ void TimestampColumnReader::next(
         secondsData[i] -= 1;
       }
     }
-  }
-
-  BufferPtr values;
-  if (result) {
-    values = result->asFlatVector<Timestamp>()->mutableValues(numValues);
-  } else {
-    values = AlignedBuffer::allocate<Timestamp>(numValues, &memoryPool_);
-    result = makeFlatVector<Timestamp>(
-        &memoryPool_, nulls, nullCount, numValues, values);
   }
 
   auto* valuesPtr = values->asMutable<Timestamp>();
@@ -780,25 +753,31 @@ void FloatingPointColumnReader<DataT, ReqT>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<ReqT>(result);
+  BufferPtr values;
+  if (flatVector) {
+    values = flatVector->mutableValues(numValues);
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
-  resetIfWrongFlatVectorType<ReqT>(result);
+  if (flatVector) {
+    resetIfNotWritable(result, values);
+  }
+  if (!values) {
+    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool_);
+  }
 
   if (result) {
     result->setSize(numValues);
     result->setNullCount(nullCount);
-  }
-
-  BufferPtr values;
-  if (result) {
-    values = result->asFlatVector<ReqT>()->mutableValues(numValues);
   } else {
-    values = AlignedBuffer::allocate<ReqT>(numValues, &memoryPool_);
     result =
         makeFlatVector<ReqT>(&memoryPool_, nulls, nullCount, numValues, values);
   }
+
   auto* valuesPtr = values->asMutable<ReqT>();
   if (nulls) {
     for (size_t i = 0; i < numValues; ++i) {
@@ -893,16 +872,10 @@ class StringDictionaryColumnReader : public ColumnReader {
   void readDictionaryVector(
       uint64_t numValues,
       VectorPtr& result,
-      BufferPtr& nulls,
-      uint64_t nullCount,
-      BufferPtr& indices);
+      const uint64_t* nulls);
 
-  void readFlatVector(
-      uint64_t numValues,
-      VectorPtr& result,
-      BufferPtr& nulls,
-      uint64_t nullCount,
-      const int64_t* indices);
+  void
+  readFlatVector(uint64_t numValues, VectorPtr& result, const uint64_t* nulls);
 
   void ensureInitialized();
 
@@ -1090,44 +1063,11 @@ void StringDictionaryColumnReader::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
-  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
-  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
-  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
-
-  BufferPtr indices;
-  int64_t* flatIndices = nullptr;
-  if (returnFlatVector_) {
-    if (!indices_ || indices_->capacity() < numValues * sizeof(int64_t)) {
-      indices_ = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool_);
-    }
-    flatIndices = indices_->asMutable<int64_t>();
-    dictIndex->next(flatIndices, numValues, nullsPtr);
-  } else {
-    resetIfWrongVectorType<DictionaryVector<StringView>>(result);
-    if (result) {
-      indices =
-          result->as<DictionaryVector<StringView>>()->mutableIndices(numValues);
-    } else {
-      indices = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
-    }
-
-    auto indicesPtr = indices->asMutable<vector_size_t>();
-    dictIndex->nextInts(indicesPtr, numValues, nullsPtr);
-    indices->setSize(numValues * sizeof(vector_size_t));
-  }
-
-  if (result) {
-    result->setSize(numValues);
-    result->setNullCount(nullCount);
-  }
-
   // lazy loading dictionary data when first hit
   ensureInitialized();
 
   const char* strideDictBlob = nullptr;
   if (inDictionaryReader) {
-    ensureCapacity<bool>(inDict, numValues, &memoryPool_);
-    inDictionaryReader->next(inDict->asMutable<char>(), numValues, nullsPtr);
     loadStrideDictionary();
     if (strideDict) {
       DWIO_ENSURE_NOT_NULL(strideDictOffset);
@@ -1145,22 +1085,47 @@ void StringDictionaryColumnReader::next(
   }
 
   if (returnFlatVector_) {
-    readFlatVector(numValues, result, nulls, nullCount, flatIndices);
+    readFlatVector(numValues, result, incomingNulls);
   } else {
-    readDictionaryVector(numValues, result, nulls, nullCount, indices);
+    readDictionaryVector(numValues, result, incomingNulls);
   }
 }
 
 void StringDictionaryColumnReader::readDictionaryVector(
     uint64_t numValues,
     VectorPtr& result,
-    BufferPtr& nulls,
-    uint64_t nullCount,
-    BufferPtr& indices) {
-  bool hasStrideDict = false;
-  const char* inDictPtr = inDict ? inDict->as<char>() : nullptr;
-  auto* indicesPtr = indices->asMutable<vector_size_t>();
+    const uint64_t* incomingNulls) {
+  auto dictVector =
+      resetIfWrongVectorType<DictionaryVector<StringView>>(result);
+  BufferPtr indices;
+  if (dictVector) {
+    indices = dictVector->mutableIndices(numValues);
+  }
+
+  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
+  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
+
+  if (result) {
+    resetIfNotWritable(result, indices);
+  }
+  if (!indices) {
+    indices = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
+  }
+
+  auto indicesPtr = indices->asMutable<vector_size_t>();
+  dictIndex->nextInts(indicesPtr, numValues, nullsPtr);
+  indices->setSize(numValues * sizeof(vector_size_t));
+
+  bool hasStrideDict = false;
+
+  // load inDictionary
+  const char* inDictPtr = nullptr;
+  if (inDictionaryReader) {
+    ensureCapacity<bool>(inDict, numValues, &memoryPool_);
+    inDictionaryReader->next(inDict->asMutable<char>(), numValues, nullsPtr);
+    inDictPtr = inDict->as<char>();
+  }
 
   if (nulls) {
     for (uint64_t i = 0; i < numValues; ++i) {
@@ -1243,6 +1208,8 @@ void StringDictionaryColumnReader::readDictionaryVector(
   }
 
   if (result) {
+    result->setSize(numValues);
+    result->setNullCount(nullCount);
     result->as<DictionaryVector<StringView>>()->setDictionaryValues(
         dictionaryValues);
   } else {
@@ -1260,22 +1227,39 @@ void StringDictionaryColumnReader::readDictionaryVector(
 void StringDictionaryColumnReader::readFlatVector(
     uint64_t numValues,
     VectorPtr& result,
-    BufferPtr& nulls,
-    uint64_t nullCount,
-    const int64_t* indices) {
-  resetIfWrongFlatVectorType<StringView>(result);
-  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
-  const char* inDictPtr = inDict ? inDict->as<char>() : nullptr;
+    const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<StringView>(result);
   BufferPtr data;
+  if (flatVector) {
+    data = flatVector->mutableValues(numValues);
+  }
+
+  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
+  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
+  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
+
   if (result) {
-    result->setSize(numValues);
-    result->setNullCount(nullCount);
-    data = result->asFlatVector<StringView>()->mutableValues(numValues);
-  } else {
+    resetIfNotWritable(result, data);
+  }
+  if (!data) {
     data = AlignedBuffer::allocate<StringView>(numValues, &memoryPool_);
   }
 
+  // load inDictionary
+  const char* inDictPtr = nullptr;
+  if (inDictionaryReader) {
+    ensureCapacity<bool>(inDict, numValues, &memoryPool_);
+    inDictionaryReader->next(inDict->asMutable<char>(), numValues, nullsPtr);
+    inDictPtr = inDict->as<char>();
+  }
   auto dataPtr = data->asMutable<StringView>();
+
+  // read indices
+  if (!indices_ || indices_->capacity() < numValues * sizeof(int64_t)) {
+    indices_ = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool_);
+  }
+  auto indices = indices_->asMutable<int64_t>();
+  dictIndex->next(indices, numValues, nullsPtr);
 
   const char* strideDictPtr = nullptr;
   int64_t* strideDictOffsetPtr = nullptr;
@@ -1326,7 +1310,9 @@ void StringDictionaryColumnReader::readFlatVector(
     stringBuffers.emplace_back(strideDict);
   }
   if (result) {
-    result->asFlatVector<StringView>()->setStringBuffers(stringBuffers);
+    result->setSize(numValues);
+    result->setNullCount(nullCount);
+    flatVector->setStringBuffers(stringBuffers);
   } else {
     result = std::make_shared<FlatVector<StringView>>(
         &memoryPool_,
@@ -1382,15 +1368,6 @@ class StringDirectColumnReader : public ColumnReader {
       const int64_t* lengths,
       const uint64_t* nulls,
       uint64_t numValues);
-
-  void readFlatVector(
-      uint64_t numValues,
-      VectorPtr& result,
-      BufferPtr nulls,
-      const int64_t* lengthsPtr,
-      const uint64_t* nullsPtr,
-      BufferPtr data,
-      uint64_t nullCount);
 
  public:
   StringDirectColumnReader(
@@ -1460,23 +1437,42 @@ size_t StringDirectColumnReader::computeSize(
   return totalLength;
 }
 
-void StringDirectColumnReader::readFlatVector(
+void StringDirectColumnReader::next(
     uint64_t numValues,
     VectorPtr& result,
-    BufferPtr nulls,
-    const int64_t* lengthsPtr,
-    const uint64_t* nullsPtr,
-    BufferPtr data,
-    uint64_t nullCount) {
+    const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<StringView>(result);
   BufferPtr values;
-  resetIfWrongFlatVectorType<StringView>(result);
-  if (result) {
-    result->setSize(numValues);
-    result->setNullCount(nullCount);
-    values = result->asFlatVector<StringView>()->mutableValues(numValues);
-  } else {
+  if (flatVector) {
+    values = flatVector->mutableValues(numValues);
+  }
+
+  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
+  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
+  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
+
+  if (flatVector) {
+    resetIfNotWritable(result, values);
+  }
+  if (!values) {
     values = AlignedBuffer::allocate<StringView>(numValues, &memoryPool_);
   }
+
+  // TODO Reuse memory
+  // read the length vector
+  BufferPtr lengths = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool_);
+  length->next(lengths->asMutable<int64_t>(), numValues, nullsPtr);
+
+  // figure out the total length of data we need fom the blob stream
+  const auto* lengthsPtr = lengths->as<int64_t>();
+  const size_t totalLength = computeSize(lengthsPtr, nullsPtr, numValues);
+
+  // TODO Reuse memory
+  // Load data from the blob stream into our buffer until we have enough
+  // to get the rest directly out of the stream's buffer.
+  BufferPtr data = AlignedBuffer::allocate<char>(totalLength, &memoryPool_);
+  blobStream->readFully(data->asMutable<char>(), totalLength);
+
   auto* valuesPtr = values->asMutable<StringView>();
   const auto* dataPtr = data->as<char>();
   // Set up the start pointers for the ones that will come out of the buffer.
@@ -1496,8 +1492,9 @@ void StringDirectColumnReader::readFlatVector(
   }
 
   if (result) {
-    result->asFlatVector<StringView>()->setStringBuffers(
-        std::vector<BufferPtr>{data});
+    result->setSize(numValues);
+    result->setNullCount(nullCount);
+    flatVector->setStringBuffers(std::vector<BufferPtr>{data});
   } else {
     result = std::make_shared<FlatVector<StringView>>(
         &memoryPool_,
@@ -1508,33 +1505,6 @@ void StringDirectColumnReader::readFlatVector(
         std::vector<BufferPtr>{data});
     result->setNullCount(nullCount);
   }
-}
-
-void StringDirectColumnReader::next(
-    uint64_t numValues,
-    VectorPtr& result,
-    const uint64_t* incomingNulls) {
-  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
-  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
-  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
-
-  // TODO Reuse memory
-  // read the length vector
-  BufferPtr lengths = AlignedBuffer::allocate<int64_t>(numValues, &memoryPool_);
-  length->next(lengths->asMutable<int64_t>(), numValues, nullsPtr);
-
-  // figure out the total length of data we need fom the blob stream
-  const auto* lengthsPtr = lengths->as<int64_t>();
-  const size_t totalLength = computeSize(lengthsPtr, nullsPtr, numValues);
-
-  // TODO Reuse memory
-  // Load data from the blob stream into our buffer until we have enough
-  // to get the rest directly out of the stream's buffer.
-  BufferPtr data = AlignedBuffer::allocate<char>(totalLength, &memoryPool_);
-  blobStream->readFully(data->asMutable<char>(), totalLength);
-
-  readFlatVector(
-      numValues, result, nulls, lengthsPtr, nullsPtr, data, nullCount);
 }
 
 class StructColumnReader : public ColumnReader {
@@ -1613,42 +1583,48 @@ void StructColumnReader::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
+  auto rowVector = resetIfWrongVectorType<RowVector>(result);
+  std::vector<VectorPtr> childrenVectors;
+  if (rowVector) {
+    // Track children vectors in a local variable because readNulls may reset
+    // the parent vector.
+    childrenVectors = rowVector->children();
+    DWIO_ENSURE_GE(childrenVectors.size(), children_.size());
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
-  resetIfWrongVectorType<RowVector>(result);
+  std::vector<VectorPtr>* childrenVectorsPtr = nullptr;
+  if (result) {
+    // Parent vector still exist, so there is no need to double reference
+    // children vectors.
+    childrenVectorsPtr = &rowVector->children();
+    childrenVectors.clear();
+  } else {
+    childrenVectors.resize(children_.size());
+    childrenVectorsPtr = &childrenVectors;
+  }
+
+  for (uint64_t i = 0; i < children_.size(); ++i) {
+    auto& reader = children_[i];
+    if (reader) {
+      reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
+    }
+  }
 
   if (result) {
     result->setSize(numValues);
     result->setNullCount(nullCount);
-  }
-
-  if (result) {
-    auto* rowVector = result->as<RowVector>();
-    for (uint64_t i = 0; i < children_.size(); ++i) {
-      auto& reader = children_[i];
-      if (reader) {
-        reader->next(numValues, rowVector->childAt(i), nullsPtr);
-      }
-    }
-    rowVector->setSize(numValues);
   } else {
-    std::vector<VectorPtr> childVectors(children_.size());
-    for (uint64_t i = 0; i < children_.size(); ++i) {
-      auto& reader = children_[i];
-      if (reader) {
-        reader->next(numValues, childVectors[i], nullsPtr);
-      }
-    }
-
     // When read-string-as-row flag is on, string readers produce ROW(BIGINT,
     // BIGINT) type instead of VARCHAR or VARBINARY. In these cases,
     // requestedType_->type is not the right type of the final struct.
     std::vector<TypePtr> types;
-    types.reserve(childVectors.size());
-    for (auto i = 0; i < childVectors.size(); i++) {
-      const auto& child = childVectors[i];
+    types.reserve(childrenVectorsPtr->size());
+    for (auto i = 0; i < childrenVectorsPtr->size(); i++) {
+      const auto& child = (*childrenVectorsPtr)[i];
       if (child) {
         types.emplace_back(child->type());
       } else {
@@ -1661,7 +1637,7 @@ void StructColumnReader::next(
         ROW(std::move(types)),
         nulls,
         numValues,
-        childVectors,
+        std::move(childrenVectors),
         nullCount);
   }
 }
@@ -1743,26 +1719,28 @@ void ListColumnReader::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
+  auto resultArray = resetIfWrongVectorType<ArrayVector>(result);
+  VectorPtr elements;
+  BufferPtr offsets;
+  BufferPtr lengths;
+  if (resultArray) {
+    elements = resultArray->elements();
+    offsets = resultArray->mutableOffsets(numValues);
+    lengths = resultArray->mutableSizes(numValues);
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
-  resetIfWrongVectorType<ArrayVector>(result);
-
-  if (result) {
-    result->setSize(numValues);
-    result->setNullCount(nullCount);
+  if (resultArray) {
+    resetIfNotWritable(result, offsets, lengths);
   }
 
-  BufferPtr offsets;
-  BufferPtr lengths;
-  ArrayVector* resultArray = nullptr;
-  if (result) {
-    resultArray = result->as<ArrayVector>();
-    offsets = resultArray->mutableOffsets(numValues);
-    lengths = resultArray->mutableSizes(numValues);
-  } else {
+  if (!offsets) {
     offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
+  }
+  if (!lengths) {
     lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
   }
 
@@ -1793,20 +1771,9 @@ void ListColumnReader::next(
     }
   }
 
-  VectorPtr elements;
   if (result) {
-    elements = resultArray->elements();
-  }
-  bool hasChildren = (child && totalChildren > 0);
-  if (hasChildren) {
-    child->next(totalChildren, elements);
-  }
-
-  if (result) {
-    // child may have reset element vector, set it back
-    if (hasChildren) {
-      resultArray->setElements(elements);
-    }
+    result->setSize(numValues);
+    result->setNullCount(nullCount);
   } else {
     // When read-string-as-row flag is on, string readers produce ROW(BIGINT,
     // BIGINT) type instead of VARCHAR or VARBINARY. In these cases,
@@ -1822,6 +1789,13 @@ void ListColumnReader::next(
         lengths,
         elements,
         nullCount);
+  }
+  // reset elements to avoid it being double referenced.
+  elements.reset();
+
+  bool hasChildren = (child && totalChildren > 0);
+  if (hasChildren) {
+    child->next(totalChildren, result->as<ArrayVector>()->elements());
   }
 }
 
@@ -1905,26 +1879,30 @@ void MapColumnReader::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
+  auto resultMap = resetIfWrongVectorType<MapVector>(result);
+  VectorPtr keys;
+  VectorPtr values;
+  BufferPtr offsets;
+  BufferPtr lengths;
+  if (result) {
+    keys = resultMap->mapKeys();
+    values = resultMap->mapValues();
+    offsets = resultMap->mutableOffsets(numValues);
+    lengths = resultMap->mutableSizes(numValues);
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
-  resetIfWrongVectorType<MapVector>(result);
-
-  if (result) {
-    result->setSize(numValues);
-    result->setNullCount(nullCount);
+  if (resultMap) {
+    resetIfNotWritable(result, offsets, lengths);
   }
 
-  BufferPtr offsets;
-  BufferPtr lengths;
-  MapVector* resultMap = nullptr;
-  if (result) {
-    resultMap = result->as<MapVector>();
-    offsets = resultMap->mutableOffsets(numValues);
-    lengths = resultMap->mutableSizes(numValues);
-  } else {
+  if (!offsets) {
     offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
+  }
+  if (!lengths) {
     lengths = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);
   }
 
@@ -1955,25 +1933,9 @@ void MapColumnReader::next(
     }
   }
 
-  VectorPtr keys;
-  VectorPtr values;
   if (result) {
-    keys = resultMap->mapKeys();
-    values = resultMap->mapValues();
-  }
-
-  if (keyReader && totalChildren > 0) {
-    keyReader->next(totalChildren, keys);
-  }
-  if (elementReader && totalChildren > 0) {
-    elementReader->next(totalChildren, values);
-  }
-
-  if (result) {
-    // child column reader may have reset keys and values, set them back
-    if ((keyReader || elementReader) && totalChildren > 0) {
-      resultMap->setKeysAndValues(keys, values);
-    }
+    result->setSize(numValues);
+    result->setNullCount(nullCount);
   } else {
     // When read-string-as-row flag is on, string readers produce ROW(BIGINT,
     // BIGINT) type instead of VARCHAR or VARBINARY. In these cases,
@@ -1991,6 +1953,17 @@ void MapColumnReader::next(
         keys,
         values,
         nullCount);
+  }
+  // reset keys/values to avoid them being double referenced.
+  keys.reset();
+  values.reset();
+
+  resultMap = result->as<MapVector>();
+  if (keyReader && totalChildren > 0) {
+    keyReader->next(totalChildren, resultMap->mapKeys());
+  }
+  if (elementReader && totalChildren > 0) {
+    elementReader->next(totalChildren, resultMap->mapValues());
   }
 }
 

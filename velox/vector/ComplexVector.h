@@ -303,6 +303,10 @@ class ArrayVector : public BaseVector {
     return elements_;
   }
 
+  VectorPtr& elements() {
+    return elements_;
+  }
+
   void setElements(VectorPtr elements) {
     elements_ = BaseVector::getOrCreateEmpty(
         std::move(elements), type()->childAt(0), pool_);
@@ -457,7 +461,15 @@ class MapVector : public BaseVector {
     return keys_;
   }
 
+  VectorPtr& mapKeys() {
+    return keys_;
+  }
+
   const VectorPtr& mapValues() const {
+    return values_;
+  }
+
+  VectorPtr& mapValues() {
     return values_;
   }
 

@@ -130,13 +130,43 @@ class ColumnReaderFactory {
 };
 
 template <typename T>
-static inline void ensureCapacity(
+inline void ensureCapacity(
     BufferPtr& data,
     size_t capacity,
     velox::memory::MemoryPool* pool) {
   if (!data || !data->unique() ||
       data->capacity() < BaseVector::byteSize<T>(capacity)) {
     data = AlignedBuffer::allocate<T>(capacity, pool);
+  }
+}
+
+template <typename T>
+inline T* resetIfWrongVectorType(VectorPtr& result) {
+  if (result) {
+    auto casted = result->as<T>();
+    // We only expect vector to be used by a single thread.
+    if (casted && result.use_count() == 1) {
+      return casted;
+    }
+    result.reset();
+  }
+  return nullptr;
+}
+
+template <typename... T>
+inline void resetIfNotWritable(VectorPtr& result, T&... buffer) {
+  // The result vector and the buffer both hold reference, so refCount is at
+  // least 2
+  auto resetIfShared = [](auto& buffer) {
+    const bool reset = buffer->refCount() > 2;
+    if (reset) {
+      buffer.reset();
+    }
+    return reset;
+  };
+
+  if ((... | resetIfShared(buffer))) {
+    result.reset();
   }
 }
 } // namespace facebook::velox::dwrf
