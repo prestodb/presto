@@ -21,6 +21,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.hive.HdfsConfiguration;
@@ -316,8 +317,7 @@ public class PrestoSparkQueryRunner
                         "unittest",
                         new SqlFunctionExecutors(
                                 ImmutableMap.of(SQL, FunctionImplementationType.SQL),
-                                null,
-                                null),
+                                new NoopSqlFunctionExecutor()),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         // add bogus catalog for testing procedures and session properties

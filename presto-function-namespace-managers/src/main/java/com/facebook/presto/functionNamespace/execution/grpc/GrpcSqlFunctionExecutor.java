@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutor;
 import com.facebook.presto.grpc.udf.GrpcFunctionHandle;
 import com.facebook.presto.grpc.udf.GrpcSerializedPage;
 import com.facebook.presto.grpc.udf.GrpcUdfInvokeGrpc;
@@ -26,6 +27,7 @@ import com.facebook.presto.grpc.udf.GrpcUdfPage;
 import com.facebook.presto.grpc.udf.GrpcUdfPageFormat;
 import com.facebook.presto.grpc.udf.GrpcUdfRequest;
 import com.facebook.presto.grpc.udf.GrpcUdfResult;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
@@ -45,6 +47,7 @@ import static com.facebook.presto.common.Page.wrapBlocksWithoutCopy;
 import static com.facebook.presto.grpc.api.udf.GrpcUtils.toGrpcSerializedPage;
 import static com.facebook.presto.grpc.api.udf.GrpcUtils.toGrpcUdfPage;
 import static com.facebook.presto.grpc.api.udf.GrpcUtils.toPrestoPage;
+import static com.facebook.presto.spi.function.FunctionImplementationType.GRPC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -52,6 +55,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class GrpcSqlFunctionExecutor
+        implements SqlFunctionExecutor
 {
     private static final int DEFAULT_RETRY_ATTEMPTS = 3;
     private final Map<Language, GrpcSqlFunctionExecutionConfig> grpcUdfConfigs;
@@ -70,6 +74,13 @@ public class GrpcSqlFunctionExecutor
         });
     }
 
+    @Override
+    public FunctionImplementationType getImplementationType()
+    {
+        return GRPC;
+    }
+
+    @Override
     public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
     {
         checkState(this.blockEncodingSerde == null, "blockEncodingSerde already set");
@@ -77,11 +88,13 @@ public class GrpcSqlFunctionExecutor
         this.blockEncodingSerde = blockEncodingSerde;
     }
 
+    @Override
     public CompletableFuture<SqlFunctionResult> executeFunction(
             String source,
             RemoteScalarFunctionImplementation functionImplementation,
             Page input,
             List<Integer> channels,
+            List<Type> argumentTypes,
             Type returnType)
     {
         GrpcUdfPage grpcUdfPage = buildGrpcUdfPage(input, channels, grpcUdfConfigs.get(functionImplementation.getLanguage()).getGrpcUdfPageFormat());
