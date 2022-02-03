@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.execution.grpc;
+package com.facebook.presto.grpc;
 
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutionModule;
