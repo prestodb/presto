@@ -340,7 +340,7 @@ TEST_F(LocalPartitionTest, outputLayoutGather) {
   auto task = assertQuery(op, "SELECT 300, -71, 102");
   verifyExchangeSourceOperatorStats(task, 300);
 
-  planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  planNodeIdGenerator->reset();
   op = PlanBuilder(planNodeIdGenerator)
            .localPartition(
                {},
@@ -357,7 +357,7 @@ TEST_F(LocalPartitionTest, outputLayoutGather) {
   task = assertQuery(op, "SELECT 300, -71, 102");
   verifyExchangeSourceOperatorStats(task, 300);
 
-  planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  planNodeIdGenerator->reset();
   op = PlanBuilder(planNodeIdGenerator)
            .localPartition(
                {},
@@ -417,7 +417,7 @@ TEST_F(LocalPartitionTest, outputLayoutPartition) {
       params, "VALUES (146, -71, 123), (154, -70, 123)");
   verifyExchangeSourceOperatorStats(task, 300);
 
-  planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  planNodeIdGenerator->reset();
   params.planNode =
       PlanBuilder(planNodeIdGenerator)
           .localPartition(
@@ -436,7 +436,7 @@ TEST_F(LocalPartitionTest, outputLayoutPartition) {
       params, "VALUES (146, 123, 123), (154, 123, 123)");
   verifyExchangeSourceOperatorStats(task, 300);
 
-  planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  planNodeIdGenerator->reset();
   params.planNode = PlanBuilder(planNodeIdGenerator)
                         .localPartition(
                             {0},
@@ -474,24 +474,29 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
 
   auto rowType = getRowType(vectors[0]);
 
-  auto tableScanNode = [&](int planNodeId) {
-    return PlanBuilder(planNodeId).tableScan(rowType).planNode();
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  std::vector<core::PlanNodeId> scanNodeIds;
+
+  auto tableScanNode = [&]() {
+    auto node = PlanBuilder(planNodeIdGenerator).tableScan(rowType).planNode();
+    scanNodeIds.push_back(node->id());
+    return node;
   };
 
   // Make a plan with 2 local exchanges. UNION ALL results of 3 table scans.
   // Group by 0, 1 and compute counts. Group by 0 and compute counts and sums.
   // First exchange re-partitions the results of table scan on two keys. Second
   // exchange re-partitions the results on just the first key.
-  auto op = PlanBuilder(40)
+  auto op = PlanBuilder(planNodeIdGenerator)
                 .localPartition(
                     {0},
-                    {PlanBuilder(30)
+                    {PlanBuilder(planNodeIdGenerator)
                          .localPartition(
                              {0, 1},
                              {
-                                 tableScanNode(0),
-                                 tableScanNode(10),
-                                 tableScanNode(20),
+                                 tableScanNode(),
+                                 tableScanNode(),
+                                 tableScanNode(),
                              })
                          .partialAggregation({0, 1}, {"count(1)"})
                          .planNode()})
@@ -509,8 +514,7 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
       params,
       [&](exec::Task* task) {
         while (fileIndex < filePaths.size()) {
-          // Make table scan node IDs: 0, 10, 20.
-          auto planNodeId = fmt::format("{}", fileIndex * 10);
+          auto planNodeId = scanNodeIds[fileIndex];
           addSplit(task, planNodeId, makeHiveSplit(filePaths[fileIndex]->path));
           task->noMoreSplits(planNodeId);
           ++fileIndex;

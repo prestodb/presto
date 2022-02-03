@@ -58,10 +58,11 @@ TEST_F(CrossJoinTest, basic) {
   createDuckDbTable("u", {rightVectors});
 
   // All x 13. Join output vectors contains multiple probe rows each.
-  auto op = PlanBuilder(10)
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .crossJoin(
-                    PlanBuilder(0)
+                    PlanBuilder(planNodeIdGenerator)
                         .values({rightVectors})
                         .filter("c0 < 13")
                         .project({"c0 AS u_c0"})
@@ -72,11 +73,12 @@ TEST_F(CrossJoinTest, basic) {
   assertQuery(op, "SELECT * FROM t, u WHERE u.c0 < 13");
 
   // 13 x all. Join output vectors contains single probe row each.
-  op = PlanBuilder(10)
+  planNodeIdGenerator->reset();
+  op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
            .filter("c0 < 13")
            .crossJoin(
-               PlanBuilder(0)
+               PlanBuilder(planNodeIdGenerator)
                    .values({rightVectors})
                    .project({"c0 AS u_c0"})
                    .planNode(),
@@ -86,10 +88,11 @@ TEST_F(CrossJoinTest, basic) {
   assertQuery(op, "SELECT * FROM t, u WHERE t.c0 < 13");
 
   // All x 13. No columns on the build side.
-  op = PlanBuilder(10)
+  planNodeIdGenerator->reset();
+  op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
            .crossJoin(
-               PlanBuilder(0)
+               PlanBuilder(planNodeIdGenerator)
                    .values({vectorMaker_.rowVector(ROW({}, {}), 13)})
                    .planNode(),
                {"c0"})
@@ -98,11 +101,12 @@ TEST_F(CrossJoinTest, basic) {
   assertQuery(op, "SELECT t.* FROM t, (SELECT * FROM u LIMIT 13) u");
 
   // 13 x All. No columns on the build side.
-  op = PlanBuilder(10)
+  planNodeIdGenerator->reset();
+  op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
            .filter("c0 < 13")
            .crossJoin(
-               PlanBuilder(0)
+               PlanBuilder(planNodeIdGenerator)
                    .values({vectorMaker_.rowVector(ROW({}, {}), 1121)})
                    .planNode(),
                {"c0"})
@@ -113,10 +117,11 @@ TEST_F(CrossJoinTest, basic) {
       "SELECT t.* FROM (SELECT * FROM t WHERE c0 < 13) t, (SELECT * FROM u LIMIT 1121) u");
 
   // Empty build side.
-  op = PlanBuilder(10)
+  planNodeIdGenerator->reset();
+  op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
            .crossJoin(
-               PlanBuilder(0)
+               PlanBuilder(planNodeIdGenerator)
                    .values({rightVectors})
                    .filter("c0 < 0")
                    .project({"c0 AS u_c0"})
@@ -127,13 +132,14 @@ TEST_F(CrossJoinTest, basic) {
   assertQueryReturnsEmptyResult(op);
 
   // Multi-threaded build side.
+  planNodeIdGenerator->reset();
   CursorParameters params;
   params.maxDrivers = 4;
   params.numResultDrivers = 1;
-  params.planNode = PlanBuilder(10)
+  params.planNode = PlanBuilder(planNodeIdGenerator)
                         .values({leftVectors})
                         .crossJoin(
-                            PlanBuilder(0, pool_.get())
+                            PlanBuilder(planNodeIdGenerator, pool_.get())
                                 .values({rightVectors}, true)
                                 .filter("c0 in (10, 17)")
                                 .project({"c0 AS u_c0"})
@@ -165,10 +171,11 @@ TEST_F(CrossJoinTest, lazyVectors) {
   createDuckDbTable("t", {makeRowVector({sequence<int32_t>(1117)})});
   createDuckDbTable("u", {makeRowVector({sequence<int32_t>(1121)})});
 
-  auto op = PlanBuilder(10)
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .crossJoin(
-                    PlanBuilder(0)
+                    PlanBuilder(planNodeIdGenerator)
                         .values({rightVectors})
                         .project({"c0 AS u_c0"})
                         .planNode(),
@@ -196,22 +203,26 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
   createDuckDbTable("t", {leftVectors});
 
   // Build side has > 1 row.
-  auto op =
-      PlanBuilder(10)
-          .values({leftVectors})
-          .crossJoin(
-              PlanBuilder(0).values({rightVectors}).project({}).planNode(),
-              {"c0"})
-          .planNode();
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto op = PlanBuilder(planNodeIdGenerator)
+                .values({leftVectors})
+                .crossJoin(
+                    PlanBuilder(planNodeIdGenerator)
+                        .values({rightVectors})
+                        .project({})
+                        .planNode(),
+                    {"c0"})
+                .planNode();
 
   assertQuery(
       op, "SELECT t.* FROM t, (SELECT * FROM UNNEST (ARRAY[0, 1, 2, 3, 4])) u");
 
   // Build side has exactly 1 row.
-  op = PlanBuilder(10)
+  planNodeIdGenerator->reset();
+  op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
            .crossJoin(
-               PlanBuilder(0)
+               PlanBuilder(planNodeIdGenerator)
                    .values({rightVectors})
                    .filter("c0 = 1")
                    .project({})
@@ -234,13 +245,15 @@ TEST_F(CrossJoinTest, parallelism) {
   auto left = {makeRowVector({sequence<int32_t>(2)})};
   auto right = {makeRowVector({"u_c0"}, {sequence<int32_t>(3)})};
 
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
   CursorParameters params;
   params.maxDrivers = 5;
   params.planNode =
-      PlanBuilder(10)
+      PlanBuilder(planNodeIdGenerator)
           .values({left}, true)
           .crossJoin(
-              PlanBuilder().values({right}, true).planNode(), {"c0", "u_c0"})
+              PlanBuilder(planNodeIdGenerator).values({right}, true).planNode(),
+              {"c0", "u_c0"})
           .partialAggregation({}, {"count(1)"})
           .planNode();
 

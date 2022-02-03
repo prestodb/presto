@@ -156,7 +156,7 @@ class ParquetTpchTest : public testing::Test {
   std::shared_ptr<Task> assertQuery(
       const CursorParameters& params,
       const std::string& filePath,
-      int sourcePlanNodeId,
+      const core::PlanNodeId& sourcePlanNodeId,
       const std::string& duckQuery) const {
     bool noMoreSplits = false;
     return exec::test::assertQuery(
@@ -165,10 +165,9 @@ class ParquetTpchTest : public testing::Test {
           if (!noMoreSplits) {
             auto const& splits = makeSplits(filePath);
             for (const auto& split : splits) {
-              task->addSplit(
-                  std::to_string(sourcePlanNodeId), exec::Split(split));
+              task->addSplit(sourcePlanNodeId, exec::Split(split));
             }
-            task->noMoreSplits(std::to_string(sourcePlanNodeId));
+            task->noMoreSplits(sourcePlanNodeId);
             noMoreSplits = true;
           }
         },
@@ -201,18 +200,21 @@ TEST_F(ParquetTpchTest, q1) {
           .add("shipdate", common::test::lessThanOrEqual(date("1998-09-02")))
           .build();
 
-  const int sourcePlanNodeId = 10;
   CursorParameters params;
   params.maxDrivers = 4;
   params.numResultDrivers = 1;
   static const core::SortOrder kAscNullsLast(true, false);
 
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId sourcePlanNodeId;
+
   const auto stage1 =
-      PlanBuilder(sourcePlanNodeId)
+      PlanBuilder(planNodeIdGenerator)
           .tableScan(
               rowType,
               HiveConnectorTestBase::makeTableHandle(std::move(filters)),
               HiveConnectorTestBase::allRegularColumns(rowType))
+          .capturePlanNodeId(sourcePlanNodeId)
           .project(
               {"returnflag",
                "linestatus",
@@ -233,7 +235,7 @@ TEST_F(ParquetTpchTest, q1) {
                "count(0)"})
           .planNode();
 
-  auto plan = PlanBuilder(1)
+  auto plan = PlanBuilder(planNodeIdGenerator)
                   .localPartition({}, {stage1})
                   .finalAggregation(
                       {0, 1},
@@ -301,21 +303,24 @@ TEST_F(ParquetTpchTest, q6) {
           .add("quantity", common::test::lessThanDouble(24.0))
           .build();
 
-  const int sourcePlanNodeId = 4;
   CursorParameters params;
   params.maxDrivers = 4;
   params.numResultDrivers = 1;
 
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId sourcePlanNodeId;
+
   auto plan =
-      PlanBuilder(10)
+      PlanBuilder(planNodeIdGenerator)
           .localPartition(
               {},
-              {PlanBuilder(sourcePlanNodeId)
+              {PlanBuilder(planNodeIdGenerator)
                    .tableScan(
                        rowType,
                        HiveConnectorTestBase::makeTableHandle(
                            std::move(filters)),
                        HiveConnectorTestBase::allRegularColumns(rowType))
+                   .capturePlanNodeId(sourcePlanNodeId)
                    .project({"extendedprice * discount"})
                    .partialAggregation({}, {"sum(p0)"})
                    .planNode()})

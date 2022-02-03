@@ -66,8 +66,9 @@ class HiveConnectorTestBase : public OperatorTestBase {
 
   std::shared_ptr<exec::Task> assertQuery(
       const std::shared_ptr<const core::PlanNode>& plan,
-      const std::unordered_map<int, std::vector<std::shared_ptr<TempFilePath>>>&
-          filePaths,
+      const std::unordered_map<
+          core::PlanNodeId,
+          std::vector<std::shared_ptr<TempFilePath>>>& filePaths,
       const std::string& duckDbSql);
 
   static std::vector<std::shared_ptr<TempFilePath>> makeFilePaths(int count);

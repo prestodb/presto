@@ -36,6 +36,10 @@ class PlanNodeIdGenerator {
     return nextId_++;
   }
 
+  void reset(int startId = 0) {
+    nextId_ = startId;
+  }
+
  private:
   int nextId_;
 };
@@ -47,10 +51,8 @@ class PlanBuilder {
       memory::MemoryPool* pool = nullptr)
       : planNodeIdGenerator_{std::move(planNodeIdGenerator)}, pool_{pool} {}
 
-  explicit PlanBuilder(int planNodeId = 0, memory::MemoryPool* pool = nullptr)
-      : PlanBuilder(std::make_shared<PlanNodeIdGenerator>(planNodeId), pool) {}
-
-  explicit PlanBuilder(memory::MemoryPool* pool) : PlanBuilder(0, pool) {}
+  explicit PlanBuilder(memory::MemoryPool* pool = nullptr)
+      : PlanBuilder(std::make_shared<PlanNodeIdGenerator>(), pool) {}
 
   PlanBuilder& tableScan(const RowTypePtr& outputType);
 
@@ -310,6 +312,12 @@ class PlanBuilder {
       const std::vector<std::string>& replicateColumns,
       const std::vector<std::string>& unnestColumns,
       const std::optional<std::string>& ordinalColumn = std::nullopt);
+
+  PlanBuilder& capturePlanNodeId(core::PlanNodeId& id) {
+    VELOX_CHECK_NOT_NULL(planNode_);
+    id = planNode_->id();
+    return *this;
+  }
 
   const std::shared_ptr<core::PlanNode>& planNode() const {
     return planNode_;
