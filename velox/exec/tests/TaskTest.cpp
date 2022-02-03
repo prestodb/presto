@@ -164,3 +164,21 @@ TEST_F(TaskTest, splitGroup) {
   completedSplitGroups.insert(2);
   EXPECT_EQ(completedSplitGroups, task.taskStats().completedSplitGroups);
 }
+
+TEST_F(TaskTest, duplicatePlanNodeIds) {
+  auto plan = exec::test::PlanBuilder()
+                  .tableScan(ROW({"a", "b"}, {INTEGER(), DOUBLE()}))
+                  .hashJoin(
+                      {"a"},
+                      {"a1"},
+                      exec::test::PlanBuilder()
+                          .tableScan(ROW({"a1", "b1"}, {INTEGER(), DOUBLE()}))
+                          .planNode(),
+                      "",
+                      {"b", "b1"})
+                  .planFragment();
+
+  VELOX_ASSERT_THROW(
+      exec::Task("task-1", std::move(plan), 0, core::QueryCtx::createForTest()),
+      "Plan node IDs must be unique. Found duplicate ID: 0.")
+}

@@ -60,16 +60,18 @@ class HashJoinTest : public HiveConnectorTestBase {
         BatchMaker::createBatch(rightType, rightSize, *pool_));
 
     CursorParameters params;
-    params.planNode =
-        PlanBuilder()
-            .values({leftBatch}, true)
-            .hashJoin(
-                makeKeyNames(keyTypes.size(), "t_"),
-                makeKeyNames(keyTypes.size(), "u_"),
-                PlanBuilder().values({rightBatch}, true).planNode(),
-                filter,
-                concat(leftType->names(), rightType->names()))
-            .planNode();
+    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    params.planNode = PlanBuilder(planNodeIdGenerator)
+                          .values({leftBatch}, true)
+                          .hashJoin(
+                              makeKeyNames(keyTypes.size(), "t_"),
+                              makeKeyNames(keyTypes.size(), "u_"),
+                              PlanBuilder(planNodeIdGenerator)
+                                  .values({rightBatch}, true)
+                                  .planNode(),
+                              filter,
+                              concat(leftType->names(), rightType->names()))
+                          .planNode();
     params.maxDrivers = numThreads;
 
     createDuckDbTable("t", {leftBatch});
@@ -251,14 +253,15 @@ TEST_F(HashJoinTest, joinSidesDifferentSchema) {
       "  u.c2 > 10 AND ltrim(t.c1) = 'a%'";
   // In this hash join the 2 tables have a common key which is the
   // first channel in both tables.
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
   auto planNode =
-      PlanBuilder()
+      PlanBuilder(planNodeIdGenerator)
           .values({leftVectors})
           .project({"c0 AS t_c0", "c1 AS t_c1", "c2 AS t_c2"})
           .hashJoin(
               {"t_c0"},
               {"u_c0"},
-              PlanBuilder()
+              PlanBuilder(planNodeIdGenerator)
                   .values({rightVectors})
                   .project({"c0 AS u_c0", "c1 AS u_c1", "c2 AS u_c2"})
                   .planNode(),
@@ -289,13 +292,18 @@ TEST_F(HashJoinTest, memory) {
     rightBatches.push_back(std::dynamic_pointer_cast<RowVector>(
         BatchMaker::createBatch(rightType, 800, *pool_)));
   }
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
   CursorParameters params;
-  params.planNode = PlanBuilder()
+  params.planNode = PlanBuilder(planNodeIdGenerator)
                         .values(leftBatches, true)
                         .hashJoin(
                             makeKeyNames(keyTypes.size(), "t_"),
                             makeKeyNames(keyTypes.size(), "u_"),
-                            PlanBuilder().values(rightBatches, true).planNode(),
+                            PlanBuilder(planNodeIdGenerator)
+                                .values(rightBatches, true)
+                                .planNode(),
                             "",
                             concat(leftType->names(), rightType->names()))
                         .project({"t_k0 % 1000 AS k1", "u_k0 % 1000 AS k2"})

@@ -757,9 +757,7 @@ PlanBuilder& PlanBuilder::unnest(
 }
 
 std::string PlanBuilder::nextPlanNodeId() {
-  auto id = fmt::format("{}", planNodeId_);
-  planNodeId_++;
-  return id;
+  return fmt::format("{}", planNodeIdGenerator_->next());
 }
 
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(

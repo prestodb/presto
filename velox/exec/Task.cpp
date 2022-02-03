@@ -31,21 +31,34 @@ namespace facebook::velox::exec {
 namespace {
 void collectSourcePlanNodeIds(
     const core::PlanNode* planNode,
-    std::unordered_set<core::PlanNodeId>& ids) {
+    std::unordered_set<core::PlanNodeId>& allIds,
+    std::unordered_set<core::PlanNodeId>& sourceIds) {
+  bool ok = allIds.insert(planNode->id()).second;
+  VELOX_USER_CHECK(
+      ok,
+      "Plan node IDs must be unique. Found duplicate ID: {}.",
+      planNode->id());
+
+  // Check if planNode is a leaf node in the plan tree. If so, it is a source
+  // node and could use splits for processing.
   if (planNode->sources().empty()) {
-    ids.insert(planNode->id());
+    sourceIds.insert(planNode->id());
+    return;
   }
 
   for (const auto& child : planNode->sources()) {
-    collectSourcePlanNodeIds(child.get(), ids);
+    collectSourcePlanNodeIds(child.get(), allIds, sourceIds);
   }
 }
 
+/// Returns a set of source (leaf) plan node IDs. Also, checks that plan node
+/// IDs are unique and throws if encounters duplicates.
 std::unordered_set<core::PlanNodeId> collectSourcePlanNodeIds(
     const std::shared_ptr<const core::PlanNode>& planNode) {
-  std::unordered_set<core::PlanNodeId> ids;
-  collectSourcePlanNodeIds(planNode.get(), ids);
-  return ids;
+  std::unordered_set<core::PlanNodeId> allIds;
+  std::unordered_set<core::PlanNodeId> sourceIds;
+  collectSourcePlanNodeIds(planNode.get(), allIds, sourceIds);
+  return sourceIds;
 }
 
 } // namespace
