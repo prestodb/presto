@@ -390,15 +390,22 @@ std::string generateUserFriendlyDiff(
   return message.str();
 }
 
+void verifyDuckDBResult(const DuckDBQueryResult& result, std::string_view sql) {
+  ASSERT_TRUE(result->success)
+      << "DuckDB query failed: " << result->error << std::endl
+      << sql;
+}
+
 } // namespace
 
 void DuckDbQueryRunner::createTable(
     const std::string& name,
     const std::vector<RowVectorPtr>& data) {
-  ::duckdb::Connection con(db_);
-  con.Query("DROP TABLE IF EXISTS " + name);
+  auto query = fmt::format("DROP TABLE IF EXISTS {}", name);
+  execute(query);
 
   auto rowType = data[0]->type()->as<TypeKind::ROW>();
+  ::duckdb::Connection con(db_);
   auto res = con.Query(makeCreateTableSql(name, rowType));
   if (!res->success) {
     VELOX_FAIL(res->error);
@@ -425,21 +432,28 @@ void DuckDbQueryRunner::createTable(
   }
 }
 
+void DuckDbQueryRunner::initializeTpch(double scaleFactor) {
+  db_.LoadExtension<::duckdb::TPCHExtension>();
+  auto query = fmt::format("CALL dbgen(sf={})", scaleFactor);
+  execute(query);
+}
+
+DuckDBQueryResult DuckDbQueryRunner::execute(const std::string& sql) {
+  ::duckdb::Connection con(db_);
+  auto duckDbResult = con.Query(sql);
+  verifyDuckDBResult(duckDbResult, sql);
+  return duckDbResult;
+}
+
 void DuckDbQueryRunner::execute(
     const std::string& sql,
     const std::shared_ptr<const RowType>& resultRowType,
     std::function<void(std::vector<MaterializedRow>&)> resultCallback) {
-  ::duckdb::Connection con(db_);
-  auto duckDbResult = con.Query(sql);
-  ASSERT_TRUE(duckDbResult->success)
-      << "DuckDB query failed: " << duckDbResult->error << std::endl
-      << sql;
+  auto duckDbResult = execute(sql);
 
   for (;;) {
     auto dataChunk = duckDbResult->Fetch();
-    ASSERT_TRUE(duckDbResult->success)
-        << "DuckDB query failed: " << duckDbResult->error << std::endl
-        << sql;
+    verifyDuckDBResult(duckDbResult, sql);
     if (!dataChunk || (dataChunk->size() == 0)) {
       break;
     }
@@ -581,22 +595,8 @@ std::shared_ptr<Task> assertQuery(
     std::optional<std::vector<uint32_t>> sortingKeys) {
   CursorParameters params;
   params.planNode = plan;
-  auto result = readCursor(params, addSplits);
-  if (sortingKeys) {
-    assertResultsOrdered(
-        result.second,
-        params.planNode->outputType(),
-        duckDbSql,
-        duckDbQueryRunner,
-        sortingKeys.value());
-  } else {
-    assertResults(
-        result.second,
-        params.planNode->outputType(),
-        duckDbSql,
-        duckDbQueryRunner);
-  }
-  return result.first->task();
+  return assertQuery(
+      params, addSplits, duckDbSql, duckDbQueryRunner, sortingKeys);
 }
 
 std::shared_ptr<Task> assertQuery(
@@ -605,14 +605,7 @@ std::shared_ptr<Task> assertQuery(
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
     std::optional<std::vector<uint32_t>> sortingKeys) {
-  auto cursor = std::make_unique<TaskCursor>(params);
-  addSplits(cursor->task().get());
-
-  std::vector<RowVectorPtr> actualResults;
-  while (cursor->moveNext()) {
-    actualResults.push_back(cursor->current());
-    addSplits(cursor->task().get());
-  }
+  auto [cursor, actualResults] = readCursor(params, addSplits);
 
   if (sortingKeys) {
     assertResultsOrdered(

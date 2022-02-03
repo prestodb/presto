@@ -179,7 +179,7 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
   }
 
  private:
-  int nextStreamId_ = 1;
+  std::atomic<int> nextStreamId_ = 1;
   // Maps stream ID to file handle counter and input stream.
   folly::Synchronized<folly::F14FastMap<
       int,

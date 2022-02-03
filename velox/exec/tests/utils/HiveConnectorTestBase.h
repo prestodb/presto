@@ -80,7 +80,7 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const std::string& filePath,
       uint64_t start = 0,
       uint64_t length = std::numeric_limits<uint64_t>::max()) {
-    return makeHiveConnectorSplit(filePath, {}, 0, length);
+    return makeHiveConnectorSplit(filePath, {}, start, length);
   }
 
   static std::shared_ptr<connector::hive::HiveConnectorSplit>
