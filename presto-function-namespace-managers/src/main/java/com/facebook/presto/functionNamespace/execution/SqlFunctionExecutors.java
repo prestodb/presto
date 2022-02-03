@@ -17,23 +17,17 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.functionNamespace.execution.grpc.GrpcSqlFunctionExecutor;
-import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.google.inject.Inject;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.spi.function.FunctionImplementationType.GRPC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -42,21 +36,18 @@ import static java.util.Objects.requireNonNull;
 public class SqlFunctionExecutors
 {
     private final Map<Language, FunctionImplementationType> supportedLanguages;
-    private final Optional<ThriftSqlFunctionExecutor> thriftSqlFunctionExecutor;
-    private final Optional<GrpcSqlFunctionExecutor> grpcSqlFunctionExecutor;
+    private final SqlFunctionExecutor sqlFunctionExecutor;
 
     @Inject
-    public SqlFunctionExecutors(Map<Language, FunctionImplementationType> supportedLanguages, @Nullable ThriftSqlFunctionExecutor thriftSqlFunctionExecutor, @Nullable GrpcSqlFunctionExecutor grpcSqlFunctionExecutor)
+    public SqlFunctionExecutors(Map<Language, FunctionImplementationType> supportedLanguages, SqlFunctionExecutor sqlFunctionExecutor)
     {
         this.supportedLanguages = requireNonNull(supportedLanguages, "supportedLanguages is null");
-        this.thriftSqlFunctionExecutor = Optional.ofNullable(thriftSqlFunctionExecutor);
-        this.grpcSqlFunctionExecutor = Optional.ofNullable(grpcSqlFunctionExecutor);
+        this.sqlFunctionExecutor = requireNonNull(sqlFunctionExecutor, "sqlFunctionExecutor is null");
     }
 
     public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
     {
-        thriftSqlFunctionExecutor.ifPresent(executor -> executor.setBlockEncodingSerde(blockEncodingSerde));
-        grpcSqlFunctionExecutor.ifPresent(executor -> executor.setBlockEncodingSerde(blockEncodingSerde));
+        sqlFunctionExecutor.setBlockEncodingSerde(blockEncodingSerde);
     }
 
     public Set<Language> getSupportedLanguages()
@@ -73,13 +64,7 @@ public class SqlFunctionExecutors
     {
         checkArgument(functionImplementation instanceof RemoteScalarFunctionImplementation, format("Only support RemoteScalarFunctionImplementation, got %s", functionImplementation.getClass()));
         FunctionImplementationType implementationType = ((RemoteScalarFunctionImplementation) functionImplementation).getImplementationType();
-        if (implementationType == GRPC) {
-            checkState(grpcSqlFunctionExecutor.isPresent(), "Grpc SQL function executor is not setup");
-            return grpcSqlFunctionExecutor.get().executeFunction(source, (RemoteScalarFunctionImplementation) functionImplementation, input, channels, returnType);
-        }
-        else {
-            checkState(thriftSqlFunctionExecutor.isPresent(), "Thrift SQL function executor is not setup");
-            return thriftSqlFunctionExecutor.get().executeFunction(source, (RemoteScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
-        }
+        checkState(sqlFunctionExecutor.getImplementationType().equals(implementationType), format("%s SQL function executor is not setup", implementationType));
+        return sqlFunctionExecutor.executeFunction(source, (RemoteScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
     }
 }
