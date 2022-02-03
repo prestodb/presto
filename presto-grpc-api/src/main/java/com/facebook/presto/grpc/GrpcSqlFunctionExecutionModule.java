@@ -15,9 +15,9 @@ package com.facebook.presto.grpc;
 
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutionModule;
-import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutor;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
+import com.facebook.presto.spi.function.SqlFunctionExecutor;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
