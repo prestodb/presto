@@ -14,13 +14,177 @@
  * limitations under the License.
  */
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/exec/Aggregate.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/expression/FunctionSignature.h"
 
+using facebook::velox::exec::Aggregate;
 using facebook::velox::test::BatchMaker;
 
 namespace facebook::velox::exec::test {
 namespace {
+
+struct NonPODInt64 {
+  static int constructed;
+  static int destructed;
+
+  static void clearStats() {
+    constructed = 0;
+    destructed = 0;
+  }
+
+  int64_t value;
+
+  NonPODInt64(int64_t value_ = 0) : value(value_) {
+    ++constructed;
+  }
+
+  ~NonPODInt64() {
+    value = -1;
+    ++destructed;
+  }
+
+  // No move/copy constructor and assignment operator are used in this case.
+  NonPODInt64(const NonPODInt64& other) = delete;
+  NonPODInt64(NonPODInt64&& other) = delete;
+  NonPODInt64& operator=(const NonPODInt64&) = delete;
+  NonPODInt64& operator=(NonPODInt64&&) = delete;
+};
+
+int NonPODInt64::constructed = 0;
+int NonPODInt64::destructed = 0;
+
+// SumNonPODAggregate uses NonPODInt64 as accumulator which has external memory
+// NonPODInt64::constructed and NonPODInt64::destructed. By asserting their
+// equality, we make sure Velox calls constructor/destructor properly.
+class SumNonPODAggregate : public Aggregate {
+ public:
+  explicit SumNonPODAggregate(velox::TypePtr resultType)
+      : Aggregate(resultType) {}
+
+  int32_t accumulatorFixedWidthSize() const override {
+    return sizeof(NonPODInt64);
+  }
+
+  bool accumulatorUsesExternalMemory() const override {
+    return true;
+  }
+
+  void initializeNewGroups(
+      char** groups,
+      folly::Range<const velox::vector_size_t*> indices) override {
+    for (auto i : indices) {
+      new (groups[i] + offset_) NonPODInt64(0);
+    }
+  }
+
+  void destroy(folly::Range<char**> groups) override {
+    for (auto group : groups) {
+      value<NonPODInt64>(group)->~NonPODInt64();
+    }
+  }
+
+  void extractAccumulators(
+      char** groups,
+      int32_t numGroups,
+      velox::VectorPtr* result) override {
+    auto vector = (*result)->as<FlatVector<int64_t>>();
+    vector->resize(numGroups);
+    int64_t* rawValues = vector->mutableRawValues();
+    uint64_t* rawNulls = getRawNulls(vector);
+    for (int32_t i = 0; i < numGroups; ++i) {
+      char* group = groups[i];
+      if (isNull(group)) {
+        vector->setNull(i, true);
+      } else {
+        clearNull(rawNulls, i);
+        rawValues[i] = value<NonPODInt64>(group)->value;
+      }
+    }
+  }
+
+  void extractValues(char** groups, int32_t numGroups, velox::VectorPtr* result)
+      override {
+    extractAccumulators(groups, numGroups, result);
+  }
+
+  void addIntermediateResults(
+      char** groups,
+      const velox::SelectivityVector& rows,
+      const std::vector<velox::VectorPtr>& args,
+      bool /*mayPushdown*/) override {
+    DecodedVector decoded(*args[0], rows);
+
+    rows.applyToSelected([&](vector_size_t i) {
+      if (decoded.isNullAt(i)) {
+        return;
+      }
+      clearNull(groups[i]);
+      value<NonPODInt64>(groups[i])->value += decoded.valueAt<int64_t>(i);
+    });
+  }
+
+  void addRawInput(
+      char** groups,
+      const velox::SelectivityVector& rows,
+      const std::vector<velox::VectorPtr>& args,
+      bool mayPushdown) override {
+    addIntermediateResults(groups, rows, args, mayPushdown);
+  }
+
+  void addSingleGroupIntermediateResults(
+      char* group,
+      const velox::SelectivityVector& rows,
+      const std::vector<velox::VectorPtr>& args,
+      bool /*mayPushdown*/) override {
+    DecodedVector decoded(*args[0], rows);
+
+    rows.applyToSelected([&](vector_size_t i) {
+      if (decoded.isNullAt(i)) {
+        return;
+      }
+      clearNull(group);
+      value<NonPODInt64>(group)->value += decoded.valueAt<int64_t>(i);
+    });
+  }
+
+  void addSingleGroupRawInput(
+      char* group,
+      const velox::SelectivityVector& rows,
+      const std::vector<velox::VectorPtr>& args,
+      bool mayPushdown) override {
+    addSingleGroupIntermediateResults(group, rows, args, mayPushdown);
+  }
+
+  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
+};
+
+bool registerSumNonPODAggregate(const std::string& name) {
+  std::vector<std::shared_ptr<velox::exec::AggregateFunctionSignature>>
+      signatures{
+          velox::exec::AggregateFunctionSignatureBuilder()
+              .returnType("bigint")
+              .intermediateType("bigint")
+              .argumentType("bigint")
+              .build(),
+      };
+
+  velox::exec::registerAggregateFunction(
+      name,
+      std::move(signatures),
+      [name](
+          velox::core::AggregationNode::Step /*step*/,
+          const std::vector<velox::TypePtr>& /*argTypes*/,
+          const velox::TypePtr& /*resultType*/)
+          -> std::unique_ptr<velox::exec::Aggregate> {
+        return std::make_unique<SumNonPODAggregate>(velox::BIGINT());
+      });
+  return true;
+}
+
+static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
+    registerSumNonPODAggregate("sumnonpod");
 
 class AggregationTest : public OperatorTestBase {
  protected:
@@ -43,12 +207,14 @@ class AggregationTest : public OperatorTestBase {
       const std::string& keyName,
       bool ignoreNullKeys,
       bool distinct) {
+    NonPODInt64::clearStats();
     std::vector<std::string> aggregates;
     if (!distinct) {
-      aggregates = {"sum(15)", "sum(0.1)", "sum(c1)",  "sum(c2)", "sum(c4)",
-                    "sum(c5)", "min(15)",  "min(0.1)", "min(c1)", "min(c2)",
-                    "min(c3)", "min(c4)",  "min(c5)",  "max(15)", "max(0.1)",
-                    "max(c1)", "max(c2)",  "max(c3)",  "max(c4)", "max(c5)"};
+      aggregates = {
+          "sum(15)", "sum(0.1)", "sum(c1)",     "sum(c2)", "sum(c4)", "sum(c5)",
+          "min(15)", "min(0.1)", "min(c1)",     "min(c2)", "min(c3)", "min(c4)",
+          "min(c5)", "max(15)",  "max(0.1)",    "max(c1)", "max(c2)", "max(c3)",
+          "max(c4)", "max(c5)",  "sumnonpod(1)"};
     }
 
     auto op = PlanBuilder()
@@ -71,9 +237,10 @@ class AggregationTest : public OperatorTestBase {
       assertQuery(
           op,
           "SELECT " + keyName +
-              ", sum(15), sum(cast(0.1 as double)), sum(c1), sum(c2), sum(c4), sum(c5) , min(15), min(0.1), min(c1), min(c2), min(c3), min(c4), min(c5), max(15), max(0.1), max(c1), max(c2), max(c3), max(c4), max(c5) " +
+              ", sum(15), sum(cast(0.1 as double)), sum(c1), sum(c2), sum(c4), sum(c5) , min(15), min(0.1), min(c1), min(c2), min(c3), min(c4), min(c5), max(15), max(0.1), max(c1), max(c2), max(c3), max(c4), max(c5), sum(1) " +
               fromClause + " GROUP BY " + keyName);
     }
+    EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
   }
 
   void testMultiKey(
@@ -96,7 +263,8 @@ class AggregationTest : public OperatorTestBase {
           "max(0.1)",
           "max(c3)",
           "max(c4)",
-          "max(c5)"};
+          "max(c5)",
+          "sumnonpod(1)"};
     }
     auto op = PlanBuilder()
                   .values(vectors)
@@ -118,9 +286,10 @@ class AggregationTest : public OperatorTestBase {
     } else {
       assertQuery(
           op,
-          "SELECT c0, c1, c6, sum(15), sum(cast(0.1 as double)), sum(c4), sum(c5), min(15), min(0.1), min(c3), min(c4), min(c5), max(15), max(0.1), max(c3), max(c4), max(c5) " +
+          "SELECT c0, c1, c6, sum(15), sum(cast(0.1 as double)), sum(c4), sum(c5), min(15), min(0.1), min(c3), min(c4), min(c5), max(15), max(0.1), max(c3), max(c4), max(c5), sum(1) " +
               fromClause + " GROUP BY c0, c1, c6");
     }
+    EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
   }
 
   template <typename T>

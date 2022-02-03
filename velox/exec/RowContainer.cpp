@@ -103,6 +103,7 @@ RowContainer::RowContainer(
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
     isVariableWidth |= !aggregate->isFixedSize();
+    usesExternalMemory_ |= aggregate->accumulatorUsesExternalMemory();
   }
   for (auto& type : dependentTypes) {
     types_.push_back(type);
@@ -497,6 +498,20 @@ void RowContainer::hash(
 }
 
 void RowContainer::clear() {
+  if (usesExternalMemory_) {
+    constexpr int32_t kBatch = 1000;
+    std::vector<char*> rows(kBatch);
+
+    RowContainerIterator iter;
+    for (;;) {
+      int64_t numRows = listRows(&iter, kBatch, rows.data());
+      if (!numRows) {
+        break;
+      }
+      auto rowsData = folly::Range<char**>(rows.data(), numRows);
+      freeAggregates(rowsData);
+    }
+  }
   rows_.clear();
   stringAllocator_.clear();
   numRows_ = 0;
