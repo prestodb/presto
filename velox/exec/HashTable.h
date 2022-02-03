@@ -314,9 +314,9 @@ class HashTable : public BaseHashTable {
 
   void decideHashMode(int32_t numNew) override;
 
-  // Moves the contents of 'tables' into 'this' and prepares 'this'
-
   void erase(folly::Range<char**> rows) override;
+
+  // Moves the contents of 'tables' into 'this' and prepares 'this'
   // for use in hash join probe. A hash join build side is prepared as
   // follows: 1. Each build side thread gets a random selection of the
   // build stream. Each accumulates rows into its own
