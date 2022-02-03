@@ -155,7 +155,8 @@ public class MockManagedQueryExecution
                         OptionalDouble.empty()),
                 null,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     @Override
