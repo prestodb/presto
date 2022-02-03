@@ -19,6 +19,7 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionExecutor;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
