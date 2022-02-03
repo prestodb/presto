@@ -680,6 +680,7 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore.map(PlanAndMore::getFieldNames).orElse(ImmutableList.of()),
                 query,
                 Optional.empty(),
+                Optional.empty(),
                 queryStats,
                 Optional.empty(),
                 Optional.empty(),

@@ -130,6 +130,7 @@ public class TestCreateMaterializedViewTask
 
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sql,
+                Optional.empty(),
                 testSession,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
@@ -156,6 +157,7 @@ public class TestCreateMaterializedViewTask
 
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sql,
+                Optional.empty(),
                 testSession,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

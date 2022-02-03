@@ -642,6 +642,7 @@ public class TestResourceManagerClusterStateProvider
                         OptionalDouble.of(20)),
                 null,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 }
