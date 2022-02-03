@@ -223,7 +223,8 @@ public class TestNodeScheduler
                     null,
                     null,
                     Optional.empty(),
-                    ImmutableList.of());
+                    ImmutableList.of(),
+                    Optional.empty());
         }
 
         @Override

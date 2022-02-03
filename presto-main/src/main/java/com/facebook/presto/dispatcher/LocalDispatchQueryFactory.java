@@ -103,6 +103,7 @@ public class LocalDispatchQueryFactory
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 query,
+                preparedQuery.getPrepareSql(),
                 session,
                 locationFactory.createQueryLocation(session.getQueryId()),
                 resourceGroup,

@@ -28,6 +28,7 @@ public class QueryMetadata
     private final Optional<String> tracingId;
 
     private final String query;
+    private final Optional<String> preparedQuery;
     private final String queryState;
 
     private final URI uri;
@@ -44,6 +45,7 @@ public class QueryMetadata
             String queryId,
             Optional<String> transactionId,
             String query,
+            Optional<String> preparedQuery,
             String queryState,
             URI uri,
             Optional<String> plan,
@@ -55,6 +57,7 @@ public class QueryMetadata
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.query = requireNonNull(query, "query is null");
+        this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryState = requireNonNull(queryState, "queryState is null");
         this.uri = requireNonNull(uri, "uri is null");
         this.plan = requireNonNull(plan, "plan is null");
@@ -80,6 +83,12 @@ public class QueryMetadata
     public String getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public Optional<String> getPreparedQuery()
+    {
+        return preparedQuery;
     }
 
     @JsonProperty
