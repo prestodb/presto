@@ -103,7 +103,7 @@ struct TestData {
 class ExprTest : public testing::Test {
  protected:
   void SetUp() override {
-    functions::prestosql::registerAllFunctions();
+    functions::prestosql::registerAllScalarFunctions();
     exec::test::registerTypeResolver();
 
     testDataType_ =

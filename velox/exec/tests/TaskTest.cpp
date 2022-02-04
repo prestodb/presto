@@ -33,7 +33,7 @@ using namespace facebook::velox;
 class TaskTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    functions::prestosql::registerAllFunctions();
+    functions::prestosql::registerAllScalarFunctions();
   }
 
   void useOneSplit(

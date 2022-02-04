@@ -46,7 +46,7 @@ class ParquetTpchTest : public testing::Test {
       constexpr double kTpchScaleFactor = 0.01;
       duckDb_->initializeTpch(kTpchScaleFactor);
     }
-    functions::prestosql::registerAllFunctions();
+    functions::prestosql::registerAllScalarFunctions();
   }
 
   void SetUp() override {

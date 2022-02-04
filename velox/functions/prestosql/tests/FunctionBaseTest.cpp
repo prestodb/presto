@@ -20,6 +20,6 @@
 namespace facebook::velox::functions::test {
 void FunctionBaseTest::SetUpTestCase() {
   exec::test::registerTypeResolver();
-  functions::prestosql::registerAllFunctions();
+  functions::prestosql::registerAllScalarFunctions();
 }
 } // namespace facebook::velox::functions::test

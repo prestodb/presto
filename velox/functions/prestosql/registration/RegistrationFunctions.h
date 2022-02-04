@@ -41,7 +41,7 @@ void registerStringFunctions();
 
 void registerBitwiseFunctions();
 
-void registerAllFunctions();
+void registerAllScalarFunctions();
 
 void registerMapAllowingDuplicates(const std::string& name);
 } // namespace facebook::velox::functions::prestosql

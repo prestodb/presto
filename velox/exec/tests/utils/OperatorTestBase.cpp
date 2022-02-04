@@ -62,7 +62,7 @@ void OperatorTestBase::SetUp() {
 }
 
 void OperatorTestBase::SetUpTestCase() {
-  functions::prestosql::registerAllFunctions();
+  functions::prestosql::registerAllScalarFunctions();
 }
 
 std::shared_ptr<Task> OperatorTestBase::assertQuery(

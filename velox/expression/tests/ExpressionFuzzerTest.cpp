@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
   // experience, and initialize glog and gflags.
   folly::init(&argc, &argv);
 
-  functions::prestosql::registerAllFunctions();
+  functions::prestosql::registerAllScalarFunctions();
 
   test::expressionFuzzer(
       filterSignatures(getFunctionSignatures(), FLAGS_only),

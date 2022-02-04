@@ -404,7 +404,7 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   // Register all simple and vector scalar functions.
-  functions::prestosql::registerAllFunctions();
+  functions::prestosql::registerAllScalarFunctions();
 
   if (FLAGS_all) {
     printCoverageMapForAll();

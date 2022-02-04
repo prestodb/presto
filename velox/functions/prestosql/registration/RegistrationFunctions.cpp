@@ -81,7 +81,7 @@ void registerBitwiseFunctions() {
   functions::registerBitwiseFunctions();
 }
 
-void registerAllFunctions() {
+void registerAllScalarFunctions() {
   registerArithmeticFunctions();
   registerCheckedArithmeticFunctions();
   registerComparisonFunctions();

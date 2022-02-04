@@ -107,7 +107,7 @@ class CodegenTestCore {
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 
     exec::test::registerTypeResolver();
-    functions::prestosql::registerAllFunctions();
+    functions::prestosql::registerAllScalarFunctions();
   }
 
   /// Creates a plan node given filter and a list of projection
