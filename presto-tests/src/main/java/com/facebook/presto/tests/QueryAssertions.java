@@ -42,7 +42,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -332,27 +331,28 @@ public final class QueryAssertions
             Session session,
             Iterable<TpchTable<?>> tables)
     {
-        copyTpchTables(queryRunner, sourceCatalog, sourceSchema, session, tables, false);
+//        copyTpchTables(queryRunner, sourceCatalog, sourceSchema, session, tables, false);
+        copyTables(queryRunner, sourceCatalog, sourceSchema, session, Iterables.transform(tables, table -> table.getTableName()), false, false);
     }
 
-    public static void copyTpchTables(
-            QueryRunner queryRunner,
-            String sourceCatalog,
-            String sourceSchema,
-            Session session,
-            Iterable<TpchTable<?>> tables,
-            boolean bucketed)
-    {
-        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
-        long startTime = System.nanoTime();
+//    public static void copyTpchTables(
+//            QueryRunner queryRunner,
+//            String sourceCatalog,
+//            String sourceSchema,
+//            Session session,
+//            Iterable<TpchTable<?>> tables,
+//            boolean bucketed)
+//    {
+//        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
+//        long startTime = System.nanoTime();
+//
+//        for (TpchTable<?> table : tables) {
+//            copyTables(queryRunner, sourceCatalog, sourceSchema, session, table.getTableName().toLowerCase(ENGLISH), false, bucketed);
+//        }
+//        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
+//    }
 
-        for (TpchTable<?> table : tables) {
-            copyTables(queryRunner, sourceCatalog, sourceSchema, session, table.getTableName().toLowerCase(ENGLISH), false, bucketed);
-        }
-        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
-    }
-
-    public static void copyTable(
+    public static void copyTables(
             QueryRunner queryRunner,
             String sourceCatalog,
             String sourceSchema,
@@ -364,12 +364,12 @@ public final class QueryAssertions
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
         for (String table : tables) {
-            copyTables(queryRunner, sourceCatalog, sourceSchema, session, table, ifNotExists, bucketed);
+            copyTable(queryRunner, sourceCatalog, sourceSchema, session, table, ifNotExists, bucketed);
         }
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    public static void copyTables(
+    public static void copyTable(
             QueryRunner queryRunner,
             String sourceCatalog,
             String sourceSchema,
