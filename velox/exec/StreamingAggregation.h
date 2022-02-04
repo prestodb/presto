@@ -28,8 +28,7 @@ class StreamingAggregation : public Operator {
   StreamingAggregation(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      const std::shared_ptr<const core::StreamingAggregationNode>&
-          aggregationNode);
+      const std::shared_ptr<const core::AggregationNode>& aggregationNode);
 
   void addInput(RowVectorPtr input) override;
 

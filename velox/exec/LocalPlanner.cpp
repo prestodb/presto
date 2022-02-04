@@ -323,15 +323,16 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
           std::make_unique<CrossJoinProbe>(id, ctx.get(), joinNode));
     } else if (
         auto aggregationNode =
-            std::dynamic_pointer_cast<const core::StreamingAggregationNode>(
-                planNode)) {
-      operators.push_back(std::make_unique<StreamingAggregation>(
-          id, ctx.get(), aggregationNode));
-    } else if (
-        auto aggregationNode =
             std::dynamic_pointer_cast<const core::AggregationNode>(planNode)) {
-      operators.push_back(
-          std::make_unique<HashAggregation>(id, ctx.get(), aggregationNode));
+      if (!aggregationNode->preGroupedKeys().empty() &&
+          aggregationNode->preGroupedKeys().size() ==
+              aggregationNode->groupingKeys().size()) {
+        operators.push_back(std::make_unique<StreamingAggregation>(
+            id, ctx.get(), aggregationNode));
+      } else {
+        operators.push_back(
+            std::make_unique<HashAggregation>(id, ctx.get(), aggregationNode));
+      }
     } else if (
         auto topNNode =
             std::dynamic_pointer_cast<const core::TopNNode>(planNode)) {

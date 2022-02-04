@@ -55,6 +55,8 @@ AggregationNode::AggregationNode(
     Step step,
     const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
         groupingKeys,
+    const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+        preGroupedKeys,
     const std::vector<std::string>& aggregateNames,
     const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates,
     const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
@@ -64,6 +66,7 @@ AggregationNode::AggregationNode(
     : PlanNode(id),
       step_(step),
       groupingKeys_(groupingKeys),
+      preGroupedKeys_(preGroupedKeys),
       aggregateNames_(aggregateNames),
       aggregates_(aggregates),
       aggregateMasks_(aggregateMasks),
@@ -80,6 +83,20 @@ AggregationNode::AggregationNode(
   VELOX_CHECK(
       !groupingKeys_.empty() || !aggregates_.empty(),
       "Aggregation must specify either grouping keys or aggregates");
+
+  std::unordered_set<std::string> groupingKeyNames;
+  groupingKeyNames.reserve(groupingKeys.size());
+  for (const auto& key : groupingKeys) {
+    groupingKeyNames.insert(key->name());
+  }
+
+  for (const auto& key : preGroupedKeys) {
+    VELOX_CHECK_EQ(
+        1,
+        groupingKeyNames.count(key->name()),
+        "Pre-grouped key must be one of the grouping keys: {}.",
+        key->name());
+  }
 }
 
 const std::vector<std::shared_ptr<const PlanNode>>& ValuesNode::sources()

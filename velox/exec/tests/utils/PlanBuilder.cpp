@@ -270,28 +270,18 @@ PlanBuilder::createIntermediateOrFinalAggregation(
         std::make_shared<core::CallTypedExpr>(type, std::move(inputs), name));
   }
 
-  if (streaming) {
-    return std::make_shared<core::StreamingAggregationNode>(
-        nextPlanNodeId(),
-        step,
-        groupingKeys,
-        partialAggNode->aggregateNames(),
-        aggregates,
-        masks,
-        partialAggNode->ignoreNullKeys(),
-        planNode_);
-
-  } else {
-    return std::make_shared<core::AggregationNode>(
-        nextPlanNodeId(),
-        step,
-        groupingKeys,
-        partialAggNode->aggregateNames(),
-        aggregates,
-        masks,
-        partialAggNode->ignoreNullKeys(),
-        planNode_);
-  }
+  return std::make_shared<core::AggregationNode>(
+      nextPlanNodeId(),
+      step,
+      groupingKeys,
+      streaming
+          ? groupingKeys
+          : std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>{},
+      partialAggNode->aggregateNames(),
+      aggregates,
+      masks,
+      partialAggNode->ignoreNullKeys(),
+      planNode_);
 }
 
 PlanBuilder& PlanBuilder::intermediateAggregation() {
@@ -400,6 +390,7 @@ PlanBuilder& PlanBuilder::aggregation(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
+      std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>{},
       aggregatesAndNames.names,
       aggregatesAndNames.aggregates,
       createAggregateMasks(numAggregates, masks),
@@ -418,9 +409,10 @@ PlanBuilder& PlanBuilder::streamingAggregation(
   auto numAggregates = aggregates.size();
   auto aggregatesAndNames =
       createAggregateExpressionsAndNames(aggregates, step, resultTypes);
-  planNode_ = std::make_shared<core::StreamingAggregationNode>(
+  planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
+      fields(groupingKeys),
       fields(groupingKeys),
       aggregatesAndNames.names,
       aggregatesAndNames.aggregates,
@@ -432,8 +424,7 @@ PlanBuilder& PlanBuilder::streamingAggregation(
 
 PlanBuilder& PlanBuilder::finalStreamingAggregation() {
   // Current plan node must be a partial or intermediate aggregation.
-  const auto* aggNode =
-      dynamic_cast<core::StreamingAggregationNode*>(planNode_.get());
+  const auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
   VELOX_CHECK_NOT_NULL(
       aggNode,
       "Current plan node must be a partial or intermediate aggregation.");
@@ -441,8 +432,8 @@ PlanBuilder& PlanBuilder::finalStreamingAggregation() {
   VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
   if (!exec::isRawInput(aggNode->step())) {
     // Check the source node.
-    aggNode = dynamic_cast<const core::StreamingAggregationNode*>(
-        aggNode->sources()[0].get());
+    aggNode =
+        dynamic_cast<const core::AggregationNode*>(aggNode->sources()[0].get());
     VELOX_CHECK_NOT_NULL(
         aggNode,
         "Plan node before current plan node must be a partial aggregation.");

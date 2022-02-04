@@ -22,8 +22,7 @@ namespace facebook::velox::exec {
 StreamingAggregation::StreamingAggregation(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    const std::shared_ptr<const core::StreamingAggregationNode>&
-        aggregationNode)
+    const std::shared_ptr<const core::AggregationNode>& aggregationNode)
     : Operator(
           driverCtx,
           aggregationNode->outputType(),

@@ -397,8 +397,6 @@ class TableWriteNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
-// TODO Split into AbstractAggregationNode and HashAggregation. Move Step one
-// level up.
 class AggregationNode : public PlanNode {
  public:
   enum class Step {
@@ -413,6 +411,10 @@ class AggregationNode : public PlanNode {
   };
 
   /**
+   * @param preGroupedKeys A subset of the 'groupingKeys' on which the input is
+   * clustered, i.e. identical sets of values for these keys always appear next
+   * to each other. Can be empty. If contains all the 'groupingKeys', the
+   * aggregation will run in streaming mode.
    * @param ignoreNullKeys True if rows with at least one null key should be
    * ignored. Used when group by is a source of a join build side and grouping
    * keys are join keys.
@@ -422,6 +424,8 @@ class AggregationNode : public PlanNode {
       Step step,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
           groupingKeys,
+      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+          preGroupedKeys,
       const std::vector<std::string>& aggregateNames,
       const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
@@ -444,6 +448,11 @@ class AggregationNode : public PlanNode {
   const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& groupingKeys()
       const {
     return groupingKeys_;
+  }
+
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+  preGroupedKeys() const {
+    return preGroupedKeys_;
   }
 
   const std::vector<std::string>& aggregateNames() const {
@@ -470,6 +479,8 @@ class AggregationNode : public PlanNode {
  private:
   const Step step_;
   const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> groupingKeys_;
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>
+      preGroupedKeys_;
   const std::vector<std::string> aggregateNames_;
   const std::vector<std::shared_ptr<const CallTypedExpr>> aggregates_;
   // Keeps mask/'no mask' for every aggregation. Mask, if given, is a reference
@@ -502,32 +513,6 @@ inline std::string mapAggregationStepToName(const AggregationNode::Step& step) {
   ss << step;
   return ss.str();
 }
-
-/// Represents streaming aggregation that assumes that input is already grouped
-/// on the grouping keys.
-class StreamingAggregationNode : public AggregationNode {
- public:
-  StreamingAggregationNode(
-      const PlanNodeId& id,
-      Step step,
-      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
-          groupingKeys,
-      const std::vector<std::string>& aggregateNames,
-      const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates,
-      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
-          aggregateMasks,
-      bool ignoreNullKeys,
-      std::shared_ptr<const PlanNode> source)
-      : AggregationNode(
-            id,
-            step,
-            groupingKeys,
-            aggregateNames,
-            aggregates,
-            aggregateMasks,
-            ignoreNullKeys,
-            std::move(source)) {}
-};
 
 class ExchangeNode : public PlanNode {
  public:
