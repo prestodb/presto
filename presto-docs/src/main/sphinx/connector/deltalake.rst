@@ -71,10 +71,17 @@ command.
     table location. To get around no columns error in Hive metastore, provide a dummy column
     as schema of the Delta table being registered.
 
+Currently Delta connector doesn't support CREATE TABLE. We can use same hive metastore URI
+in hive catalog to register Delta table in hive metastore.
+
 .. code-block:: sql
 
-    CREATE TABLE sales.apac.sales_data_new (dummyColumn INT)
+    CREATE TABLE hive.apac.sales_data_new (dummyColumn INT)
     WITH (external_location = 's3://db-sa-datasets/presto/sales_data_new')
+
+In the above query
+
+* ``hive`` refers to the Hive catalog.
 
 Another option is querying the table directly using the table location as table name.
 
