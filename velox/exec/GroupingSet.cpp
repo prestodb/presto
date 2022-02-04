@@ -74,47 +74,19 @@ GroupingSet::GroupingSet(
 }
 
 void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
+  if (isGlobal_) {
+    addGlobalAggregationInput(input, mayPushdown);
+    return;
+  }
+
   auto numRows = input->size();
   activeRows_.resize(numRows);
   activeRows_.setAll();
-  if (isGlobal_) {
-    // global aggregation
-    if (numAdded_ == 0) {
-      initializeGlobalAggregation();
-    }
-    masks_.addInput(input, activeRows_);
-    numAdded_ += numRows;
-    for (auto i = 0; i < aggregates_.size(); ++i) {
-      populateTempVectors(i, input);
-      const SelectivityVector& rows = getSelectivityVector(i);
-      const bool canPushdown =
-          mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
-      if (isRawInput_) {
-        aggregates_[i]->addSingleGroupRawInput(
-            lookup_->hits[0], rows, tempVectors_, canPushdown);
-      } else {
-        aggregates_[i]->addSingleGroupIntermediateResults(
-            lookup_->hits[0], rows, tempVectors_, canPushdown);
-      }
-    }
-    tempVectors_.clear();
-    return;
-  }
 
   bool rehash = false;
   if (!table_) {
     rehash = true;
-    if (ignoreNullKeys_) {
-      table_ = HashTable<true>::createForAggregation(
-          std::move(hashers_), aggregates_, mappedMemory_);
-    } else {
-      table_ = HashTable<false>::createForAggregation(
-          std::move(hashers_), aggregates_, mappedMemory_);
-    }
-    lookup_ = std::make_unique<HashLookup>(table_->hashers());
-    if (!isAdaptive_ && table_->hashMode() != BaseHashTable::HashMode::kHash) {
-      table_->forceGenericHashMode();
-    }
+    createHashTable();
   }
   auto& hashers = lookup_->hashers;
   lookup_->reset(numRows);
@@ -158,11 +130,10 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
     addInput(input, mayPushdown);
     return;
   }
-  numAdded_ += lookup_->rows.size();
   table_->groupProbe(*lookup_);
   masks_.addInput(input, activeRows_);
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    const SelectivityVector& rows = getSelectivityVector(i);
+    const auto& rows = getSelectivityVector(i);
     // TODO(spershin): We disable the pushdown at the moment if selectivity
     // vector has changed after groups generation, we might want to revisit
     // this.
@@ -180,7 +151,25 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
   tempVectors_.clear();
 }
 
+void GroupingSet::createHashTable() {
+  if (ignoreNullKeys_) {
+    table_ = HashTable<true>::createForAggregation(
+        std::move(hashers_), aggregates_, mappedMemory_);
+  } else {
+    table_ = HashTable<false>::createForAggregation(
+        std::move(hashers_), aggregates_, mappedMemory_);
+  }
+  lookup_ = std::make_unique<HashLookup>(table_->hashers());
+  if (!isAdaptive_ && table_->hashMode() != BaseHashTable::HashMode::kHash) {
+    table_->forceGenericHashMode();
+  }
+}
+
 void GroupingSet::initializeGlobalAggregation() {
+  if (globalAggregationInitialized_) {
+    return;
+  }
+
   lookup_ = std::make_unique<HashLookup>(hashers_);
   lookup_->reset(1);
 
@@ -211,6 +200,59 @@ void GroupingSet::initializeGlobalAggregation() {
   for (auto& aggregate : aggregates_) {
     aggregate->initializeNewGroups(lookup_->hits.data(), singleGroup);
   }
+
+  globalAggregationInitialized_ = true;
+}
+
+void GroupingSet::addGlobalAggregationInput(
+    const RowVectorPtr& input,
+    bool mayPushdown) {
+  initializeGlobalAggregation();
+
+  auto numRows = input->size();
+  activeRows_.resize(numRows);
+  activeRows_.setAll();
+
+  masks_.addInput(input, activeRows_);
+  for (auto i = 0; i < aggregates_.size(); ++i) {
+    populateTempVectors(i, input);
+    const auto& rows = getSelectivityVector(i);
+    const bool canPushdown =
+        mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
+    if (isRawInput_) {
+      aggregates_[i]->addSingleGroupRawInput(
+          lookup_->hits[0], rows, tempVectors_, canPushdown);
+    } else {
+      aggregates_[i]->addSingleGroupIntermediateResults(
+          lookup_->hits[0], rows, tempVectors_, canPushdown);
+    }
+  }
+  tempVectors_.clear();
+}
+
+bool GroupingSet::getGlobalAggregationOutput(
+    int32_t batchSize,
+    bool isPartial,
+    RowContainerIterator* iterator,
+    RowVectorPtr& result) {
+  VELOX_CHECK_EQ(batchSize, 1);
+  if (iterator->allocationIndex != 0) {
+    return false;
+  }
+
+  initializeGlobalAggregation();
+
+  auto groups = lookup_->hits.data();
+  for (int32_t i = 0; i < aggregates_.size(); ++i) {
+    aggregates_[i]->finalize(groups, 1);
+    if (isPartial) {
+      aggregates_[i]->extractAccumulators(groups, 1, &result->childAt(i));
+    } else {
+      aggregates_[i]->extractValues(groups, 1, &result->childAt(i));
+    }
+  }
+  iterator->allocationIndex = std::numeric_limits<int32_t>::max();
+  return true;
 }
 
 void GroupingSet::populateTempVectors(
@@ -247,27 +289,7 @@ bool GroupingSet::getOutput(
     RowContainerIterator* iterator,
     RowVectorPtr& result) {
   if (isGlobal_) {
-    // global aggregation
-    VELOX_CHECK_EQ(batchSize, 1);
-    if (iterator->allocationIndex != 0) {
-      return false;
-    }
-
-    if (numAdded_ == 0) {
-      initializeGlobalAggregation();
-    }
-
-    auto groups = lookup_->hits.data();
-    for (int32_t i = 0; i < aggregates_.size(); ++i) {
-      aggregates_[i]->finalize(groups, 1);
-      if (isPartial) {
-        aggregates_[i]->extractAccumulators(groups, 1, &result->childAt(i));
-      } else {
-        aggregates_[i]->extractValues(groups, 1, &result->childAt(i));
-      }
-    }
-    iterator->allocationIndex = std::numeric_limits<int32_t>::max();
-    return true;
+    return getGlobalAggregationOutput(batchSize, isPartial, iterator, result);
   }
 
   // @lint-ignore CLANGTIDY

@@ -52,6 +52,16 @@ class GroupingSet {
  private:
   void initializeGlobalAggregation();
 
+  void addGlobalAggregationInput(const RowVectorPtr& input, bool mayPushdown);
+
+  bool getGlobalAggregationOutput(
+      int32_t batchSize,
+      bool isPartial,
+      RowContainerIterator* iterator,
+      RowVectorPtr& result);
+
+  void createHashTable();
+
   void populateTempVectors(int32_t aggregateIndex, const RowVectorPtr& input);
 
   // If the given aggregation has mask, the method returns reference to the
@@ -74,13 +84,16 @@ class GroupingSet {
   const bool ignoreNullKeys_;
   memory::MappedMemory* const mappedMemory_;
 
+  // Boolean indicating whether accumulators for a global aggregation (i.e.
+  // aggregation with no grouping keys) have been initialized.
+  bool globalAggregationInitialized_{false};
+
   std::vector<bool> mayPushdown_;
 
   // Place for the arguments of the aggregate being updated.
   std::vector<VectorPtr> tempVectors_;
   std::unique_ptr<BaseHashTable> table_;
   std::unique_ptr<HashLookup> lookup_;
-  uint64_t numAdded_ = 0;
   SelectivityVector activeRows_;
 
   // Used to allocate memory for a single row accumulating results of global
