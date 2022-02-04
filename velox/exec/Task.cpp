@@ -631,7 +631,9 @@ void Task::setAllOutputConsumed() {
 }
 
 void Task::driverClosedLocked() {
-  --numRunningDrivers_;
+  if (state_ == TaskState::kRunning) {
+    --numRunningDrivers_;
+  }
   ++numFinishedDrivers_;
   if ((numFinishedDrivers_ == numTotalDrivers_) && (state_ == kRunning)) {
     if (taskStats_.executionEndTimeMs == 0) {
@@ -776,6 +778,11 @@ void Task::terminate(TaskState terminalState) {
     // Drivers that are on thread will see this at latest when they go off
     // thread.
     terminateRequested_ = true;
+    // The drivers that are on thread will go off thread in time and
+    // finishFuture() allows syncing with this. 'numRunningDrivers_'
+    // is cleared here so that this is 0 right after terminate as
+    // tests expect.
+    numRunningDrivers_ = 0;
     for (auto& driver : drivers_) {
       if (driver) {
         if (enterForTerminateLocked(driver->state()) ==
