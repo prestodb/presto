@@ -167,9 +167,6 @@ void CacheInputStream::loadSync(dwio::common::Region region) {
         MicrosecondTimer timer(&usec);
         input_.read(ranges, region.offset, dwio::common::LogType::FILE);
       }
-      // Already incremented on entry, so revert the increment by read()
-      // above.
-      ioStats_->incRawBytesRead(-region.length);
       ioStats_->read().increment(region.length);
       ioStats_->queryThreadIoLatency().increment(usec);
       entry->setExclusiveToShared();

@@ -31,6 +31,8 @@ using namespace facebook::velox::cache;
 using facebook::velox::dwio::common::IoStatistics;
 using facebook::velox::dwio::common::Region;
 using memory::MappedMemory;
+using IoStatisticsPtr =
+    std::shared_ptr<facebook::velox::dwio::common::IoStatistics>;
 
 // Testing stream producing deterministic data. The byte at offset is
 // the low byte of 'seed_' + offset.
@@ -40,7 +42,7 @@ class TestInputStream : public facebook::velox::dwio::common::InputStream {
       const std::string& path,
       uint64_t seed,
       uint64_t length,
-      std::shared_ptr<facebook::velox::dwio::common::IoStatistics> ioStats)
+      IoStatisticsPtr ioStats)
       : InputStream(path),
         seed_(seed),
         length_(length),
@@ -80,7 +82,7 @@ class TestInputStream : public facebook::velox::dwio::common::InputStream {
  private:
   const uint64_t seed_;
   const uint64_t length_;
-  std::shared_ptr<facebook::velox::dwio::common::IoStatistics> ioStats_;
+  IoStatisticsPtr ioStats_;
 };
 
 class TestInputStreamHolder : public dwrf::AbstractInputStreamHolder {
@@ -212,7 +214,10 @@ class CacheTest : public testing::Test {
       fileIds_.push_back(lease);
       fileIds_.push_back(groupLease);
       auto stream = std::make_shared<TestInputStream>(
-          path, lease.id(), 1UL << 63, ioStats_);
+          path,
+          lease.id(),
+          1UL << 63,
+          std::make_shared<dwio::common::IoStatistics>());
       pathToInput_[lease.id()] = stream;
       return stream;
     }
@@ -228,7 +233,8 @@ class CacheTest : public testing::Test {
       std::shared_ptr<ScanTracker> tracker,
       uint64_t fileId,
       uint64_t groupId,
-      int64_t offset) {
+      int64_t offset,
+      const IoStatisticsPtr& ioStats) {
     auto data = std::make_unique<StripeData>();
     facebook::velox::dwio::common::DataCacheConfig config{nullptr, fileId};
     data->input = std::make_unique<dwrf::CachedBufferedInput>(
@@ -241,7 +247,7 @@ class CacheTest : public testing::Test {
         [inputStream]() {
           return std::make_unique<TestInputStreamHolder>(inputStream);
         },
-        ioStats_,
+        ioStats,
         executor_.get(),
         dwio::common::ReaderOptions::kDefaultLoadQuantum, // loadQuantum 8MB.
         512 << 10 // Max coalesce distance 512K.
@@ -265,9 +271,19 @@ class CacheTest : public testing::Test {
     return data;
   }
 
-  bool shouldRead(int32_t columnIndex, int32_t readPct, int32_t modulo) {
-    return folly::Random::rand32(rng_) % 100 <
-        readPct / ((columnIndex % modulo) + 1);
+  bool shouldRead(
+      const StripeData& stripe,
+      int32_t columnIndex,
+      int32_t readPct,
+      int32_t modulo) {
+    uint32_t random;
+    if (deterministic_) {
+      auto region = stripe.regions[columnIndex];
+      random = folly::hasher<uint64_t>()(region.offset + columnIndex);
+    } else {
+      random = folly::Random::rand32(rng_);
+    }
+    return random % 100 < readPct / ((columnIndex % modulo) + 1);
   }
 
   void readStream(const StripeData& stripe, int32_t columnIndex) {
@@ -340,7 +356,8 @@ class CacheTest : public testing::Test {
       int32_t readPct,
       int32_t readPctModulo,
       int32_t numStripes,
-      int32_t stripeWindow = 4) {
+      int32_t stripeWindow,
+      const IoStatisticsPtr& ioStats) {
     auto tracker = std::make_shared<ScanTracker>(
         "testTracker",
         nullptr,
@@ -367,7 +384,8 @@ class CacheTest : public testing::Test {
             tracker,
             fileId,
             groupId,
-            prefetchStripeIndex * streamStarts_[kMaxStreams - 1]));
+            prefetchStripeIndex * streamStarts_[kMaxStreams - 1],
+            ioStats));
         if (stripes.back()->input->shouldPreload()) {
           stripes.back()->input->load(
               facebook::velox::dwio::common::LogType::TEST);
@@ -377,7 +395,7 @@ class CacheTest : public testing::Test {
       stripes.erase(stripes.begin());
       currentStripe->input->load(facebook::velox::dwio::common::LogType::TEST);
       for (auto columnIndex = 0; columnIndex < numColumns; ++columnIndex) {
-        if (shouldRead(columnIndex, readPct, readPctModulo)) {
+        if (shouldRead(*currentStripe, columnIndex, readPct, readPctModulo)) {
           readStream(*currentStripe, columnIndex);
         }
       }
@@ -402,7 +420,8 @@ class CacheTest : public testing::Test {
           readPct,
           readPctModulo,
           numStripes,
-          stripeWindow);
+          stripeWindow,
+          ioStats_);
     }
   }
 
@@ -436,6 +455,9 @@ class CacheTest : public testing::Test {
 
   // Start offset of each simulated stream in a simulated stripe.
   std::vector<uint64_t> streamStarts_;
+  // Set to true if whether something is read should be deterministic by the
+  // column and position.
+  bool deterministic_{false};
   folly::Random::DefaultGenerator rng_;
 
   // Specifies if random seek follows bulk read in tests. We turn this
@@ -446,9 +468,9 @@ class CacheTest : public testing::Test {
 TEST_F(CacheTest, bufferedInput) {
   // Size 160 MB. Frequent evictions and not everything fits in prefetch window.
   initializeCache(160 << 20);
-  readLoop("testfile", 30, 70, 10, 20);
-  readLoop("testfile", 30, 70, 10, 20);
-  readLoop("testfile2", 30, 70, 70, 20);
+  readLoop("testfile", 30, 70, 10, 20, 4, ioStats_);
+  readLoop("testfile", 30, 70, 10, 20, 4, ioStats_);
+  readLoop("testfile2", 30, 70, 70, 20, 4, ioStats_);
 }
 
 // Calibrates the data read for a densely and sparsely read stripe of
@@ -459,12 +481,13 @@ TEST_F(CacheTest, bufferedInput) {
 // working set stabilizes again.
 TEST_F(CacheTest, ssd) {
   constexpr int64_t kSsdBytes = 256 << 20;
-  // 128MB RAM, 256MB SSD
-  initializeCache(128 << 20, kSsdBytes);
+  // 64 RAM, 256MB SSD
+  initializeCache(64 << 20, kSsdBytes);
   testRandomSeek_ = false;
+  deterministic_ = true;
 
   // We read one stripe with all columns.
-  readLoop("testfile", 30, 100, 1, 1);
+  readLoop("testfile", 30, 100, 1, 1, 1, ioStats_);
   // This is a cold read, so expect no hits.
   EXPECT_EQ(0, ioStats_->ramHit().bytes());
   // Expect some extra reading from coalescing.
@@ -473,7 +496,7 @@ TEST_F(CacheTest, ssd) {
   auto bytes = ioStats_->rawBytesRead();
   cache_->clear();
   // We read 10 stripes with some columns sparsely accessed.
-  readLoop("testfile", 30, 70, 10, 10, 1);
+  readLoop("testfile", 30, 70, 10, 10, 1, ioStats_);
   auto sparseStripeBytes = (ioStats_->rawBytesRead() - bytes) / 10;
   EXPECT_LT(sparseStripeBytes, fullStripeBytes / 4);
   // Expect the dense fraction of columns to have read ahead.
@@ -529,7 +552,7 @@ TEST_F(CacheTest, singleFileThreads) {
   threads.reserve(numThreads);
   for (int i = 0; i < numThreads; ++i) {
     threads.push_back(std::thread([this, i]() {
-      readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20);
+      readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20, 4, ioStats_);
     }));
   }
   for (auto i = 0; i < numThreads; ++i) {
@@ -539,19 +562,43 @@ TEST_F(CacheTest, singleFileThreads) {
 
 TEST_F(CacheTest, ssdThreads) {
   initializeCache(64 << 20, 1024 << 20);
-  const int numThreads = 4;
+  deterministic_ = true;
+  constexpr int32_t kNumThreads = 8;
+  std::vector<IoStatisticsPtr> stats;
+  stats.reserve(kNumThreads);
   std::vector<std::thread> threads;
-  threads.reserve(numThreads);
-  for (int i = 0; i < numThreads; ++i) {
-    threads.push_back(std::thread([this, i]() {
+  threads.reserve(kNumThreads);
+
+  // We read 4 files on 8 threads. Threads 0 and 1 read file 0, 2 and 3 read
+  // file 1 etc. Each tread reads its file 4 times.
+  for (int i = 0; i < kNumThreads; ++i) {
+    stats.push_back(std::make_shared<dwio::common::IoStatistics>());
+    threads.push_back(std::thread([i, this, &stats]() {
       for (auto counter = 0; counter < 4; ++counter) {
-        readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20);
+        readLoop(fmt::format("testfile{}", i / 2), 10, 70, 10, 20, 2, stats[i]);
       }
     }));
   }
-  for (int i = 0; i < numThreads; ++i) {
+  for (int i = 0; i < kNumThreads; ++i) {
     threads[i].join();
   }
   executor_->join();
+  for (auto i = 0; i < kNumThreads; ++i) {
+    // All threads access the same amount. Where the data comes from varies.
+    EXPECT_EQ(stats[0]->rawBytesRead(), stats[i]->rawBytesRead());
+
+    // What is accessed is <= what is hit from RAM + read from storage + read
+    // from SSD.
+    EXPECT_LE(
+        stats[i]->rawBytesRead(),
+        stats[i]->ramHit().bytes() + stats[i]->ssdRead().bytes() +
+            stats[i]->read().bytes());
+    EXPECT_GE(stats[i]->rawBytesRead(), stats[i]->ramHit().bytes());
+
+    // Prefetch is <= read from storage + read from SSD.
+    EXPECT_LE(
+        stats[i]->prefetch().bytes(),
+        stats[i]->read().bytes() + stats[i]->ssdRead().bytes());
+  }
   LOG(INFO) << cache_->toString();
 }

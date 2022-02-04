@@ -303,10 +303,6 @@ class DwrfCoalescedLoadBase : public cache::CoalescedLoad {
       if (isSsd) {
         ioStats_->ssdRead().increment(stats.payloadBytes);
       } else {
-        // Reading the file increments rawReadBytes. Reverse this
-        // increment here because actually accessing the data via
-        // CacheInputStream will do the increment.
-        ioStats_->incRawBytesRead(-stats.payloadBytes);
         ioStats_->read().increment(stats.payloadBytes);
       }
       if (isPrefetch) {
