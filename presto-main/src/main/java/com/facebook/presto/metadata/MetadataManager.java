@@ -142,8 +142,15 @@ public class MetadataManager
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
 
-    private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
-    private final Set<QueryId> queriesWithRegisteredCallbacks = ConcurrentHashMap.newKeySet();
+    private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId;
+    private final Set<QueryId> queriesWithRegisteredCallbacks;
+
+    @Override
+    public Metadata createQueryAwareMetadata(QueryId queryId)
+    {
+        requireNonNull(queryId);
+        return new MetadataManager(this, new QueryAwareFunctionAndTypeManager(functionAndTypeManager));
+    }
 
     @VisibleForTesting
     public MetadataManager(
@@ -190,8 +197,26 @@ public class MetadataManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.procedures = new ProcedureRegistry(functionAndTypeManager);
+        this.catalogsByQueryId = new ConcurrentHashMap<>();
+        this.queriesWithRegisteredCallbacks = ConcurrentHashMap.newKeySet();
 
         verifyComparableOrderableContract();
+    }
+
+    public MetadataManager(MetadataManager other, QueryAwareFunctionAndTypeManager functionAndTypeManager)
+    {
+        this.viewCodec = other.viewCodec;
+        this.blockEncodingSerde = other.blockEncodingSerde;
+        this.sessionPropertyManager = other.sessionPropertyManager;
+        this.schemaPropertyManager = other.schemaPropertyManager;
+        this.tablePropertyManager = other.tablePropertyManager;
+        this.columnPropertyManager = other.columnPropertyManager;
+        this.analyzePropertyManager = other.analyzePropertyManager;
+        this.transactionManager = other.transactionManager;
+        this.functionAndTypeManager = functionAndTypeManager;
+        this.procedures = other.procedures;
+        this.catalogsByQueryId = other.catalogsByQueryId;
+        this.queriesWithRegisteredCallbacks = other.queriesWithRegisteredCallbacks;
     }
 
     public static MetadataManager createTestMetadataManager()

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 
+import java.util.Map;
 import java.util.Optional;
 
 public class ScalarHeader
@@ -23,13 +24,15 @@ public class ScalarHeader
     private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final Map<String, String> typeNameConstraints;
 
-    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput, Map<String, String> typeNameConstraints)
     {
         this.description = description;
         this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.typeNameConstraints = typeNameConstraints;
     }
 
     public Optional<String> getDescription()
@@ -50,5 +53,10 @@ public class ScalarHeader
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public Map<String, String> getTypeNameConstraints()
+    {
+        return typeNameConstraints;
     }
 }

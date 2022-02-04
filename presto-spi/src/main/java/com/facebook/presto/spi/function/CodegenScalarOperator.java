@@ -13,23 +13,17 @@
  */
 package com.facebook.presto.spi.function;
 
-import java.lang.annotation.Repeatable;
+import com.facebook.presto.common.function.OperatorType;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.CONSTRUCTOR;
 import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Retention(RUNTIME)
-@Target({PARAMETER, METHOD, CONSTRUCTOR})
-@Repeatable(TypeParameters.class)
-public @interface TypeParameter
+@Target(METHOD)
+public @interface CodegenScalarOperator
 {
-    String value();
-
-    String boundedBy() default "";
-
-    String typeName() default "";
+    OperatorType value();
 }

@@ -73,6 +73,8 @@ public interface Metadata
 
     List<String> listSchemaNames(Session session, String catalogName);
 
+    Metadata createQueryAwareMetadata(QueryId queryId);
+
     /**
      * Returns a table handle for the specified table name.
      */

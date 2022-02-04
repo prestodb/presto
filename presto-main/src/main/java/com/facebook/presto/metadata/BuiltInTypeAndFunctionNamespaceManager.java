@@ -203,6 +203,7 @@ import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DecimalParametricType;
+import com.facebook.presto.type.DistinctTypeCasts;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.EnumCasts;
 import com.facebook.presto.type.HyperLogLogOperators;
@@ -326,6 +327,7 @@ import static com.facebook.presto.operator.scalar.ArrayTransformFunction.ARRAY_T
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
+import static com.facebook.presto.operator.scalar.DistinctTypeEqualOperator.DISTINCT_TYPE_EQUAL_OPERATOR;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
@@ -848,6 +850,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
                 .scalars(VarcharEnumOperators.class)
+                .codegenScalars(DistinctTypeCasts.class)
+                .functions(DISTINCT_TYPE_EQUAL_OPERATOR)
                 .codegenScalars(MapFilterFunction.class);
 
         switch (featuresConfig.getRegexLibrary()) {

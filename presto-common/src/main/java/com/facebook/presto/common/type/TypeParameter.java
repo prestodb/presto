@@ -61,6 +61,11 @@ public class TypeParameter
         return new TypeParameter(ParameterKind.VARCHAR_ENUM, enumMap);
     }
 
+    public static TypeParameter of(DistinctTypeInfo distinctTypeInfo)
+    {
+        return new TypeParameter(ParameterKind.DISTINCT_TYPE, distinctTypeInfo);
+    }
+
     public static TypeParameter of(TypeSignatureParameter parameter, TypeManager typeManager)
     {
         switch (parameter.getKind()) {
@@ -82,6 +87,8 @@ public class TypeParameter
                 return of(parameter.getLongEnumMap());
             case VARCHAR_ENUM:
                 return of(parameter.getVarcharEnumMap());
+            case DISTINCT_TYPE:
+                return of(parameter.getDistinctTypeInfo());
             default:
                 throw new UnsupportedOperationException(format("Unsupported parameter [%s]", parameter));
         }

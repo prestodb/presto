@@ -798,7 +798,7 @@ public class SqlQueryExecution
                     stateMachine,
                     slug,
                     retryCount,
-                    metadata,
+                    metadata.createQueryAwareMetadata(stateMachine.getQueryId()),
                     accessControl,
                     sqlParser,
                     splitManager,

@@ -61,6 +61,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Metadata createQueryAwareMetadata(QueryId queryId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void verifyComparableOrderableContract()
     {
         throw new UnsupportedOperationException();

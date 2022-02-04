@@ -25,6 +25,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.Ar
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
+import com.facebook.presto.spi.function.CodegenScalarOperator;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.IsNull;
@@ -42,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -58,7 +60,9 @@ import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationCh
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.base.Throwables.propagate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -77,7 +81,7 @@ public class CodegenScalarFromAnnotationsParser
     {
         Set<Method> methods = findPublicStaticMethods(
                 clazz,
-                ImmutableSet.of(CodegenScalarFunction.class),
+                ImmutableSet.of(CodegenScalarFunction.class, CodegenScalarOperator.class),
                 ImmutableSet.of(ScalarFunction.class, ScalarOperator.class, SqlInvokedScalarFunction.class));
         for (Method method : methods) {
             checkCondition(
@@ -94,6 +98,7 @@ public class CodegenScalarFromAnnotationsParser
     private static List<ArgumentProperty> getArgumentProperties(Method method)
     {
         return Arrays.stream(method.getParameters())
+                .filter(p -> p.getAnnotation(SqlType.class) != null)
                 .map(p -> {
                     checkCondition(p.getType() == Type.class, FUNCTION_IMPLEMENTATION_ERROR, "Codegen scalar function %s must have paramter [%s] of type Type", method, p.getName());
                     checkCondition(p.getAnnotationsByType(BlockPosition.class).length == 0, FUNCTION_IMPLEMENTATION_ERROR, "Block and Position format is not supported for codegen function %s", method);
@@ -112,14 +117,20 @@ public class CodegenScalarFromAnnotationsParser
     private static SqlScalarFunction createSqlScalarFunction(Method method)
     {
         CodegenScalarFunction codegenScalarFunction = method.getAnnotation(CodegenScalarFunction.class);
+        CodegenScalarOperator codegenScalarOperator = method.getAnnotation(CodegenScalarOperator.class);
+
+        QualifiedObjectName functionName = codegenScalarFunction == null ? codegenScalarOperator.value().getFunctionName() : QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, codegenScalarFunction.value());
+        SqlFunctionVisibility visibility = codegenScalarFunction == null ? HIDDEN : codegenScalarFunction.visibility();
+        boolean deterministic = codegenScalarFunction == null ? true : codegenScalarFunction.deterministic();
+        boolean calledOnNullInput = codegenScalarFunction == null ? codegenScalarOperator.value().isCalledOnNullInput() : codegenScalarFunction.calledOnNullInput();
 
         Signature signature = new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, codegenScalarFunction.value()),
+                functionName,
                 FunctionKind.SCALAR,
                 Arrays.stream(method.getAnnotationsByType(TypeParameter.class)).map(t -> withVariadicBound(t.value(), t.boundedBy().isEmpty() ? null : t.boundedBy())).collect(toImmutableList()),
                 ImmutableList.of(),
                 parseTypeSignature(method.getAnnotation(SqlType.class).value()),
-                Arrays.stream(method.getParameters()).map(p -> parseTypeSignature(p.getAnnotation(SqlType.class).value())).collect(toImmutableList()),
+                Arrays.stream(method.getParameters()).filter(p -> p.getAnnotation(SqlType.class) != null).map(p -> parseTypeSignature(p.getAnnotation(SqlType.class).value())).collect(toImmutableList()),
                 false);
 
         return new SqlScalarFunction(signature)
@@ -127,10 +138,21 @@ public class CodegenScalarFromAnnotationsParser
             @Override
             public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
             {
-                Signature boundSignature = applyBoundVariables(signature, boundVariables, arity);
                 MethodHandle handle;
                 try {
-                    handle = (MethodHandle) method.invoke(null, boundSignature.getArgumentTypes().stream().map(t -> functionAndTypeManager.getType(t)).toArray());
+                    handle = (MethodHandle) method.invoke(
+                            null,
+                            Arrays.stream(method.getParameters()).map(p -> {
+                                SqlType sqlTypeAnnotation = p.getAnnotation(SqlType.class);
+                                String typeSignature = sqlTypeAnnotation == null ? p.getAnnotation(TypeParameter.class).value() : sqlTypeAnnotation.value();
+                                return functionAndTypeManager.getType(applyBoundVariables(parseTypeSignature(typeSignature), boundVariables));
+                            }).toArray());
+                }
+                catch (InvocationTargetException e) {
+                    if (e.getTargetException() instanceof PrestoException) {
+                        propagate(e.getTargetException());
+                    }
+                    throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Method %s threw error", method), e);
                 }
                 catch (Exception e) {
                     throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Method %s does not return valid MethodHandle", method), e);
@@ -145,13 +167,13 @@ public class CodegenScalarFromAnnotationsParser
             @Override
             public SqlFunctionVisibility getVisibility()
             {
-                return codegenScalarFunction.visibility();
+                return visibility;
             }
 
             @Override
             public boolean isDeterministic()
             {
-                return codegenScalarFunction.deterministic();
+                return deterministic;
             }
 
             @Override
@@ -164,7 +186,7 @@ public class CodegenScalarFromAnnotationsParser
             @Override
             public boolean isCalledOnNullInput()
             {
-                return codegenScalarFunction.calledOnNullInput();
+                return calledOnNullInput;
             }
         };
     }

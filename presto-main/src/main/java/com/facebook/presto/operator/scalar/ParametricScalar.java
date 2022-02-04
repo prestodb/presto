@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.type.DistinctType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -83,6 +86,29 @@ public class ParametricScalar
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Signature boundSignature = applyBoundVariables(getSignature(), boundVariables, arity);
+
+        details.getTypeNameConstraints().forEach((variable, typeName) -> {
+            Type type = boundVariables.getTypeVariable(variable);
+            boolean found = false;
+            if (type instanceof DistinctType) {
+                Optional<DistinctType> distinctType = Optional.of((DistinctType) type);
+
+                while (distinctType.isPresent()) {
+                    if (typeName.equals(distinctType.get().getName().toString())) {
+                        found = true;
+                        break;
+                    }
+                    distinctType = distinctType.get().getParentTypeLoadIfNeeded();
+                }
+            }
+            else if (type instanceof TypeWithName) {
+                found = ((TypeWithName) type).getName().equals(typeName);
+            }
+            if (!found) {
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Unable to find matching typeName %s in function %s", typeName, boundSignature.getName()));
+            }
+        });
+
         if (implementations.getExactImplementations().containsKey(boundSignature)) {
             ParametricScalarImplementation implementation = implementations.getExactImplementations().get(boundSignature);
             Optional<BuiltInScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, functionAndTypeManager);

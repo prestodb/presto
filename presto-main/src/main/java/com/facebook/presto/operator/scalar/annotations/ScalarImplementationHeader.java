@@ -19,19 +19,24 @@ import com.facebook.presto.operator.scalar.ScalarHeader;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.StandardTypes.USER_DEFINED_TYPES;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarImplementationHeader
@@ -76,20 +81,31 @@ public class ScalarImplementationHeader
         ScalarFunction scalarFunction = annotated.getAnnotation(ScalarFunction.class);
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
         Optional<String> description = parseDescription(annotated);
+        Map<String, String> typeNameConstraints = Arrays.stream(annotated.getAnnotationsByType(TypeParameter.class))
+                .filter(annotation -> {
+                    if (annotation.typeName().isEmpty()) {
+                        return false;
+                    }
+                    if (!USER_DEFINED_TYPES.contains(annotation.boundedBy())) {
+                        throw new UnsupportedOperationException("Only user defined types can have typeName");
+                    }
+                    return true;
+                })
+                .collect(toImmutableMap(annotation -> annotation.value(), annotation -> annotation.typeName()));
 
         ImmutableList.Builder<ScalarImplementationHeader> builder = ImmutableList.builder();
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
+            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), typeNameConstraints)));
 
             for (String alias : scalarFunction.alias()) {
-                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
+                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), typeNameConstraints)));
             }
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, HIDDEN, true, scalarOperator.value().isCalledOnNullInput())));
+            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, HIDDEN, true, scalarOperator.value().isCalledOnNullInput(), typeNameConstraints)));
         }
 
         List<ScalarImplementationHeader> result = builder.build();

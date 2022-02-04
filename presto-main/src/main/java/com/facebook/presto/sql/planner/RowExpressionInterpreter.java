@@ -270,6 +270,7 @@ public class RowExpressionInterpreter
 
             Object value;
             FunctionImplementationType implementationType = functionMetadata.getImplementationType();
+//            FunctionImplementationType implementationType = JAVA;
             if (implementationType.isExternal()) {
                 // do not interpret remote functions on coordinator
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
