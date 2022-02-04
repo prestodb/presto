@@ -34,6 +34,7 @@ public class QueryCompletedEvent
     private final List<String> failedTasks;
     private final List<StageStatistics> stageStatistics;
     private final List<OperatorStatistics> operatorStatistics;
+    private final String queryPlanWithStagesJson;
 
     private final Instant createTime;
     private final Instant executionStartTime;
@@ -54,7 +55,8 @@ public class QueryCompletedEvent
             Instant endTime,
             List<StageStatistics> stageStatistics,
             List<OperatorStatistics> operatorStatistics,
-            Optional<String> expandedQuery)
+            Optional<String> expandedQuery,
+            String queryPlanWithStagesJson)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -70,6 +72,7 @@ public class QueryCompletedEvent
         this.stageStatistics = requireNonNull(stageStatistics, "stageStatistics is null");
         this.operatorStatistics = requireNonNull(operatorStatistics, "operatorStatistics is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
+        this.queryPlanWithStagesJson = requireNonNull(queryPlanWithStagesJson, "queryPlanWithStagesJson is null");
     }
 
     public QueryMetadata getMetadata()
@@ -140,5 +143,10 @@ public class QueryCompletedEvent
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    public String getQueryPlanWithStagesJson()
+    {
+        return queryPlanWithStagesJson;
     }
 }

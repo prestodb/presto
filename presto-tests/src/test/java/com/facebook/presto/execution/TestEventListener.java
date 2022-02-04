@@ -14,8 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
@@ -37,13 +39,20 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.FINISHED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueues.createResourceGroupId;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestEventListener
@@ -99,6 +108,38 @@ public class TestEventListener
         generatedEvents.waitForEvents(10);
 
         return result;
+    }
+
+    private void runQueryThenCancelAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
+            throws Exception
+    {
+        generatedEvents.initialize(numEventsExpected);
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        QueryId queryId = dispatchManager.createQueryId();
+        dispatchManager.createQuery(
+                queryId,
+                "slug",
+                0,
+                new TestingSessionContext(TEST_SESSION),
+                sql)
+                .get();
+
+        // wait until query starts running
+        while (true) {
+            QueryState state = dispatchManager.getQueryInfo(queryId).getState();
+            if (state.isDone()) {
+                fail("unexpected query state: " + state);
+            }
+            if (state == RUNNING) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+
+        // cancel query
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "mock exception"));
+        generatedEvents.waitForEvents(10);
     }
 
     @Test
@@ -320,5 +361,27 @@ public class TestEventListener
         {
             return splitCompletedEvents.build();
         }
+    }
+
+    @Test
+    public void testPlanSuccessQuery()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("SELECT 1", 3);
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertEquals(queryCompletedEvent.getMetadata().getQueryState(), FINISHED.toString());
+        assertNotSame(queryCompletedEvent.getQueryPlanWithStagesJson(), "");
+        assertTrue(queryCompletedEvent.getQueryPlanWithStagesJson().contains(StageExecutionState.FINISHED.toString()));
+    }
+
+    @Test
+    public void testPlanFailQuery()
+            throws Exception
+    {
+        runQueryThenCancelAndWaitForEvents("SELECT 1", 7);
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertEquals(queryCompletedEvent.getMetadata().getQueryState(), FAILED.toString());
+        assertNotSame(queryCompletedEvent.getQueryPlanWithStagesJson(), "");
+        assertTrue(queryCompletedEvent.getQueryPlanWithStagesJson().contains(StageExecutionState.ABORTED.toString()));
     }
 }

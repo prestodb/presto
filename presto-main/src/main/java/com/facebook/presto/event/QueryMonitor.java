@@ -28,6 +28,9 @@ import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageExecutionInfo;
+import com.facebook.presto.execution.StageExecutionState;
+import com.facebook.presto.execution.StageExecutionStats;
+import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -54,14 +57,23 @@ import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.eventlistener.StageStatistics;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.transaction.TransactionId;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +84,7 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -83,6 +96,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String EMPTY_STRING = "";
 
     private final JsonCodec<StageInfo> stageInfoCodec;
     private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
@@ -197,7 +212,8 @@ public class QueryMonitor
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty()));
+                Optional.empty(),
+                EMPTY_STRING));
 
         logQueryTimeline(queryInfo);
     }
@@ -227,7 +243,8 @@ public class QueryMonitor
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0),
                         stageStatisticsBuilder.build(),
                         createOperatorStatistics(queryInfo),
-                        queryInfo.getExpandedQuery()));
+                        queryInfo.getExpandedQuery(),
+                        createQueryPlanWithStats(queryInfo)));
 
         logQueryTimeline(queryInfo);
     }
@@ -628,5 +645,282 @@ public class QueryMonitor
                 createResourceDistribution(memoryDistribution.snapshot())));
 
         stageInfo.getSubStages().forEach(subStage -> computeStageStatistics(subStage, stageStatisticsBuilder));
+    }
+
+    private static QueryPlanWithStageInfo computeStageStatisticsWithPlan(
+            StageInfo stageInfo)
+    {
+        List<QueryPlanWithStageInfo> children = new ArrayList<QueryPlanWithStageInfo>();
+        for (StageInfo subStageInfo : stageInfo.getSubStages()) {
+            QueryPlanWithStageInfo subQueryPlanWithStageInfo = computeStageStatisticsWithPlan(subStageInfo);
+            children.add(subQueryPlanWithStageInfo);
+        }
+
+        StageExecutionStats stageExecutionStats = stageInfo.getLatestAttemptExecutionInfo().getStats();
+
+        return new QueryPlanWithStageInfo(
+                stageInfo.getLatestAttemptExecutionInfo().getState(),
+
+                stageInfo.getStageId(),
+                stageInfo.getPlan().isPresent() ? stageInfo.getPlan().get().getId() : new PlanFragmentId(0),
+                stageInfo.getPlan().get().getRoot().getId(),
+
+                stageExecutionStats.getUserMemoryReservation(),
+
+                stageExecutionStats.getTotalCpuTime(),
+                stageExecutionStats.isFullyBlocked(),
+                stageExecutionStats.getTotalBlockedTime(),
+
+                stageExecutionStats.getQueuedDrivers(),
+                stageExecutionStats.getRunningDrivers(),
+                stageExecutionStats.getCompletedDrivers(),
+
+                stageExecutionStats.getTotalLifespans(),
+                stageExecutionStats.getCompletedLifespans(),
+
+                stageExecutionStats.getRawInputDataSize(),
+                stageExecutionStats.getRawInputPositions(),
+
+                stageExecutionStats.getBufferedDataSize(),
+                stageExecutionStats.getOutputDataSize(),
+                stageExecutionStats.getOutputPositions(),
+
+                stageInfo.getPlan().get().getJsonRepresentation().isPresent() ? stageInfo.getPlan().get().getJsonRepresentation().get() : "",
+                children);
+    }
+
+    private String createQueryPlanWithStats(QueryInfo queryInfo)
+    {
+        String queryPlanWithStats = "";
+        if (queryInfo.getOutputStage().isPresent()) {
+            QueryPlanWithStageInfo queryPlanWithStageInfo = computeStageStatisticsWithPlan(queryInfo.getOutputStage().get());
+            try {
+                queryPlanWithStats = objectMapper.writeValueAsString(queryPlanWithStageInfo);
+            }
+            catch (JsonProcessingException e) {
+                // Don't fail event if the plan can not be created
+                log.warn(e, "Error creating json plan for query %s: %s", queryInfo.getQueryId(), e);
+            }
+        }
+        return queryPlanWithStats;
+    }
+
+    public static class QueryPlanWithStageInfo
+    {
+        private final StageExecutionState state;
+
+        private final StageId stageId;
+        private final PlanFragmentId planId;
+        private final PlanNodeId rootId;
+
+        private final DataSize userMemoryReservation;
+
+        private final Duration totalCpuTime;
+        private final boolean fullyBlocked;
+        private final Duration totalBlockedTime;
+
+        private final DataSize bufferedDataSize;
+        private final DataSize outputDataSize;
+        private final long outputPositions;
+
+        private final int queuedDrivers;
+        private final int runningDrivers;
+        private final int completedDrivers;
+
+        private final int totalLifespans;
+        private final int completedLifespans;
+
+        private final DataSize rawInputDataSize;
+        private final long rawInputPositions;
+
+        private final String jsonPlan;
+        private final List<QueryPlanWithStageInfo> subStages;
+
+        @JsonCreator
+        public QueryPlanWithStageInfo(
+                @JsonProperty("state") StageExecutionState state,
+
+                @JsonProperty("stageId") StageId stageId,
+                @JsonProperty("planId") PlanFragmentId planId,
+                @JsonProperty("rootId") PlanNodeId rootId,
+
+                @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+
+                @JsonProperty("totalCpuTime") Duration totalCpuTime,
+                @JsonProperty("fullyBlocked") boolean fullyBlocked,
+                @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+
+                @JsonProperty("queuedDrivers") int queuedDrivers,
+                @JsonProperty("runningDrivers") int runningDrivers,
+                @JsonProperty("completedDrivers") int completedDrivers,
+
+                @JsonProperty("totalLifespans") int totalLifespans,
+                @JsonProperty("completedLifespans") int completedLifespans,
+
+                @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+                @JsonProperty("rawInputPositions") long rawInputPositions,
+
+                @JsonProperty("bufferedDataSize") DataSize bufferedDataSize,
+                @JsonProperty("outputDataSize") DataSize outputDataSize,
+                @JsonProperty("outputPositions") long outputPositions,
+
+                @JsonProperty("jsonPlan") String jsonPlan,
+                @JsonProperty("subStages") List<QueryPlanWithStageInfo> subStages)
+        {
+            this.state = requireNonNull(state, "state is Null");
+            this.stageId = requireNonNull(stageId, "stageId is null");
+            this.planId = requireNonNull(planId, "planId is null");
+            this.rootId = requireNonNull(rootId, "rootId is null");
+
+            this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+
+            this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
+            this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
+            this.fullyBlocked = fullyBlocked;
+
+            this.bufferedDataSize = requireNonNull(bufferedDataSize, "bufferedDataSize is null");
+            this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+            checkArgument(outputPositions >= 0, "outputPositions is negative");
+            this.outputPositions = outputPositions;
+
+            checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
+            this.queuedDrivers = queuedDrivers;
+            checkArgument(runningDrivers >= 0, "runningDrivers is negative");
+            this.runningDrivers = runningDrivers;
+            checkArgument(completedDrivers >= 0, "completedDrivers is negative");
+            this.completedDrivers = completedDrivers;
+
+            checkArgument(totalLifespans >= 0, "completedLifespans is negative");
+            this.totalLifespans = totalLifespans;
+            checkArgument(completedLifespans >= 0, "completedLifespans is negative");
+            this.completedLifespans = completedLifespans;
+
+            this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+            checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
+            this.rawInputPositions = rawInputPositions;
+
+            this.jsonPlan = requireNonNull(jsonPlan, "jsonPlan is Null");
+            this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
+        }
+
+        @JsonProperty
+        public StageExecutionState getStageExecutionState()
+        {
+            return state;
+        }
+
+        @JsonProperty
+        public StageId getStageId()
+        {
+            return stageId;
+        }
+
+        @JsonProperty
+        public PlanFragmentId getPlanId()
+        {
+            return planId;
+        }
+
+        @JsonProperty
+        public PlanNodeId getRootId()
+        {
+            return rootId;
+        }
+
+        @JsonProperty
+        public DataSize getUserMemoryReservation()
+        {
+            return userMemoryReservation;
+        }
+
+        @JsonProperty
+        public Duration getTotalCpuTime()
+        {
+            return totalCpuTime;
+        }
+
+        @JsonProperty
+        public Duration getTotalBlockedTime()
+        {
+            return totalBlockedTime;
+        }
+
+        @JsonProperty
+        public boolean isFullyBlocked()
+        {
+            return fullyBlocked;
+        }
+
+        @JsonProperty
+        public DataSize getBufferedDataSize()
+        {
+            return bufferedDataSize;
+        }
+
+        @JsonProperty
+        public DataSize getOutputDataSize()
+        {
+            return outputDataSize;
+        }
+
+        @JsonProperty
+        public long getOutputPositions()
+        {
+            return outputPositions;
+        }
+
+        @JsonProperty
+        public int getQueuedDrivers()
+        {
+            return queuedDrivers;
+        }
+
+        @JsonProperty
+        public int getRunningDrivers()
+        {
+            return runningDrivers;
+        }
+
+        @JsonProperty
+        public int getCompletedDrivers()
+        {
+            return completedDrivers;
+        }
+
+        @JsonProperty
+        public int getTotalLifespans()
+        {
+            return totalLifespans;
+        }
+
+        @JsonProperty
+        public int getCompletedLifespans()
+        {
+            return completedLifespans;
+        }
+
+        @JsonProperty
+        public DataSize getRawInputDataSize()
+        {
+            return rawInputDataSize;
+        }
+
+        @JsonProperty
+        public long getRawInputPositions()
+        {
+            return rawInputPositions;
+        }
+
+        @JsonProperty
+        public String getJsonPlan()
+        {
+            return jsonPlan;
+        }
+
+        @JsonProperty
+        public List<QueryPlanWithStageInfo> getSubStages()
+        {
+            return subStages;
+        }
     }
 }
