@@ -135,6 +135,7 @@ public final class HiveSessionProperties
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT = "use_record_page_source_for_custom_split";
     public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
+    public static final String FILE_SPLITTABLE = "file_splittable";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -663,6 +664,11 @@ public final class HiveSessionProperties
                         MAX_INITIAL_SPLITS,
                         "Hive max initial split count",
                         hiveClientConfig.getMaxInitialSplits(),
+                        true),
+                booleanProperty(
+                        FILE_SPLITTABLE,
+                        "If a hive file is splittable when coordinator schedules splits",
+                        hiveClientConfig.isFileSplittable(),
                         true));
     }
 
@@ -1147,5 +1153,10 @@ public final class HiveSessionProperties
     public static int getHiveMaxInitialSplitSize(ConnectorSession session)
     {
         return session.getProperty(MAX_INITIAL_SPLITS, Integer.class);
+    }
+
+    public static boolean isFileSplittable(ConnectorSession session)
+    {
+        return session.getProperty(FILE_SPLITTABLE, Boolean.class);
     }
 }
