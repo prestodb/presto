@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
 import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingBuckets;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveSessionProperties.isFileSplittable;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
@@ -264,7 +265,10 @@ public class StoragePartitionLoader
         // Partial aggregation pushdown works at the granularity of individual files
         // therefore we must not split files when either is enabled.
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
-        boolean splittable = !s3SelectPushdownEnabled && !partialAggregationsPushedDown && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
+        boolean splittable = isFileSplittable(session) &&
+                !s3SelectPushdownEnabled &&
+                !partialAggregationsPushedDown &&
+                getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
