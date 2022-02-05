@@ -71,7 +71,6 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
@@ -102,7 +101,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnN
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
@@ -235,14 +233,6 @@ public class IcebergPageSourceProvider
                         predicate,
                         fileFormatDataSourceStats);
             case ORC:
-                FileStatus fileStatus = null;
-                try {
-                    fileStatus = hdfsEnvironment.doAs(session.getUser(), () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
-                }
-                catch (IOException e) {
-                    throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
-                }
-                long fileSize = fileStatus.getLen();
                 OrcReaderOptions readerOptions = new OrcReaderOptions(
                         getOrcMaxMergeDistance(session),
                         getOrcTinyStripeThreshold(session),
@@ -257,7 +247,6 @@ public class IcebergPageSourceProvider
                         path,
                         start,
                         length,
-                        fileSize,
                         isCacheable,
                         dataColumns,
                         typeManager,
@@ -298,13 +287,13 @@ public class IcebergPageSourceProvider
 
         ParquetDataSource dataSource = null;
         try {
-            ExtendedFileSystem filesystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FileStatus fileStatus = filesystem.getFileStatus(path);
+            ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
+            FileStatus fileStatus = fileSystem.getFileStatus(path);
             long fileSize = fileStatus.getLen();
             long modificationTime = fileStatus.getModificationTime();
             HiveFileContext hiveFileContext = new HiveFileContext(true, NO_CACHE_CONSTRAINTS,
                     Optional.empty(), Optional.of(fileSize), modificationTime, false);
-            FSDataInputStream inputStream = filesystem.openFile(path, hiveFileContext);
+            FSDataInputStream inputStream = fileSystem.openFile(path, hiveFileContext);
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileSize).getParquetMetadata();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -423,7 +412,6 @@ public class IcebergPageSourceProvider
             Path path,
             long start,
             long length,
-            long fileSize,
             boolean isCacheable,
             List<IcebergColumnHandle> regularColumns,
             TypeManager typeManager,
@@ -443,8 +431,13 @@ public class IcebergPageSourceProvider
     {
         OrcDataSource orcDataSource = null;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
+            ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
+            FileStatus fileStatus = fileSystem.getFileStatus(path);
+            long fileSize = fileStatus.getLen();
+            long modificationTime = fileStatus.getModificationTime();
+            HiveFileContext hiveFileContext = new HiveFileContext(true, NO_CACHE_CONSTRAINTS,
+                    Optional.empty(), Optional.of(fileSize), modificationTime, false);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.openFile(path, hiveFileContext));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
