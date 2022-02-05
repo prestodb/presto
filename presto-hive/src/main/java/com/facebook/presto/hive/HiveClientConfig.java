@@ -206,6 +206,7 @@ public class HiveClientConfig
     private boolean userDefinedTypeEncodingEnabled;
 
     private boolean columnIndexFilterEnabled;
+    private boolean fileSplittable = true;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1756,6 +1757,19 @@ public class HiveClientConfig
     public HiveClientConfig setUseRecordPageSourceForCustomSplit(boolean useRecordPageSourceForCustomSplit)
     {
         this.useRecordPageSourceForCustomSplit = useRecordPageSourceForCustomSplit;
+        return this;
+    }
+
+    public boolean isFileSplittable()
+    {
+        return fileSplittable;
+    }
+
+    @Config("hive.file-splittable")
+    @ConfigDescription("By default, this value is true. Set to false to make a hive file un-splittable when coordinator schedules splits.")
+    public HiveClientConfig setFileSplittable(boolean fileSplittable)
+    {
+        this.fileSplittable = fileSplittable;
         return this;
     }
 }
