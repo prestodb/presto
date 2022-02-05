@@ -32,7 +32,7 @@ class CrossJoinBridge;
 
 using ContinuePromise = VeloxPromise<bool>;
 
-class Task {
+class Task : public std::enable_shared_from_this<Task> {
  public:
   Task(
       const std::string& taskId,
@@ -61,7 +61,10 @@ class Task {
   velox::memory::MemoryPool* FOLLY_NONNULL
   addOperatorPool(velox::memory::MemoryPool* FOLLY_NONNULL driverPool);
 
-  static void start(std::shared_ptr<Task> self, uint32_t maxDrivers);
+  static void start(
+      std::shared_ptr<Task> self,
+      uint32_t maxDrivers,
+      uint32_t concurrentSplitGroups = 1);
 
   // Resumes execution of 'self' after a successful pause. All 'drivers_' must
   // be off-thread and there must be no 'exception_'
@@ -126,6 +129,8 @@ class Task {
 
   bool isGroupedExecution() const;
 
+  bool isUngroupedExecution() const;
+
   void createLocalMergeSources(
       uint32_t splitGroupId,
       unsigned numSources,
@@ -144,7 +149,8 @@ class Task {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
-  void createLocalExchangeSources(
+  void createLocalExchangeSourcesLocked(
+      uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId,
       int numPartitions);
 
@@ -200,10 +206,14 @@ class Task {
       std::vector<std::shared_ptr<Driver>>& peers);
 
   // Adds HashJoinBridge's for all the specified plan node IDs.
-  void addHashJoinBridges(const std::vector<core::PlanNodeId>& planNodeIds);
+  void addHashJoinBridgesLocked(
+      uint32_t splitGroupId,
+      const std::vector<core::PlanNodeId>& planNodeIds);
 
   // Adds CrossJoinBridge's for all the specified plan node IDs.
-  void addCrossJoinBridges(const std::vector<core::PlanNodeId>& planNodeIds);
+  void addCrossJoinBridgesLocked(
+      uint32_t splitGroupId,
+      const std::vector<core::PlanNodeId>& planNodeIds);
 
   // Returns a HashJoinBridge for 'planNodeId'. This is used for synchronizing
   // start of probe with completion of build for a join that has a
@@ -371,22 +381,32 @@ class Task {
       exec::Split& split,
       ContinueFuture& future);
 
-  /// Creates a bunch of drivers for the 'nextSplitGroupId_' and advances the
-  /// latter.
-  void createDrivers(
-      std::vector<std::shared_ptr<Driver>>& out,
-      std::shared_ptr<Task>& self);
+  /// Creates for the given split group and fills up the 'SplitGroupState'
+  /// structure, which stores inter-operator state (local exchange, bridges).
+  void createSplitGroupStateLocked(
+      std::shared_ptr<Task>& self,
+      uint32_t splitGroupId);
 
-  /// Safely returns reference to the group splits store, ensuring before
-  /// accessing it that it is created.
-  inline SplitsStore& groupSplitsStoreSafe(
-      SplitsState& splitsState,
-      uint32_t splitGroupId) {
-    return splitsState.groupSplitsStores(
-        planFragment_.numSplitGroups)[splitGroupId];
-  }
+  /// Creates a bunch of drivers for the given split group.
+  void createDriversLocked(
+      std::shared_ptr<Task>& self,
+      uint32_t splitGroupId,
+      std::vector<std::shared_ptr<Driver>>& out);
+
+  /// Checks if we have splits in a split group that haven't been processed yet
+  /// and have capacity in terms of number of concurrent split groups being
+  /// processed. If yes, creates split group state and Drivers and runs them.
+  void ensureSplitGroupsAreBeingProcessedLocked(std::shared_ptr<Task>& self);
 
   void driverClosedLocked();
+
+  /// Checks if the Task is finished due to all drivers done and all output
+  /// consumed.
+  void checkIfFinishedLocked();
+
+  /// Check if we have no more split groups coming and adjust the total number
+  /// of drivers if more split groups coming.
+  void checkNoMoreSplitGroupsLocked();
 
   void stateChangedLocked();
 
@@ -410,10 +430,6 @@ class Task {
   void finished();
 
   StopReason shouldStopLocked();
-
-  void checkSplitGroupIndex(
-      uint32_t splitGroupId,
-      const char* FOLLY_NONNULL context);
 
   /// Checks that specified plan node ID refers to a source plan node. Throws if
   /// that's not the case.
@@ -457,7 +473,9 @@ class Task {
   uint32_t numRunningDrivers_{0};
   /// The total number of drivers we need to run in all pipelines. In normal
   /// execution it is the sum of number of drivers for all pipelines. In grouped
-  /// execution we multiply that by the number of split groups.
+  /// execution we multiply that by the number of split groups, but in practice
+  /// this number will be much less (roughly divided by the number of workers),
+  /// so this will be adjusted in the end of task's work.
   uint32_t numTotalDrivers_{0};
   /// The number of completed drivers so far.
   /// This number increases over time as drivers finish their work.
@@ -466,8 +484,28 @@ class Task {
   /// Reflects number of drivers required to process single split group during
   /// grouped execution or the whole plan fragment during normal execution.
   uint32_t numDriversPerSplitGroup_{0};
-  /// Used during grouped execution, indicates the next split group to process.
-  uint32_t nextSplitGroupId_{0};
+  /// Number of drivers running in the pipeine hosting the Partitioned Output.
+  /// We use it to recalculate the number of producing drivers at the end during
+  /// the Grouped Execution mode.
+  uint32_t numDriversInPartitionedOutput_{0};
+  /// The number of splits groups we run concurrently.
+  uint32_t concurrentSplitGroups_{1};
+
+  /// Have we initialized operators' stats already?
+  bool initializedOpStats_{false};
+  /// How many splits groups we are processing at the moment. Used to control
+  /// split group concurrency.
+  uint32_t numRunningSplitGroups_{0};
+  /// Split groups for which we have received at least one split - meaning our
+  /// task is to process these. This set only grows. Used to deduplicate split
+  /// groups for different nodes and to determine how many split groups we to
+  /// process in total.
+  std::unordered_set<uint32_t> seenSplitGroups_;
+  /// Split groups for which we have received splits but haven't started
+  /// processing. It grows with arrival of the 1st split of a previously not
+  /// seen split group and depletes with creating new sets of drivers to process
+  /// queued split groups.
+  std::queue<uint32_t> queuedSplitGroups_;
 
   TaskState state_ = kRunning;
 
@@ -487,8 +525,8 @@ class Task {
   std::vector<std::unique_ptr<velox::memory::MemoryPool>> childPools_;
 
   /// Stores inter-operator state (exchange, bridges) per split group.
-  /// During ungrouped execution we use the 1st entry in this vector.
-  std::vector<SplitGroupState> splitGroupStates_;
+  /// During ungrouped execution we use the [0] entry in this vector.
+  std::unordered_map<uint32_t, SplitGroupState> splitGroupStates_;
 
   std::weak_ptr<PartitionedOutputBufferManager> bufferManager_;
 

@@ -170,6 +170,21 @@ void PartitionedOutputBuffer::updateBroadcastOutputBuffers(
   releaseAfterAcknowledge(dataToBroadcast_, promises);
 }
 
+void PartitionedOutputBuffer::updateNumDrivers(uint32_t newNumDrivers) {
+  bool isNoMoreDrivers{false};
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    numDrivers_ = newNumDrivers;
+    // If we finished all drivers, ensure we register that we are 'done'.
+    if (numDrivers_ == numFinished_) {
+      isNoMoreDrivers = true;
+    }
+  }
+  if (isNoMoreDrivers) {
+    noMoreDrivers();
+  }
+}
+
 void PartitionedOutputBuffer::addBroadcastOutputBuffersLocked(int numBuffers) {
   VELOX_CHECK(!noMoreBroadcastBuffers_)
   buffers_.reserve(numBuffers);
@@ -233,10 +248,20 @@ BlockingReason PartitionedOutputBuffer::enqueue(
 }
 
 void PartitionedOutputBuffer::noMoreData() {
+  checkIfDone(true); // Increment number of finished drivers.
+}
+
+void PartitionedOutputBuffer::noMoreDrivers() {
+  checkIfDone(false); // Do not increment number of finished drivers.
+}
+
+void PartitionedOutputBuffer::checkIfDone(bool oneDriverFinished) {
   std::vector<DataAvailable> finished;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    ++numFinished_;
+    if (oneDriverFinished) {
+      ++numFinished_;
+    }
     VELOX_CHECK_LE(
         numFinished_,
         numDrivers_,
@@ -515,6 +540,12 @@ void PartitionedOutputBufferManager::updateBroadcastOutputBuffers(
     int numBuffers,
     bool noMoreBuffers) {
   getBuffer(taskId)->updateBroadcastOutputBuffers(numBuffers, noMoreBuffers);
+}
+
+void PartitionedOutputBufferManager::updateNumDrivers(
+    const std::string& taskId,
+    uint32_t newNumDrivers) {
+  getBuffer(taskId)->updateNumDrivers(newNumDrivers);
 }
 
 void PartitionedOutputBufferManager::removeTask(const std::string& taskId) {

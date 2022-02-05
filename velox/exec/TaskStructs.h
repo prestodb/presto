@@ -91,36 +91,21 @@ struct SplitsStore {
   std::vector<VeloxPromise<bool>> splitPromises;
 };
 
-/// Structure contains the current info on splits.
+/// Structure contains the current info on splits for a particular plan node.
 struct SplitsState {
-  /// For ungrouped (usual) execution, we store splits here.
-  /// Also, we use 'noMoreSplits' member here in grouped execution as well.
-  SplitsStore splitsStore;
+  /// Plan node-wide 'no more splits'.
+  bool noMoreSplits{false};
 
   /// Keep the max added split's sequence id to deduplicate incoming splits.
   long maxSequenceId{std::numeric_limits<long>::min()};
 
-  /// Ensure we always have allocated entries when accessing group stores.
-  std::vector<SplitsStore>& groupSplitsStores(uint32_t numGroups) {
-    if (groupSplitsStores_.size() == numGroups) {
-      return groupSplitsStores_;
-    }
-    // This member will be called only once and resize from 0 to 'numGroups'.
-    // Use swap, as promises are not copyable and 'resize' wouldn't compile.
-    std::vector<SplitsStore> tmp{numGroups};
-    groupSplitsStores_.swap(tmp);
-    return groupSplitsStores_;
-  }
+  /// Map split group id -> split store.
+  std::unordered_map<uint32_t, SplitsStore> groupSplitsStores;
 
   /// We need these due to having promises in the structure.
   SplitsState() = default;
   SplitsState(SplitsState const&) = delete;
   SplitsState& operator=(SplitsState const&) = delete;
-
- private:
-  /// For grouped execution we store splits in this vector, separately for
-  /// each group.
-  std::vector<SplitsStore> groupSplitsStores_;
 };
 
 /// Stores local exchange sources with the memory manager.

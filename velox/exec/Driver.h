@@ -294,8 +294,9 @@ struct DriverFactory {
   OperatorSupplier consumerSupplier;
   /// Maximum number of drivers that can be run concurrently in this pipeline.
   uint32_t maxDrivers;
-  /// Number of drivers that will be run concurrently in this pipeline. It is
-  /// also the number of drivers per split group in case of grouped execution.
+  /// Number of drivers that will be run concurrently in this pipeline for one
+  /// split group (during grouped execution) or for the whole task (ungrouped
+  /// execution).
   uint32_t numDrivers;
   /// Total number of drivers in this pipeline we expect to be run. In case of
   /// grouped execution it is 'numDrivers' * 'numSplitGroups', otherwise it is

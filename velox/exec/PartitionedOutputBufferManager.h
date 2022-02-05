@@ -94,7 +94,7 @@ class PartitionedOutputBuffer {
       std::shared_ptr<Task> task,
       bool broadcast,
       int numDestinations,
-      int numDrivers)
+      uint32_t numDrivers)
       : task_(std::move(task)),
         broadcast_(broadcast),
         numDrivers_(numDrivers),
@@ -111,12 +111,18 @@ class PartitionedOutputBuffer {
   /// destinations while the task is running.
   void updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
 
+  /// When we understand the final number of split groups (for grouped execution
+  /// only), we need to update the number of producing drivers here.
+  void updateNumDrivers(uint32_t newNumDrivers);
+
   BlockingReason enqueue(
       int destination,
       std::unique_ptr<VectorStreamGroup> data,
       ContinueFuture* future);
 
   void noMoreData();
+
+  void noMoreDrivers();
 
   bool isFinished();
 
@@ -143,6 +149,11 @@ class PartitionedOutputBuffer {
   std::string toString();
 
  private:
+  /// If this is called due to a driver processed all its data (no more data),
+  /// we increment the number of finished drivers. If it is called due to us
+  /// updating the total number of drivers, we don't.
+  void checkIfDone(bool oneDriverFinished);
+
   // Updates buffered size and returns possibly continuable producer promises in
   // 'promises'.
   void updateAfterAcknowledgeLocked(
@@ -155,11 +166,14 @@ class PartitionedOutputBuffer {
 
   std::shared_ptr<Task> task_;
   const bool broadcast_;
-  const int numDrivers_ = 0;
-  // If 'totalSize_' > 'maxSize_', each producer is blocked after adding data.
+  /// Total number of drivers expected to produce results. This number will
+  /// decrease in the end of grouped execution, when we understand the real
+  /// number of producer drivers (depending on the number of split groups).
+  uint32_t numDrivers_{0};
+  /// If 'totalSize_' > 'maxSize_', each producer is blocked after adding data.
   const uint64_t maxSize_;
-  // When 'totalSize_' goes below 'continueSize_', blocked producers are
-  // resumed.
+  /// When 'totalSize_' goes below 'continueSize_', blocked producers are
+  /// resumed.
   const uint64_t continueSize_;
 
   bool noMoreBroadcastBuffers_ = false;
@@ -175,7 +189,7 @@ class PartitionedOutputBuffer {
   std::vector<VeloxPromise<bool>> promises_;
   // One buffer per destination
   std::vector<std::unique_ptr<DestinationBuffer>> buffers_;
-  int numFinished_ = 0;
+  uint32_t numFinished_{0};
   // When this reaches buffers_.size(), 'this' can be freed.
   int numFinalAcknowledges_ = 0;
   bool atEnd_ = false;
@@ -193,6 +207,10 @@ class PartitionedOutputBufferManager {
       const std::string& taskId,
       int numBuffers,
       bool noMoreBuffers);
+
+  /// When we understand the final number of split groups (for grouped execution
+  /// only), we need to update the number of producing drivers here.
+  void updateNumDrivers(const std::string& taskId, uint32_t newNumDrivers);
 
   // Adds data to the outgoing queue for 'destination'. 'data' must not be
   // nullptr. 'data' is always added but if the buffers are full the future is
