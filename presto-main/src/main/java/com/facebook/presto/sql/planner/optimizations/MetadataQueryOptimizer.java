@@ -116,6 +116,7 @@ public class MetadataQueryOptimizer
         private final Metadata metadata;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final boolean ignoreMetadataStats;
+        private final int metastoreCallNumThreshold;
 
         private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
@@ -124,6 +125,7 @@ public class MetadataQueryOptimizer
             this.idAllocator = idAllocator;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.ignoreMetadataStats = SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session);
+            this.metastoreCallNumThreshold = SystemSessionProperties.getOptimizeMetadataQueriesCallThreshold(session);
         }
 
         @Override
@@ -196,6 +198,13 @@ public class MetadataQueryOptimizer
             if (isReducible(node, inputs)) {
                 // Fold min/max aggregations to a constant value
                 return reduce(node, inputs, columns, context, discretePredicates, tableScan.getTable());
+            }
+            /*
+            In some cases, when predicates numbers are high, all the calls to metastore will be expensive.
+            This logic will give us the option to configure the threshold to fall back to defaultRewrite
+            */
+            if (!ignoreMetadataStats && Iterables.size(discretePredicates.getPredicates()) > metastoreCallNumThreshold) {
+                return context.defaultRewrite(node);
             }
 
             // Partition Stats stored in metastore may be incomplete or missing, if stats collection timeout. So even if the metastore has a stats indicating that the partition is

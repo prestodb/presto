@@ -94,6 +94,7 @@ public class FeaturesConfig
     private boolean optimizedScaleWriterProducerBuffer;
     private boolean optimizeMetadataQueries;
     private boolean optimizeMetadataQueriesIgnoreStats;
+    private int optimizeMetadataQueriesCallThreshold = 100;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
@@ -774,6 +775,19 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMetadataQueriesIgnoreStats(boolean optimizeMetadataQueriesIgnoreStats)
     {
         this.optimizeMetadataQueriesIgnoreStats = optimizeMetadataQueriesIgnoreStats;
+        return this;
+    }
+
+    public int getOptimizeMetadataQueriesCallThreshold()
+    {
+        return optimizeMetadataQueriesCallThreshold;
+    }
+
+    @Config("optimizer.optimize-metadata-queries-call-threshold")
+    @ConfigDescription("The threshold number of service calls to metastore, used in optimization for metadata queries")
+    public FeaturesConfig setOptimizeMetadataQueriesCallThreshold(int optimizeMetadataQueriesCallThreshold)
+    {
+        this.optimizeMetadataQueriesCallThreshold = optimizeMetadataQueriesCallThreshold;
         return this;
     }
 
