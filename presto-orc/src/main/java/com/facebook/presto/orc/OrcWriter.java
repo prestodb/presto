@@ -39,6 +39,8 @@ import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
+import com.facebook.presto.orc.writer.CompressionBufferPool;
+import com.facebook.presto.orc.writer.CompressionBufferPool.LastUsedCompressionBufferPool;
 import com.facebook.presto.orc.writer.DictionaryColumnWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
@@ -135,6 +137,10 @@ public class OrcWriter
     private final Optional<DwrfStripeCacheWriter> dwrfStripeCacheWriter;
     private final int dictionaryMaxMemoryBytes;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
+    @Nullable
+    private final OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
+    private final CompressionBufferPool compressionBufferPool;
+
     private int stripeRowCount;
     private int rowGroupRowCount;
     private int bufferedBytes;
@@ -147,9 +153,6 @@ public class OrcWriter
     private long stripeRawSize;
     private long rawSize;
     private List<ColumnStatistics> unencryptedStats;
-
-    @Nullable
-    private final OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
 
     public OrcWriter(
             DataSink dataSink,
@@ -204,6 +207,7 @@ public class OrcWriter
         this.dataSink = requireNonNull(dataSink, "dataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
+        this.compressionBufferPool = new LastUsedCompressionBufferPool();
 
         requireNonNull(compressionKind, "compressionKind is null");
         this.columnWriterOptions = ColumnWriterOptions.builder()
@@ -215,6 +219,7 @@ public class OrcWriter
                 .setStringDictionarySortingEnabled(options.isStringDictionarySortingEnabled())
                 .setIgnoreDictionaryRowGroupSizes(options.isIgnoreDictionaryRowGroupSizes())
                 .setPreserveDirectEncodingStripeCount(options.getPreserveDirectEncodingStripeCount())
+                .setCompressionBufferPool(compressionBufferPool)
                 .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
 
@@ -372,6 +377,7 @@ public class OrcWriter
                 columnWritersRetainedBytes +
                 closedStripesRetainedBytes +
                 dataSink.getRetainedSizeInBytes() +
+                compressionBufferPool.getRetainedBytes() +
                 (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
     }
 

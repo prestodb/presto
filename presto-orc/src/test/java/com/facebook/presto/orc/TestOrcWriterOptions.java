@@ -42,6 +42,7 @@ public class TestOrcWriterOptions
                     .withDwrfStripeCacheMaxSize(DWRF_STRIPE_CACHE_MAX_SIZE)
                     .build();
 
+            assertEquals(options.getDwrfStripeCacheOptions().isPresent(), value);
             if (value) {
                 DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfStripeCacheOptions().get();
                 assertEquals(dwrfStripeCacheOptions.getStripeCacheMode(), DWRF_STRIPE_CACHE_MODE);
@@ -63,7 +64,6 @@ public class TestOrcWriterOptions
         DataSize dictionaryMaxMemory = new DataSize(13_000, KILOBYTE);
         DataSize dictionaryMemoryRange = new DataSize(1_000, KILOBYTE);
         int dictionaryUsefulCheckPerChunkFrequency = 9_999;
-        DataSize dictionaryUsefulCheckIncrement = new DataSize(500, KILOBYTE);
         DataSize dictionaryUsefulCheckColumnSize = new DataSize(1, MEGABYTE);
         DataSize stringMaxStatisticsLimit = new DataSize(128, BYTE);
         DataSize maxCompressionBufferSize = new DataSize(512, KILOBYTE);
