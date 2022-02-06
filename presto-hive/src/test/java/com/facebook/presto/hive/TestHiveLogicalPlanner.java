@@ -83,6 +83,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_IGNORE_STATS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED;
@@ -673,6 +674,87 @@ public class TestHiveLogicalPlanner
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_metadata_aggregation_folding_with_empty_partitions");
+        }
+    }
+
+    @Test
+    public void testMetadataAggregationFoldingWithEmptyPartitionsAndMetastoreThreshold()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session optimizeMetadataQueriesWithHighThreshold = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD, Integer.toString(100))
+                .build();
+        Session optimizeMetadataQueriesWithLowThreshold = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD, Integer.toString(1))
+                .build();
+        Session optimizeMetadataQueriesIgnoreStatsWithLowThreshold = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES_IGNORE_STATS, Boolean.toString(true))
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD, Integer.toString(1))
+                .build();
+        Session shufflePartitionColumns = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.toString(true))
+                .build();
+
+        queryRunner.execute(
+                shufflePartitionColumns,
+                "CREATE TABLE test_metadata_aggregation_folding_with_empty_partitions_with_threshold WITH (partitioned_by = ARRAY['ds']) AS " +
+                        "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
+        ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_empty_partitions_with_threshold").get();
+
+        // Add one partition with no statistics.
+        String partitionNameNoStats = "ds=2020-07-20";
+        Partition partitionNoStats = createDummyPartition(table, partitionNameNoStats);
+        metastore.addPartitions(
+                metastoreContext,
+                table.getDatabaseName(),
+                table.getTableName(),
+                ImmutableList.of(new PartitionWithStatistics(partitionNoStats, partitionNameNoStats, PartitionStatistics.empty())));
+
+        // Add one partition with statistics indicating that it has no rows.
+        String emptyPartitionName = "ds=2020-06-30";
+        Partition emptyPartition = createDummyPartition(table, emptyPartitionName);
+        metastore.addPartitions(
+                metastoreContext,
+                table.getDatabaseName(),
+                table.getTableName(),
+                ImmutableList.of(new PartitionWithStatistics(
+                        emptyPartition,
+                        emptyPartitionName,
+                        PartitionStatistics.builder().setBasicStatistics(new HiveBasicStatistics(1, 0, 0, 0)).build())));
+        try {
+            // Test the non-reducible code path.
+            // Enable rewrite as all matching partitions have stats.
+            assertPlan(
+                    optimizeMetadataQueriesWithHighThreshold,
+                    "SELECT DISTINCT ds FROM test_metadata_aggregation_folding_with_empty_partitions_with_threshold WHERE ds BETWEEN '2020-07-01' AND '2020-07-03'",
+                    anyTree(
+                            values(
+                                    ImmutableList.of("ds"),
+                                    ImmutableList.of(
+                                            ImmutableList.of(new StringLiteral("2020-07-01")),
+                                            ImmutableList.of(new StringLiteral("2020-07-02"))))));
+            // All matching partitions have stats, Metastore threshold is reached, Disable rewrite
+            assertPlan(
+                    optimizeMetadataQueriesWithLowThreshold,
+                    "SELECT DISTINCT ds FROM test_metadata_aggregation_folding_with_empty_partitions_with_threshold WHERE ds BETWEEN '2020-07-01' AND '2020-07-03'",
+                    anyTree(tableScanWithConstraint("test_metadata_aggregation_folding_with_empty_partitions_with_threshold", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2020-07-01", "2020-07-02"))))));
+            // All matching partitions have stats, Metastore threshold is reached, but IgnoreStats will overwrite, Enable rewrite
+            assertPlan(
+                    optimizeMetadataQueriesIgnoreStatsWithLowThreshold,
+                    "SELECT DISTINCT ds FROM test_metadata_aggregation_folding_with_empty_partitions_with_threshold WHERE ds BETWEEN '2020-07-01' AND '2020-07-03'",
+                    anyTree(
+                            values(
+                                    ImmutableList.of("ds"),
+                                    ImmutableList.of(
+                                            ImmutableList.of(new StringLiteral("2020-07-01")),
+                                            ImmutableList.of(new StringLiteral("2020-07-02"))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_metadata_aggregation_folding_with_empty_partitions_with_threshold");
         }
     }
 
