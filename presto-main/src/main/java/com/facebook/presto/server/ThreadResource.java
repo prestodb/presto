@@ -18,6 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -74,6 +78,7 @@ public class ThreadResource
         return builder.build();
     }
 
+    @ThriftStruct
     public static class Info
     {
         private final long id;
@@ -82,6 +87,7 @@ public class ThreadResource
         private final Long lockOwnerId;
         private final List<StackLine> stackTrace;
 
+        @ThriftConstructor
         @JsonCreator
         public Info(
                 @JsonProperty("id") long id,
@@ -97,30 +103,35 @@ public class ThreadResource
             this.stackTrace = stackTrace;
         }
 
+        @ThriftField(1)
         @JsonProperty
         public long getId()
         {
             return id;
         }
 
+        @ThriftField(2)
         @JsonProperty
         public String getName()
         {
             return name;
         }
 
+        @ThriftField(3)
         @JsonProperty
         public String getState()
         {
             return state;
         }
 
+        @ThriftField(4)
         @JsonProperty
         public Long getLockOwnerId()
         {
             return lockOwnerId;
         }
 
+        @ThriftField(5)
         @JsonProperty
         public List<StackLine> getStackTrace()
         {
@@ -140,6 +151,7 @@ public class ThreadResource
         }
     }
 
+    @ThriftStruct
     public static class StackLine
     {
         private final String file;
@@ -147,6 +159,7 @@ public class ThreadResource
         private final String className;
         private final String method;
 
+        @ThriftConstructor
         @JsonCreator
         public StackLine(
                 @JsonProperty("file") String file,
@@ -160,24 +173,28 @@ public class ThreadResource
             this.method = method;
         }
 
+        @ThriftField(1)
         @JsonProperty
         public String getFile()
         {
             return file;
         }
 
+        @ThriftField(2)
         @JsonProperty
         public int getLine()
         {
             return line;
         }
 
+        @ThriftField(3)
         @JsonProperty
         public String getClassName()
         {
             return className;
         }
 
+        @ThriftField(4)
         @JsonProperty
         public String getMethod()
         {
