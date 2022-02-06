@@ -226,6 +226,11 @@ public class OrcWriterOptions
                 .toString();
     }
 
+    public static OrcWriterOptions getDefaultOrcWriterOptions()
+    {
+        return OrcWriterOptions.builder().build();
+    }
+
     public static Builder builder()
     {
         return new Builder();
