@@ -120,6 +120,7 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String OPTIMIZE_METADATA_QUERIES_IGNORE_STATS = "optimize_metadata_queries_ignore_stats";
+    public static final String OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD = "optimize_metadata_queries_call_threshold";
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
@@ -528,6 +529,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_METADATA_QUERIES_IGNORE_STATS,
                         "Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)",
                         featuresConfig.isOptimizeMetadataQueriesIgnoreStats(),
+                        false),
+                integerProperty(
+                        OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD,
+                        "The threshold number of service calls to metastore, used in optimization for metadata queries",
+                        featuresConfig.getOptimizeMetadataQueriesCallThreshold(),
                         false),
                 integerProperty(
                         QUERY_PRIORITY,
@@ -1411,6 +1417,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeMetadataQueriesIgnoreStats(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES_IGNORE_STATS, Boolean.class);
+    }
+
+    public static int getOptimizeMetadataQueriesCallThreshold(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD, Integer.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)
