@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +40,21 @@ import static com.facebook.presto.server.security.RoleType.ADMIN;
 @RolesAllowed(ADMIN)
 public class ThreadResource
 {
+    private static List<StackLine> toStackTrace(StackTraceElement[] stackTrace)
+    {
+        ImmutableList.Builder<StackLine> builder = ImmutableList.builder();
+
+        for (StackTraceElement item : stackTrace) {
+            builder.add(new StackLine(
+                    item.getFileName(),
+                    item.getLineNumber(),
+                    item.getClassName(),
+                    item.getMethodName()));
+        }
+
+        return builder.build();
+    }
+
     @GET
     @Path("/v1/thread")
     @Produces(MediaType.APPLICATION_JSON)
@@ -59,21 +77,7 @@ public class ThreadResource
         return Ordering.from(byName()).sortedCopy(builder.build());
     }
 
-    private static List<StackLine> toStackTrace(StackTraceElement[] stackTrace)
-    {
-        ImmutableList.Builder<StackLine> builder = ImmutableList.builder();
-
-        for (StackTraceElement item : stackTrace) {
-            builder.add(new StackLine(
-                    item.getFileName(),
-                    item.getLineNumber(),
-                    item.getClassName(),
-                    item.getMethodName()));
-        }
-
-        return builder.build();
-    }
-
+    @ThriftStruct
     public static class Info
     {
         private final long id;
@@ -82,6 +86,7 @@ public class ThreadResource
         private final Long lockOwnerId;
         private final List<StackLine> stackTrace;
 
+        @ThriftConstructor
         @JsonCreator
         public Info(
                 @JsonProperty("id") long id,
@@ -97,36 +102,6 @@ public class ThreadResource
             this.stackTrace = stackTrace;
         }
 
-        @JsonProperty
-        public long getId()
-        {
-            return id;
-        }
-
-        @JsonProperty
-        public String getName()
-        {
-            return name;
-        }
-
-        @JsonProperty
-        public String getState()
-        {
-            return state;
-        }
-
-        @JsonProperty
-        public Long getLockOwnerId()
-        {
-            return lockOwnerId;
-        }
-
-        @JsonProperty
-        public List<StackLine> getStackTrace()
-        {
-            return stackTrace;
-        }
-
         public static Comparator<Info> byName()
         {
             return new Comparator<Info>()
@@ -138,8 +113,44 @@ public class ThreadResource
                 }
             };
         }
+
+        @ThriftField(1)
+        @JsonProperty
+        public long getId()
+        {
+            return id;
+        }
+
+        @ThriftField(2)
+        @JsonProperty
+        public String getName()
+        {
+            return name;
+        }
+
+        @ThriftField(3)
+        @JsonProperty
+        public String getState()
+        {
+            return state;
+        }
+
+        @ThriftField(4)
+        @JsonProperty
+        public Long getLockOwnerId()
+        {
+            return lockOwnerId;
+        }
+
+        @ThriftField(5)
+        @JsonProperty
+        public List<StackLine> getStackTrace()
+        {
+            return stackTrace;
+        }
     }
 
+    @ThriftStruct
     public static class StackLine
     {
         private final String file;
@@ -147,6 +158,7 @@ public class ThreadResource
         private final String className;
         private final String method;
 
+        @ThriftConstructor
         @JsonCreator
         public StackLine(
                 @JsonProperty("file") String file,
@@ -160,24 +172,28 @@ public class ThreadResource
             this.method = method;
         }
 
+        @ThriftField(1)
         @JsonProperty
         public String getFile()
         {
             return file;
         }
 
+        @ThriftField(2)
         @JsonProperty
         public int getLine()
         {
             return line;
         }
 
+        @ThriftField(3)
         @JsonProperty
         public String getClassName()
         {
             return className;
         }
 
+        @ThriftField(4)
         @JsonProperty
         public String getMethod()
         {
