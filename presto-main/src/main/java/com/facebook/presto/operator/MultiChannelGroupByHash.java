@@ -19,6 +19,7 @@ import com.facebook.presto.common.array.LongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
@@ -48,6 +49,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -57,6 +59,9 @@ public class MultiChannelGroupByHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
+    // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
+    private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = .25;
+
     private final List<Type> types;
     private final List<Type> hashTypes;
     private final int[] channels;
@@ -221,6 +226,9 @@ public class MultiChannelGroupByHash
         if (canProcessDictionary(page)) {
             return new AddDictionaryPageWork(page);
         }
+        if (canProcessLowCardinalityDictionary(page)) {
+            return new AddLowCardinalityDictionaryPageWork(page);
+        }
 
         return new AddNonDictionaryPageWork(page);
     }
@@ -253,6 +261,9 @@ public class MultiChannelGroupByHash
         }
         if (canProcessDictionary(page)) {
             return new GetDictionaryGroupIdsWork(page);
+        }
+        if (canProcessLowCardinalityDictionary(page)) {
+            return new GetLowCardinalityDictionaryGroupIdsWork(page);
         }
 
         return new GetNonDictionaryGroupIdsWork(page);
@@ -526,6 +537,25 @@ public class MultiChannelGroupByHash
         return true;
     }
 
+    private boolean canProcessLowCardinalityDictionary(Page page)
+    {
+        // We don't have to rely on 'optimizer.dictionary-aggregations' here since there is little to none chance of regression
+        int positionCount = page.getPositionCount();
+        long cardinality = 1;
+        for (int channel : channels) {
+            if (!(page.getBlock(channel) instanceof DictionaryBlock)) {
+                return false;
+            }
+            cardinality = multiplyExact(cardinality, ((DictionaryBlock) page.getBlock(channel)).getDictionary().getPositionCount());
+            if (cardinality > positionCount * SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO
+                    || cardinality > Short.MAX_VALUE) { // Need to fit into short array
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private boolean isRunLengthEncoded(Page page)
     {
         for (int channel : channels) {
@@ -580,7 +610,8 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private class AddNonDictionaryPageWork
+    @VisibleForTesting
+    class AddNonDictionaryPageWork
             implements Work<Void>
     {
         private final Page page;
@@ -621,7 +652,8 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private class AddDictionaryPageWork
+    @VisibleForTesting
+    class AddDictionaryPageWork
             implements Work<Void>
     {
         private final Page page;
@@ -668,7 +700,49 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private class AddRunLengthEncodedPageWork
+    class AddLowCardinalityDictionaryPageWork
+            extends LowCardinalityDictionaryWork<Void>
+    {
+        public AddLowCardinalityDictionaryPageWork(Page page)
+        {
+            super(page);
+        }
+
+        @Override
+        public boolean process()
+        {
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            int[] combinationIdToPosition = new int[maxCardinality];
+            Arrays.fill(combinationIdToPosition, -1);
+            calculateCombinationIdsToPositionMapping(combinationIdToPosition);
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            for (int i = 0; i < maxCardinality; i++) {
+                if (needRehash()) {
+                    return false;
+                }
+                if (combinationIdToPosition[i] != -1) {
+                    putIfAbsent(combinationIdToPosition[i], page);
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public Void getResult()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    @VisibleForTesting
+    class AddRunLengthEncodedPageWork
             implements Work<Void>
     {
         private final Page page;
@@ -709,7 +783,8 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private class GetNonDictionaryGroupIdsWork
+    @VisibleForTesting
+    class GetNonDictionaryGroupIdsWork
             implements Work<GroupByIdBlock>
     {
         private final BlockBuilder blockBuilder;
@@ -758,7 +833,64 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private class GetDictionaryGroupIdsWork
+    @VisibleForTesting
+    class GetLowCardinalityDictionaryGroupIdsWork
+            extends LowCardinalityDictionaryWork<GroupByIdBlock>
+    {
+        private final long[] groupIds;
+        private boolean finished;
+
+        public GetLowCardinalityDictionaryGroupIdsWork(Page page)
+        {
+            super(page);
+            groupIds = new long[page.getPositionCount()];
+        }
+
+        @Override
+        public boolean process()
+        {
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            int positionCount = page.getPositionCount();
+            int[] combinationIdToPosition = new int[maxCardinality];
+            Arrays.fill(combinationIdToPosition, -1);
+            short[] positionToCombinationId = calculateCombinationIdsToPositionMapping(combinationIdToPosition);
+            int[] combinationIdToGroupId = new int[maxCardinality];
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            for (int i = 0; i < maxCardinality; i++) {
+                if (needRehash()) {
+                    return false;
+                }
+                if (combinationIdToPosition[i] != -1) {
+                    combinationIdToGroupId[i] = putIfAbsent(combinationIdToPosition[i], page);
+                }
+                else {
+                    combinationIdToGroupId[i] = -1;
+                }
+            }
+            for (int i = 0; i < positionCount; i++) {
+                groupIds[i] = combinationIdToGroupId[positionToCombinationId[i]];
+            }
+            return true;
+        }
+
+        @Override
+        public GroupByIdBlock getResult()
+        {
+            checkState(!finished, "result has produced");
+            finished = true;
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+        }
+    }
+
+    @VisibleForTesting
+    class GetDictionaryGroupIdsWork
             implements Work<GroupByIdBlock>
     {
         private final BlockBuilder blockBuilder;
@@ -816,7 +948,8 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private class GetRunLengthEncodedGroupIdsWork
+    @VisibleForTesting
+    class GetRunLengthEncodedGroupIdsWork
             implements Work<GroupByIdBlock>
     {
         private final Page page;
@@ -863,6 +996,58 @@ public class MultiChannelGroupByHash
                     new RunLengthEncodedBlock(
                             BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
                             page.getPositionCount()));
+        }
+    }
+
+    private abstract class LowCardinalityDictionaryWork<T>
+            implements Work<T>
+    {
+        protected final Page page;
+        protected final int maxCardinality;
+        protected final int[] dictionarySizes;
+        protected final DictionaryBlock[] blocks;
+
+        public LowCardinalityDictionaryWork(Page page)
+        {
+            this.page = requireNonNull(page, "page is null");
+            dictionarySizes = new int[channels.length];
+            blocks = new DictionaryBlock[channels.length];
+            int maxCardinality = 1;
+            for (int i = 0; i < channels.length; i++) {
+                Block block = page.getBlock(channels[i]);
+                verify(block instanceof DictionaryBlock, "Only dictionary blocks are supported");
+                blocks[i] = (DictionaryBlock) block;
+                int blockPositionCount = blocks[i].getDictionary().getPositionCount();
+                dictionarySizes[i] = blockPositionCount;
+                maxCardinality *= blockPositionCount;
+            }
+            this.maxCardinality = maxCardinality;
+        }
+
+        /**
+         * Returns combinations of all dictionaries ids for every position and populates
+         * samplePositions array with a single occurrence of every used combination
+         */
+        protected short[] calculateCombinationIdsToPositionMapping(int[] combinationIdToPosition)
+        {
+            int positionCount = page.getPositionCount();
+            // short arrays improve performance compared to int
+            short[] combinationIds = new short[positionCount];
+
+            for (int i = 0; i < positionCount; i++) {
+                combinationIds[i] = (short) blocks[0].getId(i);
+            }
+            for (int j = 1; j < channels.length; j++) {
+                for (int i = 0; i < positionCount; i++) {
+                    combinationIds[i] *= dictionarySizes[j];
+                    combinationIds[i] += blocks[j].getId(i);
+                }
+            }
+
+            for (int i = 0; i < positionCount; i++) {
+                combinationIdToPosition[combinationIds[i]] = i;
+            }
+            return combinationIds;
         }
     }
 }
