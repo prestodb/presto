@@ -20,11 +20,12 @@ import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.StreamLayout.ByColumnSize;
-import com.facebook.presto.orc.StreamLayout.ByStreamSize;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
+import com.facebook.presto.orc.writer.StreamLayoutFactory;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.StreamSizeLayoutFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -73,7 +74,7 @@ public class TestOrcWriter
     public void testWriteOutputStreamsInOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
             throws IOException
     {
-        testStreamOrder(encoding, kind, level, new ByStreamSize(), () -> new Consumer<Stream>()
+        testStreamOrder(encoding, kind, level, new StreamSizeLayoutFactory(), () -> new Consumer<Stream>()
         {
             int size;
 
@@ -92,7 +93,7 @@ public class TestOrcWriter
     public void testOutputStreamsByColumnSize(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
             throws IOException
     {
-        testStreamOrder(encoding, kind, level, new ByColumnSize(), () -> new Consumer<Stream>()
+        testStreamOrder(encoding, kind, level, new ColumnSizeLayoutFactory(), () -> new Consumer<Stream>()
         {
             int previousColumnSize;
             int currentColumnSize;
@@ -117,7 +118,7 @@ public class TestOrcWriter
         });
     }
 
-    private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level, StreamLayout streamLayout, Supplier<Consumer<Stream>> streamConsumerFactory)
+    private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level, StreamLayoutFactory streamLayoutFactory, Supplier<Consumer<Stream>> streamConsumerFactory)
             throws IOException
     {
         OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
@@ -127,7 +128,7 @@ public class TestOrcWriter
                 .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                 .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                 .withCompressionLevel(level)
-                .withStreamLayout(streamLayout)
+                .withStreamLayoutFactory(streamLayoutFactory)
                 .build();
         for (OrcWriteValidationMode validationMode : OrcWriteValidationMode.values()) {
             TempFile tempFile = new TempFile();
