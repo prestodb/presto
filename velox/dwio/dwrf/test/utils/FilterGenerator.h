@@ -314,10 +314,11 @@ class FilterGenerator {
   static std::string specsToString(const std::vector<FilterSpec>& specs);
   static SubfieldFilters cloneSubfieldFilters(const SubfieldFilters& src);
 
-  explicit FilterGenerator(std::shared_ptr<const RowType>& rowType)
-      : rowType_(rowType) {
-    reseedRng();
-  }
+  explicit FilterGenerator(
+      std::shared_ptr<const RowType>& rowType,
+      folly::Random::DefaultGenerator::result_type seed =
+          folly::Random::DefaultGenerator::default_seed)
+      : rowType_(rowType), seed_(seed), rng_(seed) {}
 
   SubfieldFilters makeSubfieldFilters(
       const std::vector<FilterSpec>& filterSpecs,
@@ -334,7 +335,7 @@ class FilterGenerator {
   }
 
   inline void reseedRng() {
-    rng_.seed(1);
+    rng_.seed(seed_);
   }
 
   inline const std::unordered_map<std::string, std::array<int32_t, 2>>&
@@ -352,8 +353,10 @@ class FilterGenerator {
   static void collectFilterableSubFields(
       const RowType* rowType,
       std::vector<std::string>& subFields);
-  folly::Random::DefaultGenerator rng_;
+
   std::shared_ptr<const RowType> rowType_;
+  folly::Random::DefaultGenerator::result_type seed_;
+  folly::Random::DefaultGenerator rng_;
   std::unordered_map<std::string, std::array<int32_t, 2>> filterCoverage_;
 };
 

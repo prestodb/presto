@@ -55,15 +55,14 @@ VectorPtr getChildBySubfield(
         ? container->type()->as<TypeKind::ROW>()
         : *parentType;
     auto childIdx = rowType.getChildIdx(nestedField->name());
-    auto child = rowVector->childAt(childIdx);
+    auto child = container->childAt(childIdx);
 
     if (i == path.size() - 1) {
       return child;
     }
     VELOX_CHECK(child->typeKind() == TypeKind::ROW);
     container = child->as<RowVector>();
-    parentType =
-        dynamic_cast<const RowType*>(parentType->childAt(childIdx).get());
+    parentType = dynamic_cast<const RowType*>(rowType.childAt(childIdx).get());
     VELOX_CHECK_NOT_NULL(
         parentType,
         "Expecting child to be row type",

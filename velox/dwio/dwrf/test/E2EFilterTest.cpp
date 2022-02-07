@@ -546,7 +546,9 @@ class E2EFilterTest : public testing::Test {
       bool tryNoNulls = false,
       bool tryNoVInts = false) {
     makeRowType(columns, wrapInStruct);
-    filterGenerator = std::make_unique<FilterGenerator>(rowType_);
+    // TODO: Seed was hard coded as 1 to make it behave the same as before.
+    // Change to use random seed (like current timestamp).
+    filterGenerator = std::make_unique<FilterGenerator>(rowType_, 1);
     for (int32_t noVInts = 0; noVInts < (tryNoVInts ? 2 : 1); ++noVInts) {
       useVInts_ = !noVInts;
       for (int32_t noNulls = 0; noNulls < (tryNoNulls ? 2 : 1); ++noNulls) {
