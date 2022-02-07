@@ -388,7 +388,7 @@ public class MultiChannelGroupByHash
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for groupAddressByHash, rawHashByHashPosition, groupIdsByHash, and groupAddressByGroupId as well as the size of the current page
         preallocatedMemoryInBytes = newCapacity * (long) (Long.BYTES + Integer.BYTES + Byte.BYTES) +
-                calculateMaxFill(newCapacity) * Long.BYTES +
+            (long) calculateMaxFill(newCapacity) * Long.BYTES +
                 currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
@@ -447,14 +447,14 @@ public class MultiChannelGroupByHash
         int sliceIndex = decodeSliceIndex(sliceAddress);
         int position = decodePosition(sliceAddress);
         if (precomputedHashChannel.isPresent()) {
-            return getRawHash(sliceIndex, position);
+            return getRawHash(sliceIndex, position, precomputedHashChannel.getAsInt());
         }
         return hashStrategy.hashPosition(sliceIndex, position);
     }
 
-    private long getRawHash(int sliceIndex, int position)
+    private long getRawHash(int sliceIndex, int position, int hashChannel)
     {
-        return channelBuilders.get(precomputedHashChannel.getAsInt()).get(sliceIndex).getLong(position);
+        return channelBuilders.get(hashChannel).get(sliceIndex).getLong(position);
     }
 
     private boolean positionNotDistinctFromCurrentRow(long address, int hashPosition, int position, Page page, byte rawHash, int[] hashChannels)
@@ -500,9 +500,7 @@ public class MultiChannelGroupByHash
         blocks[channels[0]] = dictionary;
 
         // extract hash dictionary
-        if (inputHashChannel.isPresent()) {
-            blocks[inputHashChannel.get()] = ((DictionaryBlock) page.getBlock(inputHashChannel.get())).getDictionary();
-        }
+        inputHashChannel.ifPresent(integer -> blocks[integer] = ((DictionaryBlock) page.getBlock(integer)).getDictionary());
 
         return new Page(dictionary.getPositionCount(), blocks);
     }
@@ -521,10 +519,8 @@ public class MultiChannelGroupByHash
                 // data channel is dictionary encoded but hash channel is not
                 return false;
             }
-            if (!((DictionaryBlock) inputHashBlock).getDictionarySourceId().equals(inputDataBlock.getDictionarySourceId())) {
-                // dictionarySourceIds of data block and hash block do not match
-                return false;
-            }
+            // dictionarySourceIds of data block and hash block do not match
+            return ((DictionaryBlock) inputHashBlock).getDictionarySourceId().equals(inputDataBlock.getDictionarySourceId());
         }
 
         return true;
@@ -532,8 +528,8 @@ public class MultiChannelGroupByHash
 
     private boolean isRunLengthEncoded(Page page)
     {
-        for (int i = 0; i < channels.length; i++) {
-            if (!(page.getBlock(channels[i]) instanceof RunLengthEncodedBlock)) {
+        for (int channel : channels) {
+            if (!(page.getBlock(channel) instanceof RunLengthEncodedBlock)) {
                 return false;
             }
         }

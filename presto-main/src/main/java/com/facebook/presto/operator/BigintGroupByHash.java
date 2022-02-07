@@ -291,7 +291,7 @@ public class BigintGroupByHash
 
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for values, groupIds, and valuesByGroupId as well as the size of the current page
-        preallocatedMemoryInBytes = newCapacity * (long) (Long.BYTES + Integer.BYTES) + calculateMaxFill(newCapacity) * Long.BYTES + currentPageSizeInBytes;
+        preallocatedMemoryInBytes = newCapacity * (long) (Long.BYTES + Integer.BYTES) + (long) calculateMaxFill(newCapacity) * Long.BYTES + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
