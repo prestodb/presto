@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.stream.StreamDataOutput;

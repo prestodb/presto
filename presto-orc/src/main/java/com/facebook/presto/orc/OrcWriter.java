@@ -42,6 +42,7 @@ import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.CompressionBufferPool;
 import com.facebook.presto.orc.writer.CompressionBufferPool.LastUsedCompressionBufferPool;
 import com.facebook.presto.orc.writer.DictionaryColumnWriter;
+import com.facebook.presto.orc.writer.StreamLayout;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -231,7 +232,7 @@ public class OrcWriter
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
-        this.streamLayout = requireNonNull(options.getStreamLayout(), "streamLayout is null");
+        this.streamLayout = requireNonNull(options.getStreamLayoutFactory().create(), "streamLayout is null");
 
         this.userMetadata = ImmutableMap.<String, String>builder()
                 .putAll(requireNonNull(userMetadata, "userMetadata is null"))

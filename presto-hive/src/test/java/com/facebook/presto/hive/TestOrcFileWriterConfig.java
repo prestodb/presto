@@ -15,9 +15,9 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.StreamLayout.ByColumnSize;
-import com.facebook.presto.orc.StreamLayout.ByStreamSize;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.StreamSizeLayoutFactory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -150,7 +150,7 @@ public class TestOrcFileWriterConfig
         assertEquals(dictionaryMaxMemory, options.getDictionaryMaxMemory());
         assertEquals(stringStatisticsLimit, options.getMaxStringStatisticsLimit());
         assertEquals(maxCompressionBufferSize, options.getMaxCompressionBufferSize());
-        assertTrue(options.getStreamLayout() instanceof ByStreamSize);
+        assertTrue(options.getStreamLayoutFactory() instanceof StreamSizeLayoutFactory);
         assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
     }
 
@@ -161,10 +161,10 @@ public class TestOrcFileWriterConfig
 
         config.setStreamLayoutType(BY_STREAM_SIZE);
         OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
-        assertTrue(options.getStreamLayout() instanceof ByStreamSize);
+        assertTrue(options.getStreamLayoutFactory() instanceof StreamSizeLayoutFactory);
 
         config.setStreamLayoutType(BY_COLUMN_SIZE);
         options = config.toOrcWriterOptionsBuilder().build();
-        assertTrue(options.getStreamLayout() instanceof ByColumnSize);
+        assertTrue(options.getStreamLayoutFactory() instanceof ColumnSizeLayoutFactory);
     }
 }

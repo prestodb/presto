@@ -15,8 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.StreamLayout;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
+import com.facebook.presto.orc.writer.StreamLayoutFactory;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
@@ -55,7 +55,7 @@ public class OrcFileWriterConfig
                 .withDictionaryMaxMemory(dictionaryMaxMemory)
                 .withMaxStringStatisticsLimit(stringStatisticsLimit)
                 .withMaxCompressionBufferSize(maxCompressionBufferSize)
-                .withStreamLayout(getStreamLayout(streamLayoutType))
+                .withStreamLayoutFactory(getStreamLayoutFactory(streamLayoutType))
                 .withDwrfStripeCacheEnabled(isDwrfStripeCacheEnabled)
                 .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
                 .withDwrfStripeCacheMode(dwrfStripeCacheMode);
@@ -201,13 +201,13 @@ public class OrcFileWriterConfig
         return this;
     }
 
-    private static StreamLayout getStreamLayout(StreamLayoutType type)
+    private static StreamLayoutFactory getStreamLayoutFactory(StreamLayoutType type)
     {
         switch (type) {
             case BY_COLUMN_SIZE:
-                return new StreamLayout.ByColumnSize();
+                return new StreamLayoutFactory.ColumnSizeLayoutFactory();
             case BY_STREAM_SIZE:
-                return new StreamLayout.ByStreamSize();
+                return new StreamLayoutFactory.StreamSizeLayoutFactory();
             default:
                 throw new RuntimeException("Unrecognized type " + type);
         }
