@@ -63,7 +63,7 @@ executors:
       - image : prestocpp/velox-check:mikesh-20210609
   doc-gen:
     docker:
-      - image : prestocpp/velox-circleci:sagarm-2022013
+      - image : prestocpp/velox-circleci:sagarm-20220131
 
 jobs:
   macos-build:
