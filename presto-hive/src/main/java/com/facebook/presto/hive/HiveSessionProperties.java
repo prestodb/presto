@@ -134,6 +134,7 @@ public final class HiveSessionProperties
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT = "use_record_page_source_for_custom_split";
+    public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -657,7 +658,12 @@ public final class HiveSessionProperties
                         USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT,
                         "Use record page source for custom split",
                         hiveClientConfig.isUseRecordPageSourceForCustomSplit(),
-                        false));
+                        false),
+                integerProperty(
+                        MAX_INITIAL_SPLITS,
+                        "Hive max initial split count",
+                        hiveClientConfig.getMaxInitialSplits(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1136,5 +1142,10 @@ public final class HiveSessionProperties
     public static boolean isUseRecordPageSourceForCustomSplit(ConnectorSession session)
     {
         return session.getProperty(USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT, Boolean.class);
+    }
+
+    public static int getHiveMaxInitialSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(MAX_INITIAL_SPLITS, Integer.class);
     }
 }

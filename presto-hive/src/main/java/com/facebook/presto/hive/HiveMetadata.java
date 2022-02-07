@@ -994,6 +994,7 @@ public class HiveMetadata
                 hiveStorageFormat,
                 tableEncryptionProperties);
 
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
         return buildTableObject(
                 session.getQueryId(),
                 schemaName,
@@ -1007,7 +1008,8 @@ public class HiveMetadata
                 tableProperties,
                 targetPath,
                 tableType,
-                prestoVersion);
+                prestoVersion,
+                metastoreContext.getColumnConverter());
     }
 
     @Override
@@ -1085,7 +1087,7 @@ public class HiveMetadata
                 .setOwner(session.getUser())
                 .setTableType(TEMPORARY_TABLE)
                 .setDataColumns(columnHandles.stream()
-                        // Issue #17081: propagate type metadata
+                        // Not propagating column type metadata because temp tables are not visible to users
                         .map(handle -> new Column(handle.getName(), handle.getHiveType(), handle.getComment(), Optional.empty()))
                         .collect(toImmutableList()))
                 .withStorage(storage -> storage
@@ -1304,7 +1306,8 @@ public class HiveMetadata
             Map<String, String> additionalTableParameters,
             Path targetPath,
             PrestoTableType tableType,
-            String prestoVersion)
+            String prestoVersion,
+            ColumnConverter columnConverter)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
@@ -1320,7 +1323,8 @@ public class HiveMetadata
             HiveType type = columnHandle.getHiveType();
             if (!partitionColumnNames.contains(name)) {
                 verify(!columnHandle.isPartitionKey(), "Column handles are not consistent with partitioned by property");
-                columns.add(Column.partitionColumn(name, type, columnHandle.getComment()));
+                Column column = new Column(name, type, columnHandle.getComment(), columnConverter.getTypeMetadata(type, columnHandle.getTypeSignature()));
+                columns.add(column);
             }
             else {
                 verify(columnHandle.isPartitionKey(), "Column handles are not consistent with partitioned by property");
@@ -1617,6 +1621,8 @@ public class HiveMetadata
         }
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(handle.getLocationHandle());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+
         Table table = buildTableObject(
                 session.getQueryId(),
                 handle.getSchemaName(),
@@ -1633,7 +1639,8 @@ public class HiveMetadata
                         .build(),
                 writeInfo.getTargetPath(),
                 MANAGED_TABLE,
-                prestoVersion);
+                prestoVersion,
+                metastoreContext.getColumnConverter());
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -2165,10 +2172,13 @@ public class HiveMetadata
                 .build();
 
         List<Column> columns = new ArrayList<>();
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+        ColumnConverter columnConverter = metastoreContext.getColumnConverter();
+
         for (ColumnMetadata column : viewMetadata.getColumns()) {
             try {
-                // issue #17081: propagate type metadata
-                columns.add(new Column(column.getName(), toHiveType(typeTranslator, column.getType()), Optional.ofNullable(column.getComment()), Optional.empty()));
+                HiveType hiveType = toHiveType(typeTranslator, column.getType());
+                columns.add(new Column(column.getName(), hiveType, Optional.ofNullable(column.getComment()), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
             }
             catch (PrestoException e) {
                 // if a view uses any unsupported hive types, include only a dummy column value
@@ -2206,7 +2216,6 @@ public class HiveMetadata
         Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
 
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
         Optional<Table> existing = metastore.getTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
             if (!replace || !MetastoreUtil.isPrestoView(existing.get())) {

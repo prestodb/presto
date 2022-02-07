@@ -38,7 +38,6 @@ public class TestIcebergConfig
                 .setCompressionCodec(GZIP)
                 .setCatalogType(HIVE)
                 .setCatalogWarehouse(null)
-                .setCatalogUri(null)
                 .setCatalogCacheSize(10)
                 .setHadoopConfigResources(null));
     }
@@ -51,7 +50,6 @@ public class TestIcebergConfig
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.catalog.type", "HADOOP")
                 .put("iceberg.catalog.warehouse", "path")
-                .put("iceberg.catalog.uri", "uri")
                 .put("iceberg.catalog.cached-catalog-num", "6")
                 .put("iceberg.hadoop.config.resources", "/etc/hadoop/conf/core-site.xml")
                 .build();
@@ -61,7 +59,6 @@ public class TestIcebergConfig
                 .setCompressionCodec(NONE)
                 .setCatalogType(HADOOP)
                 .setCatalogWarehouse("path")
-                .setCatalogUri("uri")
                 .setCatalogCacheSize(6)
                 .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml");
 

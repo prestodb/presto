@@ -44,4 +44,10 @@ public class HiveColumnConverter
     {
         return hiveType.getTypeSignature();
     }
+
+    @Override
+    public Optional<String> getTypeMetadata(HiveType hiveType, TypeSignature typeSignature)
+    {
+        return Optional.empty();
+    }
 }

@@ -29,8 +29,6 @@ import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.LongOutputStream;
-import com.facebook.presto.orc.stream.LongOutputStreamV1;
-import com.facebook.presto.orc.stream.LongOutputStreamV2;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.annotations.VisibleForTesting;
@@ -49,9 +47,8 @@ import static com.facebook.presto.common.array.Arrays.ExpansionFactor.MEDIUM;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
-import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.orc.stream.LongOutputStream.createDataOutputStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -62,6 +59,9 @@ import static java.util.stream.Collectors.toList;
 public abstract class DictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
+    // In theory, nulls are stored using bit fields with 1 bit per entry
+    // In code, though they use Byte RLE, using 8 is a good heuristic and close to worst case.
+    public static final int NUMBER_OF_NULLS_PER_BYTE = 8;
     private static final int EXPECTED_ROW_GROUP_SEGMENT_SIZE = 10_000;
 
     protected final int column;
@@ -71,12 +71,12 @@ public abstract class DictionaryColumnWriter
     protected final OrcEncoding orcEncoding;
     protected final MetadataWriter metadataWriter;
 
-    private final LongOutputStream dataStream;
-    private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter compressedMetadataWriter;
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
     private final int preserveDirectEncodingStripeCount;
 
+    private LongOutputStream dataStream;
+    private PresentOutputStream presentStream;
     private DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();
     private int[] rowGroupIndexes;
     private int rowGroupOffset;
@@ -103,19 +103,13 @@ public abstract class DictionaryColumnWriter
         this.columnWriterOptions = requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
-        LongOutputStream result;
-        if (orcEncoding == DWRF) {
-            result = new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, false, DATA);
-        }
-        else {
-            result = new LongOutputStreamV2(columnWriterOptions, false, DATA);
-        }
-        this.dataStream = result;
+        this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
+        this.preserveDirectEncodingStripeCount = columnWriterOptions.getPreserveDirectEncodingStripeCount();
+
+        this.dataStream = createDataOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
         this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
-        this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
         this.rowGroupIndexes = new int[EXPECTED_ROW_GROUP_SEGMENT_SIZE];
-        this.preserveDirectEncodingStripeCount = columnWriterOptions.getPreserveDirectEncodingStripeCount();
     }
 
     protected abstract ColumnWriter createDirectColumnWriter();
@@ -204,6 +198,13 @@ public abstract class DictionaryColumnWriter
     {
         checkState(!directEncoded);
         return totalNonNullValueCount;
+    }
+
+    @Override
+    public long getNullValueCount()
+    {
+        checkState(!directEncoded);
+        return totalValueCount - totalNonNullValueCount;
     }
 
     private boolean tryConvertRowGroupToDirect(byte[][] byteSegments, short[][] shortSegments, int[][] intSegments, int maxDirectBytes)
@@ -513,7 +514,8 @@ public abstract class DictionaryColumnWriter
             return getDirectColumnWriter().getBufferedBytes();
         }
         // for dictionary columns we report the data we expect to write to the output stream
-        return getIndexBytes() + getDictionaryBytes();
+        long numberOfNullBytes = getNullValueCount() / NUMBER_OF_NULLS_PER_BYTE;
+        return getIndexBytes() + getDictionaryBytes() + numberOfNullBytes;
     }
 
     @VisibleForTesting
@@ -546,8 +548,13 @@ public abstract class DictionaryColumnWriter
     {
         checkState(closed);
         closed = false;
-        dataStream.reset();
-        presentStream.reset();
+        // Dictionary data is held in memory, until the Stripe is flushed. OrcOutputStream maintains the
+        // allocated buffer and reuses the buffer for writing data. For Direct writer, OrcOutputStream
+        // behavior avoids the reallocation of the buffers by maintaining the pool. For Dictionary writer,
+        // OrcOutputStream doubles the memory requirement in most cases (one for dictionary and one for
+        // OrcOutputBuffer). To avoid this, the streams are reallocated for every stripe.
+        this.dataStream = createDataOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
         resetDictionary();
         resetRowGroups();
         rawBytes = 0;

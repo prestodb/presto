@@ -207,6 +207,7 @@ public class HiveClientConfig
 
     private boolean columnIndexFilterEnabled;
 
+    @Min(0)
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;

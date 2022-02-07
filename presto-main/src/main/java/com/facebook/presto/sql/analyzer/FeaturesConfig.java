@@ -128,6 +128,8 @@ public class FeaturesConfig
     private boolean aggregationSpillEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
     private boolean dedupBasedDistinctAggregationSpillEnabled;
+    private boolean distinctAggregationLargeBlockSpillEnabled;
+    private DataSize distinctAggregationLargeBlockSizeThreshold = new DataSize(50, MEGABYTE);
     private boolean orderByAggregationSpillEnabled = true;
     private boolean windowSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
@@ -970,6 +972,32 @@ public class FeaturesConfig
     public boolean isDedupBasedDistinctAggregationSpillEnabled()
     {
         return dedupBasedDistinctAggregationSpillEnabled;
+    }
+
+    @Config("experimental.distinct-aggregation-large-block-spill-enabled")
+    @ConfigDescription("Spill large block to a separate spill file")
+    public FeaturesConfig setDistinctAggregationLargeBlockSpillEnabled(boolean distinctAggregationLargeBlockSpillEnabled)
+    {
+        this.distinctAggregationLargeBlockSpillEnabled = distinctAggregationLargeBlockSpillEnabled;
+        return this;
+    }
+
+    public boolean isDistinctAggregationLargeBlockSpillEnabled()
+    {
+        return distinctAggregationLargeBlockSpillEnabled;
+    }
+
+    @Config("experimental.distinct-aggregation-large-block-size-threshold")
+    @ConfigDescription("Block size threshold beyond which it will be spilled into a separate spill file")
+    public FeaturesConfig setDistinctAggregationLargeBlockSizeThreshold(DataSize distinctAggregationLargeBlockSizeThreshold)
+    {
+        this.distinctAggregationLargeBlockSizeThreshold = distinctAggregationLargeBlockSizeThreshold;
+        return this;
+    }
+
+    public DataSize getDistinctAggregationLargeBlockSizeThreshold()
+    {
+        return distinctAggregationLargeBlockSizeThreshold;
     }
 
     @Config("experimental.order-by-aggregation-spill-enabled")
