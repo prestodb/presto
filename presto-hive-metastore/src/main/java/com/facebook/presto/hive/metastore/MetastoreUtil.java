@@ -40,6 +40,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.spi.ConnectorSession;
@@ -195,7 +196,8 @@ public class MetastoreUtil
                 table.getParameters(),
                 table.getDatabaseName(),
                 table.getTableName(),
-                table.getPartitionColumns());
+                table.getPartitionColumns().stream().map(column -> column.getName()).collect(toList()),
+                table.getPartitionColumns().stream().map(column -> column.getType()).collect(toList()));
     }
 
     public static Properties getHiveSchema(Partition partition, Table table)
@@ -208,7 +210,8 @@ public class MetastoreUtil
                 table.getParameters(),
                 table.getDatabaseName(),
                 table.getTableName(),
-                table.getPartitionColumns());
+                table.getPartitionColumns().stream().map(column -> column.getName()).collect(toList()),
+                table.getPartitionColumns().stream().map(column -> column.getType()).collect(toList()));
     }
 
     public static Properties getHiveSchema(
@@ -218,7 +221,8 @@ public class MetastoreUtil
             Map<String, String> tableParameters,
             String databaseName,
             String tableName,
-            List<Column> partitionKeys)
+            List<String> partitionKeyNames,
+            List<HiveType> partitionKeyTypes)
     {
         // Mimics function in Hive:
         // MetaStoreUtils.getSchema(StorageDescriptor, StorageDescriptor, Map<String, String>, String, String, List<FieldSchema>)
@@ -274,16 +278,21 @@ public class MetastoreUtil
         String partStringSep = "";
         String partTypesString = "";
         String partTypesStringSep = "";
-        for (Column partKey : partitionKeys) {
+
+        for (int index = 0; index < partitionKeyNames.size(); ++index) {
+            String name = partitionKeyNames.get(index);
+            HiveType type = partitionKeyTypes.get(index);
+
             partString += partStringSep;
-            partString += partKey.getName();
+            partString += name;
             partTypesString += partTypesStringSep;
-            partTypesString += partKey.getType().getHiveTypeName().toString();
+            partTypesString += type.getHiveTypeName().toString();
             if (partStringSep.length() == 0) {
                 partStringSep = "/";
                 partTypesStringSep = ":";
             }
         }
+
         if (partString.length() > 0) {
             schema.setProperty(META_TABLE_PARTITION_COLUMNS, partString);
             schema.setProperty(META_TABLE_PARTITION_COLUMN_TYPES, partTypesString);
