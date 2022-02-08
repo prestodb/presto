@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <optional>
-
 #include <gmock/gmock.h>
+#include <optional>
 
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
@@ -29,6 +28,7 @@ static constexpr auto kMin32 = std::numeric_limits<int32_t>::min();
 static constexpr auto kMax32 = std::numeric_limits<int32_t>::max();
 static constexpr auto kMin64 = std::numeric_limits<int64_t>::min();
 static constexpr auto kMax64 = std::numeric_limits<int64_t>::max();
+static constexpr int kMaxBits = std::numeric_limits<uint64_t>::digits;
 
 class BitwiseTest : public functions::test::FunctionBaseTest {
  protected:
@@ -53,6 +53,12 @@ class BitwiseTest : public functions::test::FunctionBaseTest {
   template <typename T>
   std::optional<int64_t> bitwiseXor(std::optional<T> a, std::optional<T> b) {
     return evaluateOnce<int64_t>("bitwise_xor(c0, c1)", a, b);
+  }
+
+  std::optional<int64_t> bitCount(
+      std::optional<int64_t> num,
+      std::optional<int64_t> bits) {
+    return evaluateOnce<int64_t>("bit_count(c0, c1)", num, bits);
   }
 
   template <typename T>
@@ -118,6 +124,47 @@ TEST_F(BitwiseTest, bitwiseAnd) {
   EXPECT_EQ(bitwiseAnd<int64_t>(kMax64, -1), kMax64);
   EXPECT_EQ(bitwiseAnd<int64_t>(kMin64, 1), 0);
   EXPECT_EQ(bitwiseAnd<int64_t>(kMin64, -1), kMin64);
+}
+
+TEST_F(BitwiseTest, bitCount) {
+  EXPECT_EQ(bitCount(9, 8), 2);
+  EXPECT_EQ(bitCount(-7, kMaxBits), 62);
+  EXPECT_EQ(bitCount(9, kMaxBits), 2);
+  EXPECT_EQ(bitCount(-7, 8), 6);
+  EXPECT_EQ(bitCount(kMin64, kMaxBits), 1);
+  EXPECT_EQ(bitCount(kMax64, kMaxBits), 63);
+  EXPECT_EQ(bitCount(-2, 2), 1);
+
+  auto assertInvalidBits = [this](int64_t num, int64_t bits) {
+    assertUserError(
+        [&]() { this->bitCount(num, bits); },
+        fmt::format(
+            "Bits specified in bit_count "
+            "must be between "
+            "2 and 64, got {}",
+            bits));
+  };
+
+  auto assertNumberTooLarge = [this](int64_t num, int64_t bits) {
+    assertUserError(
+        [&]() { this->bitCount(num, bits); },
+        fmt::format(
+            "Number must be representable "
+            "with the bits specified. "
+            "{} can not be "
+            "represented with {} bits",
+            num,
+            bits));
+  };
+  assertNumberTooLarge(7, 2);
+  assertNumberTooLarge(3, 2);
+  assertNumberTooLarge(2, 2);
+  assertNumberTooLarge(kMax64, 63);
+  assertNumberTooLarge(kMin64, 63);
+  assertNumberTooLarge(-64, 6);
+  assertNumberTooLarge(64, 6);
+  assertInvalidBits(7, 1);
+  assertInvalidBits(7, 65);
 }
 
 TEST_F(BitwiseTest, bitwiseNot) {

@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/functions/Macros.h"
-
 namespace facebook::velox::functions {
 
 template <typename T>
@@ -24,6 +23,29 @@ struct BitwiseAndFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE bool call(int64_t& result, TInput a, TInput b) {
     result = a & b;
+    return true;
+  }
+};
+
+template <typename T>
+struct BitCountFunction {
+  static constexpr int kMaxBits = std::numeric_limits<uint64_t>::digits;
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, int64_t num, int32_t bits) {
+    VELOX_USER_CHECK(
+        bits >= 2 && bits <= kMaxBits,
+        "Bits specified in bit_count must be between 2 and 64, got {}",
+        bits)
+    // Check if input "num" falls within the limits of max and min that
+    // can be represented with "bits".
+    const uint64_t lowBitsMask = 1L << (bits - 1);
+    const int64_t upperBound = lowBitsMask - 1;
+    VELOX_USER_CHECK(
+        num >= ~upperBound && num <= upperBound,
+        "Number must be representable with the bits specified."
+        " {} can not be represented with {} bits",
+        num,
+        bits);
+    result = bits::countBits(reinterpret_cast<uint64_t*>(&num), 0, bits);
     return true;
   }
 };

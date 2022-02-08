@@ -41,6 +41,7 @@ void registerBitwiseFunctions() {
   registerBitwiseUnaryIntegral<BitwiseNotFunction>({"bitwise_not"});
   registerBitwiseBinaryIntegral<BitwiseOrFunction>({"bitwise_or"});
   registerBitwiseBinaryIntegral<BitwiseXorFunction>({"bitwise_xor"});
+  registerBitwiseBinaryIntegral<BitCountFunction>({"bit_count"});
   registerBitwiseBinaryIntegral<BitwiseArithmeticShiftRightFunction>(
       {"bitwise_arithmetic_shift_right"});
   registerBitwiseBinaryIntegral<BitwiseLeftShiftFunction>(
