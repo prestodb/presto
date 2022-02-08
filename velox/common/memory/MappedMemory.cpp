@@ -285,7 +285,7 @@ int64_t MappedMemoryImpl::free(Allocation& allocation) {
   return numFreed * kPageSize;
 }
 void MappedMemoryImpl::freeContiguous(ContiguousAllocation& allocation) {
-  if (allocation.data()) {
+  if (allocation.data() && allocation.size()) {
     if (munmap(allocation.data(), allocation.size()) < 0) {
       LOG(ERROR) << "munmap returned " << errno << "for " << allocation.data()
                  << ", " << allocation.size();

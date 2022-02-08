@@ -268,9 +268,7 @@ class HashTable : public BaseHashTable {
         memory);
   }
 
-  virtual ~HashTable() override {
-    allocateTables(0);
-  }
+  virtual ~HashTable() override = default;
 
   void groupProbe(HashLookup& lookup) override;
 
@@ -433,6 +431,7 @@ class HashTable : public BaseHashTable {
   int32_t nextOffset_;
   uint8_t* tags_ = nullptr;
   char** table_ = nullptr;
+  memory::MappedMemory::ContiguousAllocation tableAllocation_;
   int64_t size_ = 0;
   int64_t sizeMask_ = 0;
   int64_t numDistinct_ = 0;

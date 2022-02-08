@@ -524,21 +524,21 @@ void HashTable<ignoreNullKeys>::initializeNewGroups(HashLookup& lookup) {
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::allocateTables(uint64_t size) {
   VELOX_CHECK(bits::isPowerOfTwo(size), "Size is not a power of two: {}", size);
-  if (tags_) {
-    free(tags_);
-    tags_ = nullptr;
-  }
-  if (table_) {
-    free(table_);
-    table_ = nullptr;
-  }
   if (size > 0) {
     size_ = size;
     sizeMask_ = size_ - 1;
     sizeBits_ = __builtin_popcountll(sizeMask_);
-    tags_ = reinterpret_cast<uint8_t*>(aligned_alloc(64, size_));
+    constexpr auto kPageSize = memory::MappedMemory::kPageSize;
+    // The total size is 9 bytes per slot, 8 in the pointers table and 1 in the
+    // tags table.
+    auto numPages = bits::roundUp(size * 9, kPageSize) / kPageSize;
+    if (!rows_->mappedMemory()->allocateContiguous(
+            numPages, nullptr, tableAllocation_)) {
+      VELOX_FAIL("Could not allocate join/group by hash table");
+    }
+    table_ = tableAllocation_.data<char*>();
+    tags_ = reinterpret_cast<uint8_t*>(table_ + size);
     memset(tags_, 0, size_);
-    table_ = reinterpret_cast<char**>(aligned_alloc(64, sizeof(char*) * size_));
     // Not strictly necessary to clear 'table_' but more debuggable.
     memset(table_, 0, size_ * sizeof(char*));
   }
@@ -558,7 +558,7 @@ void HashTable<ignoreNullKeys>::clear() {
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
-  if (!table_) {
+  if (!table_ || !size_) {
     // Initial guess of cardinality is double the first input batch or at
     // least 2K entries.
     // numDistinct_ is non-0 when switching from HashMode::kArray to regular
@@ -788,10 +788,15 @@ void HashTable<ignoreNullKeys>::rehash() {
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
   VELOX_CHECK(hashMode_ != HashMode::kHash);
-  allocateTables(0);
   if (mode == HashMode::kArray) {
     auto bytes = size_ * sizeof(char*);
-    table_ = reinterpret_cast<char**>(malloc(bytes));
+    constexpr auto kPageSize = memory::MappedMemory::kPageSize;
+    auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
+    if (!rows_->mappedMemory()->allocateContiguous(
+            numPages, nullptr, tableAllocation_)) {
+      VELOX_FAIL("Could not allocate array for array mode hash table");
+    }
+    table_ = tableAllocation_.data<char*>();
     memset(table_, 0, bytes);
     hashMode_ = HashMode::kArray;
     rehash();
@@ -801,10 +806,12 @@ void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
       hasher->resetStats();
     }
     rows_->disableNormalizedKeys();
+    size_ = 0;
     // Makes tables of the right size and rehashes.
     checkSize(numNew);
   } else if (mode == HashMode::kNormalizedKey) {
     hashMode_ = HashMode::kNormalizedKey;
+    size_ = 0;
     // Makes tables of the right size and rehashes.
     checkSize(numNew);
   }

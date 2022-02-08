@@ -195,7 +195,7 @@ bool MmapAllocator::allocateContiguous(
 }
 
 void MmapAllocator::freeContiguous(ContiguousAllocation& allocation) {
-  if (allocation.data()) {
+  if (allocation.data() && allocation.size()) {
     if (munmap(allocation.data(), allocation.size()) < 0) {
       LOG(ERROR) << "munmap returned " << errno << "for " << allocation.data()
                  << ", " << allocation.size();

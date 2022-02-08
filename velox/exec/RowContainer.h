@@ -348,6 +348,10 @@ class RowContainer {
     }
   }
 
+  memory::MappedMemory* mappedMemory() const {
+    return stringAllocator_.mappedMemory();
+  }
+
   // Checks that row and free row counts match and that free list
   // membership is consistent with free flag.
   void checkConsistency();
