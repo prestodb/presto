@@ -66,7 +66,7 @@ public class TestClusterStatsResource
         client = null;
     }
 
-    @Test(timeOut = 120_000)
+    @Test(timeOut = 120_000, invocationCount = 20)
     public void testClusterStatsAdjustedQueueSize()
     {
         runToExecuting(client, server, "SELECT * from tpch.sf101.orders");
