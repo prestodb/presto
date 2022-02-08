@@ -29,6 +29,11 @@ std::unique_ptr<dwio::common::RowReader> DwrfReader::createRowReader(
   return std::make_unique<DwrfRowReader>(readerBase_, opts);
 }
 
+std::unique_ptr<DwrfRowReader> DwrfReader::createDwrfRowReader(
+    const RowReaderOptions& opts) const {
+  return std::make_unique<DwrfRowReader>(readerBase_, opts);
+}
+
 void DwrfRowReader::checkSkipStrides(
     const StatsContext& context,
     uint64_t strideSize) {

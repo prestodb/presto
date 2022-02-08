@@ -102,6 +102,9 @@ class DwrfReader : public DwrfReaderShared {
   std::unique_ptr<dwio::common::RowReader> createRowReader(
       const dwio::common::RowReaderOptions& options = {}) const override;
 
+  std::unique_ptr<DwrfRowReader> createDwrfRowReader(
+      const dwio::common::RowReaderOptions& options = {}) const;
+
   /**
    * Create a reader to the for the dwrf file.
    * @param stream the stream to read
