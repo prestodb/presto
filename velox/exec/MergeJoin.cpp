@@ -38,8 +38,8 @@ MergeJoin::MergeJoin(
   VELOX_USER_CHECK_NULL(
       joinNode->filter(), "Merge join doesn't support filter yet.");
 
-  leftKeys_.resize(numKeys_);
-  rightKeys_.resize(numKeys_);
+  leftKeys_.reserve(numKeys_);
+  rightKeys_.reserve(numKeys_);
 
   auto leftType = joinNode->sources()[0]->outputType();
   for (auto& key : joinNode->leftKeys()) {
