@@ -246,12 +246,7 @@ class ExprTest : public testing::Test {
           };
 
           if (makeLazyVector) {
-            current = std::make_shared<LazyVector>(
-                execCtx_->pool(),
-                CppToType<T>::create(),
-                cardinality,
-                std::make_unique<test::SimpleVectorLoader>(
-                    [flatVector](auto /*size*/) { return flatVector; }));
+            current = wrapInLazyDictionary(flatVector);
           } else {
             current = flatVector;
           }
@@ -651,6 +646,19 @@ class ExprTest : public testing::Test {
             VELOX_CHECK_EQ(rows[i], expectedRowAt(i));
           }
           return vectorMaker_->flatVector<T>(size, valueAt, isNullAt);
+        }));
+  }
+
+  VectorPtr wrapInLazyDictionary(VectorPtr vector) {
+    return std::make_shared<LazyVector>(
+        execCtx_->pool(),
+        vector->type(),
+        vector->size(),
+        std::make_unique<SimpleVectorLoader>([=](RowSet /*rows*/) {
+          auto indices = makeIndices(
+              vector->size(), [](vector_size_t row) { return row; });
+          return BaseVector::wrapInDictionary(
+              nullptr, indices, vector->size(), vector);
         }));
   }
 
@@ -2323,6 +2331,21 @@ TEST_F(ExprTest, peelNulls) {
       [](vector_size_t /*row*/) { return false; },
       [](vector_size_t row) { return row != 2; });
   assertEqualVectors(expectedResult, result);
+}
+
+TEST_F(ExprTest, peelLazyDictionaryOverConstant) {
+  auto c0 = makeFlatVector<int64_t>(5, [](vector_size_t row) { return row; });
+  auto c0Indices = makeIndices(5, [](auto row) { return row; });
+  auto c1 = makeFlatVector<int64_t>(5, [](auto row) { return row; });
+
+  auto result = evaluate(
+      "if (not(is_null(if (c0 >= 0, c1, null))), coalesce(c0, 22), null)",
+      makeRowVector(
+          {BaseVector::wrapInDictionary(
+               nullptr, c0Indices, 5, wrapInLazyDictionary(c0)),
+           BaseVector::wrapInDictionary(
+               nullptr, c0Indices, 5, wrapInLazyDictionary(c1))}));
+  assertEqualVectors(c0, result);
 }
 
 TEST_F(ExprTest, accessNested) {
