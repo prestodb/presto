@@ -94,6 +94,7 @@ public final class HiveSessionProperties
     public static final String PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED = "partition_stats_based_optimization_enabled";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
+    public static final String STREAMING_AGGREGATION_ENABLED = "streaming_aggregation_enabled";
     public static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
     public static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
@@ -413,6 +414,11 @@ public final class HiveSessionProperties
                         S3_SELECT_PUSHDOWN_ENABLED,
                         "S3 Select pushdown enabled",
                         hiveClientConfig.isS3SelectPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        STREAMING_AGGREGATION_ENABLED,
+                        "Enable streaming aggregation execution",
+                        hiveClientConfig.isStreamingAggregationEnabled(),
                         false),
                 booleanProperty(
                         TEMPORARY_STAGING_DIRECTORY_ENABLED,
@@ -887,6 +893,11 @@ public final class HiveSessionProperties
     public static boolean isS3SelectPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(S3_SELECT_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isStreamingAggregationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(STREAMING_AGGREGATION_ENABLED, Boolean.class);
     }
 
     public static boolean isStatisticsEnabled(ConnectorSession session)
