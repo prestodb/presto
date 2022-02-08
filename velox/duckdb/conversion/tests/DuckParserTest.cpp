@@ -255,3 +255,10 @@ TEST(DuckParserTest, alias) {
       parseExpr("cast(a AS DOUBLE) AS a_double")->toString());
   EXPECT_EQ("\"a\" AS b", parseExpr("a AS b")->toString());
 }
+
+TEST(DuckParserTest, like) {
+  EXPECT_EQ("like(\"name\",\"%b%\")", parseExpr("name LIKE '%b%'")->toString());
+  EXPECT_EQ(
+      "like(\"name\",\"%#_%\",\"#\")",
+      parseExpr("name LIKE '%#_%' ESCAPE '#'")->toString());
+}

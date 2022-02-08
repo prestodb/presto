@@ -48,7 +48,7 @@ namespace {
 std::shared_ptr<const core::IExpr> parseExpr(ParsedExpression& expr);
 
 std::string normalizeFuncName(std::string input) {
-  static std::map<std::string, std::string> lookup{
+  static std::map<std::string, std::string> kLookup{
       {"+", "plus"},
       {"-", "minus"},
       {"*", "multiply"},
@@ -65,9 +65,11 @@ std::string normalizeFuncName(std::string input) {
       {"and", "and"},
       {"or", "or"},
       {"is", "is"},
+      {"~~", "like"},
+      {"like_escape", "like"},
   };
-  auto it = lookup.find(input);
-  return (it == lookup.end()) ? input : it->second;
+  auto it = kLookup.find(input);
+  return (it == kLookup.end()) ? input : it->second;
 }
 
 // Convert duckDB operator name to Velox function. Coalesce and subscript needs
