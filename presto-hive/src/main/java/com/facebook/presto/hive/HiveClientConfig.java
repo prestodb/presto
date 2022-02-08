@@ -155,6 +155,7 @@ public class HiveClientConfig
 
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
+    private boolean streamingAggregationEnabled;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
@@ -1353,6 +1354,19 @@ public class HiveClientConfig
     public HiveClientConfig setS3SelectPushdownMaxConnections(int s3SelectPushdownMaxConnections)
     {
         this.s3SelectPushdownMaxConnections = s3SelectPushdownMaxConnections;
+        return this;
+    }
+
+    public boolean isStreamingAggregationEnabled()
+    {
+        return streamingAggregationEnabled;
+    }
+
+    @Config("hive.streaming-aggregation-enabled")
+    @ConfigDescription("Enable streaming aggregation execution")
+    public HiveClientConfig setStreamingAggregationEnabled(boolean streamingAggregationEnabled)
+    {
+        this.streamingAggregationEnabled = streamingAggregationEnabled;
         return this;
     }
 

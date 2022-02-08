@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingB
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileSplittable;
+import static com.facebook.presto.hive.HiveSessionProperties.isStreamingAggregationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
@@ -261,11 +262,13 @@ public class StoragePartitionLoader
             return addSplitsToSource(splits, splitFactory, hiveSplitSource, stopped);
         }
         PathFilter pathFilter = isHudiParquetInputFormat(inputFormat) ? hoodiePathFilterLoadingCache.getUnchecked(configuration) : path1 -> true;
+        // Streaming aggregation works at the granularity of individual files
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // Partial aggregation pushdown works at the granularity of individual files
         // therefore we must not split files when either is enabled.
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = isFileSplittable(session) &&
+                !isStreamingAggregationEnabled(session) &&
                 !s3SelectPushdownEnabled &&
                 !partialAggregationsPushedDown &&
                 getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
