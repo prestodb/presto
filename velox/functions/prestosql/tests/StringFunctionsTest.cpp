@@ -68,14 +68,15 @@ int expectedLength(int i) {
 }
 
 std::string hexToDec(const std::string& str) {
-  char output[16];
-  auto chars = str.data();
-  for (int i = 0; i < 16; i++) {
-    int high = facebook::velox::functions::stringImpl::fromHex(chars[2 * i]);
-    int low = facebook::velox::functions::stringImpl::fromHex(chars[2 * i + 1]);
-    output[i] = (high << 4) | (low & 0xf);
+  VELOX_CHECK_EQ(str.size() % 2, 0);
+  std::string out;
+  out.resize(str.size() / 2);
+  for (int i = 0; i < out.size(); ++i) {
+    int high = facebook::velox::functions::stringImpl::fromHex(str[2 * i]);
+    int low = facebook::velox::functions::stringImpl::fromHex(str[2 * i + 1]);
+    out[i] = (high << 4) | (low & 0xf);
   }
-  return std::string(output, 16);
+  return out;
 }
 } // namespace
 
@@ -1027,6 +1028,28 @@ TEST_F(StringFunctionsTest, md5) {
   EXPECT_EQ(hexToDec("d41d8cd98f00b204e9800998ecf8427e"), md5(""));
 
   EXPECT_EQ(std::nullopt, md5(std::nullopt));
+}
+
+TEST_F(StringFunctionsTest, sha256) {
+  const auto sha256 = [&](std::optional<std::string> arg) {
+    return evaluateOnce<std::string, std::string>(
+        "sha256(c0)", {arg}, {VARBINARY()});
+  };
+
+  EXPECT_EQ(
+      hexToDec(
+          "02208b9403a87df9f4ed6b2ee2657efaa589026b4cce9accc8e8a5bf3d693c86"),
+      sha256("hashme"));
+  EXPECT_EQ(
+      hexToDec(
+          "d0067cad9a63e0813759a2bb841051ca73570c0da2e08e840a8eb45db6a7a010"),
+      sha256("Infinity"));
+  EXPECT_EQ(
+      hexToDec(
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+      sha256(""));
+
+  EXPECT_EQ(std::nullopt, sha256(std::nullopt));
 }
 
 void StringFunctionsTest::testReplaceInPlace(

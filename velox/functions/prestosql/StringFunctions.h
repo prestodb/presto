@@ -82,6 +82,17 @@ struct Md5Function {
   }
 };
 
+/// sha256(varbinary) -> varbinary
+template <typename T>
+struct Sha256Function {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TTo, typename TFrom>
+  FOLLY_ALWAYS_INLINE bool call(TTo& result, const TFrom& input) {
+    return stringImpl::sha256(result, input);
+  }
+};
+
 template <typename T>
 struct ToHexFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

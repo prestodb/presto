@@ -10,6 +10,10 @@ Binary Functions
 
     Computes the md5 hash of ``binary``.
 
+.. function:: sha256(binary) -> varbinary
+
+    Computes the SHA-256 hash of ``binary``.
+
 .. function:: to_base64(binary) -> varchar
 
     Encodes ``binary`` into a base64 string representation.

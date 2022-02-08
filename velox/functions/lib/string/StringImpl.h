@@ -27,6 +27,7 @@
 #include <vector>
 #include "folly/CPortability.h"
 #include "folly/Likely.h"
+#include "folly/ssl/OpenSSLHash.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/external/md5/md5.h"
@@ -272,6 +273,16 @@ FOLLY_ALWAYS_INLINE bool md5_radix(
   }
 
   output.resize(size);
+  return true;
+}
+
+/// Compute the SHA256 Hash.
+template <typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE bool sha256(TOutString& output, const TInString& input) {
+  output.resize(32);
+  folly::ssl::OpenSSLHash::sha256(
+      folly::MutableByteRange((uint8_t*)output.data(), output.size()),
+      folly::ByteRange((const uint8_t*)input.data(), input.size()));
   return true;
 }
 

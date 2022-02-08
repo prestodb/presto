@@ -57,6 +57,7 @@ void registerSimpleFunctions() {
   // Register hash functions.
   registerFunction<XxHash64Function, Varbinary, Varbinary>({"xxhash64"});
   registerFunction<Md5Function, Varbinary, Varbinary>({"md5"});
+  registerFunction<Sha256Function, Varbinary, Varbinary>({"sha256"});
 
   registerFunction<ToHexFunction, Varchar, Varbinary>({"to_hex"});
   registerFunction<FromHexFunction, Varbinary, Varchar>({"from_hex"});
