@@ -155,19 +155,19 @@ public class TestPinotQueryGenerator
                 format("SELECT %s FROM realtimeOnly", getExpectedAggOutput(expectedAggOutput, "")));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).globalGrouping())),
-                format("SELECT %s FROM realtimeOnly WHERE (fare > 3)", getExpectedAggOutput(expectedAggOutput, "")));
+                format("SELECT %s FROM realtimeOnly WHERE (\"fare\" > 3)", getExpectedAggOutput(expectedAggOutput, "")));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).singleGroupingSet(variable("regionid")))),
-                format("SELECT %s FROM realtimeOnly WHERE (fare > 3) GROUP BY regionId %s 10000", getExpectedAggOutput(expectedAggOutput, "regionId"), getGroupByLimitKey()));
+                format("SELECT %s FROM realtimeOnly WHERE (\"fare\" > 3) GROUP BY \"regionId\" %s 10000", getExpectedAggOutput(expectedAggOutput, "\"regionId\""), getGroupByLimitKey()));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("regionid")))),
-                format("SELECT %s FROM realtimeOnly GROUP BY regionId %s 10000", getExpectedAggOutput(expectedAggOutput, "regionId"), getGroupByLimitKey()));
+                format("SELECT %s FROM realtimeOnly GROUP BY \"regionId\" %s 10000", getExpectedAggOutput(expectedAggOutput, "\"regionId\""), getGroupByLimitKey()));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(variable("regionid"), variable("city")))),
-                format("SELECT %s FROM realtimeOnly WHERE ((secondsSinceEpoch BETWEEN 200 AND 300) AND (regionId >= 40)) GROUP BY regionId, city %s 10000", getExpectedAggOutput(expectedAggOutput, "regionId, city"), getGroupByLimitKey()));
+                format("SELECT %s FROM realtimeOnly WHERE ((\"secondsSinceEpoch\" BETWEEN 200 AND 300) AND (\"regionId\" >= 40)) GROUP BY \"regionId\", \"city\" %s 10000", getExpectedAggOutput(expectedAggOutput, "\"regionId\", \"city\""), getGroupByLimitKey()));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filterWithMultiValue).singleGroupingSet(variable("regionid"), variable("city")))),
-                format("SELECT %s FROM realtimeOnly WHERE ((scores = 100) OR (scores = 200)) GROUP BY regionId, city %s 10000", getExpectedAggOutput(expectedAggOutput, "regionId, city"), getGroupByLimitKey()));
+                format("SELECT %s FROM realtimeOnly WHERE ((\"scores\" = 100) OR (\"scores\" = 200)) GROUP BY \"regionId\", \"city\" %s 10000", getExpectedAggOutput(expectedAggOutput, "\"regionId\", \"city\""), getGroupByLimitKey()));
     }
 
     protected String getGroupByLimitKey()
@@ -185,10 +185,10 @@ public class TestPinotQueryGenerator
     {
         testPinotQuery(
                 planBuilder -> limit(planBuilder, 50L, tableScan(planBuilder, pinotTable, regionId, city, fare, secondsSinceEpoch)),
-                "SELECT regionId, city, fare, secondsSinceEpoch FROM realtimeOnly LIMIT 50");
+                "SELECT \"regionId\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM realtimeOnly LIMIT 50");
         testPinotQuery(
                 planBuilder -> limit(planBuilder, 50L, tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch)),
-                "SELECT regionId, secondsSinceEpoch FROM realtimeOnly LIMIT 50");
+                "SELECT \"regionId\", \"secondsSinceEpoch\" FROM realtimeOnly LIMIT 50");
     }
 
     @Test
@@ -196,7 +196,7 @@ public class TestPinotQueryGenerator
     {
         testPinotQuery(
                 planBuilder -> limit(planBuilder, 50L, project(planBuilder, filter(planBuilder, tableScan(planBuilder, pinotTable, regionId, city, fare, secondsSinceEpoch), getRowExpression("secondssinceepoch > 20", defaultSessionHolder)), ImmutableList.of("city", "secondssinceepoch"))),
-                "SELECT city, secondsSinceEpoch FROM realtimeOnly WHERE (secondsSinceEpoch > 20) LIMIT 50");
+                "SELECT \"city\", \"secondsSinceEpoch\" FROM realtimeOnly WHERE (\"secondsSinceEpoch\" > 20) LIMIT 50");
     }
 
     @Test
@@ -212,7 +212,7 @@ public class TestPinotQueryGenerator
         PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(distinctAggregation).globalGrouping().addAggregation(variable("count_regionid"), getRowExpression("count(regionid)", defaultSessionHolder))),
-                "SELECT DISTINCTCOUNT(regionId) FROM realtimeOnly");
+                "SELECT DISTINCTCOUNT(\"regionId\") FROM realtimeOnly");
     }
 
     @Test
@@ -222,7 +222,7 @@ public class TestPinotQueryGenerator
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, columnHandleMap));
         PlanNode markDistinct = buildPlan(planBuilder -> markDistinct(planBuilder, variable("regionid$distinct_62"), ImmutableList.of(variable("regionid")), justScan));
         PlanNode aggregate = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(markDistinct).addAggregation(planBuilder.variable("count(regionid_33)"), getRowExpression("count(regionid_33)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct_62"))).globalGrouping()));
-        testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), planBuilder -> planBuilder.limit(10, aggregate), "SELECT DISTINCTCOUNT(regionId) FROM realtimeOnly");
+        testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), planBuilder -> planBuilder.limit(10, aggregate), "SELECT DISTINCTCOUNT(\"regionId\") FROM realtimeOnly");
     }
 
     @Test
@@ -232,7 +232,7 @@ public class TestPinotQueryGenerator
         PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("regionid"))));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(distinctAggregation).singleGroupingSet(variable("city")).addAggregation(variable("count_regionid"), getRowExpression("count(regionid)", defaultSessionHolder))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY city %s 10000", getExpectedAggOutput("DISTINCTCOUNT(regionId)", "city"), getGroupByLimitKey()));
+                String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" %s 10000", getExpectedAggOutput("DISTINCTCOUNT(\"regionId\")", "\"city\""), getGroupByLimitKey()));
     }
 
     @Test
@@ -243,10 +243,10 @@ public class TestPinotQueryGenerator
         PlanNode aggregate = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(markDistinct).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder)).addAggregation(planBuilder.variable("count(regionid)"), getRowExpression("count(regionid)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct"))).globalGrouping()));
         String expectedPinotQuery;
         if (aggregate.getOutputVariables().get(0).getName().equalsIgnoreCase("count(regionid)")) {
-            expectedPinotQuery = "SELECT DISTINCTCOUNT(regionId), count(*) FROM realtimeOnly";
+            expectedPinotQuery = "SELECT DISTINCTCOUNT(\"regionId\"), count(*) FROM realtimeOnly";
         }
         else {
-            expectedPinotQuery = "SELECT count(*), DISTINCTCOUNT(regionId) FROM realtimeOnly";
+            expectedPinotQuery = "SELECT count(*), DISTINCTCOUNT(\"regionId\") FROM realtimeOnly";
         }
         testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), planBuilder -> planBuilder.limit(10, aggregate), expectedPinotQuery);
     }
@@ -259,10 +259,10 @@ public class TestPinotQueryGenerator
         PlanNode aggregate = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(markDistinct).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder)).addAggregation(planBuilder.variable("count(regionid)"), getRowExpression("count(regionid)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct")))));
         String expectedPinotQuery;
         if (aggregate.getOutputVariables().get(1).getName().equalsIgnoreCase("count(regionid)")) {
-            expectedPinotQuery = String.format("SELECT %s FROM realtimeOnly GROUP BY city %s 10000", getExpectedAggOutput("DISTINCTCOUNT(regionId), count(*)", "city"), getGroupByLimitKey());
+            expectedPinotQuery = String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" %s 10000", getExpectedAggOutput("DISTINCTCOUNT(\"regionId\"), count(*)", "\"city\""), getGroupByLimitKey());
         }
         else {
-            expectedPinotQuery = String.format("SELECT %s FROM realtimeOnly GROUP BY city %s 10000", getExpectedAggOutput("count(*), DISTINCTCOUNT(regionId)", "city"), getGroupByLimitKey());
+            expectedPinotQuery = String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" %s 10000", getExpectedAggOutput("count(*), DISTINCTCOUNT(\"regionId\")", "\"city\""), getGroupByLimitKey());
         }
         testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), aggregate, expectedPinotQuery);
     }
@@ -273,23 +273,23 @@ public class TestPinotQueryGenerator
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))),
-                "SELECT count(*) FROM realtimeOnly GROUP BY regionId TOP 10000");
+                "SELECT count(*) FROM realtimeOnly GROUP BY \"regionId\" TOP 10000");
     }
 
     @Test
     public void testPercentileAggregation()
     {
-        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_percentile(fare, 0.10)", defaultSessionHolder)), "PERCENTILEEST10(fare)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_percentile(fare, 0.10)", defaultSessionHolder)), "PERCENTILEEST10(\"fare\")");
     }
 
     @Test
     public void testApproxDistinct()
     {
-        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare)");
-        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.1)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 6)");
-        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.02)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 11)");
-        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.01)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 13)");
-        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.005)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 15)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare)", defaultSessionHolder)), "DISTINCTCOUNTHLL(\"fare\")");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.1)", defaultSessionHolder)), "DISTINCTCOUNTHLL(\"fare\", 6)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.02)", defaultSessionHolder)), "DISTINCTCOUNTHLL(\"fare\", 11)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.01)", defaultSessionHolder)), "DISTINCTCOUNTHLL(\"fare\", 13)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.005)", defaultSessionHolder)), "DISTINCTCOUNTHLL(\"fare\", 15)");
     }
 
     @Test
@@ -320,12 +320,12 @@ public class TestPinotQueryGenerator
         PlanNode justDate = buildPlan(planBuilder -> project(planBuilder, tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare), aggProjection, defaultSessionHolder));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justDate).singleGroupingSet(new VariableReferenceExpression(Optional.empty(), "date", TIMESTAMP)).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY dateTimeConvert(SUB(secondsSinceEpoch, 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS') %s 10000", getExpectedAggOutput("count(*)", "dateTimeConvert(SUB(secondsSinceEpoch, 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS')"), getGroupByLimitKey()));
+                String.format("SELECT %s FROM realtimeOnly GROUP BY dateTimeConvert(SUB(\"secondsSinceEpoch\", 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS') %s 10000", getExpectedAggOutput("count(*)", "dateTimeConvert(SUB(\"secondsSinceEpoch\", 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS')"), getGroupByLimitKey()));
         aggProjection.put("city", "city");
         PlanNode newScanWithCity = buildPlan(planBuilder -> project(planBuilder, tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare), aggProjection, defaultSessionHolder));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(newScanWithCity).singleGroupingSet(new VariableReferenceExpression(Optional.empty(), "date", TIMESTAMP), variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY dateTimeConvert(SUB(secondsSinceEpoch, 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS'), city %s 10000", getExpectedAggOutput("count(*)", "dateTimeConvert(SUB(secondsSinceEpoch, 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS'), city"), getGroupByLimitKey()));
+                String.format("SELECT %s FROM realtimeOnly GROUP BY dateTimeConvert(SUB(\"secondsSinceEpoch\", 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS'), \"city\" %s 10000", getExpectedAggOutput("count(*)", "dateTimeConvert(SUB(\"secondsSinceEpoch\", 50), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:DAYS'), \"city\""), getGroupByLimitKey()));
     }
 
     @Test
@@ -336,12 +336,12 @@ public class TestPinotQueryGenerator
         PlanNode justMaxScores = buildPlan(planBuilder -> project(planBuilder, tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare, scores), aggProjection, defaultSessionHolder));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justMaxScores).singleGroupingSet(new VariableReferenceExpression(Optional.empty(), "array_max_0", DOUBLE)).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY arrayMax(scores) %s 10000", getExpectedAggOutput("count(*)", "arrayMax(scores)"), getGroupByLimitKey()));
+                String.format("SELECT %s FROM realtimeOnly GROUP BY arrayMax(\"scores\") %s 10000", getExpectedAggOutput("count(*)", "arrayMax(\"scores\")"), getGroupByLimitKey()));
         aggProjection.put("city", "city");
         PlanNode newScanWithCity = buildPlan(planBuilder -> project(planBuilder, tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare, scores), aggProjection, defaultSessionHolder));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(newScanWithCity).singleGroupingSet(new VariableReferenceExpression(Optional.empty(), "array_max_0", DOUBLE), variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY arrayMax(scores), city %s 10000", getExpectedAggOutput("count(*)", "arrayMax(scores), city"), getGroupByLimitKey()));
+                String.format("SELECT %s FROM realtimeOnly GROUP BY arrayMax(\"scores\"), \"city\" %s 10000", getExpectedAggOutput("count(*)", "arrayMax(\"scores\"), \"city\""), getGroupByLimitKey()));
     }
 
     private void testAggWithArrayFunction(String functionVariable, String prestoFunctionExpression, String pinotFunctionExpression)
@@ -352,22 +352,22 @@ public class TestPinotQueryGenerator
         PlanNode aggregationPlanNode = buildPlan(planBuilder -> project(planBuilder, tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare, scores), aggProjection, defaultSessionHolder));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(aggregationPlanNode).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression(String.format("sum(%s)", functionVariable), defaultSessionHolder))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY city %s 10000", getExpectedAggOutput(String.format("sum(%s)", pinotFunctionExpression), "city"), getGroupByLimitKey()));
+                String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" %s 10000", getExpectedAggOutput(String.format("sum(%s)", pinotFunctionExpression), "\"city\""), getGroupByLimitKey()));
     }
 
     @Test
     public void testAggWithArrayFunctions()
     {
-        testAggWithArrayFunction("array_min_0", "array_min(scores)", "arrayMin(scores)");
-        testAggWithArrayFunction("array_max_0", "array_max(scores)", "arrayMax(scores)");
-        testAggWithArrayFunction("array_sum_0", "reduce(scores, cast(0 as double), (s, x) -> s + x, s -> s)", "arraySum(scores)");
-        testAggWithArrayFunction("array_average_0", "reduce(scores, CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), (s,x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), s -> IF(s.count = 0, NULL, s.sum / s.count))", "arrayAverage(scores)");
+        testAggWithArrayFunction("array_min_0", "array_min(scores)", "arrayMin(\"scores\")");
+        testAggWithArrayFunction("array_max_0", "array_max(scores)", "arrayMax(\"scores\")");
+        testAggWithArrayFunction("array_sum_0", "reduce(scores, cast(0 as double), (s, x) -> s + x, s -> s)", "arraySum(\"scores\")");
+        testAggWithArrayFunction("array_average_0", "reduce(scores, CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), (s,x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), s -> IF(s.count = 0, NULL, s.sum / s.count))", "arrayAverage(\"scores\")");
     }
 
     @Test
     public void testMultipleAggregatesWithOutGroupBy()
     {
-        Map<String, String> outputVariables = ImmutableMap.of("agg", "count(*)", "min", "min(fare)");
+        Map<String, String> outputVariables = ImmutableMap.of("agg", "count(*)", "min", "min(\"fare\")");
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare));
         testPinotQuery(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).globalGrouping().addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder)).addAggregation(planBuilder.variable("min"), getRowExpression("min(fare)", defaultSessionHolder))),
@@ -395,12 +395,12 @@ public class TestPinotQueryGenerator
 
     protected void helperTestMultipleAggregatesWithGroupBy(PinotConfig givenPinotConfig)
     {
-        Map<String, String> outputVariables = ImmutableMap.of("agg", "count(*)", "min", "min(fare)");
+        Map<String, String> outputVariables = ImmutableMap.of("agg", "count(*)", "min", "min(\"fare\")");
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare));
         testPinotQuery(
                 givenPinotConfig,
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder)).addAggregation(planBuilder.variable("min"), getRowExpression("min(fare)", defaultSessionHolder))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY city %s 10000", getExpectedAggOutput("__expressions__", "city"), getGroupByLimitKey()),
+                String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" %s 10000", getExpectedAggOutput("__expressions__", "\"city\""), getGroupByLimitKey()),
                 defaultSessionHolder,
                 outputVariables);
     }
@@ -408,11 +408,11 @@ public class TestPinotQueryGenerator
     @Test(expectedExceptions = NoSuchElementException.class)
     public void testMultipleAggregateGroupByWithLimitFails()
     {
-        Map<String, String> outputVariables = ImmutableMap.of("agg", "count(*)", "min", "min(fare)");
+        Map<String, String> outputVariables = ImmutableMap.of("agg", "count(*)", "min", "min(\"fare\")");
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare));
         testPinotQuery(
                 planBuilder -> planBuilder.limit(50L, planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder)).addAggregation(planBuilder.variable("min"), getRowExpression("min(fare)", defaultSessionHolder)))),
-                String.format("SELECT %s FROM realtimeOnly GROUP BY city %s 50", getExpectedAggOutput("__expressions__", "city"), getGroupByLimitKey()),
+                String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" %s 50", getExpectedAggOutput("__expressions__", "\"city\""), getGroupByLimitKey()),
                 defaultSessionHolder,
                 outputVariables);
     }
@@ -436,20 +436,20 @@ public class TestPinotQueryGenerator
         testPinotQuery(
                 pinotConfig,
                 topNFare,
-                "SELECT regionId, city, fare FROM realtimeOnly ORDER BY fare DESC LIMIT 50",
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly ORDER BY \"fare\" DESC LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
         TopNNode topnFareAndCity = topN(planBuilder, 50L, ImmutableList.of("fare", "city"), ImmutableList.of(true, false), tableScanNode);
         testPinotQuery(
                 pinotConfig,
                 topnFareAndCity,
-                "SELECT regionId, city, fare FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly ORDER BY \"fare\", \"city\" DESC LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
         ProjectNode projectNode = project(planBuilder, topnFareAndCity, ImmutableList.of("regionid", "city"));
         testPinotQuery(pinotConfig,
                 projectNode,
-                "SELECT regionId, city FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
+                "SELECT \"regionId\", \"city\" FROM realtimeOnly ORDER BY \"fare\", \"city\" DESC LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
     }
@@ -476,7 +476,7 @@ public class TestPinotQueryGenerator
         testPinotQuery(
                 pinotConfig,
                 distinctLimitNode,
-                String.format("SELECT %s FROM realtimeOnly GROUP BY regionId %s 50", getExpectedDistinctOutput("regionId"), getGroupByLimitKey()),
+                String.format("SELECT %s FROM realtimeOnly GROUP BY \"regionId\" %s 50", getExpectedDistinctOutput("\"regionId\""), getGroupByLimitKey()),
                 defaultSessionHolder,
                 ImmutableMap.of());
 
@@ -491,7 +491,7 @@ public class TestPinotQueryGenerator
         testPinotQuery(
                 pinotConfig,
                 distinctLimitNode,
-                String.format("SELECT %s FROM realtimeOnly GROUP BY regionId, city %s 50", getExpectedDistinctOutput("regionId, city"), getGroupByLimitKey()),
+                String.format("SELECT %s FROM realtimeOnly GROUP BY \"regionId\", \"city\" %s 50", getExpectedDistinctOutput("\"regionId\", \"city\""), getGroupByLimitKey()),
                 defaultSessionHolder,
                 ImmutableMap.of());
     }

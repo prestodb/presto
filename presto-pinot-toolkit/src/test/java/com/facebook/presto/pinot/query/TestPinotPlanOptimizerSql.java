@@ -54,7 +54,7 @@ public class TestPinotPlanOptimizerSql
                 optimized,
                 PinotTableScanMatcher.match(
                         pinotTable,
-                        Optional.of("SELECT regionId FROM hybrid GROUP BY regionId LIMIT 50"),
+                        Optional.of("SELECT \"regionId\" FROM hybrid GROUP BY \"regionId\" LIMIT 50"),
                         Optional.of(false),
                         originalPlan.getOutputVariables(),
                         useSqlSyntax()),
@@ -73,7 +73,7 @@ public class TestPinotPlanOptimizerSql
                 optimized,
                 PinotTableScanMatcher.match(
                         pinotTable,
-                        Optional.of("SELECT regionId, city FROM hybrid GROUP BY regionId, city LIMIT 50"),
+                        Optional.of("SELECT \"regionId\", \"city\" FROM hybrid GROUP BY \"regionId\", \"city\" LIMIT 50"),
                         Optional.of(false),
                         originalPlan.getOutputVariables(),
                         useSqlSyntax()),
