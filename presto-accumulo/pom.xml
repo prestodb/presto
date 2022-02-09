@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.accumulo.version>1.7.4</dep.accumulo.version>
+        <dep.accumulo.version>1.10.1</dep.accumulo.version>
         <dep.curator.version>2.12.0</dep.curator.version>
         <dep.log4j.version>1.2.17</dep.log4j.version>
     </properties>
