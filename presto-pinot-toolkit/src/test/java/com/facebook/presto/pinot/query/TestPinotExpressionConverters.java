@@ -44,29 +44,29 @@ public class TestPinotExpressionConverters
 
     public void testProjectExpressionConverter(SessionHolder sessionHolder)
     {
-        testProject("secondssinceepoch", "secondsSinceEpoch", sessionHolder);
+        testProject("secondssinceepoch", "\"secondsSinceEpoch\"", sessionHolder);
         // functions
         testAggregationProject(
                 "date_trunc('hour', from_unixtime(secondssinceepoch))",
-                "dateTimeConvert(secondsSinceEpoch, '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
+                "dateTimeConvert(\"secondsSinceEpoch\", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
                 sessionHolder);
 
         // arithmetic
-        testAggregationProject("regionid + 1", "ADD(regionId, 1)", sessionHolder);
-        testAggregationProject("regionid - 1", "SUB(regionId, 1)", sessionHolder);
-        testAggregationProject("1 * regionid", "MULT(1, regionId)", sessionHolder);
-        testAggregationProject("1 / regionid", "DIV(1, regionId)", sessionHolder);
+        testAggregationProject("regionid + 1", "ADD(\"regionId\", 1)", sessionHolder);
+        testAggregationProject("regionid - 1", "SUB(\"regionId\", 1)", sessionHolder);
+        testAggregationProject("1 * regionid", "MULT(1, \"regionId\")", sessionHolder);
+        testAggregationProject("1 / regionid", "DIV(1, \"regionId\")", sessionHolder);
 
         // TODO ... this one is failing
-        testAggregationProject("secondssinceepoch + 1559978258.674", "ADD(secondsSinceEpoch, 1559978258.674)", sessionHolder);
+        testAggregationProject("secondssinceepoch + 1559978258.674", "ADD(\"secondsSinceEpoch\", 1559978258.674)", sessionHolder);
 
-        testAggregationProject("secondssinceepoch + 1559978258", "ADD(secondsSinceEpoch, 1559978258)", sessionHolder);
+        testAggregationProject("secondssinceepoch + 1559978258", "ADD(\"secondsSinceEpoch\", 1559978258)", sessionHolder);
 
         testAggregationProjectUnsupported("secondssinceepoch > 0", sessionHolder);
 
         testAggregationProject(
                 "date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
-                "dateTimeConvert(ADD(secondsSinceEpoch, 2), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
+                "dateTimeConvert(ADD(\"secondsSinceEpoch\", 2), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
                 sessionHolder);
     }
 
@@ -95,7 +95,7 @@ public class TestPinotExpressionConverters
     {
         testAggregationProject(
                 "secondssinceepoch + 1559978258.674",
-                "ADD(secondsSinceEpoch, 1559978258.674)",
+                "ADD(\"secondsSinceEpoch\", 1559978258.674)",
                 sessionHolder);
     }
 
@@ -115,12 +115,12 @@ public class TestPinotExpressionConverters
     {
         testAggregationProject(
                 "date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
-                "dateTrunc(ADD(secondsSinceEpoch, 2),seconds, UTC, hour)",
+                "dateTrunc(ADD(\"secondsSinceEpoch\", 2),seconds, UTC, hour)",
                 sessionHolder);
 
         testAggregationProject(
                 "date_trunc('hour', from_unixtime(secondssinceepoch + 2, 'America/New_York'))",
-                "dateTrunc(ADD(secondsSinceEpoch, 2),seconds, America/New_York, hour)",
+                "dateTrunc(ADD(\"secondsSinceEpoch\", 2),seconds, America/New_York, hour)",
                 sessionHolder);
     }
 
@@ -139,28 +139,28 @@ public class TestPinotExpressionConverters
     public void testFilterExpressionConverter(SessionHolder sessionHolder)
     {
         // Simple comparisons
-        testFilter("regionid = 20", "(regionId = 20)", sessionHolder);
-        testFilter("regionid >= 20", "(regionId >= 20)", sessionHolder);
-        testFilter("city = 'Campbell'", "(city = 'Campbell')", sessionHolder);
+        testFilter("regionid = 20", "(\"regionId\" = 20)", sessionHolder);
+        testFilter("regionid >= 20", "(\"regionId\" >= 20)", sessionHolder);
+        testFilter("city = 'Campbell'", "(\"city\" = 'Campbell')", sessionHolder);
 
         // between
-        testFilter("totalfare between 20 and 30", "((fare + trip) BETWEEN 20 AND 30)", sessionHolder);
+        testFilter("totalfare between 20 and 30", "((\"fare\" + \"trip\") BETWEEN 20 AND 30)", sessionHolder);
 
         // in, not in
-        testFilter("regionid in (20, 30, 40)", "(regionId IN (20, 30, 40))", sessionHolder);
-        testFilter("regionid not in (20, 30, 40)", "(regionId NOT IN (20, 30, 40))", sessionHolder);
-        testFilter("city in ('San Jose', 'Campbell', 'Union City')", "(city IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
-        testFilter("city not in ('San Jose', 'Campbell', 'Union City')", "(city NOT IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
+        testFilter("regionid in (20, 30, 40)", "(\"regionId\" IN (20, 30, 40))", sessionHolder);
+        testFilter("regionid not in (20, 30, 40)", "(\"regionId\" NOT IN (20, 30, 40))", sessionHolder);
+        testFilter("city in ('San Jose', 'Campbell', 'Union City')", "(\"city\" IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
+        testFilter("city not in ('San Jose', 'Campbell', 'Union City')", "(\"city\" NOT IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
         testFilterUnsupported("secondssinceepoch + 1 in (234, 24324)", sessionHolder);
         testFilterUnsupported("NOT (secondssinceepoch = 2323)", sessionHolder);
-        testFilter("city is null", "(city IS NULL)", sessionHolder);
-        testFilter("city is not null", "(city IS NOT NULL)", sessionHolder);
+        testFilter("city is null", "(\"city\" IS NULL)", sessionHolder);
+        testFilter("city is not null", "(\"city\" IS NOT NULL)", sessionHolder);
 
         // combinations
         testFilter("totalfare between 20 and 30 AND regionid > 20 OR city = 'Campbell'",
-                "((((fare + trip) BETWEEN 20 AND 30) AND (regionId > 20)) OR (city = 'Campbell'))", sessionHolder);
+                "((((\"fare\" + \"trip\") BETWEEN 20 AND 30) AND (\"regionId\" > 20)) OR (\"city\" = 'Campbell'))", sessionHolder);
 
-        testFilter("secondssinceepoch > 1559978258", "(secondsSinceEpoch > 1559978258)", sessionHolder);
+        testFilter("secondssinceepoch > 1559978258", "(\"secondsSinceEpoch\" > 1559978258)", sessionHolder);
         testFilter("DATE '2019-11-15'", "18215", sessionHolder);
     }
 
