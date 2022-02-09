@@ -35,6 +35,11 @@ class HashAggregation : public Operator {
     return !noMoreInput_ && !partialFull_;
   }
 
+  void noMoreInput() override {
+    groupingSet_->noMoreInput();
+    Operator::noMoreInput();
+  }
+
   BlockingReason isBlocked(ContinueFuture* /* unused */) override {
     return BlockingReason::kNotBlocked;
   }
@@ -55,6 +60,7 @@ class HashAggregation : public Operator {
   const bool isPartialOutput_;
   const bool isDistinct_;
   const bool isGlobal_;
+  const bool hasPreGroupedKeys_;
 
   std::unique_ptr<GroupingSet> groupingSet_;
 

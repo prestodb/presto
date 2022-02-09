@@ -39,6 +39,7 @@ bool areAllLazyNotLoaded(const std::vector<VectorPtr>& vectors) {
 
 GroupingSet::GroupingSet(
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
+    std::vector<ChannelIndex>&& preGroupedKeys,
     std::vector<std::unique_ptr<Aggregate>>&& aggregates,
     std::vector<std::optional<ChannelIndex>>&& aggrMaskChannels,
     std::vector<std::vector<ChannelIndex>>&& channelLists,
@@ -46,7 +47,8 @@ GroupingSet::GroupingSet(
     bool ignoreNullKeys,
     bool isRawInput,
     OperatorCtx* operatorCtx)
-    : hashers_(std::move(hashers)),
+    : preGroupedKeyChannels_(std::move(preGroupedKeys)),
+      hashers_(std::move(hashers)),
       isGlobal_(hashers_.empty()),
       isRawInput_(isRawInput),
       aggregates_(std::move(aggregates)),
@@ -73,6 +75,23 @@ GroupingSet::GroupingSet(
   }
 }
 
+namespace {
+bool equalKeys(
+    const std::vector<ChannelIndex>& keys,
+    const RowVectorPtr& vector,
+    vector_size_t index,
+    vector_size_t otherIndex) {
+  for (auto key : keys) {
+    const auto& child = vector->childAt(key);
+    if (!child->equalValueAt(child.get(), index, otherIndex)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+} // namespace
+
 void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
   if (isGlobal_) {
     addGlobalAggregationInput(input, mayPushdown);
@@ -80,16 +99,53 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
   }
 
   auto numRows = input->size();
+  if (!preGroupedKeyChannels_.empty()) {
+    if (remainingInput_) {
+      addRemainingInput();
+    }
+    // Look for the last group of pre-grouped keys.
+    for (auto i = input->size() - 2; i >= 0; --i) {
+      if (!equalKeys(preGroupedKeyChannels_, input, i, i + 1)) {
+        // Process that many rows, flush the accumulators and the hash
+        // table, then add remaining rows.
+        numRows = i + 1;
+
+        remainingInput_ = input;
+        firstRemainingRow_ = numRows;
+        remainingMayPushdown_ = mayPushdown;
+        break;
+      }
+    }
+  }
+
   activeRows_.resize(numRows);
   activeRows_.setAll();
 
+  addInputForActiveRows(input, mayPushdown);
+}
+
+void GroupingSet::noMoreInput() {
+  noMoreInput_ = true;
+
+  if (remainingInput_) {
+    addRemainingInput();
+  }
+}
+
+bool GroupingSet::hasOutput() {
+  return noMoreInput_ || remainingInput_;
+}
+
+void GroupingSet::addInputForActiveRows(
+    const RowVectorPtr& input,
+    bool mayPushdown) {
   bool rehash = false;
   if (!table_) {
     rehash = true;
     createHashTable();
   }
   auto& hashers = lookup_->hashers;
-  lookup_->reset(numRows);
+  lookup_->reset(activeRows_.end());
   auto mode = table_->hashMode();
   if (ignoreNullKeys_) {
     // A null in any of the keys disables the row.
@@ -104,12 +160,6 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
         hashers[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
       }
     }
-    lookup_->rows.clear();
-    bits::forEachSetBit(
-        activeRows_.asRange().bits(),
-        0,
-        activeRows_.size(),
-        [&](vector_size_t row) { lookup_->rows.push_back(row); });
   } else {
     for (int32_t i = 0; i < hashers.size(); ++i) {
       auto key = input->loadedChildAt(hashers[i]->channel());
@@ -121,13 +171,23 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
         hashers[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
       }
     }
-    std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
   }
+
+  if (activeRows_.isAllSelected()) {
+    std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
+  } else {
+    lookup_->rows.clear();
+    bits::forEachSetBit(
+        activeRows_.asRange().bits(), 0, activeRows_.size(), [&](auto row) {
+          lookup_->rows.push_back(row);
+        });
+  }
+
   if (rehash) {
     if (table_->hashMode() != BaseHashTable::HashMode::kHash) {
       table_->decideHashMode(input->size());
     }
-    addInput(input, mayPushdown);
+    addInputForActiveRows(input, mayPushdown);
     return;
   }
   table_->groupProbe(*lookup_);
@@ -149,6 +209,16 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
     }
   }
   tempVectors_.clear();
+}
+
+void GroupingSet::addRemainingInput() {
+  activeRows_.clearAll();
+  activeRows_.resize(remainingInput_->size());
+  activeRows_.setValidRange(firstRemainingRow_, remainingInput_->size(), true);
+  activeRows_.updateBounds();
+
+  addInputForActiveRows(remainingInput_, remainingMayPushdown_);
+  remainingInput_.reset();
 }
 
 void GroupingSet::createHashTable() {
@@ -297,6 +367,12 @@ bool GroupingSet::getOutput(
   int32_t numGroups =
       table_ ? table_->rows()->listRows(iterator, batchSize, groups) : 0;
   if (!numGroups) {
+    if (table_) {
+      table_->clear();
+    }
+    if (remainingInput_) {
+      addRemainingInput();
+    }
     return false;
   }
   result->resize(numGroups);

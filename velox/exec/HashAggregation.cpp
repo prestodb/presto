@@ -39,7 +39,8 @@ HashAggregation::HashAggregation(
               .maxPartialAggregationMemoryUsage()),
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
       isDistinct_(aggregationNode->aggregates().empty()),
-      isGlobal_(aggregationNode->groupingKeys().empty()) {
+      isGlobal_(aggregationNode->groupingKeys().empty()),
+      hasPreGroupedKeys_(!aggregationNode->preGroupedKeys().empty()) {
   auto inputType = aggregationNode->sources()[0]->outputType();
 
   auto numHashers = aggregationNode->groupingKeys().size();
@@ -54,10 +55,17 @@ HashAggregation::HashAggregation(
     hashers.push_back(VectorHasher::create(key->type(), channel));
   }
 
+  std::vector<ChannelIndex> preGroupedChannels;
+  preGroupedChannels.reserve(aggregationNode->preGroupedKeys().size());
+  for (const auto& key : aggregationNode->preGroupedKeys()) {
+    auto channel = exprToChannel(key.get(), inputType);
+    preGroupedChannels.push_back(channel);
+  }
+
   auto numAggregates = aggregationNode->aggregates().size();
   std::vector<std::unique_ptr<Aggregate>> aggregates;
   aggregates.reserve(numAggregates);
-  std::vector<std::optional<uint32_t>> aggrMaskChannels;
+  std::vector<std::optional<ChannelIndex>> aggrMaskChannels;
   aggrMaskChannels.reserve(numAggregates);
   std::vector<std::vector<ChannelIndex>> args;
   std::vector<std::vector<VectorPtr>> constantLists;
@@ -115,6 +123,7 @@ HashAggregation::HashAggregation(
 
   groupingSet_ = std::make_unique<GroupingSet>(
       std::move(hashers),
+      std::move(preGroupedChannels),
       std::move(aggregates),
       std::move(aggrMaskChannels),
       std::move(args),
@@ -139,7 +148,18 @@ void HashAggregation::addInput(RowVectorPtr input) {
 }
 
 RowVectorPtr HashAggregation::getOutput() {
-  if (finished_ || (!noMoreInput_ && !partialFull_ && !newDistincts_)) {
+  if (finished_) {
+    input_ = nullptr;
+    return nullptr;
+  }
+
+  // Produce results if one of the following is true:
+  // - received no-more-input message;
+  // - partial aggregation reached memory limit;
+  // - distinct aggregation has new keys;
+  // - running in partial streaming mode and have some output ready.
+  if (!noMoreInput_ && !partialFull_ && !newDistincts_ &&
+      !groupingSet_->hasOutput()) {
     input_ = nullptr;
     return nullptr;
   }
@@ -181,13 +201,13 @@ RowVectorPtr HashAggregation::getOutput() {
       batchSize, isPartialOutput_, &resultIterator_, result);
   if (!hasData) {
     resultIterator_.reset();
-    if (isPartialOutput_) {
+
+    if (partialFull_) {
       partialFull_ = false;
       groupingSet_->resetPartial();
-      if (noMoreInput_) {
-        finished_ = true;
-      }
-    } else {
+    }
+
+    if (noMoreInput_) {
       finished_ = true;
     }
     return nullptr;

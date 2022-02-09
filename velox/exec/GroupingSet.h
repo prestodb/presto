@@ -27,6 +27,7 @@ class GroupingSet {
  public:
   GroupingSet(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
+      std::vector<ChannelIndex>&& preGroupedKeys,
       std::vector<std::unique_ptr<Aggregate>>&& aggregates,
       std::vector<std::optional<ChannelIndex>>&& aggrMaskChannels,
       std::vector<std::vector<ChannelIndex>>&& channelLists,
@@ -37,6 +38,18 @@ class GroupingSet {
 
   void addInput(const RowVectorPtr& input, bool mayPushdown);
 
+  void noMoreInput();
+
+  /// Typically, the output is not available until all input has been added.
+  /// However, in case when input is clustered on some of the grouping keys, the
+  /// output becomes available every time one of these grouping keys changes
+  /// value. This method returns true if no-more-input message has been received
+  /// or if some groups are ready for output because pre-grouped keys values
+  /// have changed.
+  bool hasOutput();
+
+  /// Called if partial aggregation has reached memory limit or if hasOutput()
+  /// returns true.
   bool getOutput(
       int32_t batchSize,
       bool isPartial,
@@ -50,6 +63,10 @@ class GroupingSet {
   const HashLookup& hashLookup() const;
 
  private:
+  void addInputForActiveRows(const RowVectorPtr& input, bool mayPushdown);
+
+  void addRemainingInput();
+
   void initializeGlobalAggregation();
 
   void addGlobalAggregationInput(const RowVectorPtr& input, bool mayPushdown);
@@ -70,6 +87,10 @@ class GroupingSet {
   const SelectivityVector& getSelectivityVector(size_t aggregateIndex) const;
 
   std::vector<ChannelIndex> keyChannels_;
+
+  /// A subset of grouping keys on which the input is clustered.
+  const std::vector<ChannelIndex> preGroupedKeyChannels_;
+
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
   const bool isGlobal_;
   const bool isRawInput_;
@@ -101,6 +122,20 @@ class GroupingSet {
   HashStringAllocator stringAllocator_;
   AllocationPool rows_;
   const bool isAdaptive_;
+
+  bool noMoreInput_{false};
+
+  /// In case of partial streaming aggregation, the input vector passed to
+  /// addInput(). A set of rows that belong to the last group of pre-grouped
+  /// keys need to be processed after flushing the hash table and accumulators.
+  RowVectorPtr remainingInput_;
+
+  /// First row in remainingInput_ that needs to be processed.
+  vector_size_t firstRemainingRow_;
+
+  /// The value of mayPushdown flag specified in addInput() for the
+  /// 'remainingInput_'.
+  bool remainingMayPushdown_;
 };
 
 } // namespace facebook::velox::exec

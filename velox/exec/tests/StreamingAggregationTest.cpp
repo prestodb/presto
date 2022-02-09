@@ -56,7 +56,7 @@ class StreamingAggregationTest : public OperatorTestBase {
                     .values(data)
                     .partialStreamingAggregation(
                         {0}, {"count(1)", "min(c1)", "max(c1)", "sum(c1)"})
-                    .finalStreamingAggregation()
+                    .finalAggregation()
                     .planNode();
 
     assertQuery(
@@ -72,7 +72,7 @@ class StreamingAggregationTest : public OperatorTestBase {
                    {0},
                    {"count(1)", "min(c1)", "max(c1)", "sum(c1)"},
                    {"", "m1", "m2", "m1"})
-               .finalStreamingAggregation()
+               .finalAggregation()
                .planNode();
 
     assertQuery(
@@ -82,9 +82,7 @@ class StreamingAggregationTest : public OperatorTestBase {
         "FROM tmp GROUP BY 1");
   }
 
-  void testMultiKeyAggregation(
-      const std::vector<RowVectorPtr>& keys,
-      uint32_t outputBatchSize = 1'024) {
+  std::vector<RowVectorPtr> addPayload(const std::vector<RowVectorPtr>& keys) {
     auto numKeys = keys[0]->type()->size();
 
     std::vector<RowVectorPtr> data;
@@ -101,18 +99,45 @@ class StreamingAggregationTest : public OperatorTestBase {
       data.push_back(makeRowVector(children));
       totalSize += size;
     }
+    return data;
+  }
+
+  size_t numKeys(const std::vector<RowVectorPtr>& keys) {
+    return keys[0]->type()->size();
+  }
+
+  void testMultiKeyAggregation(
+      const std::vector<RowVectorPtr>& keys,
+      uint32_t outputBatchSize = 1'024) {
+    std::vector<ChannelIndex> preGroupedChannels(numKeys(keys));
+    std::iota(preGroupedChannels.begin(), preGroupedChannels.end(), 0);
+
+    testMultiKeyAggregation(keys, preGroupedChannels, outputBatchSize);
+  }
+
+  void testMultiKeyAggregation(
+      const std::vector<RowVectorPtr>& keys,
+      const std::vector<ChannelIndex>& preGroupedChannels,
+      uint32_t outputBatchSize = 1'024) {
+    auto data = addPayload(keys);
     createDuckDbTable(data);
+
+    auto numKeys = this->numKeys(keys);
 
     std::vector<ChannelIndex> keyChannels(numKeys);
     std::iota(keyChannels.begin(), keyChannels.end(), 0);
 
-    auto plan =
-        PlanBuilder()
-            .values(data)
-            .partialStreamingAggregation(
-                keyChannels, {"count(1)", "min(c1)", "max(c1)", "sum(c1)"})
-            .finalStreamingAggregation()
-            .planNode();
+    auto plan = PlanBuilder()
+                    .values(data)
+                    .aggregation(
+                        keyChannels,
+                        preGroupedChannels,
+                        {"count(1)", "min(c1)", "max(c1)", "sum(c1)"},
+                        {},
+                        core::AggregationNode::Step::kPartial,
+                        false)
+                    .finalAggregation()
+                    .planNode();
 
     // Generate a list of grouping keys to use in the query: c0, c1, c2,..
     std::ostringstream keySql;
@@ -202,4 +227,43 @@ TEST_F(StreamingAggregationTest, uniqueKeys) {
 
   // Cut output into small batches of size 100.
   testAggregation(keys, 100);
+}
+
+TEST_F(StreamingAggregationTest, partialStreaming) {
+  auto size = 1'024;
+
+  // Generate 2 key columns. First key is clustered / pre-grouped. Second key is
+  // not. Make one value of the clustered key last for exactly one batch,
+  // another value span two bathes.
+  auto keys = {
+      makeRowVector({
+          makeFlatVector<int32_t>({-10, -10, -5, -5, -5}),
+          makeFlatVector<int32_t>({0, 1, 2, 1, 4}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>({-5, -5, -4, -3, -2}),
+          makeFlatVector<int32_t>({0, 1, 2, 1, 4}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>({-1, -1, -1, -1, -1}),
+          makeFlatVector<int32_t>({0, 1, 2, 1, 4}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>({0, 0, 0, 0, 0}),
+          makeFlatVector<int32_t>({0, 4, 2, 3, 4}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>(size, [](auto row) { return row / 7; }),
+          makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>(
+              size, [&](auto row) { return (size + row) / 7; }),
+          makeFlatVector<int32_t>(
+              size, [&](auto row) { return (size + row) % 5; }),
+      }),
+  };
+
+  std::vector<ChannelIndex> preGroupedKeys = {0};
+  testMultiKeyAggregation(keys, preGroupedKeys);
 }

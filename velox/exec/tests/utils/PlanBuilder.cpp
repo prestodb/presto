@@ -235,8 +235,7 @@ class AggregateTypeResolver {
 std::shared_ptr<core::PlanNode>
 PlanBuilder::createIntermediateOrFinalAggregation(
     core::AggregationNode::Step step,
-    const core::AggregationNode* partialAggNode,
-    bool streaming) {
+    const core::AggregationNode* partialAggNode) {
   // Create intermediate or final aggregation using same grouping keys and same
   // aggregate function names.
   const auto& partialAggregates = partialAggNode->aggregates();
@@ -274,9 +273,7 @@ PlanBuilder::createIntermediateOrFinalAggregation(
       nextPlanNodeId(),
       step,
       groupingKeys,
-      streaming
-          ? groupingKeys
-          : std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>{},
+      partialAggNode->preGroupedKeys(),
       partialAggNode->aggregateNames(),
       aggregates,
       masks,
@@ -295,7 +292,7 @@ PlanBuilder& PlanBuilder::intermediateAggregation() {
 
   auto step = core::AggregationNode::Step::kIntermediate;
 
-  planNode_ = createIntermediateOrFinalAggregation(step, aggNode, false);
+  planNode_ = createIntermediateOrFinalAggregation(step, aggNode);
   return *this;
 }
 
@@ -320,7 +317,7 @@ PlanBuilder& PlanBuilder::finalAggregation() {
 
   auto step = core::AggregationNode::Step::kFinal;
 
-  planNode_ = createIntermediateOrFinalAggregation(step, aggNode, false);
+  planNode_ = createIntermediateOrFinalAggregation(step, aggNode);
   return *this;
 }
 
@@ -378,6 +375,7 @@ PlanBuilder::createAggregateMasks(
 
 PlanBuilder& PlanBuilder::aggregation(
     const std::vector<ChannelIndex>& groupingKeys,
+    const std::vector<ChannelIndex>& preGroupedKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
     core::AggregationNode::Step step,
@@ -390,7 +388,7 @@ PlanBuilder& PlanBuilder::aggregation(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
-      std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>{},
+      fields(preGroupedKeys),
       aggregatesAndNames.names,
       aggregatesAndNames.aggregates,
       createAggregateMasks(numAggregates, masks),
@@ -419,30 +417,6 @@ PlanBuilder& PlanBuilder::streamingAggregation(
       createAggregateMasks(numAggregates, masks),
       ignoreNullKeys,
       planNode_);
-  return *this;
-}
-
-PlanBuilder& PlanBuilder::finalStreamingAggregation() {
-  // Current plan node must be a partial or intermediate aggregation.
-  const auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
-  VELOX_CHECK_NOT_NULL(
-      aggNode,
-      "Current plan node must be a partial or intermediate aggregation.");
-
-  VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
-  if (!exec::isRawInput(aggNode->step())) {
-    // Check the source node.
-    aggNode =
-        dynamic_cast<const core::AggregationNode*>(aggNode->sources()[0].get());
-    VELOX_CHECK_NOT_NULL(
-        aggNode,
-        "Plan node before current plan node must be a partial aggregation.");
-    VELOX_CHECK(exec::isRawInput(aggNode->step()));
-    VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
-  }
-
-  planNode_ = createIntermediateOrFinalAggregation(
-      core::AggregationNode::Step::kFinal, aggNode, true);
   return *this;
 }
 
