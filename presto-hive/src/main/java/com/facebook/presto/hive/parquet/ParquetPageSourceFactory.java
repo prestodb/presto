@@ -256,10 +256,10 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
-                ColumnIndexStore columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
+                Optional<ColumnIndexStore> columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
                 if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
                     blocks.add(block);
-                    blockIndexStores.add(columnIndexStore);
+                    blockIndexStores.add(columnIndexStore.orElse(null));
                     hiveFileContext.incrementCounter("parquet.blocksRead", 1);
                     hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
                     hiveFileContext.incrementCounter("parquet.totalBytesRead", block.getTotalByteSize());

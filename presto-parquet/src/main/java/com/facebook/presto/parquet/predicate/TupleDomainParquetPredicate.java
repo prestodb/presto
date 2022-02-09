@@ -39,7 +39,6 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -141,9 +140,9 @@ public class TupleDomainParquetPredicate
     }
 
     @Override
-    public boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore)
+    public boolean matches(long numberOfRows, Optional<ColumnIndexStore> columnIndexStore)
     {
-        if (numberOfRows == 0 || columnIndexStore == null) {
+        if (numberOfRows == 0 || !columnIndexStore.isPresent()) {
             return false;
         }
 
@@ -159,14 +158,16 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            ColumnIndex columnIndex = columnIndexStore.getColumnIndex(ColumnPath.get(column.getPath()));
-            if (columnIndex == null || columnIndex.getMinValues().size() == 0 || columnIndex.getMaxValues().size() == 0 || columnIndex.getMinValues().size() != columnIndex.getMaxValues().size()) {
-                continue;
-            }
-            else {
-                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, column);
-                if (effectivePredicateDomain.intersect(domain).isNone()) {
-                    return false;
+            if (columnIndexStore.isPresent()) {
+                ColumnIndex columnIndex = columnIndexStore.get().getColumnIndex(ColumnPath.get(column.getPath()));
+                if (columnIndex == null || columnIndex.getMinValues().size() == 0 || columnIndex.getMaxValues().size() == 0 || columnIndex.getMinValues().size() != columnIndex.getMaxValues().size()) {
+                    continue;
+                }
+                else {
+                    Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, column);
+                    if (effectivePredicateDomain.intersect(domain).isNone()) {
+                        return false;
+                    }
                 }
             }
         }
@@ -683,7 +684,7 @@ public class TupleDomainParquetPredicate
                 case INT96:
                     return binary -> ByteBuffer.wrap(((Binary) binary).getBytes());
                 default:
-                    throw new NotImplementedException();
+                    throw new IllegalArgumentException("Unsupported Parquet type: " + type.getPrimitiveTypeName());
             }
         }
     }

@@ -299,11 +299,11 @@ public class ParquetReader
                 OffsetIndex offsetIndex = blockIndexStores.get(currentBlock).getOffsetIndex(metadata.getPath());
                 OffsetIndex filteredOffsetIndex = ColumnIndexFilterUtils.filterOffsetIndex(offsetIndex, currentGroupRowRanges, blocks.get(currentBlock).getRowCount());
                 List<OffsetRange> offsetRanges = ColumnIndexFilterUtils.calculateOffsetRanges(filteredOffsetIndex, metadata, offsetIndex.getOffset(0), startingPosition);
-                List<ConsecutivePartList> allParts = concatRanges(offsetRanges);
-                List<ByteBuffer> buffers = allocateBlocks(allParts);
-                for (int i = 0; i < allParts.size(); i++) {
+                List<PageRanges> consecutiveRanges = concatRanges(offsetRanges);
+                List<ByteBuffer> buffers = allocateBlocks(consecutiveRanges);
+                for (int i = 0; i < consecutiveRanges.size(); i++) {
                     ByteBuffer buffer = buffers.get(i);
-                    dataSource.readFully(startingPosition + allParts.get(i).getOffset(), buffer.array());
+                    dataSource.readFully(startingPosition + consecutiveRanges.get(i).getOffset(), buffer.array());
                 }
                 PageReader pageReader = createPageReader(buffers, totalSize, metadata, columnDescriptor, filteredOffsetIndex);
                 columnReader.init(pageReader, field, currentGroupRowRanges);
@@ -358,11 +358,11 @@ public class ParquetReader
                 blockIndexStores.get(currentBlock).getColumnIndex(path) != null;
     }
 
-    private List<ByteBuffer> allocateBlocks(List<ConsecutivePartList> allParts)
+    private List<ByteBuffer> allocateBlocks(List<PageRanges> pageRanges)
     {
         List<ByteBuffer> buffers = new ArrayList<>();
-        for (ConsecutivePartList part : allParts) {
-            buffers.add(ByteBuffer.wrap(allocateBlock(part.getLength())));
+        for (PageRanges pageRange : pageRanges) {
+            buffers.add(ByteBuffer.wrap(allocateBlock(pageRange.getLength())));
         }
         return buffers;
     }
@@ -538,7 +538,7 @@ public class ParquetReader
      * Describes a list of consecutive parts to be read at once. A consecutive part may contain whole column chunks or
      * only parts of them (some pages).
      */
-    private class ConsecutivePartList
+    private class PageRanges
     {
         private final long offset;
         private int length;
@@ -546,7 +546,7 @@ public class ParquetReader
         /**
          * @param offset where the first chunk starts
          */
-        public ConsecutivePartList(long offset)
+        public PageRanges(long offset)
         {
             this.offset = offset;
             this.length = 0;
@@ -573,19 +573,19 @@ public class ParquetReader
         }
     }
 
-    private List<ConsecutivePartList> concatRanges(List<OffsetRange> offsetRanges)
+    private List<PageRanges> concatRanges(List<OffsetRange> offsetRanges)
     {
-        List<ConsecutivePartList> allParts = new ArrayList<>();
-        ConsecutivePartList currentParts = null;
+        List<PageRanges> pageRanges = new ArrayList<>();
+        PageRanges currentParts = null;
         for (OffsetRange range : offsetRanges) {
             long rangeStartPos = range.getOffset();
             // first part or not consecutive => new list
             if (currentParts == null || currentParts.endPos() != rangeStartPos) {
-                currentParts = new ConsecutivePartList(rangeStartPos);
+                currentParts = new PageRanges(rangeStartPos);
             }
-            allParts.add(currentParts);
+            pageRanges.add(currentParts);
             currentParts.extendLength((int) range.getLength());
         }
-        return allParts;
+        return pageRanges;
     }
 }

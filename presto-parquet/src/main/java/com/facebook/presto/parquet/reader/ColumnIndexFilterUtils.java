@@ -32,6 +32,7 @@ import java.util.Formatter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -181,10 +182,10 @@ public class ColumnIndexFilterUtils
         return ranges;
     }
 
-    public static ColumnIndexStore getColumnIndexStore(Predicate parquetPredicate, ParquetDataSource dataSource, BlockMetaData blockMetadata, Map<List<String>, RichColumnDescriptor> descriptorsByPath, boolean columnIndexFilterEnabled)
+    public static Optional<ColumnIndexStore> getColumnIndexStore(Predicate parquetPredicate, ParquetDataSource dataSource, BlockMetaData blockMetadata, Map<List<String>, RichColumnDescriptor> descriptorsByPath, boolean columnIndexFilterEnabled)
     {
         if (!columnIndexFilterEnabled || parquetPredicate == null || !(parquetPredicate instanceof TupleDomainParquetPredicate)) {
-            return null;
+            return Optional.empty();
         }
 
         for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
@@ -193,9 +194,9 @@ public class ColumnIndexFilterUtils
                 for (List<String> path : descriptorsByPath.keySet()) {
                     paths.add(ColumnPath.get(path.toArray(new String[0])));
                 }
-                return ParquetColumnIndexStore.create(dataSource, blockMetadata, paths);
+                return Optional.of(ParquetColumnIndexStore.create(dataSource, blockMetadata, paths));
             }
         }
-        return null;
+        return Optional.empty();
     }
 }

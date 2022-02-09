@@ -24,6 +24,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptySet;
@@ -36,18 +37,18 @@ public class ParquetColumnIndexStore
 {
     private interface IndexStore
     {
-        ColumnIndex getColumnIndex();
+        Optional<ColumnIndex> getColumnIndex();
 
-        OffsetIndex getOffsetIndex();
+        Optional<OffsetIndex> getOffsetIndex();
     }
 
     private class PageIndexStore
             implements IndexStore
     {
         private final ColumnChunkMetaData columnChunkMetadata;
-        private ColumnIndex columnIndex;
+        private Optional<ColumnIndex> columnIndex;
         private boolean columnIndexRead;
-        private final OffsetIndex offsetIndex;
+        private final Optional<OffsetIndex> offsetIndex;
 
         PageIndexStore(ColumnChunkMetaData meta)
         {
@@ -63,7 +64,7 @@ public class ParquetColumnIndexStore
         }
 
         @Override
-        public ColumnIndex getColumnIndex()
+        public Optional<ColumnIndex> getColumnIndex()
         {
             if (!columnIndexRead) {
                 try {
@@ -79,23 +80,22 @@ public class ParquetColumnIndexStore
         }
 
         @Override
-        public OffsetIndex getOffsetIndex()
+        public Optional<OffsetIndex> getOffsetIndex()
         {
             return offsetIndex;
         }
     }
 
-    // Used for columns are not in this parquet file
     private static final ParquetColumnIndexStore.IndexStore MISSING_INDEX_STORE = new IndexStore()
     {
         @Override
-        public ColumnIndex getColumnIndex()
+        public Optional<ColumnIndex> getColumnIndex()
         {
             return null;
         }
 
         @Override
-        public OffsetIndex getOffsetIndex()
+        public Optional<OffsetIndex> getOffsetIndex()
         {
             return null;
         }
@@ -149,12 +149,12 @@ public class ParquetColumnIndexStore
     @Override
     public ColumnIndex getColumnIndex(ColumnPath column)
     {
-        return store.getOrDefault(column, MISSING_INDEX_STORE).getColumnIndex();
+        return store.getOrDefault(column, MISSING_INDEX_STORE).getColumnIndex().orElse(null);
     }
 
     @Override
     public OffsetIndex getOffsetIndex(ColumnPath column)
     {
-        return store.getOrDefault(column, MISSING_INDEX_STORE).getOffsetIndex();
+        return store.getOrDefault(column, MISSING_INDEX_STORE).getOffsetIndex().orElse(null);
     }
 }

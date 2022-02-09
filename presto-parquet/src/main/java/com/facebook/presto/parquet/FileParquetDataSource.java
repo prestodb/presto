@@ -37,6 +37,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
+import java.util.Optional;
 
 public class FileParquetDataSource
         extends AbstractParquetDataSource
@@ -70,13 +71,13 @@ public class FileParquetDataSource
     }
 
     @Override
-    public ColumnIndex readColumnIndex(ColumnChunkMetaData column) throws IOException
+    public Optional<ColumnIndex> readColumnIndex(ColumnChunkMetaData column) throws IOException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public OffsetIndex readOffsetIndex(ColumnChunkMetaData column) throws IOException
+    public Optional<OffsetIndex> readOffsetIndex(ColumnChunkMetaData column) throws IOException
     {
         throw new UnsupportedOperationException();
     }

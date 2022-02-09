@@ -339,13 +339,11 @@ public class IcebergPageSourceProvider
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                ColumnIndexStore columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
+                Optional<ColumnIndexStore> columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
                 if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
                         predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
                     blocks.add(block);
-                }
-                else {
-                    blockIndexStores.add(columnIndexStore);
+                    blockIndexStores.add(columnIndexStore.orElse(null));
                 }
             }
 

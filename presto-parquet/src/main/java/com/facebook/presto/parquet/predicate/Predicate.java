@@ -20,6 +20,7 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 
 import java.util.Map;
+import java.util.Optional;
 
 public interface Predicate
 {
@@ -39,7 +40,7 @@ public interface Predicate
         }
 
         @Override
-        public boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore)
+        public boolean matches(long numberOfRows, Optional<ColumnIndexStore> columnIndexStore)
         {
             return true;
         }
@@ -72,5 +73,5 @@ public interface Predicate
      * Statistics to determine if a column is only null
      * @param columnIndexStore column index (statistics) store
      */
-    boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore);
+    boolean matches(long numberOfRows, Optional<ColumnIndexStore> columnIndexStore);
 }

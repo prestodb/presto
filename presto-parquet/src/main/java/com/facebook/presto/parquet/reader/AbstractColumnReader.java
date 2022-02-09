@@ -153,51 +153,16 @@ public abstract class AbstractColumnReader
 
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
-        if (indexIterator == null) {
-            processValues(valuesToRead, ignored -> {
-                readValue(blockBuilder, type);
-                definitionLevels.add(definitionLevel);
-                repetitionLevels.add(repetitionLevel);
-            });
-        }
-        else {
-            processValuesSync(valuesToRead, ignored -> {
-                readValue(blockBuilder, type);
-                definitionLevels.add(definitionLevel);
-                repetitionLevels.add(repetitionLevel);
-            });
-        }
+        processValues(valuesToRead, ignored -> {
+            readValue(blockBuilder, type);
+            definitionLevels.add(definitionLevel);
+            repetitionLevels.add(repetitionLevel);
+        }, indexIterator != null);
     }
 
     private void skipValues(int valuesToRead)
     {
-        processValues(valuesToRead, ignored -> skipValue());
-    }
-
-    private void processValues(int valuesToRead, Consumer<Void> valueConsumer)
-    {
-        if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
-            definitionLevel = definitionReader.readLevel();
-            repetitionLevel = repetitionReader.readLevel();
-        }
-        int valueCount = 0;
-        for (int i = 0; i < valuesToRead; i++) {
-            do {
-                valueConsumer.accept(null);
-                valueCount++;
-                if (valueCount == remainingValueCountInPage) {
-                    updateValueCounts(valueCount, 0);
-                    if (!readNextPage()) {
-                        return;
-                    }
-                    valueCount = 0;
-                }
-                repetitionLevel = repetitionReader.readLevel();
-                definitionLevel = definitionReader.readLevel();
-            }
-            while (repetitionLevel != 0);
-        }
-        updateValueCounts(valueCount, 0);
+        processValues(valuesToRead, ignored -> skipValue(), false);
     }
 
     /**
@@ -227,7 +192,7 @@ public abstract class AbstractColumnReader
      * values (and the related rl and dl) for the rows [20, 39] in the end of the page 0 for col2. Similarly, we have to
      * skip values while reading page0 and page1 for col3.
      */
-    private void processValuesSync(int valuesToRead, Consumer<Void> valueConsumer)
+    private void processValues(int valuesToRead, Consumer<Void> valueConsumer, boolean indexEnabled)
     {
         if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
             definitionLevel = definitionReader.readLevel();
@@ -238,7 +203,7 @@ public abstract class AbstractColumnReader
         for (int i = 0; i < valuesToRead; ) {
             boolean consumed = false;
             do {
-                if (skipRL(repetitionLevel)) {
+                if (skipRL(repetitionLevel, indexEnabled)) {
                     skipValue();
                     skipCount++;
                 }
@@ -379,9 +344,9 @@ public abstract class AbstractColumnReader
         }
     }
 
-    private boolean skipRL(int repetitionLevels)
+    private boolean skipRL(int repetitionLevels, boolean indexEnabled)
     {
-        if (indexIterator == null) {
+        if (!indexEnabled || indexIterator == null) {
             return false;
         }
 

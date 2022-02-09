@@ -250,12 +250,10 @@ public class DeltaPageSourceProvider
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
-                ColumnIndexStore columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
+                Optional<ColumnIndexStore> columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
                 if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
                     blocks.add(block);
-                }
-                else {
-                    blockIndexStores.add(columnIndexStore);
+                    blockIndexStores.add(columnIndexStore.orElse(null));
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
