@@ -70,6 +70,8 @@ class HashProbe : public Operator {
   // 'rowNumberMapping_'. Returns the number of passing rows.
   vector_size_t evalFilter(vector_size_t numRows);
 
+  void ensureLoadedIfNotAtEnd(ChannelIndex channel);
+
   // TODO: Define batch size as bytes based on RowContainer row sizes.
   const uint32_t outputBatchSize_;
 
@@ -234,6 +236,15 @@ class HashProbe : public Operator {
   SelectivityVector activeRows_;
 
   bool finished_{false};
+
+  // True if passingInputRows is up to date.
+  bool passingInputRowsInitialized_;
+
+  // Set of input rows for which there is at least one join hit. All
+  // set if right side optional. Used when loading lazy vectors for
+  // cases where there is more than one batch of output or join filter
+  // input.
+  SelectivityVector passingInputRows_;
 };
 
 } // namespace facebook::velox::exec

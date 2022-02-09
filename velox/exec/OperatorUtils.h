@@ -24,7 +24,8 @@ namespace facebook::velox::exec {
 void deselectRowsWithNulls(
     const RowVector& input,
     const std::vector<ChannelIndex>& channels,
-    SelectivityVector& rows);
+    SelectivityVector& rows,
+    core::ExecCtx& execCtx);
 
 // Reusable memory needed for processing filter results.
 struct FilterEvalCtx {

@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/OperatorUtils.h"
+#include "velox/expression/EvalCtx.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -23,10 +24,13 @@ namespace facebook::velox::exec {
 void deselectRowsWithNulls(
     const RowVector& input,
     const std::vector<ChannelIndex>& channels,
-    SelectivityVector& rows) {
+    SelectivityVector& rows,
+    core::ExecCtx& execCtx) {
   bool anyChange = false;
   auto numRows = input.size();
+  EvalCtx evalCtx(&execCtx, nullptr, &input);
   for (auto channel : channels) {
+    evalCtx.ensureFieldLoaded(channel, rows);
     auto key = input.loadedChildAt(channel);
     if (key->mayHaveNulls()) {
       auto nulls = key->flatRawNulls(rows);

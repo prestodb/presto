@@ -318,13 +318,20 @@ TEST_F(HashJoinTest, memory) {
 }
 
 TEST_F(HashJoinTest, lazyVectors) {
-  auto leftVectors = makeRowVector({
-      makeFlatVector<int32_t>(1'000, [](auto row) { return row % 23; }),
-      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
-  });
+  // a dataset of multiple row groups with multiple columns. We create
+  // different dictionary wrappings for different columns and load the
+  // rows in scope at different times.
+  auto leftVectors = makeRowVector(
+      {makeFlatVector<int32_t>(30'000, [](auto row) { return row; }),
+       makeFlatVector<int64_t>(30'000, [](auto row) { return row % 23; }),
+       makeFlatVector<int32_t>(30'000, [](auto row) { return row % 31; }),
+       makeFlatVector<StringView>(30'000, [](auto row) {
+         return StringView(fmt::format("{}   string", row % 43));
+       })});
 
   auto rightVectors = makeRowVector(
-      {makeFlatVector<int32_t>(1'000, [](auto row) { return row % 31; })});
+      {makeFlatVector<int32_t>(10'000, [](auto row) { return row * 3; }),
+       makeFlatVector<int64_t>(10'000, [](auto row) { return row % 31; })});
 
   auto leftFile = TempFilePath::create();
   writeToFile(leftFile->path, kWriter, leftVectors);
@@ -356,6 +363,32 @@ TEST_F(HashJoinTest, lazyVectors) {
       op,
       {{rightScanId, {rightFile}}, {leftScanId, {leftFile}}},
       "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+
+  planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  op = PlanBuilder(planNodeIdGenerator)
+           .tableScan(
+               ROW({"c0", "c1", "c2", "c3"},
+                   {INTEGER(), BIGINT(), INTEGER(), VARCHAR()}))
+           .capturePlanNodeId(leftScanId)
+           .filter("c2 < 29")
+           .hashJoin(
+               {"c0"},
+               {"bc0"},
+               PlanBuilder(planNodeIdGenerator)
+                   .tableScan(ROW({"c0", "c1"}, {INTEGER(), BIGINT()}))
+                   .capturePlanNodeId(rightScanId)
+                   .project({"c0 as bc0", "c1 as bc1"})
+                   .planNode(),
+               "(c1 + bc1) % 33 < 27",
+               {"c1", "bc1", "c3"})
+           .project({"c1 + 1", "bc1", "length(c3)"})
+           .planNode();
+
+  assertQuery(
+      op,
+      {{rightScanId, {rightFile}}, {leftScanId, {leftFile}}},
+      "SELECT t.c1 + 1, U.c1, length(t.c3) FROM t, u "
+      "WHERE t.c0 = u.c0 and t.c2 < 29 and (t.c1 + u.c1) % 33 < 27");
 }
 
 /// Test hash join where build-side keys come from a small range and allow for

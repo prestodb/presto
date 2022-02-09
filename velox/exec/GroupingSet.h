@@ -123,6 +123,8 @@ class GroupingSet {
   AllocationPool rows_;
   const bool isAdaptive_;
 
+  core::ExecCtx& execCtx_;
+
   bool noMoreInput_{false};
 
   /// In case of partial streaming aggregation, the input vector passed to

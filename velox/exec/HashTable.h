@@ -72,11 +72,11 @@ class BaseHashTable {
     }
 
     bool atEnd() const {
-      return lastRowIndex == rows->size();
+      return !rows || lastRowIndex == rows->size();
     }
 
-    const raw_vector<vector_size_t>* rows;
-    const raw_vector<char*>* hits;
+    const raw_vector<vector_size_t>* rows{nullptr};
+    const raw_vector<char*>* hits{nullptr};
     char* nextHit{nullptr};
     vector_size_t lastRowIndex{0};
   };

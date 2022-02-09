@@ -118,7 +118,8 @@ void HashBuild::addInput(RowVectorPtr input) {
   activeRows_.resize(input->size());
   activeRows_.setAll();
   if (!isRightJoin(joinType_)) {
-    deselectRowsWithNulls(*input, keyChannels_, activeRows_);
+    deselectRowsWithNulls(
+        *input, keyChannels_, activeRows_, *operatorCtx_->execCtx());
   }
 
   if (joinType_ == core::JoinType::kAnti) {

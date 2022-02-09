@@ -241,7 +241,8 @@ void HashProbe::addInput(RowVectorPtr input) {
 
   nonNullRows_.resize(input_->size());
   nonNullRows_.setAll();
-  deselectRowsWithNulls(*input_, keyChannels_, nonNullRows_);
+  deselectRowsWithNulls(
+      *input_, keyChannels_, nonNullRows_, *operatorCtx_->execCtx());
 
   auto getDynamicFilterBuilder = [&](auto i) -> DynamicFilterBuilder* {
     if (!dynamicFilterBuilders_.empty()) {
@@ -292,6 +293,7 @@ void HashProbe::addInput(RowVectorPtr input) {
     }
     return;
   }
+  passingInputRowsInitialized_ = false;
   if (isLeftJoin(joinType_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
@@ -364,9 +366,8 @@ void HashProbe::fillOutput(vector_size_t size) {
   for (auto projection : identityProjections_) {
     // Load input vector if it is being split into multiple batches. It is not
     // safe to wrap unloaded LazyVector into two different dictionaries.
-    auto inputChild = size == outputRows_.size()
-        ? input_->loadedChildAt(projection.inputChannel)
-        : input_->childAt(projection.inputChannel);
+    ensureLoadedIfNotAtEnd(projection.inputChannel);
+    auto inputChild = input_->childAt(projection.inputChannel);
 
     output_->childAt(projection.outputChannel) =
         wrapChild(size, rowNumberMapping_, inputChild);
@@ -514,6 +515,7 @@ void HashProbe::fillFilterInput(vector_size_t size) {
   }
   filterInput_->resize(size);
   for (auto projection : filterProbeInputs_) {
+    ensureLoadedIfNotAtEnd(projection.inputChannel);
     filterInput_->childAt(projection.outputChannel) = wrapChild(
         size, rowNumberMapping_, input_->childAt(projection.inputChannel));
   }
@@ -570,6 +572,31 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     }
   }
   return numPassed;
+}
+
+void HashProbe::ensureLoadedIfNotAtEnd(ChannelIndex channel) {
+  if (core::isSemiJoin(joinType_) || core::isAntiJoin(joinType_) ||
+      results_.atEnd()) {
+    return;
+  }
+  EvalCtx evalCtx(operatorCtx_->execCtx(), nullptr, input_.get());
+  if (!passingInputRowsInitialized_) {
+    passingInputRows_.resize(input_->size());
+    if (isLeftJoin(joinType_)) {
+      passingInputRows_.setAll();
+    } else {
+      passingInputRows_.clearAll();
+      auto numInput = input_->size();
+      auto hits = lookup_->hits.data();
+      for (auto i = 0; i < numInput; ++i) {
+        if (hits[i]) {
+          passingInputRows_.setValid(i, true);
+        }
+      }
+    }
+    passingInputRows_.updateBounds();
+  }
+  evalCtx.ensureFieldLoaded(channel, passingInputRows_);
 }
 
 void HashProbe::noMoreInput() {

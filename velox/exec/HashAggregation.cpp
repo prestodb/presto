@@ -110,9 +110,10 @@ HashAggregation::HashAggregation(
     const auto& expectedType = outputType_->childAt(numHashers + i);
     VELOX_CHECK(
         aggResultType->kindEquals(expectedType),
-        "Unexpected result type for an aggregation: {}, expected {}",
+        "Unexpected result type for an aggregation: {}, expected {}, step {}",
         aggResultType->toString(),
-        expectedType->toString());
+        expectedType->toString(),
+        static_cast<int32_t>(aggregationNode->step()));
   }
 
   if (isDistinct_) {
