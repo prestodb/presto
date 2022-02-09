@@ -9,7 +9,7 @@ This document describes the main concepts, features, and examples of the simple
 function API in Velox. For more real-world API usage examples, check
 **velox/example/SimpleFunctions.cpp**.
 
-A simple scalar function, e.g. a :doc:`mathematical function </functions/math>`, 
+A simple scalar function, e.g. a :doc:`mathematical function </functions/math>`,
 can be added by wrapping a C++ function in a templated class. For example, a
 ceil function can be implemented as:
 
@@ -30,7 +30,7 @@ provides the type system adapter, which allows developers to use non-primitive
 types such as strings, arrays, maps, and struct (check below for examples).
 Although the top-level template parameter is not used for functions operating
 on primitive types, such as the one in the example above, it still needs to be
-specified. 
+specified.
 
 The call method itself can also be templated or overloaded to allow the
 function to be called on different input types, e.g. float and double. Note
@@ -581,6 +581,58 @@ supported.
 are created and then when they are copied again to the Velox vector. Some work is planned to
 avoid that by using writer proxies that write directly to Velox vectors. This section will
 be updated once the new writer interfaces are completed.
+
+Variadic Arguments
+^^^^^^^^^^^^^^^^^^
+
+The last argument to a simple function may be marked "Variadic". This means
+invocations of this function may include 0..N arguments of that type at the end
+of the call.  While not a true type in Velox, "Variadic" can be thought of as a
+syntactic type, and behaves somewhat similarly to Array.
+
+==========  ==============================  =============================
+Velox Type  C++ Argument Type               C++ Actual Argument Type
+==========  ==============================  =============================
+VARIADIC    arg_type<Variadic<E>>           VariadicView<VectorOptionalValueAccessor<VectorReader<E>>>>
+==========  ==============================  =============================
+
+Like the ArrayView, VariadicView has a similar interface to
+*const std::vector<std::optional<V>>*.
+
+VariadicView supports the following:
+
+- size_t size() : return the number of arguments that were passed as part of the "Variadic" type in the function invocation.
+
+- VectorOptionalValueAccessor<arg_type<T>> operator[](size_t index) : access the value of the argument at index.
+
+- VariadicView<T>::Iterator begin() : iterator to the first argument.
+
+- VariadicView<T>::Iterator end() : iterator indicating end of iteration.
+
+- bool mayHaveNulls() : a check on the nullity of the arugments (note this takes time proportional to the number of arguments). When it returns false, there are definitely no nulls, a true does not guarantee null existence.
+
+- VariadicView<T>::SkipNullsContainer SkipNulls() : return an iterable container that provides direct access to each argument with a non-null value.
+
+The code below shows an example of a function that concatenates a variable number of strings:
+
+.. code-block:: c++
+
+     template <typename T>
+     struct VariadicArgsReaderFunction {
+       VELOX_DEFINE_FUNCTION_TYPES(T);
+
+       FOLLY_ALWAYS_INLINE bool call(
+           out_type<Varchar>& out,
+           const arg_type<Variadic<Varchar>>& inputs) {
+         for (const auto& input : inputs) {
+           if (input.has_value()) {
+             output += input.value();
+           }
+         }
+
+         return true;
+       }
+     };
 
 Vector Functions
 ----------------
