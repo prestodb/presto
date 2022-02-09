@@ -16,9 +16,11 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -29,16 +31,20 @@ public final class Output
     private final ConnectorId connectorId;
     private final String schema;
     private final String table;
+    private Object lastDataCommitTimes;
 
     @JsonCreator
     public Output(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schema") String schema,
-            @JsonProperty("table") String table)
+            @JsonProperty("table") String table,
+            @JsonProperty("lastDataCommitTimes") Object lastDataCommitTimes)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
+        this.lastDataCommitTimes = requireNonNull(
+                lastDataCommitTimes, "lastDataCommitTimes is null");
     }
 
     @JsonProperty
@@ -59,6 +65,19 @@ public final class Output
         return table;
     }
 
+    @JsonProperty
+    public Object getLastDataCommitTimes()
+    {
+        return lastDataCommitTimes;
+    }
+
+    @JsonProperty
+    public void setLastDataCommitTimes(Object lastDataCommitTimes)
+    {
+        requireNonNull(lastDataCommitTimes, "lastDataCommitTimes is null");
+        this.lastDataCommitTimes = lastDataCommitTimes;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -71,12 +90,13 @@ public final class Output
         Output output = (Output) o;
         return Objects.equals(connectorId, output.connectorId) &&
                 Objects.equals(schema, output.schema) &&
-                Objects.equals(table, output.table);
+                Objects.equals(table, output.table) &&
+                Objects.equals(lastDataCommitTimes, output.lastDataCommitTimes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table);
+        return Objects.hash(connectorId, schema, table, lastDataCommitTimes);
     }
 }

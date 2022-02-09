@@ -15,6 +15,7 @@ package com.facebook.presto.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -28,13 +29,25 @@ public class QueryOutputMetadata
     private final Optional<String> connectorOutputMetadata;
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    public QueryOutputMetadata(String catalogName, String schema, String table, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
+    private final Object lastDataCommitTimes;
+
+    public QueryOutputMetadata(
+            String catalogName,
+            String schema,
+            String table,
+            Optional<String> connectorOutputMetadata,
+            Optional<Boolean> jsonLengthLimitExceeded,
+            Object lastDataCommitTimes)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
-        this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
-        this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
+        this.connectorOutputMetadata = requireNonNull(
+                connectorOutputMetadata, "connectorOutputMetadata is null");
+        this.jsonLengthLimitExceeded = requireNonNull(
+                jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
+        this.lastDataCommitTimes = requireNonNull(
+                lastDataCommitTimes, "lastDataCommitTimes is null");
     }
 
     @JsonProperty
@@ -65,5 +78,11 @@ public class QueryOutputMetadata
     public Optional<Boolean> getJsonLengthLimitExceeded()
     {
         return jsonLengthLimitExceeded;
+    }
+
+    @JsonProperty
+    public Object getLastDataCommitTimes()
+    {
+        return lastDataCommitTimes;
     }
 }

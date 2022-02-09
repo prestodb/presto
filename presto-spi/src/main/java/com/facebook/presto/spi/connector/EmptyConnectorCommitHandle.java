@@ -11,18 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.spi.connector;
 
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.spi.connector.ConnectorCommitHandle;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-
-public interface TransactionalMetadata
-        extends ConnectorMetadata
+public enum EmptyConnectorCommitHandle
+        implements ConnectorCommitHandle
 {
-    ConnectorCommitHandle commit();
-
-    void rollback();
-
-    SemiTransactionalHiveMetastore getMetastore();
+    INSTANCE;
 }

@@ -76,6 +76,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
@@ -369,6 +370,9 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     private static final String PRESTO_TEMPORARY_TABLE_NAME_PREFIX = "__presto_temporary_table_";
+
+    private static final int MAX_NUM_OF_FETCHED_PARTITIONS = 15000;
+    private static final String DUMMY_PARTITION_NAME = "<UNPARTITIONED>";
 
     // Comma is not a reserved keyword with or without quote
     // See https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL#LanguageManualDDL-Keywords,Non-reservedKeywordsandReservedKeywords
@@ -730,18 +734,74 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    public Optional<Object> getInfo(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
-        if (tableLayoutHandle.getPartitions().isPresent()) {
-            return Optional.of(new HiveInputInfo(
-                    tableLayoutHandle.getPartitions().get().stream()
-                            .map(HivePartition::getPartitionId)
-                            .collect(toList()),
-                    false));
+        if (!tableLayoutHandle.getPartitions().isPresent()
+                || 0 == tableLayoutHandle.getPartitions().get().size()) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        MetastoreContext metastoreContext = new MetastoreContext(
+                session.getIdentity(),
+                session.getQueryId(),
+                session.getClientInfo(),
+                session.getSource(),
+                getMetastoreHeaders(session),
+                isUserDefinedTypeEncodingEnabled(session),
+                metastore.getColumnConverterProvider());
+
+        if (isUnpartitionedTable(tableLayoutHandle)) {
+            Optional<Table> table = metastore.getTable(
+                    metastoreContext,
+                    tableLayoutHandle.getSchemaTableName().getSchemaName(),
+                    tableLayoutHandle.getSchemaTableName().getTableName());
+
+            Integer lastAccessTime = 0;
+            if (table.isPresent() && table.get().getLastAccessTime().isPresent()) {
+                lastAccessTime = (int) table.get().getLastAccessTime().get().getMillis() / 1000;
+            }
+            return Optional.of(new HiveInputInfo(
+                    ImmutableList.of(DUMMY_PARTITION_NAME),
+                    false,
+                    ImmutableList.of(lastAccessTime)));
+        }
+
+        List<String> partitionNames = tableLayoutHandle
+                .getPartitions().get().stream()
+                .map(HivePartition::getPartitionId)
+                .limit(MAX_NUM_OF_FETCHED_PARTITIONS)
+                .collect(toList());
+
+        Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
+                metastoreContext,
+                tableLayoutHandle.getSchemaTableName().getSchemaName(),
+                tableLayoutHandle.getSchemaTableName().getTableName(),
+                partitionNames);
+
+        List<Integer> lastAccessTimes = partitionNames.stream()
+                .map(partitionName -> partitions.get(partitionName))
+                .map(partition -> {
+                    if (partition.isPresent()) {
+                        return (int) partition.get().getLastAccessTime().getMillis() / 1000;
+                    }
+                    else {
+                        return -1;
+                    }
+                })
+                .collect(toList());
+
+        return Optional.of(new HiveInputInfo(partitionNames, false, lastAccessTimes));
+    }
+
+    private boolean isUnpartitionedTable(HiveTableLayoutHandle tableLayoutHandle)
+    {
+        List<HivePartition> partitions = tableLayoutHandle.getPartitions().get();
+        if (1 == partitions.size()
+                && 0 == partitions.get(0).getPartitionId().compareTo(DUMMY_PARTITION_NAME)) {
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -3719,9 +3779,9 @@ public class HiveMetadata
     }
 
     @Override
-    public void commit()
+    public ConnectorCommitHandle commit()
     {
-        metastore.commit();
+        return metastore.commit();
     }
 
     @Override
