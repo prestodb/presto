@@ -216,6 +216,8 @@ public class FeaturesConfig
     private boolean hashBasedDistinctLimitEnabled;
     private int hashBasedDistinctLimitThreshold = 10000;
 
+    private boolean streamingForPartialAggregationEnabled;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -1956,5 +1958,17 @@ public class FeaturesConfig
     public int getHashBasedDistinctLimitThreshold()
     {
         return hashBasedDistinctLimitThreshold;
+    }
+
+    public boolean isStreamingForPartialAggregationEnabled()
+    {
+        return streamingForPartialAggregationEnabled;
+    }
+
+    @Config("streaming-for-partial-aggregation-enabled")
+    public FeaturesConfig setStreamingForPartialAggregationEnabled(boolean streamingForPartialAggregationEnabled)
+    {
+        this.streamingForPartialAggregationEnabled = streamingForPartialAggregationEnabled;
+        return this;
     }
 }
