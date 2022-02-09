@@ -490,7 +490,7 @@ class VectorMaker {
 
   /// Create a ArrayVector<T>
   /// array elements are created based on input std::vectors and are
-  /// nullable. Only null array elements are supported; not null arrays.
+  /// nullable.
   template <typename T>
   ArrayVectorPtr arrayVectorNullable(
       const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
@@ -498,8 +498,7 @@ class VectorMaker {
   }
 
   /// Create a FixedSizeArrayVector<T> array elements are created
-  /// based on input std::vectors and are nullable.  Only null array
-  /// elements are supported; not null arrays.  All vectors should be
+  /// based on input std::vectors and are nullable. All vectors should be
   /// the same size.
   template <typename T>
   ArrayVectorPtr fixedSizeArrayVectorNullable(
