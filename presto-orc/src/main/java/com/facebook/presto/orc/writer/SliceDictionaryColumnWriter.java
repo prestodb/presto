@@ -74,7 +74,7 @@ public class SliceDictionaryColumnWriter
         super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         this.dictionaryDataStream = new ByteArrayOutputStream(columnWriterOptions, dwrfEncryptor, Stream.StreamKind.DICTIONARY_DATA);
         this.dictionaryLengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
-        this.stringStatisticsLimitInBytes = toIntExact(columnWriterOptions.getStringStatisticsLimit().toBytes());
+        this.stringStatisticsLimitInBytes = columnWriterOptions.getStringStatisticsLimit();
         this.statisticsBuilder = newStringStatisticsBuilder();
         this.sortDictionaryKeys = columnWriterOptions.isStringDictionarySortingEnabled();
         checkState(sortDictionaryKeys || orcEncoding == DWRF, "Disabling sort is only supported in DWRF format");

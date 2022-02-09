@@ -73,6 +73,7 @@ public class TestOrcWriterOptions
         StreamLayoutFactory streamLayoutFactory = new StreamLayoutFactory.StreamSizeLayoutFactory();
         boolean integerDictionaryEncodingEnabled = true;
         boolean stringDictionarySortingEnabled = false;
+        boolean stringDictionaryEncodingEnabled = false;
         int preserveDirectEncodingStripeCount = 10;
 
         OrcWriterOptions.Builder builder = OrcWriterOptions.builder()
@@ -90,6 +91,7 @@ public class TestOrcWriterOptions
                 .withStreamLayoutFactory(streamLayoutFactory)
                 .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled)
                 .withStringDictionarySortingEnabled(stringDictionarySortingEnabled)
+                .withStringDictionaryEncodingEnabled(stringDictionaryEncodingEnabled)
                 .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount);
 
         OrcWriterOptions options = builder.build();
@@ -108,6 +110,7 @@ public class TestOrcWriterOptions
         assertEquals(streamLayoutFactory, options.getStreamLayoutFactory());
         assertEquals(integerDictionaryEncodingEnabled, options.isIntegerDictionaryEncodingEnabled());
         assertEquals(stringDictionarySortingEnabled, options.isStringDictionarySortingEnabled());
+        assertEquals(stringDictionaryEncodingEnabled, options.isStringDictionaryEncodingEnabled());
         assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
         assertEquals(preserveDirectEncodingStripeCount, options.getPreserveDirectEncodingStripeCount());
     }
@@ -158,7 +161,8 @@ public class TestOrcWriterOptions
                 "dictionaryMaxMemory=13000kB, dictionaryMemoryAlmostFullRange=1000kB, dictionaryUsefulCheckPerChunkFrequency=9999, " +
                 "dictionaryUsefulCheckColumnSize=1MB, maxStringStatisticsLimit=128B, maxCompressionBufferSize=512kB, " +
                 "compressionLevel=OptionalInt[5], streamLayoutFactory=ColumnSizeLayoutFactory{}, integerDictionaryEncodingEnabled=false, " +
-                "stringDictionarySortingEnabled=true, dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], " +
+                "stringDictionarySortingEnabled=true, stringDictionaryEncodingEnabled=true, " +
+                "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], " +
                 "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0}";
         assertEquals(expectedString, writerOptions.toString());
     }
