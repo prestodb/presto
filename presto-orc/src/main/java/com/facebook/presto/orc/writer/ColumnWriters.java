@@ -23,6 +23,7 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTimeZone;
 
@@ -92,7 +93,18 @@ public final class ColumnWriters
                 // fall through
             case VARCHAR:
             case STRING:
-                return new SliceDictionaryColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+                if (columnWriterOptions.isStringDictionaryEncodingEnabled()) {
+                    return new SliceDictionaryColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+                }
+                int stringStatisticsLimit = columnWriterOptions.getStringStatisticsLimit();
+                return new SliceDirectColumnWriter(
+                        columnIndex,
+                        type,
+                        columnWriterOptions,
+                        dwrfEncryptor,
+                        orcEncoding,
+                        () -> new StringStatisticsBuilder(stringStatisticsLimit),
+                        metadataWriter);
 
             case LIST: {
                 int fieldColumnIndex = orcType.getFieldTypeIndex(0);

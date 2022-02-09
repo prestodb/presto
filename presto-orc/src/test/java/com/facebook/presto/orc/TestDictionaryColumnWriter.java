@@ -270,6 +270,66 @@ public class TestDictionaryColumnWriter
     }
 
     @Test
+    public void testDisableStringDictionaryEncoding()
+            throws IOException
+    {
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (long i = 0; i < STRIPE_MAX_ROWS * 3; i++) {
+            builder.add(Long.toString(0));
+        }
+        List<String> values = builder.build();
+
+        testStringDirectColumn(values);
+    }
+
+    @Test
+    public void testDisableStringOnlyNulls()
+            throws IOException
+    {
+        List<String> values = newArrayList(limit(cycle(new String[] {null}), 3 * STRIPE_MAX_ROWS));
+        testStringDirectColumn(values);
+    }
+
+    @Test
+    public void testDisableStringMixedNulls()
+            throws IOException
+    {
+        List<String> values = new ArrayList<>();
+        for (int i = 0; i < 50_000; i++) {
+            int childSize = i % 5;
+            if (childSize == 4) {
+                values.add(null);
+            }
+            values.add(Integer.toString(i));
+        }
+        testStringDirectColumn(values);
+    }
+
+    private void testStringDirectColumn(List<String> values)
+            throws IOException
+    {
+        long totalRows = values.size();
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
+            OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
+                    .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                    .withStringDictionaryEncodingEnabled(false)
+                    .withStringDictionarySortingEnabled(input.isSortStringDictionaryKeys())
+                    .build();
+
+            DirectConversionTester tester = new DirectConversionTester();
+            List<StripeFooter> stripeFooters = testDictionary(VARCHAR, input.getEncoding(), orcWriterOptions, tester, values);
+
+            long rows = 0;
+            int index = 0;
+            while (rows < totalRows) {
+                verifyDirectEncoding(stripeFooters, input.getEncoding(), index++);
+                rows += STRIPE_MAX_ROWS;
+            }
+            assertEquals(stripeFooters.size(), index);
+        }
+    }
+
+    @Test
     public void testIntegerNoRows()
             throws IOException
     {

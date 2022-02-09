@@ -59,6 +59,7 @@ public class OrcWriterOptions
     private final StreamLayoutFactory streamLayoutFactory;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
+    private final boolean stringDictionaryEncodingEnabled;
     // TODO: Originally the dictionary row group sizes were not included in memory accounting due
     //  to a bug. Fixing the bug causes certain queries to OOM. When enabled this flag maintains the
     //  previous behavior so previously working queries will not OOM. The OOMs caused due to the
@@ -82,6 +83,7 @@ public class OrcWriterOptions
             StreamLayoutFactory streamLayoutFactory,
             boolean integerDictionaryEncodingEnabled,
             boolean stringDictionarySortingEnabled,
+            boolean stringDictionaryEncodingEnabled,
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions,
             boolean ignoreDictionaryRowGroupSizes,
             int preserveDirectEncodingStripeCount)
@@ -113,6 +115,7 @@ public class OrcWriterOptions
         this.streamLayoutFactory = streamLayoutFactory;
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
+        this.stringDictionaryEncodingEnabled = stringDictionaryEncodingEnabled;
         this.dwrfWriterOptions = dwrfWriterOptions;
         this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
         this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
@@ -188,6 +191,11 @@ public class OrcWriterOptions
         return stringDictionarySortingEnabled;
     }
 
+    public boolean isStringDictionaryEncodingEnabled()
+    {
+        return stringDictionaryEncodingEnabled;
+    }
+
     public Optional<DwrfStripeCacheOptions> getDwrfStripeCacheOptions()
     {
         return dwrfWriterOptions;
@@ -221,6 +229,7 @@ public class OrcWriterOptions
                 .add("streamLayoutFactory", streamLayoutFactory)
                 .add("integerDictionaryEncodingEnabled", integerDictionaryEncodingEnabled)
                 .add("stringDictionarySortingEnabled", stringDictionarySortingEnabled)
+                .add("stringDictionaryEncodingEnabled", stringDictionaryEncodingEnabled)
                 .add("dwrfWriterOptions", dwrfWriterOptions)
                 .add("ignoreDictionaryRowGroupSizes", ignoreDictionaryRowGroupSizes)
                 .add("preserveDirectEncodingStripeCount", preserveDirectEncodingStripeCount)
@@ -253,6 +262,7 @@ public class OrcWriterOptions
         private StreamLayoutFactory streamLayoutFactory = new ColumnSizeLayoutFactory();
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
+        private boolean stringDictionaryEncodingEnabled = true;
         private boolean dwrfStripeCacheEnabled;
         private DwrfStripeCacheMode dwrfStripeCacheMode = DEFAULT_DWRF_STRIPE_CACHE_MODE;
         private DataSize dwrfStripeCacheMaxSize = DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
@@ -346,6 +356,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withStringDictionaryEncodingEnabled(boolean stringDictionaryEncodingEnabled)
+        {
+            this.stringDictionaryEncodingEnabled = stringDictionaryEncodingEnabled;
+            return this;
+        }
+
         public Builder withDwrfStripeCacheEnabled(boolean dwrfStripeCacheEnabled)
         {
             this.dwrfStripeCacheEnabled = dwrfStripeCacheEnabled;
@@ -401,6 +417,7 @@ public class OrcWriterOptions
                     streamLayoutFactory,
                     integerDictionaryEncodingEnabled,
                     stringDictionarySortingEnabled,
+                    stringDictionaryEncodingEnabled,
                     dwrfWriterOptions,
                     ignoreDictionaryRowGroupSizes,
                     preserveDirectEncodingStripeCount);
