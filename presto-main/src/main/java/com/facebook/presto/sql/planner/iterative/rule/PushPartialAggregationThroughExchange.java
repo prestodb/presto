@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialAggregationEnabled;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -254,6 +255,14 @@ public class PushPartialAggregationThroughExchange
                             Optional.empty()));
         }
 
+        // We can always enable streaming aggregation for partial aggregations. But if the table is not pre-group by the groupby columns, it may have regressions.
+        // This session property is just a solution to force enabling when we know the execution would benefit from partial streaming aggregation.
+        // We can work on determining it based on the input table properties later.
+        List<VariableReferenceExpression> preGroupedSymbols = ImmutableList.of();
+        if (isStreamingForPartialAggregationEnabled(context.getSession())) {
+            preGroupedSymbols = ImmutableList.copyOf(node.getGroupingSets().getGroupingKeys());
+        }
+
         PlanNode partial = new AggregationNode(
                 node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
@@ -262,7 +271,7 @@ public class PushPartialAggregationThroughExchange
                 node.getGroupingSets(),
                 // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
-                ImmutableList.of(),
+                preGroupedSymbols,
                 PARTIAL,
                 node.getHashVariable(),
                 node.getGroupIdVariable());

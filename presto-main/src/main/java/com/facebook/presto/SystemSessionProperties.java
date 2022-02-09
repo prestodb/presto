@@ -217,6 +217,7 @@ public final class SystemSessionProperties
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
     public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
+    public static final String STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED = "streaming_for_partial_aggregation_enabled";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1158,6 +1159,11 @@ public final class SystemSessionProperties
                         "Enable logging all runtime stats",
                         featuresConfig.isVerboseRuntimeStatsEnabled(),
                         false),
+                booleanProperty(
+                        STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED,
+                        "Enable streaming for partial aggregation",
+                        featuresConfig.isStreamingForPartialAggregationEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
                         format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",
@@ -2032,6 +2038,11 @@ public final class SystemSessionProperties
     public static boolean isVerboseRuntimeStatsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isStreamingForPartialAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
     }
 
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
