@@ -640,8 +640,8 @@ public class PinotQueryGeneratorContext
 
         public Selection(String definition, Origin origin)
         {
-            this.definition = definition;
             this.origin = origin;
+            this.definition = (origin == Origin.TABLE_COLUMN) ? (definition.startsWith("\"") ? definition : String.format("\"%s\"", definition)) : definition;
         }
 
         public String getDefinition()

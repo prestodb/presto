@@ -117,7 +117,7 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression(Optional.empty(), "scores", new ArrayType(DOUBLE)), new PinotQueryGeneratorContext.Selection("scores", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "distinctCountDim", DOUBLE), new PinotQueryGeneratorContext.Selection("distinctCountDim", TABLE_COLUMN)) // direct column reference
-                    .put(new VariableReferenceExpression(Optional.empty(), "totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
+                    .put(new VariableReferenceExpression(Optional.empty(), "totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(\"fare\" + \"trip\")", DERIVED)) // derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "array_min_0", DOUBLE), new PinotQueryGeneratorContext.Selection("array_min(scores)", DERIVED)) // derived column
