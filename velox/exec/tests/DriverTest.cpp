@@ -185,7 +185,7 @@ class DriverTest : public OperatorTestBase {
         } else if (operation == ResultOperation::kCancel) {
           cursor->task()->requestTerminate();
         } else if (operation == ResultOperation::kTerminate) {
-          cursor->task()->terminate(kAborted);
+          cursor->task()->terminate(TaskState::kAborted);
         } else if (operation == ResultOperation::kYield) {
           cursor->task()->requestYield();
         } else if (operation == ResultOperation::kPause) {
@@ -334,7 +334,7 @@ TEST_F(DriverTest, error) {
   EXPECT_TRUE(stateFutures_.at(0).isReady());
   // Realized immediately since task not running.
   EXPECT_TRUE(tasks_[0]->stateChangeFuture(1'000'000).isReady());
-  EXPECT_EQ(tasks_[0]->state(), kFailed);
+  EXPECT_EQ(tasks_[0]->state(), TaskState::kFailed);
 }
 
 TEST_F(DriverTest, DISABLED_cancel) {
@@ -380,7 +380,7 @@ TEST_F(DriverTest, terminate) {
   }
   EXPECT_GE(numRead, 1'000'000);
   EXPECT_TRUE(stateFutures_.at(0).isReady());
-  EXPECT_EQ(tasks_[0]->state(), kAborted);
+  EXPECT_EQ(tasks_[0]->state(), TaskState::kAborted);
 }
 
 TEST_F(DriverTest, slow) {
@@ -435,7 +435,7 @@ TEST_F(DriverTest, pause) {
   auto& executor = folly::QueuedImmediateExecutor::instance();
   auto state = std::move(stateFuture).via(&executor);
   state.wait();
-  EXPECT_EQ(state.value(), TaskState::kFinished);
+  EXPECT_TRUE(tasks_[0]->isFinished());
   EXPECT_EQ(tasks_[0]->numRunningDrivers(), 0);
   const auto taskStats = tasks_[0]->taskStats();
   ASSERT_EQ(taskStats.pipelineStats.size(), 1);

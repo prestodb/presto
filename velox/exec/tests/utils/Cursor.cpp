@@ -105,7 +105,8 @@ bool TaskQueue::hasNext() {
 std::atomic<int32_t> TaskCursor::serial_;
 
 TaskCursor::TaskCursor(const CursorParameters& params)
-    : maxDrivers_{params.maxDrivers} {
+    : maxDrivers_{params.maxDrivers},
+      concurrentSplitGroups_{params.concurrentSplitGroups} {
   std::shared_ptr<core::QueryCtx> queryCtx;
   if (params.queryCtx) {
     queryCtx = params.queryCtx;
@@ -118,7 +119,8 @@ TaskCursor::TaskCursor(const CursorParameters& params)
   queue_ = std::make_shared<TaskQueue>(numProducers, params.bufferedBytes);
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;
-  core::PlanFragment planFragment{params.planNode};
+  core::PlanFragment planFragment{
+      params.planNode, params.executionStrategy, params.numSplitGroups};
   task_ = std::make_shared<exec::Task>(
       fmt::format("test_cursor {}", ++serial_),
       std::move(planFragment),
@@ -140,11 +142,15 @@ TaskCursor::TaskCursor(const CursorParameters& params)
       });
 }
 
-bool TaskCursor::moveNext() {
+void TaskCursor::start() {
   if (!started_) {
     started_ = true;
-    exec::Task::start(task_, maxDrivers_);
+    exec::Task::start(task_, maxDrivers_, concurrentSplitGroups_);
   }
+}
+
+bool TaskCursor::moveNext() {
+  start();
   current_ = queue_->dequeue();
   if (task_->error()) {
     std::rethrow_exception(task_->error());

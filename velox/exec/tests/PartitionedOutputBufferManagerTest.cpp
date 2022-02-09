@@ -280,11 +280,11 @@ TEST_F(PartitionedOutputBufferManagerTest, basic) {
   for (int destination = 0; destination < 3; destination++) {
     fetchEndMarker(taskId, destination, 2);
   }
-  EXPECT_EQ(task->state(), kRunning);
+  EXPECT_TRUE(task->isRunning());
   deleteResults(taskId, 3);
   fetchEndMarker(taskId, 4, 2);
 
-  EXPECT_EQ(task->state(), kFinished);
+  EXPECT_TRUE(task->isFinished());
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, maxBytes) {

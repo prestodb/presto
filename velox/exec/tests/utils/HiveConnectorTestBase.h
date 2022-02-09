@@ -97,6 +97,10 @@ class HiveConnectorTestBase : public OperatorTestBase {
       uint64_t start = 0,
       uint64_t length = std::numeric_limits<uint64_t>::max());
 
+  static exec::Split makeHiveSplitWithGroup(
+      const std::string& filePath,
+      int32_t groupId);
+
   static std::shared_ptr<connector::hive::HiveTableHandle> makeTableHandle(
       common::test::SubfieldFilters subfieldFilters,
       const std::shared_ptr<const core::ITypedExpr>& remainingFilter =

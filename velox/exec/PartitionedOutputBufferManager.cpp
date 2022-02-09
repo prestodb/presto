@@ -211,8 +211,7 @@ BlockingReason PartitionedOutputBuffer::enqueue(
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_LT(destination, buffers_.size());
     VELOX_CHECK(
-        task_->state() == kRunning,
-        "Task is terminated, cannot add data to output.");
+        task_->isRunning(), "Task is terminated, cannot add data to output.");
 
     totalSize_ += data->size();
     if (broadcast_) {
@@ -406,7 +405,7 @@ void PartitionedOutputBuffer::getData(
 
 void PartitionedOutputBuffer::terminate() {
   std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(task_->state() != kRunning);
+  VELOX_CHECK(not task_->isRunning());
   for (auto& promise : promises_) {
     promise.setValue(true);
   }

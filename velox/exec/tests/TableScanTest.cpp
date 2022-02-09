@@ -1802,6 +1802,95 @@ TEST_P(TableScanTest, structInArrayOrMap) {
   assertQuery(op, {filePath}, "select c0, c0 from tmp");
 }
 
+// Here we test various aspects of grouped/bucketed execution.
+TEST_P(TableScanTest, groupedExecution) {
+  // Create source file - we will read from it in 6 splits.
+  const size_t numSplits{6};
+  auto vectors = makeVectors(10, 1'000);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+
+  CursorParameters params;
+  params.planNode = tableScanNode(ROW({}, {}));
+  params.maxDrivers = 2;
+  params.concurrentSplitGroups = 2;
+  // We will have 10 split groups 'in total', but our task will only handle
+  // three of them: 1, 5 and 8.
+  // Split 0 is from split group 1.
+  // Splits 1 and 2 are from split group 5.
+  // Splits 3, 4 and 5 are from split group 8.
+  params.executionStrategy = core::ExecutionStrategy::kGrouped;
+  params.numSplitGroups = 10;
+  // We'll only run 3 split groups, 2 drivers each.
+  params.numResultDrivers = 3 * 2;
+
+  // Create the cursor with the task underneath. It is not started yet.
+  auto cursor = std::make_unique<TaskCursor>(params);
+  auto* pTask = cursor->task().get();
+
+  // Add one splits before start to ensure we can handle such cases.
+  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+
+  // Start task now.
+  cursor->start();
+
+  // Only one split group should be in the processing mode, so 2 drivers.
+  EXPECT_EQ(2, pTask->numRunningDrivers());
+
+  // Add the rest of splits
+  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 1));
+  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
+  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
+  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+
+  // Only two split groups should be in the processing mode, so 4 drivers.
+  EXPECT_EQ(4, pTask->numRunningDrivers());
+
+  // Finalize one split group (8) and wait until 2 drivers are finished.
+  pTask->noMoreSplitsForGroup("0", 8);
+  while (pTask->numFinishedDrivers() != 2) {
+    /* sleep override */
+    usleep(100'000); // 0.1 second.
+  }
+  // As one split group is finished, another one should kick in, so 4 drivers.
+  EXPECT_EQ(4, pTask->numRunningDrivers());
+
+  // Finalize the second split group (5) and wait until 4 drivers are finished.
+  pTask->noMoreSplitsForGroup("0", 5);
+  while (pTask->numFinishedDrivers() != 4) {
+    /* sleep override */
+    usleep(100'000); // 0.1 second.
+  }
+  // As the second split group is finished, only one is left, so 2 drivers.
+  EXPECT_EQ(2, pTask->numRunningDrivers());
+
+  // Finalize the third split group (1) and wait until 6 drivers are finished.
+  pTask->noMoreSplitsForGroup("0", 1);
+  while (pTask->numFinishedDrivers() != 6) {
+    /* sleep override */
+    usleep(100'000); // 0.1 second.
+  }
+  // No split groups should be processed at the moment, so 0 drivers.
+  EXPECT_EQ(0, pTask->numRunningDrivers());
+
+  // Flag that we would have no more split groups.
+  pTask->noMoreSplits("0");
+
+  // Make sure we've got the right number of rows.
+  int32_t numRead = 0;
+  while (cursor->moveNext()) {
+    auto vector = cursor->current();
+    EXPECT_EQ(vector->childrenSize(), 0);
+    numRead += vector->size();
+  }
+
+  // Task must be finished at this stage.
+  EXPECT_EQ(TaskState::kFinished, pTask->state());
+
+  EXPECT_EQ(numRead, numSplits * 10'000);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableScanTests,
     TableScanTest,

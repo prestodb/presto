@@ -180,6 +180,14 @@ exec::Split HiveConnectorTestBase::makeHiveSplit(
       length));
 }
 
+exec::Split HiveConnectorTestBase::makeHiveSplitWithGroup(
+    const std::string& filePath,
+    int32_t groupId) {
+  auto split = HiveConnectorTestBase::makeHiveSplit(filePath);
+  split.groupId = groupId;
+  return split;
+}
+
 std::shared_ptr<connector::hive::HiveColumnHandle>
 HiveConnectorTestBase::regularColumn(
     const std::string& name,
