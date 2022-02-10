@@ -276,15 +276,27 @@ class ConnectorFactory {
   const std::string name_;
 };
 
+/// Adds a factory for creating connectors to the registry using connector name
+/// as the key. Throws if factor with the same name is already present. Always
+/// returns true. The return value makes it easy to use with
+/// FB_ANONYMOUS_VARIABLE.
 bool registerConnectorFactory(std::shared_ptr<ConnectorFactory> factory);
 
+/// Returns a factory for creating connectors with the specified name. Throws if
+/// factory doesn't exist.
 std::shared_ptr<ConnectorFactory> getConnectorFactory(
     const std::string& connectorName);
 
+/// Adds connector instance to the registry using connector ID as the key.
+/// Throws if connector with the same ID is already present. Always returns
+/// true. The return value makes it easy to use with FB_ANONYMOUS_VARIABLE.
 bool registerConnector(std::shared_ptr<Connector> connector);
 
+/// Removes the connector with specified ID from the registry. Returns true if
+/// connector was removed and false if connector didn't exist.
 bool unregisterConnector(const std::string& connectorId);
 
+/// Returns a connector with specified ID. Throws if connector doesn't exist.
 std::shared_ptr<Connector> getConnector(const std::string& connectorId);
 
 #define VELOX_REGISTER_CONNECTOR_FACTORY(theFactory)                      \
