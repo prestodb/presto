@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_dwio_parquet_reader_duckdb Allocator.cpp
-                                             InputStreamFileHandle.cpp)
+add_library(velox_dwio_parquet_reader_duckdb Allocator.cpp)
 
 target_link_libraries(velox_dwio_parquet_reader_duckdb velox_dwio_common duckdb
                       ${FMT})

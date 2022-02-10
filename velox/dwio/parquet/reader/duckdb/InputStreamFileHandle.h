@@ -22,33 +22,16 @@ namespace facebook::velox::duckdb {
 
 class InputStreamFileSystem;
 
+// Implements the DuckDB FileHandle API
 class InputStreamFileHandle : public ::duckdb::FileHandle {
  public:
-  InputStreamFileHandle(::duckdb::FileSystem& fileSystem, int streamId)
-      : FileHandle(fileSystem, std::to_string(streamId)),
-        streamId_(streamId),
-        offset_(0) {}
+  InputStreamFileHandle(::duckdb::FileSystem& fileSystem)
+      : FileHandle(fileSystem, "") {}
 
-  ~InputStreamFileHandle() override;
-
-  int streamId() const {
-    return streamId_;
-  }
-
-  uint64_t offset() const {
-    return offset_;
-  }
-
-  void setOffset(uint64_t newOffset) {
-    offset_ = newOffset;
-  }
+  ~InputStreamFileHandle() override {}
 
  protected:
-  void Close() override;
-
- private:
-  int streamId_;
-  uint64_t offset_;
+  void Close() override {}
 };
 
 } // namespace facebook::velox::duckdb
