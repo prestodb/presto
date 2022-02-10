@@ -324,7 +324,7 @@ public class DictionaryCompressionOptimizer
 
         for (DictionaryColumnManager column : allWriters) {
             if (!column.isDirectEncoded()) {
-                uncompressedBytes += column.getRawBytes();
+                uncompressedBytes += column.getRawBytesEstimate();
                 compressedBytes += column.getDictionaryBytes();
             }
         }
@@ -361,7 +361,7 @@ public class DictionaryCompressionOptimizer
 
         for (DictionaryColumnManager column : allWriters) {
             if (!column.isDirectEncoded()) {
-                totalDictionaryRawBytes += column.getRawBytes();
+                totalDictionaryRawBytes += column.getRawBytesEstimate();
                 totalDictionaryBytes += column.getDictionaryBytes();
                 totalDictionaryIndexBytes += column.getIndexBytes();
 
@@ -377,7 +377,7 @@ public class DictionaryCompressionOptimizer
         for (int index = 0; index < directConversionCandidates.size(); index++) {
             DictionaryColumnManager column = directConversionCandidates.get(index);
             // determine the size of the currently written stripe if we were convert this column to direct
-            long currentRawBytes = totalNonDictionaryBytes + column.getRawBytes();
+            long currentRawBytes = totalNonDictionaryBytes + column.getRawBytesEstimate();
             long currentDictionaryBytes = totalDictionaryBytes - column.getDictionaryBytes();
             long currentIndexBytes = totalDictionaryIndexBytes - column.getIndexBytes();
             long currentTotalBytes = currentRawBytes + currentDictionaryBytes + currentIndexBytes;
@@ -435,7 +435,7 @@ public class DictionaryCompressionOptimizer
 
         long getNullValueCount();
 
-        long getRawBytes();
+        long getRawBytesEstimate();
 
         int getDictionaryEntries();
 
@@ -495,16 +495,16 @@ public class DictionaryCompressionOptimizer
             }
         }
 
-        public long getRawBytes()
+        public long getRawBytesEstimate()
         {
             checkState(!isDirectEncoded());
-            return dictionaryColumn.getRawBytes();
+            return dictionaryColumn.getRawBytesEstimate();
         }
 
         public double getRawBytesPerRow()
         {
             checkState(!isDirectEncoded());
-            return 1.0 * getRawBytes() / rowCount;
+            return 1.0 * getRawBytesEstimate() / rowCount;
         }
 
         public int getDictionaryBytes()
@@ -549,7 +549,7 @@ public class DictionaryCompressionOptimizer
             if (bufferedBytes == 0) {
                 return 0;
             }
-            return 1.0 * getRawBytes() / bufferedBytes;
+            return 1.0 * getRawBytesEstimate() / bufferedBytes;
         }
 
         public long getBufferedBytes()

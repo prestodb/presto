@@ -69,6 +69,7 @@ public class TestDictionaryColumnWriter
     private static final int COLUMN_ID = 1;
     private static final int BATCH_ROWS = 1_000;
     private static final int STRIPE_MAX_ROWS = 15_000;
+    private static final int INTEGER_VALUES_DICTIONARY_BASE = 1_000_000_000;
     private static final Random RANDOM = new Random();
 
     private static int megabytes(int size)
@@ -198,7 +199,7 @@ public class TestDictionaryColumnWriter
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (int i = 0; i < 60_000; i++) {
             // Make a 7 letter String, by using million as base to force dictionary encoding.
-            builder.add(Integer.toString((i % 1000) + 1_000_000));
+            builder.add(Integer.toString((i % 1000) + INTEGER_VALUES_DICTIONARY_BASE));
         }
         for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
@@ -214,7 +215,7 @@ public class TestDictionaryColumnWriter
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (int i = 0; i < 60_000; i++) {
-            builder.add(Integer.toString((i % 2000) + 1_000_000));
+            builder.add(Integer.toString((i % 2000) + INTEGER_VALUES_DICTIONARY_BASE));
         }
         List<String> values = builder.build();
 
@@ -488,7 +489,7 @@ public class TestDictionaryColumnWriter
         builder.addAll(baseList);
         int repeatInterval = 1500;
         for (int i = baseList.size(); i < 45_000; i++) {
-            builder.add(i % repeatInterval);
+            builder.add(INTEGER_VALUES_DICTIONARY_BASE + i % repeatInterval);
         }
         List<Integer> values = builder.build();
 
@@ -531,7 +532,7 @@ public class TestDictionaryColumnWriter
         builder.addAll(baseList);
         int repeatInterval = 1500;
         for (int i = baseList.size(); i < 60_000; i++) {
-            builder.add(i % repeatInterval);
+            builder.add(INTEGER_VALUES_DICTIONARY_BASE + i % repeatInterval);
         }
         List<Integer> values = builder.build();
         List<StripeFooter> stripeFooters = testIntegerDictionary(directConversionTester, values);
@@ -572,7 +573,7 @@ public class TestDictionaryColumnWriter
         builder.addAll(baseList);
         int repeatInterval = 1500;
         for (long i = baseList.size(); i < 50_000; i++) {
-            builder.add(i % repeatInterval);
+            builder.add(INTEGER_VALUES_DICTIONARY_BASE + i % repeatInterval);
         }
 
         List<Long> values = builder.build();
@@ -581,7 +582,7 @@ public class TestDictionaryColumnWriter
         verifyDwrfDirectEncoding(stripeFooters, 0);
         verifyDwrfDirectEncoding(stripeFooters, 1);
         verifyDictionaryEncoding(stripeFooters, DWRF, 2, repeatInterval);
-        verifyDictionaryEncoding(stripeFooters, DWRF, 3, repeatInterval);
+        verifyDwrfDirectEncoding(stripeFooters, 3);
     }
 
     @Test
@@ -594,7 +595,7 @@ public class TestDictionaryColumnWriter
         }
         int repeatInterval = 1500;
         for (long i = 0; i < 100_000; i++) {
-            builder.add(i % repeatInterval);
+            builder.add(INTEGER_VALUES_DICTIONARY_BASE + i % repeatInterval);
         }
         DirectConversionTester tester = new DirectConversionTester();
         int preserveDirectEncodingStripeCount = 2;
