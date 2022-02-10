@@ -35,9 +35,11 @@ struct CursorParameters {
   std::shared_ptr<core::QueryCtx> queryCtx;
   uint64_t bufferedBytes = 512 * 1024;
 
-  // Change these two parameters for grouped/bucketed execution.
+  // Ungrouped (by default) or grouped (bucketed) execution.
   core::ExecutionStrategy executionStrategy{
       core::ExecutionStrategy::kUngrouped};
+  // Total number of split groups, our task might get splits for all of them or
+  // only for a a fraction.
   int numSplitGroups{0};
 };
 

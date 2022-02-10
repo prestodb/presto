@@ -17,6 +17,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
+#include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1800,6 +1801,84 @@ TEST_P(TableScanTest, structInArrayOrMap) {
                 .planNode();
 
   assertQuery(op, {filePath}, "select c0, c0 from tmp");
+}
+
+// Here we test various aspects of grouped/bucketed execution also involving
+// output buffer.
+TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
+  // Create source file - we will read from it in 6 splits.
+  const size_t numSplits{6};
+  auto vectors = makeVectors(10, 1'000);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, vectors);
+
+  auto planFragment = PlanBuilder()
+                          .tableScan(rowType_)
+                          .partitionedOutput({}, 1, {0, 1, 2, 3, 4, 5})
+                          .planFragment();
+  planFragment.numSplitGroups = 10;
+  planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+  auto queryCtx = core::QueryCtx::createForTest();
+  auto task = std::make_shared<exec::Task>(
+      "0", std::move(planFragment), 0, std::move(queryCtx));
+  // 3 drivers max and 1 concurrent split group.
+  task->start(task, 3, 1);
+
+  // Add one splits before start to ensure we can handle such cases.
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+
+  // Only one split group should be in the processing mode, so 2 drivers.
+  EXPECT_EQ(3, task->numRunningDrivers());
+
+  // Add the rest of splits
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 1));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+
+  // One split group should be in the processing mode, so 3 drivers.
+  EXPECT_EQ(3, task->numRunningDrivers());
+
+  // Finalize one split group (8) and wait until 3 drivers are finished.
+  task->noMoreSplitsForGroup("0", 8);
+  while (task->numFinishedDrivers() != 3) {
+    /* sleep override */
+    usleep(100'000); // 0.1 second.
+  }
+  // As one split group is finished, another one should kick in, so 3 drivers.
+  EXPECT_EQ(3, task->numRunningDrivers());
+
+  // Finalize the second split group (1) and wait until 6 drivers are finished.
+  task->noMoreSplitsForGroup("0", 1);
+  while (task->numFinishedDrivers() != 6) {
+    /* sleep override */
+    usleep(100'000); // 0.1 second.
+  }
+  // As one split group is finished, another one should kick in, so 3 drivers.
+  EXPECT_EQ(3, task->numRunningDrivers());
+
+  // Finalize the third split group (5) and wait until 9 drivers are finished.
+  task->noMoreSplitsForGroup("0", 5);
+  while (task->numFinishedDrivers() != 9) {
+    /* sleep override */
+    usleep(100'000); // 0.1 second.
+  }
+  // No split groups should be processed at the moment, so 0 drivers.
+  EXPECT_EQ(0, task->numRunningDrivers());
+
+  // Flag that we would have no more split groups.
+  task->noMoreSplits("0");
+
+  // 'Delete results' from output buffer triggers 'set all output consumed',
+  // which should finish the task.
+  auto outputBufferManager =
+      PartitionedOutputBufferManager::getInstance(task->queryCtx()->host())
+          .lock();
+  outputBufferManager->deleteResults(task->taskId(), 0);
+
+  // Task must be finished at this stage.
+  EXPECT_EQ(TaskState::kFinished, task->state());
 }
 
 // Here we test various aspects of grouped/bucketed execution.
