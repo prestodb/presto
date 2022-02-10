@@ -141,6 +141,49 @@ BENCHMARK_RELATIVE(BM_scatterBits, n) {
   runScatterBits(n, false);
 }
 
+void BM_forEachBit(
+    uint32_t iterations,
+    size_t numBits,
+    std::optional<size_t> bitToClear = std::nullopt) {
+  folly::BenchmarkSuspender suspender;
+  uint32_t size = bits::nwords(numBits);
+  std::vector<uint64_t> data(size);
+  uint64_t* rawData = data.data();
+  bits::fillBits(rawData, 0, numBits, true);
+  if (bitToClear.has_value()) {
+    bits::setBit(rawData, bitToClear.value(), false);
+  }
+  suspender.dismiss();
+
+  for (uint32_t i = 0; i < iterations; ++i) {
+    bits::forEachBit(rawData, 0, numBits, true, [](auto row) {
+      return folly::doNotOptimizeAway(row * row);
+    });
+  }
+  suspender.rehire();
+}
+
+namespace {
+constexpr static auto kNumRuns = 1000;
+constexpr static auto numBits = 10000;
+} // namespace
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_MULTI(forEachBitAllTrue) {
+  BM_forEachBit(kNumRuns, numBits);
+  return kNumRuns;
+}
+
+BENCHMARK_RELATIVE_MULTI(forEachBitLastBitFalse) {
+  BM_forEachBit(kNumRuns, numBits, numBits - 1);
+  return kNumRuns;
+}
+
+BENCHMARK_RELATIVE_MULTI(forEachBitFirstBitFalse) {
+  BM_forEachBit(kNumRuns, numBits, 1);
+  return kNumRuns;
+}
+
 } // namespace test
 } // namespace velox
 } // namespace facebook

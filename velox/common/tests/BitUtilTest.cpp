@@ -416,6 +416,43 @@ TEST_F(BitUtilTest, forEachBit) {
   expectedIndex = 3;
   forEachUnsetBit(data, 2, totalBits - 3, calledOnEveryOther);
   EXPECT_EQ(totalBits - 3, expectedIndex);
+
+  totalBits = 100;
+  std::vector<uint64_t> bits(bits::nwords(totalBits));
+  uint64_t* rawBits = bits.data();
+
+  // Test all bits set.
+  bits::fillBits(rawBits, 0, totalBits, true);
+  int count = 0;
+  auto countEach = [&](auto row) {
+    ASSERT_EQ(row, count);
+    count++;
+  };
+
+  bits::forEachBit(rawBits, 0, totalBits, true, countEach);
+  ASSERT_EQ(totalBits, count);
+
+  // Test all bits unset.
+  bits::fillBits(rawBits, 0, totalBits, false);
+
+  count = 0;
+  bits::forEachBit(rawBits, 0, totalBits, false, countEach);
+  ASSERT_EQ(totalBits, count);
+
+  // Test all but one bit set.
+  bits::fillBits(rawBits, 0, totalBits, true);
+  bits::setBit(rawBits, 50, false);
+  count = 0;
+  auto incrementCount = [&](auto _) { count++; };
+  bits::forEachBit(rawBits, 0, totalBits, true, incrementCount);
+  ASSERT_EQ(totalBits - 1, count);
+
+  // Test all but one bit unset.
+  bits::fillBits(rawBits, 0, totalBits, false);
+  bits::setBit(rawBits, 50, true);
+  count = 0;
+  bits::forEachBit(rawBits, 0, totalBits, false, incrementCount);
+  ASSERT_EQ(totalBits - 1, count);
 }
 
 TEST_F(BitUtilTest, hash) {
