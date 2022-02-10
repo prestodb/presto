@@ -30,6 +30,7 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
@@ -69,7 +70,7 @@ public final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table getIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
@@ -82,7 +83,7 @@ public final class IcebergUtil
         return new BaseTable(operations, quotedTableName(table));
     }
 
-    public static Table getNativeIcebergTable(IcebergResourceFactory resourceFactory, ConnectorSession session, SchemaTableName table)
+    public static Table getHadoopIcebergTable(IcebergResourceFactory resourceFactory, ConnectorSession session, SchemaTableName table)
     {
         return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
     }
@@ -98,6 +99,17 @@ public final class IcebergUtil
                 .map(HistoryEntry::snapshotId)
                 .findFirst()
                 .orElseThrow(() -> new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", snapshotId, table)));
+    }
+
+    public static Optional<Long> resolveSnapshotIdByName(Table table, IcebergTableName name)
+    {
+        if (name.getSnapshotId().isPresent()) {
+            if (table.snapshot(name.getSnapshotId().get()) == null) {
+                throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), table));
+            }
+            return name.getSnapshotId();
+        }
+        return Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)

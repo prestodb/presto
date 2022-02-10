@@ -22,16 +22,24 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static java.util.Objects.requireNonNull;
 
 @Test
-public class TestIcebergDistributed
+public class TestAbstractIcebergDistributed
         extends AbstractTestDistributedQueries
 {
+    private final CatalogType catalogType;
+
+    protected TestAbstractIcebergDistributed(CatalogType catalogType)
+    {
+        this.catalogType = requireNonNull(catalogType, "catalogType is null");
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of());
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType);
     }
 
     @Override
