@@ -211,7 +211,6 @@ public class LongDictionaryColumnWriter
     protected BlockStatistics addBlockToDictionary(Block block, int rowGroupOffset, int[] rowGroupIndexes)
     {
         int nonNullValueCount = 0;
-        long rawBytes = 0;
         int index;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
@@ -221,13 +220,32 @@ public class LongDictionaryColumnWriter
                 long value = type.getLong(block, position);
                 index = dictionary.putIfAbsent(value);
                 statisticsBuilder.addValue(value);
-                rawBytes += typeSize;
                 nonNullValueCount++;
             }
             rowGroupIndexes[rowGroupOffset++] = index;
         }
-        long rawBytesIncludingNulls = rawBytes + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
-        return new BlockStatistics(nonNullValueCount, rawBytes, rawBytesIncludingNulls);
+        long rawBytesIncludingNulls = (nonNullValueCount * typeSize) +
+                (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+
+        long rawBytesEstimate = 0;
+        if (nonNullValueCount > 0) {
+            // For Long Dictionary encoding is useful when the values are large integers.
+            // Say if all values are less than 256 there is no space savings. Instead, it makes
+            // the reader worse by encoding data and dictionary streams separately. The raw bytes
+            // estimate is a way to understand how many bytes would be required, if it was encoded
+            // using direct encoding. The estimate currently takes max for a row group and assumes
+            // it is a representative number to calculate the bytes required to encode each value.
+            // This is a heuristic, so it is possible to craft test cases to make wrong assumptions.
+            // This heuristic worked well for all the cases where there were problems.
+            // Couple of other alternatives considered are min and average.
+            // In Warehouse most of the columns examined has min of 0, so min alone is not a good
+            // value by itself. Sum can overflow and sum could be missing. Doing for each value
+            // is CPU intensive, but max seems to be good measure to start with.
+            int perValueBits = 64 - Long.numberOfLeadingZeros(statisticsBuilder.getMaximum());
+            long perValueBytes = perValueBits / 8 + 1;
+            rawBytesEstimate = perValueBytes * nonNullValueCount;
+        }
+        return new BlockStatistics(nonNullValueCount, rawBytesEstimate, rawBytesIncludingNulls);
     }
 
     @Override

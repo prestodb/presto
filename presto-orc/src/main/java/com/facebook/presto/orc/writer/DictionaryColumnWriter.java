@@ -80,7 +80,7 @@ public abstract class DictionaryColumnWriter
     private DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();
     private int[] rowGroupIndexes;
     private int rowGroupOffset;
-    private long rawBytes;
+    private long rawBytesEstimate;
     private long totalValueCount;
     private long totalNonNullValueCount;
     private boolean closed;
@@ -167,10 +167,10 @@ public abstract class DictionaryColumnWriter
     protected abstract ColumnStatistics createColumnStatistics();
 
     @Override
-    public long getRawBytes()
+    public long getRawBytesEstimate()
     {
         checkState(!directEncoded);
-        return rawBytes;
+        return rawBytesEstimate;
     }
 
     @Override
@@ -277,7 +277,7 @@ public abstract class DictionaryColumnWriter
         }
 
         // free the dictionary
-        rawBytes = 0;
+        rawBytesEstimate = 0;
         totalValueCount = 0;
         totalNonNullValueCount = 0;
 
@@ -330,7 +330,7 @@ public abstract class DictionaryColumnWriter
         rowGroupIndexes = ensureCapacity(rowGroupIndexes, rowGroupOffset + block.getPositionCount(), MEDIUM, PRESERVE);
         BlockStatistics blockStatistics = addBlockToDictionary(block, rowGroupOffset, rowGroupIndexes);
         totalNonNullValueCount += blockStatistics.getNonNullValueCount();
-        rawBytes += blockStatistics.getRawBytes();
+        rawBytesEstimate += blockStatistics.getRawBytesEstimate();
         rowGroupOffset += block.getPositionCount();
         totalValueCount += block.getPositionCount();
         if (rowGroupOffset >= EXPECTED_ROW_GROUP_SEGMENT_SIZE) {
@@ -557,7 +557,7 @@ public abstract class DictionaryColumnWriter
         this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
         resetDictionary();
         resetRowGroups();
-        rawBytes = 0;
+        rawBytesEstimate = 0;
         totalValueCount = 0;
         totalNonNullValueCount = 0;
 
@@ -576,13 +576,13 @@ public abstract class DictionaryColumnWriter
     static class BlockStatistics
     {
         private final int nonNullValueCount;
-        private final long rawBytes;
+        private final long rawBytesEstimate;
         private final long rawBytesIncludingNulls;
 
-        public BlockStatistics(int nonNullValueCount, long rawBytes, long rawBytesIncludingNulls)
+        public BlockStatistics(int nonNullValueCount, long rawBytesEstimate, long rawBytesIncludingNulls)
         {
             this.nonNullValueCount = nonNullValueCount;
-            this.rawBytes = rawBytes;
+            this.rawBytesEstimate = rawBytesEstimate;
             this.rawBytesIncludingNulls = rawBytesIncludingNulls;
         }
 
@@ -591,9 +591,9 @@ public abstract class DictionaryColumnWriter
             return nonNullValueCount;
         }
 
-        public long getRawBytes()
+        public long getRawBytesEstimate()
         {
-            return rawBytes;
+            return rawBytesEstimate;
         }
 
         public long getRawBytesIncludingNulls()
