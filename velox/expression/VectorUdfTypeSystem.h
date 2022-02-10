@@ -767,10 +767,15 @@ class StringProxy<FlatVector<StringView>, false /*reuseInput*/>
       : vector_(vector), offset_(offset) {}
 
   // Used to initialize nested strings and requires a copy on write.
-  explicit StringProxy(StringView value)
+  /* implicit */ StringProxy(StringView value)
       : vector_(nullptr), offset_(-1), value_{value.str()} {}
 
- public:
+  // TODO: This is temporary until the new map writer interface is completed.
+  bool operator==(const StringProxy<>& rhs) const {
+    VELOX_DCHECK(!vector_ && offset_ == -1 && !initialized());
+    return (value().compare(rhs.value()) == 0);
+  }
+
   // Returns true if initialized for zero-copy write. False, otherwise.
   bool initialized() const {
     return offset_ >= 0;
@@ -1114,3 +1119,13 @@ struct VectorReader<Generic> {
 };
 
 } // namespace facebook::velox::exec
+
+namespace std {
+// TODO: This is temporary until the new map writer interface is completed.
+template <>
+struct hash<facebook::velox::exec::StringProxy<>> {
+  size_t operator()(const facebook::velox::exec::StringProxy<>& x) const {
+    return std::hash<std::string>{}(x.value());
+  }
+};
+} // namespace std

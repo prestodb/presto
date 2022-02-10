@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
+#include <cstdint>
+#include <string>
+
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/DecodedVector.h"
 #include "velox/vector/SelectivityVector.h"
 
 namespace {
@@ -699,7 +704,7 @@ struct MyArrayStringReuseFunction {
 
     do {
       cur = std::find(start, input.end(), ' ');
-      out.append(out_type<Varchar>(StringView(start, cur - start)));
+      out.append(std::optional{StringView(start, cur - start)});
       start = cur + 1;
     } while (cur < input.end());
     return true;
@@ -729,6 +734,41 @@ TEST_F(SimpleFunctionTest, arrayStringReuse) {
 
   auto expected = vectorMaker_.arrayVector(outputData);
   assertEqualVectors(expected, result);
+}
+
+template <typename T>
+struct MapStringOut {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  bool call(out_type<Map<Varchar, Varchar>>& out, int64_t n) {
+    auto string = std::to_string(n);
+    out.emplace(StringView(string), std::optional{StringView(string)});
+    return true;
+  }
+};
+
+// Output map with string.
+TEST_F(SimpleFunctionTest, mapStringOut) {
+  registerFunction<MapStringOut, Map<Varchar, Varchar>, int64_t>(
+      {"func_map_string_out"});
+
+  auto input = vectorMaker_.flatVector<int64_t>({1, 2, 3, 4});
+  auto result = evaluate<facebook::velox::MapVector>(
+      "func_map_string_out(c0)", makeRowVector({input}));
+
+  DecodedVector decoded;
+  SelectivityVector rows(4);
+  decoded.decode(*result, rows);
+  exec::VectorReader<Map<Varchar, Varchar>> reader(&decoded);
+  for (auto i = 0; i < 4; i++) {
+    auto mapView = reader[i];
+    for (const auto& [key, value] : mapView) {
+      ASSERT_EQ(std::string(key.data(), key.size()), std::to_string(i + 1));
+      ASSERT_EQ(
+          std::string(value.value().data(), value.value().size()),
+          std::to_string(i + 1));
+    }
+  }
 }
 
 } // namespace
