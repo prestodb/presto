@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createNativeIcebergQueryRunner;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -39,7 +39,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestIcebergSmokeNative
+public class TestIcebergSmokeHadoop
         extends AbstractTestIntegrationSmokeTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
@@ -48,7 +48,7 @@ public class TestIcebergSmokeNative
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createNativeIcebergQueryRunner(ImmutableMap.of(), HADOOP);
+        return createIcebergQueryRunner(ImmutableMap.of(), HADOOP);
     }
 
     @Test

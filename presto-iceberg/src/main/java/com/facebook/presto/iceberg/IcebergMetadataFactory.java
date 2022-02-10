@@ -56,9 +56,9 @@ public class IcebergMetadataFactory
     {
         switch (catalogType) {
             case HADOOP:
-                return new IcebergNativeMetadata(resourceFactory, typeManager, commitTaskCodec);
+                return new IcebergHadoopMetadata(resourceFactory, typeManager, commitTaskCodec);
             case HIVE:
-                return new IcebergMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+                return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
     }
