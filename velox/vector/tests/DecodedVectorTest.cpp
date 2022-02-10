@@ -573,4 +573,23 @@ TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
   }
 }
 
+TEST_F(DecodedVectorTest, noValues) {
+  // Tests decoding a flat vector that consists of all nulls and has
+  // no values() buffer.
+  constexpr vector_size_t kSize = 100;
+  auto nulls = AlignedBuffer::allocate<uint64_t>(
+      bits::nwords(kSize), pool_.get(), bits::kNull64);
+  auto vector = std::make_shared<FlatVector<int32_t>>(
+      pool_.get(),
+      std::move(nulls),
+      kSize,
+      BufferPtr(nullptr),
+      std::vector<BufferPtr>{});
+  SelectivityVector rows(kSize);
+  DecodedVector decoded;
+  decoded.decode(*vector, rows);
+  EXPECT_EQ(nullptr, decoded.data<int32_t>());
+  EXPECT_TRUE(decoded.isNullAt(kSize - 1));
+}
+
 } // namespace facebook::velox::test

@@ -349,7 +349,8 @@ void DecodedVector::setBaseData(
     case VectorEncoding::Simple::LAZY:
       break;
     case VectorEncoding::Simple::FLAT: {
-      data_ = vector.values()->as<void>();
+      // values() may be nullptr if 'vector' is all nulls.
+      data_ = vector.values() ? vector.values()->as<void>() : nullptr;
       setFlatNulls(vector, rows);
       break;
     }
