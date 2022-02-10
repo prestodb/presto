@@ -762,7 +762,7 @@ public class TestDictionaryCompressionOptimizer
         }
 
         @Override
-        public long getRawBytes()
+        public long getRawBytesEstimate()
         {
             return (long) bytesPerEntry * getNonNullValueCount();
         }
