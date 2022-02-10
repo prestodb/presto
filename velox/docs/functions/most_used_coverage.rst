@@ -69,9 +69,12 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(14) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(15) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(15) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(15) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(17) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(17) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(17) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(18) td:nth-child(1) {background-color: #6BA81E;}
@@ -101,8 +104,9 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     :func:`transform`            :func:`rand`                 :func:`array_max`            array_union                  now                              :func:`map_agg`
     :func:`to_unixtime`          :func:`filter`               from_iso8601_date            :func:`reverse`              truncate                         :func:`min_by`
     :func:`regexp_like`          :func:`sqrt`                 json_extract                 :func:`array_intersect`                                       :func:`stddev`
-    array_join                   :func:`least`                mod                          repeat                                                        set_agg
+    :func:`array_join`           :func:`least`                :func:`mod`                  repeat                                                        set_agg
     :func:`replace`              json_parse                   :func:`array_distinct`       st_geometryfromtext                                           histogram
-    regexp_replace               map_from_entries             :func:`pow`                  :func:`split_part`                                            set_union
+    :func:`regexp_replace`       map_from_entries             :func:`pow`                  :func:`split_part`                                            set_union
     :func:`parse_datetime`       date_add                     :func:`power`                :func:`log10`                                                 :func:`merge`
     ===========================  ===========================  ===========================  ===========================  ===========================  ==  ===========================
+
