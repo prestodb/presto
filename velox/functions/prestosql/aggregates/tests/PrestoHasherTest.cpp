@@ -17,6 +17,8 @@
 #include <gtest/gtest.h>
 
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/tz/TimeZoneMap.h"
 #include "velox/vector/tests/VectorTestBase.h"
 
 namespace facebook::velox::aggregate::test {
@@ -354,6 +356,55 @@ TEST_F(PrestoHasherTest, wrongVectorType) {
   SelectivityVector rows(1);
   BufferPtr hashes = AlignedBuffer::allocate<int64_t>(1, pool_.get());
   ASSERT_ANY_THROW(hasher.hash(vector, rows, hashes));
+}
+
+TEST_F(PrestoHasherTest, timestampWithTimezone) {
+  const auto toUnixtimeWithTimeZone =
+      [&](const std::vector<std::optional<std::pair<int64_t, std::string>>>&
+              timestampWithTimeZones) {
+        std::vector<std::optional<int64_t>> timestamps;
+        std::vector<std::optional<int16_t>> timeZoneIds;
+        auto size = timestampWithTimeZones.size();
+        BufferPtr nulls =
+            AlignedBuffer::allocate<uint64_t>(bits::nwords(size), pool());
+        auto rawNulls = nulls->asMutable<uint64_t>();
+        timestamps.reserve(size);
+        timeZoneIds.reserve(size);
+
+        for (auto i = 0; i < size; i++) {
+          auto timestampWithTimeZone = timestampWithTimeZones[i];
+          if (timestampWithTimeZone.has_value()) {
+            auto timestamp = timestampWithTimeZone.value().first;
+            auto tz = timestampWithTimeZone.value().second;
+            const int16_t tzid = util::getTimeZoneID(tz);
+            timeZoneIds.push_back(tzid);
+            timestamps.push_back(timestamp);
+            bits::clearNull(rawNulls, i);
+          } else {
+            timeZoneIds.push_back(std::nullopt);
+            timestamps.push_back(std::nullopt);
+            bits::setNull(rawNulls, i);
+          }
+        }
+
+        return std::make_shared<RowVector>(
+            pool(),
+            TIMESTAMP_WITH_TIME_ZONE(),
+            nulls,
+            size,
+            std::vector<VectorPtr>{
+                makeNullableFlatVector(timestamps),
+                makeNullableFlatVector(timeZoneIds)});
+      };
+
+  auto timestampWithTimeZones = toUnixtimeWithTimeZone(
+      {std::optional(std::pair{1639426440000, "+01:00"}),
+       std::optional(std::pair{1639426440000, "+03:00"}),
+       std::optional(std::pair{1549770072000, "-14:00"}),
+       std::nullopt});
+  assertHash(
+      timestampWithTimeZones,
+      {-3461822077982309083, -3461822077982309083, -8497890125589769483, 0});
 }
 
 } // namespace facebook::velox::aggregate::test

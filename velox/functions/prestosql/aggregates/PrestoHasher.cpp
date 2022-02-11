@@ -18,6 +18,7 @@
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
 #include "velox/external/xxhash.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::aggregate {
 
@@ -236,6 +237,19 @@ void PrestoHasher::hash<TypeKind::ROW>(
 
   auto rawHashes = hashes->asMutable<int64_t>();
   auto rowChildHashes = childHashes->as<int64_t>();
+
+  if (isTimestampWithTimeZoneType(vector_->base()->type())) {
+    // Hash only timestamp value.
+    children_[0]->hash(baseRow->childAt(0), elementRows, childHashes);
+    rows.applyToSelected([&](auto row) {
+      if (!baseRow->isNullAt(row)) {
+        rawHashes[row] = rowChildHashes[indices[row]];
+      } else {
+        rawHashes[row] = 0;
+      }
+    });
+    return;
+  }
 
   std::fill_n(rawHashes, rows.end(), 1);
 
