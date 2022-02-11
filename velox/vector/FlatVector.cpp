@@ -247,6 +247,10 @@ void FlatVector<StringView>::setNoCopy(
 template <typename T>
 void FlatVector<T>::acquireSharedStringBuffers(const BaseVector* source) {
   auto leaf = source->wrappedVector();
+  if (leaf->typeKind() == TypeKind::UNKNOWN) {
+    // If the source is all nulls, it can be of unknown type.
+    return;
+  }
   switch (leaf->encoding()) {
     case VectorEncoding::Simple::FLAT: {
       auto* flat = leaf->as<FlatVector<StringView>>();
@@ -258,12 +262,14 @@ void FlatVector<T>::acquireSharedStringBuffers(const BaseVector* source) {
       break;
     }
     case VectorEncoding::Simple::CONSTANT: {
-      auto* constant = leaf->asUnchecked<ConstantVector<StringView>>();
-      auto buffer = constant->getStringBuffer();
-      if (buffer &&
-          std::find(stringBuffers_.begin(), stringBuffers_.end(), buffer) ==
-              stringBuffers_.end())
-        stringBuffers_.push_back(buffer);
+      if (!leaf->isNullAt(0)) {
+        auto* constant = leaf->asUnchecked<ConstantVector<StringView>>();
+        auto buffer = constant->getStringBuffer();
+        if (buffer &&
+            std::find(stringBuffers_.begin(), stringBuffers_.end(), buffer) ==
+                stringBuffers_.end())
+          stringBuffers_.push_back(buffer);
+      }
       break;
     }
 

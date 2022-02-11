@@ -207,17 +207,18 @@ void EvalCtx::setErrors(
   rows.applyToSelected([&](auto row) { setError(row, exceptionPtr); });
 }
 
-VectorPtr EvalCtx::getField(int32_t index) const {
-  VectorPtr field;
+const VectorPtr& EvalCtx::getField(int32_t index) const {
+  const VectorPtr* field;
   if (!peeledFields_.empty()) {
-    field = peeledFields_[index];
+    field = &peeledFields_[index];
   } else {
-    field = row_->childAt(index);
+    field = &row_->childAt(index);
   }
-  if (field->isLazy() && field->asUnchecked<LazyVector>()->isLoaded()) {
-    return BaseVector::loadedVectorShared(field);
+  if ((*field)->isLazy() && (*field)->asUnchecked<LazyVector>()->isLoaded()) {
+    auto lazy = (*field)->asUnchecked<LazyVector>();
+    return lazy->loadedVectorShared();
   }
-  return field;
+  return *field;
 }
 
 BaseVector* EvalCtx::getRawField(int32_t index) const {

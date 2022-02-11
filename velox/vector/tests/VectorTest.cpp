@@ -1458,3 +1458,34 @@ TEST_F(VectorTest, clearNulls) {
   vector->clearNulls(selection);
   ASSERT_TRUE(vector->isNullAt(70));
 }
+
+TEST_F(VectorTest, setStringToNull) {
+  constexpr int32_t kSize = 100;
+  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
+  auto target = vectorMaker->flatVector<StringView>(
+      kSize, [](auto /*row*/) { return StringView("Non-inlined string"); });
+  target->setNull(kSize - 1, true);
+  auto unknownNull = std::make_shared<ConstantVector<UnknownValue>>(
+      pool_.get(), kSize, true, UNKNOWN(), UnknownValue());
+
+  auto stringNull = BaseVector::wrapInConstant(kSize, kSize - 1, target);
+  SelectivityVector rows(kSize, false);
+  rows.setValid(2, true);
+  rows.updateBounds();
+  target->copy(unknownNull.get(), rows, nullptr);
+  EXPECT_TRUE(target->isNullAt(2));
+
+  rows.setValid(4, true);
+  rows.updateBounds();
+  target->copy(stringNull.get(), rows, nullptr);
+  EXPECT_TRUE(target->isNullAt(4));
+  auto nulls = AlignedBuffer::allocate<uint64_t>(
+      bits::nwords(kSize), pool_.get(), bits::kNull64);
+  auto flatNulls = std::make_shared<FlatVector<UnknownValue>>(
+      pool_.get(), nulls, kSize, BufferPtr(nullptr), std::vector<BufferPtr>());
+  rows.setValid(6, true);
+  rows.updateBounds();
+  target->copy(flatNulls.get(), rows, nullptr);
+  EXPECT_TRUE(target->isNullAt(6));
+  EXPECT_EQ(4, bits::countNulls(target->rawNulls(), 0, kSize));
+}
