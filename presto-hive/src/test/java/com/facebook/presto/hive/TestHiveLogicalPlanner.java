@@ -81,6 +81,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD;
@@ -117,6 +118,7 @@ import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemote
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -2051,19 +2053,25 @@ public class TestHiveLogicalPlanner
             MaterializedResult baseTable = computeActual(baseQuery);
             assertEquals(viewTable, baseTable);
 
-            assertPlan(getSession(), viewQuery, anyTree(
-                    join(INNER, ImmutableList.of(equiJoinClause("l_nationkey", "r_nationkey")),
-                            anyTree(PlanMatchPattern.constrainedTableScan(table1,
-                                    ImmutableMap.of(
-                                            "regionkey", multipleValues(BIGINT, ImmutableList.of(0L, 2L, 3L, 4L)),
-                                            "nationkey", multipleValues(BIGINT,
-                                                    ImmutableList.of(0L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L, 14L, 15L, 16L, 18L, 19L, 20L, 21L, 22L, 23L))),
-                                    ImmutableMap.of("l_nationkey", "nationkey"))),
-                            anyTree(PlanMatchPattern.constrainedTableScan(table2,
-                                    ImmutableMap.of("nationkey", multipleValues(BIGINT,
-                                            ImmutableList.of(0L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L, 14L, 15L, 16L, 18L, 19L, 20L, 21L, 22L, 23L))),
-                                    ImmutableMap.of("r_nationkey", "nationkey")))),
-                    PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of())));
+            assertPlan(
+                    Session.builder(getSession())
+                            .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                            .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name())
+                            .build(),
+                    viewQuery,
+                    anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("l_nationkey", "r_nationkey")),
+                                anyTree(PlanMatchPattern.constrainedTableScan(table1,
+                                        ImmutableMap.of(
+                                                "regionkey", multipleValues(BIGINT, ImmutableList.of(0L, 2L, 3L, 4L)),
+                                                "nationkey", multipleValues(BIGINT,
+                                                        ImmutableList.of(0L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L, 14L, 15L, 16L, 18L, 19L, 20L, 21L, 22L, 23L))),
+                                        ImmutableMap.of("l_nationkey", "nationkey"))),
+                                anyTree(PlanMatchPattern.constrainedTableScan(table2,
+                                        ImmutableMap.of("nationkey", multipleValues(BIGINT,
+                                                ImmutableList.of(0L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L, 14L, 15L, 16L, 18L, 19L, 20L, 21L, 22L, 23L))),
+                                        ImmutableMap.of("r_nationkey", "nationkey")))),
+                        PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of())));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);

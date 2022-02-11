@@ -213,14 +213,14 @@ public class PrestoCliTests
 
         presto.getProcessInput().println("show session;");
         assertThat(squeezeLines(presto.readLinesUntilPrompt()))
-                .contains("join_distribution_type|PARTITIONED|PARTITIONED|varchar|The join method to use. Options are BROADCAST,PARTITIONED,AUTOMATIC");
+                .contains("join_distribution_type|AUTOMATIC|AUTOMATIC|varchar|The join method to use. Options are BROADCAST,PARTITIONED,AUTOMATIC");
 
         presto.getProcessInput().println("set session join_distribution_type = 'BROADCAST';");
         assertThat(presto.readLinesUntilPrompt()).contains("SET SESSION");
 
         presto.getProcessInput().println("show session;");
         assertThat(squeezeLines(presto.readLinesUntilPrompt()))
-                .contains("join_distribution_type|BROADCAST|PARTITIONED|varchar|The join method to use. Options are BROADCAST,PARTITIONED,AUTOMATIC");
+                .contains("join_distribution_type|BROADCAST|AUTOMATIC|varchar|The join method to use. Options are BROADCAST,PARTITIONED,AUTOMATIC");
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)

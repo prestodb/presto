@@ -182,7 +182,7 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection("sessionProperties=query_max_run_time:2d;max_failed_task_percentage:0.6")) {
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|PARTITIONED|PARTITIONED")
+                    .contains("join_distribution_type|AUTOMATIC|AUTOMATIC")
                     .contains("exchange_compression|false|false")
                     .contains("query_max_run_time|2d|100.00d")
                     .contains("max_failed_task_percentage|0.6|0.3");
@@ -192,7 +192,7 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                    .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
@@ -200,7 +200,7 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                    .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression|true|false");
         }
     }
