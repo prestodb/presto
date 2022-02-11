@@ -19,6 +19,9 @@
 //  ./velox/type/tz/gen_timezone_database.py -f /tmp/zone-index.properties \
 //       > velox/type/tz/TimeZoneDatabase.cpp
 //
+// The zone-index.properties file should be the same one used in Presto,
+// Available here :
+// https://github.com/prestodb/presto/blob/master/presto-common/src/main/resources/com/facebook/presto/common/type/zone-index.properties.
 // @generated
 
 #include <string>
@@ -28,6 +31,7 @@ namespace facebook::velox::util {
 
 const std::unordered_map<int64_t, std::string>& getTimeZoneDB() {
   static std::unordered_map<int64_t, std::string> tzDB = {
+      {0, "+00:00"},
       {1, "-14:00"},
       {2, "-13:59"},
       {3, "-13:58"},

@@ -29,10 +29,10 @@ TEST(TimeZoneMapTest, simple) {
   EXPECT_EQ(1825, getTimeZoneID("America/Los_Angeles"));
   EXPECT_EQ(2079, getTimeZoneID("Europe/Moscow"));
   EXPECT_EQ(840, getTimeZoneID("-00:01"));
+  EXPECT_EQ(0, getTimeZoneID("+00:00"));
 }
 
 TEST(TimeZoneMapTest, invalid) {
-  EXPECT_THROW(getTimeZoneName(0), std::runtime_error);
   EXPECT_THROW(getTimeZoneName(99999999), std::runtime_error);
 
   EXPECT_THROW(getTimeZoneID("This is a test"), std::runtime_error);

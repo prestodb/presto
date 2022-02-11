@@ -41,6 +41,8 @@ cpp_template = Template(
 //  ./velox/type/tz/gen_timezone_database.py -f /tmp/zone-index.properties \\
 //       > velox/type/tz/TimeZoneDatabase.cpp
 //
+// The zone-index.properties file should be the same one used in Presto,
+// Available here : https://github.com/prestodb/presto/blob/master/presto-common/src/main/resources/com/facebook/presto/common/type/zone-index.properties.
 // @generated
 
 #include <unordered_map>
@@ -89,6 +91,9 @@ def main():
     # >  1827 America/Lower_Princes
     # >  ...
     #
+
+    # Explicitly add UTC.
+    entries.append(entry_template.substitute(tz_id=0, tz_name="+00:00"))
     with open(args.file_input) as file_in:
         for line in file_in:
             line = line.strip()

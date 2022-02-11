@@ -86,8 +86,7 @@ TEST_F(DateTimeFunctionsTest, toUnixtime) {
   EXPECT_EQ(998423705.321, toUnixtime(Timestamp(998423705, 321000000)));
 
   const auto toUnixtimeWTZ = [&](int64_t timestamp, const char* tz) {
-    const int64_t tzid =
-        strcmp(tz, "+00:00") == 0 ? 0 : util::getTimeZoneID(tz);
+    const int64_t tzid = util::getTimeZoneID(tz);
     return evaluateOnce<double>(
         "to_unixtime(c0)",
         makeRowVector({makeRowVector({
