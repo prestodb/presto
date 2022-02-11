@@ -47,14 +47,14 @@ public class TestPredicatePushdownWithDynamicFilter
                 anyTree(
                         join(
                                 INNER,
-                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 anyTree(
-                                        filter(
-                                                "cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
+                                        node(
+                                                FilterNode.class,
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
-                                                        "LINEITEM_LINENUMBER", "linenumber")))))));
+                                                        "LINEITEM_LINENUMBER", "linenumber")))),
+                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Override
