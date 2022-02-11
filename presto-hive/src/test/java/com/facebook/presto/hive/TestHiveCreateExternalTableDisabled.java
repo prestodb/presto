@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -22,18 +21,15 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.NATION;
 import static java.lang.String.format;
-import static org.testng.Assert.assertTrue;
 
-public class TestHiveCreateExternalTable
+public class TestHiveCreateExternalTableDisabled
         extends AbstractTestQueryFramework
 {
     protected QueryRunner createQueryRunner()
@@ -44,52 +40,39 @@ public class TestHiveCreateExternalTable
                 ImmutableMap.of(),
                 "sql-standard",
                 ImmutableMap.of(
-                        "hive.non-managed-table-writes-enabled", "true"),
+                        "hive.non-managed-table-writes-enabled", "true",
+                        "hive.non-managed-table-creates-enabled", "false"),
                 Optional.empty());
     }
 
     @Test
     public void testCreateExternalTableWithData()
-            throws IOException
-    {
-        String tableName = "test_create_external";
-        File tempDir = createTempDir();
-        File tableLocation = new File(tempDir, tableName);
-
-        @Language("SQL")
-        String createTableSql = format("" +
-                        "CREATE TABLE test_create_external " +
-                        "WITH (external_location = '%s') AS " +
-                        "SELECT * FROM tpch.tiny.nation",
-                tableLocation.toURI().toASCIIString());
-
-        assertUpdate(createTableSql, 25);
-
-        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.nation");
-        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
-
-        String tablePath = (String) computeActual(
-                "SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '/') FROM " + tableName)
-                .getOnlyValue();
-        assertTrue(tablePath.startsWith(tableLocation.toURI().toString()));
-
-        assertUpdate("DROP TABLE test_create_external");
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
-    }
-
-    @Test
-    public void testCreateExternalTableAsWithExistingDirectory()
+            throws Exception
     {
         File tempDir = createTempDir();
 
-        @Language("SQL")
-        String createTableSql = format("" +
+        @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
+        assertQueryFails(createTableSql, "Creating non-managed Hive tables is disabled");
 
-        assertQueryFails(createTableSql, "Target directory for table '.*' already exists:.*");
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTable()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE test_create_external (n TINYINT) " +
+                        "WITH (external_location = '%s')",
+                tempDir.toURI().toASCIIString());
+        assertQueryFails(createTableSql, "Cannot create non-managed Hive table");
+
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 }
