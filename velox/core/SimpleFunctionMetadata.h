@@ -16,6 +16,7 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
+
 #include "folly/Likely.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
@@ -95,6 +96,79 @@ struct ValidateVariadicArgs {
   static constexpr bool value = isValidArg<0, TArgs...>();
 };
 
+// A set of structs used to convert Velox static types to their corresponding
+// string representation in the function signature.
+template <typename T>
+struct TypeStringBuilder {
+  void append(std::ostringstream& out, std::set<std::string>& /*unused*/) {
+    out << boost::algorithm::to_lower_copy(std::string(CppToType<T>::name));
+  }
+};
+
+template <typename T>
+struct TypeStringBuilder<Generic<T>> {
+  void append(std::ostringstream& out, std::set<std::string>& variables) {
+    if constexpr (std::is_same<T, AnyType>::value) {
+      out << "any";
+    } else {
+      auto variableType = fmt::format("__user_T{}", T::getId());
+      out << variableType;
+      variables.insert(variableType);
+    }
+  }
+};
+
+template <typename K, typename V>
+struct TypeStringBuilder<Map<K, V>> {
+  void append(std::ostringstream& out, std::set<std::string>& variables) {
+    out << "map(";
+    TypeStringBuilder<K>().append(out, variables);
+    out << ",";
+    TypeStringBuilder<V>().append(out, variables);
+    out << ")";
+  }
+};
+
+template <typename V>
+struct TypeStringBuilder<Variadic<V>> {
+  void append(std::ostringstream& out, std::set<std::string>& variables) {
+    TypeStringBuilder<V>().append(out, variables);
+  }
+};
+
+template <typename V>
+struct TypeStringBuilder<Array<V>> {
+  void append(std::ostringstream& out, std::set<std::string>& variables) {
+    out << "array(";
+    TypeStringBuilder<V>().append(out, variables);
+    out << ")";
+  }
+};
+
+template <typename... T>
+struct TypeStringBuilder<Row<T...>> {
+  using child_types = std::tuple<T...>;
+
+  template <size_t N>
+  using child_type_at = typename std::tuple_element<N, child_types>::type;
+
+  void append(std::ostringstream& out, std::set<std::string>& variables) {
+    out << "row(";
+    // This expression applies the lambda for each row child type.
+    bool first = true;
+    (
+        [&]() {
+          if (!first) {
+            out << ", ";
+          }
+          first = false;
+          TypeStringBuilder<T>().append(out, variables);
+        }(),
+        ...);
+    out << ")";
+  }
+};
+
 // todo(youknowjack): need a better story for types for UDFs. Mapping
 //                    c++ types <-> Velox types is imprecise (e.g. string vs
 //                    binary) and difficult to change.
@@ -127,7 +201,14 @@ struct CreateType {
 template <typename Underlying>
 struct CreateType<Variadic<Underlying>> {
   static std::shared_ptr<const Type> create() {
-    return CppToType<Underlying>::create();
+    return CreateType<Underlying>::create();
+  }
+};
+
+template <typename T>
+struct CreateType<Generic<T>> {
+  static std::shared_ptr<const Type> create() {
+    return std::make_shared<UnknownType>();
   }
 };
 
@@ -193,14 +274,28 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
             returnType ? std::move(returnType) : CppToType<TReturn>::create()) {
     verifyReturnTypeCompatibility();
   }
+
   ~SimpleFunctionMetadata() override = default;
 
   std::shared_ptr<exec::FunctionSignature> signature() const final {
-    auto builder =
-        exec::FunctionSignatureBuilder().returnType(typeToString(returnType()));
+    std::set<std::string> variables;
+    auto builder = exec::FunctionSignatureBuilder();
 
-    for (const auto& arg : argTypes()) {
-      builder.argumentType(typeToString(arg));
+    std::ostringstream out;
+    TypeStringBuilder<return_type>().append(out, variables);
+    builder.returnType(out.str());
+
+    // This expression applies the lambda for each input arg type.
+    (
+        [&]() {
+          std::ostringstream outLocal;
+          TypeStringBuilder<Args>().append(outLocal, variables);
+          builder.argumentType(outLocal.str());
+        }(),
+        ...);
+
+    for (const auto& variable : variables) {
+      builder.typeVariable(variable);
     }
 
     if (isVariadic()) {
@@ -235,24 +330,6 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
     VELOX_USER_CHECK(
         CppToType<TReturn>::create()->kindEquals(returnType_),
         "return type override mismatch");
-  }
-
-  // convert type to a string representation that is recognized in
-  // FunctionSignature.
-  static std::string typeToString(const TypePtr& type) {
-    std::ostringstream out;
-    out << boost::algorithm::to_lower_copy(std::string(type->kindName()));
-    if (type->size()) {
-      out << "(";
-      for (auto i = 0; i < type->size(); i++) {
-        if (i > 0) {
-          out << ",";
-        }
-        out << typeToString(type->childAt(i));
-      }
-      out << ")";
-    }
-    return out.str();
   }
 
   const std::shared_ptr<const Type> returnType_;

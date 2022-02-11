@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <folly/Format.h>
 #include <folly/Range.h>
@@ -22,13 +23,16 @@
 #include <folly/json.h>
 #include <time.h>
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <typeindex>
 #include <vector>
+
 #include "folly/CPortability.h"
 #include "velox/common/base/ClassName.h"
 #include "velox/common/serialization/Serializable.h"
@@ -463,6 +467,7 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
   VELOX_FLUENT_CAST(Map, MAP)
   VELOX_FLUENT_CAST(Row, ROW)
   VELOX_FLUENT_CAST(Opaque, OPAQUE)
+  VELOX_FLUENT_CAST(UnKnown, UNKNOWN)
 
   bool containsUnknown() const;
 
@@ -1266,6 +1271,26 @@ struct Variadic {
 };
 
 // A type that can be used in simple function to represent any type.
+// Two Generics with the same type variables should bound to the same type.
+template <size_t id>
+struct TypeVariable {
+  static size_t getId() {
+    return id;
+  }
+};
+
+using T1 = TypeVariable<1>;
+using T2 = TypeVariable<2>;
+using T3 = TypeVariable<3>;
+using T4 = TypeVariable<4>;
+using T5 = TypeVariable<5>;
+using T6 = TypeVariable<6>;
+using T7 = TypeVariable<7>;
+using T8 = TypeVariable<8>;
+
+struct AnyType {};
+
+template <typename T = AnyType>
 struct Generic {
   Generic() = delete;
 };

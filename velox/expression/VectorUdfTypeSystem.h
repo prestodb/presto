@@ -103,8 +103,8 @@ struct resolver<Variadic<T>> {
   // Variadic cannot be used as an out_type
 };
 
-template <>
-struct resolver<Generic> {
+template <typename T>
+struct resolver<Generic<T>> {
   using in_type = GenericView;
   using out_type = void; // Not supported as output type yet.
 };
@@ -716,7 +716,6 @@ struct VectorWriter<Row<T...>> {
 
 template <typename T>
 struct VectorReader<Variadic<T>> {
-  using in_vector_t = typename TypeToFlatVector<T>::type;
   using exec_in_t = typename VectorExec::resolver<Variadic<T>>::in_type;
   using exec_null_free_in_t =
       typename VectorExec::template resolver<Variadic<T>>::null_free_in_type;
@@ -1089,17 +1088,17 @@ struct VectorWriter<std::shared_ptr<T>> {
   size_t offset_ = 0;
 };
 
-template <>
-struct VectorReader<Generic> {
+template <typename T>
+struct VectorReader<Generic<T>> {
   using exec_in_t = GenericView;
   using exec_null_free_in_t = exec_in_t;
 
   explicit VectorReader(const DecodedVector* decoded)
       : decoded_(*decoded), base_(decoded->base()) {}
 
-  explicit VectorReader(const VectorReader<Generic>&) = delete;
+  explicit VectorReader(const VectorReader<Generic<T>>&) = delete;
 
-  VectorReader<Generic>& operator=(const VectorReader<Generic>&) = delete;
+  VectorReader<Generic<T>>& operator=(const VectorReader<Generic<T>>&) = delete;
 
   bool isSet(size_t offset) const {
     return !decoded_.isNullAt(offset);
