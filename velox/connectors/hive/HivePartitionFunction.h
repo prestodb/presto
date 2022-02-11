@@ -38,7 +38,7 @@ class HivePartitionFunction : public core::PartitionFunction {
   const std::vector<ChannelIndex> keyChannels_;
 
   // Reusable memory.
-  std::vector<int32_t> hashes_;
+  std::vector<uint32_t> hashes_;
   SelectivityVector rows_;
   std::vector<DecodedVector> decodedVectors_;
 };

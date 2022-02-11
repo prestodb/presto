@@ -23,7 +23,7 @@ void hashTyped(
     const DecodedVector& /* values */,
     vector_size_t /* size */,
     bool /* mix */,
-    std::vector<int32_t>& /* hashes */) {
+    std::vector<uint32_t>& /* hashes */) {
   VELOX_UNSUPPORTED(
       "Hive partitioning function doesn't support {} type",
       TypeTraits<kind>::name);
@@ -34,7 +34,7 @@ void hashTyped<TypeKind::BOOLEAN>(
     const DecodedVector& values,
     vector_size_t size,
     bool mix,
-    std::vector<int32_t>& hashes) {
+    std::vector<uint32_t>& hashes) {
   for (auto i = 0; i < size; ++i) {
     uint32_t hash;
     if (values.isNullAt(i)) {
@@ -56,7 +56,7 @@ void hashTyped<TypeKind::BIGINT>(
     const DecodedVector& values,
     vector_size_t size,
     bool mix,
-    std::vector<int32_t>& hashes) {
+    std::vector<uint32_t>& hashes) {
   for (auto i = 0; i < size; ++i) {
     int32_t hash;
     if (values.isNullAt(i)) {
@@ -74,9 +74,9 @@ void hashTyped<TypeKind::BIGINT>(
 __attribute__((no_sanitize("integer")))
 #endif
 #endif
-int32_t
+uint32_t
 hashBytes(StringView bytes, int32_t initialValue) {
-  int32_t hash = initialValue;
+  uint32_t hash = initialValue;
   auto* data = bytes.data();
   for (auto i = 0; i < bytes.size(); ++i) {
     hash = hash * 31 + *reinterpret_cast<const int8_t*>(data + i);
@@ -89,9 +89,9 @@ void hashTyped<TypeKind::VARCHAR>(
     const DecodedVector& values,
     vector_size_t size,
     bool mix,
-    std::vector<int32_t>& hashes) {
+    std::vector<uint32_t>& hashes) {
   for (auto i = 0; i < size; ++i) {
-    int32_t hash;
+    uint32_t hash;
     if (values.isNullAt(i)) {
       hash = 0;
     } else {
@@ -107,7 +107,7 @@ void hash(
     TypeKind typeKind,
     vector_size_t size,
     bool mix,
-    std::vector<int32_t>& hashes) {
+    std::vector<uint32_t>& hashes) {
   // This function mirrors the behavior of function hashCode in
   // HIVE-12025 ba83fd7bff
   // serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
