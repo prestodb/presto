@@ -44,7 +44,11 @@ inline int64_t getPrestoTZOffsetInSeconds(int16_t tzID) {
 } // namespace
 
 void Timestamp::toTimezone(const date::time_zone& zone) {
-  seconds_ += deltaWithTimezone(zone, seconds_);
+  date::local_time<std::chrono::seconds> localTime{
+      std::chrono::seconds(seconds_)};
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
+      sysTime = zone.to_sys(localTime, date::choose::latest);
+  seconds_ = sysTime.time_since_epoch().count();
 }
 
 void Timestamp::toTimezone(int16_t tzID) {

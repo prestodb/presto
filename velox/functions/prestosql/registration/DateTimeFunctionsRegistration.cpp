@@ -55,6 +55,9 @@ void registerSimpleFunctions() {
   registerFunction<DateTruncFunction, Timestamp, Varchar, Timestamp>(
       {"date_trunc"});
   registerFunction<DateTruncFunction, Date, Varchar, Date>({"date_trunc"});
+  registerFunction<DateAddFunction, Date, Varchar, int64_t, Date>({"date_add"});
+  registerFunction<DateAddFunction, Timestamp, Varchar, int64_t, Timestamp>(
+      {"date_add"});
   registerFunction<
       ParseDateTimeFunction,
       TimestampWithTimezone,

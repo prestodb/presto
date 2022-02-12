@@ -216,9 +216,9 @@ TEST(DateTimeUtilTest, toTimezone) {
   EXPECT_EQ(ts, fromTimestampString("2021-03-14 08:00:00"));
 
   // After it starts, 7h offset:
-  ts = fromTimestampString("2021-03-15 00:00:00");
+  ts = fromTimestampString("2021-03-14 08:00:00");
   ts.toTimezone(*laZone);
-  EXPECT_EQ(ts, fromTimestampString("2021-03-15 07:00:00"));
+  EXPECT_EQ(ts, fromTimestampString("2021-03-14 15:00:00"));
 }
 
 TEST(DateTimeUtilTest, toTimezoneUTC) {
