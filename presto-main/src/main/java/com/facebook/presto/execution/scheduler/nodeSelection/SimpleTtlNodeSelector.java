@@ -277,12 +277,13 @@ public class SimpleTtlNodeSelector
             Set<InternalNode> excludedNodes,
             Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo)
     {
+        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining();
         return nodes.stream()
                 .filter(ttlInfo::containsKey)
                 .filter(node -> includeCoordinator || !node.isCoordinator())
                 .filter(node -> !excludedNodes.contains(node))
                 .filter(node -> ttlInfo.get(node).isPresent())
-                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), getEstimatedExecutionTimeRemaining()))
+                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
                 .collect(toImmutableList());
     }
 }
