@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "velox/expression/tests/FuzzerRunner.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/sparksql/Register.h"
 
 DEFINE_int64(
     seed,
@@ -40,7 +40,7 @@ DEFINE_string(
 DEFINE_int32(steps, 10, "Number of expressions to generate.");
 
 int main(int argc, char** argv) {
-  facebook::velox::functions::prestosql::registerAllScalarFunctions();
+  facebook::velox::functions::sparksql::registerFunctions("");
 
   ::testing::InitGoogleTest(&argc, argv);
 
@@ -49,20 +49,10 @@ int main(int argc, char** argv) {
   // experience, and initialize glog and gflags.
   folly::init(&argc, &argv);
 
-  // TODO: List of the functions that at some point crash or fail and need to
-  // be fixed before we can enable.
+  // The following list are the Spark UDFs that hit issues
+  // For rlike you need the following combo in the only list:
+  // rlike, md5 and upper
   std::unordered_set<std::string> skipFunctions = {
-      "replace",
-      // The pad functions cause the test to OOM. The 2nd arg is only bound by
-      // the max value of int32_t, which leads to strings billions of characters
-      // long.
-      "lpad",
-      "rpad",
-      // Fuzzer and the underlying engine are confused about cardinality(HLL)
-      // (since HLL is a user defined type), and end up trying to use
-      // cardinality passing a VARBINARY (since HLL's implementation uses an
-      // alias to VARBINARY).
-      "cardinality",
-  };
+      "regexp_extract", "rlike", "chr", "replace"};
   return FuzzerRunner::run(FLAGS_only, FLAGS_steps, FLAGS_seed, skipFunctions);
 }

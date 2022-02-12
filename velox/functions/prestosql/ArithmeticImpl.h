@@ -52,19 +52,37 @@ round(const TNum& number, const TDecimals& decimals = 0) {
 
 // This is used by Velox for floating points plus.
 template <typename T>
-T plus(const T a, const T b) {
+T plus(const T a, const T b)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+    __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+{
   return a + b;
 }
 
 // This is used by Velox for floating points minus.
 template <typename T>
-T minus(const T a, const T b) {
+T minus(const T a, const T b)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+    __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+{
   return a - b;
 }
 
 // This is used by Velox for floating points multiply.
 template <typename T>
-T multiply(const T a, const T b) {
+T multiply(const T a, const T b)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+    __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+{
   return a * b;
 }
 

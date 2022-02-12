@@ -51,22 +51,6 @@ namespace {
 
 using exec::SignatureBinder;
 
-// TODO: List of the functions that at some point crash or fail and need to
-// be fixed before we can enable.
-static std::unordered_set<std::string> kSkipFunctions = {
-    "replace",
-    // The pad functions cause the test to OOM. The 2nd arg is only bound by
-    // the max value of int32_t, which leads to strings billions of characters
-    // long.
-    "lpad",
-    "rpad",
-    // Fuzzer and the underlying engine are confused about cardinality(HLL)
-    // (since HLL is a user defined type), and end up trying to use cardinality
-    // passing a VARBINARY (since HLL's implementation uses an alias to
-    // VARBINARY).
-    "cardinality",
-};
-
 // Called if at least one of the ptrs has an exception.
 void compareExceptions(
     std::exception_ptr commonPtr,
@@ -267,11 +251,6 @@ class ExpressionFuzzer {
 
     // Process each available signature for every function.
     for (const auto& function : signatureMap) {
-      if (kSkipFunctions.count(function.first) > 0) {
-        LOG(INFO) << "Skipping buggy function: " << function.first;
-        continue;
-      }
-
       for (const auto& signature : function.second) {
         if (auto callableFunction =
                 processSignature(function.first, *signature)) {

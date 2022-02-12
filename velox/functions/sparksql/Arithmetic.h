@@ -27,8 +27,13 @@ namespace facebook::velox::functions::sparksql {
 template <typename T>
 struct PModFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
-  call(TInput& result, const TInput a, const TInput n) {
+  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput a, const TInput n)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
     if (UNLIKELY(n == 0)) {
       return false;
     }

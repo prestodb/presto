@@ -65,3 +65,8 @@ add_executable(velox_expression_fuzzer_test ExpressionFuzzerTest.cpp)
 
 target_link_libraries(velox_expression_fuzzer_test velox_expression_fuzzer
                       velox_functions_prestosql ${GTEST_BOTH_LIBRARIES})
+
+add_executable(spark_expression_fuzzer_test SparkExpressionFuzzerTest.cpp)
+
+target_link_libraries(spark_expression_fuzzer_test velox_expression_fuzzer
+                      velox_functions_spark ${GTEST_BOTH_LIBRARIES})
