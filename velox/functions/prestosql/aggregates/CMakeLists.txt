@@ -28,6 +28,7 @@ add_library(
   BoolAggregates.cpp
   CountIfAggregate.cpp
   CovarianceAggregates.cpp
+  ChecksumAggregate.cpp
   MapAggAggregate.cpp
   MinMaxAggregates.cpp
   MinMaxByAggregates.cpp

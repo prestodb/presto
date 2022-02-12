@@ -71,6 +71,14 @@ safeHash(const int64_t& a, const int64_t& b) {
   return a * 31 + b;
 }
 
+#if defined(__clang__)
+__attribute__((no_sanitize("signed-integer-overflow")))
+#endif
+FOLLY_ALWAYS_INLINE int64_t
+safeXor(const int64_t& hash, const int64_t& a, const int64_t& b) {
+  return hash + (a ^ b);
+}
+
 } // namespace
 
 template <TypeKind kind>
@@ -208,7 +216,8 @@ void PrestoHasher::hash<TypeKind::MAP>(
       auto offset = rawOffsets[indices[row]];
 
       for (int i = 0; i < size; i++) {
-        hash = rawKeyHashes[offset + i] ^ rawValueHashes[offset + i];
+        hash =
+            safeXor(hash, rawKeyHashes[offset + i], rawValueHashes[offset + i]);
       }
     }
     rawHashes[row] = hash;

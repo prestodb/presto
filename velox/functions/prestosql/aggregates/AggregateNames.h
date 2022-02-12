@@ -47,5 +47,6 @@ const char* const kSum = "sum";
 const char* const kVariance = "variance"; // Alias for var_samp.
 const char* const kVarPop = "var_pop";
 const char* const kVarSamp = "var_samp";
+const char* const kChecksum = "checksum";
 
 } // namespace facebook::velox::aggregate

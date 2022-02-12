@@ -346,6 +346,10 @@ class BaseVector {
 
   virtual void clearNulls(vector_size_t begin, vector_size_t end);
 
+  void clearAllNulls() {
+    clearNulls(0, size());
+  }
+
   virtual void clear() {
     resize(0);
   }

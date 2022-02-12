@@ -1489,3 +1489,18 @@ TEST_F(VectorTest, setStringToNull) {
   EXPECT_TRUE(target->isNullAt(6));
   EXPECT_EQ(4, bits::countNulls(target->rawNulls(), 0, kSize));
 }
+
+TEST_F(VectorTest, clearAllNulls) {
+  auto vectorSize = 100;
+  auto vector = BaseVector::create(INTEGER(), vectorSize, pool_.get());
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  auto rawNulls = vector->mutableRawNulls();
+  ASSERT_EQ(bits::countNulls(rawNulls, 0, vectorSize), 0);
+  bits::setNull(rawNulls, 50);
+  ASSERT_TRUE(vector->isNullAt(50));
+  ASSERT_EQ(bits::countNulls(rawNulls, 0, vectorSize), 1);
+  vector->clearAllNulls();
+  ASSERT_FALSE(vector->mayHaveNulls());
+  ASSERT_FALSE(vector->isNullAt(50));
+}

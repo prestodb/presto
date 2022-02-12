@@ -124,51 +124,6 @@ class PrestoHasherTest : public testing::Test,
         {1, 0, 100, std::nullopt},
         {9155312661752487122, 0, -367469560765523433, 0});
   }
-
-  VectorPtr createMapOfArraysVector(
-      std::map<
-          std::optional<int64_t>,
-          std::optional<std::vector<std::optional<int64_t>>>> map) {
-    std::vector<std::optional<int64_t>> keys;
-    std::vector<std::optional<std::vector<std::optional<int64_t>>>> values;
-    for (const auto& [key, value] : map) {
-      keys.push_back(key);
-      values.push_back(value);
-    }
-
-    auto mapValues = makeVectorWithNullArrays(values);
-
-    auto mapKeys = makeNullableFlatVector<int64_t>(keys);
-    auto size = mapKeys->size();
-    auto offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
-    auto sizes = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
-
-    auto rawOffsets = offsets->asMutable<vector_size_t>();
-    auto rawSizes = sizes->asMutable<vector_size_t>();
-
-    // Create a vector of maps with 1 key , 1 value
-    vector_size_t offset = 0;
-    for (vector_size_t i = 0; i < size; i++) {
-      rawSizes[i] = 1;
-      rawOffsets[i] = offset;
-      offset += 1;
-    }
-
-    return std::make_shared<MapVector>(
-        pool_.get(),
-        MAP(BIGINT(), ARRAY(BIGINT())),
-        nullptr,
-        size,
-        offsets,
-        sizes,
-        mapKeys,
-        mapValues);
-  }
-
-  std::optional<std::vector<std::optional<int64_t>>> O(
-      std::vector<std::optional<int64_t>> data) {
-    return std::make_optional(data);
-  }
 };
 
 TEST_F(PrestoHasherTest, tinyints) {
@@ -266,15 +221,15 @@ TEST_F(PrestoHasherTest, bools) {
 
 TEST_F(PrestoHasherTest, arrays) {
   auto baseArrayVector = vectorMaker_.arrayVectorNullable<int64_t>(
-      {O({1, 2}),
-       O({3, 4}),
-       O({4, 5}),
-       O({6, 7}),
-       O({8, 9}),
-       O({10, 11}),
-       O({12, std::nullopt}),
+      {{{1, 2}},
+       {{3, 4}},
+       {{4, 5}},
+       {{6, 7}},
+       {{8, 9}},
+       {{10, 11}},
+       {{12, std::nullopt}},
        std::nullopt,
-       O({})});
+       {{}}});
 
   assertHash(
       baseArrayVector,
@@ -298,11 +253,11 @@ TEST_F(PrestoHasherTest, arrays) {
 
   // Array with nulls
   auto arrayWithNulls = vectorMaker_.arrayVectorNullable<int64_t>({
-      O({std::nullopt}),
-      O({1, 2, 3}),
-      O({1024, std::nullopt, -99, -999}),
-      O({}),
-      O({std::nullopt, -1}),
+      {{std::nullopt}},
+      {{1, 2, 3}},
+      {{1024, std::nullopt, -99, -999}},
+      {{}},
+      {{std::nullopt, -1}},
   });
 
   assertHash(
@@ -311,6 +266,11 @@ TEST_F(PrestoHasherTest, arrays) {
 }
 
 TEST_F(PrestoHasherTest, maps) {
+  auto mapVectorPair = makeMapVector<int64_t, double>(
+      {{{1, 17.0}, {2, 36.0}, {3, 8.0}, {4, 28.0}, {5, 24.0}, {6, 32.0}}});
+
+  assertHash(mapVectorPair, {-8280251289038521351});
+
   auto mapVector = makeMapVector<int64_t, int64_t>(
       3,
       [](auto /**/) { return 1; },
@@ -321,20 +281,20 @@ TEST_F(PrestoHasherTest, maps) {
       mapVector,
       {9155312661752487122, -6461599496541202183, 5488675304642487510});
 
-  auto mapOfArrays = createMapOfArraysVector(
-      {{1, O({1, 2, 3})}, {2, O({4, 5, 6})}, {3, O({7, 8, 9})}});
+  auto mapOfArrays = createMapOfArraysVector<int64_t, int64_t>(
+      {{{1, {{1, 2, 3}}}}, {{2, {{4, 5, 6}}}}, {{3, {{7, 8, 9}}}}});
   assertHash(
       mapOfArrays,
       {-6691024575166067114, -7912800814947937532, -5636922976001735986});
 
   // map with nulls
-  auto mapWithNullArrays = createMapOfArraysVector(
-      {{1, std::nullopt},
-       {2, O({4, 5, std::nullopt})},
-       {std::nullopt, O({7, 8, 9})}});
+  auto mapWithNullArrays = createMapOfArraysVector<int64_t, int64_t>(
+      {{{1, std::nullopt}},
+       {{2, {{4, 5, std::nullopt}}}},
+       {{std::nullopt, {{7, 8, 9}}}}});
   assertHash(
       mapWithNullArrays,
-      {2644717257979355699, 9155312661752487122, 6562918552317873797});
+      {9155312661752487122, 6562918552317873797, 2644717257979355699});
 }
 
 TEST_F(PrestoHasherTest, rows) {

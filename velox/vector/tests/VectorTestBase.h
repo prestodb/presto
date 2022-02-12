@@ -451,6 +451,55 @@ class VectorTestBase {
     return velox::test::VectorMaker::flatten(vector);
   }
 
+  // Convenience function to create a vector of type Map(K, ARRAY(K)).
+  // Supports null keys, and values and even null elements.
+  // Example:
+  //    createMapOfArraysVector<int64_t>(
+  //      {{{1, std::nullopt}},
+  //       {{2, {{4, 5, std::nullopt}}}},
+  //       {{std::nullopt, {{7, 8, 9}}}}});
+  template <typename K, typename V>
+  VectorPtr createMapOfArraysVector(
+      std::vector<std::map<
+          std::optional<K>,
+          std::optional<std::vector<std::optional<V>>>>> maps) {
+    std::vector<std::optional<K>> keys;
+    std::vector<std::optional<std::vector<std::optional<V>>>> values;
+    for (auto& map : maps) {
+      for (const auto& [key, value] : map) {
+        keys.push_back(key);
+        values.push_back(value);
+      }
+    }
+
+    auto mapValues = makeVectorWithNullArrays(values);
+    auto mapKeys = makeNullableFlatVector<K>(keys);
+    auto size = maps.size();
+
+    auto offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+    auto sizes = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+
+    auto rawOffsets = offsets->template asMutable<vector_size_t>();
+    auto rawSizes = sizes->template asMutable<vector_size_t>();
+
+    vector_size_t offset = 0;
+    for (vector_size_t i = 0; i < size; i++) {
+      rawSizes[i] = maps[i].size();
+      rawOffsets[i] = offset;
+      offset += maps[i].size();
+    }
+
+    return std::make_shared<MapVector>(
+        pool_.get(),
+        MAP(CppToType<K>::create(), ARRAY(CppToType<V>::create())),
+        nullptr,
+        size,
+        offsets,
+        sizes,
+        mapKeys,
+        mapValues);
+  }
+
   memory::MemoryPool* pool() const {
     return pool_.get();
   }

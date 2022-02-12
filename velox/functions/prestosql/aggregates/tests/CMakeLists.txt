@@ -25,6 +25,7 @@ add_executable(
   AverageAggregationTest.cpp
   BitwiseAggregationTest.cpp
   BoolAndOrTest.cpp
+  ChecksumAggregateTest.cpp
   CountAggregationTest.cpp
   CountIfAggregationTest.cpp
   CovarianceAggregationTest.cpp
