@@ -16,6 +16,7 @@
 BUILD_BASE_DIR=_build
 BUILD_DIR=release
 BUILD_TYPE=Release
+BENCHMARKS_DIR=$(BUILD_BASE_DIR)/$(BUILD_DIR)/velox/benchmarks
 TREAT_WARNINGS_AS_ERRORS ?= 1
 ENABLE_WALL ?= 1
 
@@ -85,6 +86,14 @@ release:				#: Build the release version
 min_debug:				#: Minimal build with debugging symbols
 	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=debug EXTRA_CMAKE_FLAGS=-DVELOX_BUILD_MINIMAL=ON
 	$(MAKE) build BUILD_DIR=debug
+
+benchmarks-build:
+	$(MAKE) release EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_BENCHMARKS=ON"
+
+benchmarks-dump:
+	$(MAKE) benchmarks-build
+	mkdir -p $(BENCHMARKS_DIR)/dumps
+	find $(BENCHMARKS_DIR) -type f -executable -exec {} --bm_min_usec 100000 \;
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure

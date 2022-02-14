@@ -22,6 +22,7 @@ workflows:
       - macos-build
       - format-check
       - header-check
+      - linux-benchmarks
 
   # Daily documentation update
   nightly:
@@ -156,6 +157,35 @@ jobs:
          command: |
            _build/debug/velox/examples/velox_example_expression_eval
            _build/debug/velox/examples/velox_example_opaque_type
+
+  linux-benchmarks:
+    executor: build
+    steps:
+      - checkout
+      - run:
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
+      - restore_cache:
+          name: "Restore CCache cache"
+          keys:
+            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+      - run:
+          name: "Run Benchmark Baselines (main)"
+          command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 5Gi
+            source /opt/rh/gcc-toolset-9/enable
+            make benchmarks-dump
+            ccache -s
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: '_build/debug/.ninja_log'
+      - save_cache:
+          name: "Save CCache cache"
+          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
 
   # Build with different options
   linux-build-options:

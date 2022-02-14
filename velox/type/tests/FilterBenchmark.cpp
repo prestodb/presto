@@ -53,11 +53,11 @@ int32_t run4x64(const std::vector<int64_t>& data) {
 }
 
 BENCHMARK(scalarDense) {
-  folly::doNotOptimizeAway(run1x64(sparseValues));
+  folly::doNotOptimizeAway(run1x64(denseValues));
 }
 
 BENCHMARK_RELATIVE(simdDense) {
-  folly::doNotOptimizeAway(run4x64(sparseValues));
+  folly::doNotOptimizeAway(run4x64(denseValues));
 }
 
 BENCHMARK(scalarSparse) {

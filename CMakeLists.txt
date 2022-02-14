@@ -28,6 +28,7 @@ option(
   VELOX_BUILD_MINIMAL
   "Build a minimal set of components only. This will override other build options."
   OFF)
+option(VELOX_BUILD_BENCHMARKS "Build top level benchmarks." OFF)
 
 option(VELOX_ENABLE_DUCKDB "Build duckDB to enable differential testing." ON)
 option(VELOX_ENABLE_EXEC "Build exec." ON)
@@ -40,6 +41,7 @@ option(VELOX_ENABLE_PARSE "Build parser used for unit tests." ON)
 option(VELOX_ENABLE_EXAMPLES
        "Build examples. This will enable VELOX_ENABLE_EXPRESSION automatically."
        ON)
+option(VELOX_ENABLE_BENCHMARKS "Build velox top level benchmarks." OFF)
 option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
 option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(VELOX_BUILD_TEST_UTILS "Enable Velox test utilities" OFF)
@@ -48,6 +50,7 @@ if(${VELOX_BUILD_MINIMAL})
   # Enable and disable components for velox base build
   set(VELOX_BUILD_TESTING OFF)
   set(VELOX_ENABLE_PRESTO_FUNCTIONS ON)
+  set(VELOX_ENABLE_BENCHMARKS OFF)
   set(VELOX_ENABLE_DUCKDB OFF)
   set(VELOX_ENABLE_EXPRESSION ON)
   set(VELOX_ENABLE_PARSE OFF)
@@ -74,6 +77,13 @@ endif()
 
 if(${VELOX_ENABLE_EXAMPLES})
   set(VELOX_ENABLE_EXPRESSION ON)
+endif()
+
+if(${VELOX_BUILD_BENCHMARKS})
+  set(VELOX_ENABLE_BENCHMARKS ON)
+  set(VELOX_ENABLE_DUCKDB ON)
+  set(VELOX_ENABLE_PARSE ON)
+  set(VELOX_BUILD_TEST_UTILS ON)
 endif()
 
 if(VELOX_ENABLE_S3)
