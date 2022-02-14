@@ -125,6 +125,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -567,7 +568,8 @@ public final class HiveUtil
                 DATE.equals(type) ||
                 TIMESTAMP.equals(type) ||
                 isVarcharType(type) ||
-                isCharType(type);
+                isCharType(type) ||
+                isEnumType(type);
     }
 
     public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)

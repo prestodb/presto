@@ -14,7 +14,7 @@
 
 import React from "react";
 
-import {getProgressBarPercentage, getProgressBarTitle, getQueryStateColor, isQueryEnded} from "../utils";
+import {getHumanReadableState, getProgressBarPercentage, getProgressBarTitle, getQueryStateColor, isQueryEnded} from "../utils";
 
 export class QueryHeader extends React.Component {
     constructor(props) {
@@ -23,14 +23,31 @@ export class QueryHeader extends React.Component {
 
     renderProgressBar() {
         const query = this.props.query;
-        const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
+        const queryStateColor = getQueryStateColor(
+            query.state,
+            query.queryStats && query.queryStats.fullyBlocked,
+            query.errorType,
+            query.errorCode ? query.errorCode.name : null
+        );
+        const humanReadableState = getHumanReadableState(
+            query.state,
+            query.state === "RUNNING" && query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0,
+            query.queryStats.fullyBlocked,
+            query.queryStats.blockedReasons,
+            query.memoryPool,
+            query.errorType,
+            query.errorCode ? query.errorCode.name : null
+        );
+        const progressPercentage = getProgressBarPercentage(query.queryStats.progressPercentage, query.state);
+        const progressBarStyle = {width: progressPercentage + "%", backgroundColor: queryStateColor};
+        const progressBarTitle = getProgressBarTitle(query.queryStats.progressPercentage, query.state, humanReadableState);
 
-        if (isQueryEnded(query)) {
+        if (isQueryEnded(query.state)) {
             return (
                 <div className="progress-large">
-                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
+                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin="0" aria-valuemax="100"
                          style={progressBarStyle}>
-                        {getProgressBarTitle(query)}
+                        {progressBarTitle}
                     </div>
                 </div>
             );
@@ -42,9 +59,9 @@ export class QueryHeader extends React.Component {
                 <tr>
                     <td width="100%">
                         <div className="progress-large">
-                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
+                            <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin="0" aria-valuemax="100"
                                  style={progressBarStyle}>
-                                {getProgressBarTitle(query)}
+                                {progressBarTitle}
                             </div>
                         </div>
                     </td>

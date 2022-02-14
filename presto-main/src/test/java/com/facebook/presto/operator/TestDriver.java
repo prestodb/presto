@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -103,8 +104,11 @@ public class TestDriver
 
     private static final FragmentResultCacheContext TESTING_FRAGMENT_RESULT_CACHE_CONTEXT = createFragmentResultCacheContext(
             new TestingFragmentResultCacheManager(),
-            new AggregationNode(new PlanNodeId("test-agg"),
+            new AggregationNode(
+                    Optional.empty(),
+                    new PlanNodeId("test-agg"),
                     new TableScanNode(
+                            Optional.empty(),
                             new PlanNodeId("test-scan"),
                             TESTING_TABLE_HANDLE,
                             ImmutableList.of(),
@@ -646,7 +650,7 @@ public class TestDriver
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
             return ImmutableList.of();
         }

@@ -28,7 +28,7 @@ import static com.google.common.primitives.Primitives.wrap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class CastBytecodeExpression
+public class CastBytecodeExpression
         extends BytecodeExpression
 {
     private static final ParameterizedType OBJECT_TYPE = type(Object.class);

@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorSession;
@@ -44,6 +45,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
@@ -56,7 +58,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 
-final class IcebergUtil
+public final class IcebergUtil
 {
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
@@ -72,12 +74,17 @@ final class IcebergUtil
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
                 metastore,
-                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty()),
+                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
                 hdfsEnvironment,
                 hdfsContext,
                 table.getSchemaName(),
                 table.getTableName());
         return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static Table getNativeIcebergTable(IcebergResourceFactory resourceFactory, ConnectorSession session, SchemaTableName table)
+    {
+        return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)

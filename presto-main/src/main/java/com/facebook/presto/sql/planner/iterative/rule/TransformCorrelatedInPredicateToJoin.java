@@ -175,6 +175,7 @@ public class TransformCorrelatedInPredicateToJoin
         PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();
 
         AssignUniqueId probeSide = new AssignUniqueId(
+                apply.getSourceLocation(),
                 idAllocator.getNextId(),
                 apply.getInput(),
                 variableAllocator.newVariable("unique", BIGINT));
@@ -214,6 +215,7 @@ public class TransformCorrelatedInPredicateToJoin
                 new NotExpression(matchCondition));
 
         AggregationNode aggregation = new AggregationNode(
+                apply.getSourceLocation(),
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 ImmutableMap.<VariableReferenceExpression, AggregationNode.Aggregation>builder()
@@ -244,6 +246,7 @@ public class TransformCorrelatedInPredicateToJoin
     private static JoinNode leftOuterJoin(PlanNodeIdAllocator idAllocator, AssignUniqueId probeSide, ProjectNode buildSide, Expression joinExpression)
     {
         return new JoinNode(
+                probeSide.getSourceLocation(),
                 idAllocator.getNextId(),
                 JoinNode.Type.LEFT,
                 probeSide,

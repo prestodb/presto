@@ -486,6 +486,7 @@ public class TestSourcePartitionedScheduler
 
         // table scan with splitCount splits
         TableScanNode tableScan = new TableScanNode(
+                Optional.empty(),
                 TABLE_SCAN_NODE_ID,
                 new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 ImmutableList.of(variable),
@@ -493,10 +494,12 @@ public class TestSourcePartitionedScheduler
                 TupleDomain.all(),
                 TupleDomain.all());
 
-        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), false, Optional.empty(), GATHER);
+        RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), false, Optional.empty(), GATHER);
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId(0),
-                new JoinNode(new PlanNodeId("join_id"),
+                new JoinNode(
+                        Optional.empty(),
+                        new PlanNodeId("join_id"),
                         INNER,
                         tableScan,
                         remote,

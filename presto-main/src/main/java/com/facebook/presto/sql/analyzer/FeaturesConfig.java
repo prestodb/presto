@@ -94,6 +94,7 @@ public class FeaturesConfig
     private boolean optimizedScaleWriterProducerBuffer;
     private boolean optimizeMetadataQueries;
     private boolean optimizeMetadataQueriesIgnoreStats;
+    private int optimizeMetadataQueriesCallThreshold = 100;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
@@ -128,6 +129,8 @@ public class FeaturesConfig
     private boolean aggregationSpillEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
     private boolean dedupBasedDistinctAggregationSpillEnabled;
+    private boolean distinctAggregationLargeBlockSpillEnabled;
+    private DataSize distinctAggregationLargeBlockSizeThreshold = new DataSize(50, MEGABYTE);
     private boolean orderByAggregationSpillEnabled = true;
     private boolean windowSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
@@ -210,6 +213,8 @@ public class FeaturesConfig
     private boolean queryOptimizationWithMaterializedViewEnabled;
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private boolean verboseRuntimeStatsEnabled;
+    private boolean hashBasedDistinctLimitEnabled;
+    private int hashBasedDistinctLimitThreshold = 10000;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -290,6 +295,7 @@ public class FeaturesConfig
     {
         DISABLED,
         FILTER_WITH_IF, // Rewrites AGG(IF(condition, expr)) to AGG(IF(condition, expr)) FILTER (WHERE condition).
+        UNWRAP_IF_SAFE, // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition) if it is safe to do so.
         UNWRAP_IF // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition).
     }
 
@@ -772,6 +778,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public int getOptimizeMetadataQueriesCallThreshold()
+    {
+        return optimizeMetadataQueriesCallThreshold;
+    }
+
+    @Config("optimizer.optimize-metadata-queries-call-threshold")
+    @ConfigDescription("The threshold number of service calls to metastore, used in optimization for metadata queries")
+    public FeaturesConfig setOptimizeMetadataQueriesCallThreshold(int optimizeMetadataQueriesCallThreshold)
+    {
+        this.optimizeMetadataQueriesCallThreshold = optimizeMetadataQueriesCallThreshold;
+        return this;
+    }
+
     public boolean isUseMarkDistinct()
     {
         return useMarkDistinct;
@@ -967,6 +986,32 @@ public class FeaturesConfig
     public boolean isDedupBasedDistinctAggregationSpillEnabled()
     {
         return dedupBasedDistinctAggregationSpillEnabled;
+    }
+
+    @Config("experimental.distinct-aggregation-large-block-spill-enabled")
+    @ConfigDescription("Spill large block to a separate spill file")
+    public FeaturesConfig setDistinctAggregationLargeBlockSpillEnabled(boolean distinctAggregationLargeBlockSpillEnabled)
+    {
+        this.distinctAggregationLargeBlockSpillEnabled = distinctAggregationLargeBlockSpillEnabled;
+        return this;
+    }
+
+    public boolean isDistinctAggregationLargeBlockSpillEnabled()
+    {
+        return distinctAggregationLargeBlockSpillEnabled;
+    }
+
+    @Config("experimental.distinct-aggregation-large-block-size-threshold")
+    @ConfigDescription("Block size threshold beyond which it will be spilled into a separate spill file")
+    public FeaturesConfig setDistinctAggregationLargeBlockSizeThreshold(DataSize distinctAggregationLargeBlockSizeThreshold)
+    {
+        this.distinctAggregationLargeBlockSizeThreshold = distinctAggregationLargeBlockSizeThreshold;
+        return this;
+    }
+
+    public DataSize getDistinctAggregationLargeBlockSizeThreshold()
+    {
+        return distinctAggregationLargeBlockSizeThreshold;
     }
 
     @Config("experimental.order-by-aggregation-spill-enabled")
@@ -1885,5 +1930,31 @@ public class FeaturesConfig
     {
         this.aggregationIfToFilterRewriteStrategy = strategy;
         return this;
+    }
+
+    public boolean isHashBasedDistinctLimitEnabled()
+    {
+        return hashBasedDistinctLimitEnabled;
+    }
+
+    @Config("hash-based-distinct-limit-enabled")
+    @ConfigDescription("Enable fast hash-based distinct limit")
+    public FeaturesConfig setHashBasedDistinctLimitEnabled(boolean hashBasedDistinctLimitEnabled)
+    {
+        this.hashBasedDistinctLimitEnabled = hashBasedDistinctLimitEnabled;
+        return this;
+    }
+
+    @Config("hash-based-distinct-limit-threshold")
+    @ConfigDescription("Threshold for fast hash-based distinct limit")
+    public FeaturesConfig setHashBasedDistinctLimitThreshold(int hashBasedDistinctLimitThreshold)
+    {
+        this.hashBasedDistinctLimitThreshold = hashBasedDistinctLimitThreshold;
+        return this;
+    }
+
+    public int getHashBasedDistinctLimitThreshold()
+    {
+        return hashBasedDistinctLimitThreshold;
     }
 }

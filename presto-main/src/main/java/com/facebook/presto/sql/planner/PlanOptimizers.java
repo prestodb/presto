@@ -101,6 +101,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilt
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
+import com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMap;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
@@ -118,6 +119,7 @@ import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
+import com.facebook.presto.sql.planner.optimizations.HashBasedPartialDistinctLimit;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -288,6 +290,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarAtTimeZone(metadata, sqlParser).rules())
                                 .addAll(new DesugarCurrentUser().rules())
                                 .addAll(new DesugarTryExpression().rules())
+                                .addAll(new SimplifyCardinalityMap().rules())
                                 .addAll(new DesugarRowSubscript(metadata, sqlParser).rules())
                                 .build()),
                 new IterativeOptimizer(
@@ -623,6 +626,10 @@ public class PlanOptimizers
 
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer(metadata.getFunctionAndTypeManager()));
+
+        // Add some opportunistic optimizations for queries with limit to utilize precomputed hash from the previous step
+        builder.add(new HashBasedPartialDistinctLimit(metadata.getFunctionAndTypeManager()));
+
         builder.add(new MetadataDeleteOptimizer(metadata));
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging

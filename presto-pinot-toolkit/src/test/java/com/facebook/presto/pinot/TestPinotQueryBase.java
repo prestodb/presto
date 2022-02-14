@@ -92,6 +92,7 @@ public class TestPinotQueryBase
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");
     protected static PinotTableHandle hybridTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "hybrid");
     protected static PinotColumnHandle regionId = new PinotColumnHandle("regionId", BIGINT, REGULAR);
+    protected static PinotColumnHandle distinctCountDim = new PinotColumnHandle("distinctCountDim", BIGINT, REGULAR);
     protected static PinotColumnHandle city = new PinotColumnHandle("city", VARCHAR, REGULAR);
     protected static final PinotColumnHandle fare = new PinotColumnHandle("fare", DOUBLE, REGULAR);
     protected static final PinotColumnHandle scores = array(DOUBLE, "scores");
@@ -101,7 +102,10 @@ public class TestPinotQueryBase
 
     protected static final Metadata metadata = MetadataManager.createTestMetadataManager();
 
-    protected final PinotConfig pinotConfig = new PinotConfig();
+    protected final PinotConfig pinotConfig = new PinotConfig()
+            .setMinConnectionsPerServer(1)
+            .setMaxConnectionsPerServer(2)
+            .setThreadPoolSize(2);
 
     protected static final Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> testInput =
             ImmutableMap.<VariableReferenceExpression, PinotQueryGeneratorContext.Selection>builder()
@@ -112,6 +116,7 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression(Optional.empty(), "city", VARCHAR), new PinotQueryGeneratorContext.Selection("city", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "scores", new ArrayType(DOUBLE)), new PinotQueryGeneratorContext.Selection("scores", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
+                    .put(new VariableReferenceExpression(Optional.empty(), "distinctCountDim", DOUBLE), new PinotQueryGeneratorContext.Selection("distinctCountDim", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column
@@ -235,18 +240,18 @@ public class TestPinotQueryBase
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)
     {
-        return new LimitNode(pb.getIdAllocator().getNextId(), source, count, FINAL);
+        return new LimitNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, FINAL);
     }
 
     protected DistinctLimitNode distinctLimit(PlanBuilder pb, List<VariableReferenceExpression> distinctVariables, long count, PlanNode source)
     {
-        return new DistinctLimitNode(pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty());
+        return new DistinctLimitNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty());
     }
 
     protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)
     {
         ImmutableList<Ordering> ordering = IntStream.range(0, orderingColumns.size()).boxed().map(i -> new Ordering(variable(orderingColumns.get(i)), ascending.get(i) ? SortOrder.ASC_NULLS_FIRST : SortOrder.DESC_NULLS_FIRST)).collect(toImmutableList());
-        return new TopNNode(pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
+        return new TopNNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
     }
 
     protected RowExpression getRowExpression(String sqlExpression, SessionHolder sessionHolder)

@@ -912,6 +912,15 @@ public abstract class AbstractTestJoinQueries
         }
     }
 
+    @Test(enabled = false)
+    public void testOuterJoinWithExpression()
+    {
+        assertQuery("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey * 2 + 1 = o.orderkey");
+        assertQuery("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey * 5 - o.orderkey * 10 = 1");
+        assertQuery("SELECT o.orderkey FROM orders o LEFT JOIN lineitem l ON l.orderkey * 2 + 1 = o.orderkey");
+        assertQuery("SELECT o.orderkey FROM orders o LEFT JOIN lineitem l ON l.orderkey * 5 - o.orderkey * 10 = 1");
+    }
+
     @Test
     public void testOuterJoinWithComplexCorrelatedSubquery()
     {

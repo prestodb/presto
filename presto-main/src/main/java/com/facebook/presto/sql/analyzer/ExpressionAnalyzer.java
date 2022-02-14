@@ -21,10 +21,12 @@ import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -35,7 +37,6 @@ import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -142,6 +143,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
@@ -979,8 +981,28 @@ public class ExpressionAnalyzer
                     throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, initialValueArg, "REDUCE_AGG only supports non-NULL literal as the initial value", initialValueArg);
                 }
             }
+
             Type type = functionAndTypeManager.getType(functionMetadata.getReturnType());
+
+            if (type instanceof MapType) {
+                Type keyType = ((MapType) type).getKeyType();
+                if (TypeUtils.isApproximateNumericType(keyType)) {
+                    String warningMessage = createWarningMessage(node, "Map keys with real/double type can be non-deterministic. Please use decimal type instead");
+                    warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, warningMessage));
+                }
+            }
+
             return setExpressionType(node, type);
+        }
+
+        private String createWarningMessage(Node node, String message)
+        {
+            if (node.getLocation().isPresent()) {
+                return format("%s Expression:%s line %s:%s", message, node, node.getLocation().get().getLineNumber(), node.getLocation().get().getColumnNumber());
+            }
+            else {
+                return format("%s Expression:%s", message, node);
+            }
         }
 
         @Override
@@ -1416,7 +1438,7 @@ public class ExpressionAnalyzer
         {
             if (sqlFunctionProperties.isLegacyTypeCoercionWarningEnabled()) {
                 if ((type.getTypeSignature().getBase().equals(StandardTypes.DATE) || type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) && superType.getTypeSignature().getBase().equals(StandardTypes.VARCHAR)) {
-                    warningCollector.add(new PrestoWarning(StandardWarningCode.SEMANTIC_WARNING, format("This query relies on legacy semantic behavior that coerces date/timestamp to varchar. Expression: %s", expression)));
+                    warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, format("This query relies on legacy semantic behavior that coerces date/timestamp to varchar. Expression: %s", expression)));
                 }
             }
             NodeRef<Expression> ref = NodeRef.of(expression);

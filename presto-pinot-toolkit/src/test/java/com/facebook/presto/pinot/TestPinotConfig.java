@@ -29,6 +29,7 @@ public class TestPinotConfig
         ConfigAssertions.assertRecordedDefaults(
                 ConfigAssertions.recordDefaults(PinotConfig.class)
                         .setExtraHttpHeaders("")
+                        .setExtraGrpcMetadata("")
                         .setControllerUrls("")
                         .setIdleTimeout(new Duration(5, TimeUnit.MINUTES))
                         .setLimitLargeForSegment(PinotConfig.DEFAULT_LIMIT_LARGE_FOR_SEGMENT)
@@ -43,6 +44,7 @@ public class TestPinotConfig
                         .setServiceHeaderParam("RPC-Service")
                         .setCallerHeaderValue("presto")
                         .setCallerHeaderParam("RPC-Caller")
+                        .setOverrideDistinctCountFunction("distinctCount")
                         .setMetadataCacheExpiry(new Duration(2, TimeUnit.MINUTES))
                         .setAllowMultipleAggregations(true)
                         .setInferDateTypeInSchema(true)
@@ -55,6 +57,9 @@ public class TestPinotConfig
                         .setProxyGrpcPort(PinotConfig.DEFAULT_PROXY_GRPC_PORT)
                         .setUseProxyForBrokerRequest(false)
                         .setUseProxyGrpcEndpoint(false)
+                        .setUseHttpsForController(false)
+                        .setUseHttpsForBroker(false)
+                        .setUseHttpsForProxy(false)
                         .setNumSegmentsPerSplit(1)
                         .setFetchRetryCount(2)
                         .setMarkDataFetchExceptionsAsRetriable(true)
@@ -73,6 +78,7 @@ public class TestPinotConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("pinot.extra-http-headers", "k:v")
+                .put("pinot.extra-grpc-metadata", "k1:v1")
                 .put("pinot.controller-rest-service", "pinot-controller-service")
                 .put("pinot.controller-urls", "host1:1111,host2:1111")
                 .put("pinot.idle-timeout", "1h")
@@ -109,10 +115,15 @@ public class TestPinotConfig
                 .put("pinot.forbid-segment-queries", "true")
                 .put("pinot.use-streaming-for-segment-queries", "true")
                 .put("pinot.streaming-server-grpc-max-inbound-message-bytes", "65536")
+                .put("pinot.use-https-for-controller", "true")
+                .put("pinot.use-https-for-broker", "true")
+                .put("pinot.use-https-for-proxy", "true")
+                .put("pinot.override-distinct-count-function", "distinctCountBitmap")
                 .build();
 
         PinotConfig expected = new PinotConfig()
                 .setExtraHttpHeaders("k:v")
+                .setExtraGrpcMetadata("k1:v1")
                 .setControllerRestService("pinot-controller-service")
                 .setControllerUrls("host1:1111,host2:1111")
                 .setRestProxyUrl("localhost:1111")
@@ -132,6 +143,7 @@ public class TestPinotConfig
                 .setServiceHeaderParam("myServiceHeader")
                 .setCallerHeaderValue("myCaller")
                 .setCallerHeaderParam("myParam")
+                .setOverrideDistinctCountFunction("distinctCountBitmap")
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MINUTES))
                 .setAllowMultipleAggregations(false)
                 .setInferDateTypeInSchema(false)
@@ -149,7 +161,10 @@ public class TestPinotConfig
                 .setForbidSegmentQueries(true)
                 .setUseStreamingForSegmentQueries(true)
                 .setStreamingServerGrpcMaxInboundMessageBytes(65536)
-                .setUseDateTrunc(true);
+                .setUseDateTrunc(true)
+                .setUseHttpsForController(true)
+                .setUseHttpsForBroker(true)
+                .setUseHttpsForProxy(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

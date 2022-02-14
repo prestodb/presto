@@ -148,6 +148,7 @@ public class KeyBasedSampler
                     new ConstantExpression(arg.getSourceLocation(), getKeyBasedSamplingPercentage(session), DOUBLE));
 
             FilterNode filterNode = new FilterNode(
+                    tableScanNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     tableScanNode,
                     predicate);

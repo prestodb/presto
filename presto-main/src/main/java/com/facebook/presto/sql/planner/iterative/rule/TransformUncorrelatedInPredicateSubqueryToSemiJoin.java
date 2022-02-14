@@ -81,7 +81,9 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         InPredicate inPredicate = (InPredicate) expression;
         VariableReferenceExpression semiJoinVariable = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
 
-        SemiJoinNode replacement = new SemiJoinNode(context.getIdAllocator().getNextId(),
+        SemiJoinNode replacement = new SemiJoinNode(
+                applyNode.getSourceLocation(),
+                context.getIdAllocator().getNextId(),
                 applyNode.getInput(),
                 applyNode.getSubquery(),
                 context.getVariableAllocator().toVariableReference(inPredicate.getValue()),

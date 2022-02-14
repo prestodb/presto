@@ -97,6 +97,7 @@ public class SimplifyCountOverConstant
         }
 
         return Result.ofPlanNode(new AggregationNode(
+                parent.getSourceLocation(),
                 parent.getId(),
                 child,
                 aggregations,

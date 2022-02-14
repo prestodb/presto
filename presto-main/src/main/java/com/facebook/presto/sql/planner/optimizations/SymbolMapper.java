@@ -143,7 +143,7 @@ public class SymbolMapper
     {
         // SymbolMapper inlines symbol with multiple level reference (SymbolInliner only inline single level).
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
-        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<VariableReferenceExpression, SortOrder>();
+        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<>();
         for (VariableReferenceExpression variable : orderingScheme.getOrderByVariables()) {
             VariableReferenceExpression translated = map(variable);
             // Some variables may become duplicates after canonicalization, so we put them only once.
@@ -179,6 +179,7 @@ public class SymbolMapper
         }
 
         return new AggregationNode(
+                source.getSourceLocation(),
                 newNodeId,
                 source,
                 aggregations.build(),
@@ -223,6 +224,7 @@ public class SymbolMapper
 
         ImmutableMap<VariableReferenceExpression, SortOrder> orderingMap = orderings.build();
         return new TopNNode(
+                node.getSourceLocation(),
                 newNodeId,
                 source,
                 node.getCount(),
@@ -243,6 +245,7 @@ public class SymbolMapper
                 .collect(toImmutableList());
 
         return new TableWriterNode(
+                source.getSourceLocation(),
                 newNodeId,
                 source,
                 node.getTarget(),
@@ -260,6 +263,7 @@ public class SymbolMapper
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
     {
         return new StatisticsWriterNode(
+                node.getSourceLocation(),
                 node.getId(),
                 source,
                 node.getTableHandle(),
@@ -271,6 +275,7 @@ public class SymbolMapper
     public TableFinishNode map(TableFinishNode node, PlanNode source)
     {
         return new TableFinishNode(
+                node.getSourceLocation(),
                 node.getId(),
                 source,
                 node.getTarget(),
@@ -282,6 +287,7 @@ public class SymbolMapper
     public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)
     {
         return new TableWriterMergeNode(
+                node.getSourceLocation(),
                 node.getId(),
                 source,
                 map(node.getRowCountVariable()),

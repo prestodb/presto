@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -34,7 +35,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;

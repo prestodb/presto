@@ -131,6 +131,7 @@ public class TransformExistsApplyToLateralNode
         PlanNode subquery = new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 new LimitNode(
+                        applyNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         applyNode.getSubquery(),
                         1L,
@@ -144,6 +145,7 @@ public class TransformExistsApplyToLateralNode
 
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
                 new LateralJoinNode(
+                        applyNode.getSourceLocation(),
                         applyNode.getId(),
                         applyNode.getInput(),
                         subquery,
@@ -159,11 +161,13 @@ public class TransformExistsApplyToLateralNode
         VariableReferenceExpression exists = getOnlyElement(parent.getSubqueryAssignments().getVariables());
 
         return new LateralJoinNode(
+                parent.getSourceLocation(),
                 parent.getId(),
                 parent.getInput(),
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new AggregationNode(
+                                parent.getSourceLocation(),
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(

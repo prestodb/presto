@@ -14,14 +14,17 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.concurrent.ThreadLocalCache;
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.type.TimestampOperators;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -46,6 +49,7 @@ import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
@@ -173,8 +177,11 @@ public final class DateTimeFunctions
         try {
             timeZoneKey = getTimeZoneKeyForOffset(toIntExact(hoursOffset * 60 + minutesOffset));
         }
+        catch (NotSupportedException | TimeZoneNotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
         }
         return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
     }
@@ -184,7 +191,15 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
     {
-        return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+        try {
+            return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+        }
+        catch (NotSupportedException | TimeZoneNotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
     }
 
     @ScalarFunction("to_unixtime")
@@ -962,6 +977,42 @@ public final class DateTimeFunctions
     public static long dayFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
         return milliseconds / MILLISECONDS_IN_DAY;
+    }
+
+    @Description("last day of the month of the given timestamp")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    {
+        ISOChronology isoChronology = unpackChronology(timestampWithTimeZone);
+        long millis = unpackMillisUtc(timestampWithTimeZone);
+        // Calculate point in time corresponding to midnight (00:00) of first day of next month in the given zone.
+        millis = isoChronology.monthOfYear().roundCeiling(millis + 1);
+        // Convert to UTC and take the previous day
+        millis = isoChronology.getZone().convertUTCToLocal(millis) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("last day of the month of the given timestamp")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    {
+        if (properties.isLegacyTimestamp()) {
+            long date = TimestampOperators.castToDate(properties, timestamp);
+            return lastDayOfMonthFromDate(date);
+        }
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp + 1) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
+    }
+
+    @Description("last day of the month of the given date")
+    @ScalarFunction("last_day_of_month")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
+    {
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(millis);
     }
 
     @Description("day of the year of the given timestamp")

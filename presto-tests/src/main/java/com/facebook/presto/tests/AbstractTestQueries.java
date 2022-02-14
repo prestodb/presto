@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
+import static com.facebook.presto.SystemSessionProperties.HASH_BASED_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
@@ -964,16 +965,34 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDistinctLimitWithHashBasedDistinctLimitEnabled()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(HASH_BASED_DISTINCT_LIMIT_ENABLED, "true")
+                .build();
+        testDistinctLimitInternal(session);
+    }
+
+    @Test
     public void testDistinctLimit()
     {
-        assertQuery("" +
+        testDistinctLimitInternal(getSession());
+    }
+
+    public void testDistinctLimitInternal(Session session)
+    {
+        assertQuery(session,
                 "SELECT DISTINCT orderstatus, custkey " +
                 "FROM (SELECT orderstatus, custkey FROM orders ORDER BY orderkey LIMIT 10) " +
                 "LIMIT 10");
-        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
-        assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
+        assertQuery(session, "SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
+        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
+        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 10000");
+        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 15000");
+        assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 2");
+        assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
 
-        assertQuery("" +
+        assertQuery(session, "" +
                         "SELECT DISTINCT x " +
                         "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
                         "LIMIT 100",

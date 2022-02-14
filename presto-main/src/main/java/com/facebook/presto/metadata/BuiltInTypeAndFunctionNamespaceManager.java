@@ -335,6 +335,7 @@ import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRIN
 import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static com.facebook.presto.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static com.facebook.presto.operator.scalar.JsonToRowCast.JSON_TO_ROW;
+import static com.facebook.presto.operator.scalar.KDistinct.K_DISTINCT;
 import static com.facebook.presto.operator.scalar.Least.LEAST;
 import static com.facebook.presto.operator.scalar.MapConcatFunction.MAP_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
@@ -825,6 +826,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST)
                 .function(APPROXIMATE_MOST_FREQUENT)
+                .function(K_DISTINCT)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)

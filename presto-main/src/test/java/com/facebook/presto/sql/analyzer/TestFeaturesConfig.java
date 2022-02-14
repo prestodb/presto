@@ -79,6 +79,7 @@ public class TestFeaturesConfig
                 .setOptimizedScaleWriterProducerBuffer(false)
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeMetadataQueriesIgnoreStats(false)
+                .setOptimizeMetadataQueriesCallThreshold(100)
                 .setOptimizeHashGeneration(true)
                 .setPushTableWriteThroughUnion(true)
                 .setDictionaryAggregation(false)
@@ -95,6 +96,8 @@ public class TestFeaturesConfig
                 .setAggregationSpillEnabled(true)
                 .setDistinctAggregationSpillEnabled(true)
                 .setDedupBasedDistinctAggregationSpillEnabled(false)
+                .setDistinctAggregationLargeBlockSpillEnabled(false)
+                .setDistinctAggregationLargeBlockSizeThreshold(DataSize.valueOf("50MB"))
                 .setOrderByAggregationSpillEnabled(true)
                 .setWindowSpillEnabled(true)
                 .setOrderBySpillEnabled(true)
@@ -182,7 +185,9 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
                 .setVerboseRuntimeStatsEnabled(false)
-                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED));
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
+                .setHashBasedDistinctLimitEnabled(false)
+                .setHashBasedDistinctLimitThreshold(10000));
     }
 
     @Test
@@ -233,6 +238,7 @@ public class TestFeaturesConfig
                 .put("optimized-scale-writer-producer-buffer", "true")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-metadata-queries-ignore-stats", "true")
+                .put("optimizer.optimize-metadata-queries-call-threshold", "200")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
@@ -247,6 +253,8 @@ public class TestFeaturesConfig
                 .put("experimental.aggregation-spill-enabled", "false")
                 .put("experimental.distinct-aggregation-spill-enabled", "false")
                 .put("experimental.dedup-based-distinct-aggregation-spill-enabled", "true")
+                .put("experimental.distinct-aggregation-large-block-spill-enabled", "true")
+                .put("experimental.distinct-aggregation-large-block-size-threshold", "10MB")
                 .put("experimental.order-by-aggregation-spill-enabled", "false")
                 .put("experimental.window-spill-enabled", "false")
                 .put("experimental.order-by-spill-enabled", "false")
@@ -316,6 +324,8 @@ public class TestFeaturesConfig
                 .put("query-optimization-with-materialized-view-enabled", "true")
                 .put("verbose-runtime-stats-enabled", "true")
                 .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
+                .put("hash-based-distinct-limit-enabled", "true")
+                .put("hash-based-distinct-limit-threshold", "500")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -354,6 +364,7 @@ public class TestFeaturesConfig
                 .setOptimizedScaleWriterProducerBuffer(true)
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeMetadataQueriesIgnoreStats(true)
+                .setOptimizeMetadataQueriesCallThreshold(200)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeMixedDistinctAggregations(true)
                 .setPushTableWriteThroughUnion(false)
@@ -372,6 +383,8 @@ public class TestFeaturesConfig
                 .setAggregationSpillEnabled(false)
                 .setDistinctAggregationSpillEnabled(false)
                 .setDedupBasedDistinctAggregationSpillEnabled(true)
+                .setDistinctAggregationLargeBlockSpillEnabled(true)
+                .setDistinctAggregationLargeBlockSizeThreshold(DataSize.valueOf("10MB"))
                 .setOrderByAggregationSpillEnabled(false)
                 .setWindowSpillEnabled(false)
                 .setOrderBySpillEnabled(false)
@@ -446,7 +459,9 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
                 .setVerboseRuntimeStatsEnabled(true)
-                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF);
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
+                .setHashBasedDistinctLimitEnabled(true)
+                .setHashBasedDistinctLimitThreshold(500);
         assertFullMapping(properties, expected);
     }
 

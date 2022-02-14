@@ -336,7 +336,7 @@ public class PinotQueryGeneratorContext
 
         String expressions = outputs.stream()
                 .filter(o -> !groupByColumns.contains(o)) // remove the group by columns from the query as Pinot barfs if the group by column is an expression
-                .map(o -> selections.get(o).getDefinition())
+                .map(o -> updateSelection(selections.get(o).getDefinition(), session))
                 .collect(Collectors.joining(", "));
 
         if (expressions.isEmpty()) {
@@ -375,7 +375,7 @@ public class PinotQueryGeneratorContext
                 }
             }
             else {
-                queryLimit = pinotConfig.getTopNLarge();
+                queryLimit = PinotSessionProperties.getTopNLarge(session);
             }
         }
         String limitClause = "";
@@ -430,7 +430,7 @@ public class PinotQueryGeneratorContext
                 .collect(Collectors.joining(", "));
         String selectExpressions = outputs.stream()
                 .filter(o -> !groupByColumns.contains(o))
-                .map(o -> selections.get(o).getDefinition())
+                .map(o -> updateSelection(selections.get(o).getDefinition(), session))
                 .collect(Collectors.joining(", "));
         String expressions = (groupByExpressions.isEmpty()) ?
                 selectExpressions :
@@ -461,7 +461,7 @@ public class PinotQueryGeneratorContext
                 queryLimit = limit.getAsInt();
             }
             else {
-                queryLimit = pinotConfig.getTopNLarge();
+                queryLimit = PinotSessionProperties.getTopNLarge(session);
             }
         }
         String limitClause = "";
@@ -472,6 +472,15 @@ public class PinotQueryGeneratorContext
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(true);
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
         return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
+    }
+
+    private String updateSelection(String definition, ConnectorSession session)
+    {
+        final String overrideDistinctCountFunction = PinotSessionProperties.getOverrideDistinctCountFunction(session);
+        if (!PINOT_DISTINCT_COUNT_FUNCTION_NAME.equalsIgnoreCase(overrideDistinctCountFunction)) {
+            return definition.replaceFirst(PINOT_DISTINCT_COUNT_FUNCTION_NAME.toUpperCase() + "\\(", overrideDistinctCountFunction.toUpperCase() + "\\(");
+        }
+        return definition;
     }
 
     private List<Integer> getIndicesMappingFromPinotSchemaToPrestoSchema(String query, Map<VariableReferenceExpression, PinotColumnHandle> assignments)

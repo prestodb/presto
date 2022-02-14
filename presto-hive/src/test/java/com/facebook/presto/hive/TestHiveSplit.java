@@ -102,7 +102,7 @@ public class TestHiveSplit
                 OptionalInt.empty(),
                 NO_PREFERENCE,
                 10,
-                TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty()))),
+                TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty(), Optional.empty()))),
                 Optional.of(new HiveSplit.BucketConversion(
                         32,
                         16,

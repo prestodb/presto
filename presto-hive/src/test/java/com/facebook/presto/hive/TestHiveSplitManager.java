@@ -123,15 +123,15 @@ public class TestHiveSplitManager
     private static final HiveType LONT_DECIMAL = HiveType.valueOf("decimal(38,10)");
     private static final HiveType SHORT_DECIMAL = HiveType.valueOf("decimal(10,0)");
     private static final List<Column> COLUMNS = ImmutableList.of(
-            new Column("t_tinyint", HIVE_BYTE, Optional.empty()),
-            new Column("t_smallint", HIVE_SHORT, Optional.empty()),
-            new Column("t_int", HIVE_INT, Optional.empty()),
-            new Column("t_bigint", HIVE_LONG, Optional.empty()),
-            new Column("t_float", HIVE_FLOAT, Optional.empty()),
-            new Column("t_double", HIVE_DOUBLE, Optional.empty()),
-            new Column("t_short_decimal", SHORT_DECIMAL, Optional.empty()),
-            new Column("t_long_decimal", LONT_DECIMAL, Optional.empty()),
-            new Column("t_date", HIVE_DATE, Optional.empty()));
+            new Column("t_tinyint", HIVE_BYTE, Optional.empty(), Optional.empty()),
+            new Column("t_smallint", HIVE_SHORT, Optional.empty(), Optional.empty()),
+            new Column("t_int", HIVE_INT, Optional.empty(), Optional.empty()),
+            new Column("t_bigint", HIVE_LONG, Optional.empty(), Optional.empty()),
+            new Column("t_float", HIVE_FLOAT, Optional.empty(), Optional.empty()),
+            new Column("t_double", HIVE_DOUBLE, Optional.empty(), Optional.empty()),
+            new Column("t_short_decimal", SHORT_DECIMAL, Optional.empty(), Optional.empty()),
+            new Column("t_long_decimal", LONT_DECIMAL, Optional.empty(), Optional.empty()),
+            new Column("t_date", HIVE_DATE, Optional.empty(), Optional.empty()));
     private static final String PARTITION_VALUE = "2020-01-01";
     private static final String PARTITION_NAME = "ds=2020-01-01";
     private static final Table TEST_TABLE = new Table(
@@ -147,7 +147,7 @@ public class TestHiveSplitManager
                     ImmutableMap.of(),
                     ImmutableMap.of()),
             COLUMNS,
-            ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty())),
+            ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())),
             ImmutableMap.of(),
             Optional.empty(),
             Optional.empty());
@@ -511,7 +511,8 @@ public class TestHiveSplitManager
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer());
+                new HiveFileRenamer(),
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -525,7 +526,6 @@ public class TestHiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),

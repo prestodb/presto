@@ -30,6 +30,7 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
@@ -48,7 +49,7 @@ public class RollbackToSnapshotProcedure
     private final IcebergMetadataFactory metadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final IcebergResourceFactory resourceFactory;
-    private final boolean nativeCatalogMode;
+    private final CatalogType catalogType;
 
     @Inject
     public RollbackToSnapshotProcedure(
@@ -61,7 +62,7 @@ public class RollbackToSnapshotProcedure
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         requireNonNull(config, "config is null");
-        this.nativeCatalogMode = config.isNativeMode();
+        this.catalogType = config.getCatalogType();
     }
 
     @Override
@@ -82,7 +83,7 @@ public class RollbackToSnapshotProcedure
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         ConnectorMetadata metadata = metadataFactory.create();
         Table icebergTable;
-        if (nativeCatalogMode) {
+        if (catalogType == HADOOP) {
             icebergTable = resourceFactory.getCatalog(clientSession).loadTable(toIcebergTableIdentifier(schema, table));
         }
         else {

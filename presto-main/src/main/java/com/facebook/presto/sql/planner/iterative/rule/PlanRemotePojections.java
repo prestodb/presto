@@ -83,7 +83,7 @@ public class PlanRemotePojections
         // Fast check for remote functions
         if (node.getAssignments().getExpressions().stream().noneMatch(expression -> expression.accept(new ExternalCallExpressionChecker(functionAndTypeManager), null))) {
             // No remote function
-            return Result.ofPlanNode(new ProjectNode(node.getId(), node.getSource(), node.getAssignments(), LOCAL));
+            return Result.ofPlanNode(new ProjectNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getAssignments(), LOCAL));
         }
         if (!isRemoteFunctionsEnabled(context.getSession())) {
             throw new PrestoException(GENERIC_USER_ERROR, "Remote functions are not enabled");
@@ -92,7 +92,7 @@ public class PlanRemotePojections
         checkState(!projectionContexts.isEmpty(), "Expect non-empty projectionContexts");
         PlanNode rewritten = node.getSource();
         for (ProjectionContext projectionContext : projectionContexts) {
-            rewritten = new ProjectNode(context.getIdAllocator().getNextId(), rewritten, Assignments.builder().putAll(projectionContext.getProjections()).build(), projectionContext.remote ? REMOTE : LOCAL);
+            rewritten = new ProjectNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), rewritten, Assignments.builder().putAll(projectionContext.getProjections()).build(), projectionContext.remote ? REMOTE : LOCAL);
         }
         return Result.ofPlanNode(rewritten);
     }

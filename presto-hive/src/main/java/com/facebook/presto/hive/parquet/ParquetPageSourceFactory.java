@@ -95,7 +95,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -179,7 +178,6 @@ public class ParquetPageSourceFactory
                 columns,
                 tableName,
                 isUseParquetColumnNames(session),
-                isFailOnCorruptedParquetStatistics(session),
                 getParquetMaxReadBlockSize(session),
                 isParquetBatchReadsEnabled(session),
                 isParquetBatchReaderVerificationEnabled(session),
@@ -202,7 +200,6 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             SchemaTableName tableName,
             boolean useParquetColumnNames,
-            boolean failOnCorruptedParquetStatistics,
             DataSize maxReadBlockSize,
             boolean batchReaderEnabled,
             boolean verificationEnabled,
@@ -252,7 +249,7 @@ public class ParquetPageSourceFactory
             final ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
                     hiveFileContext.incrementCounter("parquet.blocksRead", 1);
                     hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
@@ -401,7 +398,7 @@ public class ParquetPageSourceFactory
         return Optional.of(type);
     }
 
-    private static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
+    public static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
     {
         String prestoType = type.getTypeSignature().getBase();
         if (parquetType instanceof GroupType) {

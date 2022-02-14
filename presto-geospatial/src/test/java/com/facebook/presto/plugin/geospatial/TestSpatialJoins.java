@@ -14,10 +14,12 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HivePlugin;
 import com.facebook.presto.hive.MetastoreClientConfig;
@@ -102,7 +104,8 @@ public class TestSpatialJoins
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty()), Database.builder()
+        ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
+        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, columnConverterProvider), Database.builder()
                 .setDatabaseName("default")
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)

@@ -118,6 +118,7 @@ public class MockRemoteTaskFactory
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId(0),
                 new TableScanNode(
+                        Optional.empty(),
                         sourceId,
                         new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
                         ImmutableList.of(variable),

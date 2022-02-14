@@ -158,7 +158,7 @@ public class RowExpressionRewriteRuleSet
             }
             Assignments assignments = builder.build();
             if (anyRewritten) {
-                return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments, projectNode.getLocality()));
+                return Result.ofPlanNode(new ProjectNode(projectNode.getSourceLocation(), projectNode.getId(), projectNode.getSource(), assignments, projectNode.getLocality()));
             }
             return Result.empty();
         }
@@ -183,6 +183,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new SpatialJoinNode(
+                    spatialJoinNode.getSourceLocation(),
                     spatialJoinNode.getId(),
                     spatialJoinNode.getType(),
                     spatialJoinNode.getLeft(),
@@ -218,6 +219,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new JoinNode(
+                    joinNode.getSourceLocation(),
                     joinNode.getId(),
                     joinNode.getType(),
                     joinNode.getLeft(),
@@ -270,6 +272,7 @@ public class RowExpressionRewriteRuleSet
             }
             if (anyRewritten) {
                 return Result.ofPlanNode(new WindowNode(
+                        windowNode.getSourceLocation(),
                         windowNode.getId(),
                         windowNode.getSource(),
                         windowNode.getSpecification(),
@@ -301,6 +304,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new ApplyNode(
+                    applyNode.getSourceLocation(),
                     applyNode.getId(),
                     applyNode.getInput(),
                     applyNode.getSubquery(),
@@ -342,7 +346,7 @@ public class RowExpressionRewriteRuleSet
             if (filterNode.getPredicate().equals(rewritten)) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+            return Result.ofPlanNode(new FilterNode(filterNode.getSourceLocation(), filterNode.getId(), filterNode.getSource(), rewritten));
         }
     }
 
@@ -372,7 +376,7 @@ public class RowExpressionRewriteRuleSet
                 rows.add(newRow.build());
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.getSourceLocation(), valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
             }
             return Result.empty();
         }
@@ -404,6 +408,7 @@ public class RowExpressionRewriteRuleSet
 
             if (changed) {
                 AggregationNode aggregationNode = new AggregationNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getSource(),
                         rewrittenAggregation.build(),
@@ -440,6 +445,7 @@ public class RowExpressionRewriteRuleSet
 
             if (rewrittenStatisticsAggregation.isPresent()) {
                 return Result.ofPlanNode(new TableFinishNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getSource(),
                         node.getTarget(),
@@ -490,6 +496,7 @@ public class RowExpressionRewriteRuleSet
 
             if (rewrittenStatisticsAggregation.isPresent()) {
                 return Result.ofPlanNode(new TableWriterNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getSource(),
                         node.getTarget(),

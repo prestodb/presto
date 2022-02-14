@@ -137,6 +137,8 @@ import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
+import com.facebook.presto.spiller.StandaloneSpillerFactory;
+import com.facebook.presto.spiller.TempStorageStandaloneSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -287,6 +289,7 @@ public class LocalQueryRunner
     private final TransactionManager transactionManager;
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
+    private final StandaloneSpillerFactory standaloneSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
 
     private final PageFunctionCompiler pageFunctionCompiler;
@@ -511,6 +514,7 @@ public class LocalQueryRunner
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingManager, spillerStats, featuresConfig, nodeSpillConfig);
         this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
+        this.standaloneSpillerFactory = new TempStorageStandaloneSpillerFactory(new TestingTempStorageManager(), blockEncodingManager, nodeSpillConfig, featuresConfig, spillerStats);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
@@ -838,7 +842,8 @@ public class LocalQueryRunner
                 jsonCodec(TableCommitContext.class),
                 new RowExpressionDeterminismEvaluator(metadata),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper());
+                new ObjectMapper(),
+                standaloneSpillerFactory);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

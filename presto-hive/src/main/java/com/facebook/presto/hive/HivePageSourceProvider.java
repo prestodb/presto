@@ -557,9 +557,6 @@ public class HivePageSourceProvider
                     partitionDataColumnCount,
                     tableToPartitionMapping.getPartitionSchemaDifference(),
                     tableToPartitionMapping.getTableToPartitionColumns());
-            List<Column> partitionKeyColumns = partitionKeyColumnHandles.stream()
-                    .map(handle -> new Column(handle.getName(), handle.getHiveType(), handle.getComment()))
-                    .collect(toImmutableList());
 
             Properties schema = getHiveSchema(
                     storage,
@@ -568,7 +565,8 @@ public class HivePageSourceProvider
                     tableParameters,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
-                    partitionKeyColumns);
+                    partitionKeyColumnHandles.stream().map(column -> column.getName()).collect(toImmutableList()),
+                    partitionKeyColumnHandles.stream().map(column -> column.getHiveType()).collect(toImmutableList()));
 
             Optional<RecordCursor> cursor = provider.createRecordCursor(
                     configuration,

@@ -28,6 +28,7 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tracing.NoopTracerProvider;
+import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -54,7 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.SystemSessionProperties.ENABLE_DISTRIBUTED_TRACING;
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_TRACING_MODE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
@@ -481,18 +482,23 @@ public final class HttpRequestSessionContext
      */
     private boolean isTracingEnabled()
     {
-        String clientValue = systemProperties.getOrDefault(ENABLE_DISTRIBUTED_TRACING, "");
+        String clientValue = systemProperties.getOrDefault(DISTRIBUTED_TRACING_MODE, TracingConfig.DistributedTracingMode.NO_TRACE.name());
 
         // Client session setting overrides everything.
-        if (clientValue.equalsIgnoreCase("true")) {
+        if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.ALWAYS_TRACE.name())) {
             return true;
         }
-        if (clientValue.equalsIgnoreCase("false")) {
+        if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.NO_TRACE.name())) {
             return false;
         }
 
-        // Client not set, we then take system default value. If property manager not provided then false.
-        return sessionPropertyManager.map(manager -> manager.decodeSystemPropertyValue(ENABLE_DISTRIBUTED_TRACING, null, Boolean.class)).orElse(false);
+        // Client not set, we then take system default value, and only init
+        // tracing if it's SAMPLE_BASED (TracingConfig prohibits you to
+        // configure system default to be ALWAYS_TRACE). If property manager
+        // not provided then false.
+        return sessionPropertyManager
+                .map(manager -> manager.decodeSystemPropertyValue(DISTRIBUTED_TRACING_MODE, null, TracingConfig.DistributedTracingMode.class) == TracingConfig.DistributedTracingMode.SAMPLE_BASED)
+                .orElse(false);
     }
 
     private Set<String> parseClientTags(HttpServletRequest servletRequest)

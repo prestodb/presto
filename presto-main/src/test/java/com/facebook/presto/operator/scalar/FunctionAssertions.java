@@ -16,9 +16,9 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
@@ -46,6 +46,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
@@ -87,6 +88,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -147,6 +149,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -401,6 +404,13 @@ public final class FunctionAssertions
                 throw failure;
             }
         }
+    }
+
+    public void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
+    {
+        assertThatThrownBy(() -> evaluateInvalid(projection))
+                .isInstanceOf(throwableClass)
+                .hasMessageMatching(message);
     }
 
     public void assertNumericOverflow(String projection, String message)
@@ -1146,7 +1156,7 @@ public final class FunctionAssertions
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
             return ImmutableList.of();
         }

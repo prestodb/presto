@@ -29,6 +29,8 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
 
+import javax.annotation.Nullable;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -88,7 +90,7 @@ public class PlanVariableAllocator
     }
 
     @Override
-    public VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, String nameHint, Type type, String suffix)
+    public VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, String nameHint, Type type, @Nullable String suffix)
     {
         requireNonNull(nameHint, "name is null");
         requireNonNull(type, "type is null");
@@ -116,11 +118,10 @@ public class PlanVariableAllocator
         unique = DISALLOWED_CHAR_PATTERN.matcher(unique).replaceAll("_");
 
         String attempt = unique;
-        while (variables.containsKey(attempt)) {
+        while (variables.putIfAbsent(attempt, type) != null) {
             attempt = unique + "_" + nextId();
         }
 
-        variables.put(attempt, type);
         return new VariableReferenceExpression(sourceLocation, attempt, type);
     }
 

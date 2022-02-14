@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.StreamLayout.ByColumnSize;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
+import com.facebook.presto.orc.writer.StreamLayoutFactory;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
 import io.airlift.units.DataSize;
 
 import java.util.Optional;
@@ -55,9 +56,10 @@ public class OrcWriterOptions
     private final DataSize maxStringStatisticsLimit;
     private final DataSize maxCompressionBufferSize;
     private final OptionalInt compressionLevel;
-    private final StreamLayout streamLayout;
+    private final StreamLayoutFactory streamLayoutFactory;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
+    private final boolean stringDictionaryEncodingEnabled;
     // TODO: Originally the dictionary row group sizes were not included in memory accounting due
     //  to a bug. Fixing the bug causes certain queries to OOM. When enabled this flag maintains the
     //  previous behavior so previously working queries will not OOM. The OOMs caused due to the
@@ -78,9 +80,10 @@ public class OrcWriterOptions
             DataSize maxStringStatisticsLimit,
             DataSize maxCompressionBufferSize,
             OptionalInt compressionLevel,
-            StreamLayout streamLayout,
+            StreamLayoutFactory streamLayoutFactory,
             boolean integerDictionaryEncodingEnabled,
             boolean stringDictionarySortingEnabled,
+            boolean stringDictionaryEncodingEnabled,
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions,
             boolean ignoreDictionaryRowGroupSizes,
             int preserveDirectEncodingStripeCount)
@@ -95,7 +98,7 @@ public class OrcWriterOptions
         requireNonNull(maxStringStatisticsLimit, "maxStringStatisticsLimit is null");
         requireNonNull(maxCompressionBufferSize, "maxCompressionBufferSize is null");
         requireNonNull(compressionLevel, "compressionLevel is null");
-        requireNonNull(streamLayout, "streamLayout is null");
+        requireNonNull(streamLayoutFactory, "streamLayoutFactory is null");
         requireNonNull(dwrfWriterOptions, "dwrfWriterOptions is null");
 
         this.stripeMinSize = stripeMinSize;
@@ -109,9 +112,10 @@ public class OrcWriterOptions
         this.maxStringStatisticsLimit = maxStringStatisticsLimit;
         this.maxCompressionBufferSize = maxCompressionBufferSize;
         this.compressionLevel = compressionLevel;
-        this.streamLayout = streamLayout;
+        this.streamLayoutFactory = streamLayoutFactory;
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
+        this.stringDictionaryEncodingEnabled = stringDictionaryEncodingEnabled;
         this.dwrfWriterOptions = dwrfWriterOptions;
         this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
         this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
@@ -172,9 +176,9 @@ public class OrcWriterOptions
         return compressionLevel;
     }
 
-    public StreamLayout getStreamLayout()
+    public StreamLayoutFactory getStreamLayoutFactory()
     {
-        return streamLayout;
+        return streamLayoutFactory;
     }
 
     public boolean isIntegerDictionaryEncodingEnabled()
@@ -185,6 +189,11 @@ public class OrcWriterOptions
     public boolean isStringDictionarySortingEnabled()
     {
         return stringDictionarySortingEnabled;
+    }
+
+    public boolean isStringDictionaryEncodingEnabled()
+    {
+        return stringDictionaryEncodingEnabled;
     }
 
     public Optional<DwrfStripeCacheOptions> getDwrfStripeCacheOptions()
@@ -217,13 +226,19 @@ public class OrcWriterOptions
                 .add("maxStringStatisticsLimit", maxStringStatisticsLimit)
                 .add("maxCompressionBufferSize", maxCompressionBufferSize)
                 .add("compressionLevel", compressionLevel)
-                .add("streamLayout", streamLayout)
+                .add("streamLayoutFactory", streamLayoutFactory)
                 .add("integerDictionaryEncodingEnabled", integerDictionaryEncodingEnabled)
                 .add("stringDictionarySortingEnabled", stringDictionarySortingEnabled)
+                .add("stringDictionaryEncodingEnabled", stringDictionaryEncodingEnabled)
                 .add("dwrfWriterOptions", dwrfWriterOptions)
                 .add("ignoreDictionaryRowGroupSizes", ignoreDictionaryRowGroupSizes)
                 .add("preserveDirectEncodingStripeCount", preserveDirectEncodingStripeCount)
                 .toString();
+    }
+
+    public static OrcWriterOptions getDefaultOrcWriterOptions()
+    {
+        return OrcWriterOptions.builder().build();
     }
 
     public static Builder builder()
@@ -244,9 +259,10 @@ public class OrcWriterOptions
         private DataSize maxStringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private DataSize maxCompressionBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
         private OptionalInt compressionLevel = OptionalInt.empty();
-        private StreamLayout streamLayout = new ByColumnSize();
+        private StreamLayoutFactory streamLayoutFactory = new ColumnSizeLayoutFactory();
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
+        private boolean stringDictionaryEncodingEnabled = true;
         private boolean dwrfStripeCacheEnabled;
         private DwrfStripeCacheMode dwrfStripeCacheMode = DEFAULT_DWRF_STRIPE_CACHE_MODE;
         private DataSize dwrfStripeCacheMaxSize = DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
@@ -322,9 +338,9 @@ public class OrcWriterOptions
             return this;
         }
 
-        public Builder withStreamLayout(StreamLayout streamLayout)
+        public Builder withStreamLayoutFactory(StreamLayoutFactory streamLayoutFactory)
         {
-            this.streamLayout = requireNonNull(streamLayout, "streamLayout is null");
+            this.streamLayoutFactory = requireNonNull(streamLayoutFactory, "streamLayoutFactory is null");
             return this;
         }
 
@@ -337,6 +353,12 @@ public class OrcWriterOptions
         public Builder withStringDictionarySortingEnabled(boolean stringDictionarySortingEnabled)
         {
             this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
+            return this;
+        }
+
+        public Builder withStringDictionaryEncodingEnabled(boolean stringDictionaryEncodingEnabled)
+        {
+            this.stringDictionaryEncodingEnabled = stringDictionaryEncodingEnabled;
             return this;
         }
 
@@ -392,9 +414,10 @@ public class OrcWriterOptions
                     maxStringStatisticsLimit,
                     maxCompressionBufferSize,
                     compressionLevel,
-                    streamLayout,
+                    streamLayoutFactory,
                     integerDictionaryEncodingEnabled,
                     stringDictionarySortingEnabled,
+                    stringDictionaryEncodingEnabled,
                     dwrfWriterOptions,
                     ignoreDictionaryRowGroupSizes,
                     preserveDirectEncodingStripeCount);

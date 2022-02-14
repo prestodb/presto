@@ -57,6 +57,7 @@ public class TransformCorrelatedLateralJoinToJoin
 
         return decorrelatedNodeOptional.map(decorrelatedNode ->
                 Result.ofPlanNode(new JoinNode(
+                        lateralJoinNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         lateralJoinNode.getType().toJoinNodeType(),
                         lateralJoinNode.getInput(),

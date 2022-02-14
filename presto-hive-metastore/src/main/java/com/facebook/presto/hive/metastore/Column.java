@@ -34,16 +34,19 @@ public class Column
     private final String name;
     private final HiveType type;
     private final Optional<String> comment;
+    private final Optional<String> typeMetadata;
 
     @JsonCreator
     public Column(
             @JsonProperty("name") String name,
             @JsonProperty("type") HiveType type,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("typeMetadata") Optional<String> typeMetadata)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.typeMetadata = requireNonNull(typeMetadata, "typeMetadata is null");
     }
 
     @JsonProperty
@@ -62,6 +65,12 @@ public class Column
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    public Optional<String> getTypeMetadata()
+    {
+        return typeMetadata;
     }
 
     @Override

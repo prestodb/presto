@@ -14,6 +14,9 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
@@ -27,7 +30,6 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
@@ -78,6 +80,13 @@ import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TypeUtils.isNumericType;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -96,6 +105,13 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMe
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -109,7 +125,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 @ThreadSafe
 public class ThriftHiveMetastore
@@ -257,7 +272,23 @@ public class ThriftHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
     {
-        return MetastoreUtil.getSupportedColumnStatistics(type);
+        if (type.equals(BOOLEAN)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
+        }
+        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+        }
+        if (isVarcharType(type) || isCharType(type)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+        }
+        if (type.equals(VARBINARY)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+        }
+        if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
+            return ImmutableSet.of();
+        }
+        // Throwing here to make sure this method is updated when a new type is added in Hive connector
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     @Override
@@ -406,10 +437,9 @@ public class ThriftHiveMetastore
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), basicStatistics));
         alterTable(metastoreContext, databaseName, tableName, modifiedTable);
 
-        com.facebook.presto.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
+        com.facebook.presto.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable, metastoreContext.getColumnConverter());
         OptionalLong rowCount = basicStatistics.getRowCount();
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
-                .filter(entry -> table.getColumn(entry.getKey()).get().getType().getTypeInfo().getCategory() == PRIMITIVE)
                 .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue(), rowCount))
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
@@ -484,7 +514,7 @@ public class ThriftHiveMetastore
         alterPartitionWithoutStatistics(metastoreContext, databaseName, tableName, modifiedPartition);
 
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
-                .collect(toImmutableMap(FieldSchema::getName, schema -> HiveType.valueOf(schema.getType())));
+                .collect(toImmutableMap(FieldSchema::getName, schema -> metastoreContext.getColumnConverter().toColumn(schema).getType()));
         setPartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionName, columns, updatedStatistics.getColumnStatistics(), basicStatistics.getRowCount());
 
         Set<String> removedStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
@@ -931,7 +961,7 @@ public class ThriftHiveMetastore
     public void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         List<Partition> partitions = partitionsWithStatistics.stream()
-                .map(ThriftMetastoreUtil::toMetastoreApiPartition)
+                .map(part -> ThriftMetastoreUtil.toMetastoreApiPartition(part, metastoreContext.getColumnConverter()))
                 .collect(toImmutableList());
         addPartitionsWithoutStatistics(metastoreContext, databaseName, tableName, partitions);
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
@@ -1023,7 +1053,7 @@ public class ThriftHiveMetastore
     @Override
     public void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
-        alterPartitionWithoutStatistics(metastoreContext, databaseName, tableName, toMetastoreApiPartition(partitionWithStatistics));
+        alterPartitionWithoutStatistics(metastoreContext, databaseName, tableName, toMetastoreApiPartition(partitionWithStatistics, metastoreContext.getColumnConverter()));
         storePartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionWithStatistics.getPartitionName(), partitionWithStatistics);
         dropExtraColumnStatisticsAfterAlterPartition(metastoreContext, databaseName, tableName, partitionWithStatistics);
     }

@@ -14,9 +14,9 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.TimeZoneKey;
@@ -42,6 +42,8 @@ import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -208,7 +210,7 @@ public class IcebergPageSource
             if (type.equals(DOUBLE)) {
                 return parseDouble(valueString);
             }
-            if (type.equals(DATE)) {
+            if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP)) {
                 return parseLong(valueString);
             }
             if (type instanceof VarcharType) {

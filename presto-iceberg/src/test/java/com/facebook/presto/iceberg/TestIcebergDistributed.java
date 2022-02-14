@@ -46,37 +46,13 @@ public class TestIcebergDistributed
         return false;
     }
 
-    public void testJoinWithLessThanOnDatesInJoinClause()
-    {
-    }
-
     @Override
     public void testRenameTable()
     {
     }
 
     @Override
-    public void testAddColumn()
-    {
-    }
-
-    @Override
     public void testRenameColumn()
-    {
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-    }
-
-    @Override
-    public void testInsert()
-    {
-    }
-
-    @Override
-    public void testCreateTable()
     {
     }
 
@@ -112,11 +88,6 @@ public class TestIcebergDistributed
 
     @Override
     public void testDescribeOutputNamedAndUnnamed()
-    {
-    }
-
-    @Override
-    public void testWrittenStats()
     {
     }
 }

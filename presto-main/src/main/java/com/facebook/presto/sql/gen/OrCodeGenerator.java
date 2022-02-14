@@ -40,7 +40,7 @@ public class OrCodeGenerator
         Preconditions.checkArgument(arguments.size() == 2);
 
         // We flatten the AND here.
-        Deque<RowExpression> stack = new ArrayDeque<RowExpression>();
+        Deque<RowExpression> stack = new ArrayDeque<>();
         stack.push(arguments.get(1));
         stack.push(arguments.get(0));
 

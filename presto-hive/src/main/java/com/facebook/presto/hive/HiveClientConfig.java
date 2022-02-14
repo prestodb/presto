@@ -49,6 +49,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "hive.max-global-split-iterator-threads",
         "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
+        "hive.parquet.fail-on-corrupted-statistics",
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
@@ -101,7 +102,6 @@ public class HiveClientConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
-    private boolean failOnCorruptedParquetStatistics = true;
     private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean assumeCanonicalPartitionKeys;
@@ -166,6 +166,7 @@ public class HiveClientConfig
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
+    private boolean parquetPushdownFilterEnabled;
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
@@ -202,6 +203,9 @@ public class HiveClientConfig
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
 
+    private boolean userDefinedTypeEncodingEnabled;
+
+    @Min(0)
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -317,6 +321,18 @@ public class HiveClientConfig
     public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
     {
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        return this;
+    }
+
+    public boolean isUserDefinedTypeEncodingEnabled()
+    {
+        return userDefinedTypeEncodingEnabled;
+    }
+
+    @Config("hive.user-defined-type-encoding-enabled")
+    public HiveClientConfig setUserDefinedTypeEncodingEnabled(boolean userDefinedTypeEncodingEnabled)
+    {
+        this.userDefinedTypeEncodingEnabled = userDefinedTypeEncodingEnabled;
         return this;
     }
 
@@ -920,19 +936,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isFailOnCorruptedParquetStatistics()
-    {
-        return failOnCorruptedParquetStatistics;
-    }
-
-    @Config("hive.parquet.fail-on-corrupted-statistics")
-    @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
-    public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
-    {
-        this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
-        return this;
-    }
-
     @NotNull
     public DataSize getParquetMaxReadBlockSize()
     {
@@ -1451,6 +1454,20 @@ public class HiveClientConfig
     public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
     {
         this.pushdownFilterEnabled = pushdownFilterEnabled;
+        return this;
+    }
+
+    @NotNull
+    public boolean isParquetPushdownFilterEnabled()
+    {
+        return parquetPushdownFilterEnabled;
+    }
+
+    @Config("hive.parquet.pushdown-filter-enabled")
+    @ConfigDescription("Experimental: enable complex filter pushdown for Parquet")
+    public HiveClientConfig setParquetPushdownFilterEnabled(boolean parquetPushdownFilterEnabled)
+    {
+        this.parquetPushdownFilterEnabled = parquetPushdownFilterEnabled;
         return this;
     }
 

@@ -85,7 +85,6 @@ public class TestHiveClientConfig
                 .setWriteValidationThreads(16)
                 .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
                 .setUseParquetColumnNames(false)
-                .setFailOnCorruptedParquetStatistics(true)
                 .setParquetMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
                 .setUseOrcColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(false)
@@ -133,6 +132,7 @@ public class TestHiveClientConfig
                 .setCreateEmptyBucketFilesForTemporaryTable(false)
                 .setUsePageFileForHiveUnsupportedType(true)
                 .setPushdownFilterEnabled(false)
+                .setParquetPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
                 .setRangeFiltersOnSubscriptsEnabled(false)
                 .setAdaptiveFilterReorderingEnabled(true)
@@ -159,6 +159,7 @@ public class TestHiveClientConfig
                 .setLooseMemoryAccountingEnabled(false)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05)
+                .setUserDefinedTypeEncodingEnabled(false)
                 .setUseRecordPageSourceForCustomSplit(true));
     }
 
@@ -205,7 +206,6 @@ public class TestHiveClientConfig
                 .put("hive.assume-canonical-partition-keys", "true")
                 .put("hive.text.max-line-length", "13MB")
                 .put("hive.parquet.use-column-names", "true")
-                .put("hive.parquet.fail-on-corrupted-statistics", "false")
                 .put("hive.parquet.max-read-block-size", "66kB")
                 .put("hive.orc.use-column-names", "true")
                 .put("hive.orc.bloom-filters.enabled", "true")
@@ -253,6 +253,7 @@ public class TestHiveClientConfig
                 .put("hive.create-empty-bucket-files-for-temporary-table", "true")
                 .put("hive.use-pagefile-for-hive-unsupported-type", "false")
                 .put("hive.pushdown-filter-enabled", "true")
+                .put("hive.parquet.pushdown-filter-enabled", "true")
                 .put("hive.range-filters-on-subscripts-enabled", "true")
                 .put("hive.adaptive-filter-reordering-enabled", "false")
                 .put("hive.zstd-jni-decompression-enabled", "true")
@@ -278,6 +279,7 @@ public class TestHiveClientConfig
                 .put("hive.verbose-runtime-stats-enabled", "true")
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
                 .put("hive.size-based-split-weights-enabled", "false")
+                .put("hive.user-defined-type-encoding-enabled", "true")
                 .put("hive.minimum-assigned-split-weight", "1.0")
                 .put("hive.use-record-page-source-for-custom-split", "false")
                 .build();
@@ -321,7 +323,6 @@ public class TestHiveClientConfig
                 .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
                 .setUseParquetColumnNames(true)
-                .setFailOnCorruptedParquetStatistics(false)
                 .setParquetMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
                 .setUseOrcColumnNames(true)
                 .setAssumeCanonicalPartitionKeys(true)
@@ -370,6 +371,7 @@ public class TestHiveClientConfig
                 .setCreateEmptyBucketFilesForTemporaryTable(true)
                 .setUsePageFileForHiveUnsupportedType(false)
                 .setPushdownFilterEnabled(true)
+                .setParquetPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
                 .setRangeFiltersOnSubscriptsEnabled(true)
                 .setAdaptiveFilterReorderingEnabled(false)
@@ -396,6 +398,7 @@ public class TestHiveClientConfig
                 .setLooseMemoryAccountingEnabled(true)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0)
+                .setUserDefinedTypeEncodingEnabled(true)
                 .setUseRecordPageSourceForCustomSplit(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);

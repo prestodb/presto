@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Primitives;
-import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;

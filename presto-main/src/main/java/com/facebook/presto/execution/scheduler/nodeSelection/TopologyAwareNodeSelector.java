@@ -22,12 +22,14 @@ import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
 import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy;
 import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.google.common.base.Supplier;
@@ -56,7 +58,6 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSpl
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector
@@ -76,6 +77,7 @@ public class TopologyAwareNodeSelector
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final NetworkLocationCache networkLocationCache;
+    private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
 
     public TopologyAwareNodeSelector(
             InternalNodeManager nodeManager,
@@ -89,7 +91,8 @@ public class TopologyAwareNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
             List<String> networkLocationSegmentNames,
-            NetworkLocationCache networkLocationCache)
+            NetworkLocationCache networkLocationCache,
+            NodeSelectionHashStrategy nodeSelectionHashStrategy)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -104,6 +107,7 @@ public class TopologyAwareNodeSelector
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
+        this.nodeSelectionHashStrategy = requireNonNull(nodeSelectionHashStrategy, "nodeSelectionHashStrategy is null");
     }
 
     @Override
@@ -149,14 +153,12 @@ public class TopologyAwareNodeSelector
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
-        List<HostAddress> candidates = nodeMap.getActiveNodes().stream()
-                .map(InternalNode::getHostAndPort)
-                .collect(toImmutableList());
+        NodeProvider nodeProvider = nodeMap.getActiveNodeProvider(nodeSelectionHashStrategy);
 
         for (Split split : splits) {
             SplitWeight splitWeight = split.getSplitWeight();
             if (split.getNodeSelectionStrategy() == HARD_AFFINITY) {
-                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(candidates), includeCoordinator);
+                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getActiveNodes());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
@@ -177,7 +179,7 @@ public class TopologyAwareNodeSelector
             int depth = networkLocationSegmentNames.size();
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
-            for (HostAddress host : split.getPreferredNodes(candidates)) {
+            for (HostAddress host : split.getPreferredNodes(nodeProvider)) {
                 locations.add(networkLocationCache.get(host));
             }
             if (locations.isEmpty()) {

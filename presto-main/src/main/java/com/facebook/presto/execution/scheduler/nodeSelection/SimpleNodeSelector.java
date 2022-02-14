@@ -18,13 +18,15 @@ import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
+import com.facebook.presto.execution.scheduler.ModularHashingNodeProvider;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
 import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
@@ -51,13 +53,13 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistri
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.MODULAR_HASHING;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -78,6 +80,7 @@ public class SimpleNodeSelector
     private final long maxPendingSplitsWeightPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
     private final int maxTasksPerStage;
+    private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -89,7 +92,8 @@ public class SimpleNodeSelector
             long maxSplitsWeightPerNode,
             long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
-            int maxTasksPerStage)
+            int maxTasksPerStage,
+            NodeSelectionHashStrategy nodeSelectionHashStrategy)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -102,6 +106,7 @@ public class SimpleNodeSelector
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.maxTasksPerStage = maxTasksPerStage;
+        this.nodeSelectionHashStrategy = requireNonNull(nodeSelectionHashStrategy, "nodeSelectionHashStrategy is null");
     }
 
     @Override
@@ -147,24 +152,22 @@ public class SimpleNodeSelector
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
-        List<HostAddress> activeCandidates = nodeMap.getActiveNodes().stream()
-                .map(InternalNode::getHostAndPort)
-                .collect(toImmutableList());
-
-        List<HostAddress> allCandidates = nodeMap.getAllNodes().stream()
-                .map(InternalNode::getHostAndPort)
-                .collect(toImmutableList());
+        NodeProvider nodeProvider = nodeMap.getActiveNodeProvider(nodeSelectionHashStrategy);
 
         OptionalInt preferredNodeCount = OptionalInt.empty();
         for (Split split : splits) {
             List<InternalNode> candidateNodes;
             switch (split.getNodeSelectionStrategy()) {
                 case HARD_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(activeCandidates), includeCoordinator);
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(allCandidates), includeCoordinator);
+                    // Using all nodes for soft affinity scheduling with modular hashing because otherwise temporarily down nodes would trigger too much rehashing
+                    if (nodeSelectionHashStrategy == MODULAR_HASHING) {
+                        nodeProvider = new ModularHashingNodeProvider(nodeMap.getAllNodes());
+                    }
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder()
                             .addAll(candidateNodes)
