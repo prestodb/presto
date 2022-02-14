@@ -156,7 +156,8 @@ public class SimpleTtlNodeSelector
         NodeMap nodeMap = this.nodeMap.get().get();
         List<InternalNode> activeNodes = nodeMap.getActiveNodes();
 
-        List<InternalNode> eligibleNodes = filterNodesByTtl(activeNodes, excludedNodes, ttlInfo);
+        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining();
+        List<InternalNode> eligibleNodes = filterNodesByTtl(activeNodes, excludedNodes, ttlInfo, estimatedExecutionTimeRemaining);
         return selectNodes(limit, new ResettableRandomizedIterator<>(eligibleNodes));
     }
 
@@ -262,6 +263,7 @@ public class SimpleTtlNodeSelector
                                 .stream()
                                 .min(Comparator.comparing(ConfidenceBasedTtlInfo::getExpiryInstant))));
 
+        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining();
         // Of the nodes on which already have existing tasks, pick only those whose TTL is enough
         List<InternalNode> existingEligibleNodes = existingTasks.stream()
                 .map(remoteTask -> nodeMap.getActiveNodesByNodeId().get(remoteTask.getNodeId()))
@@ -269,12 +271,12 @@ public class SimpleTtlNodeSelector
                 .filter(Objects::nonNull)
                 .filter(ttlInfo::containsKey)
                 .filter(node -> ttlInfo.get(node).isPresent())
-                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), getEstimatedExecutionTimeRemaining()))
+                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
                 .collect(toList());
 
         int alreadySelectedNodeCount = existingEligibleNodes.size();
         List<InternalNode> activeNodes = nodeMap.getActiveNodes();
-        List<InternalNode> newEligibleNodes = filterNodesByTtl(activeNodes, ImmutableSet.copyOf(existingEligibleNodes), ttlInfo);
+        List<InternalNode> newEligibleNodes = filterNodesByTtl(activeNodes, ImmutableSet.copyOf(existingEligibleNodes), ttlInfo, estimatedExecutionTimeRemaining);
 
         if (alreadySelectedNodeCount < limit && newEligibleNodes.size() > 0) {
             List<InternalNode> moreNodes = selectNodes(limit - alreadySelectedNodeCount, new ResettableRandomizedIterator<>(newEligibleNodes));
@@ -287,14 +289,15 @@ public class SimpleTtlNodeSelector
     private List<InternalNode> filterNodesByTtl(
             List<InternalNode> nodes,
             Set<InternalNode> excludedNodes,
-            Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo)
+            Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo,
+            Duration estimatedExecutionTimeRemaining)
     {
         return nodes.stream()
                 .filter(ttlInfo::containsKey)
                 .filter(node -> includeCoordinator || !node.isCoordinator())
                 .filter(node -> !excludedNodes.contains(node))
                 .filter(node -> ttlInfo.get(node).isPresent())
-                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), getEstimatedExecutionTimeRemaining()))
+                .filter(node -> isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
                 .collect(toImmutableList());
     }
 }
