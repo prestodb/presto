@@ -337,7 +337,7 @@ TEST_F(DriverTest, error) {
   EXPECT_EQ(tasks_[0]->state(), TaskState::kFailed);
 }
 
-TEST_F(DriverTest, DISABLED_cancel) {
+TEST_F(DriverTest, cancel) {
   CursorParameters params;
   params.planNode = makeValuesFilterProject(
       rowType_,
