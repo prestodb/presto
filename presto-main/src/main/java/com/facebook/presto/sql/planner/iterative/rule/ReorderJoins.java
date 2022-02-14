@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -422,9 +423,7 @@ public class ReorderJoins
                 case AUTOMATIC:
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    if (isBelowMaxBroadcastSize(joinNode, context)) {
-                        result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
-                    }
+                    result.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> isBelowMaxBroadcastSize(node, context)));
                     return result.build();
                 default:
                     throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
@@ -433,9 +432,15 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return ImmutableList.of(
-                    createJoinEnumerationResult(joinNode.withDistributionType(distributionType)),
-                    createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(distributionType)));
+            return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
+        }
+
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        {
+            List<JoinNode> nodes = ImmutableList.of(
+                    joinNode.withDistributionType(distributionType),
+                    joinNode.flipChildren().withDistributionType(distributionType));
+            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
