@@ -4,17 +4,16 @@ local exchange (GATHER, SINGLE, [])
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, [i_current_price, i_item_desc, i_item_id])
                     partial aggregation over (i_current_price, i_item_desc, i_item_id)
-                        join (INNER, PARTITIONED):
-                            remote exchange (REPARTITION, HASH, [ss_item_sk])
-                                scan store_sales
+                        join (INNER, REPLICATED):
+                            scan store_sales
                             local exchange (GATHER, SINGLE, [])
-                                join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, [inv_item_sk])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             scan inventory
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [i_item_sk])
-                                            scan item
+                                                    scan item
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
