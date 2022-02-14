@@ -74,55 +74,71 @@ bool specAllowsNegative(JodaFormatSpecifier s) {
   }
 }
 
+std::string_view suffix(const std::string& s, int len) {
+  return std::string_view(&s[s.size() - len], len);
+}
+
+void addLiteralToken(
+    const std::string_view& token,
+    std::string& literals,
+    std::vector<JodaToken>& tokens) {
+  literals += token;
+  if (!tokens.empty() && tokens.back().type == JodaToken::Type::kLiteral) {
+    // Extend the previous literal string view.
+    auto& prev = tokens.back().literal;
+    tokens.back().literal =
+        std::string_view(prev.data(), prev.size() + token.size());
+  } else {
+    tokens.emplace_back(suffix(literals, token.size()));
+  }
+}
+
 } // namespace
 
-void JodaFormatter::initialize() {
-  literalTokens_.reserve(kJodaReserveSize);
-  patternTokens_.reserve(kJodaReserveSize);
-  patternTokensCount_.reserve(kJodaReserveSize);
+void JodaFormatter::tokenize(const std::string_view& format) {
+  literals_.reserve(format.size());
+  tokens_.reserve(kJodaReserveSize);
 
-  if (format_.empty()) {
+  if (format.empty()) {
     VELOX_USER_FAIL("Invalid pattern specification.");
   }
 
-  const char* cur = format_.data();
-  const char* end = cur + format_.size();
+  const char* cur = format.data();
+  const char* end = cur + format.size();
 
-  // While we don't exhaust the buffer, we always interleave reading one
-  // literal token, and one pattern, even if the literal token is empty.
-  //
-  // - pattern tokens are consecutive runs of the same letter (a-zA-Z).
-  // - literal tokens are anything else in between.
   while (cur < end) {
-    // 1. Always try to read and add a literal token first, if it's empty.
-    const char* literalEnd = cur;
-
-    while ((literalEnd < end) && !std::isalpha(*literalEnd)) {
-      ++literalEnd;
-    }
-
-    literalTokens_.emplace_back(cur, literalEnd - cur);
-    cur = literalEnd;
-
-    // 2. If we still have at least one char left, try to read a pattern.
-    if (cur < end) {
-      const char* patternEnd = cur;
-
-      while ((patternEnd < end) && (*cur == *patternEnd)) {
-        ++patternEnd;
+    auto tokenEnd = cur;
+    if (std::isalpha(*tokenEnd)) { // pattern
+      while (tokenEnd < end && *tokenEnd == *cur) {
+        ++tokenEnd;
       }
-
-      patternTokens_.emplace_back(getSpecifier(*cur));
-      patternTokensCount_.emplace_back(patternEnd - cur);
-      cur = patternEnd;
+      auto specifier = getSpecifier(*cur);
+      tokens_.emplace_back(
+          JodaPattern{specifier, static_cast<size_t>(tokenEnd - cur)});
+    } else if (*tokenEnd == '\'') { // quoted/escaped literal
+      ++tokenEnd;
+      while (tokenEnd < end && *tokenEnd != '\'') {
+        ++tokenEnd;
+      }
+      if (tokenEnd == end) {
+        VELOX_USER_FAIL("Unmatched single quote in pattern");
+      }
+      ++tokenEnd; // skip ending quote
+      if (tokenEnd - cur == 2) { // escaped quote
+        addLiteralToken("'", literals_, tokens_);
+      } else { // quoted literal
+        addLiteralToken(
+            std::string_view(cur + 1, tokenEnd - cur - 2), literals_, tokens_);
+      }
+    } else { // unquoted literal
+      while (tokenEnd < end && !isalpha(*tokenEnd) && *tokenEnd != '\'') {
+        ++tokenEnd;
+      }
+      addLiteralToken(
+          std::string_view(cur, tokenEnd - cur), literals_, tokens_);
     }
+    cur = tokenEnd;
   }
-
-  // The first and last tokens are always literals, even if they are empty.
-  if (literalTokens_.size() == patternTokens_.size()) {
-    literalTokens_.emplace_back("");
-  }
-  VELOX_CHECK_EQ(literalTokens_.size(), patternTokens_.size() + 1);
 }
 
 namespace {
@@ -188,6 +204,90 @@ parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
   throw std::runtime_error("Unable to parse timezone offset id.");
 }
 
+void parseFromPattern(
+    JodaFormatSpecifier curPattern,
+    const std::string& input,
+    const char*& cur,
+    const char* end,
+    JodaDate& jodaDate) {
+  // For now, timezone offset is the only non-numeric token supported.
+  if (curPattern != JodaFormatSpecifier::TIMEZONE_OFFSET_ID) {
+    int64_t number = 0;
+    bool negative = false;
+
+    if (cur < end && specAllowsNegative(curPattern) && *cur == '-') {
+      negative = true;
+      ++cur;
+    }
+
+    auto startPos = cur;
+
+    while (cur < end && characterIsDigit(*cur)) {
+      number = number * 10 + (*cur - '0');
+      ++cur;
+    }
+
+    // Need to have read at least one digit.
+    if (cur <= startPos) {
+      parseFail(input, cur, end);
+    }
+
+    if (negative) {
+      number *= -1L;
+    }
+
+    switch (curPattern) {
+      case JodaFormatSpecifier::YEAR:
+      case JodaFormatSpecifier::YEAR_OF_ERA:
+        jodaDate.isYearOfEra = (curPattern == JodaFormatSpecifier::YEAR_OF_ERA);
+        jodaDate.hasYear = true;
+        jodaDate.year = number;
+        break;
+
+      case JodaFormatSpecifier::MONTH_OF_YEAR:
+        jodaDate.month = number;
+
+        // Joda has this weird behavior where it returns 1970 as the year by
+        // default (if no year is specified), but if either day or month are
+        // specified, it fallsback to 2000.
+        if (!jodaDate.hasYear) {
+          jodaDate.hasYear = true;
+          jodaDate.year = 2000;
+        }
+        break;
+
+      case JodaFormatSpecifier::DAY_OF_MONTH:
+        jodaDate.day = number;
+        if (!jodaDate.hasYear) {
+          jodaDate.hasYear = true;
+          jodaDate.year = 2000;
+        }
+        break;
+
+      case JodaFormatSpecifier::HOUR_OF_DAY:
+        jodaDate.hour = number;
+        break;
+
+      case JodaFormatSpecifier::MINUTE_OF_HOUR:
+        jodaDate.minute = number;
+        break;
+
+      case JodaFormatSpecifier::SECOND_OF_MINUTE:
+        jodaDate.second = number;
+        break;
+
+      default:
+        VELOX_NYI("Numeric Joda specifier not implemented yet.");
+    }
+  } else {
+    try {
+      cur += parseTimezoneOffset(cur, end, jodaDate);
+    } catch (...) {
+      parseFail(input, cur, end);
+    }
+  }
+}
+
 } // namespace
 
 JodaResult JodaFormatter::parse(const std::string& input) {
@@ -195,98 +295,18 @@ JodaResult JodaFormatter::parse(const std::string& input) {
   const char* cur = input.data();
   const char* end = cur + input.size();
 
-  for (size_t i = 0; i < literalTokens_.size(); ++i) {
-    // First ensure that the literal token matches.
-    const auto& curToken = literalTokens_[i];
-
-    if (curToken.size() > (end - cur) ||
-        std::memcmp(cur, curToken.data(), curToken.size()) != 0) {
-      parseFail(input, cur, end);
-    }
-    cur += curToken.size();
-
-    // If there's still a pattern to be read, read it and add to
-    // `jodaDate`.
-    if (i < patternTokens_.size()) {
-      const auto& curPattern = patternTokens_[i];
-
-      // For now, timezone offset is the only non-numeric token supported.
-      if (curPattern != JodaFormatSpecifier::TIMEZONE_OFFSET_ID) {
-        int64_t number = 0;
-        bool negative = false;
-
-        if (cur < end && specAllowsNegative(curPattern) && *cur == '-') {
-          negative = true;
-          ++cur;
-        }
-
-        auto startPos = cur;
-
-        while (cur < end && characterIsDigit(*cur)) {
-          number = number * 10 + (*cur - '0');
-          ++cur;
-        }
-
-        // Need to have read at least one digit.
-        if (cur <= startPos) {
+  for (const auto& tok : tokens_) {
+    switch (tok.type) {
+      case JodaToken::Type::kLiteral:
+        if (tok.literal.size() > end - cur ||
+            std::memcmp(cur, tok.literal.data(), tok.literal.size()) != 0) {
           parseFail(input, cur, end);
         }
-
-        if (negative) {
-          number *= -1L;
-        }
-
-        switch (curPattern) {
-          case JodaFormatSpecifier::YEAR:
-          case JodaFormatSpecifier::YEAR_OF_ERA:
-            jodaDate.isYearOfEra =
-                (curPattern == JodaFormatSpecifier::YEAR_OF_ERA);
-            jodaDate.hasYear = true;
-            jodaDate.year = number;
-            break;
-
-          case JodaFormatSpecifier::MONTH_OF_YEAR:
-            jodaDate.month = number;
-
-            // Joda has this weird behavior where it returns 1970 as the year by
-            // default (if no year is specified), but if either day or month are
-            // specified, it fallsback to 2000.
-            if (!jodaDate.hasYear) {
-              jodaDate.hasYear = true;
-              jodaDate.year = 2000;
-            }
-            break;
-
-          case JodaFormatSpecifier::DAY_OF_MONTH:
-            jodaDate.day = number;
-            if (!jodaDate.hasYear) {
-              jodaDate.hasYear = true;
-              jodaDate.year = 2000;
-            }
-            break;
-
-          case JodaFormatSpecifier::HOUR_OF_DAY:
-            jodaDate.hour = number;
-            break;
-
-          case JodaFormatSpecifier::MINUTE_OF_HOUR:
-            jodaDate.minute = number;
-            break;
-
-          case JodaFormatSpecifier::SECOND_OF_MINUTE:
-            jodaDate.second = number;
-            break;
-
-          default:
-            VELOX_NYI("Numeric Joda specifier not implemented yet.");
-        }
-      } else {
-        try {
-          cur += parseTimezoneOffset(cur, end, jodaDate);
-        } catch (...) {
-          parseFail(input, cur, end);
-        }
-      }
+        cur += tok.literal.size();
+        break;
+      case JodaToken::Type::kPattern:
+        parseFromPattern(tok.pattern.specifier, input, cur, end, jodaDate);
+        break;
     }
   }
 

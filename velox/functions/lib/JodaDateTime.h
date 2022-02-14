@@ -89,6 +89,25 @@ enum class JodaFormatSpecifier : uint8_t {
   TIMEZONE_OFFSET_ID = 20
 };
 
+struct JodaPattern {
+  JodaFormatSpecifier specifier;
+  size_t count;
+};
+
+struct JodaToken {
+  enum class Type { kPattern, kLiteral } type;
+  union {
+    JodaPattern pattern;
+    std::string_view literal;
+  };
+
+  explicit JodaToken(const JodaPattern& pattern)
+      : type(Type::kPattern), pattern(pattern) {}
+
+  explicit JodaToken(const std::string_view& literal)
+      : type(Type::kLiteral), literal(literal) {}
+};
+
 struct JodaResult {
   Timestamp timestamp;
   int64_t timezoneId{-1};
@@ -97,29 +116,20 @@ struct JodaResult {
 /// Compiles a Joda-compatible datetime format string.
 class JodaFormatter {
  public:
-  explicit JodaFormatter(const char* data) : format_(data) {
-    initialize();
+  explicit JodaFormatter(const char* data) {
+    tokenize(data);
   }
 
-  explicit JodaFormatter(std::string format) : format_(std::move(format)) {
-    initialize();
+  explicit JodaFormatter(const std::string& format) {
+    tokenize(format);
   }
 
-  explicit JodaFormatter(StringView format)
-      : format_(format.data(), format.size()) {
-    initialize();
+  explicit JodaFormatter(StringView format) {
+    tokenize(std::string_view(format));
   }
 
-  const std::vector<std::string_view>& literalTokens() const {
-    return literalTokens_;
-  }
-
-  const std::vector<JodaFormatSpecifier>& patternTokens() const {
-    return patternTokens_;
-  }
-
-  const std::vector<size_t>& patternTokensCount() const {
-    return patternTokensCount_;
+  const std::vector<JodaToken>& tokens() const {
+    return tokens_;
   }
 
   // Parses `input` according to the format specified in the constructor. Throws
@@ -127,28 +137,10 @@ class JodaFormatter {
   JodaResult parse(const std::string& input);
 
  private:
-  void initialize();
+  void tokenize(const std::string_view&);
 
-  const std::string format_;
-
-  // Stores the literal tokens (substrings) found while parsing `format_`.
-  // There are always `patternTokens_ + 1` literal tokens, to follow the
-  // format below:
-  //
-  //   l[0] - p[0] - l[1] - p[1] - ... - p[n] - l[n+1]
-  //
-  // for instance, the format string "YYYY-MM-dd" would be stored as:
-  //
-  //  literals: {"", "-", "-", ""}
-  //  patterns: {YEAR_OF_ERA, MONTH_OF_YEAR, DAY_OF_MONTH}
-  //  patternCount: {4, 2, 2}
-  //
-  std::vector<std::string_view> literalTokens_;
-  std::vector<JodaFormatSpecifier> patternTokens_;
-
-  // Stores the number of times each pattern token was read, e.g: "Y" (1) vs
-  // "YYYY" (4).
-  std::vector<size_t> patternTokensCount_;
+  std::string literals_;
+  std::vector<JodaToken> tokens_;
 };
 
 } // namespace facebook::velox::functions

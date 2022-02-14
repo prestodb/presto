@@ -25,6 +25,22 @@ using namespace facebook::velox;
 
 namespace facebook::velox::functions {
 
+bool operator==(const JodaPattern& a, const JodaPattern& b) {
+  return a.specifier == b.specifier && a.count == b.count;
+}
+
+bool operator==(const JodaToken& a, const JodaToken& b) {
+  if (a.type != b.type)
+    return false;
+  switch (a.type) {
+    case JodaToken::Type::kPattern:
+      return a.pattern == b.pattern;
+    case JodaToken::Type::kLiteral:
+      return a.literal == b.literal;
+  }
+  VELOX_UNREACHABLE();
+}
+
 namespace {
 
 class JodaDateTimeTest : public testing::Test {
@@ -48,57 +64,64 @@ class JodaDateTimeTest : public testing::Test {
   }
 };
 
-TEST_F(JodaDateTimeTest, parseLiterals) {
-  std::vector<std::string_view> expected;
+TEST_F(JodaDateTimeTest, tokens) {
+  std::vector<JodaToken> expected;
 
-  expected = {" "};
-  EXPECT_EQ(expected, JodaFormatter(" ").literalTokens());
-
-  expected = {" ", ""};
-  EXPECT_EQ(expected, JodaFormatter(" Y").literalTokens());
-
-  expected = {"", " "};
-  EXPECT_EQ(expected, JodaFormatter("YY ").literalTokens());
-
-  expected = {" 132&2618*673 *--+= }{[]\\:"};
-  EXPECT_EQ(
-      expected, JodaFormatter(" 132&2618*673 *--+= }{[]\\:").literalTokens());
-
-  expected = {"   ", " &^  "};
-  EXPECT_EQ(expected, JodaFormatter("   YYYY &^  ").literalTokens());
-
-  expected = {"", "  % & ", " ", ""};
-  EXPECT_EQ(expected, JodaFormatter("Y  % & YYY YYYYY").literalTokens());
-}
-
-TEST_F(JodaDateTimeTest, parsePatterns) {
-  std::vector<JodaFormatSpecifier> expected;
-
-  expected = {JodaFormatSpecifier::YEAR_OF_ERA};
-  EXPECT_EQ(expected, JodaFormatter("Y").patternTokens());
+  expected = {JodaToken(" ")};
+  EXPECT_EQ(expected, JodaFormatter(" ").tokens());
 
   expected = {
-      JodaFormatSpecifier::YEAR_OF_ERA,
-      JodaFormatSpecifier::MONTH_OF_YEAR,
-      JodaFormatSpecifier::DAY_OF_MONTH};
-  EXPECT_EQ(expected, JodaFormatter("YYYY-MM-dd").patternTokens());
-}
+      JodaToken(" "),
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 1}),
+  };
+  EXPECT_EQ(expected, JodaFormatter(" Y").tokens());
 
-TEST_F(JodaDateTimeTest, parsePatternCount) {
-  std::vector<size_t> expected;
+  expected = {
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 2}),
+      JodaToken(" "),
+  };
+  EXPECT_EQ(expected, JodaFormatter("YY ").tokens());
 
-  expected = {};
-  EXPECT_EQ(expected, JodaFormatter("  ").patternTokensCount());
+  expected = {JodaToken(" 132&2618*673 *--+= }{[]\\:")};
+  EXPECT_EQ(expected, JodaFormatter(" 132&2618*673 *--+= }{[]\\:").tokens());
 
-  expected = {1};
-  EXPECT_EQ(expected, JodaFormatter("Y").patternTokensCount());
+  expected = {
+      JodaToken("   "),
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 4}),
+      JodaToken(" &^  "),
+  };
+  EXPECT_EQ(expected, JodaFormatter("   YYYY &^  ").tokens());
 
-  expected = {4, 2, 2, 1};
-  EXPECT_EQ(expected, JodaFormatter("YYYY YY YY Y").patternTokensCount());
+  expected = {
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 1}),
+      JodaToken("  % & "),
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 3}),
+      JodaToken(" "),
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 5}),
+  };
+  EXPECT_EQ(expected, JodaFormatter("Y  % & YYY YYYYY").tokens());
 
-  expected = {4, 2, 2, 1, 10};
-  EXPECT_EQ(
-      expected, JodaFormatter("YYYY-MM-dd m YYYYYYYYYY").patternTokensCount());
+  expected = {
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 1}),
+      JodaToken(" T"),
+  };
+  EXPECT_EQ(expected, JodaFormatter("Y 'T'").tokens());
+
+  expected = {JodaToken("1'2")};
+  EXPECT_EQ(expected, JodaFormatter("1''2").tokens());
+
+  expected = {
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 4}),
+      JodaToken("-"),
+      JodaToken(JodaPattern{JodaFormatSpecifier::MONTH_OF_YEAR, 2}),
+      JodaToken("-"),
+      JodaToken(JodaPattern{JodaFormatSpecifier::DAY_OF_MONTH, 2}),
+      JodaToken(" "),
+      JodaToken(JodaPattern{JodaFormatSpecifier::MINUTE_OF_HOUR, 1}),
+      JodaToken(" "),
+      JodaToken(JodaPattern{JodaFormatSpecifier::YEAR_OF_ERA, 10}),
+  };
+  EXPECT_EQ(expected, JodaFormatter("YYYY-MM-dd m YYYYYYYYYY").tokens());
 }
 
 TEST_F(JodaDateTimeTest, invalid) {
@@ -112,6 +135,7 @@ TEST_F(JodaDateTimeTest, invalid) {
   EXPECT_THROW(parse("", ""), VeloxUserError);
   EXPECT_THROW(parse(" ", ""), VeloxUserError);
   EXPECT_THROW(parse("", " "), VeloxUserError);
+  EXPECT_THROW(parse("", "Y '"), VeloxUserError);
 }
 
 TEST_F(JodaDateTimeTest, parseYearOfEra) {
