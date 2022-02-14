@@ -25,8 +25,8 @@ session property, with the ``optimizer.join-reordering-strategy``
 configuration property providing the default value.
 
 The valid values are:
- * ``AUTOMATIC`` - full automatic join enumeration enabled
- * ``ELIMINATE_CROSS_JOINS`` (default) - eliminate unnecessary cross joins
+ * ``AUTOMATIC`` (default) - full automatic join enumeration enabled
+ * ``ELIMINATE_CROSS_JOINS``  - eliminate unnecessary cross joins
  * ``NONE`` - purely syntactic join order
 
 If using ``AUTOMATIC`` and statistics are not available, or if for any other
