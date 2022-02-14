@@ -217,7 +217,7 @@ TEXT              VARCHAR
 TIMESTAMP         TIMESTAMP
 TIMEUUID          VARCHAR
 VARCHAR           VARCHAR
-VARIANT           VARCHAR
+VARINT            VARCHAR
 SMALLINT          INTEGER
 TINYINT           INTEGER
 DATE              DATE
