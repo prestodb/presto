@@ -185,7 +185,7 @@ class OperatorCtx {
   velox::memory::MemoryPool* pool_;
 
   // These members are created on demand.
-  mutable std::shared_ptr<memory::MappedMemory> mappedMemory_;
+  mutable memory::MappedMemory* mappedMemory_{nullptr};
 };
 
 // Query operator

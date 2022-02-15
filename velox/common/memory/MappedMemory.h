@@ -102,10 +102,6 @@ class MappedMemory {
     explicit Allocation(MappedMemory* FOLLY_NONNULL mappedMemory)
         : mappedMemory_(mappedMemory) {
       VELOX_CHECK(mappedMemory);
-      // We keep reference to mappedMemory's shared pointer to prevent
-      // destruction of ScopedMappedMemory instance until all allocations
-      // are destroyed.
-      mappedMemoryPtr_ = mappedMemory->sharedPtr();
     }
 
     ~Allocation() {
@@ -116,7 +112,6 @@ class MappedMemory {
 
     Allocation(Allocation&& other) noexcept {
       mappedMemory_ = other.mappedMemory_;
-      mappedMemoryPtr_ = other.mappedMemoryPtr_;
       runs_ = std::move(other.runs_);
       numPages_ = other.numPages_;
       other.numPages_ = 0;
@@ -126,7 +121,6 @@ class MappedMemory {
 
     void operator=(Allocation&& other) {
       mappedMemory_ = other.mappedMemory_;
-      mappedMemoryPtr_ = other.mappedMemoryPtr_;
       runs_ = std::move(other.runs_);
       numPages_ = other.numPages_;
       other.numPages_ = 0;
@@ -164,7 +158,6 @@ class MappedMemory {
 
    private:
     MappedMemory* FOLLY_NONNULL mappedMemory_;
-    std::shared_ptr<MappedMemory> mappedMemoryPtr_;
     std::vector<PageRun> runs_;
     int32_t numPages_ = 0;
   };
@@ -279,15 +272,13 @@ class MappedMemory {
   virtual const std::vector<MachinePageCount>& sizeClasses() const {
     return sizeClassSizes_;
   }
+
   virtual MachinePageCount numAllocated() const = 0;
+
   virtual MachinePageCount numMapped() const = 0;
 
   virtual std::shared_ptr<MappedMemory> addChild(
       std::shared_ptr<MemoryUsageTracker> tracker);
-
-  virtual std::shared_ptr<MappedMemory> sharedPtr() {
-    return nullptr;
-  }
 
   virtual std::string toString() const;
 
@@ -333,9 +324,7 @@ class MappedMemory {
 // be a child of the Driver/Task level tracker. in this way
 // MappedMemory activity can be attributed to individual operators and
 // these operators can be requested to spill or limit their memory utilization.
-class ScopedMappedMemory final
-    : public MappedMemory,
-      public std::enable_shared_from_this<ScopedMappedMemory> {
+class ScopedMappedMemory final : public MappedMemory {
  public:
   ScopedMappedMemory(
       MappedMemory* FOLLY_NONNULL parent,
@@ -396,11 +385,7 @@ class ScopedMappedMemory final
 
   std::shared_ptr<MappedMemory> addChild(
       std::shared_ptr<MemoryUsageTracker> tracker) override {
-    return std::make_shared<ScopedMappedMemory>(shared_from_this(), tracker);
-  }
-
-  std::shared_ptr<MappedMemory> sharedPtr() override {
-    return shared_from_this();
+    return std::make_shared<ScopedMappedMemory>(this, tracker);
   }
 
  private:

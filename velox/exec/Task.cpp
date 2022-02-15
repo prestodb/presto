@@ -126,6 +126,13 @@ Task::addOperatorPool(velox::memory::MemoryPool* FOLLY_NONNULL driverPool) {
   return childPools_.back().get();
 }
 
+memory::MappedMemory* FOLLY_NONNULL Task::addOperatorMemory(
+    const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
+  auto mappedMemory = queryCtx_->mappedMemory()->addChild(tracker);
+  childMappedMemories_.emplace_back(mappedMemory);
+  return mappedMemory.get();
+}
+
 void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,

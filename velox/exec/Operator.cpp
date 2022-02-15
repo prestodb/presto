@@ -64,10 +64,10 @@ std::optional<uint32_t> Operator::maxDrivers(
 
 memory::MappedMemory* OperatorCtx::mappedMemory() const {
   if (!mappedMemory_) {
-    auto parent = driverCtx_->task->queryCtx()->mappedMemory();
-    mappedMemory_ = parent->addChild(pool_->getMemoryUsageTracker());
+    mappedMemory_ =
+        driverCtx_->task->addOperatorMemory(pool_->getMemoryUsageTracker());
   }
-  return mappedMemory_.get();
+  return mappedMemory_;
 }
 
 const std::string& OperatorCtx::taskId() const {

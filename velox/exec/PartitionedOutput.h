@@ -27,7 +27,7 @@ class Destination {
   Destination(
       const std::string& taskId,
       int destination,
-      memory::MappedMemory* memory)
+      memory::MappedMemory* FOLLY_NONNULL memory)
       : taskId_(taskId), destination_(destination), memory_(memory) {}
 
   // Resets the destination before starting a new batch.
@@ -49,12 +49,12 @@ class Destination {
       const std::vector<vector_size_t>& sizes,
       const RowVectorPtr& output,
       PartitionedOutputBufferManager& bufferManager,
-      bool* atEnd,
-      ContinueFuture* future);
+      bool* FOLLY_NONNULL atEnd,
+      ContinueFuture* FOLLY_NONNULL future);
 
   BlockingReason flush(
       PartitionedOutputBufferManager& bufferManager,
-      ContinueFuture* future);
+      ContinueFuture* FOLLY_NULLABLE future);
 
   bool isFinished() const {
     return finished_;
@@ -74,7 +74,7 @@ class Destination {
 
   const std::string taskId_;
   const int destination_;
-  memory::MappedMemory* const memory_;
+  memory::MappedMemory* FOLLY_NONNULL const memory_;
   uint64_t bytesInCurrent_{0};
   std::vector<IndexRange> rows_;
 
@@ -97,7 +97,7 @@ class PartitionedOutput : public Operator {
  public:
   PartitionedOutput(
       int32_t operatorId,
-      DriverCtx* ctx,
+      DriverCtx* FOLLY_NONNULL ctx,
       const std::shared_ptr<const core::PartitionedOutputNode>& planNode)
       : Operator(
             ctx,
@@ -117,7 +117,8 @@ class PartitionedOutput : public Operator {
             planNode->outputType())),
         future_(false),
         bufferManager_(PartitionedOutputBufferManager::getInstance(
-            operatorCtx_->task()->queryCtx()->host())) {
+            operatorCtx_->task()->queryCtx()->host())),
+        mappedMemory_{operatorCtx_->mappedMemory()} {
     if (numDestinations_ == 1 || planNode->isBroadcast()) {
       VELOX_CHECK(keyChannels_.empty());
       VELOX_CHECK_NULL(partitionFunction_);
@@ -137,7 +138,7 @@ class PartitionedOutput : public Operator {
     return true;
   }
 
-  BlockingReason isBlocked(ContinueFuture* future) override {
+  BlockingReason isBlocked(ContinueFuture* FOLLY_NONNULL future) override {
     if (blockingReason_ != BlockingReason::kNotBlocked) {
       *future = std::move(future_);
       blockingReason_ = BlockingReason::kNotBlocked;
@@ -185,6 +186,7 @@ class PartitionedOutput : public Operator {
   std::vector<std::unique_ptr<Destination>> destinations_;
   bool replicatedAny_{false};
   std::weak_ptr<exec::PartitionedOutputBufferManager> bufferManager_;
+  memory::MappedMemory* FOLLY_NONNULL mappedMemory_;
 
   // Reusable memory.
   SelectivityVector rows_;

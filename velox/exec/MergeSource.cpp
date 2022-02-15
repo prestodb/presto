@@ -95,9 +95,7 @@ class LocalMergeSource : public MergeSource {
         const std::shared_ptr<const RowType>& rowType,
         memory::MappedMemory* mappedMemory,
         int queueSize)
-        : rowType_(rowType),
-          mappedMemory_(mappedMemory->sharedPtr()),
-          data_(queueSize) {
+        : rowType_(rowType), mappedMemory_(mappedMemory), data_(queueSize) {
       VELOX_CHECK(mappedMemory_);
     }
 
@@ -134,7 +132,7 @@ class LocalMergeSource : public MergeSource {
         return BlockingReason::kNotBlocked;
       }
       VELOX_CHECK(!data_.full(), "LocalMergeSourceQueue is full");
-      data_.push_back(MergeSourceData(rowType_, mappedMemory_.get(), input));
+      data_.push_back(MergeSourceData(rowType_, mappedMemory_, input));
       notifyConsumers();
 
       if (data_.full()) {
@@ -147,10 +145,7 @@ class LocalMergeSource : public MergeSource {
 
    private:
     const std::shared_ptr<const RowType> rowType_;
-    // Since LocalMergeSource's lifetime is same as Tasks, keep mappedMemory's
-    // shared pointer to prevent prematurely when the LocalMerge operator is
-    // destroyed.
-    std::shared_ptr<memory::MappedMemory> mappedMemory_;
+    memory::MappedMemory* mappedMemory_;
 
     bool atEnd_ = false;
     boost::circular_buffer<MergeSourceData> data_;

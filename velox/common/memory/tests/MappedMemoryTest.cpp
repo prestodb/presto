@@ -380,22 +380,24 @@ TEST_P(MappedMemoryTest, increasingSizeWithThreadsTest) {
 }
 
 TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
+  const int32_t numPages = 32;
+  {
+    auto tracker = MemoryUsageTracker::create();
+    auto mappedMemory = instance_->addChild(tracker);
+
+    MappedMemory::Allocation result(mappedMemory.get());
+
+    mappedMemory->allocate(numPages, 0, result);
+    EXPECT_GE(result.numPages(), numPages);
+    EXPECT_EQ(
+        result.numPages() * MappedMemory::kPageSize,
+        tracker->getCurrentUserBytes());
+    mappedMemory->free(result);
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+  }
+
   auto tracker = MemoryUsageTracker::create();
   auto mappedMemory = instance_->addChild(tracker);
-
-  MappedMemory::Allocation result(mappedMemory.get());
-
-  int32_t numPages = 32;
-  mappedMemory->allocate(numPages, 0, result);
-  EXPECT_GE(result.numPages(), numPages);
-  EXPECT_EQ(
-      result.numPages() * MappedMemory::kPageSize,
-      tracker->getCurrentUserBytes());
-  mappedMemory->free(result);
-  EXPECT_EQ(0, tracker->getCurrentUserBytes());
-
-  tracker = MemoryUsageTracker::create();
-  mappedMemory = instance_->addChild(tracker);
   {
     MappedMemory::Allocation result1(mappedMemory.get());
     MappedMemory::Allocation result2(mappedMemory.get());
@@ -410,7 +412,6 @@ TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
     EXPECT_EQ(
         (result1.numPages() + result2.numPages()) * MappedMemory::kPageSize,
         tracker->getCurrentUserBytes());
-    mappedMemory.reset();
 
     // Since allocations are still valid, usage should not change.
     EXPECT_EQ(

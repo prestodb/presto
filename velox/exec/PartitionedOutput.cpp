@@ -104,10 +104,10 @@ void PartitionedOutput::initializeInput(RowVectorPtr input) {
 
 void PartitionedOutput::initializeDestinations() {
   if (destinations_.empty()) {
-    auto memory = operatorCtx_->mappedMemory();
     auto taskId = operatorCtx_->taskId();
     for (int i = 0; i < numDestinations_; ++i) {
-      destinations_.push_back(std::make_unique<Destination>(taskId, i, memory));
+      destinations_.push_back(
+          std::make_unique<Destination>(taskId, i, mappedMemory_));
     }
   }
 }
