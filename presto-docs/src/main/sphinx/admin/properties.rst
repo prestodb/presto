@@ -53,6 +53,15 @@ General Properties
 Memory Management Properties
 ----------------------------
 
+``query.max-cpu-time``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Default value:** ``1_000_000_000d``
+
+This is the max amount of CPU time that a query can use across the entire
+cluster. Queries that exceed this limit are killed.
+
 ``query.max-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
