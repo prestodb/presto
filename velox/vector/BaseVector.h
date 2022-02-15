@@ -181,15 +181,15 @@ class BaseVector {
    * vector. May hold nullptr if there are no nulls. Not const because
    * some vectors may generate this on first access.
    */
-  virtual const BufferPtr& nulls() const {
+  const BufferPtr& nulls() const {
     return nulls_;
   }
 
-  virtual const uint64_t* rawNulls() const {
+  const uint64_t* rawNulls() const {
     return rawNulls_;
   }
 
-  virtual uint64_t* mutableRawNulls() {
+  uint64_t* mutableRawNulls() {
     ensureNulls();
     return const_cast<uint64_t*>(rawNulls_);
   }
