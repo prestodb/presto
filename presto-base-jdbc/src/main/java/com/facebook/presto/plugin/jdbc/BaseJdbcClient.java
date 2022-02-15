@@ -241,7 +241,8 @@ public class BaseJdbcClient
                             resultSet.getInt("DATA_TYPE"),
                             resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
-                            resultSet.getInt("DECIMAL_DIGITS"));
+                            resultSet.getInt("DECIMAL_DIGITS"),
+                            Optional.empty());
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
@@ -380,7 +381,7 @@ public class BaseJdbcClient
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 // TODO in INSERT case, we should reuse original column type and, ideally, constraints (then JdbcPageSink must get writer from toPrestoType())
-                columnList.add(getColumnString(column, columnName));
+                columnList.add(getColumnString(column, columnName, session));
             }
 
             String sql = format(
@@ -400,12 +401,12 @@ public class BaseJdbcClient
         }
     }
 
-    private String getColumnString(ColumnMetadata column, String columnName)
+    private String getColumnString(ColumnMetadata column, String columnName, ConnectorSession session)
     {
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ")
-                .append(toWriteMapping(column.getType()).getDataType());
+                .append(toWriteMapping(session, column.getType()).getDataType());
         if (!column.isNullable()) {
             sb.append(" NOT NULL");
         }
@@ -483,7 +484,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column, ConnectorSession session)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String schema = handle.getSchemaName();
@@ -498,7 +499,7 @@ public class BaseJdbcClient
             String sql = format(
                     "ALTER TABLE %s ADD %s",
                     quoted(handle.getCatalogName(), schema, table),
-                    getColumnString(column, columnName));
+                    getColumnString(column, columnName, session));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -739,7 +740,7 @@ public class BaseJdbcClient
         }
     }
 
-    public WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         String dataType;
         if (isVarcharType(type)) {
@@ -817,7 +818,7 @@ public class BaseJdbcClient
         return name;
     }
 
-    private static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+    protected static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
         Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());

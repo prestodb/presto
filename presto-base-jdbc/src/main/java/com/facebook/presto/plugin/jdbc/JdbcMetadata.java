@@ -234,7 +234,7 @@ public class JdbcMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        jdbcClient.addColumn(session, JdbcIdentity.from(session), tableHandle, columnMetadata);
+        jdbcClient.addColumn(JdbcIdentity.from(session), tableHandle, columnMetadata, session);
     }
 
     @Override

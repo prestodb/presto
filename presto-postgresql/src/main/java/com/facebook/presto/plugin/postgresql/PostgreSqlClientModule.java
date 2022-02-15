@@ -15,11 +15,13 @@ package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
+import com.facebook.presto.plugin.jdbc.JdbcSessionPropertiesProvider;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class PostgreSqlClientModule
         implements Module
@@ -29,5 +31,7 @@ public class PostgreSqlClientModule
     {
         binder.bind(JdbcClient.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(PostgreSqlConfig.class);
+        newSetBinder(binder, JdbcSessionPropertiesProvider.class).addBinding().to(PostgreSqlSessionProperties.class).in(Scopes.SINGLETON);
     }
 }

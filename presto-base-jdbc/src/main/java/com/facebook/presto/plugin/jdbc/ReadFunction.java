@@ -13,9 +13,18 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 public interface ReadFunction
 {
     Class<?> getJavaType();
+
+    default boolean isNull(ResultSet resultSet, int columnIndex) throws SQLException
+    {
+        resultSet.getObject(columnIndex);
+        return resultSet.wasNull();
+    }
 
     // This should be considered to have a method as below (it doesn't to avoid autoboxing)
     //    T read(ResultSet resultSet, int columnIndex)

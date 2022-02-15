@@ -17,6 +17,8 @@ import com.facebook.presto.common.type.Type;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.util.EnumSet;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -24,9 +26,11 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class PropertyMetadata<T>
 {
@@ -226,5 +230,35 @@ public final class PropertyMetadata<T>
                 hidden,
                 value -> Duration.valueOf((String) value),
                 Duration::toString);
+    }
+
+    public static <T extends Enum<T>> PropertyMetadata<T> enumProperty(String name, String descriptionPrefix, Class<T> type, T defaultValue, boolean hidden)
+    {
+        return enumProperty(name, descriptionPrefix, type, defaultValue, hidden, value -> {});
+    }
+
+    public static <T extends Enum<T>> PropertyMetadata<T> enumProperty(String name, String descriptionPrefix, Class<T> type, T defaultValue, boolean hidden, Consumer<T> validation)
+    {
+        String allValues = EnumSet.allOf(type).stream()
+                .map(Enum::name)
+                .collect(joining(", ", "[", "]"));
+        return new PropertyMetadata<>(
+                name,
+                format("%s. Possible values: %s", descriptionPrefix, allValues),
+                createUnboundedVarcharType(),
+                type,
+                defaultValue,
+                hidden,
+                value -> {
+                    T enumValue;
+                    try {
+                        enumValue = Enum.valueOf(type, ((String) value).toUpperCase(ENGLISH));
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException(format("Invalid value [%s]. Valid values: %s", value, allValues), e);
+                    }
+                    validation.accept(enumValue);
+                    return enumValue;
+                }, Enum::name);
     }
 }

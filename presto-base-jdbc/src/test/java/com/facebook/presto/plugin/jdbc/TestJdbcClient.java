@@ -169,7 +169,7 @@ public class TestJdbcClient
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty())));
 
-            jdbcClient.addColumn(session, JdbcIdentity.from(session), tableHandle, new ColumnMetadata("columnB", DoubleType.DOUBLE, null, null, false));
+            jdbcClient.addColumn(JdbcIdentity.from(session), tableHandle, new ColumnMetadata("columnB", DoubleType.DOUBLE, null, null, false), session);
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE, true, Optional.empty())));

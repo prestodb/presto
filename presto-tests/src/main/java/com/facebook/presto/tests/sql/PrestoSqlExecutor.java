@@ -13,23 +13,31 @@
  */
 package com.facebook.presto.tests.sql;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 
 public class PrestoSqlExecutor
         implements SqlExecutor
 {
     private final QueryRunner queryRunner;
+    private final Session session;
 
     public PrestoSqlExecutor(QueryRunner queryRunner)
     {
+        this(queryRunner, queryRunner.getDefaultSession());
+    }
+
+    public PrestoSqlExecutor(QueryRunner queryRunner, Session session)
+    {
         this.queryRunner = queryRunner;
+        this.session = session;
     }
 
     @Override
     public void execute(String sql)
     {
         try {
-            queryRunner.execute(queryRunner.getDefaultSession(), sql);
+            queryRunner.execute(session, sql);
         }
         catch (Throwable e) {
             throw new RuntimeException("Error executing sql:\n" + sql, e);

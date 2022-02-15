@@ -32,13 +32,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
+import static com.facebook.presto.plugin.base.util.JsonUtils.parseJson;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;

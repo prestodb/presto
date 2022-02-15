@@ -179,7 +179,7 @@ public class MySqlClient
     }
 
     @Override
-    public WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (REAL.equals(type)) {
             return WriteMapping.longMapping("float", realWriteFunction());
@@ -214,7 +214,7 @@ public class MySqlClient
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
-        return super.toWriteMapping(type);
+        return super.toWriteMapping(session, type);
     }
 
     @Override

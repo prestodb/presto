@@ -14,25 +14,26 @@
 package com.facebook.presto.plugin.jdbc;
 
 import java.sql.Types;
+import java.util.Optional;
 
 public final class TestingJdbcTypeHandle
 {
     private TestingJdbcTypeHandle() {}
 
-    public static final JdbcTypeHandle JDBC_BOOLEAN = new JdbcTypeHandle(Types.BOOLEAN, "boolean", 1, 0);
+    public static final JdbcTypeHandle JDBC_BOOLEAN = new JdbcTypeHandle(Types.BOOLEAN, "boolean", 1, 0, Optional.empty());
 
-    public static final JdbcTypeHandle JDBC_SMALLINT = new JdbcTypeHandle(Types.SMALLINT, "smallint", 1, 0);
-    public static final JdbcTypeHandle JDBC_TINYINT = new JdbcTypeHandle(Types.TINYINT, "tinyint", 2, 0);
-    public static final JdbcTypeHandle JDBC_INTEGER = new JdbcTypeHandle(Types.INTEGER, "integer", 4, 0);
-    public static final JdbcTypeHandle JDBC_BIGINT = new JdbcTypeHandle(Types.BIGINT, "bigint", 8, 0);
+    public static final JdbcTypeHandle JDBC_SMALLINT = new JdbcTypeHandle(Types.SMALLINT, "smallint", 1, 0, Optional.empty());
+    public static final JdbcTypeHandle JDBC_TINYINT = new JdbcTypeHandle(Types.TINYINT, "tinyint", 2, 0, Optional.empty());
+    public static final JdbcTypeHandle JDBC_INTEGER = new JdbcTypeHandle(Types.INTEGER, "integer", 4, 0, Optional.empty());
+    public static final JdbcTypeHandle JDBC_BIGINT = new JdbcTypeHandle(Types.BIGINT, "bigint", 8, 0, Optional.empty());
 
-    public static final JdbcTypeHandle JDBC_REAL = new JdbcTypeHandle(Types.REAL, "real", 8, 0);
-    public static final JdbcTypeHandle JDBC_DOUBLE = new JdbcTypeHandle(Types.DOUBLE, "double precision", 8, 0);
+    public static final JdbcTypeHandle JDBC_REAL = new JdbcTypeHandle(Types.REAL, "real", 8, 0, Optional.empty());
+    public static final JdbcTypeHandle JDBC_DOUBLE = new JdbcTypeHandle(Types.DOUBLE, "double precision", 8, 0, Optional.empty());
 
-    public static final JdbcTypeHandle JDBC_CHAR = new JdbcTypeHandle(Types.CHAR, "char", 10, 0);
-    public static final JdbcTypeHandle JDBC_VARCHAR = new JdbcTypeHandle(Types.VARCHAR, "varchar", 10, 0);
+    public static final JdbcTypeHandle JDBC_CHAR = new JdbcTypeHandle(Types.CHAR, "char", 10, 0, Optional.empty());
+    public static final JdbcTypeHandle JDBC_VARCHAR = new JdbcTypeHandle(Types.VARCHAR, "varchar", 10, 0, Optional.empty());
 
-    public static final JdbcTypeHandle JDBC_DATE = new JdbcTypeHandle(Types.DATE, "date", 8, 0);
-    public static final JdbcTypeHandle JDBC_TIME = new JdbcTypeHandle(Types.TIME, "time", 4, 0);
-    public static final JdbcTypeHandle JDBC_TIMESTAMP = new JdbcTypeHandle(Types.TIMESTAMP, "timestamp", 8, 0);
+    public static final JdbcTypeHandle JDBC_DATE = new JdbcTypeHandle(Types.DATE, "date", 8, 0, Optional.empty());
+    public static final JdbcTypeHandle JDBC_TIME = new JdbcTypeHandle(Types.TIME, "time", 4, 0, Optional.empty());
+    public static final JdbcTypeHandle JDBC_TIMESTAMP = new JdbcTypeHandle(Types.TIMESTAMP, "timestamp", 8, 0, Optional.empty());
 }

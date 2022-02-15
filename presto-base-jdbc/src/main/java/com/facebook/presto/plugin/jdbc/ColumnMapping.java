@@ -18,7 +18,7 @@ import com.facebook.presto.common.type.Type;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class ColumnMapping
+public final class ColumnMapping
 {
     private final Type type;
     private final ReadFunction readFunction;

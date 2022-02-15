@@ -41,9 +41,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static com.facebook.presto.plugin.base.util.JsonUtils.parseJson;
 import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.ALL;
 import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
