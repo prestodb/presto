@@ -614,15 +614,15 @@ bool MapVector::equalValueAt(
   auto offset = rawOffsets_[index];
   auto otherOffset = otherMap->rawOffsets_[wrappedIndex];
   int32_t mapSize = rawSizes_[index];
-  std::unordered_set<int32_t> offsets;
+  std::vector<bool> othersMatch(mapSize, false);
   for (int32_t i = 0; i < mapSize; ++i) {
     bool found = false;
     for (int32_t j = 0; j < mapSize; ++j) {
-      if (keys_->equalValueAt(otherKeys, offset + i, otherOffset + j) &&
-          values_->equalValueAt(otherValues, offset + i, otherOffset + j) &&
-          offsets.find(j) == offsets.end()) {
+      if (!othersMatch[j] &&
+          keys_->equalValueAt(otherKeys, offset + i, otherOffset + j) &&
+          values_->equalValueAt(otherValues, offset + i, otherOffset + j)) {
         found = true;
-        offsets.insert(j);
+        othersMatch[j] = true;
         break;
       }
     }
@@ -630,6 +630,7 @@ bool MapVector::equalValueAt(
       return false;
     }
   }
+
   return true;
 }
 
