@@ -91,6 +91,14 @@ Date randDate(FuzzerGenerator& rng) {
   return Date(folly::Random::rand32(rng));
 }
 
+size_t genContainerLength(
+    const VectorFuzzer::Options& opts,
+    FuzzerGenerator& rng) {
+  return opts.containerVariableLength
+      ? folly::Random::rand32(rng) % opts.containerLength
+      : opts.containerLength;
+}
+
 /// Unicode character ranges.
 /// Source: https://jrgraphix.net/research/unicode_blocks.php
 const std::map<UTF8CharList, std::vector<std::pair<char16_t, char16_t>>>
@@ -225,11 +233,18 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
 
   // One in 5 chance of adding a constant vector.
   if (oneIn(5)) {
-    // One in <nullChance> chance of adding a NULL constant vector.
-    if (oneIn(opts_.nullChance)) {
-      vector = BaseVector::createNullConstant(type, size, pool_);
+    // If adding a constant vector, 50% of chance between:
+    // - generate a regular constant vector (only for primitive types).
+    // - generate a random vector and wrap it using a constant vector.
+    if (type->isPrimitiveType() && oneIn(2)) {
+      vector = fuzzConstant(type, size);
     } else {
-      vector = BaseVector::wrapInConstant(size, 0, fuzz(type, 1));
+      // Vector size can't be zero.
+      auto innerVectorSize =
+          folly::Random::rand32(1, opts_.vectorSize + 1, rng_);
+      auto constantIndex = rand<vector_size_t>(rng_) % innerVectorSize;
+      vector = BaseVector::wrapInConstant(
+          size, constantIndex, fuzz(type, innerVectorSize));
     }
   } else {
     vector = type->size() > 0 ? fuzzComplex(type, size) : fuzzFlat(type, size);
@@ -240,6 +255,17 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
     vector = fuzzDictionary(vector);
   }
   return vector;
+}
+
+VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type) {
+  return fuzzConstant(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
+  if (oneIn(opts_.nullChance)) {
+    return BaseVector::createNullConstant(type, size, pool_);
+  }
+  return BaseVector::createConstant(randVariant(type), size, pool_);
 }
 
 VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type) {
@@ -280,9 +306,7 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
     // Randomly creates container size.
     for (auto i = 0; i < size; ++i) {
       rawOffsets[i] = childSize;
-      auto length = opts_.containerVariableLength
-          ? folly::Random::rand32(rng_) % opts_.containerLength
-          : opts_.containerLength;
+      auto length = genContainerLength(opts_, rng_);
       rawSizes[i] = length;
       childSize += length;
     }
@@ -351,8 +375,40 @@ VectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType, vector_size_t size) {
 }
 
 variant VectorFuzzer::randVariant(const TypePtr& arg) {
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      randVariantImpl, arg->kind(), rng_, opts_);
+  if (arg->isArray()) {
+    auto arrayType = arg->asArray();
+    std::vector<variant> variantArray;
+    auto length = genContainerLength(opts_, rng_);
+    variantArray.reserve(length);
+
+    for (size_t i = 0; i < length; ++i) {
+      variantArray.emplace_back(randVariant(arrayType.elementType()));
+    }
+    return variant::array(std::move(variantArray));
+  } else if (arg->isMap()) {
+    auto mapType = arg->asMap();
+    std::map<variant, variant> variantMap;
+    auto length = genContainerLength(opts_, rng_);
+
+    for (size_t i = 0; i < length; ++i) {
+      variantMap.emplace(
+          randVariant(mapType.keyType()), randVariant(mapType.valueType()));
+    }
+    return variant::map(std::move(variantMap));
+  } else if (arg->isRow()) {
+    auto rowType = arg->asRow();
+    std::vector<variant> variantArray;
+    auto length = genContainerLength(opts_, rng_);
+    variantArray.reserve(length);
+
+    for (size_t i = 0; i < length; ++i) {
+      variantArray.emplace_back(randVariant(rowType.childAt(i)));
+    }
+    return variant::row(std::move(variantArray));
+  } else {
+    return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        randVariantImpl, arg->kind(), rng_, opts_);
+  }
 }
 
 } // namespace facebook::velox

@@ -84,6 +84,9 @@ class VectorFuzzer {
   // Returns a flat vector with randomized data and nulls.
   VectorPtr fuzzFlat(const TypePtr& type);
 
+  // Returns a random constant vector (which could be a null constant).
+  VectorPtr fuzzConstant(const TypePtr& type);
+
   // Wraps `vector` using a randomized indices vector, returning a
   // DictionaryVector.
   VectorPtr fuzzDictionary(const VectorPtr& vector);
@@ -109,6 +112,8 @@ class VectorFuzzer {
   VectorPtr fuzz(const TypePtr& type, vector_size_t size);
 
   VectorPtr fuzzFlat(const TypePtr& type, vector_size_t size);
+
+  VectorPtr fuzzConstant(const TypePtr& type, vector_size_t size);
 
   VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
 
