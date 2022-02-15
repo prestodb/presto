@@ -107,6 +107,40 @@ TEST(DuckParserTest, in) {
       parseExpr("col1 in ('a', null, 'b', 'c')")->toString());
 }
 
+TEST(DuckParserTest, notin) {
+  EXPECT_EQ(
+      "not(in(\"col1\",[1,2,3]))",
+      parseExpr("col1 not in (1, 2, 3)")->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",[1,2,3]))",
+      parseExpr("not(col1 in (1, 2, 3))")->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",[1,2,null,3]))",
+      parseExpr("col1 not in (1, 2, null, 3)")->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",[1,2,null,3]))",
+      parseExpr("not(col1 in (1, 2, null, 3))")->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",[\"a\",\"b\",\"c\"]))",
+      parseExpr("col1 not in ('a', 'b', 'c')")->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",[\"a\",\"b\",\"c\"]))",
+      parseExpr("not(col1 in ('a', 'b', 'c'))")->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",[\"a\",null,\"b\",\"c\"]))",
+      parseExpr("col1 not in ('a', null, 'b', 'c')")->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",[\"a\",null,\"b\",\"c\"]))",
+      parseExpr("not(col1 in ('a', null, 'b', 'c'))")->toString());
+}
+
 TEST(DuckParserTest, expressions) {
   // Comparisons.
   EXPECT_EQ("eq(1,0)", parseExpr("1 = 0")->toString());
