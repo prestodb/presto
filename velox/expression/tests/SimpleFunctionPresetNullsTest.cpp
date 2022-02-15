@@ -17,6 +17,7 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <type_traits>
+
 #include "velox/expression/Expr.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
@@ -25,6 +26,12 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/SelectivityVector.h"
+
+// This file contains tests that ensure that simple function adapter properly
+// sets the nullity of the output when the input vector nullity is already set
+// to null for some indices. It was added after we discovered that simple
+// function adapter assumes results vector nullity to be intitially all not
+// null.
 
 namespace facebook::velox {
 namespace {

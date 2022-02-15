@@ -19,6 +19,7 @@ add_executable(
   EvalSimplifiedTest.cpp
   SignatureBinderTest.cpp
   SimpleFunctionTest.cpp
+  SimpleFunctionPresetNullsTest.cpp
   ArrayViewTest.cpp
   ArrayProxyTest.cpp
   MapViewTest.cpp
