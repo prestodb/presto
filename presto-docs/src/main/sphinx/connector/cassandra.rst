@@ -77,7 +77,7 @@ Property Name                                      Description
         If authorization is enabled, ``cassandra.username`` must have enough permissions to perform ``SELECT`` queries on
         the ``system.size_estimates`` table.
 
-.. _Cassandra consistency: http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html
+.. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/2.2/cassandra/dml/dmlConfigConsistency.html
 
 The following advanced configuration properties are available:
 
@@ -163,7 +163,7 @@ The ``users`` table is an example Cassandra table from the Cassandra
 `Getting Started`_ guide. It can be created along with the ``mykeyspace``
 keyspace using Cassandra's cqlsh (CQL interactive terminal):
 
-.. _Getting Started: https://wiki.apache.org/cassandra/GettingStarted
+.. _Getting Started: https://cassandra.apache.org/doc/latest/cassandra/getting_started/index.html
 
 .. code-block:: none
 
