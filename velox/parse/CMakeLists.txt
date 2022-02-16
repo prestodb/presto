@@ -18,7 +18,7 @@ add_library(velox_parse_parser ExpressionsParser.cpp)
 target_link_libraries(velox_parse_parser velox_parse_expression velox_type
                       velox_duckdb_parser)
 
-add_library(velox_parse_utils VariantToVector.cpp)
+add_library(velox_parse_utils TypeResolver.cpp VariantToVector.cpp)
 target_link_libraries(velox_parse_utils velox_buffer velox_type velox_vector)
 
 if(${VELOX_BUILD_TESTING})

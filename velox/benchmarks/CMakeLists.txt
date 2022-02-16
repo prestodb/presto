@@ -19,7 +19,6 @@ target_link_libraries(
   velox_type
   velox_vector
   velox_expression
-  velox_exec_test_util
   velox_expression_fuzzer
   velox_parse_parser
   velox_serialization

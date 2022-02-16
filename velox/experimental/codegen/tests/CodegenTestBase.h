@@ -24,7 +24,6 @@
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/tests/utils/Cursor.h"
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/experimental/codegen/CodegenCompiledExpressionTransform.h"
 #include "velox/experimental/codegen/CodegenLogger.h"
@@ -33,6 +32,7 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::codegen {
@@ -106,7 +106,7 @@ class CodegenTestCore {
     queryCtx_ = core::QueryCtx::createForTest();
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 
-    exec::test::registerTypeResolver();
+    parse::registerTypeResolver();
     functions::prestosql::registerAllScalarFunctions();
   }
 

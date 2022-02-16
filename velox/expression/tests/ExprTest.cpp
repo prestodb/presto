@@ -17,14 +17,14 @@
 #include <folly/Benchmark.h>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
+
 #include "velox/dwio/common/DataSink.h"
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/vector/VectorEncoding.h"
 #include "velox/vector/tests/VectorMaker.h"
 
@@ -105,7 +105,7 @@ class ExprTest : public testing::Test {
  protected:
   void SetUp() override {
     functions::prestosql::registerAllScalarFunctions();
-    exec::test::registerTypeResolver();
+    parse::registerTypeResolver();
 
     testDataType_ =
         ROW({"tinyint1",

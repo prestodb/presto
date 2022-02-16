@@ -18,7 +18,6 @@
 #include <limits>
 #include <optional>
 
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/tests/ArraySortTestData.h"

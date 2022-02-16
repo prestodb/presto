@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/TypeResolver.h"
 
 namespace facebook::velox::functions::test {
+
 void FunctionBaseTest::SetUpTestCase() {
-  exec::test::registerTypeResolver();
+  parse::registerTypeResolver();
   functions::prestosql::registerAllScalarFunctions();
 }
+
 } // namespace facebook::velox::functions::test

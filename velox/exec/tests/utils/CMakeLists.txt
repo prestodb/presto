@@ -16,10 +16,8 @@ add_library(velox_temp_path TempFilePath.cpp TempDirectoryPath.cpp)
 
 target_link_libraries(velox_temp_path velox_exception)
 
-add_library(
-  velox_exec_test_util
-  FunctionUtils.cpp PlanBuilder.cpp QueryAssertions.cpp Cursor.cpp
-  OperatorTestBase.cpp HiveConnectorTestBase.cpp)
+add_library(velox_exec_test_util PlanBuilder.cpp QueryAssertions.cpp Cursor.cpp
+                                 OperatorTestBase.cpp HiveConnectorTestBase.cpp)
 
 target_link_libraries(
   velox_exec_test_util

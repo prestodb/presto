@@ -13,15 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/utils/FunctionUtils.h"
+
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/parse/TypeResolver.h"
 
 namespace facebook::velox::functions {
+
 void registerIsNotNull() {
-  facebook::velox::exec::test::registerTypeResolver();
+  parse::registerTypeResolver();
   VELOX_REGISTER_VECTOR_FUNCTION(udf_is_not_null, "isnotnull");
 }
+
 }; // namespace facebook::velox::functions
 
 using namespace facebook::velox;

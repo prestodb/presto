@@ -15,14 +15,14 @@
  */
 
 #include "velox/exec/tests/utils/OperatorTestBase.h"
-#include <velox/parse/Expressions.h>
-#include <velox/parse/ExpressionsParser.h>
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/Expressions.h"
+#include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 namespace facebook::velox::exec::test {
@@ -36,7 +36,7 @@ OperatorTestBase::OperatorTestBase() {
   if (!isRegisteredVectorSerde()) {
     velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
   }
-  registerTypeResolver();
+  parse::registerTypeResolver();
 }
 
 OperatorTestBase::~OperatorTestBase() {

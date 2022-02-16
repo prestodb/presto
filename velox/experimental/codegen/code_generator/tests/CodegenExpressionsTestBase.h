@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <sstream>
 #include <stdexcept>
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/experimental/codegen/ast/CodegenUtils.h"
 #include "velox/experimental/codegen/code_generator/ExprCodeGenerator.h"
 #include "velox/experimental/codegen/compiler_utils/CodeManager.h"
@@ -30,6 +30,7 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Type.h"
 #include "velox/vector/ConstantVector.h"
@@ -502,7 +503,7 @@ class ExpressionCodegenTestBase : public testing::Test {
     functions::prestosql::registerArithmeticFunctions();
 
     // Register type resolver with the SQL parser.
-    exec::test::registerTypeResolver();
+    parse::registerTypeResolver();
   }
 
  protected:

@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/utils/FunctionUtils.h"
+
+#include "velox/parse/TypeResolver.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/SignatureBinder.h"
@@ -21,7 +22,7 @@
 #include "velox/parse/Expressions.h"
 #include "velox/type/Type.h"
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::parse {
 namespace {
 
 std::shared_ptr<const Type> resolveType(
@@ -74,7 +75,7 @@ std::shared_ptr<const Type> resolveType(
     }
 
     for (const auto& signature : signatures.value()) {
-      SignatureBinder binder(*signature, inputTypes);
+      exec::SignatureBinder binder(*signature, inputTypes);
       if (binder.tryBind()) {
         return binder.tryResolveReturnType();
       }
@@ -83,9 +84,11 @@ std::shared_ptr<const Type> resolveType(
 
   return nullptr;
 }
+
 } // namespace
 
 void registerTypeResolver() {
   core::Expressions::setTypeResolverHook(&resolveType);
 }
-} // namespace facebook::velox::exec::test
+
+} // namespace facebook::velox::parse

@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 namespace facebook::velox::functions::test {
@@ -26,7 +26,7 @@ namespace facebook::velox::functions::test {
 class FunctionBenchmarkBase {
  public:
   FunctionBenchmarkBase() {
-    exec::test::registerTypeResolver();
+    parse::registerTypeResolver();
   }
 
   exec::ExprSet compileExpression(

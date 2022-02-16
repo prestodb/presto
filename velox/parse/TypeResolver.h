@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
-namespace facebook::velox::memory {
-class MemoryPool;
-}
+namespace facebook::velox::parse {
 
-namespace facebook::velox::exec::test {
 // Registers type resolver with the parser to resolve return types of special
 // forms (if, switch, and, or, etc.) and vector functions.
 void registerTypeResolver();
-} // namespace facebook::velox::exec::test
+
+} // namespace facebook::velox::parse

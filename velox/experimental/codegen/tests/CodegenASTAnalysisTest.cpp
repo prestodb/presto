@@ -21,13 +21,13 @@
 #include <memory>
 #include "velox/core/PlanNode.h"
 #include "velox/dwio_move/dwrf/test/utils/BatchMaker.h"
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/experimental/codegen/CodegenCompiledExpressionTransform.h"
 #include "velox/experimental/codegen/CompiledExpressionAnalysis.h"
 #include "velox/experimental/codegen/tests/CodegenTestBase.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::codegen;

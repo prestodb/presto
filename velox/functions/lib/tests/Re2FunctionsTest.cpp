@@ -22,8 +22,8 @@
 #include <string>
 
 #include "velox/common/base/VeloxException.h"
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/type/StringView.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
@@ -40,7 +40,7 @@ std::shared_ptr<exec::VectorFunction> makeRegexExtract(
 class Re2FunctionsTest : public test::FunctionBaseTest {
  public:
   static void SetUpTestCase() {
-    exec::test::registerTypeResolver();
+    parse::registerTypeResolver();
     exec::registerStatefulVectorFunction(
         "re2_match", re2MatchSignatures(), makeRe2Match);
     exec::registerStatefulVectorFunction(

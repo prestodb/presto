@@ -15,9 +15,9 @@
  */
 #pragma once
 
-#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/sparksql/Register.h"
+#include "velox/parse/TypeResolver.h"
 
 namespace facebook::velox::functions::sparksql::test {
 
@@ -28,7 +28,7 @@ class SparkFunctionBaseTest : public FunctionBaseTest {
   // Ensure Spark functions are registered; don't register the "common"
   // (CoreSQL) functions.
   static void SetUpTestCase() {
-    exec::test::registerTypeResolver();
+    parse::registerTypeResolver();
     sparksql::registerFunctions("");
   }
 };
