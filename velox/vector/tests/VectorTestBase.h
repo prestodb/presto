@@ -324,8 +324,10 @@ class VectorTestBase {
       vector_size_t size,
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<T(vector_size_t /* idx */)> valueAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr) {
-    return vectorMaker_.arrayVector<T>(size, sizeAt, valueAt, isNullAt);
+      std::function<bool(vector_size_t /* row */)> isNullAt = nullptr,
+      std::function<bool(vector_size_t /* idx */)> valueIsNullAt = nullptr) {
+    return vectorMaker_.arrayVector<T>(
+        size, sizeAt, valueAt, isNullAt, valueIsNullAt);
   }
 
   template <typename T>

@@ -126,6 +126,10 @@ class DecodedVector {
     return mayHaveNulls_;
   }
 
+  bool mayHaveNullsRecursive() const {
+    return mayHaveNulls_ || baseVector_->mayHaveNullsRecursive();
+  }
+
   bool isNullAt(vector_size_t idx) const {
     if (!nulls_) {
       return false;

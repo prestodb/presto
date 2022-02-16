@@ -24,7 +24,8 @@ add_executable(
   ArrayProxyTest.cpp
   MapViewTest.cpp
   RowViewTest.cpp
-  VariadicViewTest.cpp)
+  VariadicViewTest.cpp
+  VectorReaderTest.cpp)
 
 add_test(
   NAME velox_expression_test
