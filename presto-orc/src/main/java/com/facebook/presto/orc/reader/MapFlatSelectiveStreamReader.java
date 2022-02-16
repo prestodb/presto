@@ -502,7 +502,11 @@ public class MapFlatSelectiveStreamReader
             }
         }
 
-        return outputType.createBlockFromKeyValue(outputPositionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, new DictionaryBlock(keyBlock, keyIds), valueBlockBuilder);
+        return outputType.createBlockFromKeyValue(outputPositionCount,
+                Optional.ofNullable(includeNulls ? nulls : null),
+                offsets,
+                new DictionaryBlock(keyBlock, keyIds),
+                valueBlockBuilder.build());
     }
 
     private static RunLengthEncodedBlock createNullBlock(Type type, int positionCount)
