@@ -76,6 +76,22 @@ class S3FileSystemTest : public testing::Test {
     ASSERT_EQ(zarf, "ccccccccccddddd");
     ASSERT_EQ(warf, "abbbbbcc");
     ASSERT_EQ(warfFromBuf, "abbbbbcc");
+    char head[12];
+    char middle[4];
+    char tail[7];
+    std::vector<folly::Range<char*>> buffers = {
+        folly::Range<char*>(head, sizeof(head)),
+        folly::Range<char*>(nullptr, 500000),
+        folly::Range<char*>(middle, sizeof(middle)),
+        folly::Range<char*>(
+            nullptr,
+            15 + kOneMB - 500000 - sizeof(head) - sizeof(middle) -
+                sizeof(tail)),
+        folly::Range<char*>(tail, sizeof(tail))};
+    ASSERT_EQ(15 + kOneMB, readFile->preadv(0, buffers));
+    ASSERT_EQ(std::string_view(head, sizeof(head)), "aaaaabbbbbcc");
+    ASSERT_EQ(std::string_view(middle, sizeof(middle)), "cccc");
+    ASSERT_EQ(std::string_view(tail, sizeof(tail)), "ccddddd");
   }
 
   static std::shared_ptr<MinioServer> minioServer_;
