@@ -31,8 +31,8 @@ import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -707,6 +707,23 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testListObjectsPagination()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            fs.setS3Client(s3);
+            FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test-pagination"));
+            assertEquals(statuses.length, 2);
+            assertEquals("standardOne", statuses[0].getPath().getName());
+            assertEquals("standardTwo", statuses[1].getPath().getName());
+        }
+    }
+
     private void testEmptyDirectoryWithContentType(String s3ObjectContentType)
             throws Exception
     {
@@ -789,11 +806,11 @@ public class TestPrestoS3FileSystem
             MockAmazonS3 s3 = new MockAmazonS3()
             {
                 @Override
-                public ObjectListing listObjects(ListObjectsRequest listObjectsRequest)
+                public ListObjectsV2Result listObjectsV2(ListObjectsV2Request listObjectsV2Request)
                 {
-                    ObjectListing listing = new ObjectListing();
+                    ListObjectsV2Result listing = new ListObjectsV2Result();
                     // Shallow listing
-                    if ("/".equals(listObjectsRequest.getDelimiter())) {
+                    if ("/".equals(listObjectsV2Request.getDelimiter())) {
                         listing.getCommonPrefixes().add("prefix");
                         listing.getObjectSummaries().add(rootObject);
                         return listing;
