@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -213,11 +214,16 @@ public class TestDictionaryColumnWriter
     public void testStringRepeatingValuesWithDirectConversion()
             throws Exception
     {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        List<String> values = new ArrayList<>(60_000);
         for (int i = 0; i < 60_000; i++) {
-            builder.add(Integer.toString((i % 2000) + INTEGER_VALUES_DICTIONARY_BASE));
+            int offset = i % 2001;
+            if (offset > 0) {
+                values.add(Integer.toString(offset + INTEGER_VALUES_DICTIONARY_BASE));
+            }
+            else {
+                values.add(null);
+            }
         }
-        List<String> values = builder.build();
 
         for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
@@ -527,14 +533,13 @@ public class TestDictionaryColumnWriter
         directConversionTester.add(0, 4000, true);
         directConversionTester.add(16, 10_000, true);
 
-        ImmutableList<Integer> baseList = ImmutableList.of(Integer.MAX_VALUE, Integer.MIN_VALUE);
-        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
-        builder.addAll(baseList);
+        List<Integer> values = new ArrayList<>();
+        values.addAll(Arrays.asList(Integer.MAX_VALUE, Integer.MIN_VALUE));
+        values.add(null);
         int repeatInterval = 1500;
-        for (int i = baseList.size(); i < 60_000; i++) {
-            builder.add(INTEGER_VALUES_DICTIONARY_BASE + i % repeatInterval);
+        for (int i = values.size(); i < 60_000; i++) {
+            values.add(INTEGER_VALUES_DICTIONARY_BASE + i % repeatInterval);
         }
-        List<Integer> values = builder.build();
         List<StripeFooter> stripeFooters = testIntegerDictionary(directConversionTester, values);
         assertEquals(getStripeSize(values.size()), stripeFooters.size());
         verifyDwrfDirectEncoding(stripeFooters, 0);
@@ -923,15 +928,15 @@ public class TestDictionaryColumnWriter
     {
         private final List<Integer> batchIds = new ArrayList<>();
         private final List<Integer> maxDirectBytes = new ArrayList<>();
-        private final List<Boolean> results = new ArrayList<>();
+        private final List<Boolean> expectedResults = new ArrayList<>();
         private int index;
         private int lastBatchId = -1;
 
-        void add(int batchId, int maxBytes, boolean result)
+        void add(int batchId, int maxBytes, boolean expectedResult)
         {
             batchIds.add(batchId);
             maxDirectBytes.add(maxBytes);
-            results.add(result);
+            expectedResults.add(expectedResult);
         }
 
         void validate(int batchId, OrcWriter writer)
@@ -947,7 +952,7 @@ public class TestDictionaryColumnWriter
                 assertFalse(columnWriter.isDirectEncoded(), "BatchId " + batchId + "is Direct encoded");
 
                 int bufferedBytes = maxDirectBytes.get(index);
-                if (!results.get(index)) {
+                if (!expectedResults.get(index)) {
                     // Failed Conversion to direct, can be invoked on column writer, as the dictionary
                     // compression optimizer state does not change.
                     assertFalse(columnWriter.tryConvertToDirect(bufferedBytes).isPresent(), "BatchId " + batchId + " bytes " + bufferedBytes);
