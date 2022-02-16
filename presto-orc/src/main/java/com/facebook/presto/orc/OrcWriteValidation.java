@@ -356,7 +356,8 @@ public class OrcWriteValidation
         requireNonNull(expectedColumnStatistics, "expectedColumnStatistics is null");
 
         if (actualColumnStatistics.getNumberOfValues() != expectedColumnStatistics.getNumberOfValues()) {
-            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected number of values in %s statistics", name);
+            String failureMessage = format("Actual Values %s does not match expected values %s", actualColumnStatistics, expectedColumnStatistics);
+            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: %s in %s statistics", failureMessage, name);
         }
 
         if (!Objects.equals(actualColumnStatistics.getBooleanStatistics(), expectedColumnStatistics.getBooleanStatistics())) {
