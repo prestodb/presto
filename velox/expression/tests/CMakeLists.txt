@@ -53,10 +53,6 @@ target_link_libraries(
   glog::glog
   ${FMT})
 
-add_library(velox_vector_fuzzer VectorFuzzer.cpp)
-
-target_link_libraries(velox_vector_fuzzer velox_type velox_vector)
-
 add_library(velox_expression_fuzzer ExpressionFuzzer.cpp)
 
 target_link_libraries(velox_expression_fuzzer velox_type velox_vector_fuzzer

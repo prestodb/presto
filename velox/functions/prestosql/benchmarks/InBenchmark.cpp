@@ -16,9 +16,9 @@
 #include <folly/Benchmark.h>
 #include <folly/container/F14Set.h>
 #include <folly/init/Init.h>
-#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

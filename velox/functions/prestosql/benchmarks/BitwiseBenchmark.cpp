@@ -16,11 +16,11 @@
 
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
-#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace {
 using namespace facebook::velox;

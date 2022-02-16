@@ -21,10 +21,10 @@
 #include <folly/Random.h>
 #include <folly/init/Init.h>
 
-#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/sparksql/In.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::functions {
 void registerPrestoIn() {

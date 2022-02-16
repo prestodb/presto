@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/expression/tests/VectorFuzzer.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include <codecvt>
 #include <locale>
 #include "velox/type/Date.h"

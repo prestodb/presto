@@ -19,12 +19,12 @@
 #include <folly/Random.h>
 #include <folly/init/Init.h>
 
-#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/row/UnsafeRowDeserializer.h"
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::row {
 namespace {

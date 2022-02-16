@@ -25,8 +25,8 @@
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
-#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/type/Type.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 DEFINE_int32(

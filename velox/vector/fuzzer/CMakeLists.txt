@@ -11,27 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
-  velox_vector
-  BaseVector.cpp
-  ComplexVector.cpp
-  ConstantVector.cpp
-  DecodedVector.cpp
-  FlatVector.cpp
-  LazyVector.cpp
-  SelectivityVector.cpp
-  SequenceVector.cpp
-  SimpleVector.cpp
-  VectorEncoding.cpp
-  VectorStream.cpp)
 
-target_link_libraries(velox_vector velox_encode velox_memory velox_time
-                      velox_type)
+add_library(velox_vector_fuzzer VectorFuzzer.cpp)
 
-add_subdirectory(arrow)
-add_subdirectory(fuzzer)
-
-if(${VELOX_BUILD_TESTING} OR ${VELOX_BUILD_BENCHMARKS})
-  add_subdirectory(tests)
-  add_subdirectory(benchmarks)
-endif()
+target_link_libraries(velox_vector_fuzzer velox_type velox_vector)
