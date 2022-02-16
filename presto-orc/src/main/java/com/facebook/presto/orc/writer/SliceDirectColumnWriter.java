@@ -64,11 +64,11 @@ public class SliceDirectColumnWriter
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream lengthStream;
     private final ByteArrayOutputStream dataStream;
-    private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter metadataWriter;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private long columnStatisticsRetainedSizeInBytes;
+    private PresentOutputStream presentStream;
 
     private final Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier;
     private SliceColumnStatisticsBuilder statisticsBuilder;
@@ -111,8 +111,20 @@ public class SliceDirectColumnWriter
     {
         checkState(!closed);
         presentStream.recordCheckpoint();
+        beginDataRowGroup();
+    }
+
+    void beginDataRowGroup()
+    {
         lengthStream.recordCheckpoint();
         dataStream.recordCheckpoint();
+    }
+
+    void updatePresentStream(PresentOutputStream updatedPresentStream)
+    {
+        requireNonNull(updatedPresentStream, "updatedPresentStream is null");
+        checkState(presentStream.getBufferedBytes() == 0, "Present stream has some content");
+        presentStream = updatedPresentStream;
     }
 
     @Override
