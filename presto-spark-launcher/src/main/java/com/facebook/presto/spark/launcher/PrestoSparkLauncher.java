@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.spark.launcher;
 
-import io.airlift.airline.ParseException;
-import io.airlift.airline.SingleCommand;
+import com.github.rvesse.airline.SingleCommand;
+import com.github.rvesse.airline.parser.errors.ParseException;
 
-import static com.facebook.presto.spark.launcher.Commands.parseCommandNoValidate;
-import static io.airlift.airline.SingleCommand.singleCommand;
 import static java.lang.System.exit;
 
 public class PrestoSparkLauncher
@@ -26,32 +24,25 @@ public class PrestoSparkLauncher
 
     public static void main(String[] args)
     {
-        SingleCommand<PrestoSparkLauncherCommand> command = singleCommand(PrestoSparkLauncherCommand.class);
-
-        PrestoSparkLauncherCommand console = parseCommandNoValidate(command, args);
-        if (console.helpOption.showHelpIfRequested() ||
-                console.versionOption.showVersionIfRequested()) {
-            exit(0);
-            return;
-        }
+        SingleCommand<PrestoSparkLauncherCommand> command = SingleCommand.singleCommand(PrestoSparkLauncherCommand.class);
 
         // parse and validate now
         try {
-            console = command.parse(args);
+            PrestoSparkLauncherCommand console = command.parse(args);
+
+            try {
+                console.run();
+                exit(0);
+            }
+            catch (RuntimeException e) {
+                e.printStackTrace();
+                exit(1);
+            }
         }
         catch (ParseException e) {
             System.err.println(e.getMessage());
             exit(1);
             return;
-        }
-
-        try {
-            console.run();
-            exit(0);
-        }
-        catch (RuntimeException e) {
-            e.printStackTrace();
-            exit(1);
         }
     }
 }

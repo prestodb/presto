@@ -34,7 +34,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.github.rvesse</groupId>
             <artifactId>airline</artifactId>
         </dependency>
 
@@ -68,8 +68,8 @@
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
-                                    <pattern>io.airlift.airline</pattern>
-                                    <shadedPattern>${shadeBase}.io.airlift.airline</shadedPattern>
+                                    <pattern>com.github.rvesse</pattern>
+                                    <shadedPattern>${shadeBase}.com.github.rvesse.airline</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>javax.inject</pattern>
