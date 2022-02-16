@@ -96,76 +96,125 @@ struct ValidateVariadicArgs {
   static constexpr bool value = isValidArg<0, TArgs...>();
 };
 
-// A set of structs used to convert Velox static types to their corresponding
-// string representation in the function signature.
+// Information collected during TypeAnalysis.
+struct TypeAnalysisResults {
+  // Whether a variadic is encountered.
+  bool hasVariadic = false;
+
+  // Whether a generic is encountered.
+  bool hasGeneric = false;
+
+  // Whether a variadic of generic is encountered.
+  // E.g: Variadic<T> or Variadic<Array<T1>>.
+  bool hasVariadicOfGeneric = false;
+
+  // The number of types that are neither generic, nor variadic.
+  size_t concreteCount = 0;
+
+  // String representaion of the type in the FunctionSignatureBuilder.
+  std::ostringstream out;
+
+  // Set of generic variables used in the type.
+  std::set<std::string> variables;
+
+  std::string typeAsString() {
+    return out.str();
+  }
+
+  void resetTypeString() {
+    out.str(std::string());
+  }
+};
+
+// A set of structs used to perform analysis on a static type to
+// collect information needed for signatrue construction.
 template <typename T>
-struct TypeStringBuilder {
-  void append(std::ostringstream& out, std::set<std::string>& /*unused*/) {
-    out << boost::algorithm::to_lower_copy(std::string(CppToType<T>::name));
+struct TypeAnalysis {
+  void run(TypeAnalysisResults& results) {
+    results.concreteCount++;
+    results.out << boost::algorithm::to_lower_copy(
+        std::string(CppToType<T>::name));
   }
 };
 
 template <typename T>
-struct TypeStringBuilder<Generic<T>> {
-  void append(std::ostringstream& out, std::set<std::string>& variables) {
+struct TypeAnalysis<Generic<T>> {
+  void run(TypeAnalysisResults& results) {
     if constexpr (std::is_same<T, AnyType>::value) {
-      out << "any";
+      results.out << "any";
     } else {
       auto variableType = fmt::format("__user_T{}", T::getId());
-      out << variableType;
-      variables.insert(variableType);
+      results.out << variableType;
+      results.variables.insert(variableType);
     }
+    results.hasGeneric = true;
   }
 };
 
 template <typename K, typename V>
-struct TypeStringBuilder<Map<K, V>> {
-  void append(std::ostringstream& out, std::set<std::string>& variables) {
-    out << "map(";
-    TypeStringBuilder<K>().append(out, variables);
-    out << ",";
-    TypeStringBuilder<V>().append(out, variables);
-    out << ")";
+struct TypeAnalysis<Map<K, V>> {
+  void run(TypeAnalysisResults& results) {
+    results.concreteCount++;
+    results.out << "map(";
+    TypeAnalysis<K>().run(results);
+    results.out << ",";
+    TypeAnalysis<V>().run(results);
+    results.out << ")";
   }
 };
 
 template <typename V>
-struct TypeStringBuilder<Variadic<V>> {
-  void append(std::ostringstream& out, std::set<std::string>& variables) {
-    TypeStringBuilder<V>().append(out, variables);
+struct TypeAnalysis<Variadic<V>> {
+  void run(TypeAnalysisResults& results) {
+    // We need to split, pass a clean results then merge results to correctly
+    // compute `hasVariadicOfGeneric`.
+    TypeAnalysisResults tmp;
+    TypeAnalysis<V>().run(tmp);
+
+    // Combine the child results.
+    results.hasVariadic = true;
+    results.hasGeneric = results.hasGeneric || tmp.hasGeneric;
+    results.hasVariadicOfGeneric =
+        tmp.hasGeneric || results.hasVariadicOfGeneric;
+
+    results.concreteCount += tmp.concreteCount;
+    results.variables.insert(tmp.variables.begin(), tmp.variables.end());
+    results.out << tmp.typeAsString();
   }
 };
 
 template <typename V>
-struct TypeStringBuilder<Array<V>> {
-  void append(std::ostringstream& out, std::set<std::string>& variables) {
-    out << "array(";
-    TypeStringBuilder<V>().append(out, variables);
-    out << ")";
+struct TypeAnalysis<Array<V>> {
+  void run(TypeAnalysisResults& results) {
+    results.concreteCount++;
+    results.out << "array(";
+    TypeAnalysis<V>().run(results);
+    results.out << ")";
   }
 };
 
 template <typename... T>
-struct TypeStringBuilder<Row<T...>> {
+struct TypeAnalysis<Row<T...>> {
   using child_types = std::tuple<T...>;
 
   template <size_t N>
   using child_type_at = typename std::tuple_element<N, child_types>::type;
 
-  void append(std::ostringstream& out, std::set<std::string>& variables) {
-    out << "row(";
+  void run(TypeAnalysisResults& results) {
+    results.concreteCount++;
+    results.out << "row(";
     // This expression applies the lambda for each row child type.
     bool first = true;
     (
         [&]() {
           if (!first) {
-            out << ", ";
+            results.out << ", ";
           }
           first = false;
-          TypeStringBuilder<T>().append(out, variables);
+          TypeAnalysis<T>().run(results);
         }(),
         ...);
-    out << ")";
+    results.out << ")";
   }
 };
 
@@ -278,23 +327,24 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   ~SimpleFunctionMetadata() override = default;
 
   std::shared_ptr<exec::FunctionSignature> signature() const final {
-    std::set<std::string> variables;
     auto builder = exec::FunctionSignatureBuilder();
 
-    std::ostringstream out;
-    TypeStringBuilder<return_type>().append(out, variables);
-    builder.returnType(out.str());
+    TypeAnalysisResults results;
+    TypeAnalysis<return_type>().run(results);
+    builder.returnType(results.typeAsString());
 
     // This expression applies the lambda for each input arg type.
     (
         [&]() {
-          std::ostringstream outLocal;
-          TypeStringBuilder<Args>().append(outLocal, variables);
-          builder.argumentType(outLocal.str());
+          // Clear string representation but keep other collected information to
+          // accumulate.
+          results.resetTypeString();
+          TypeAnalysis<Args>().run(results);
+          builder.argumentType(results.typeAsString());
         }(),
         ...);
 
-    for (const auto& variable : variables) {
+    for (const auto& variable : results.variables) {
       builder.typeVariable(variable);
     }
 
