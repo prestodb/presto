@@ -29,6 +29,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationStats;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
@@ -229,7 +230,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public synchronized MetastoreOperationStats createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!table.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be committed to the metastore");
 
@@ -279,6 +280,8 @@ public class FileHiveMetastore
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
             setTablePrivileges(metastoreContext, new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
+
+        return new MetastoreOperationStats();
     }
 
     @Override
@@ -435,7 +438,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public synchronized MetastoreOperationStats replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
 
@@ -459,10 +462,12 @@ public class FileHiveMetastore
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
             setTablePrivileges(metastoreContext, new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
+
+        return new MetastoreOperationStats();
     }
 
     @Override
-    public synchronized void renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public synchronized MetastoreOperationStats renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
@@ -486,6 +491,8 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+
+        return new MetastoreOperationStats();
     }
 
     private static boolean isIcebergTable(Map<String, String> parameters)
@@ -494,7 +501,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
+    public synchronized MetastoreOperationStats addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         alterTable(databaseName, tableName, oldTable -> {
             if (oldTable.getColumn(columnName).isPresent()) {
@@ -506,10 +513,12 @@ public class FileHiveMetastore
                     .add(new Column(columnName, columnType, Optional.ofNullable(columnComment), Optional.empty()))
                     .build());
         });
+
+        return new MetastoreOperationStats();
     }
 
     @Override
-    public synchronized void renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName)
+    public synchronized MetastoreOperationStats renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
         alterTable(databaseName, tableName, oldTable -> {
             if (oldTable.getColumn(newColumnName).isPresent()) {
@@ -537,10 +546,12 @@ public class FileHiveMetastore
 
             return oldTable.withDataColumns(newDataColumns.build());
         });
+
+        return new MetastoreOperationStats();
     }
 
     @Override
-    public synchronized void dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
+    public synchronized MetastoreOperationStats dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
     {
         alterTable(databaseName, tableName, oldTable -> {
             verifyCanDropColumn(this, metastoreContext, databaseName, tableName, columnName);
@@ -558,6 +569,8 @@ public class FileHiveMetastore
 
             return oldTable.withDataColumns(newDataColumns.build());
         });
+
+        return new MetastoreOperationStats();
     }
 
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
@@ -578,7 +591,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
+    public synchronized MetastoreOperationStats addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
@@ -613,6 +626,7 @@ public class FileHiveMetastore
                         throw new PrestoException(HIVE_METASTORE_ERROR, "Could not write partition schema", e);
                     }
                 }
+                return new MetastoreOperationStats();
             }
             catch (Throwable e) {
                 for (Path createdFile : createdFiles) {
@@ -682,7 +696,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
+    public synchronized MetastoreOperationStats alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
         Table table = getRequiredTable(metastoreContext, databaseName, tableName);
 
@@ -691,6 +705,8 @@ public class FileHiveMetastore
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
         writeSchemaFile("partition", partitionMetadataDirectory, partitionCodec, new PartitionMetadata(table, partitionWithStatistics), true);
+
+        return new MetastoreOperationStats();
     }
 
     @Override

@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.resourceGroups.QueryType;
@@ -51,6 +52,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -145,6 +147,9 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+
+    private final AtomicReference<ConnectorCommitHandle> commitHandle = new AtomicReference<>();
+
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
 
@@ -516,6 +521,39 @@ public class QueryStateMachine
         this.output.set(output);
     }
 
+    public void SetConnectorCommitResult(ConnectorCommitHandle commitHandle)
+    {
+        requireNonNull(commitHandle, "commitHandle is null");
+        this.commitHandle.set(commitHandle);
+    }
+
+    private void supplyOutputLastDataCommitTimes()
+    {
+        if (output.get().isPresent()) {
+            String resultKey = output.get().get().getSchema() + "." + output.get().get().getTable();
+            if (commitHandle.get().containOutput(resultKey)) {
+                output.get().get().setLastDataCommitTimes(
+                        commitHandle.get().getOutputLastDataCommitTimes(resultKey));
+                commitHandle.get().removeOutput(resultKey);
+            }
+            else {
+                output.get().get().setLastDataCommitTimes(Collections.emptyList());
+            }
+        }
+        else {
+            // There should be at most ONE element in the output based on current setting.
+            for (String resultKey : commitHandle.get().getOutputKeys()) {
+                String[] keys = resultKey.split("\\.");
+                Output outputManual = new Output(
+                        commitHandle.get().getConnectorId(),
+                        keys[0],
+                        keys[1],
+                        (List<DateTime>) commitHandle.get().getOutputLastDataCommitTimes(resultKey));
+                this.output.set(Optional.of(outputManual));
+            }
+        }
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
@@ -706,6 +744,7 @@ public class QueryStateMachine
 
         Optional<TransactionInfo> transaction = session.getTransactionId()
                 .flatMap(transactionManager::getOptionalTransactionInfo);
+
         if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
             ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
             Futures.addCallback(commitFuture, new FutureCallback<Object>()
@@ -713,7 +752,15 @@ public class QueryStateMachine
                 @Override
                 public void onSuccess(@Nullable Object result)
                 {
-                    transitionToFinished();
+                    if (result instanceof Optional) {
+                        Optional<?> realResult = (Optional<?>) result;
+                        if (realResult.isPresent()) {
+                            transitionToFinished(realResult.get());
+                        }
+                    }
+                    else {
+                        transitionToFinished(null);
+                    }
                 }
 
                 @Override
@@ -724,13 +771,19 @@ public class QueryStateMachine
             }, directExecutor());
         }
         else {
-            transitionToFinished();
+            transitionToFinished(null);
         }
         return true;
     }
 
-    private void transitionToFinished()
+    public void transitionToFinished(Object result)
     {
+        if (result instanceof ConnectorCommitHandle) {
+            ConnectorCommitHandle connectorCommitHandle = (ConnectorCommitHandle) result;
+            commitHandle.set(connectorCommitHandle);
+            supplyOutputLastDataCommitTimes();
+        }
+
         cleanupQueryQuietly();
         queryStateTimer.endQuery();
 

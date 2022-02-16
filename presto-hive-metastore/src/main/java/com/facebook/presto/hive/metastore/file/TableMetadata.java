@@ -294,6 +294,7 @@ public class TableMetadata
                 partitionColumns,
                 parameters,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                Optional.empty());
     }
 }
