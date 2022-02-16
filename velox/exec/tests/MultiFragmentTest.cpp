@@ -295,15 +295,20 @@ TEST_F(MultiFragmentTest, mergeExchange) {
       filePaths0, filePaths1};
 
   std::vector<std::string> partialSortTaskIds;
-  std::shared_ptr<const RowType> outputType;
+  RowTypePtr outputType;
 
   for (int i = 0; i < 2; ++i) {
     auto sortTaskId = makeTaskId("orderby", tasks.size());
     partialSortTaskIds.push_back(sortTaskId);
-    auto partialSortPlan = PlanBuilder()
-                               .tableScan(rowType_)
-                               .orderBy({0}, {kAscNullsLast}, true)
-                               .localMerge({0}, {kAscNullsLast})
+    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto partialSortPlan = PlanBuilder(planNodeIdGenerator)
+                               .localMerge(
+                                   {0},
+                                   {kAscNullsLast},
+                                   {PlanBuilder(planNodeIdGenerator)
+                                        .tableScan(rowType_)
+                                        .orderBy({0}, {kAscNullsLast}, true)
+                                        .planNode()})
                                .partitionedOutput({}, 1)
                                .planNode();
 

@@ -95,9 +95,7 @@ class LocalMergeSource : public MergeSource {
         const std::shared_ptr<const RowType>& rowType,
         memory::MappedMemory* mappedMemory,
         int queueSize)
-        : rowType_(rowType), mappedMemory_(mappedMemory), data_(queueSize) {
-      VELOX_CHECK(mappedMemory_);
-    }
+        : rowType_(rowType), mappedMemory_(mappedMemory), data_(queueSize) {}
 
     BlockingReason next(ContinueFuture* future, char** row) {
       *row = nullptr;

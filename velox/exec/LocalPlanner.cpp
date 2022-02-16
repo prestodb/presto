@@ -73,10 +73,12 @@ OperatorSupplier makeConsumerSupplier(
     const std::shared_ptr<const core::PlanNode>& planNode) {
   if (auto localMerge =
           std::dynamic_pointer_cast<const core::LocalMergeNode>(planNode)) {
-    return [](int32_t operatorId, DriverCtx* ctx) {
-      auto consumer = [ctx](RowVectorPtr input, ContinueFuture* future) {
-        auto mergeSource =
-            ctx->task->getLocalMergeSource(ctx->splitGroupId, ctx->partitionId);
+    return [localMerge](int32_t operatorId, DriverCtx* ctx) {
+      auto mergeSource = ctx->task->addLocalMergeSource(
+          ctx->splitGroupId, localMerge->id(), localMerge->outputType());
+
+      auto consumer = [mergeSource](
+                          RowVectorPtr input, ContinueFuture* future) {
         return mergeSource->enqueue(input, future);
       };
       return std::make_unique<CallbackSink>(operatorId, ctx, consumer);
@@ -349,14 +351,8 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
     } else if (
         auto localMerge =
             std::dynamic_pointer_cast<const core::LocalMergeNode>(planNode)) {
-      auto numSources = numDrivers(ctx->pipelineId + 1);
       auto localMergeOp =
-          std::make_unique<LocalMerge>(id, ctx.get(), numSources, localMerge);
-      ctx->task->createLocalMergeSources(
-          ctx->splitGroupId,
-          numSources,
-          localMergeOp->outputType(),
-          localMergeOp->mappedMemory());
+          std::make_unique<LocalMerge>(id, ctx.get(), localMerge);
       operators.push_back(std::move(localMergeOp));
     } else if (
         auto mergeJoin =

@@ -146,15 +146,16 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Returns true if state is 'finished'.
   bool isFinished() const;
 
-  void createLocalMergeSources(
+  /// Adds a MergeSource for the specified splitGroupId and planNodeId.
+  std::shared_ptr<MergeSource> addLocalMergeSource(
       uint32_t splitGroupId,
-      unsigned numSources,
-      const std::shared_ptr<const RowType>& rowType,
-      memory::MappedMemory* FOLLY_NONNULL mappedMemory);
+      const core::PlanNodeId& planNodeId,
+      const RowTypePtr& rowType);
 
-  std::shared_ptr<MergeSource> getLocalMergeSource(
+  /// Returns all MergeSource's for the specified splitGroupId and planNodeId.
+  const std::vector<std::shared_ptr<MergeSource>>& getLocalMergeSources(
       uint32_t splitGroupId,
-      int sourceId);
+      const core::PlanNodeId& planNodeId);
 
   void createMergeJoinSource(
       uint32_t splitGroupId,

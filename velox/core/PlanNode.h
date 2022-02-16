@@ -569,9 +569,9 @@ class LocalMergeNode : public PlanNode {
       const PlanNodeId& id,
       std::vector<std::shared_ptr<const FieldAccessTypedExpr>> sortingKeys,
       std::vector<SortOrder> sortingOrders,
-      std::shared_ptr<const PlanNode> source)
+      std::vector<std::shared_ptr<const PlanNode>> sources)
       : PlanNode(id),
-        sources_{{std::move(source)}},
+        sources_{std::move(sources)},
         sortingKeys_{std::move(sortingKeys)},
         sortingOrders_{std::move(sortingOrders)} {}
 

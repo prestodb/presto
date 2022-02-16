@@ -162,7 +162,6 @@ Merge::Comparator::Comparator(
 LocalMerge::LocalMerge(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    int numSources,
     const std::shared_ptr<const core::LocalMergeNode>& localMergeNode)
     : Merge(
           operatorId,
@@ -171,8 +170,7 @@ LocalMerge::LocalMerge(
           localMergeNode->sortingKeys(),
           localMergeNode->sortingOrders(),
           localMergeNode->id(),
-          "LocalMerge"),
-      numSources_(numSources) {
+          "LocalMerge") {
   VELOX_CHECK_EQ(
       operatorCtx_->driverCtx()->driverId,
       0,
@@ -180,13 +178,8 @@ LocalMerge::LocalMerge(
 }
 
 BlockingReason LocalMerge::addMergeSources(ContinueFuture* /* future */) {
-  if (sources_.size() != numSources_) {
-    sources_.reserve(numSources_);
-    for (auto i = 0; i < numSources_; ++i) {
-      sources_.emplace_back(operatorCtx_->task()->getLocalMergeSource(
-          operatorCtx_->driverCtx()->splitGroupId, i));
-    }
-  }
+  sources_ = operatorCtx_->task()->getLocalMergeSources(
+      operatorCtx_->driverCtx()->splitGroupId, planNodeId());
   return BlockingReason::kNotBlocked;
 }
 

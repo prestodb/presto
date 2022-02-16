@@ -24,7 +24,6 @@ of plan nodes can be located at the leaves of the plan tree. These are:
 * TableScanNode
 * ValuesNode
 * ExchangeNode
-* LocalMergeNode
 * MergeExchangeNode
 
 Here is a list of supported plan nodes and corresponding operators.

@@ -251,7 +251,8 @@ class PlanBuilder {
 
   PlanBuilder& localMerge(
       const std::vector<ChannelIndex>& keyIndices,
-      const std::vector<core::SortOrder>& sortOrder);
+      const std::vector<core::SortOrder>& sortOrder,
+      std::vector<std::shared_ptr<const core::PlanNode>> sources);
 
   PlanBuilder& orderBy(
       const std::vector<ChannelIndex>& keyIndices,

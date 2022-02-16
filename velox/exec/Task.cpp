@@ -1036,33 +1036,21 @@ std::string Task::toString() {
   return out.str();
 }
 
-void Task::createLocalMergeSources(
+std::shared_ptr<MergeSource> Task::addLocalMergeSource(
     uint32_t splitGroupId,
-    unsigned numSources,
-    const std::shared_ptr<const RowType>& rowType,
-    memory::MappedMemory* mappedMemory) {
-  auto& splitGroupState = splitGroupStates_[splitGroupId];
-
-  VELOX_CHECK(
-      splitGroupState.localMergeSources.empty(),
-      "Multiple local merges in a single task not supported");
-  splitGroupState.localMergeSources.reserve(numSources);
-  for (auto i = 0; i < numSources; ++i) {
-    splitGroupState.localMergeSources.emplace_back(
-        MergeSource::createLocalMergeSource(rowType, mappedMemory));
-  }
+    const core::PlanNodeId& planNodeId,
+    const RowTypePtr& rowType) {
+  auto source =
+      MergeSource::createLocalMergeSource(rowType, queryCtx()->mappedMemory());
+  splitGroupStates_[splitGroupId].localMergeSources[planNodeId].push_back(
+      source);
+  return source;
 }
 
-std::shared_ptr<MergeSource> Task::getLocalMergeSource(
+const std::vector<std::shared_ptr<MergeSource>>& Task::getLocalMergeSources(
     uint32_t splitGroupId,
-    int sourceId) {
-  auto& splitGroupState = splitGroupStates_[splitGroupId];
-
-  VELOX_CHECK_LT(
-      sourceId,
-      splitGroupState.localMergeSources.size(),
-      "Incorrect source id ");
-  return splitGroupState.localMergeSources[sourceId];
+    const core::PlanNodeId& planNodeId) {
+  return splitGroupStates_[splitGroupId].localMergeSources[planNodeId];
 }
 
 void Task::createMergeJoinSource(

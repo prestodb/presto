@@ -422,15 +422,20 @@ PlanBuilder& PlanBuilder::streamingAggregation(
 
 PlanBuilder& PlanBuilder::localMerge(
     const std::vector<ChannelIndex>& keyIndices,
-    const std::vector<core::SortOrder>& sortOrder) {
+    const std::vector<core::SortOrder>& sortOrder,
+    std::vector<std::shared_ptr<const core::PlanNode>> sources) {
+  VELOX_CHECK_NULL(planNode_, "localMerge() must be the first call");
+  VELOX_CHECK_GE(
+      sources.size(), 1, "localMerge() requires at least one source");
+  const auto& inputType = sources[0]->outputType();
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
   std::vector<core::SortOrder> sortingOrders;
   for (int i = 0; i < keyIndices.size(); i++) {
-    sortingKeys.push_back(field(keyIndices[i]));
+    sortingKeys.push_back(field(inputType, keyIndices[i]));
     sortingOrders.push_back(sortOrder[i]);
   }
   planNode_ = std::make_shared<core::LocalMergeNode>(
-      nextPlanNodeId(), sortingKeys, sortingOrders, planNode_);
+      nextPlanNodeId(), sortingKeys, sortingOrders, std::move(sources));
 
   return *this;
 }
@@ -571,6 +576,7 @@ PlanBuilder& PlanBuilder::localPartition(
     const std::vector<ChannelIndex>& keyIndices,
     const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
     const std::vector<ChannelIndex>& outputLayout) {
+  VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
   auto inputType = sources[0]->outputType();
   auto outputType = toRowType(inputType, outputLayout);
   auto keys = fields(inputType, keyIndices);

@@ -36,17 +36,35 @@ class MergeTest : public OperatorTestBase {
         "NULLS LAST", "NULLS FIRST", "DESC NULLS FIRST", "DESC NULLS LAST"};
 
     for (auto i = 0; i < sortOrders.size(); ++i) {
-      auto plan = PlanBuilder()
-                      .values(input)
-                      .orderBy({keyIndex}, {sortOrders[i]}, true)
-                      .localMerge({keyIndex}, {sortOrders[i]})
+      const auto sortOrder = sortOrders[i];
+      const auto sql = fmt::format(
+          "SELECT * FROM tmp ORDER BY {} {}", key, sortOrderSqls[i]);
+      auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+      auto plan = PlanBuilder(planNodeIdGenerator)
+                      .localMerge(
+                          {keyIndex},
+                          {sortOrder},
+                          {PlanBuilder(planNodeIdGenerator)
+                               .values(input)
+                               .orderBy({keyIndex}, {sortOrder}, true)
+                               .planNode()})
                       .planNode();
 
-      assertQueryOrdered(
-          plan,
-          fmt::format(
-              "SELECT * FROM tmp ORDER BY {} {}", key, sortOrderSqls[i]),
-          {keyIndex});
+      assertQueryOrdered(plan, sql, {keyIndex});
+
+      // Use multiple sources for local merge.
+      std::vector<std::shared_ptr<const core::PlanNode>> sources;
+      for (auto j = 0; j < input.size(); j++) {
+        sources.push_back(PlanBuilder(planNodeIdGenerator)
+                              .values({input[j]})
+                              .orderBy({keyIndex}, {sortOrder}, true)
+                              .planNode());
+      }
+      plan = PlanBuilder(planNodeIdGenerator)
+                 .localMerge({keyIndex}, {sortOrder}, std::move(sources))
+                 .planNode();
+
+      assertQueryOrdered(plan, sql, {keyIndex});
     }
   }
 
@@ -64,22 +82,44 @@ class MergeTest : public OperatorTestBase {
 
     for (auto i = 0; i < sortOrders.size(); ++i) {
       for (auto j = 0; j < sortOrders.size(); ++j) {
+        const auto sql = fmt::format(
+            "SELECT * FROM tmp ORDER BY {} {}, {} {}",
+            key1,
+            sortOrderSqls[i],
+            key2,
+            sortOrderSqls[j]);
+        auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
         auto plan =
-            PlanBuilder()
-                .values(input)
-                .orderBy(sortingKeys, {sortOrders[i], sortOrders[j]}, true)
-                .localMerge(sortingKeys, {sortOrders[i], sortOrders[j]})
+            PlanBuilder(planNodeIdGenerator)
+                .localMerge(
+                    sortingKeys,
+                    {sortOrders[i], sortOrders[j]},
+                    {PlanBuilder(planNodeIdGenerator)
+                         .values(input)
+                         .orderBy(
+                             sortingKeys, {sortOrders[i], sortOrders[j]}, true)
+                         .planNode()})
                 .planNode();
 
-        assertQueryOrdered(
-            plan,
-            fmt::format(
-                "SELECT * FROM tmp ORDER BY {} {}, {} {}",
-                key1,
-                sortOrderSqls[i],
-                key2,
-                sortOrderSqls[j]),
-            sortingKeys);
+        assertQueryOrdered(plan, sql, sortingKeys);
+
+        // Use multiple sources for local merge.
+        std::vector<std::shared_ptr<const core::PlanNode>> sources;
+        for (auto k = 0; k < input.size(); k++) {
+          sources.push_back(
+              PlanBuilder(planNodeIdGenerator)
+                  .values({input[k]})
+                  .orderBy(sortingKeys, {sortOrders[i], sortOrders[j]}, true)
+                  .planNode());
+        }
+        plan = PlanBuilder(planNodeIdGenerator)
+                   .localMerge(
+                       sortingKeys,
+                       {sortOrders[i], sortOrders[j]},
+                       std::move(sources))
+                   .planNode();
+
+        assertQueryOrdered(plan, sql, sortingKeys);
       }
     }
   }
@@ -90,16 +130,13 @@ TEST_F(MergeTest, localMerge) {
   std::vector<RowVectorPtr> vectors;
   for (int32_t i = 0; i < 3; ++i) {
     auto c0 = makeFlatVector<int64_t>(
-        batchSize,
-        [&](vector_size_t row) { return batchSize * i + row; },
-        nullEvery(5));
+        batchSize, [&](auto row) { return batchSize * i + row; }, nullEvery(5));
     auto c1 = makeFlatVector<int64_t>(
-        batchSize, [&](vector_size_t row) { return row; }, nullEvery(5));
+        batchSize, [&](auto row) { return row; }, nullEvery(5));
     auto c2 = makeFlatVector<double>(
-        batchSize, [](vector_size_t row) { return row * 0.1; }, nullEvery(11));
-    auto c3 = makeFlatVector<StringView>(batchSize, [](vector_size_t row) {
-      return StringView(std::to_string(row));
-    });
+        batchSize, [](auto row) { return row * 0.1; }, nullEvery(11));
+    auto c3 = makeFlatVector<StringView>(
+        batchSize, [](auto row) { return StringView(std::to_string(row)); });
     vectors.push_back(makeRowVector({c0, c1, c2, c3}));
   }
   createDuckDbTable(vectors);

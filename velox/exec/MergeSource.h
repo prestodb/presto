@@ -33,6 +33,7 @@ class MergeSource {
   static std::shared_ptr<MergeSource> createLocalMergeSource(
       const std::shared_ptr<const RowType>& rowType,
       memory::MappedMemory* mappedMemory);
+
   static std::shared_ptr<MergeSource> createMergeExchangeSource(
       MergeExchange* mergeExchange,
       const std::string& taskId);

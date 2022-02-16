@@ -119,8 +119,12 @@ struct SplitGroupState {
   /// Map from the plan node id of the join to the corresponding JoinBridge.
   std::unordered_map<core::PlanNodeId, std::shared_ptr<JoinBridge>> bridges;
 
-  std::vector<std::shared_ptr<MergeSource>> localMergeSources;
+  /// Map of merge sources keyed on LocalMergeNode plan node ID.
+  std::
+      unordered_map<core::PlanNodeId, std::vector<std::shared_ptr<MergeSource>>>
+          localMergeSources;
 
+  /// Map of merge join sources keyed on MergeJoinNode plan node ID.
   std::unordered_map<core::PlanNodeId, std::shared_ptr<MergeJoinSource>>
       mergeJoinSources;
 
