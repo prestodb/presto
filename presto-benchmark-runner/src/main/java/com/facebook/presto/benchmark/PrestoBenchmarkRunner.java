@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.benchmark;
 
-import io.airlift.airline.Cli;
-import io.airlift.airline.Help;
+import com.github.rvesse.airline.Cli;
+import com.github.rvesse.airline.help.Help;
 
 public class PrestoBenchmarkRunner
 {

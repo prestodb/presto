@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.airline.SingleCommand.singleCommand;
+import static com.github.rvesse.airline.SingleCommand.singleCommand;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

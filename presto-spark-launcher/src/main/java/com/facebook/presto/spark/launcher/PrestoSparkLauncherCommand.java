@@ -14,10 +14,10 @@
 package com.facebook.presto.spark.launcher;
 
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
+import com.github.rvesse.airline.HelpOption;
+import com.github.rvesse.airline.annotations.Command;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.airline.Command;
-import io.airlift.airline.HelpOption;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
@@ -29,6 +29,7 @@ import java.util.Optional;
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadCatalogProperties;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadProperties;
+import static java.lang.System.exit;
 
 @Command(name = "presto-spark-launcher", description = "Presto on Spark launcher")
 public class PrestoSparkLauncherCommand
@@ -44,6 +45,12 @@ public class PrestoSparkLauncherCommand
 
     public void run()
     {
+        if (helpOption.showHelpIfRequested() ||
+                versionOption.showVersionIfRequested()) {
+            exit(0);
+            return;
+        }
+
         SparkConf sparkConfiguration = new SparkConf()
                 .setAppName("Presto");
         PrestoSparkConfInitializer.initialize(sparkConfiguration);

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server.testing;
 
+import com.github.rvesse.airline.annotations.Option;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.airline.Option;
 
 import java.util.ArrayList;
 import java.util.List;
