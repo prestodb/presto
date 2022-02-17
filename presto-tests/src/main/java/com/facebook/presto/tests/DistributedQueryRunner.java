@@ -197,16 +197,16 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
 
+            if (resourceManagerEnabled) {
+                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, resourceManagerProperties, parserOptions, environment, baseDataDir, extraModules)));
+                servers.add(resourceManager.get());
+            }
+
             for (int i = 0; i < coordinatorCount; i++) {
                 TestingPrestoServer coordinator = closer.register(createTestingPrestoServer(discoveryUrl, false, resourceManagerEnabled, true, extraCoordinatorProperties, parserOptions, environment, baseDataDir, extraModules));
                 servers.add(coordinator);
                 coordinators.add(coordinator);
                 extraCoordinatorProperties.remove("http-server.http.port");
-            }
-
-            if (resourceManagerEnabled) {
-                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, resourceManagerProperties, parserOptions, environment, baseDataDir, extraModules)));
-                servers.add(resourceManager.get());
             }
 
             this.servers = servers.build();
@@ -428,6 +428,11 @@ public class DistributedQueryRunner
     public Optional<TestingPrestoServer> getResourceManager()
     {
         return resourceManager;
+    }
+
+    public List<TestingPrestoServer> getCoordinatorWorkers()
+    {
+        return getServers().stream().filter(server -> !server.isResourceManager()).collect(ImmutableList.toImmutableList());
     }
 
     public List<TestingPrestoServer> getServers()

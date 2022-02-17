@@ -33,6 +33,7 @@ import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunnerWithNoClusterReadyCheck;
 import static org.testng.Assert.assertEquals;
 
 public class TestServerInfoResource
@@ -73,11 +74,11 @@ public class TestServerInfoResource
         closeQuietly(server);
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testGetServerStateWithoutRequiredResourceManagers()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner(
+        DistributedQueryRunner queryRunner = createQueryRunnerWithNoClusterReadyCheck(
                 ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "2", "cluster.required-coordinators-active", "1"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);
@@ -93,11 +94,11 @@ public class TestServerInfoResource
         closeQuietly(server);
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testGetServerStateWithoutRequiredCoordinators()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner(
+        DistributedQueryRunner queryRunner = createQueryRunnerWithNoClusterReadyCheck(
                 ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "1", "cluster.required-coordinators-active", "3"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);

@@ -454,7 +454,7 @@ public class TestMemoryManager
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties, ImmutableMap.of(), properties, 2)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingPrestoServer server : queryRunner.getCoordinatorWorkers()) {
                 for (MemoryPool pool : server.getLocalMemoryManager().getPools()) {
                     assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
                 }
@@ -513,7 +513,7 @@ public class TestMemoryManager
             }
 
             // Release the memory in the reserved pool
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingPrestoServer server : queryRunner.getCoordinatorWorkers()) {
                 Optional<MemoryPool> reserved = server.getLocalMemoryManager().getReservedPool();
                 assertTrue(reserved.isPresent());
                 // Free up the entire pool
@@ -534,7 +534,7 @@ public class TestMemoryManager
                     .forEach(info -> assertEquals(info.getState(), FINISHED));
 
             // Make sure we didn't leak any memory on the workers
-            for (TestingPrestoServer worker : queryRunner.getServers()) {
+            for (TestingPrestoServer worker : queryRunner.getCoordinatorWorkers()) {
                 Optional<MemoryPool> reserved = worker.getLocalMemoryManager().getReservedPool();
                 assertTrue(reserved.isPresent());
                 assertEquals(reserved.get().getMaxBytes(), reserved.get().getFreeBytes());
