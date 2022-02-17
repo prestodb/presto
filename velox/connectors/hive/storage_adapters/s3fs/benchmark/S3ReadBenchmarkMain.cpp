@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include "velox/common/file/benchmark/ReadBenchmark.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/benchmark/S3ReadBenchmark.h"
 
 using namespace facebook::velox;
 
-// This benchmark measures the throughput of a Linux compatible FileSystem for
+// This benchmark measures the throughput of an S3 compatible FileSystem for
 // various ReadFile APIs. The output helps us understand the maximum possible
 // gains for queries. Example: If a single thread requires reading 1GB of data
 // and the IO throughput is 100 MBps, then it takes 10 seconds to just read the
 // data.
 int main(int argc, char** argv) {
   folly::init(&argc, &argv, false);
-  ReadBenchmark bm;
+  S3ReadBenchmark bm;
   bm.initialize();
   bm.run();
 }

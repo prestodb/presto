@@ -20,4 +20,5 @@ target_link_libraries(velox_s3fs ${AWSSDK_LIBRARIES})
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
+  add_subdirectory(benchmark)
 endif()

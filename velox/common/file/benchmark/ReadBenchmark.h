@@ -56,9 +56,14 @@ struct Scratch {
   std::string bufferCopy;
 };
 
+// This class implements functions that aid in measuring the throughput of a
+// FileSystem for various ReadFile APIs.
 class ReadBenchmark {
  public:
-  ReadBenchmark() {
+  virtual ~ReadBenchmark() = default;
+
+  // Initialize a LocalReadFile instance for the specified 'path'.
+  virtual void initialize() {
     executor_ =
         std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_num_threads);
     if (FLAGS_odirect) {
@@ -126,6 +131,7 @@ class ReadBenchmark {
     return *scratch;
   }
 
+  // Measures the throughput for various ReadFile APIs(modes).
   void randomReads(
       int32_t size,
       int32_t gap,
@@ -287,7 +293,7 @@ class ReadBenchmark {
 
   void run();
 
- private:
+ protected:
   static constexpr int64_t kRegionSize = 64 << 20; // 64MB
   static constexpr int32_t kWrite = -10000;
   // 0 means no op, kWrite means being written, other numbers are reader counts.

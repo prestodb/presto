@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_read_benchmark_lib ReadBenchmark.cpp)
-
-add_executable(velox_read_benchmark ReadBenchmarkMain.cpp)
+add_executable(velox_s3read_benchmark S3ReadBenchmark.cpp
+                                      S3ReadBenchmarkMain.cpp)
 
 target_link_libraries(
-  velox_read_benchmark
+  velox_s3read_benchmark
   velox_read_benchmark_lib
-  velox_file
+  velox_s3fs
   velox_exception
   velox_exec_test_util
   ${FMT}

@@ -26,8 +26,7 @@ namespace facebook::velox::filesystems {
 // (register|generate)ReadFile and (register|generate)WriteFile functions.
 class S3FileSystem : public FileSystem {
  public:
-  S3FileSystem(std::shared_ptr<const Config> config);
-  ~S3FileSystem() {}
+  explicit S3FileSystem(std::shared_ptr<const Config> config);
 
   // Initialize the Aws::S3::S3Client from the input Config parameters.
   void initializeClient();

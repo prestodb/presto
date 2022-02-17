@@ -16,7 +16,7 @@
 
 #include "velox/common/file/benchmark/ReadBenchmark.h"
 
-DEFINE_string(path, "unspecified", "Path of test file");
+DEFINE_string(path, "", "Path of test file");
 DEFINE_int64(
     file_size_gb,
     0,
@@ -42,6 +42,14 @@ DEFINE_int32(
     100 << 20,
     "Total reads per thread when throughput for a --bytes/--gap/--/gap/"
     "--num_in_run combination");
+
+namespace {
+static bool notEmpty(const char* /*flagName*/, const std::string& value) {
+  return !value.empty();
+}
+} // namespace
+
+DEFINE_validator(path, &notEmpty);
 
 namespace facebook::velox {
 
