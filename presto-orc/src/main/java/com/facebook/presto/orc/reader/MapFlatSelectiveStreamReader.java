@@ -23,6 +23,7 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.SmallintType;
@@ -477,7 +478,13 @@ public class MapFlatSelectiveStreamReader
         int count = 0;
 
         Type valueType = outputType.getValueType();
-        BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, offset);
+        BlockBuilder valueBlockBuilder;
+        if (valueType instanceof FixedWidthType) {
+            valueBlockBuilder = ((FixedWidthType) valueType).createFixedSizeBlockBuilder(offset);
+        }
+        else {
+            valueBlockBuilder = valueType.createBlockBuilder(null, offset);
+        }
 
         int[] valueBlockPositions = new int[keyCount];
 
