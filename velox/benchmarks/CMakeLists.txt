@@ -18,8 +18,8 @@ target_link_libraries(
   velox_benchmark_simple_arithmetic
   velox_type
   velox_vector
+  velox_vector_fuzzer
   velox_expression
-  velox_expression_fuzzer
   velox_parse_parser
   velox_serialization
   ${FOLLY}

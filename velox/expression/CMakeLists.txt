@@ -30,6 +30,6 @@ add_library(
 target_link_libraries(velox_expression velox_core velox_vector
                       velox_common_base velox_expression_functions)
 
-if(${VELOX_BUILD_TESTING} OR ${VELOX_ENABLE_BENCHMARKS})
+if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()

@@ -164,21 +164,41 @@ jobs:
       - checkout
       - run:
           name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
+          command: |
+            git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
       - restore_cache:
           name: "Restore CCache cache"
           keys:
             - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
-          name: "Run Benchmark Baselines (main)"
+          name: "Build Benchmarks - Baseline"
           command: |
+            git checkout $(git merge-base origin/main HEAD)
             mkdir -p .ccache
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make benchmarks-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
+      - run:
+          name: "Run Benchmarks - Baseline"
+          command: |
+            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+      - run:
+          name: "Build Benchmarks - Current"
+          command: |
+            git checkout -
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 5Gi
+            source /opt/rh/gcc-toolset-9/enable
+            make benchmarks-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            ccache -s
+      - run:
+          name: "Run Benchmarks - Current"
+          command: |
+            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
       - store_artifacts:
           path: '_build/debug/.ninja_log'
       - save_cache:
