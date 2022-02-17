@@ -58,6 +58,7 @@ stddev
 stddev_pop
 stddev_samp
 sum
+tdigest_agg
 var_pop
 var_samp
 variance
