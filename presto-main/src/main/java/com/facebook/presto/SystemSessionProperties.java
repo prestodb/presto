@@ -100,6 +100,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_SCAN_RAW_INPUT_BYTES = "query_max_scan_raw_input_bytes";
     public static final String QUERY_MAX_OUTPUT_SIZE = "query_max_output_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
+    public static final String QUERY_MAX_PHYSICAL_WRITTEN_SIZE = "query_max_physical_written_size";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
@@ -495,6 +496,11 @@ public final class SystemSessionProperties
                         QUERY_MAX_OUTPUT_SIZE,
                         "Maximum data that can be fetched by a query",
                         queryManagerConfig.getQueryMaxOutputSize(),
+                        false),
+                dataSizeProperty(
+                        QUERY_MAX_PHYSICAL_WRITTEN_SIZE,
+                        "Maximum data that can be written by a query",
+                        queryManagerConfig.getQueryMaxPhysicalWrittenSize(),
                         false),
                 integerProperty(
                         QUERY_MAX_STAGE_COUNT,
@@ -1558,6 +1564,11 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxOutputSize(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_OUTPUT_SIZE, DataSize.class);
+    }
+
+    public static DataSize getQueryMaxPhysicalWrittenSize(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_PHYSICAL_WRITTEN_SIZE, DataSize.class);
     }
 
     public static boolean isSpillEnabled(Session session)

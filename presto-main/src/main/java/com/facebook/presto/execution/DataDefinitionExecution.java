@@ -164,6 +164,12 @@ public abstract class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return DataSize.succinctBytes(0);
+    }
+
+    @Override
     public Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits()
     {
         return resourceGroupQueryLimits.get();

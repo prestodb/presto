@@ -76,6 +76,7 @@ public class QueryManagerConfig
 
     private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
     private DataSize queryMaxOutputSize = DataSize.succinctDataSize(1000, PETABYTE);
+    private DataSize queryMaxPhysicalWrittenSize = DataSize.succinctDataSize(1000, PETABYTE);
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -454,6 +455,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxOutputSize(DataSize queryMaxOutputSize)
     {
         this.queryMaxOutputSize = queryMaxOutputSize;
+        return this;
+    }
+
+    public DataSize getQueryMaxPhysicalWrittenSize()
+    {
+        return queryMaxPhysicalWrittenSize;
+    }
+
+    @Config("query.max-physical-written-size")
+    @MinDataSize("1B")
+    public QueryManagerConfig setQueryMaxPhysicalWrittenSize(DataSize queryMaxPhysicalWrittenSize)
+    {
+        this.queryMaxPhysicalWrittenSize = queryMaxPhysicalWrittenSize;
         return this;
     }
 
