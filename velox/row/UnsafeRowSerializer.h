@@ -292,34 +292,44 @@ struct UnsafeRowSerializer {
     return 0;
   }
 
-  /// Serializes a flat vector of data.
+  /// Serializes a vector of data.
   /// \tparam T
   /// \param nullSet pointer to where we should write the nullability
   /// \param offset
   /// \param size
-  /// \param flatVector non-null flatVector
+  /// \param data non-null vector
   /// \return size of variable length data written, 0 if no variable length data
   /// is written or only fixed data length data is written, std::nullopt
   /// otherwise
-  template <typename T>
-  inline static std::optional<size_t> serializeFlatVector(
+  template <TypeKind Kind>
+  inline static std::optional<size_t> serializeSimpleVector(
       char* nullSet,
       int32_t offset,
       size_t size,
-      const FlatVector<T>* flatVector) {
+      const BaseVector* data) {
+    using NativeType = typename TypeTraits<Kind>::NativeType;
+    const auto& simple =
+        *data->loadedVector()->asUnchecked<SimpleVector<NativeType>>();
     auto [nullLength, fixedDataStart] = computeFixedDataStart(nullSet, size);
+    size_t dataSize = size * sizeof(NativeType);
 
     for (int i = 0; i < size; i++) {
-      bool isNull = flatVector->isNullAt(i + offset);
+      bool isNull = simple.isNullAt(i + offset);
       if (isNull) {
         bits::setBit(nullSet, i);
       } else {
         bits::clearBit(nullSet, i);
-        reinterpret_cast<T*>(fixedDataStart)[i] =
-            flatVector->valueAt(i + offset);
+        if constexpr (Kind == TypeKind::TIMESTAMP) {
+          auto ds = serializeTimestampMicros(data, fixedDataStart, i);
+          if (ds) {
+            dataSize = ds.value();
+          }
+        } else {
+          reinterpret_cast<NativeType*>(fixedDataStart)[i] =
+              simple.valueAt(i + offset);
+        }
       }
     }
-    size_t dataSize = size * sizeof(T);
     return UnsafeRow::alignToFieldWidth(dataSize);
   }
 
@@ -550,7 +560,7 @@ struct UnsafeRowSerializer {
         throw("Cannot cast to FlatVector\n");
       }
       auto serializedDataSize =
-          serializeFlatVector(nullSet, offset, size, flatVector);
+          serializeSimpleVector<kind>(nullSet, offset, size, vector.get());
       return UnsafeRow::alignToFieldWidth(
           nullSet - buffer + serializedDataSize.value_or(0));
     } else {

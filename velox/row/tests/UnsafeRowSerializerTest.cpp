@@ -1088,4 +1088,32 @@ TEST_F(UnsafeRowSerializerTests, LazyVector) {
   EXPECT_TRUE(checkFixedLength(serialized2, 0, &intVal));
 }
 
+TEST_F(UnsafeRowSerializerTests, complexNullsAndEncoding) {
+  auto type = ROW(
+      {VARCHAR(),
+       VARCHAR(),
+       VARCHAR(),
+       VARCHAR(),
+       VARCHAR(),
+       INTEGER(),
+       BIGINT(),
+       REAL(),
+       DOUBLE(),
+       MAP(VARCHAR(), VARCHAR()),
+       VARCHAR(),
+       TIMESTAMP(),
+       ARRAY(VARCHAR()),
+       MAP(VARCHAR(), BOOLEAN())});
+
+  auto nullVector = BaseVector::createNullConstant(type, 100, pool_.get());
+  auto serialized =
+      UnsafeRowDynamicSerializer::serialize(type, nullVector, buffer_, 0);
+  EXPECT_TRUE(checkIsNull(serialized));
+
+  auto vp = BaseVector::wrapInConstant(1, 0, nullVector);
+  serialized = UnsafeRowDynamicSerializer::serialize(type, vp, buffer_, 0);
+  EXPECT_TRUE(checkIsNull(serialized));
+
+  clearBuffer();
+}
 } // namespace facebook::velox::row

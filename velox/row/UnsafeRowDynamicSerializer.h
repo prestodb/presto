@@ -121,50 +121,15 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
       return UnsafeRow::alignToFieldWidth(row.size() - row.metadataSize());
     }
 
-    auto serializeFlatVectorStub = [&](auto flatVector) {
-      // Check that the cast to FlatVector was successful.
-      VELOX_CHECK_NOT_NULL(flatVector);
-      auto serializedDataSize =
-          serializeFlatVector(nullSet, offset, size, flatVector);
-      return nullSet - buffer + serializedDataSize.value_or(0);
-    };
-
-    switch (type->kind()) {
-      case TypeKind::BOOLEAN:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::BOOLEAN>::NativeType>());
-      case TypeKind::TINYINT:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::TINYINT>::NativeType>());
-      case TypeKind::SMALLINT:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::SMALLINT>::NativeType>());
-      case TypeKind::INTEGER:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::INTEGER>::NativeType>());
-      case TypeKind::BIGINT:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::BIGINT>::NativeType>());
-      case TypeKind::REAL:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::REAL>::NativeType>());
-      case TypeKind::DOUBLE:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::DOUBLE>::NativeType>());
-      case TypeKind::VARCHAR:
-        return serializeFlatVectorStub(
-            vector->asFlatVector<TypeTraits<TypeKind::VARCHAR>::NativeType>());
-      case TypeKind::VARBINARY:
-        return serializeFlatVectorStub(
-            vector
-                ->asFlatVector<TypeTraits<TypeKind::VARBINARY>::NativeType>());
-      case TypeKind::TIMESTAMP:
-        return serializeFlatVectorStub(
-            vector
-                ->asFlatVector<TypeTraits<TypeKind::TIMESTAMP>::NativeType>());
-      default:
-        throw UnsupportedSerializationException();
-    }
+    std::optional<size_t> serializedDataSize =
+        VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+            serializeSimpleVector,
+            type->kind(),
+            nullSet,
+            offset,
+            size,
+            vector.get());
+    return nullSet - buffer + serializedDataSize.value_or(0);
   }
 
 /// Template definition for unsupported types in the dynamic path.
@@ -214,7 +179,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
       return serializeComplexType(type, maps, buffer, data->wrappedIndex(idx));
     } else if (type->isRow()) {
       const auto* rows = data->wrappedVector()->as<RowVector>();
-      VELOX_CHECK(rows, "Invalid map in unsaferow conversion from");
+      VELOX_CHECK(rows, "Invalid row in unsaferow conversion from");
       return serializeComplexType(type, rows, buffer, data->wrappedIndex(idx));
     }
     throw UnsupportedSerializationException();
@@ -336,7 +301,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
       const RowVector* data,
       char* buffer,
       size_t idx) {
-    if (data == nullptr) {
+    if (data == nullptr || data->isNullAt(idx)) {
       return std::nullopt;
     }
 
