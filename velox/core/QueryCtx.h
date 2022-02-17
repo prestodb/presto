@@ -48,9 +48,7 @@ class QueryCtx : public Context {
       std::unordered_map<std::string, std::shared_ptr<Config>>
           connectorConfigs = {},
       memory::MappedMemory* mappedMemory = memory::MappedMemory::getInstance(),
-      std::unique_ptr<memory::MemoryPool> pool =
-          memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-              kQueryRootMemoryPool))
+      std::unique_ptr<memory::MemoryPool> pool = nullptr)
       : Context{ContextScope::QUERY},
         pool_(std::move(pool)),
         mappedMemory_(mappedMemory),
@@ -58,6 +56,13 @@ class QueryCtx : public Context {
         executor_{std::move(executor)},
         config_{this} {
     setConfigOverrides(config);
+    if (!pool_) {
+      pool_ = memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
+          kQueryRootMemoryPool);
+      static const auto kUnlimited = std::numeric_limits<int64_t>::max();
+      pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create(
+          kUnlimited, kUnlimited, kUnlimited));
+    }
   }
 
   memory::MemoryPool* pool() const {
