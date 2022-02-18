@@ -16,6 +16,7 @@ package com.facebook.presto.pinot.query;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.PinotColumnHandle;
@@ -499,7 +500,7 @@ public class PinotQueryGenerator
                     case GROUP_BY: {
                         GroupByColumnNode groupByColumn = (GroupByColumnNode) expression;
                         VariableReferenceExpression groupByInputColumn = getVariableReference(groupByColumn.getInputColumn());
-                        checkState(groupByInputColumn.getType() instanceof FixedWidthType || groupByInputColumn.getType() instanceof VarcharType);
+                        checkState(groupByInputColumn.getType() instanceof FixedWidthType || groupByInputColumn.getType() instanceof VarcharType || groupByInputColumn.getType() instanceof JsonType);
                         variablesInAggregation.add(groupByInputColumn);
                         break;
                     }

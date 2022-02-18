@@ -494,6 +494,7 @@ public class PinotSegmentPageSource
                 String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(stringArray));
             case STRING:
+            case JSON:
                 String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
                 if (field == null || field.isEmpty()) {
                     return Slices.EMPTY_SLICE;
