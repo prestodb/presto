@@ -21,8 +21,17 @@ using namespace facebook::velox::exec::test;
 
 class TopNTest : public OperatorTestBase {
  protected:
-  static std::vector<core::SortOrder> kSortOrders;
-  static std::vector<std::string> kSortOrderSqls;
+  std::vector<core::SortOrder> getSortOrders() {
+    return {
+        core::kAscNullsLast,
+        core::kAscNullsFirst,
+        core::kDescNullsFirst,
+        core::kDescNullsLast};
+  }
+
+  std::vector<std::string> getSortOrderSqls() {
+    return {"NULLS LAST", "NULLS FIRST", "DESC NULLS FIRST", "DESC NULLS LAST"};
+  }
 
   void testSingleKey(
       const std::vector<RowVectorPtr>& input,
@@ -30,10 +39,13 @@ class TopNTest : public OperatorTestBase {
       int32_t limit) {
     auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
 
-    for (auto i = 0; i < kSortOrders.size(); i++) {
+    auto sortOrders = getSortOrders();
+    auto sortOrderSqls = getSortOrderSqls();
+
+    for (auto i = 0; i < sortOrders.size(); i++) {
       auto plan = PlanBuilder()
                       .values(input)
-                      .topN({keyIndex}, {kSortOrders[i]}, limit, false)
+                      .topN({keyIndex}, {sortOrders[i]}, limit, false)
                       .planNode();
 
       assertQueryOrdered(
@@ -41,7 +53,7 @@ class TopNTest : public OperatorTestBase {
           fmt::format(
               "SELECT * FROM tmp ORDER BY {} {} LIMIT {}",
               key,
-              kSortOrderSqls[i],
+              sortOrderSqls[i],
               limit),
           {keyIndex});
     }
@@ -53,11 +65,14 @@ class TopNTest : public OperatorTestBase {
       const std::string& filter) {
     auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
 
-    for (auto i = 0; i < kSortOrders.size(); i++) {
+    auto sortOrders = getSortOrders();
+    auto sortOrderSqls = getSortOrderSqls();
+
+    for (auto i = 0; i < sortOrders.size(); i++) {
       auto plan = PlanBuilder()
                       .values(input)
                       .filter(filter)
-                      .topN({keyIndex}, {kSortOrders[i]}, 10, false)
+                      .topN({keyIndex}, {sortOrders[i]}, 10, false)
                       .planNode();
 
       assertQueryOrdered(
@@ -66,7 +81,7 @@ class TopNTest : public OperatorTestBase {
               "SELECT * FROM tmp WHERE {} ORDER BY {} {} LIMIT 10",
               filter,
               key,
-              kSortOrderSqls[i]),
+              sortOrderSqls[i]),
           {keyIndex});
     }
   }
@@ -79,13 +94,15 @@ class TopNTest : public OperatorTestBase {
     auto rowType = input[0]->type()->asRow();
     auto keyIndices = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
-    for (int i = 0; i < kSortOrders.size(); i++) {
-      for (int j = 0; j < kSortOrders.size(); j++) {
+    auto sortOrders = getSortOrders();
+    auto sortOrderSqls = getSortOrderSqls();
+
+    for (int i = 0; i < sortOrders.size(); i++) {
+      for (int j = 0; j < sortOrders.size(); j++) {
         auto plan =
             PlanBuilder()
                 .values(input)
-                .topN(
-                    keyIndices, {kSortOrders[i], kSortOrders[j]}, limit, false)
+                .topN(keyIndices, {sortOrders[i], sortOrders[j]}, limit, false)
                 .planNode();
 
         assertQueryOrdered(
@@ -93,27 +110,15 @@ class TopNTest : public OperatorTestBase {
             fmt::format(
                 "SELECT * FROM tmp ORDER BY {} {}, {} {} LIMIT {}",
                 key1,
-                kSortOrderSqls[i],
+                sortOrderSqls[i],
                 key2,
-                kSortOrderSqls[j],
+                sortOrderSqls[j],
                 limit),
             keyIndices);
       }
     }
   }
 };
-
-std::vector<core::SortOrder> TopNTest::kSortOrders = {
-    core::kAscNullsFirst,
-    core::kAscNullsLast,
-    core::kDescNullsFirst,
-    core::kDescNullsLast};
-
-std::vector<std::string> TopNTest::kSortOrderSqls = {
-    "NULLS FIRST",
-    "NULLS LAST",
-    "DESC NULLS FIRST",
-    "DESC NULLS LAST"};
 
 TEST_F(TopNTest, selectiveFilter) {
   vector_size_t batchSize = 1000;
