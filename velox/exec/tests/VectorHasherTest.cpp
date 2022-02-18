@@ -521,7 +521,12 @@ TEST_F(VectorHasherTest, merge) {
   VectorHasher otherHasher(BIGINT(), 0);
   otherHasher.computeValueIds(*otherVector, rows, hashes);
   // hasher has 0..99 and otherHasher has 0..49, 1050..1099.
-  hasher.merge(otherHasher);
+  VectorHasher emptyHasher(BIGINT(), 0);
+  VectorHasher otherEmptyHasher(BIGINT(), 0);
+  EXPECT_TRUE(emptyHasher.empty());
+  emptyHasher.merge(otherHasher);
+  hasher.merge(emptyHasher);
+  hasher.merge(otherEmptyHasher);
   uint64_t numRange;
   uint64_t numDistinct;
   hasher.cardinality(numRange, numDistinct);

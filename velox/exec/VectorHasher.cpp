@@ -630,8 +630,25 @@ uint64_t VectorHasher::enableValueRange(uint64_t multiplier, int64_t reserve) {
   return result;
 }
 
+void VectorHasher::copyStatsFrom(const VectorHasher& other) {
+  hasRange_ = other.hasRange_;
+  rangeOverflow_ = other.rangeOverflow_;
+  distinctOverflow_ = other.distinctOverflow_;
+
+  min_ = other.min_;
+  max_ = other.max_;
+  uniqueValues_ = other.uniqueValues_;
+}
+
 void VectorHasher::merge(const VectorHasher& other) {
   if (typeKind_ == TypeKind::BOOLEAN) {
+    return;
+  }
+  if (other.empty()) {
+    return;
+  }
+  if (empty()) {
+    copyStatsFrom(other);
     return;
   }
   if (hasRange_ && other.hasRange_ && !rangeOverflow_ &&
@@ -655,6 +672,15 @@ void VectorHasher::merge(const VectorHasher& other) {
   } else {
     distinctOverflow_ = true;
   }
+}
+
+std::string VectorHasher::toString() const {
+  std::stringstream out;
+  out << "<VectorHasher type=" << type_->toString() << "  isRange_=" << isRange_
+      << " rangeSize= " << rangeSize_ << " min=" << min_ << " max=" << max_
+      << " multiplier=" << multiplier_
+      << " numDistinct=" << uniqueValues_.size() << ">";
+  return out.str();
 }
 
 } // namespace facebook::velox::exec

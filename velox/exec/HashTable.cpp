@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/HashTable.h"
+#include "velox/common/base/Portability.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/exec/ContainerRowSerde.h"
@@ -315,7 +316,7 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::fullProbe(
         table_,
         sizeMask_,
         -static_cast<int32_t>(sizeof(normalized_key_t)),
-        [&](char* group, int32_t row) {
+        [&](char* group, int32_t row) INLINE_LAMBDA {
           return RowContainer::normalizedKey(group) ==
               lookup.normalizedKeys[row];
         },
@@ -945,12 +946,20 @@ uint64_t HashTable<ignoreNullKeys>::setHasherMode(
 }
 
 template <bool ignoreNullKeys>
+void HashTable<ignoreNullKeys>::clearUseRange(std::vector<bool>& useRange) {
+  for (auto i = 0; i < hashers_.size(); ++i) {
+    useRange[i] = hashers_[i]->typeKind() == TypeKind::BOOLEAN;
+  }
+}
+
+template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
   std::vector<uint64_t> rangeSizes(hashers_.size());
   std::vector<uint64_t> distinctSizes(hashers_.size());
   std::vector<bool> useRange(hashers_.size());
   uint64_t bestWithReserve = 1;
   uint64_t distinctsWithReserve = 1;
+  uint64_t rangesWithReserve = 1;
   if (numDistinct_ && !isJoinBuild_) {
     if (!analyze()) {
       setHashMode(HashMode::kHash, numNew);
@@ -962,15 +971,30 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
     hashers_[i]->cardinality(rangeSizes[i], distinctSizes[i]);
     distinctsWithReserve =
         safeMul(distinctsWithReserve, addReserve(distinctSizes[i], kind));
+    rangesWithReserve =
+        safeMul(rangesWithReserve, addReserve(rangeSizes[i], kind));
     if (distinctSizes[i] == VectorHasher::kRangeTooLarge &&
         rangeSizes[i] != VectorHasher::kRangeTooLarge) {
       useRange[i] = true;
+      bestWithReserve =
+          safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
     } else if (
         rangeSizes[i] != VectorHasher::kRangeTooLarge &&
         rangeSizes[i] <= distinctSizes[i] * 20) {
       useRange[i] = true;
+      bestWithReserve =
+          safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
+    } else {
+      bestWithReserve =
+          safeMul(bestWithReserve, addReserve(distinctSizes[i], kind));
     }
-    bestWithReserve = safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
+  }
+
+  if (rangesWithReserve < kArrayHashMaxSize) {
+    std::fill(useRange.begin(), useRange.end(), true);
+    size_ = setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
+    setHashMode(HashMode::kArray, numNew);
+    return;
   }
 
   if (bestWithReserve < kArrayHashMaxSize) {
@@ -978,20 +1002,27 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
     setHashMode(HashMode::kArray, numNew);
     return;
   }
+  if (rangesWithReserve != VectorHasher::kRangeTooLarge) {
+    std::fill(useRange.begin(), useRange.end(), true);
+    setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
+    setHashMode(HashMode::kNormalizedKey, numNew);
+    return;
+  }
   if (hashers_.size() == 1 && distinctsWithReserve > 10000) {
-    // A single part group by that does not become an array does not
-    // make sense as a normalized key unless it is very
-    // small.
+    // A single part group by that does not go by range or become an array does
+    // not make sense as a normalized key unless it is very small.
     setHashMode(HashMode::kHash, numNew);
     return;
   }
+
   if (distinctsWithReserve < kArrayHashMaxSize) {
-    useRange.clear();
+    clearUseRange(useRange);
     size_ = setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
     setHashMode(HashMode::kArray, numNew);
     return;
   }
-  if (distinctsWithReserve == VectorHasher::kRangeTooLarge) {
+  if (distinctsWithReserve == VectorHasher::kRangeTooLarge &&
+      rangesWithReserve == VectorHasher::kRangeTooLarge) {
     setHashMode(HashMode::kHash, numNew);
     return;
   }
@@ -1000,8 +1031,7 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
     enableRangeWhereCan(rangeSizes, distinctSizes, useRange);
     setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
   } else {
-    useRange.clear();
-    setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
+    clearUseRange(useRange);
   }
   setHashMode(HashMode::kNormalizedKey, numNew);
 }
@@ -1010,10 +1040,21 @@ template <bool ignoreNullKeys>
 std::string HashTable<ignoreNullKeys>::toString() {
   std::stringstream out;
   int32_t occupied = 0;
-  for (int32_t i = 0; i < size_; ++i) {
-    occupied += tags_[i] != 0;
+  if (table_ && tableAllocation_.data() && tableAllocation_.size()) {
+    // 'size_' and 'table_' may not be set if initializing.
+    uint64_t size =
+        std::min<uint64_t>(tableAllocation_.size() / sizeof(char*), size_);
+    for (int32_t i = 0; i < size; ++i) {
+      occupied += table_[i] != nullptr;
+    }
   }
   out << "[HashTable  size: " << size_ << " occupied: " << occupied << "]";
+  if (!table_) {
+    out << "(no table) ";
+  }
+  for (auto& hasher : hashers_) {
+    out << hasher->toString();
+  }
   return out.str();
 }
 

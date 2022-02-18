@@ -357,6 +357,10 @@ class HashTable : public BaseHashTable {
       const std::vector<uint64_t>& rangeSizes,
       const std::vector<uint64_t>& distinctSizes);
 
+  // Clears all elements of 'useRange' except ones that correspond to boolean
+  // VectorHashers.
+  void clearUseRange(std::vector<bool>& useRange);
+
   void rehash();
   void initializeNewGroups(HashLookup& lookup);
   void storeKeys(HashLookup& lookup, vector_size_t row);

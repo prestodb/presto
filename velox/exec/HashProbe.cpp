@@ -581,6 +581,7 @@ void HashProbe::ensureLoadedIfNotAtEnd(ChannelIndex channel) {
   }
   EvalCtx evalCtx(operatorCtx_->execCtx(), nullptr, input_.get());
   if (!passingInputRowsInitialized_) {
+    passingInputRowsInitialized_ = true;
     passingInputRows_.resize(input_->size());
     if (isLeftJoin(joinType_)) {
       passingInputRows_.setAll();
