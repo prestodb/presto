@@ -92,8 +92,9 @@ contribute to the project.
 ## Community
 
 The main communication channel with the Velox OSS community is through the
-[the Velox-OSS Slack workspace](http://velox-oss.slack.com). Please don't
-hesitate in reaching out.
+[the Velox-OSS Slack workspace](http://velox-oss.slack.com). 
+Please reach out to **velox@fb.com** to get access to Velox Slack Channel.
+
 
 ## License
 
