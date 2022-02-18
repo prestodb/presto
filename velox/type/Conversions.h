@@ -44,7 +44,7 @@ struct Converter<TypeKind::BOOLEAN> {
 
   template <typename From>
   static T cast(const From& v, bool& nullOutput) {
-    VELOX_NYI();
+    return folly::to<T>(v);
   }
 
   static T cast(const folly::StringPiece& v, bool& nullOutput) {
