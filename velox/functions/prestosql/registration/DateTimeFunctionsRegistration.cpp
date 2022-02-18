@@ -58,6 +58,10 @@ void registerSimpleFunctions() {
   registerFunction<DateAddFunction, Date, Varchar, int64_t, Date>({"date_add"});
   registerFunction<DateAddFunction, Timestamp, Varchar, int64_t, Timestamp>(
       {"date_add"});
+  registerFunction<DateDiffFunction, int64_t, Varchar, Date, Date>(
+      {"date_diff"});
+  registerFunction<DateDiffFunction, int64_t, Varchar, Timestamp, Timestamp>(
+      {"date_diff"});
   registerFunction<
       ParseDateTimeFunction,
       TimestampWithTimezone,

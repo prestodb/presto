@@ -20,6 +20,27 @@
 
 namespace facebook::velox::util {
 
+constexpr const int32_t kHoursPerDay{24};
+constexpr const int32_t kMinsPerHour{60};
+constexpr const int32_t kSecsPerMinute{60};
+constexpr const int64_t kMsecsPerSec{1000};
+
+constexpr const int64_t kMicrosPerMsec{1000};
+constexpr const int64_t kMicrosPerSec{kMicrosPerMsec * kMsecsPerSec};
+constexpr const int64_t kMicrosPerMinute{kMicrosPerSec * kSecsPerMinute};
+constexpr const int64_t kMicrosPerHour{kMicrosPerMinute * kMinsPerHour};
+
+constexpr const int64_t kNanosPerMicro{1000};
+
+constexpr const int32_t kSecsPerHour{kSecsPerMinute * kMinsPerHour};
+constexpr const int32_t kSecsPerDay{kSecsPerHour * kHoursPerDay};
+
+constexpr const int32_t kMinYear{-290307};
+constexpr const int32_t kMaxYear{294247};
+
+constexpr const int32_t kYearInterval{400};
+constexpr const int32_t kDaysPerYearInterval{146097};
+
 /// Date conversions.
 
 /// Returns the (signed) number of days since unix epoch (1970-01-01).

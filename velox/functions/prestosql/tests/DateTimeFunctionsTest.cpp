@@ -18,6 +18,7 @@
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"
+#include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
@@ -1016,6 +1017,314 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestamp) {
           "year",
           -2,
           Timestamp(1582970400, 500'999'999) /*2020-02-29 10:00:00.500*/));
+}
+
+TEST_F(DateTimeFunctionsTest, dateDiffDate) {
+  const auto dateDiff = [&](const std::string& unit,
+                            std::optional<Date> date1,
+                            std::optional<Date> date2) {
+    return evaluateOnce<int64_t>(
+        fmt::format("date_diff('{}', c0, c1)", unit), date1, date2);
+  };
+
+  const auto parseDate = [&](const std::string& strDate) -> Date {
+    Date result;
+    parseTo(strDate, result);
+    return result;
+  };
+
+  // Check null behaviors
+  EXPECT_EQ(std::nullopt, dateDiff("day", Date(1), std::nullopt));
+  EXPECT_EQ(std::nullopt, dateDiff("month", std::nullopt, Date(0)));
+
+  // Check invalid units
+  EXPECT_THROW(dateDiff("millisecond", Date(1), Date(0)), VeloxUserError);
+  EXPECT_THROW(dateDiff("second", Date(1), Date(0)), VeloxUserError);
+  EXPECT_THROW(dateDiff("minute", Date(1), Date(0)), VeloxUserError);
+  EXPECT_THROW(dateDiff("hour", Date(1), Date(0)), VeloxUserError);
+  EXPECT_THROW(dateDiff("invalid_unit", Date(1), Date(0)), VeloxUserError);
+
+  // Simple tests
+  EXPECT_EQ(
+      1, dateDiff("day", parseDate("2019-02-28"), parseDate("2019-03-01")));
+  EXPECT_EQ(
+      13, dateDiff("month", parseDate("2019-02-28"), parseDate("2020-03-28")));
+  EXPECT_EQ(
+      4, dateDiff("quarter", parseDate("2019-02-28"), parseDate("2020-02-28")));
+  EXPECT_EQ(
+      1, dateDiff("year", parseDate("2019-02-28"), parseDate("2020-02-28")));
+
+  // Account for the last day of a year-month
+  EXPECT_EQ(
+      395, dateDiff("day", parseDate("2019-01-30"), parseDate("2020-02-29")));
+  EXPECT_EQ(
+      13, dateDiff("month", parseDate("2019-01-30"), parseDate("2020-02-29")));
+  EXPECT_EQ(
+      1, dateDiff("quarter", parseDate("2019-11-30"), parseDate("2020-02-29")));
+  EXPECT_EQ(
+      10, dateDiff("year", parseDate("2020-02-29"), parseDate("2030-02-28")));
+
+  // Check for negative intervals
+  EXPECT_EQ(
+      -366, dateDiff("day", parseDate("2020-02-29"), parseDate("2019-02-28")));
+  EXPECT_EQ(
+      -12, dateDiff("month", parseDate("2020-02-29"), parseDate("2019-02-28")));
+  EXPECT_EQ(
+      -4,
+      dateDiff("quarter", parseDate("2020-02-29"), parseDate("2019-02-28")));
+  EXPECT_EQ(
+      -2, dateDiff("year", parseDate("2020-02-29"), parseDate("2018-02-28")));
+}
+
+TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
+  const auto dateDiff = [&](const std::string& unit,
+                            std::optional<Timestamp> timestamp1,
+                            std::optional<Timestamp> timestamp2) {
+    return evaluateOnce<int64_t>(
+        fmt::format("date_diff('{}', c0, c1)", unit), timestamp1, timestamp2);
+  };
+
+  using util::fromTimestampString;
+
+  // Check null behaviors
+  EXPECT_EQ(std::nullopt, dateDiff("second", Timestamp(1, 0), std::nullopt));
+  EXPECT_EQ(std::nullopt, dateDiff("month", std::nullopt, Timestamp(0, 0)));
+
+  // Check invalid units
+  EXPECT_THROW(
+      dateDiff("invalid_unit", Timestamp(1, 0), Timestamp(0, 0)),
+      VeloxUserError);
+
+  // Simple tests
+  EXPECT_EQ(
+      60 * 1000 + 500,
+      dateDiff(
+          "millisecond",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2019-02-28 10:01:01.000")));
+  EXPECT_EQ(
+      60 * 60 * 24,
+      dateDiff(
+          "second",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2019-03-01 10:00:00.500")));
+  EXPECT_EQ(
+      60 * 24,
+      dateDiff(
+          "minute",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2019-03-01 10:00:00.500")));
+  EXPECT_EQ(
+      24,
+      dateDiff(
+          "hour",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2019-03-01 10:00:00.500")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "day",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2019-03-01 10:00:00.500")));
+  EXPECT_EQ(
+      12 + 1,
+      dateDiff(
+          "month",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2020-03-28 10:00:00.500")));
+  EXPECT_EQ(
+      4,
+      dateDiff(
+          "quarter",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2020-02-28 10:00:00.500")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "year",
+          fromTimestampString("2019-02-28 10:00:00.500"),
+          fromTimestampString("2020-02-28 10:00:00.500")));
+
+  // Test for daylight saving. Daylight saving in US starts at 2021-03-14
+  // 02:00:00 PST.
+  // When adjust_timestamp_to_timezone is off, Daylight saving occurs in UTC
+  EXPECT_EQ(
+      1000 * 60 * 60 * 24,
+      dateDiff(
+          "millisecond",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2021-03-15 01:00:00.000")));
+  EXPECT_EQ(
+      60 * 60 * 24,
+      dateDiff(
+          "second",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2021-03-15 01:00:00.000")));
+  EXPECT_EQ(
+      60 * 24,
+      dateDiff(
+          "minute",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2021-03-15 01:00:00.000")));
+  EXPECT_EQ(
+      24,
+      dateDiff(
+          "hour",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2021-03-15 01:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "day",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2021-03-15 01:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "month",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2021-04-14 01:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "quarter",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2021-06-14 01:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "year",
+          fromTimestampString("2021-03-14 01:00:00.000"),
+          fromTimestampString("2022-03-14 01:00:00.000")));
+
+  // When adjust_timestamp_to_timezone is on, respect Daylight saving in the
+  // session time zone
+  setQueryTimeZone("America/Los_Angeles");
+
+  EXPECT_EQ(
+      1000 * 60 * 60 * 24,
+      dateDiff(
+          "millisecond",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2021-03-15 09:00:00.000")));
+  EXPECT_EQ(
+      60 * 60 * 24,
+      dateDiff(
+          "second",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2021-03-15 09:00:00.000")));
+  EXPECT_EQ(
+      60 * 24,
+      dateDiff(
+          "minute",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2021-03-15 09:00:00.000")));
+  EXPECT_EQ(
+      24,
+      dateDiff(
+          "hour",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2021-03-15 09:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "day",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2021-03-15 09:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "month",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2021-04-14 09:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "quarter",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2021-06-14 09:00:00.000")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "year",
+          fromTimestampString("2021-03-14 09:00:00.000"),
+          fromTimestampString("2022-03-14 09:00:00.000")));
+
+  // Test for respecting the last day of a year-month
+  EXPECT_EQ(
+      365 + 30,
+      dateDiff(
+          "day",
+          fromTimestampString("2019-01-30 10:00:00.500"),
+          fromTimestampString("2020-02-29 10:00:00.500")));
+  EXPECT_EQ(
+      12 + 1,
+      dateDiff(
+          "month",
+          fromTimestampString("2019-01-30 10:00:00.500"),
+          fromTimestampString("2020-02-29 10:00:00.500")));
+  EXPECT_EQ(
+      1,
+      dateDiff(
+          "quarter",
+          fromTimestampString("2019-11-30 10:00:00.500"),
+          fromTimestampString("2020-02-29 10:00:00.500")));
+  EXPECT_EQ(
+      10,
+      dateDiff(
+          "year",
+          fromTimestampString("2020-02-29 10:00:00.500"),
+          fromTimestampString("2030-02-28 10:00:00.500")));
+
+  // Test for negative difference
+  EXPECT_EQ(
+      -60 * 60 * 24 * 1000 - 500,
+      dateDiff(
+          "millisecond",
+          fromTimestampString("2020-03-01 00:00:00.500"),
+          fromTimestampString("2020-02-29 00:00:00.000")));
+  EXPECT_EQ(
+      -60 * 60 * 24,
+      dateDiff(
+          "second",
+          fromTimestampString("2020-03-01 00:00:00.500"),
+          fromTimestampString("2020-02-29 00:00:00.500")));
+  EXPECT_EQ(
+      -60 * 24,
+      dateDiff(
+          "minute",
+          fromTimestampString("2020-03-01 00:00:00.500"),
+          fromTimestampString("2020-02-29 00:00:00.500")));
+  EXPECT_EQ(
+      -24,
+      dateDiff(
+          "hour",
+          fromTimestampString("2020-03-01 00:00:00.500"),
+          fromTimestampString("2020-02-29 00:00:00.500")));
+  EXPECT_EQ(
+      -366,
+      dateDiff(
+          "day",
+          fromTimestampString("2020-02-29 10:00:00.500"),
+          fromTimestampString("2019-02-28 10:00:00.500")));
+  EXPECT_EQ(
+      -12,
+      dateDiff(
+          "month",
+          fromTimestampString("2020-02-29 10:00:00.500"),
+          fromTimestampString("2019-02-28 10:00:00.500")));
+  EXPECT_EQ(
+      -4,
+      dateDiff(
+          "quarter",
+          fromTimestampString("2020-02-29 10:00:00.500"),
+          fromTimestampString("2019-02-28 10:00:00.500")));
+  EXPECT_EQ(
+      -2,
+      dateDiff(
+          "year",
+          fromTimestampString("2020-02-29 10:00:00.500"),
+          fromTimestampString("2018-02-28 10:00:00.500")));
 }
 
 TEST_F(DateTimeFunctionsTest, parseDatetime) {

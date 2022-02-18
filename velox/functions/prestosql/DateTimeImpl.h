@@ -20,6 +20,7 @@
 #include "velox/external/date/date.h"
 #include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"
+#include "velox/type/TimestampConversion.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -92,10 +93,7 @@ enum class DateTimeUnit {
 // 2020-02-29 + (1 year) = 2021-02-28
 // 2021-02-28 - (1 year) = 2020-02-28
 FOLLY_ALWAYS_INLINE
-Date addToDate(
-    const Date& date,
-    const DateTimeUnit& unit,
-    const int32_t value) {
+Date addToDate(const Date& date, const DateTimeUnit unit, const int32_t value) {
   // TODO(gaoge): Handle overflow and underflow with 64-bit representation
   if (value == 0) {
     return date;
@@ -132,7 +130,7 @@ Date addToDate(
 
 FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
     const Timestamp& timestamp,
-    const DateTimeUnit& unit,
+    const DateTimeUnit unit,
     const int32_t value) {
   // TODO(gaoge): Handle overflow and underflow with 64-bit representation
   if (value == 0) {
@@ -186,5 +184,128 @@ FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
       milliTimestamp.getSeconds(),
       milliTimestamp.getNanos() +
           timestamp.getNanos() % kNanosecondsInMillisecond);
+}
+
+FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
+    const DateTimeUnit unit,
+    const Timestamp& fromTimestamp,
+    const Timestamp& toTimestamp) {
+  // TODO(gaoge): Handle overflow and underflow with 64-bit representation
+  if (fromTimestamp == toTimestamp) {
+    return 0;
+  }
+
+  int8_t sign = fromTimestamp < toTimestamp ? 1 : -1;
+
+  // fromTimepoint is less than or equal to toTimepoint
+  const std::chrono::
+      time_point<std::chrono::system_clock, std::chrono::milliseconds>
+          fromTimepoint(std::chrono::milliseconds(
+              std::min(fromTimestamp, toTimestamp).toMillis()));
+  const std::chrono::
+      time_point<std::chrono::system_clock, std::chrono::milliseconds>
+          toTimepoint(std::chrono::milliseconds(
+              std::max(fromTimestamp, toTimestamp).toMillis()));
+
+  // Millisecond, second, minute, hour and day have fixed conversion ratio
+  switch (unit) {
+    case DateTimeUnit::kMillisecond: {
+      return sign *
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              toTimepoint - fromTimepoint)
+              .count();
+    }
+    case DateTimeUnit::kSecond: {
+      return sign *
+          std::chrono::duration_cast<std::chrono::seconds>(
+              toTimepoint - fromTimepoint)
+              .count();
+    }
+    case DateTimeUnit::kMinute: {
+      return sign *
+          std::chrono::duration_cast<std::chrono::minutes>(
+              toTimepoint - fromTimepoint)
+              .count();
+    }
+    case DateTimeUnit::kHour: {
+      return sign *
+          std::chrono::duration_cast<std::chrono::hours>(
+              toTimepoint - fromTimepoint)
+              .count();
+    }
+    case DateTimeUnit::kDay: {
+      return sign *
+          std::chrono::duration_cast<date::days>(toTimepoint - fromTimepoint)
+              .count();
+    }
+    default:
+      break;
+  }
+
+  // Month, quarter and year do not have fixed conversion ratio. Ex. a month can
+  // have 28, 29, 30 or 31 days. A year can have 365 or 366 days.
+  const std::chrono::time_point<std::chrono::system_clock, date::days>
+      fromDaysTimepoint = std::chrono::floor<date::days>(fromTimepoint);
+  const std::chrono::time_point<std::chrono::system_clock, date::days>
+      toDaysTimepoint = std::chrono::floor<date::days>(toTimepoint);
+  const date::year_month_day fromCalDate(fromDaysTimepoint);
+  const date::year_month_day toCalDate(toDaysTimepoint);
+  const uint64_t fromTimeInstantOfDay =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          fromTimepoint - fromDaysTimepoint)
+          .count();
+  const uint64_t toTimeInstantOfDay =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          toTimepoint - toDaysTimepoint)
+          .count();
+  const uint8_t fromDay = static_cast<unsigned>(fromCalDate.day()),
+                fromMonth = static_cast<unsigned>(fromCalDate.month());
+  const uint8_t toDay = static_cast<unsigned>(toCalDate.day()),
+                toMonth = static_cast<unsigned>(toCalDate.month());
+  const date::year_month_day toCalLastYearMonthDay(
+      toCalDate.year() / toCalDate.month() / date::last);
+  const uint8_t toLastYearMonthDay =
+      static_cast<unsigned>(toCalLastYearMonthDay.day());
+
+  int64_t diff;
+  if (unit == DateTimeUnit::kMonth || unit == DateTimeUnit::kQuarter) {
+    diff = (int(toCalDate.year()) - int(fromCalDate.year())) * 12 +
+        int(toMonth) - int(fromMonth);
+
+    if ((toDay != toLastYearMonthDay && fromDay > toDay) ||
+        (fromDay == toDay && fromTimeInstantOfDay > toTimeInstantOfDay)) {
+      diff--;
+    }
+
+    diff = (unit == DateTimeUnit::kMonth) ? diff : diff / 3;
+    return sign * diff;
+  }
+
+  if (unit == DateTimeUnit::kYear) {
+    diff = (toCalDate.year() - fromCalDate.year()).count();
+
+    if (fromMonth > toMonth ||
+        (fromMonth == toMonth && fromDay > toDay &&
+         toDay != toLastYearMonthDay) ||
+        (fromMonth == toMonth && fromDay == toDay &&
+         fromTimeInstantOfDay > toTimeInstantOfDay)) {
+      diff--;
+    }
+    return sign * diff;
+  }
+
+  VELOX_UNREACHABLE();
+}
+
+FOLLY_ALWAYS_INLINE
+int64_t
+diffDate(const DateTimeUnit unit, const Date& fromDate, const Date& toDate) {
+  if (fromDate == toDate) {
+    return 0;
+  }
+  return diffTimestamp(
+      unit,
+      Timestamp(fromDate.days() * util::kSecsPerDay, 0),
+      Timestamp(toDate.days() * util::kSecsPerDay, 0));
 }
 } // namespace facebook::velox::functions
