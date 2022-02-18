@@ -137,6 +137,17 @@ void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,
     uint32_t concurrentSplitGroups) {
+  if (concurrentSplitGroups > 1) {
+    VELOX_CHECK(
+        self->isGroupedExecution(),
+        "concurrentSplitGroups parameter applies only to grouped execution");
+  }
+  VELOX_CHECK_GE(
+      maxDrivers, 1, "maxDrivers parameter must be greater then or equal to 1");
+  VELOX_CHECK_GE(
+      concurrentSplitGroups,
+      1,
+      "concurrentSplitGroups parameter must be greater then or equal to 1");
   VELOX_CHECK(self->drivers_.empty());
   self->concurrentSplitGroups_ = concurrentSplitGroups;
   {
@@ -171,13 +182,13 @@ void Task::start(
   const auto numPipelines = self->driverFactories_.size();
   self->exchangeClients_.resize(numPipelines);
 
-  // For ungrouped execution we reuse some of the structures used grouped
+  // For ungrouped execution we reuse some structures used for grouped
   // execution and assume we have "1 split".
   const uint32_t numSplitGroups =
       std::max(1, self->planFragment_.numSplitGroups);
 
   // For each pipeline we have a corresponding driver factory.
-  // Here we count how many drivers in total we need and we also create create
+  // Here we count how many drivers in total we need and create
   // pipeline stats.
   for (auto& factory : self->driverFactories_) {
     self->numDriversPerSplitGroup_ += factory->numDrivers;
@@ -1014,7 +1025,7 @@ ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {
   return std::move(future);
 }
 
-std::string Task::toString() {
+std::string Task::toString() const {
   std::stringstream out;
   out << "{Task " << shortId(taskId_) << " (" << taskId_ << ")";
 
@@ -1174,7 +1185,7 @@ void Task::setError(const std::string& message) {
   }
 }
 
-std::string Task::errorMessage() {
+std::string Task::errorMessage() const {
   if (!exception_) {
     return "";
   }
