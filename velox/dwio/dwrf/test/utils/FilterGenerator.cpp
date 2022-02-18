@@ -252,6 +252,11 @@ std::vector<std::string> FilterGenerator::makeFilterables(
   std::vector<std::string> filterables;
   filterables.reserve(rowType_->size());
   collectFilterableSubFields(rowType_.get(), filterables);
+  if (filterables.empty()) {
+    // It could be empty if none of the columns is filterable, for example,
+    // there are only (or mix of) map, array columns.
+    return filterables;
+  }
   uint32_t countTotal = filterables.size();
   uint32_t countSelect = std::min(count, countTotal);
   if (countSelect == 0) {
