@@ -52,6 +52,8 @@ class TestingPauserNode : public core::PlanNode {
   }
 
  private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+
   std::vector<std::shared_ptr<const core::PlanNode>> sources_;
 };
 

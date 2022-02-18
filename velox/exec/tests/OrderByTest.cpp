@@ -20,11 +20,6 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
 
-static const core::SortOrder kAscNullsFirst(true, true);
-static const core::SortOrder kAscNullsLast(true, false);
-static const core::SortOrder kDescNullsFirst(false, true);
-static const core::SortOrder kDescNullsLast(false, false);
-
 class OrderByTest : public OperatorTestBase {
  protected:
   void testSingleKey(
@@ -33,7 +28,7 @@ class OrderByTest : public OperatorTestBase {
     auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
     auto plan = PlanBuilder()
                     .values(input)
-                    .orderBy({keyIndex}, {kAscNullsLast}, false)
+                    .orderBy({keyIndex}, {core::kAscNullsLast}, false)
                     .planNode();
 
     assertQueryOrdered(
@@ -43,7 +38,7 @@ class OrderByTest : public OperatorTestBase {
 
     plan = PlanBuilder()
                .values(input)
-               .orderBy({keyIndex}, {kDescNullsFirst}, false)
+               .orderBy({keyIndex}, {core::kDescNullsFirst}, false)
                .planNode();
 
     assertQueryOrdered(
@@ -60,7 +55,7 @@ class OrderByTest : public OperatorTestBase {
     auto plan = PlanBuilder()
                     .values(input)
                     .filter(filter)
-                    .orderBy({keyIndex}, {kAscNullsLast}, false)
+                    .orderBy({keyIndex}, {core::kAscNullsLast}, false)
                     .planNode();
 
     assertQueryOrdered(
@@ -72,7 +67,7 @@ class OrderByTest : public OperatorTestBase {
     plan = PlanBuilder()
                .values(input)
                .filter(filter)
-               .orderBy({keyIndex}, {kDescNullsFirst}, false)
+               .orderBy({keyIndex}, {core::kDescNullsFirst}, false)
                .planNode();
 
     assertQueryOrdered(
@@ -91,7 +86,8 @@ class OrderByTest : public OperatorTestBase {
     auto rowType = input[0]->type()->asRow();
     auto keyIndices = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
-    std::vector<core::SortOrder> sortOrders = {kAscNullsLast, kDescNullsFirst};
+    std::vector<core::SortOrder> sortOrders = {
+        core::kAscNullsLast, core::kDescNullsFirst};
     std::vector<std::string> sortOrderSqls = {"NULLS LAST", "DESC NULLS FIRST"};
 
     for (int i = 0; i < sortOrders.size(); i++) {
@@ -158,7 +154,7 @@ TEST_F(OrderByTest, singleKey) {
 
   auto plan = PlanBuilder()
                   .values(vectors)
-                  .orderBy({0}, {kDescNullsLast}, false)
+                  .orderBy({0}, {core::kDescNullsLast}, false)
                   .planNode();
 
   assertQueryOrdered(
@@ -166,7 +162,7 @@ TEST_F(OrderByTest, singleKey) {
 
   plan = PlanBuilder()
              .values(vectors)
-             .orderBy({0}, {kAscNullsFirst}, false)
+             .orderBy({0}, {core::kAscNullsFirst}, false)
              .planNode();
 
   assertQueryOrdered(plan, "SELECT * FROM tmp ORDER BY c0 NULLS FIRST", {0});
@@ -189,18 +185,20 @@ TEST_F(OrderByTest, multipleKeys) {
 
   testTwoKeys(vectors, "c0", "c1");
 
-  auto plan = PlanBuilder()
-                  .values(vectors)
-                  .orderBy({0, 1}, {kAscNullsFirst, kAscNullsLast}, false)
-                  .planNode();
+  auto plan =
+      PlanBuilder()
+          .values(vectors)
+          .orderBy({0, 1}, {core::kAscNullsFirst, core::kAscNullsLast}, false)
+          .planNode();
 
   assertQueryOrdered(
       plan, "SELECT * FROM tmp ORDER BY c0 NULLS FIRST, c1 NULLS LAST", {0, 1});
 
-  plan = PlanBuilder()
-             .values(vectors)
-             .orderBy({0, 1}, {kDescNullsLast, kDescNullsFirst}, false)
-             .planNode();
+  plan =
+      PlanBuilder()
+          .values(vectors)
+          .orderBy({0, 1}, {core::kDescNullsLast, core::kDescNullsFirst}, false)
+          .planNode();
 
   assertQueryOrdered(
       plan,
@@ -260,7 +258,7 @@ TEST_F(OrderByTest, unknown) {
 
   auto plan = PlanBuilder()
                   .values({vector})
-                  .orderBy({0}, {kDescNullsLast}, false)
+                  .orderBy({0}, {core::kDescNullsLast}, false)
                   .planNode();
 
   assertQueryOrdered(

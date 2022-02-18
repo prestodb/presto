@@ -121,6 +121,8 @@ class DummyNode : public core::PlanNode {
   }
 
  private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+
   std::vector<std::shared_ptr<const core::PlanNode>> sources_;
   std::shared_ptr<const RowType> outputType_;
 };

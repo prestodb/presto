@@ -19,11 +19,6 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
 
-static const core::SortOrder kAscNullsFirst(true, true);
-static const core::SortOrder kAscNullsLast(true, false);
-static const core::SortOrder kDescNullsFirst(false, true);
-static const core::SortOrder kDescNullsLast(false, false);
-
 class MergeTest : public OperatorTestBase {
  protected:
   void testSingleKey(
@@ -31,7 +26,10 @@ class MergeTest : public OperatorTestBase {
       const std::string& key) {
     auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
     std::vector<core::SortOrder> sortOrders = {
-        kAscNullsLast, kAscNullsFirst, kDescNullsFirst, kDescNullsLast};
+        core::kAscNullsLast,
+        core::kAscNullsFirst,
+        core::kDescNullsFirst,
+        core::kDescNullsLast};
     std::vector<std::string> sortOrderSqls = {
         "NULLS LAST", "NULLS FIRST", "DESC NULLS FIRST", "DESC NULLS LAST"};
 
@@ -76,7 +74,10 @@ class MergeTest : public OperatorTestBase {
     auto sortingKeys = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
     std::vector<core::SortOrder> sortOrders = {
-        kAscNullsLast, kAscNullsFirst, kDescNullsFirst, kDescNullsLast};
+        core::kAscNullsLast,
+        core::kAscNullsFirst,
+        core::kDescNullsFirst,
+        core::kDescNullsLast};
     std::vector<std::string> sortOrderSqls = {
         "NULLS LAST", "NULLS FIRST", "DESC NULLS FIRST", "DESC NULLS LAST"};
 

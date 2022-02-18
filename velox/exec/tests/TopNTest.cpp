@@ -19,11 +19,6 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
 
-static const core::SortOrder kAscNullsFirst(true, true);
-static const core::SortOrder kAscNullsLast(true, false);
-static const core::SortOrder kDescNullsFirst(false, true);
-static const core::SortOrder kDescNullsLast(false, false);
-
 class TopNTest : public OperatorTestBase {
  protected:
   static std::vector<core::SortOrder> kSortOrders;
@@ -109,10 +104,10 @@ class TopNTest : public OperatorTestBase {
 };
 
 std::vector<core::SortOrder> TopNTest::kSortOrders = {
-    kAscNullsFirst,
-    kAscNullsLast,
-    kDescNullsFirst,
-    kDescNullsLast};
+    core::kAscNullsFirst,
+    core::kAscNullsLast,
+    core::kDescNullsFirst,
+    core::kDescNullsLast};
 
 std::vector<std::string> TopNTest::kSortOrderSqls = {
     "NULLS FIRST",
