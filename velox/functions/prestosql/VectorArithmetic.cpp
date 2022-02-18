@@ -256,7 +256,7 @@ class VectorArithmetic : public VectorFunction {
     // 2) type is integral and is safe to leave the values uninitialized
     // and the number of valid rows is larger than half of the row (heuristic)
     return rows.isAllSelected() ||
-        (!std::is_integral<T>::value && Operation::isSafeForUninitialized &&
+        (std::is_integral<T>::value && Operation::isSafeForUninitialized &&
          context->isFinalSelection() && rows.countSelected() > rows.size() / 2);
   }
 };
