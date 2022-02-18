@@ -96,7 +96,7 @@ jobs:
       - restore_cache:
           name: "Restore CCache cache"
           keys:
-            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
           name: "Build on MacOS"
           command: |
@@ -110,7 +110,7 @@ jobs:
           no_output_timeout: 1h
       - save_cache:
           name: "Save CCache cache"
-          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
           paths:
             - .ccache/
 
@@ -124,7 +124,7 @@ jobs:
       - restore_cache:
           name: "Restore CCache cache"
           keys:
-            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
           name: Build
           command: |
@@ -139,7 +139,7 @@ jobs:
           path: '_build/debug/.ninja_log'
       - save_cache:
           name: "Save CCache cache"
-          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
           paths:
             - .ccache/
       - run:
@@ -169,7 +169,7 @@ jobs:
       - restore_cache:
           name: "Restore CCache cache"
           keys:
-            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+            - velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
           name: "Build Benchmarks - Baseline"
           command: |
@@ -203,7 +203,7 @@ jobs:
           path: '_build/debug/.ninja_log'
       - save_cache:
           name: "Save CCache cache"
-          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          key: velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
           paths:
             - .ccache/
 
@@ -218,7 +218,7 @@ jobs:
       - restore_cache:
           name: "Restore CCache cache"
           keys:
-            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
           name: Build minimal velox
           command: |
@@ -244,7 +244,7 @@ jobs:
           path: '_build/debug/.ninja_log'
       - save_cache:
           name: "Save CCache cache"
-          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
           paths:
             - .ccache/
 
@@ -258,7 +258,7 @@ jobs:
       - restore_cache:
           name: "Restore CCache cache"
           keys:
-            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+            - velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
           name: "Install adapter dependencies"
           command: |
@@ -287,7 +287,7 @@ jobs:
           path: '_build/release/.ninja_log'
       - save_cache:
           name: "Save CCache cache"
-          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          key: velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
           paths:
             - .ccache/
       - run:
