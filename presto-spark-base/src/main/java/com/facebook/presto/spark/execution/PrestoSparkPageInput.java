@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.operator.UpdateMemory;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -25,5 +26,5 @@ import javax.annotation.concurrent.ThreadSafe;
 public interface PrestoSparkPageInput
 {
     @Nullable
-    Page getNextPage();
+    Page getNextPage(UpdateMemory updateMemory);
 }

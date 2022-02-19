@@ -153,6 +153,7 @@ import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -1166,6 +1167,7 @@ public class PrestoSparkQueryExecutionFactory
                         broadcastDependency = new PrestoSparkStorageBasedBroadcastDependency(
                                 childRdd,
                                 maxBroadcastMemory,
+                                getQueryMaxTotalMemoryPerNode(session),
                                 queryCompletionDeadline,
                                 tempStorage,
                                 tempDataOperationContext,
