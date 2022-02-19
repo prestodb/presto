@@ -148,11 +148,13 @@ class DirectDecoder : public IntDecoder<isSigned> {
           super::bulkReadRows(*innerVector, data);
         }
         skip<false>(tailSkip, 0, nullptr);
+        auto dataRows = innerVector
+            ? folly::Range<const int*>(innerVector->data(), innerVector->size())
+            : folly::Range<const int32_t*>(rows, outerVector->size());
         processFixedWidthRun<T, filterOnly, true, Visitor::dense>(
-            innerVector
-                ? folly::Range<const int*>(
-                      innerVector->data(), innerVector->size())
-                : folly::Range<const int32_t*>(rows, outerVector->size()),
+            dataRows,
+            0,
+            dataRows.size(),
             outerVector->data(),
             data,
             hasFilter ? visitor.outputRows(numRows) : nullptr,
@@ -186,6 +188,8 @@ class DirectDecoder : public IntDecoder<isSigned> {
         }
         processFixedWidthRun<T, filterOnly, false, Visitor::dense>(
             rowsAsRange,
+            0,
+            rowsAsRange.size(),
             hasHook ? velox::iota(numRows, visitor.innerNonNullRows())
                     : nullptr,
             visitor.rawValues(numRows),
