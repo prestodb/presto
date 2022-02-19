@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
@@ -890,6 +891,21 @@ public class TestPrestoSparkQueryRunner
                         "    ON a.orderkey = c.orderkey " +
                         "JOIN broadcast_table4 d " +
                         "    ON a.orderkey = d.orderkey");
+    }
+
+    @Test
+    public void testStorageBasedBroadcastJoinMaxThreshold()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .setSystemProperty(STORAGE_BASED_BROADCAST_JOIN_ENABLED, "true")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "1MB")
+                .build();
+
+        assertQueryFails(
+                session,
+                "select * from lineitem l join orders o on l.orderkey = o.orderkey",
+                "Query exceeded per-node total memory limit of 1MB \\[Compressed broadcast size: .*kB; Uncompressed broadcast size: .*MB\\]");
     }
 
     @Test
