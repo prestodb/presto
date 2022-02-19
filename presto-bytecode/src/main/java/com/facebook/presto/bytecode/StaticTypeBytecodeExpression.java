@@ -14,6 +14,7 @@
 package com.facebook.presto.bytecode;
 
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.expression.CastBytecodeExpression;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction;
 import io.airlift.slice.Slice;
 
@@ -86,6 +87,24 @@ public class StaticTypeBytecodeExpression
         }
         if (javaType == double.class) {
             return invoke("writeDouble", void.class, blockBuilder, value);
+        }
+        if (javaType == Slice.class) {
+            return invoke("writeSlice", void.class, blockBuilder, value);
+        }
+        return invoke("writeObject", void.class, blockBuilder, value.cast(Object.class));
+    }
+
+    // A utility for plugins to write value to BlockBuilder, while performing implicit casts between long/double types.
+    public BytecodeExpression writeValueWithCast(BytecodeExpression blockBuilder, BytecodeExpression value)
+    {
+        if (javaType == boolean.class) {
+            return invoke("writeBoolean", void.class, blockBuilder, value);
+        }
+        if (javaType == long.class) {
+            return invoke("writeLong", void.class, blockBuilder, new CastBytecodeExpression(value, type(long.class)));
+        }
+        if (javaType == double.class) {
+            return invoke("writeDouble", void.class, blockBuilder, new CastBytecodeExpression(value, type(double.class)));
         }
         if (javaType == Slice.class) {
             return invoke("writeSlice", void.class, blockBuilder, value);
