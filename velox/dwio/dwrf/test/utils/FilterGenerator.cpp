@@ -96,8 +96,16 @@ std::unique_ptr<Filter> ColumnStats<float>::makeRangeFilter(
   }
   float lower = valueAtPct(startPct);
   float upper = valueAtPct(startPct + selectPct);
+  bool lowerUnbounded = std::isnan(lower);
+  bool upperUnbounded = std::isnan(upper);
   return std::make_unique<velox::common::FloatRange>(
-      lower, false, false, upper, false, false, selectPct > 25);
+      lower,
+      lowerUnbounded,
+      false,
+      upper,
+      upperUnbounded,
+      false,
+      selectPct > 25);
 }
 
 template <>
@@ -109,8 +117,16 @@ std::unique_ptr<Filter> ColumnStats<double>::makeRangeFilter(
   }
   double lower = valueAtPct(startPct);
   double upper = valueAtPct(startPct + selectPct);
+  bool lowerUnbounded = std::isnan(lower);
+  bool upperUnbounded = std::isnan(upper);
   return std::make_unique<velox::common::DoubleRange>(
-      lower, false, false, upper, false, false, selectPct > 25);
+      lower,
+      lowerUnbounded,
+      false,
+      upper,
+      upperUnbounded,
+      false,
+      selectPct > 25);
 }
 
 template <>
