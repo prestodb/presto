@@ -98,8 +98,11 @@ function cmake_install {
     rm -rf "${BINARY_DIR}"
   fi
   mkdir -p "${BINARY_DIR}"
+
+  # CMAKE_POSITION_INDEPENDENT_CODE is required so that Velox can be built into dynamic libraries \
   cmake -Wno-dev -B"${BINARY_DIR}" \
     -GNinja \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DCMAKE_CXX_STANDARD=17 \
     "${INSTALL_PREFIX+-DCMAKE_PREFIX_PATH=}${INSTALL_PREFIX-}" \
     "${INSTALL_PREFIX+-DCMAKE_INSTALL_PREFIX=}${INSTALL_PREFIX-}" \
@@ -121,8 +124,6 @@ function install_folly {
 
 function install_velox_deps {
   run_and_time install_fmt
-  sudo ln -s /usr/local/lib/libfmt.a /usr/lib/x86_64-linux-gnu/libfmt.a
-
   run_and_time install_folly
 }
 
