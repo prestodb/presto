@@ -16,6 +16,7 @@
 
 #include "velox/functions/lib/JodaDateTime.h"
 #include <cctype>
+#include <string>
 #include <unordered_map>
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/TimestampConversion.h"
@@ -204,6 +205,56 @@ parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
   throw std::runtime_error("Unable to parse timezone offset id.");
 }
 
+// According to JodaFormatSpecifier enum class
+std::string getSpecifierName(int enumInt) {
+  switch (enumInt) {
+    case 0:
+      return "ERA";
+    case 1:
+      return "CENTURY_OF_ERA";
+    case 2:
+      return "YEAR_OF_ERA";
+    case 3:
+      return "WEEK_YEAR";
+    case 4:
+      return "WEEK_OF_WEEK_YEAR";
+    case 5:
+      return "DAY_OF_WEEK";
+    case 6:
+      return "DAY_OF_WEEK_TEXT";
+    case 7:
+      return "YEAR";
+    case 8:
+      return "DAY_OF_YEAR";
+    case 9:
+      return "MONTH_OF_YEAR";
+    case 10:
+      return "DAY_OF_MONTH";
+    case 11:
+      return "HALFDAY_OF_DAY";
+    case 12:
+      return "HOUR_OF_HALFDAY";
+    case 13:
+      return "CLOCK_HOUR_OF_HALFDAY";
+    case 14:
+      return "HOUR_OF_DAY";
+    case 15:
+      return "CLOCK_HOUR_OF_DAY";
+    case 16:
+      return "MINUTE_OF_HOUR";
+    case 17:
+      return "SECOND_OF_MINUTE";
+    case 18:
+      return "FRACTION_OF_SECOND";
+    case 19:
+      return "TIMEZONE";
+    case 20:
+      return "TIMEZONE_OFFSET_ID";
+    default:
+      return "[Specifier not updated to conversion function yet]";
+  }
+}
+
 void parseFromPattern(
     JodaFormatSpecifier curPattern,
     const std::string& input,
@@ -277,7 +328,10 @@ void parseFromPattern(
         break;
 
       default:
-        VELOX_NYI("Numeric Joda specifier not implemented yet.");
+        VELOX_NYI(
+            "Numeric Joda specifier JodaFormatSpecifier::" +
+            getSpecifierName(static_cast<int>(curPattern)) +
+            " not implemented yet.");
     }
   } else {
     try {
