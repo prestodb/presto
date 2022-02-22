@@ -14,12 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -480,14 +476,5 @@ public final class JsonFunctions
     public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getSizeExtractor());
-    }
-
-    public static Object getJsonObjectValue(Type valueType, SqlFunctionProperties properties, Block block, int position)
-    {
-        Object objectValue = valueType.getObjectValue(properties, block, position);
-        if (objectValue instanceof SqlDecimal) {
-            objectValue = ((SqlDecimal) objectValue).toBigDecimal();
-        }
-        return objectValue;
     }
 }
