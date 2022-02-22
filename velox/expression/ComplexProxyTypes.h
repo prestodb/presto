@@ -62,15 +62,25 @@ struct PrimitiveWriterProxy {
   vector_size_t index_;
 };
 
+template <typename V>
+bool constexpr provide_std_interface = CppToType<V>::isPrimitiveType &&
+    !std::is_same<Varchar, V>::value && !std::is_same<Varbinary, V>::value;
+
+template <typename V>
+bool constexpr requires_commit =
+    !CppToType<V>::isPrimitiveType || std::is_same<Varchar, V>::value ||
+    std::is_same<bool, V>::value || std::is_same<Varbinary, V>::value;
+
 // The object passed to the simple function interface that represent a single
 // array entry.
-// ## General Interface:
+//
+// General Interface:
 // - add_item()  : Add not null item and return proxy to the value to be
 // written.
 // - add_null()  : Add null item.
 // - size()      : Return the size of the array.
-
-// ## Special std::like interfaces when V is primitive:
+//
+// Special std::like interfaces when V is primitive:
 // - resize(n)         : Resize to n, nullity not written.
 // - operator[](index) : Returns PrimitiveWriterProxy which can be used to write
 // value and nullity at index.
@@ -83,21 +93,12 @@ class ArrayProxy {
   using element_t = typename child_writer_t::exec_out_t;
 
  public:
-  static bool constexpr provide_std_interface = CppToType<V>::isPrimitiveType &&
-      !std::is_same<Varchar, V>::value && !std::is_same<Varbinary, V>::value;
-
-  static bool constexpr requires_commit = !CppToType<V>::isPrimitiveType ||
-      std::is_same<Varchar, V>::value || std::is_same<bool, V>::value ||
-      std::is_same<Varbinary, V>::value;
-
   // Note: size is with respect to the current size of this array being written.
   void reserve(vector_size_t size) {
     auto currentSize = size + valuesOffset_;
 
     if (UNLIKELY(currentSize > elementsVectorCapacity_)) {
-      while (currentSize > elementsVectorCapacity_) {
-        elementsVectorCapacity_ = elementsVectorCapacity_ * 2;
-      }
+      elementsVectorCapacity_ = std::pow(2, std::ceil(std::log2(currentSize)));
       childWriter_->ensureSize(elementsVectorCapacity_);
     }
   }
@@ -107,8 +108,8 @@ class ArrayProxy {
     resize(length_ + 1);
     auto index = valuesOffset_ + length_ - 1;
 
-    if constexpr (!requires_commit) {
-      VELOX_DCHECK(provide_std_interface);
+    if constexpr (!requires_commit<V>) {
+      VELOX_DCHECK(provide_std_interface<V>);
       elementsVector_->setNull(index, false);
       return childWriter_->data_[index];
     } else {
@@ -134,6 +135,14 @@ class ArrayProxy {
     length_ = 0;
   }
 
+  // Should be called by the user (VectorWriter) when null is committed to
+  // pretect against user miss-use (writing to the writer then committing null).
+  void finalizeNull() {
+    // No need to commit last written items and innerOffset_ stays the same for
+    // the next item.
+    length_ = 0;
+  }
+
   vector_size_t size() {
     return length_;
   }
@@ -150,34 +159,36 @@ class ArrayProxy {
 
   void push_back(element_t value) {
     static_assert(
-        provide_std_interface, "push_back not allowed for this array");
+        provide_std_interface<V>, "push_back not allowed for this array");
     resize(length_ + 1);
     back() = value;
   }
 
   void push_back(std::nullopt_t) {
     static_assert(
-        provide_std_interface, "push_back not allowed for this array");
+        provide_std_interface<V>, "push_back not allowed for this array");
     resize(length_ + 1);
     back() = std::nullopt;
   }
 
   void push_back(const std::optional<element_t>& value) {
     static_assert(
-        provide_std_interface, "push_back not allowed for this array");
+        provide_std_interface<V>, "push_back not allowed for this array");
     resize(length_ + 1);
     back() = value;
   }
 
   template <typename T = V>
-  typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<T>>::type
-  operator[](vector_size_t index_) {
+  typename std::enable_if<provide_std_interface<T>, PrimitiveWriterProxy<T>>::
+      type
+      operator[](vector_size_t index_) {
     return PrimitiveWriterProxy<V>{elementsVector_, valuesOffset_ + index_};
   }
 
   template <typename T = V>
-  typename std::enable_if<provide_std_interface, PrimitiveWriterProxy<T>>::type
-  back() {
+  typename std::enable_if<provide_std_interface<T>, PrimitiveWriterProxy<T>>::
+      type
+      back() {
     return PrimitiveWriterProxy<V>{
         elementsVector_, valuesOffset_ + length_ - 1};
   }
@@ -189,7 +200,7 @@ class ArrayProxy {
   ArrayProxy<V>& operator=(const ArrayProxy<V>&) = default;
 
   void commitMostRecentChildItem() {
-    if constexpr (requires_commit) {
+    if constexpr (requires_commit<V>) {
       if (needCommit_) {
         childWriter_->commit(true);
         needCommit_ = false;
@@ -228,4 +239,173 @@ class ArrayProxy {
   template <typename T>
   friend class SimpleFunctionAdapter;
 };
+
+// The object passed to the simple function interface that represent a single
+// output map entry.
+//
+// General Interface:
+// - add_item()  : return references to key and value writers as tuple.
+// - add_null()  : return key writer, set value to null.
+// - size()      : return the size of the map.
+// The interface does not guarantee that duplicates not written.
+template <typename K, typename V>
+class MapWriter {
+  using key_writer_t = VectorWriter<K, void>;
+  using value_writer_t = VectorWriter<V, void>;
+
+  using key_element_t = typename key_writer_t::exec_out_t;
+  using value_element_t = typename value_writer_t::exec_out_t;
+
+  // Provide std::interface only if both key and value are eligible types.
+  static constexpr bool std_interface =
+      provide_std_interface<K> && provide_std_interface<V>;
+
+ public:
+  // `size` is with respect to the current size of the map being written.
+  void reserve(vector_size_t size) {
+    auto currentSize = size + innerOffset_;
+
+    if (UNLIKELY(currentSize > capacity_)) {
+      capacity_ = std::pow(2, std::ceil(std::log2(currentSize)));
+
+      keysWriter_->ensureSize(capacity_);
+      valuesWriter_->ensureSize(capacity_);
+    }
+  }
+
+  // Add a new not null item to the map, increasing its size by 1.
+  std::tuple<key_element_t&, value_element_t&> add_item() {
+    resize(length_ + 1);
+    return std::tie(lastKeyWriter(), lastValueWriter());
+  }
+
+  // Add a new null value, return the key writer.
+  key_element_t& add_null() {
+    resize(length_ + 1);
+    valuesVector_->setNull(indexOfLast(), true);
+    return lastKeyWriter();
+  }
+
+  vector_size_t size() {
+    return length_;
+  }
+
+ private:
+  // Make sure user do not use those.
+  MapWriter<K, V>() = default;
+
+  MapWriter<K, V>(const MapWriter<K, V>&) = default;
+
+  MapWriter<K, V>& operator=(const MapWriter<K, V>&) = default;
+
+  vector_size_t indexOfLast() {
+    return innerOffset_ + length_ - 1;
+  }
+
+  // Should be called by the user (VectorWriter) when writing is done to commit
+  // last item if needed.
+  void finalize() {
+    commitMostRecentChildItem();
+    innerOffset_ += length_;
+    length_ = 0;
+  }
+
+  // Should be called by the user (VectorWriter) when null is committed to
+  // pretect against user miss-use (writing to the writer then committing null).
+  void finalizeNull() {
+    // No need to commit last written items and innerOffset_ stays the same for
+    // the next item.
+    length_ = 0;
+  }
+
+  // 'size' is with respect to the current size of the array being written.
+  void resize(vector_size_t size) {
+    commitMostRecentChildItem();
+    reserve(size);
+    length_ = size;
+  }
+
+  void commitMostRecentChildItem() {
+    if constexpr (requires_commit<K>) {
+      if (keyNeedsCommit_) {
+        keysWriter_->commit(true);
+        keyNeedsCommit_ = false;
+      }
+    }
+
+    if constexpr (requires_commit<V>) {
+      if (valueNeedsCommit_) {
+        valuesWriter_->commit(true);
+        valueNeedsCommit_ = false;
+      }
+    }
+  }
+
+  void initialize(VectorWriter<MapWriterT<K, V>, void>* writer) {
+    keysWriter_ = &writer->keyWriter_;
+    valuesWriter_ = &writer->valWriter_;
+
+    keysVector_ = &keysWriter_->vector();
+    valuesVector_ = &valuesWriter_->vector();
+
+    keysWriter_->ensureSize(1);
+    valuesWriter_->ensureSize(1);
+
+    VELOX_DCHECK(
+        keysVector_->size() == valuesVector_->size(),
+        "expect map keys and value vector sized to be synchronized");
+    capacity_ = keysVector_->size();
+  }
+
+  key_element_t& lastKeyWriter() {
+    auto index = indexOfLast();
+    if constexpr (!requires_commit<K>) {
+      VELOX_DCHECK(provide_std_interface<K>);
+      keysVector_->setNull(index, false);
+      return keysWriter_->data_[index];
+    } else {
+      keyNeedsCommit_ = true;
+      keysWriter_->setOffset(index);
+      return keysWriter_->current();
+    }
+  }
+
+  value_element_t& lastValueWriter() {
+    auto index = indexOfLast();
+    if constexpr (!requires_commit<V>) {
+      VELOX_DCHECK(provide_std_interface<V>);
+      valuesVector_->setNull(index, false);
+      return valuesWriter_->data_[index];
+    } else {
+      valueNeedsCommit_ = true;
+      valuesWriter_->setOffset(index);
+      return valuesWriter_->current();
+    }
+  }
+
+  typename key_writer_t::vector_t* keysVector_ = nullptr;
+  typename value_writer_t::vector_t* valuesVector_ = nullptr;
+
+  key_writer_t* keysWriter_ = nullptr;
+  value_writer_t* valuesWriter_ = nullptr;
+
+  // Tracks the capacity of keys and values vectors.
+  vector_size_t capacity_ = 0;
+
+  bool keyNeedsCommit_ = false;
+  bool valueNeedsCommit_ = false;
+
+  // Length of the current map being written.
+  vector_size_t length_ = 0;
+
+  // The offset within the children vectors at which this map starts.
+  vector_size_t innerOffset_ = 0;
+
+  template <typename A, typename B>
+  friend struct VectorWriter;
+
+  template <typename T>
+  friend class SimpleFunctionAdapter;
+};
+
 } // namespace facebook::velox::exec

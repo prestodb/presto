@@ -1345,6 +1345,25 @@ struct ArrayProxyT {
   ArrayProxyT() {}
 };
 
+// This is a temporary type to be used when the fast MapWriter is requested by
+// the user to represent a map output type in the simple function interface.
+// Eventually this will be removed and joined with Map once all writers
+// types are implemented.
+template <typename K, typename V>
+struct MapWriterT {
+  using key_type = K;
+  using value_type = V;
+
+  static_assert(
+      !isVariadicType<key_type>::value,
+      "Map keys cannot be Variadic");
+  static_assert(
+      !isVariadicType<value_type>::value,
+      "Map values cannot be Variadic");
+
+  MapWriterT() = delete;
+};
+
 template <typename... T>
 struct Row {
   template <size_t idx>
@@ -1460,6 +1479,13 @@ struct CppToType<std::shared_ptr<T>> : public CppToTypeBase<TypeKind::OPAQUE> {
 
 template <typename KEY, typename VAL>
 struct CppToType<Map<KEY, VAL>> : public TypeTraits<TypeKind::MAP> {
+  static auto create() {
+    return MAP(CppToType<KEY>::create(), CppToType<VAL>::create());
+  }
+};
+
+template <typename KEY, typename VAL>
+struct CppToType<MapWriterT<KEY, VAL>> : public TypeTraits<TypeKind::MAP> {
   static auto create() {
     return MAP(CppToType<KEY>::create(), CppToType<VAL>::create());
   }
