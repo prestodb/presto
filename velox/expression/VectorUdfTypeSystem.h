@@ -1108,7 +1108,17 @@ class StringProxy<FlatVector<StringView>, false /*reuseInput*/>
     finalized_ = true;
   }
 
-  void append(const StringView& input) {
+  template <typename T>
+  void operator+=(const T& input) {
+    append(input);
+  }
+
+  void operator+=(const char* input) {
+    append(std::string_view(input));
+  }
+
+  template <typename T>
+  void append(const T& input) {
     DCHECK(!finalized_);
     auto oldSize = size();
     resize(this->size() + input.size());
@@ -1119,23 +1129,18 @@ class StringProxy<FlatVector<StringView>, false /*reuseInput*/>
     }
   }
 
-  void operator+=(const StringView& input) {
+  void append(const char* input) {
+    append(std::string_view(input));
+  }
+
+  template <typename T>
+  void copy_from(const T& input) {
+    VELOX_DCHECK(initialized());
     append(input);
   }
 
-  void append(const std::string_view input) {
-    DCHECK(!finalized_);
-    auto oldSize = size();
-    resize(this->size() + input.size());
-    if (input.size() != 0) {
-      DCHECK(data());
-      DCHECK(input.data());
-      std::memcpy(data() + oldSize, input.data(), input.size());
-    }
-  }
-
-  void operator+=(const std::string_view input) {
-    append(input);
+  void copy_from(const char* input) {
+    append(std::string_view(input));
   }
 
  private:

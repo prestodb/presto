@@ -24,7 +24,7 @@ namespace facebook::velox::expressions::test {
 
 class StringProxyTest : public functions::test::FunctionBaseTest {};
 
-TEST_F(StringProxyTest, testAppend) {
+TEST_F(StringProxyTest, append) {
   auto vector = makeFlatVector<StringView>(2);
   auto proxy = exec::StringProxy<FlatVector<StringView>, /*reuse input*/ false>(
       vector.get(), 0);
@@ -39,7 +39,7 @@ TEST_F(StringProxyTest, testAppend) {
   ASSERT_EQ(vector->valueAt(0), StringView("1 2 3 4 5 "));
 }
 
-TEST_F(StringProxyTest, testPlusOperator) {
+TEST_F(StringProxyTest, plusOperator) {
   auto vector = makeFlatVector<StringView>(1);
   auto proxy = exec::StringProxy<FlatVector<StringView>, /*reuse input*/ false>(
       vector.get(), 0);
@@ -54,4 +54,33 @@ TEST_F(StringProxyTest, testPlusOperator) {
   ASSERT_EQ(vector->valueAt(0), StringView("1 2 3 4 5 "));
 }
 
+TEST_F(StringProxyTest, copyFromStringView) {
+  auto vector = makeFlatVector<StringView>(4);
+  auto proxy = exec::StringProxy<FlatVector<StringView>, /*reuse input*/ false>(
+      vector.get(), 0);
+  proxy.copy_from("1 2 3 4 5 "_sv);
+  proxy.finalize();
+
+  ASSERT_EQ(vector->valueAt(0), "1 2 3 4 5 "_sv);
+}
+
+TEST_F(StringProxyTest, copyFromStdString) {
+  auto vector = makeFlatVector<StringView>(4);
+  auto proxy = exec::StringProxy<FlatVector<StringView>, /*reuse input*/ false>(
+      vector.get(), 0);
+  proxy.copy_from(std::string("1 2 3 4 5 "));
+  proxy.finalize();
+
+  ASSERT_EQ(vector->valueAt(0), "1 2 3 4 5 "_sv);
+}
+
+TEST_F(StringProxyTest, copyFromCString) {
+  auto vector = makeFlatVector<StringView>(4);
+  auto proxy = exec::StringProxy<FlatVector<StringView>, /*reuse input*/ false>(
+      vector.get(), 0);
+  proxy.copy_from("1 2 3 4 5 ");
+  proxy.finalize();
+
+  ASSERT_EQ(vector->valueAt(0), "1 2 3 4 5 "_sv);
+}
 } // namespace facebook::velox::expressions::test

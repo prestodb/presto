@@ -193,6 +193,23 @@ class ArrayProxy {
         elementsVector_, valuesOffset_ + length_ - 1};
   }
 
+  // Any vector type with std like interface.
+  template <typename VectorType>
+  void copy_from(const VectorType& data) {
+    if constexpr (provide_std_interface<V>) {
+      resize(data.size());
+      for (auto i = 0; i < data.size(); i++) {
+        this->operator[](i) = data[i];
+      }
+    } else {
+      length_ = 0;
+      for (auto& item : data) {
+        auto& writer = add_item();
+        writer.copy_from(item);
+      }
+    }
+  }
+
  private:
   // Make sure user do not use those.
   ArrayProxy<V>() = default;
@@ -288,6 +305,27 @@ class MapWriter {
 
   vector_size_t size() {
     return length_;
+  }
+
+  // Any map type iteratable in tuple like manner.
+  template <typename MapType>
+  void copy_from(const MapType& data) {
+    for (const auto& [key, value] : data) {
+      auto [keyWriter, valueWriter] = add_item();
+      // copy key
+      if constexpr (provide_std_interface<K>) {
+        keyWriter = key;
+      } else {
+        keyWriter.copy_from(key);
+      }
+
+      // copy value
+      if constexpr (provide_std_interface<V>) {
+        valueWriter = value;
+      } else {
+        valueWriter.copy_from(value);
+      }
+    }
   }
 
  private:

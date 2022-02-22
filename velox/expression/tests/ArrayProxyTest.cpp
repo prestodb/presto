@@ -22,6 +22,7 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/type/StringView.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox {
 namespace {
@@ -464,5 +465,129 @@ TEST_F(ArrayProxyTest, nestedArrayE2E) {
   assertEqualVectors(result, makeNestedArrayVector<int64_t>(expected));
 }
 
+TEST_F(ArrayProxyTest, copyFromEmptyArray) {
+  auto [result, writer] = makeTestWriter();
+
+  auto& proxy = writer->current();
+  std::vector<int64_t> data = {};
+
+  proxy.copy_from(data);
+  writer->commit();
+  writer->finish();
+
+  assertEqualVectors(result, makeNullableArrayVector<int64_t>({{}}));
+}
+
+TEST_F(ArrayProxyTest, copyFromIntArray) {
+  auto [result, writer] = makeTestWriter();
+
+  auto& proxy = writer->current();
+  std::vector<int64_t> data = {1, 2, 3, 4};
+
+  proxy.copy_from(data);
+  writer->commit();
+  writer->finish();
+
+  assertEqualVectors(result, makeNullableArrayVector<int64_t>({{1, 2, 3, 4}}));
+}
+
+TEST_F(ArrayProxyTest, copyFromStringArray) {
+  auto result =
+      prepareResult(std::make_shared<ArrayType>(ArrayType(VARCHAR())));
+
+  exec::VectorWriter<ArrayProxyT<Varchar>> writer;
+  writer.init(*result->as<ArrayVector>());
+  writer.setOffset(0);
+
+  auto& arrayProxy = writer.current();
+  std::vector<std::string> data = {"hi", "welcome"};
+  arrayProxy.copy_from(data);
+
+  writer.commit();
+  writer.finish();
+  auto expected = std::vector<std::vector<std::optional<StringView>>>{
+      {"hi"_sv, "welcome"_sv}};
+  assertEqualVectors(result, makeNullableArrayVector(expected));
+}
+
+TEST_F(ArrayProxyTest, copyFromNestedArray) {
+  auto elementType =
+      ArrayType(std::make_shared<ArrayType>(ArrayType(BIGINT())));
+  auto result = prepareResult(std::make_shared<ArrayType>(elementType));
+
+  exec::VectorWriter<ArrayProxyT<ArrayProxyT<int64_t>>> writer;
+  writer.init(*result.get()->as<ArrayVector>());
+  writer.setOffset(0);
+
+  std::vector<std::vector<int64_t>> data = {{}, {1, 2, 3, 4}, {1}};
+  auto& arrayProxy = writer.current();
+  arrayProxy.copy_from(data);
+
+  writer.commit();
+  writer.finish();
+
+  using array_type = std::optional<std::vector<std::optional<int64_t>>>;
+  array_type array1 = {{}};
+  array_type array2 = {{1, 2, 3, 4}};
+  array_type array3 = {{1}};
+
+  assertEqualVectors(
+      result, makeNestedArrayVector<int64_t>({{array1, array2, array3}}));
+}
+
+auto makeCopyFromTestData() {
+  std::vector<std::unordered_map<int64_t, int64_t>> data;
+
+  data.clear();
+  data.resize(10);
+  for (auto i = 0; i < data.size(); i++) {
+    auto& map = data[i];
+    for (auto j = 0; j < i; j++) {
+      map.emplace(i, j + i);
+    }
+  }
+  return data;
+}
+
+template <typename T>
+struct CopyFromFunc {
+  template <typename TOut>
+  bool call(TOut& out) {
+    out.copy_from(makeCopyFromTestData());
+    return true;
+  }
+};
+
+TEST_F(ArrayProxyTest, copyFromE2EMapArray) {
+  registerFunction<CopyFromFunc, ArrayProxyT<MapWriterT<int64_t, int64_t>>>(
+      {"func"});
+
+  auto result = evaluate("func()", makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<Array<Map<int64_t, int64_t>>> reader(&decoded);
+  auto data = makeCopyFromTestData();
+
+  auto arrayView = reader[0];
+  ASSERT_EQ(arrayView.size(), data.size());
+
+  for (auto i = 0; i < arrayView.size(); i++) {
+    const auto& mapView = *arrayView[i];
+    const auto& dataMap = data[i];
+    ASSERT_EQ(mapView.size(), dataMap.size());
+    auto it1 = mapView.begin();
+    auto it2 = dataMap.begin();
+    for (; it1 != mapView.end(); it1++, it2++) {
+      ASSERT_EQ(it1->first, it2->first);
+
+      auto mapViewValue = it1->second;
+      auto dataMapValue = it2->second;
+      ASSERT_EQ(*mapViewValue, dataMapValue);
+    }
+  }
+}
 } // namespace
 } // namespace facebook::velox

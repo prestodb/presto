@@ -25,6 +25,7 @@ add_executable(
   SimpleFunctionPresetNullsTest.cpp
   ArrayViewTest.cpp
   ArrayProxyTest.cpp
+  StringProxyTest.cpp
   MapViewTest.cpp
   RowViewTest.cpp
   VariadicViewTest.cpp

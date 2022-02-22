@@ -22,6 +22,7 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/type/StringView.h"
+#include "velox/type/Type.h"
 namespace facebook::velox {
 namespace {
 
@@ -325,6 +326,85 @@ TEST_F(MapWriterTest, nestedMap) {
     }
   }
 }
+
+std::unordered_map<int64_t, std::vector<int64_t>> makeCopyFromTestData() {
+  std::unordered_map<int64_t, std::vector<int64_t>> data;
+  for (int i = 0; i < 10; i++) {
+    std::vector<int64_t> array;
+    for (auto j = 0; j < i; j++) {
+      array.push_back(j);
+    }
+    data.emplace(i, std::move(array));
+  }
+  return data;
+}
+
+template <typename T>
+struct CopyFromTestFunc {
+  template <typename TOut>
+  bool call(TOut& out) {
+    out.copy_from(makeCopyFromTestData());
+    return true;
+  }
+};
+
+TEST_F(MapWriterTest, copyFrom) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& mapWriter = vectorWriter->current();
+  // Item 1.
+  std::unordered_map<int64_t, int64_t> data = {{1, 2}, {1, 3}, {11, 12}};
+  mapWriter.copy_from(data);
+  vectorWriter->commit();
+  vectorWriter->finish();
+
+  map_pairs_t<int64_t, int64_t> expected;
+  for (auto item : data) {
+    expected.push_back(item);
+  }
+  assertEqualVectors(result, makeMapVector<int64_t, int64_t>({expected}));
+}
+
+// Test copy_from e2e on Map<int64_t, Array<int64_t>>
+TEST_F(MapWriterTest, copyFromE2E) {
+  registerFunction<CopyFromTestFunc, MapWriterT<int64_t, ArrayProxyT<int64_t>>>(
+      {"f_copy_from_e2e"});
+
+  auto result = evaluate(
+      "f_copy_from_e2e()", makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<Map<int64_t, Array<int64_t>>> reader(&decoded);
+
+  auto referenceData = makeCopyFromTestData();
+  auto mapView = reader[0];
+
+  ASSERT_EQ(mapView.size(), referenceData.size());
+
+  for (auto [key, value] : mapView) {
+    auto arrayView = *value;
+    auto& arrayRef = referenceData[key];
+    ASSERT_EQ(arrayView.size(), arrayRef.size());
+    for (int i = 0; i < arrayView.size(); i++) {
+      ASSERT_EQ(arrayRef[i], arrayView[i].value());
+    }
+  }
+}
+
+template <typename T>
+struct CopyFromMapViewFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  bool call(
+      out_type<MapWriterT<int64_t, int64_t>>& out,
+      const arg_type<Map<int64_t, int64_t>>& input) {
+    out.copy_from(input);
+    return true;
+  }
+};
 
 } // namespace
 } // namespace facebook::velox
