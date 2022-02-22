@@ -19,6 +19,7 @@
 #include <string>
 
 #include "folly/Conv.h"
+#include "folly/json.h"
 
 #include "velox/common/base/Exceptions.h"
 
@@ -56,9 +57,21 @@ bool JsonCastOperator::isSupportedType(const TypePtr& other) const {
 }
 
 template <typename T>
-std::string generateJsonTyped(const SimpleVector<T>& input, int row) {
+void generateJsonTyped(
+    const SimpleVector<T>& input,
+    int row,
+    std::string& result) {
   auto value = input.valueAt(row);
-  return folly::to<std::string>(value);
+  folly::toAppend<std::string, T>(value, &result);
+}
+
+template <>
+void generateJsonTyped<StringView>(
+    const SimpleVector<StringView>& input,
+    int row,
+    std::string& result) {
+  auto value = input.valueAt(row);
+  folly::json::escapeString(value, result, folly::json::serialization_opts{});
 }
 
 template <TypeKind kind>
@@ -70,10 +83,12 @@ void castPrimitiveToJson(
 
   auto inputVector = input.as<SimpleVector<T>>();
 
+  std::string result;
   rows.applyToSelected([&](auto row) {
-    auto jsonString = generateJsonTyped(*inputVector, row);
+    result.clear();
+    generateJsonTyped(*inputVector, row, result);
 
-    flatResult.set(row, StringView{jsonString});
+    flatResult.set(row, StringView{result});
   });
 }
 
@@ -87,6 +102,9 @@ void JsonCastOperator::castTo(
   switch (input.typeKind()) {
     case TypeKind::BIGINT:
       castPrimitiveToJson<TypeKind::BIGINT>(input, rows, *flatResult);
+      return;
+    case TypeKind::VARCHAR:
+      castPrimitiveToJson<TypeKind::VARCHAR>(input, rows, *flatResult);
       return;
     // TODO: Add support for other from types.
     default:
