@@ -29,7 +29,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.schema.PrimitiveType;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -66,7 +66,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Types.optional;
-import static org.junit.Assert.assertArrayEquals;
+import static org.testng.internal.junit.ArrayAsserts.assertArrayEquals;
 
 /**
  * Unit tests of {@link ColumnIndexFilter}

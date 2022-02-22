@@ -26,7 +26,7 @@ import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -60,15 +60,12 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-// import static org.hamcrest.CoreMatchers.instanceOf;
-// import static org.junit.Assert.assertThat;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
+import static org.testng.internal.junit.ArrayAsserts.assertArrayEquals;
 
 public class TestColumnIndexBuilder
 {
@@ -1464,7 +1461,7 @@ public class TestColumnIndexBuilder
             Binary expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse("The byte buffer should be empty for null pages", value.hasRemaining());
+                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
             }
             else {
                 assertArrayEquals("Invalid value for page " + i, expectedValue.getBytesUnsafe(), value.array());
@@ -1479,11 +1476,11 @@ public class TestColumnIndexBuilder
             Boolean expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse("The byte buffer should be empty for null pages", value.hasRemaining());
+                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
             }
             else {
-                assertEquals("The byte buffer should be 1 byte long for boolean", 1, value.remaining());
-                assertEquals("Invalid value for page " + i, expectedValue.booleanValue(), value.get(0) != 0);
+                assertEquals(1, value.remaining(), "The byte buffer should be 1 byte long for boolean");
+                assertEquals(expectedValue.booleanValue(), value.get(0) != 0, "Invalid value for page " + i);
             }
         }
     }
@@ -1495,11 +1492,11 @@ public class TestColumnIndexBuilder
             Double expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse("The byte buffer should be empty for null pages", value.hasRemaining());
+                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
             }
             else {
-                assertEquals("The byte buffer should be 8 bytes long for double", 8, value.remaining());
-                assertTrue("Invalid value for page " + i, Double.compare(expectedValue.doubleValue(), value.getDouble(0)) == 0);
+                assertEquals(8, value.remaining(), "The byte buffer should be 8 bytes long for double");
+                assertTrue(Double.compare(expectedValue.doubleValue(), value.getDouble(0)) == 0, "Invalid value for page " + i);
             }
         }
     }
@@ -1511,11 +1508,11 @@ public class TestColumnIndexBuilder
             Float expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse("The byte buffer should be empty for null pages", value.hasRemaining());
+                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
             }
             else {
-                assertEquals("The byte buffer should be 4 bytes long for double", 4, value.remaining());
-                assertTrue("Invalid value for page " + i, Float.compare(expectedValue.floatValue(), value.getFloat(0)) == 0);
+                assertEquals(4, value.remaining(), "The byte buffer should be 4 bytes long for double");
+                assertTrue(Float.compare(expectedValue.floatValue(), value.getFloat(0)) == 0, "Invalid value for page " + i);
             }
         }
     }
@@ -1527,11 +1524,11 @@ public class TestColumnIndexBuilder
             Integer expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse("The byte buffer should be empty for null pages", value.hasRemaining());
+                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
             }
             else {
-                assertEquals("The byte buffer should be 4 bytes long for int32", 4, value.remaining());
-                assertEquals("Invalid value for page " + i, expectedValue.intValue(), value.getInt(0));
+                assertEquals(4, value.remaining(), "The byte buffer should be 4 bytes long for int32");
+                assertEquals(expectedValue.intValue(), value.getInt(0), "Invalid value for page " + i);
             }
         }
     }
@@ -1543,11 +1540,11 @@ public class TestColumnIndexBuilder
             Long expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse("The byte buffer should be empty for null pages", value.hasRemaining());
+                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
             }
             else {
-                assertEquals("The byte buffer should be 8 bytes long for int64", 8, value.remaining());
-                assertEquals("Invalid value for page " + i, expectedValue.intValue(), value.getLong(0));
+                assertEquals(8, value.remaining(), "The byte buffer should be 8 bytes long for int64");
+                assertEquals(expectedValue.intValue(), value.getLong(0), "Invalid value for page " + i);
             }
         }
     }
@@ -1557,7 +1554,7 @@ public class TestColumnIndexBuilder
         List<Long> nullCounts = columnIndex.getNullCounts();
         assertEquals(expectedNullCounts.length, nullCounts.size());
         for (int i = 0; i < expectedNullCounts.length; ++i) {
-            assertEquals("Invalid null count at page " + i, expectedNullCounts[i], nullCounts.get(i).longValue());
+            assertEquals(expectedNullCounts[i], nullCounts.get(i).longValue(), "Invalid null count at page " + i);
         }
     }
 
@@ -1566,7 +1563,7 @@ public class TestColumnIndexBuilder
         List<Boolean> nullPages = columnIndex.getNullPages();
         assertEquals(expectedNullPages.length, nullPages.size());
         for (int i = 0; i < expectedNullPages.length; ++i) {
-            assertEquals("Invalid null pages at page " + i, expectedNullPages[i], nullPages.get(i).booleanValue());
+            assertEquals(expectedNullPages[i], nullPages.get(i).booleanValue(), "Invalid null pages at page " + i);
         }
     }
 
@@ -1630,8 +1627,7 @@ public class TestColumnIndexBuilder
         IntList actualList = new IntArrayList();
         actualIt.forEachRemaining((int value) -> actualList.add(value));
         int[] actualValues = actualList.toIntArray();
-        assertArrayEquals(
-                "ExpectedValues: " + Arrays.toString(expectedValues) + " ActualValues: " + Arrays.toString(actualValues),
+        assertArrayEquals("ExpectedValues: " + Arrays.toString(expectedValues) + " ActualValues: " + Arrays.toString(actualValues),
                 expectedValues, actualValues);
     }
 }
