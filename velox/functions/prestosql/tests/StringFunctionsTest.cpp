@@ -1144,6 +1144,7 @@ TEST_F(StringFunctionsTest, replace) {
 
   testReplaceInPlace(testsInplace, "a", "b", true);
   testReplaceInPlace(testsInplace, "a", "b", false);
+  testReplaceInPlace({{"a", "bb"}, {"aa", "bbbb"}}, "a", "bb", false);
 
   // Test constant vectors
   auto rows = makeRowVector(makeRowType({BIGINT()}), 10);

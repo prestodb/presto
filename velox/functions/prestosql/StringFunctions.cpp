@@ -433,13 +433,13 @@ class Replace : public exec::VectorFunction {
     };
 
     // Right now we enable the inplace if 'search' and 'replace' are constants
-    // and 'search' size is smaller than or equal to 'replace'.
+    // and 'search' size is larger than or equal to 'replace'.
 
     // TODO: analyze other options for enabling inplace i.e.:
     // 1. Decide per row.
     // 2. Scan inputs for max lengths and decide based on that. ..etc
     bool inPlace = replaceArgValue.has_value() && searchArgValue.has_value() &&
-        (searchArgValue.value().size() <= replaceArgValue.value().size()) &&
+        (searchArgValue.value().size() >= replaceArgValue.value().size()) &&
         (args.at(0)->encoding() == VectorEncoding::Simple::FLAT) &&
         hasSingleReferencedBuffers(
                        args.at(0).get()->as<FlatVector<StringView>>());
