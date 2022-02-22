@@ -54,4 +54,17 @@ TIMESTAMP_WITH_TIME_ZONE() {
 // Type used for function registration.
 using TimestampWithTimezone = Row<int64_t, int16_t>;
 
+class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
+ public:
+  TypePtr getType(std::vector<TypePtr> /*childTypes*/) const override {
+    return TIMESTAMP_WITH_TIME_ZONE();
+  }
+
+  exec::CastOperatorPtr getCastOperator() const override {
+    VELOX_NYI(
+        "Casting of {} is not implemented yet.",
+        TIMESTAMP_WITH_TIME_ZONE()->toString());
+  }
+};
+
 } // namespace facebook::velox

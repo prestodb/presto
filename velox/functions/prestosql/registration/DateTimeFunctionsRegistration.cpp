@@ -73,9 +73,9 @@ void registerSimpleFunctions() {
 void registerDateTimeFunctions() {
   registerSimpleFunctions();
 
-  registerType("timestamp with time zone", [](auto /*childTypes*/) {
-    return TIMESTAMP_WITH_TIME_ZONE();
-  });
+  registerType(
+      "timestamp with time zone",
+      std::make_unique<const TimestampWithTimeZoneTypeFactories>());
   VELOX_REGISTER_VECTOR_FUNCTION(udf_from_unixtime, "from_unixtime");
 }
 } // namespace facebook::velox::functions

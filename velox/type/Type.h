@@ -1546,10 +1546,34 @@ inline ComplexType to(std::string value) {
   return ComplexType();
 }
 
+namespace exec {
+
+/// Forward declaration.
+class CastOperator;
+
+using CastOperatorPtr = std::shared_ptr<const CastOperator>;
+
+} // namespace exec
+
+/// Associates custom types with their custom operators to be the payload in the
+/// custom type registry.
+class CustomTypeFactories {
+ public:
+  virtual ~CustomTypeFactories() = default;
+
+  /// Returns a shared pointer to the custom type with the specified child
+  /// types.
+  virtual TypePtr getType(std::vector<TypePtr> childTypes) const = 0;
+
+  /// Returns a shared pointer to the custom cast operator. If no cast operator
+  /// supports the custom type, this function throws an exception.
+  virtual exec::CastOperatorPtr getCastOperator() const = 0;
+};
+
 /// Adds custom type to the registry. Type names must be unique.
 void registerType(
     const std::string& name,
-    std::function<TypePtr(std::vector<TypePtr> childTypes)> factory);
+    std::unique_ptr<const CustomTypeFactories> factories);
 
 /// Return true if customer type with specified name exists.
 bool typeExists(const std::string& name);
@@ -1557,6 +1581,10 @@ bool typeExists(const std::string& name);
 /// Returns an instance of a custom type with the specified name and specified
 /// child types.
 TypePtr getType(const std::string& name, std::vector<TypePtr> childTypes);
+
+/// Returns the custom cast operator for the custom type with the specified
+/// name. Returns nullptr if a type with the specified name does not exist.
+exec::CastOperatorPtr getCastOperator(const std::string& name);
 
 // Allows us to transparently use folly::toAppend(), folly::join(), etc.
 template <class TString>

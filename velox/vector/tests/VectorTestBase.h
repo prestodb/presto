@@ -20,6 +20,9 @@
 
 namespace facebook::velox::test {
 
+/// Returns indices buffer with sequential values going from size - 1 to 0.
+BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool);
+
 class VectorTestBase {
  protected:
   template <typename T>
@@ -438,12 +441,7 @@ class VectorTestBase {
   BufferPtr makeEvenIndices(vector_size_t size);
 
   BufferPtr makeIndicesInReverse(vector_size_t size) {
-    BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
-    auto rawIndices = indices->asMutable<vector_size_t>();
-    for (auto i = 0; i < size; ++i) {
-      rawIndices[i] = size - 1 - i;
-    }
-    return indices;
+    return ::facebook::velox::test::makeIndicesInReverse(size, pool());
   }
 
   static VectorPtr

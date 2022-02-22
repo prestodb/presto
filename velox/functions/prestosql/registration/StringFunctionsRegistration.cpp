@@ -18,6 +18,7 @@
 #include "velox/functions/prestosql/RegexpReplace.h"
 #include "velox/functions/prestosql/SplitPart.h"
 #include "velox/functions/prestosql/StringFunctions.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::functions {
 
@@ -93,5 +94,7 @@ void registerStringFunctions() {
       "regexp_extract_all", re2ExtractAllSignatures(), makeRe2ExtractAll);
   exec::registerStatefulVectorFunction(
       "regexp_like", re2SearchSignatures(), makeRe2Search);
+
+  registerType("json", std::make_unique<const JsonTypeFactories>());
 }
 } // namespace facebook::velox::functions

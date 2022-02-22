@@ -20,7 +20,7 @@ namespace facebook::velox::functions {
 
 void registerHyperLogFunctions() {
   registerType(
-      "hyperloglog", [](auto /*childTypes*/) { return HYPERLOGLOG(); });
+      "hyperloglog", std::make_unique<const HyperLogLogTypeFactories>());
 
   registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
   registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(

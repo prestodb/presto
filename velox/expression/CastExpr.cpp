@@ -15,8 +15,11 @@
  */
 
 #include "velox/expression/CastExpr.h"
-#include <fmt/format.h>
+
 #include <stdexcept>
+
+#include <fmt/format.h>
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
@@ -420,6 +423,57 @@ VectorPtr CastExpr::applyRow(
       std::move(newChildren));
 }
 
+/// Apply casting between a custom type and another type.
+/// @param castTo The boolean indicating whether to cast an input to the custom
+/// type or from the custom type
+/// @param input The input vector
+/// @param allRows The selectivity vector of all rows in input
+/// @param nonNullRows The selectivity vector of non-null rows in input
+/// @param castOperator The cast operator for the custom type
+/// @param thisType The custom type
+/// @param otherType The other type involved in this casting
+/// @param context The context
+/// @param result The output vector
+template <bool castTo>
+void applyCustomTypeCast(
+    VectorPtr& input,
+    const SelectivityVector& allRows,
+    const SelectivityVector& nonNullRows,
+    const CastOperatorPtr& castOperator,
+    const TypePtr& thisType,
+    const TypePtr& otherType,
+    exec::EvalCtx* context,
+    VectorPtr* result) {
+  LocalDecodedVector decoded(context, *input, allRows);
+  auto inputDecoded = decoded.get();
+
+  exec::LocalSelectivityVector baseRows(
+      context->execCtx(), inputDecoded->base()->size());
+  baseRows->clearAll();
+  nonNullRows.applyToSelected(
+      [&](auto row) { baseRows->setValid(inputDecoded->index(row), true); });
+  baseRows->updateBounds();
+
+  VectorPtr localResult;
+  if constexpr (castTo) {
+    BaseVector::ensureWritable(
+        *baseRows, thisType, context->pool(), &localResult);
+
+    castOperator->castTo(*inputDecoded->base(), *baseRows, *localResult);
+  } else {
+    VELOX_NYI(
+        "Casting from {} to {} is not implemented yet.",
+        thisType->toString(),
+        otherType->toString());
+  }
+
+  if (!inputDecoded->isIdentityMapping()) {
+    localResult = inputDecoded->wrap(localResult, *input, allRows);
+  }
+
+  context->moveOrCopyResult(localResult, nonNullRows, result);
+}
+
 void CastExpr::apply(
     const SelectivityVector& rows,
     VectorPtr& input,
@@ -442,67 +496,94 @@ void CastExpr::apply(
         input->flatRawNulls(rows), rows.begin(), rows.end());
   }
 
-  LocalDecodedVector decoded(context, *input, rows);
-
-  if (toType->isArray() || toType->isMap() || toType->isRow()) {
-    LocalSelectivityVector translatedRows(
-        context->execCtx(), decoded->base()->size());
-    translatedRows->clearAll();
-    nonNullRows->applyToSelected(
-        [&](auto row) { translatedRows->setValid(decoded->index(row), true); });
-    translatedRows->updateBounds();
-
-    VectorPtr localResult;
-
-    switch (toType->kind()) {
-      // Handle complex type conversions
-      case TypeKind::MAP:
-        localResult = applyMap(
-            *translatedRows,
-            decoded->base()->asUnchecked<MapVector>(),
-            context,
-            fromType->asMap(),
-            toType->asMap());
-        break;
-      case TypeKind::ARRAY:
-        localResult = applyArray(
-            *translatedRows,
-            decoded->base()->asUnchecked<ArrayVector>(),
-            context,
-            fromType->asArray(),
-            toType->asArray());
-        break;
-      case TypeKind::ROW:
-        localResult = applyRow(
-            *translatedRows,
-            decoded->base()->asUnchecked<RowVector>(),
-            context,
-            fromType->asRow(),
-            toType->asRow());
-        break;
-      default: {
-        VELOX_UNREACHABLE();
-      }
-    }
-
-    if (!decoded->isIdentityMapping()) {
-      localResult = decoded->wrap(localResult, *input, rows);
-    }
-
-    context->moveOrCopyResult(localResult, rows, result);
-  } else {
-    // Handling primitive type conversions
-    BaseVector::ensureWritable(rows, toType, context->pool(), result);
-    // Unwrapping toType pointer. VERY IMPORTANT: dynamic type pointer and
-    // static type templates in each cast must match exactly
-    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-        applyCast,
-        toType->kind(),
-        fromType->kind(),
+  CastOperatorPtr castOperator;
+  if ((castOperator = getCastOperator(toType->toString())) &&
+      castOperator->isSupportedType(fromType)) {
+    applyCustomTypeCast<true>(
+        input,
+        rows,
         *nonNullRows,
+        castOperator,
+        toType,
+        fromType,
         context,
-        *decoded,
         result);
+  } else if (
+      (castOperator = getCastOperator(fromType->toString())) &&
+      castOperator->isSupportedType(toType)) {
+    applyCustomTypeCast<false>(
+        input,
+        rows,
+        *nonNullRows,
+        castOperator,
+        fromType,
+        toType,
+        context,
+        result);
+  } else {
+    LocalDecodedVector decoded(context, *input, rows);
+
+    if (toType->isArray() || toType->isMap() || toType->isRow()) {
+      LocalSelectivityVector translatedRows(
+          context->execCtx(), decoded->base()->size());
+      translatedRows->clearAll();
+      nonNullRows->applyToSelected([&](auto row) {
+        translatedRows->setValid(decoded->index(row), true);
+      });
+      translatedRows->updateBounds();
+
+      VectorPtr localResult;
+
+      switch (toType->kind()) {
+        // Handle complex type conversions
+        case TypeKind::MAP:
+          localResult = applyMap(
+              *translatedRows,
+              decoded->base()->asUnchecked<MapVector>(),
+              context,
+              fromType->asMap(),
+              toType->asMap());
+          break;
+        case TypeKind::ARRAY:
+          localResult = applyArray(
+              *translatedRows,
+              decoded->base()->asUnchecked<ArrayVector>(),
+              context,
+              fromType->asArray(),
+              toType->asArray());
+          break;
+        case TypeKind::ROW:
+          localResult = applyRow(
+              *translatedRows,
+              decoded->base()->asUnchecked<RowVector>(),
+              context,
+              fromType->asRow(),
+              toType->asRow());
+          break;
+        default: {
+          VELOX_UNREACHABLE();
+        }
+      }
+
+      if (!decoded->isIdentityMapping()) {
+        localResult = decoded->wrap(localResult, *input, rows);
+      }
+
+      context->moveOrCopyResult(localResult, rows, result);
+    } else {
+      // Handling primitive type conversions
+      BaseVector::ensureWritable(rows, toType, context->pool(), result);
+      // Unwrapping toType pointer. VERY IMPORTANT: dynamic type pointer and
+      // static type templates in each cast must match exactly
+      VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          applyCast,
+          toType->kind(),
+          fromType->kind(),
+          *nonNullRows,
+          context,
+          *decoded,
+          result);
+    }
   }
 
   // Copy nulls from "input".

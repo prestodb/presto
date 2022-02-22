@@ -18,6 +18,15 @@
 
 namespace facebook::velox::test {
 
+BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool) {
+  auto indices = AlignedBuffer::allocate<vector_size_t>(size, pool);
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  for (auto i = 0; i < size; i++) {
+    rawIndices[i] = size - 1 - i;
+  }
+  return indices;
+}
+
 // static
 VectorPtr VectorTestBase::wrapInDictionary(
     BufferPtr indices,

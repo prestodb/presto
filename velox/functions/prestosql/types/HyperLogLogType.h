@@ -49,4 +49,16 @@ inline std::shared_ptr<const HyperLogLogType> HYPERLOGLOG() {
 // Type to use for inputs and outputs of simple functions, e.g.
 // arg_type<HyperLogLog> and out_type<HyperLogLog>.
 using HyperLogLog = Varbinary;
+
+class HyperLogLogTypeFactories : public CustomTypeFactories {
+ public:
+  TypePtr getType(std::vector<TypePtr> /*childTypes*/) const override {
+    return HYPERLOGLOG();
+  }
+
+  exec::CastOperatorPtr getCastOperator() const override {
+    VELOX_NYI(
+        "Casting of {} is not implemented yet.", HYPERLOGLOG()->toString());
+  }
+};
 } // namespace facebook::velox

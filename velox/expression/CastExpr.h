@@ -108,4 +108,32 @@ class CastExpr : public SpecialForm {
   const bool nullOnFailure_;
 };
 
+/// Custom operator for casts from and to custom types.
+class CastOperator {
+ public:
+  virtual ~CastOperator() = default;
+
+  /// Determines whether the cast operator supports casting the custom type to
+  /// the other type or vice versa.
+  virtual bool isSupportedType(const TypePtr& other) const = 0;
+
+  /// Casts an input vector to the custom type.
+  /// @param input The flat or constant input vector
+  /// @param rows Non-null rows of input
+  /// @param result The writable output vector of the custom type
+  virtual void castTo(
+      const BaseVector& input,
+      const SelectivityVector& rows,
+      BaseVector& result) const = 0;
+
+  /// Casts a vector of the custom type to another type.
+  /// @param input The flat or constant input vector
+  /// @param rows Non-null rows of input
+  /// @param result The writable output vector of the destination type
+  virtual void castFrom(
+      const BaseVector& input,
+      const SelectivityVector& rows,
+      BaseVector& result) const = 0;
+};
+
 } // namespace facebook::velox::exec
