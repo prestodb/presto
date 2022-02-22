@@ -173,4 +173,21 @@ struct has_method {
     }                                                          \
   };
 
+// Calling Name::resolve<T>::type will return T::TypeName if T::TypeName
+// exists, and otherwise will return T::OtherTypeName (it's existence is not
+// checked)
+#define DECLARE_CONDITIONAL_TYPE_NAME(Name, TypeName, OtherTypeName) \
+  struct Name {                                                      \
+    template <typename __T, typename = void>                         \
+    struct resolve {                                                 \
+      using type = typename __T::OtherTypeName;                      \
+    };                                                               \
+                                                                     \
+    template <typename __T>                                          \
+    struct resolve<                                                  \
+        __T,                                                         \
+        std::void_t<decltype(sizeof(typename __T::TypeName))>> {     \
+      using type = typename __T::TypeName;                           \
+    };                                                               \
+  };
 } // namespace facebook::velox::util

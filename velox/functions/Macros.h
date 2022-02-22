@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/core/Metaprogramming.h"
 #include "velox/type/Type.h"
 
 #define VELOX_UDF_BEGIN(Name)                                                \
@@ -82,6 +83,13 @@
   template <typename TArgs>                                             \
   using opt_out_type = std::optional<                                   \
       typename __Velox_ExecParams::template resolver<TArgs>::out_type>; \
+                                                                        \
+  DECLARE_CONDITIONAL_TYPE_NAME(                                        \
+      null_free_in_type_resolver, null_free_in_type, in_type);          \
+  template <typename TArgs>                                             \
+  using null_free_arg_type =                                            \
+      typename null_free_in_type_resolver::template resolve<            \
+          typename __Velox_ExecParams::template resolver<TArgs>>::type; \
                                                                         \
   template <typename TKey, typename TVal>                               \
   using MapVal = arg_type<::facebook::velox::Map<TKey, TVal>>;          \

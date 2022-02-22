@@ -124,6 +124,7 @@ TEST_F(VectorReaderTest, mapContainsNull) {
   DecodedVector decoded;
   exec::VectorReader<Map<int32_t, float>> reader(
       decode(decoded, *vector.get()));
+  reader.setChildrenMayHaveNulls();
 
   // Empty Map.
   ASSERT_FALSE(reader.containsNull(0));
@@ -183,6 +184,7 @@ TEST_F(VectorReaderTest, dictionaryEncodedMapContainsNull) {
   DecodedVector decoded;
   exec::VectorReader<Map<int32_t, float>> reader(
       decode(decoded, *mapVector.get()));
+  reader.setChildrenMayHaveNulls();
 
   // Empty Map.
   ASSERT_FALSE(reader.containsNull(0));
@@ -230,6 +232,7 @@ TEST_F(VectorReaderTest, arrayContainsNull) {
       [](vector_size_t idx) { return idx % 6 == 0; });
   DecodedVector decoded;
   exec::VectorReader<Array<int32_t>> reader(decode(decoded, *vector.get()));
+  reader.setChildrenMayHaveNulls();
 
   // Empty Array.
   ASSERT_FALSE(reader.containsNull(0));
@@ -288,6 +291,7 @@ TEST_F(VectorReaderTest, dictionaryEncodedArrayContainsNull) {
   DecodedVector decoded;
   exec::VectorReader<Array<int32_t>> reader(
       decode(decoded, *arrayVector.get()));
+  reader.setChildrenMayHaveNulls();
 
   // Empty Array.
   ASSERT_FALSE(reader.containsNull(0));

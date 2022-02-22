@@ -224,6 +224,13 @@ struct VectorReader {
     return false;
   }
 
+  inline bool mayHaveNullsRecursive() const {
+    return decoded_.mayHaveNulls();
+  }
+
+  // Scalars don't have children, so this is a no-op.
+  void setChildrenMayHaveNulls() {}
+
   const DecodedVector& decoded_;
 };
 
@@ -359,14 +366,18 @@ struct VectorReader<Map<K, V>> {
   }
 
   bool containsNull(vector_size_t index) const {
+    VELOX_DCHECK(
+        keysMayHaveNulls_.has_value() && valuesMayHaveNulls_.has_value(),
+        "setChildrenMayHaveNulls() should be called before containsNull()");
+
     auto decodedIndex = decoded_.index(index);
 
     return decoded_.isNullAt(index) ||
-        (decodedKeys_.mayHaveNullsRecursive() &&
+        (*keysMayHaveNulls_ &&
          keyReader_.containsNull(
              offsets_[decodedIndex],
              offsets_[decodedIndex] + lengths_[decodedIndex])) ||
-        (decodedVals_.mayHaveNullsRecursive() &&
+        (*valuesMayHaveNulls_ &&
          valReader_.containsNull(
              offsets_[decodedIndex],
              offsets_[decodedIndex] + lengths_[decodedIndex]));
@@ -382,6 +393,22 @@ struct VectorReader<Map<K, V>> {
     return false;
   }
 
+  inline bool mayHaveNullsRecursive() const {
+    VELOX_DCHECK(
+        keysMayHaveNulls_.has_value() && valuesMayHaveNulls_.has_value(),
+        "setChildrenMayHaveNulls() should be called before mayHaveNullsRecursive()");
+    return decoded_.mayHaveNulls() || *keysMayHaveNulls_ ||
+        *valuesMayHaveNulls_;
+  }
+
+  void setChildrenMayHaveNulls() {
+    keyReader_.setChildrenMayHaveNulls();
+    valReader_.setChildrenMayHaveNulls();
+
+    keysMayHaveNulls_ = keyReader_.mayHaveNullsRecursive();
+    valuesMayHaveNulls_ = valReader_.mayHaveNullsRecursive();
+  }
+
   const DecodedVector& decoded_;
   const MapVector& vector_;
   DecodedVector decodedKeys_;
@@ -391,6 +418,9 @@ struct VectorReader<Map<K, V>> {
   const vector_size_t* lengths_;
   VectorReader<K> keyReader_;
   VectorReader<V> valReader_;
+
+  std::optional<bool> keysMayHaveNulls_;
+  std::optional<bool> valuesMayHaveNulls_;
 };
 
 template <typename V>
@@ -427,10 +457,14 @@ struct VectorReader<Array<V>> {
   }
 
   inline bool containsNull(vector_size_t index) const {
+    VELOX_DCHECK(
+        valuesMayHaveNulls_.has_value(),
+        "setChildrenMayHaveNulls() should be called before containsNull()");
+
     auto decodedIndex = decoded_.index(index);
 
     return decoded_.isNullAt(index) ||
-        (arrayValuesDecoder_.mayHaveNullsRecursive() &&
+        (*valuesMayHaveNulls_ &&
          childReader_.containsNull(
              offsets_[decodedIndex],
              offsets_[decodedIndex] + lengths_[decodedIndex]));
@@ -446,12 +480,27 @@ struct VectorReader<Array<V>> {
     return false;
   }
 
+  inline bool mayHaveNullsRecursive() const {
+    VELOX_DCHECK(
+        valuesMayHaveNulls_.has_value(),
+        "setChildrenMayHaveNulls() should be called before mayHaveNullsRecursive()");
+
+    return decoded_.mayHaveNulls() || *valuesMayHaveNulls_;
+  }
+
+  void setChildrenMayHaveNulls() {
+    childReader_.setChildrenMayHaveNulls();
+
+    valuesMayHaveNulls_ = childReader_.mayHaveNullsRecursive();
+  }
+
   DecodedVector arrayValuesDecoder_;
   const DecodedVector& decoded_;
   const ArrayVector& vector_;
   const vector_size_t* offsets_;
   const vector_size_t* lengths_;
   VectorReader<V> childReader_;
+  std::optional<bool> valuesMayHaveNulls_;
 };
 
 template <typename V>
@@ -666,6 +715,16 @@ struct VectorReader<Row<T...>> {
     return false;
   }
 
+  inline bool mayHaveNullsRecursive() const {
+    return decoded_.mayHaveNullsRecursive();
+  }
+
+  void setChildrenMayHaveNulls() {
+    std::apply(
+        [](auto&... reader) { (reader->setChildrenMayHaveNulls(), ...); },
+        childReaders_);
+  }
+
  private:
   template <size_t... I>
   std::tuple<std::unique_ptr<VectorReader<T>>...> prepareChildReaders(
@@ -846,6 +905,22 @@ struct VectorReader<Variadic<T>> {
     }
 
     return false;
+  }
+
+  inline bool mayHaveNullsRecursive() const {
+    for (const auto& childReader : childReaders_) {
+      if (childReader->mayHaveNullsRecursive()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void setChildrenMayHaveNulls() {
+    for (auto& childReader : childReaders_) {
+      childReader->setChildrenMayHaveNulls();
+    }
   }
 
  private:
@@ -1234,6 +1309,20 @@ struct VectorReader<Generic<T>> {
   bool containsNull(
       vector_size_t /* startIndex */,
       vector_size_t /* endIndex */) const {
+    // This function is only called if callNullFree is defined.
+    // TODO (kevinwilfong): Add support for Generics in callNullFree.
+    VELOX_UNSUPPORTED(
+        "Calling callNullFree with Generic arguments is not yet supported.");
+  }
+
+  inline bool mayHaveNullsRecursive() const {
+    // This function is only called if callNullFree is defined.
+    // TODO (kevinwilfong): Add support for Generics in callNullFree.
+    VELOX_UNSUPPORTED(
+        "Calling callNullFree with Generic arguments is not yet supported.");
+  }
+
+  inline void setChildrenMayHaveNulls() {
     // This function is only called if callNullFree is defined.
     // TODO (kevinwilfong): Add support for Generics in callNullFree.
     VELOX_UNSUPPORTED(
