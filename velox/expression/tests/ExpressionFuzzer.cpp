@@ -505,13 +505,17 @@ class ExpressionFuzzer {
       exec::ExprSet exprSetCommon({plan}, &execCtx_);
       exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
 
-      exprSetCommon.eval(rows, &evalCtxCommon, &commonEvalResult);
-    } catch (...) {
-      if (!canThrow) {
-        LOG(ERROR)
-            << "Common eval wasn't supposed to throw, but it did. Aborting.";
-        throw;
+      try {
+        exprSetCommon.eval(rows, &evalCtxCommon, &commonEvalResult);
+      } catch (...) {
+        if (!canThrow) {
+          LOG(ERROR)
+              << "Common eval wasn't supposed to throw, but it did. Aborting.";
+          throw;
+        }
+        exceptionCommonPtr = std::current_exception();
       }
+    } catch (...) {
       exceptionCommonPtr = std::current_exception();
     }
 
@@ -523,13 +527,17 @@ class ExpressionFuzzer {
       exec::EvalCtx evalCtxSimplified(
           &execCtx_, &exprSetSimplified, rowVector2.get());
 
-      exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
-    } catch (...) {
-      if (!canThrow) {
-        LOG(ERROR)
-            << "Simplified eval wasn't supposed to throw, but it did. Aborting.";
-        throw;
+      try {
+        exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
+      } catch (...) {
+        if (!canThrow) {
+          LOG(ERROR)
+              << "Simplified eval wasn't supposed to throw, but it did. Aborting.";
+          throw;
+        }
+        exceptionSimplifiedPtr = std::current_exception();
       }
+    } catch (...) {
       exceptionSimplifiedPtr = std::current_exception();
     }
 
