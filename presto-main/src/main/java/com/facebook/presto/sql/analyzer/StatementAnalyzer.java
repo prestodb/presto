@@ -1110,6 +1110,12 @@ class StatementAnalyzer
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
+                if (!expressionAnalysis.getScalarSubqueries().isEmpty()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            node,
+                            "Scalar subqueries in UNNEST are not supported");
+                }
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();
