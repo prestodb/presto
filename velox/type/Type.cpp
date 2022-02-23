@@ -219,7 +219,9 @@ const std::shared_ptr<const Type>& MapType::childAt(uint32_t idx) const {
   } else if (idx == 1) {
     return valueType();
   }
-  VELOX_USER_FAIL("Map type should have only two children");
+  VELOX_USER_FAIL(
+      "Map type should have only two children. Tried to access child '{}'",
+      idx);
 }
 
 MapType::MapType(
