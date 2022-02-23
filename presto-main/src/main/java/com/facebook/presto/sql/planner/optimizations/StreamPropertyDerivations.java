@@ -264,11 +264,19 @@ public final class StreamPropertyDerivations
             Optional<Set<VariableReferenceExpression>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> getNonConstantVariables(columns, assignments, constants));
 
-            // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
-            // the connector does not guarantee a single split in this case (since it might not understand
-            // that the value is a constant).
-            if (streamPartitionSymbols.isPresent() && streamPartitionSymbols.get().isEmpty()) {
-                return new StreamProperties(MULTIPLE, Optional.empty(), false);
+            if (streamPartitionSymbols.isPresent()) {
+                // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
+                // the connector does not guarantee a single split in this case (since it might not understand
+                // that the value is a constant).
+                if (streamPartitionSymbols.get().isEmpty()) {
+                    return new StreamProperties(MULTIPLE, Optional.empty(), false);
+                }
+                if (layout.getLocalProperties().stream().allMatch(property -> property.isOrderSensitive())) {
+                    Set<VariableReferenceExpression> orderedColumns = layout.getLocalProperties().stream().flatMap(property -> getNonConstantVariables(property.getColumns(), assignments, constants).get().stream()).collect(Collectors.toSet());
+                    if (orderedColumns.containsAll(streamPartitionSymbols.get())) {
+                        return new StreamProperties(FIXED, streamPartitionSymbols, false);
+                    }
+                }
             }
             return new StreamProperties(MULTIPLE, streamPartitionSymbols, false);
         }

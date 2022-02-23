@@ -63,6 +63,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
@@ -729,8 +730,34 @@ public class AddLocalExchanges
             else {
                 buildPreference = singleStream();
             }
+            // Enable merge join if the left and right side are both ordered by the join columns.
             PlanWithProperties build = planAndEnforce(node.getRight(), buildPreference, buildPreference);
-
+            if (build.getProperties().getLocalProperties().stream().allMatch(property -> property instanceof SortingProperty && ((SortingProperty) property).getOrder().isAscending())
+                    && probe.getProperties().getLocalProperties().stream().allMatch(property -> property instanceof SortingProperty && ((SortingProperty) property).getOrder().isAscending())) {
+                List<VariableReferenceExpression> rightOrderedColumns = build.getProperties().getLocalProperties().stream().flatMap(property -> property.getColumns().stream()).collect(Collectors.toList());
+                List<VariableReferenceExpression> leftOrderedColumns = probe.getProperties().getLocalProperties().stream().flatMap(property -> property.getColumns().stream()).collect(Collectors.toList());
+                List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream()
+                        .map(JoinNode.EquiJoinClause::getLeft)
+                        .collect(toImmutableList());
+                // Enable merge join if the join columns are the prefix of ordered columns on both sides.
+                if (rightOrderedColumns.size() >= buildHashVariables.size() && rightOrderedColumns.subList(0, buildHashVariables.size()).equals(buildHashVariables)
+                        && leftOrderedColumns.size() >= leftJoinColumns.size() && leftOrderedColumns.subList(0, leftJoinColumns.size()).equals(leftJoinColumns)) {
+                    node = new JoinNode(
+                            node.getSourceLocation(),
+                            node.getId(),
+                            node.getType(),
+                            node.getLeft(),
+                            node.getRight(),
+                            node.getCriteria(),
+                            node.getOutputVariables(),
+                            node.getFilter(),
+                            node.getLeftHashVariable(),
+                            node.getRightHashVariable(),
+                            node.getDistributionType(),
+                            node.getDynamicFilters(),
+                            true);
+                }
+            }
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
         }
 
