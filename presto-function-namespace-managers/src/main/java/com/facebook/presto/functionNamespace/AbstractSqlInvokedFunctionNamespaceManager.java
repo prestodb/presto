@@ -69,6 +69,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private final String catalogName;
     private final SqlFunctionExecutors sqlFunctionExecutors;
     private final LoadingCache<QualifiedObjectName, Collection<SqlInvokedFunction>> functions;
+    // TODO: Cache user defined types at query level as well.
     private final LoadingCache<QualifiedObjectName, UserDefinedType> userDefinedTypes;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
