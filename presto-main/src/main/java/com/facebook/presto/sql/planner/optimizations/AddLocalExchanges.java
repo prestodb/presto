@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
@@ -63,7 +64,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
@@ -732,31 +732,27 @@ public class AddLocalExchanges
             }
             // Enable merge join if the left and right side are both ordered by the join columns.
             PlanWithProperties build = planAndEnforce(node.getRight(), buildPreference, buildPreference);
-            if (build.getProperties().getLocalProperties().stream().allMatch(property -> property instanceof SortingProperty && ((SortingProperty) property).getOrder().isAscending())
-                    && probe.getProperties().getLocalProperties().stream().allMatch(property -> property instanceof SortingProperty && ((SortingProperty) property).getOrder().isAscending())) {
-                List<VariableReferenceExpression> rightOrderedColumns = build.getProperties().getLocalProperties().stream().flatMap(property -> property.getColumns().stream()).collect(Collectors.toList());
-                List<VariableReferenceExpression> leftOrderedColumns = probe.getProperties().getLocalProperties().stream().flatMap(property -> property.getColumns().stream()).collect(Collectors.toList());
-                List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream()
-                        .map(JoinNode.EquiJoinClause::getLeft)
-                        .collect(toImmutableList());
-                // Enable merge join if the join columns are the prefix of ordered columns on both sides.
-                if (rightOrderedColumns.size() >= buildHashVariables.size() && rightOrderedColumns.subList(0, buildHashVariables.size()).equals(buildHashVariables)
-                        && leftOrderedColumns.size() >= leftJoinColumns.size() && leftOrderedColumns.subList(0, leftJoinColumns.size()).equals(leftJoinColumns)) {
-                    node = new JoinNode(
-                            node.getSourceLocation(),
-                            node.getId(),
-                            node.getType(),
-                            node.getLeft(),
-                            node.getRight(),
-                            node.getCriteria(),
-                            node.getOutputVariables(),
-                            node.getFilter(),
-                            node.getLeftHashVariable(),
-                            node.getRightHashVariable(),
-                            node.getDistributionType(),
-                            node.getDynamicFilters(),
-                            true);
-                }
+            List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .collect(toImmutableList());
+            // !isPresent() indicates the property was satisfied completely
+            // TODO: Consider bucket property. The two sides must be bucketed on the join columns.
+            if (!LocalProperties.match(build.getProperties().getLocalProperties(), LocalProperties.sorted(buildHashVariables, SortOrder.ASC_NULLS_FIRST)).get(0).isPresent() &&
+                    !LocalProperties.match(probe.getProperties().getLocalProperties(), LocalProperties.sorted(leftJoinColumns, SortOrder.ASC_NULLS_FIRST)).get(0).isPresent()) {
+                node = new JoinNode(
+                        node.getSourceLocation(),
+                        node.getId(),
+                        node.getType(),
+                        node.getLeft(),
+                        node.getRight(),
+                        node.getCriteria(),
+                        node.getOutputVariables(),
+                        node.getFilter(),
+                        node.getLeftHashVariable(),
+                        node.getRightHashVariable(),
+                        node.getDistributionType(),
+                        node.getDynamicFilters(),
+                        true);
             }
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
         }
