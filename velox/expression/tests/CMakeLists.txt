@@ -28,6 +28,7 @@ add_executable(
   StringProxyTest.cpp
   MapViewTest.cpp
   RowViewTest.cpp
+  TryExprTest.cpp
   VariadicViewTest.cpp
   VectorReaderTest.cpp)
 

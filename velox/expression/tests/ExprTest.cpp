@@ -1923,27 +1923,6 @@ TEST_F(ExprTest, ifWithConstant) {
   EXPECT_EQ(true, result->as<ConstantVector<bool>>()->valueAt(0));
 }
 
-TEST_F(ExprTest, tryExpr) {
-  auto a = makeFlatVector<int32_t>({10, 20, 30, 20, 50, 30});
-  auto b = makeFlatVector<int32_t>({1, 0, 3, 4, 0, 6});
-  {
-    auto result = evaluate("try(c0 / c1)", makeRowVector({a, b}));
-
-    auto expectedResult = vectorMaker_->flatVectorNullable<int32_t>(
-        {10, std::nullopt, 10, 5, std::nullopt, 5});
-    assertEqualVectors(expectedResult, result);
-  }
-
-  auto c =
-      vectorMaker_->flatVectorNullable<StringView>({"1", "2x", "3", "4", "5y"});
-  {
-    auto result = evaluate("try(cast(c0 as integer))", makeRowVector({c}));
-    auto expectedResult = vectorMaker_->flatVectorNullable<int32_t>(
-        {1, std::nullopt, 3, 4, std::nullopt});
-    assertEqualVectors(expectedResult, result);
-  }
-}
-
 namespace {
 // Testing functions for generating intermediate results in different
 // encodings. The test case passes vectors to these and these
