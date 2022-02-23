@@ -17,6 +17,7 @@ import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
@@ -46,19 +47,35 @@ import static java.lang.Float.intBitsToFloat;
 public class RealAverageAggregation
         extends SqlAggregationFunction
 {
-    public static final RealAverageAggregation REAL_AVERAGE_AGGREGATION = new RealAverageAggregation();
+    private static RealAverageAggregation REAL_AVERAGE_AGGREGATION;
     private static final String NAME = "avg";
 
     private static final MethodHandle INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "input", LongState.class, DoubleState.class, long.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(RealAverageAggregation.class, "combine", LongState.class, DoubleState.class, LongState.class, DoubleState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "output", LongState.class, DoubleState.class, BlockBuilder.class);
 
+    private static TypeSignature finalTypeSignature = parseTypeSignature(StandardTypes.REAL);
+
+    public static RealAverageAggregation getRealAverageAggregation(boolean isVeloxAggrTypes)
+    {
+        if (REAL_AVERAGE_AGGREGATION != null) {
+            return REAL_AVERAGE_AGGREGATION;
+        }
+
+        if (isVeloxAggrTypes) {
+            finalTypeSignature = parseTypeSignature(StandardTypes.DOUBLE);
+        }
+
+        REAL_AVERAGE_AGGREGATION = new RealAverageAggregation();
+        return REAL_AVERAGE_AGGREGATION;
+    }
+
     protected RealAverageAggregation()
     {
         super(NAME,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.REAL),
+                finalTypeSignature,
                 ImmutableList.of(parseTypeSignature(StandardTypes.REAL)));
     }
 
@@ -78,7 +95,7 @@ public class RealAverageAggregation
         AccumulatorStateSerializer<?> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface, classLoader);
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, parseTypeSignature(StandardTypes.REAL), ImmutableList.of(parseTypeSignature(StandardTypes.REAL))),
+                generateAggregationName(NAME, finalTypeSignature, ImmutableList.of(parseTypeSignature(StandardTypes.REAL))),
                 ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
                 INPUT_FUNCTION,
                 COMBINE_FUNCTION,
@@ -92,7 +109,7 @@ public class RealAverageAggregation
                                 doubleStateInterface,
                                 doubleStateSerializer,
                                 StateCompiler.generateStateFactory(doubleStateInterface, classLoader))),
-                REAL);
+                functionAndTypeManager.getType(finalTypeSignature));
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(
@@ -101,8 +118,7 @@ public class RealAverageAggregation
                 ImmutableList.of(
                         longStateSerializer.getSerializedType(),
                         doubleStateSerializer.getSerializedType()),
-                REAL,
-                true,
+                functionAndTypeManager.getType(finalTypeSignature), true,
                 false,
                 factory);
     }

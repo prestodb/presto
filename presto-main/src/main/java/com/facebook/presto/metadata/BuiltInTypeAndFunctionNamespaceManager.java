@@ -301,7 +301,7 @@ import static com.facebook.presto.operator.aggregation.MinNAggregationFunction.M
 import static com.facebook.presto.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG;
 import static com.facebook.presto.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT;
 import static com.facebook.presto.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
-import static com.facebook.presto.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.RealAverageAggregation.getRealAverageAggregation;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION;
@@ -611,7 +611,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(AverageAggregations.class)
-                .function(REAL_AVERAGE_AGGREGATION)
+                .function(getRealAverageAggregation(featuresConfig.isVeloxAggrTypes()))
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
                 .aggregates(DifferentialEntropyAggregation.class)

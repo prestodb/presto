@@ -101,6 +101,7 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean exchangeChecksumEnabled;
     private boolean legacyArrayAgg;
+    private boolean veloxAggrTypes;
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
     private boolean groupByUsesEqualTo;
@@ -393,6 +394,18 @@ public class FeaturesConfig
     public boolean isLegacyArrayAgg()
     {
         return legacyArrayAgg;
+    }
+
+    @Config("velox-aggr-types")
+    public FeaturesConfig setVeloxAggrTypes(boolean veloxAggrTypes)
+    {
+        this.veloxAggrTypes = veloxAggrTypes;
+        return this;
+    }
+
+    public boolean isVeloxAggrTypes()
+    {
+        return veloxAggrTypes;
     }
 
     @Config("deprecated.legacy-log-function")

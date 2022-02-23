@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Capture;
@@ -46,6 +49,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isVeloxAggrTypes;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -208,6 +212,29 @@ public class PushPartialAggregationThroughExchange
                 Optional.empty());
     }
 
+    // For some aggregations we return clear 'straightforward' intermediate type
+    // if session parameter 'is_velox_aggr_types' is specified.
+    private Type getFunctionIntermediateType(InternalAggregationFunction function, boolean isVeloxAggrTypes)
+    {
+        if (isVeloxAggrTypes) {
+            switch (function.name()) {
+                case "max_by":
+                case "min_by":
+                    // Intermediate type would be the same as input type.
+                    return RowType.withDefaultFieldNames(function.getParameterTypes());
+                case "avg":
+                    // {double, bigint} is the intermediate type for any average aggregation.
+                    List<Type> inputTypes = new ArrayList<>();
+                    inputTypes.add(requireNonNull(functionAndTypeManager.getType(TypeSignature.parseTypeSignature("double"))));
+                    inputTypes.add(requireNonNull(functionAndTypeManager.getType(TypeSignature.parseTypeSignature("bigint"))));
+                    return RowType.withDefaultFieldNames(inputTypes);
+            }
+        }
+
+        // By default, use the function's intermediate type.
+        return function.getIntermediateType();
+    }
+
     private PlanNode split(AggregationNode node, Context context)
     {
         // otherwise, add a partial and final with an exchange in between
@@ -218,7 +245,8 @@ public class PushPartialAggregationThroughExchange
             String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
-            VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(entry.getValue().getCall().getSourceLocation(), functionName, function.getIntermediateType());
+            Type intermediateType = getFunctionIntermediateType(function, isVeloxAggrTypes(context.getSession()));
+            VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(entry.getValue().getCall().getSourceLocation(), functionName, intermediateType);
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
             intermediateAggregation.put(intermediateVariable, new AggregationNode.Aggregation(
@@ -226,7 +254,7 @@ public class PushPartialAggregationThroughExchange
                             originalAggregation.getCall().getSourceLocation(),
                             functionName,
                             functionHandle,
-                            function.getIntermediateType(),
+                            intermediateType,
                             originalAggregation.getArguments()),
                     originalAggregation.getFilter(),
                     originalAggregation.getOrderBy(),

@@ -225,6 +225,7 @@ public final class SystemSessionProperties
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
     public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
+    public static final String IS_VELOX_AGGR_TYPES = "is_velox_aggr_types";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1223,6 +1224,11 @@ public final class SystemSessionProperties
                         HASH_BASED_DISTINCT_LIMIT_ENABLED,
                         "Hash based distinct limit enabled",
                         featuresConfig.isHashBasedDistinctLimitEnabled(),
+                        false),
+                booleanProperty(
+                        IS_VELOX_AGGR_TYPES,
+                        "Use Velox aggregation types",
+                        featuresConfig.isVeloxAggrTypes(),
                         false));
     }
 
@@ -1269,6 +1275,11 @@ public final class SystemSessionProperties
     public static int getHashBasedDistinctLimitThreshold(Session session)
     {
         return session.getSystemProperty(HASH_BASED_DISTINCT_LIMIT_THRESHOLD, Integer.class);
+    }
+
+    public static boolean isVeloxAggrTypes(Session session)
+    {
+        return session.getSystemProperty(IS_VELOX_AGGR_TYPES, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
