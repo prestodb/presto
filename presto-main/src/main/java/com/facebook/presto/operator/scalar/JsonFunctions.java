@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.plugin.base.JsonTypeUtil;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -28,14 +28,10 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Doubles;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -53,9 +49,7 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
-import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.String.format;
 
 public final class JsonFunctions
 {
@@ -64,8 +58,6 @@ public final class JsonFunctions
 
     private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
-
-    private static final ObjectMapper SORTED_MAPPER = new JsonObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private JsonFunctions() {}
 
@@ -135,20 +127,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonParse(@SqlType("varchar(x)") Slice slice)
     {
-        // cast(json_parse(x) AS t)` will be optimized into `$internal$json_string_to_array/map/row_cast` in ExpressionOptimizer
-        // If you make changes to this function (e.g. use parse JSON string into some internal representation),
-        // make sure `$internal$json_string_to_array/map/row_cast` is changed accordingly.
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(slice.length());
-            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(parser, Object.class));
-            // nextToken() returns null if the input is parsed correctly,
-            // but will throw an exception if there are trailing characters.
-            parser.nextToken();
-            return dynamicSliceOutput.slice();
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
-        }
+        return JsonTypeUtil.jsonParse(slice);
     }
 
     @SqlNullable
