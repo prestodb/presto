@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
+import org.bson.BsonInvalidOperationException;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
@@ -60,6 +61,7 @@ import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.facebook.presto.mongodb.TypeUtils.isArrayType;
+import static com.facebook.presto.mongodb.TypeUtils.isJsonType;
 import static com.facebook.presto.mongodb.TypeUtils.isMapType;
 import static com.facebook.presto.mongodb.TypeUtils.isRowType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -174,6 +176,15 @@ public class MongoPageSink
                 unscaledValue = Decimals.decodeUnscaledValue(decimalType.getSlice(block, position));
             }
             return new BigDecimal(unscaledValue);
+        }
+        if (isJsonType(type)) {
+            String json = type.getSlice(block, position).toStringUtf8();
+            try {
+                return Document.parse(json);
+            }
+            catch (BsonInvalidOperationException e) {
+                throw new PrestoException(NOT_SUPPORTED, "Can't convert json to MongoDB Document: " + json, e);
+            }
         }
         if (isArrayType(type)) {
             Type elementType = type.getTypeParameters().get(0);
