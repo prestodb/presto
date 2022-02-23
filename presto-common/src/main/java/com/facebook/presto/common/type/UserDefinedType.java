@@ -17,6 +17,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 
 import static java.util.Objects.requireNonNull;
 
+// This either represents an enum type, or a distinct type.
 public class UserDefinedType
 {
     private final QualifiedObjectName name;
@@ -36,5 +37,10 @@ public class UserDefinedType
     public TypeSignature getPhysicalTypeSignature()
     {
         return representation;
+    }
+
+    public boolean isDistinctType()
+    {
+        return representation.isDistinctType();
     }
 }

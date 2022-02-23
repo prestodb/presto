@@ -35,11 +35,13 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
+import static java.lang.Boolean.parseBoolean;
 import static java.lang.Character.isDigit;
 import static java.lang.Integer.min;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 
@@ -57,6 +59,7 @@ public class TypeSignature
 
     private static final String BIGINT_ENUM_PREFIX = BIGINT_ENUM.toLowerCase(ENGLISH);
     private static final Pattern ENUM_PREFIX = Pattern.compile("(varchar|bigint)enum\\(");
+    private static final Pattern DISTINCT_TYPE_PREFIX = Pattern.compile("distincttype\\(");
 
     static {
         BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
@@ -71,6 +74,11 @@ public class TypeSignature
     public TypeSignature(UserDefinedType userDefinedType)
     {
         this(TypeSignatureBase.of(userDefinedType), userDefinedType.getPhysicalTypeSignature().getParameters());
+    }
+
+    public TypeSignature(DistinctTypeInfo distinctTypeInfo)
+    {
+        this(TypeSignatureBase.of(distinctTypeInfo), singletonList(TypeSignatureParameter.of(distinctTypeInfo)));
     }
 
     public TypeSignature(QualifiedObjectName base)
@@ -155,6 +163,11 @@ public class TypeSignature
         return parameters.size() == 1 && parameters.get(0).isVarcharEnum();
     }
 
+    public boolean isDistinctType()
+    {
+        return parameters.size() == 1 && parameters.get(0).isDistinctType();
+    }
+
     @JsonCreator
     public static TypeSignature parseTypeSignature(String signature)
     {
@@ -192,7 +205,9 @@ public class TypeSignature
         }
 
         Set<Integer> enumMapStartIndices = findEnumMapStartIndices(lowerCaseSignature);
+        Set<Integer> distinctTypeStartIndices = findDistinctTypeStartIndices(lowerCaseSignature);
         Map<Integer, EnumMapParsingData> parsedEnumMaps = new HashMap<>();
+        Map<Integer, DistinctTypeParsingData> parsedDistinctTypes = new HashMap<>();
 
         String baseName = null;
         List<TypeSignatureParameter> parameters = new ArrayList<>();
@@ -223,7 +238,7 @@ public class TypeSignature
                 checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
                 if (bracketCount == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters, parsedEnumMaps));
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters, parsedEnumMaps, parsedDistinctTypes));
                     parameterStart = i + 1;
                     if (i == signature.length() - 1) {
                         return new TypeSignature(baseName, parameters);
@@ -235,16 +250,74 @@ public class TypeSignature
                 parameterEnd = enumMapParsingData.mapEndIndex;
                 parsedEnumMaps.put(i, enumMapParsingData);
             }
+            else if (distinctTypeStartIndices.contains(i)) {
+                DistinctTypeParsingData distinctTypeParsingData = DistinctTypeParsingData.parse(lowerCaseSignature, i);
+                parameterEnd = distinctTypeParsingData.endIndex;
+                parsedDistinctTypes.put(i, distinctTypeParsingData);
+            }
             else if (c == ',') {
                 if (bracketCount == 1) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters, parsedEnumMaps));
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters, parsedEnumMaps, parsedDistinctTypes));
                     parameterStart = i + 1;
                 }
             }
         }
 
         throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
+    }
+
+    private static class DistinctTypeParsingData
+    {
+        final int endIndex;
+        private DistinctTypeInfo distinctType;
+
+        DistinctTypeParsingData(int endIndex, DistinctTypeInfo distinctType)
+        {
+            this.endIndex = endIndex;
+            this.distinctType = distinctType;
+        }
+
+        private static Optional<QualifiedObjectName> parseParentName(String s)
+        {
+            return s.equals("null") ? Optional.empty() : Optional.of(QualifiedObjectName.valueOf(s));
+        }
+
+        private static DistinctTypeParsingData parse(String signature, int startIndex)
+        {
+            int openBracketIndex = signature.indexOf("{", startIndex);
+            if (openBracketIndex == -1) {
+                throw new IllegalStateException("Cannot parse distinct type definition");
+            }
+            QualifiedObjectName name = QualifiedObjectName.valueOf(signature.substring(startIndex, openBracketIndex));
+
+            int firstCommaIndex = signature.indexOf(", ", openBracketIndex);
+            if (firstCommaIndex == -1) {
+                throw new IllegalStateException("Cannot parse distinct type definition");
+            }
+            TypeSignature baseType = TypeSignature.parseTypeSignature(signature.substring(openBracketIndex + 1, firstCommaIndex));
+
+            int secondCommaIndex = signature.indexOf(", [", firstCommaIndex + 2);
+            if (firstCommaIndex == -1) {
+                throw new IllegalStateException("Cannot parse distinct type definition");
+            }
+            boolean isOrderable = parseBoolean(signature.substring(firstCommaIndex + 2, secondCommaIndex));
+
+            int endIndex = signature.indexOf("]}", secondCommaIndex + 2);
+            int position = secondCommaIndex + 3;
+            List<Optional<QualifiedObjectName>> ancestors = new ArrayList<>();
+
+            while (position < endIndex) {
+                int nextPositionIndex = signature.indexOf(", ", position);
+                if (nextPositionIndex == -1 || nextPositionIndex > endIndex) {
+                    nextPositionIndex = endIndex;
+                }
+                ancestors.add(parseParentName(signature.substring(position, nextPositionIndex)));
+                position = nextPositionIndex + 2;
+            }
+
+            return new DistinctTypeParsingData(endIndex + 1, new DistinctTypeInfo(name, baseType, ancestors, isOrderable));
+        }
     }
 
     private static class EnumMapParsingData
@@ -287,6 +360,16 @@ public class TypeSignature
     {
         Set<Integer> indices = new HashSet<>();
         Matcher enumMatcher = ENUM_PREFIX.matcher(signature);
+        while (enumMatcher.find()) {
+            indices.add(enumMatcher.end());
+        }
+        return indices;
+    }
+
+    private static Set<Integer> findDistinctTypeStartIndices(String signature)
+    {
+        Set<Integer> indices = new HashSet<>();
+        Matcher enumMatcher = DISTINCT_TYPE_PREFIX.matcher(signature);
         while (enumMatcher.find()) {
             indices.add(enumMatcher.end());
         }
@@ -534,7 +617,8 @@ public class TypeSignature
             int begin,
             int end,
             Set<String> literalCalculationParameters,
-            Map<Integer, EnumMapParsingData> parsedEnumMaps)
+            Map<Integer, EnumMapParsingData> parsedEnumMaps,
+            Map<Integer, DistinctTypeParsingData> parsedDistinctTypes)
     {
         String parameterName = signature.substring(begin, end).trim();
         if (isDigit(signature.charAt(begin))) {
@@ -552,6 +636,12 @@ public class TypeSignature
                 return TypeSignatureParameter.of(enumMapData.getLongEnumMap());
             }
             return TypeSignatureParameter.of(enumMapData.getVarcharEnumMap());
+        }
+        else if (parsedDistinctTypes.containsKey(begin)) {
+            if (!parameterName.endsWith("}")) {
+                throw new IllegalStateException("Cannot parse distinct type signature");
+            }
+            return TypeSignatureParameter.of(parsedDistinctTypes.get(begin).distinctType);
         }
         else {
             return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));

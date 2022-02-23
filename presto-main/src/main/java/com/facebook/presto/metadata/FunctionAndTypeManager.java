@@ -21,6 +21,8 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionResult;
+import com.facebook.presto.common.type.DistinctType;
+import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -111,9 +113,9 @@ public class FunctionAndTypeManager
     private final BlockEncodingSerde blockEncodingSerde;
     private final BuiltInTypeAndFunctionNamespaceManager builtInTypeAndFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
-    private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
+    private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories;
     private final HandleResolver handleResolver;
-    private final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers = new ConcurrentHashMap<>();
+    protected final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers;
     private final FunctionSignatureMatcher functionSignatureMatcher;
     private final TypeCoercer typeCoercer;
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
@@ -130,7 +132,9 @@ public class FunctionAndTypeManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, featuresConfig, types, this);
+        this.functionNamespaceManagers = new ConcurrentHashMap<>();
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
+        this.functionNamespaceManagerFactories = new ConcurrentHashMap<>();
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
@@ -142,6 +146,22 @@ public class FunctionAndTypeManager
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
         this.typeCoercer = new TypeCoercer(featuresConfig, this);
+    }
+
+    protected FunctionAndTypeManager(FunctionAndTypeManager other)
+    {
+        requireNonNull(other);
+        this.transactionManager = other.transactionManager;
+        this.blockEncodingSerde = other.blockEncodingSerde;
+        this.builtInTypeAndFunctionNamespaceManager = other.builtInTypeAndFunctionNamespaceManager;
+        this.functionInvokerProvider = other.functionInvokerProvider;
+        this.functionNamespaceManagerFactories = other.functionNamespaceManagerFactories;
+        this.handleResolver = other.handleResolver;
+        this.functionNamespaceManagers = other.functionNamespaceManagers;
+        this.functionSignatureMatcher = other.functionSignatureMatcher;
+        this.typeCoercer = other.typeCoercer;
+        this.functionCache = other.functionCache;
+        this.cacheStatsMBean = other.cacheStatsMBean;
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -197,6 +217,10 @@ public class FunctionAndTypeManager
     public Type getType(TypeSignature signature)
     {
         if (signature.getTypeSignatureBase().hasStandardType()) {
+            // Some info about Type has been materialized in the signature itself, so directly use it instead of fetching it
+            if (signature.isDistinctType()) {
+                return getDistinctType(signature.getParameters().get(0).getDistinctTypeInfo());
+            }
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
@@ -206,14 +230,7 @@ public class FunctionAndTypeManager
             }
         }
 
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getTypeName());
-        if (!userDefinedType.isPresent()) {
-            throw new IllegalArgumentException("Unknown type " + signature);
-        }
-        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
-        return getType(new TypeSignature(userDefinedType.get()));
+        return getUserDefinedType(signature);
     }
 
     @Override
@@ -515,6 +532,38 @@ public class FunctionAndTypeManager
             throw e;
         }
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
+    }
+
+    protected Type getType(UserDefinedType userDefinedType)
+    {
+        // Distinct type
+        if (userDefinedType.isDistinctType()) {
+            return getDistinctType(userDefinedType.getPhysicalTypeSignature().getParameters().get(0).getDistinctTypeInfo());
+        }
+        // Enum type
+        return getType(new TypeSignature(userDefinedType));
+    }
+
+    private DistinctType getDistinctType(DistinctTypeInfo distinctTypeInfo)
+    {
+        return new DistinctType(
+                distinctTypeInfo.getName(),
+                getType(distinctTypeInfo.getBaseType()),
+                distinctTypeInfo.isOrderable(),
+                distinctTypeInfo.getAncestors(),
+                name -> (DistinctType) getType(new TypeSignature(name)));
+    }
+
+    private Type getUserDefinedType(TypeSignature signature)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
+        UserDefinedType userDefinedType = functionNamespaceManager
+                .get()
+                .getUserDefinedType(signature.getTypeSignatureBase().getTypeName())
+                .orElseThrow(() -> new IllegalArgumentException("Unknown type " + signature));
+        checkArgument(userDefinedType.getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
+        return getType(userDefinedType);
     }
 
     private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
