@@ -16,6 +16,8 @@
 
 #pragma once
 #include <folly/Likely.h>
+#include <optional>
+#include <tuple>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
@@ -33,7 +35,7 @@ struct VectorWriter;
 
 // Lightweight object that can be used as a proxy for array primitive elements.
 // It is returned by ArrayProxy::operator()[].
-template <typename T>
+template <typename T, bool allowNull = true>
 struct PrimitiveWriterProxy {
   using vector_t = typename TypeToFlatVector<T>::type;
   using element_t = typename CppToType<T>::NativeType;
@@ -42,6 +44,7 @@ struct PrimitiveWriterProxy {
       : flatVector_(flatVector), index_(index) {}
 
   void operator=(std::nullopt_t) {
+    static_assert(allowNull, "not allowed to write null to this primitive");
     flatVector_->setNull(index_, true);
   }
 
@@ -50,6 +53,8 @@ struct PrimitiveWriterProxy {
   }
 
   void operator=(const std::optional<element_t>& value) {
+    static_assert(allowNull, "not allowed to write null to this primitive");
+
     if (value.has_value()) {
       flatVector_->set(index_, value.value());
     } else {
@@ -181,8 +186,9 @@ class ArrayProxy {
   template <typename T = V>
   typename std::enable_if<provide_std_interface<T>, PrimitiveWriterProxy<T>>::
       type
-      operator[](vector_size_t index_) {
-    return PrimitiveWriterProxy<V>{elementsVector_, valuesOffset_ + index_};
+      operator[](vector_size_t index) {
+    VELOX_DCHECK_LT(index, length_, "out of bound access");
+    return PrimitiveWriterProxy<V>{elementsVector_, valuesOffset_ + index};
   }
 
   template <typename T = V>
@@ -264,7 +270,20 @@ class ArrayProxy {
 // - add_item()  : return references to key and value writers as tuple.
 // - add_null()  : return key writer, set value to null.
 // - size()      : return the size of the map.
+//
+// Special interface when K, V are primitives:
+// - emplace(key&, value& ) : add new item to the map.
+//
+// `resize` followed by `operator[]` allows for avoiding per item capacity check
+// and length increment and hence results in the best peformance. The map can be
+// viewed as std::vector<std::tuple<k, v>> for that aspect.
+//
+// - operator[](i)   : access item at index i, returns key and value writers.
+// - resize(n)       : add n uninitialized items to the end of the map.
+//
 // The interface does not guarantee that duplicates not written.
+//
+
 template <typename K, typename V>
 class MapWriter {
   using key_writer_t = VectorWriter<K, void>;
@@ -310,22 +329,65 @@ class MapWriter {
   // Any map type iteratable in tuple like manner.
   template <typename MapType>
   void copy_from(const MapType& data) {
-    for (const auto& [key, value] : data) {
-      auto [keyWriter, valueWriter] = add_item();
-      // copy key
-      if constexpr (provide_std_interface<K>) {
-        keyWriter = key;
-      } else {
-        keyWriter.copy_from(key);
+    if constexpr (std_interface) {
+      resize(data.size());
+      vector_size_t i = 0;
+      for (auto& item : data) {
+        this->operator[](i++) = item;
       }
+    } else {
+      for (auto& [key, value] : data) {
+        auto [keyWriter, valueWriter] = add_item();
+        // copy key
+        if constexpr (provide_std_interface<K>) {
+          keyWriter = key;
+        } else {
+          keyWriter.copy_from(key);
+        }
 
-      // copy value
-      if constexpr (provide_std_interface<V>) {
-        valueWriter = value;
-      } else {
-        valueWriter.copy_from(value);
+        // copy value
+        if constexpr (provide_std_interface<V>) {
+          valueWriter = value;
+        } else {
+          valueWriter.copy_from(value);
+        }
       }
     }
+  }
+
+  // 'size' is with respect to the current size of the array being written.
+  void resize(vector_size_t size) {
+    commitMostRecentChildItem();
+    reserve(size);
+    length_ = size;
+  }
+
+  std::tuple<PrimitiveWriterProxy<K, false>, PrimitiveWriterProxy<V>>
+  operator[](vector_size_t index) {
+    static_assert(std_interface, "operator [] not allowed for this map");
+    VELOX_DCHECK_LT(index, length_, "out of bound access");
+    return {
+        PrimitiveWriterProxy<K, false>{keysVector_, innerOffset_ + index},
+        PrimitiveWriterProxy<V>{valuesVector_, innerOffset_ + index}};
+  }
+
+  void emplace(key_element_t key, const std::optional<value_element_t>& value) {
+    static_assert(std_interface, "emplace not allowed for this map");
+    if (value.has_value()) {
+      add_item() = std::make_tuple(key, *value);
+    } else {
+      add_null() = key;
+    }
+  }
+
+  void emplace(key_element_t key, value_element_t value) {
+    static_assert(std_interface, "emplace not allowed for this map");
+    add_item() = std::make_tuple(key, value);
+  }
+
+  void emplace(key_element_t key, std::nullopt_t) {
+    static_assert(std_interface, "emplace not allowed for this map");
+    add_null() = key;
   }
 
  private:
@@ -340,8 +402,8 @@ class MapWriter {
     return innerOffset_ + length_ - 1;
   }
 
-  // Should be called by the user (VectorWriter) when writing is done to commit
-  // last item if needed.
+  // Should be called by the user (VectorWriter) when writing is done to
+  // commit last item if needed.
   void finalize() {
     commitMostRecentChildItem();
     innerOffset_ += length_;
@@ -354,13 +416,6 @@ class MapWriter {
     // No need to commit last written items and innerOffset_ stays the same for
     // the next item.
     length_ = 0;
-  }
-
-  // 'size' is with respect to the current size of the array being written.
-  void resize(vector_size_t size) {
-    commitMostRecentChildItem();
-    reserve(size);
-    length_ = size;
   }
 
   void commitMostRecentChildItem() {

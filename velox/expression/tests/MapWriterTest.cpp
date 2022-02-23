@@ -17,6 +17,7 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <optional>
+#include <tuple>
 
 #include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/Udf.h"
@@ -26,22 +27,35 @@
 namespace facebook::velox {
 namespace {
 
-// Function that creates a map with elements i->i*2+1 if i is odd.
-// and i->null if i is even. For every i = [0..n).
+// Function that creates a map and covers all the map writer interface.
 template <typename T>
 struct Func {
   template <typename TOut>
   bool call(TOut& out, const int64_t& n) {
     for (int i = 0; i < n; i++) {
-      switch (i % 2) {
+      switch (i % 6) {
         case 0: {
           auto [keyWriter, valueWriter] = out.add_item();
           keyWriter = i;
-          valueWriter = i * 2 + 1;
+          valueWriter = i + 1;
           break;
         }
         case 1:
           out.add_null() = i;
+          break;
+        case 2:
+          out.emplace(i, i + 2);
+          break;
+        case 3:
+          out.emplace(i, std::nullopt);
+          break;
+        case 4:
+          out.resize(out.size() + 1);
+          out[out.size() - 1] = std::make_tuple(i, std::nullopt);
+          break;
+        case 5:
+          out.resize(out.size() + 1);
+          out[out.size() - 1] = std::make_tuple(i, i + 5);
           break;
       }
     }
@@ -71,20 +85,33 @@ class MapWriterTest : public functions::test::FunctionBaseTest {
             {makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})}));
 
     std::vector<map_pairs_t<T, T>> expected;
-    for (auto i = 1; i <= 10; i++) {
+    for (auto n = 1; n <= 10; n++) {
       expected.push_back({});
       auto& currentExpected = expected[expected.size() - 1];
-      for (auto j = 0; j < i; j++) {
-        switch (j % 2) {
+      for (auto i = 0; i < n; i++) {
+        switch (i % 6) {
           case 0:
-            currentExpected.push_back({j, {j * 2 + 1}});
+            currentExpected.push_back({i, i + 1});
             break;
           case 1:
-            currentExpected.push_back({j, std::nullopt});
+            currentExpected.push_back({i, std::nullopt});
+            break;
+          case 2:
+            currentExpected.push_back({i, i + 2});
+            break;
+          case 3:
+            currentExpected.push_back({i, std::nullopt});
+            break;
+          case 4:
+            currentExpected.push_back({i, std::nullopt});
+            break;
+          case 5:
+            currentExpected.push_back({i, i + 5});
             break;
         }
       }
     }
+
     assertEqualVectors(result, makeMapVector<T, T>(expected));
   }
 
@@ -168,6 +195,54 @@ TEST_F(MapWriterTest, addItem) {
   vectorWriter->finish();
 
   map_pairs_t<int64_t, int64_t> expected = {{1, 1}, {1, 3}, {11, 12}};
+  assertEqualVectors(result, makeMapVector<int64_t, int64_t>({expected}));
+}
+
+TEST_F(MapWriterTest, emplace) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& mapWriter = vectorWriter->current();
+
+  mapWriter.emplace(1, 1);
+  mapWriter.emplace(2, std::nullopt);
+  mapWriter.emplace(3, std::optional<int64_t>{std::nullopt});
+  mapWriter.emplace(4, std::optional<int64_t>{11});
+
+  vectorWriter->commit();
+  vectorWriter->finish();
+
+  map_pairs_t<int64_t, int64_t> expected = {
+      {1, 1}, {2, std::nullopt}, {3, std::nullopt}, {4, 11}};
+  assertEqualVectors(result, makeMapVector<int64_t, int64_t>({expected}));
+}
+
+TEST_F(MapWriterTest, resizeAndSubscriptAccess) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& mapWriter = vectorWriter->current();
+
+  mapWriter.resize(4);
+  mapWriter[0] = std::make_tuple(1, 1);
+  mapWriter[1] = std::make_tuple(2, std::nullopt);
+  mapWriter[2] = std::make_tuple(3, std::optional<int64_t>{std::nullopt});
+  mapWriter[3] = std::make_tuple(4, std::optional<int64_t>{11});
+
+  mapWriter.resize(mapWriter.size() + 1);
+  mapWriter[mapWriter.size() - 1] = std::make_tuple(6, std::nullopt);
+
+  mapWriter.resize(mapWriter.size() + 1);
+  mapWriter[mapWriter.size() - 1] = std::make_tuple(5, 6);
+
+  vectorWriter->commit();
+  vectorWriter->finish();
+
+  map_pairs_t<int64_t, int64_t> expected = {
+      {1, 1},
+      {2, std::nullopt},
+      {3, std::nullopt},
+      {4, 11},
+      {5, 6},
+      {6, std::nullopt}};
   assertEqualVectors(result, makeMapVector<int64_t, int64_t>({expected}));
 }
 
