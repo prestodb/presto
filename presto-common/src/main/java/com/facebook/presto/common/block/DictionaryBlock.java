@@ -402,7 +402,11 @@ public class DictionaryBlock
             }
             newIds[i] = oldIndexToNewIndex.get(oldIndex);
         }
-        return new DictionaryBlock(dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size()), newIds);
+        return new DictionaryBlock(
+                length,
+                dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size()),
+                newIds,
+                true); // new dictionary is compact
     }
 
     @Override
