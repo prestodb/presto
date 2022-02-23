@@ -15,9 +15,12 @@
  */
 
 #include "velox/vector/BaseVector.h"
+#include "velox/type/StringView.h"
+#include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DictionaryVector.h"
+#include "velox/vector/FlatVector.h"
 #include "velox/vector/LazyVector.h"
 #include "velox/vector/SequenceVector.h"
 #include "velox/vector/TypeAliases.h"
@@ -622,16 +625,32 @@ bool BaseVector::isReusableFlatVector(const VectorPtr& vector) {
     return false;
   }
 
-  // Now check if nulls and values buffers also have a single reference and are
-  // mutable.
-  const auto& nulls = vector->nulls();
-  if (!nulls || (vector->nulls()->unique() && vector->nulls()->isMutable())) {
-    const auto& values = vector->values();
-    if (!values || (values->unique() && values->isMutable())) {
-      return true;
+  // Now check if nulls and values buffers also have a single reference and
+  // are mutable.
+  auto checkNullsAndValueBuffers = [&]() {
+    const auto& nulls = vector->nulls();
+    if (!nulls || (vector->nulls()->unique() && vector->nulls()->isMutable())) {
+      const auto& values = vector->values();
+      if (!values || (values->unique() && values->isMutable())) {
+        return true;
+      }
     }
-  }
-  return false;
+    return false;
+  };
+
+  // Check that all string buffers are single referenced.
+  auto checkStringBuffers = [&]() {
+    if (vector->typeKind_ == TypeKind::VARBINARY ||
+        vector->typeKind_ == TypeKind::VARCHAR) {
+      for (auto& buffer : vector->asFlatVector<StringView>()->stringBuffers()) {
+        if (buffer->refCount() > 1) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+  return checkNullsAndValueBuffers() && checkStringBuffers();
 }
 
 } // namespace velox

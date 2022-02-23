@@ -24,6 +24,7 @@
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/parse/Expressions.h"
+#include "velox/type/Type.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -1057,28 +1058,58 @@ void StringFunctionsTest::testReplaceInPlace(
     const std::string& search,
     const std::string& replace,
     bool multiReferenced) {
-  auto stringVector = makeFlatVector<StringView>(tests.size());
+  auto makeInput = [&]() {
+    auto stringVector = makeFlatVector<StringView>(tests.size());
 
-  for (int i = 0; i < tests.size(); i++) {
-    stringVector->set(i, StringView(tests[i].first));
-  }
-
-  auto crossRefVector = makeFlatVector<StringView>(1);
-
-  if (multiReferenced) {
-    crossRefVector->acquireSharedStringBuffers(stringVector.get());
-  }
-
-  FlatVectorPtr<StringView> result = evaluate<FlatVector<StringView>>(
-      fmt::format("replace(c0, '{}', '{}')", search, replace),
-      makeRowVector({stringVector}));
-
-  for (int32_t i = 0; i < tests.size(); ++i) {
-    ASSERT_EQ(result->valueAt(i), StringView(tests[i].second));
-    if (!multiReferenced && !stringVector->valueAt(i).isInline() &&
-        search.size() <= replace.size()) {
-      ASSERT_EQ(result->valueAt(i), stringVector->valueAt(i));
+    for (int i = 0; i < tests.size(); i++) {
+      stringVector->set(i, StringView(tests[i].first));
     }
+    auto crossRefVector = makeFlatVector<StringView>(1);
+
+    if (multiReferenced) {
+      crossRefVector->acquireSharedStringBuffers(stringVector.get());
+    }
+    return stringVector;
+  };
+
+  auto testResults = [&](const FlatVector<StringView>* results) {
+    for (int32_t i = 0; i < tests.size(); ++i) {
+      ASSERT_EQ(results->valueAt(i), StringView(tests[i].second));
+    }
+  };
+
+  auto result = evaluate<FlatVector<StringView>>(
+      fmt::format("replace(c0, '{}', '{}')", search, replace),
+      makeRowVector({makeInput()}));
+  testResults(result.get());
+
+  // Test in place optimization. If in-place is expected, make sure it happened.
+  // If its not expected make sure it did not happen.
+  auto applyReplaceFunction = [&](std::vector<VectorPtr>& functionInputs,
+                                  VectorPtr& resultPtr) {
+    auto replaceFunction = exec::getVectorFunction("replace", {VARCHAR()}, {});
+    SelectivityVector rows(tests.size());
+    ExprSet exprSet({}, &execCtx_);
+    RowVectorPtr inputRows = makeRowVector({});
+    exec::EvalCtx evalCtx(&execCtx_, &exprSet, inputRows.get());
+    replaceFunction->apply(
+        rows, functionInputs, VARCHAR(), &evalCtx, &resultPtr);
+  };
+
+  std::vector<VectorPtr> functionInputs = {
+      makeInput(),
+      makeConstant(search.c_str(), tests.size()),
+      makeConstant(replace.c_str(), tests.size())};
+
+  VectorPtr resultPtr;
+  applyReplaceFunction(functionInputs, resultPtr);
+  testResults(resultPtr->asFlatVector<StringView>());
+
+  if (!multiReferenced && search >= replace) {
+    // Expected in-place.
+    ASSERT_TRUE(resultPtr == functionInputs[0]);
+  } else {
+    ASSERT_FALSE(resultPtr == functionInputs[0]);
   }
 }
 

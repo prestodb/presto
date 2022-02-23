@@ -488,15 +488,6 @@ class ExpressionFuzzer {
     std::exception_ptr exceptionCommonPtr;
     std::exception_ptr exceptionSimplifiedPtr;
 
-    // Some functions (e.g. replace) change the input rowVector, so we
-    // need to keep a copy here.  Cannot use std::optional because
-    // copy assignment is disabled for RowVector.
-    std::unique_ptr<RowVector> rowVector2;
-    if (rowVector) {
-      rowVector2 = std::make_unique<RowVector>(*rowVector);
-      rowVector2->copy(rowVector.get(), 0, 0, rowVector->size());
-    }
-
     VLOG(1) << "Starting common eval execution.";
     SelectivityVector rows{rowVector ? rowVector->size() : 1};
 
@@ -525,7 +516,7 @@ class ExpressionFuzzer {
     try {
       exec::ExprSetSimplified exprSetSimplified({plan}, &execCtx_);
       exec::EvalCtx evalCtxSimplified(
-          &execCtx_, &exprSetSimplified, rowVector2.get());
+          &execCtx_, &exprSetSimplified, rowVector.get());
 
       try {
         exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
