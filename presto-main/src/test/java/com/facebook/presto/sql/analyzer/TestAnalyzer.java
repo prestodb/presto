@@ -1598,6 +1598,18 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testUnnestInnerScalarAlias()
+    {
+        analyze("SELECT * FROM (SELECT array[1,2] a) a CROSS JOIN UNNEST(a) AS T(x)");
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "line 1:37: Scalar subqueries in UNNEST are not supported")
+    public void testUnnestInnerScalar()
+    {
+        analyze("SELECT * FROM (SELECT 1) CROSS JOIN UNNEST((SELECT array[1])) AS T(x)");
+    }
+
+    @Test
     public void testJoinLateral()
     {
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN LATERAL(VALUES x)");
