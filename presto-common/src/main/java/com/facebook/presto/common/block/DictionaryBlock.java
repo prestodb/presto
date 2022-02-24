@@ -97,7 +97,7 @@ public class DictionaryBlock
         this.retainedSizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + sizeOf(ids);
 
         if (dictionaryIsCompacted) {
-            this.sizeInBytes = this.retainedSizeInBytes;
+            this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
             this.uniqueIds = dictionary.getPositionCount();
         }
     }
