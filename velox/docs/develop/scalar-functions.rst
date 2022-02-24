@@ -104,6 +104,53 @@ an artificial example of a ceil function that returns 0 for null input:
 Notice that callNullable function takes arguments as raw pointers and not
 references to allow for specifying null values.
 
+Null-Free Fast Path
+*******************
+
+A "callNullFree" function may be implemented in place of or along side "call"
+and/or "callNullable" functions. When only the "callNullFree" function is
+implemented, evaluation of the function will be skipped and null will
+automatically be produced if any of the input arguments are null (like deafult
+null behavior) or if any of the input arguments are of a complex type and
+contain null anywhere in their value, e.g. an array that has a null element.
+If "callNullFree" is implemented alongside "call" and/or "callNullable", an
+O(N * D) check is applied to the batch to see if any of the input arguments
+may be or contain null, where N is the number of input arguments and D is the
+depth of nesting in complex types. Only if it can definitively be determined
+that there are no nulls will "callNullFree" be invoked.  In this case,
+"callNullFree" can act as a fast path by avoiding any per row null checks.
+
+Here is an example of an array_min function that returns the minimum value in
+an array:
+
+.. code-block:: c++
+
+  template <typename TExecParams>
+  struct ArrayMinFunction {
+    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+
+    template <typename TInput>
+    FOLLY_ALWAYS_INLINE bool callNullFree(
+        TInput& out,
+        const null_free_arg_type<Array<TInput>>& array) {
+      out = INT32_MAX;
+      for (auto i = 0; i < array.size(); i++) {
+        if (array[i] < out) {
+          out = array[i]
+        }
+      }
+
+      return true;
+    }
+  };
+
+Notice that we can access the elements of "array" without checking their
+nullity in "callNullFree". Also notice that we wrap the input type in the
+null_free_arg_type<...> template instead of the arg_type<...> template. This is
+required as the input types for complex types are of a different type in
+"callNullFree" functions that do not wrap values in an std::optional-like
+interface upon access.
+
 Determinism
 ^^^^^^^^^^^
 
