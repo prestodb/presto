@@ -18,8 +18,8 @@
 
 #include <memory>
 
-#include <velox/expression/ComplexProxyTypes.h>
 #include "velox/common/base/Portability.h"
+#include "velox/expression/ComplexProxyTypes.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
@@ -34,6 +34,16 @@ struct IsArrayProxy {
 
 template <typename T>
 struct IsArrayProxy<ArrayProxy<T>> {
+  static constexpr bool value = true;
+};
+
+template <typename T>
+struct IsMapWriter {
+  static constexpr bool value = false;
+};
+
+template <typename K, typename V>
+struct IsMapWriter<MapWriter<K, V>> {
   static constexpr bool value = true;
 };
 
@@ -396,17 +406,17 @@ class SimpleFunctionAdapter : public VectorFunction {
 
   template <typename Func>
   void applyUdf(ApplyContext& applyContext, Func func) const {
-    if constexpr (IsArrayProxy<T>::value) {
-      // An optimization for arrayProxy that force the localization of the
-      // output proxy.
-      auto& writerProxy = applyContext.resultWriter.proxy_;
+    if constexpr (IsArrayProxy<T>::value || IsMapWriter<T>::value) {
+      // An optimization for arrayProxy and mapWriter that force the
+      // localization of the writer.
+      auto& currentWriter = applyContext.resultWriter.writer_;
 
       applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
         applyContext.resultWriter.setOffset(row);
         // Force local copy of proxy.
-        auto localProxy = writerProxy;
-        auto notNull = func(localProxy, row);
-        writerProxy = localProxy;
+        auto localWriter = currentWriter;
+        auto notNull = func(localWriter, row);
+        currentWriter = localWriter;
         applyContext.resultWriter.commit(notNull);
       });
       applyContext.resultWriter.finish();

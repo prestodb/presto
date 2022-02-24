@@ -441,6 +441,9 @@ class MapWriter {
     keysVector_ = &keysWriter_->vector();
     valuesVector_ = &valuesWriter_->vector();
 
+    // Keys can never be null.
+    keysVector_->resetNulls();
+
     keysWriter_->ensureSize(1);
     valuesWriter_->ensureSize(1);
 
@@ -454,7 +457,6 @@ class MapWriter {
     auto index = indexOfLast();
     if constexpr (!requires_commit<K>) {
       VELOX_DCHECK(provide_std_interface<K>);
-      keysVector_->setNull(index, false);
       return keysWriter_->data_[index];
     } else {
       keyNeedsCommit_ = true;

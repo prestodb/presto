@@ -596,19 +596,19 @@ struct VectorWriter<ArrayProxyT<V>> {
   void init(vector_t& vector) {
     arrayVector_ = &vector;
     childWriter_.init(static_cast<child_vector_t&>(*vector.elements().get()));
-    proxy_.initialize(this);
+    writer_.initialize(this);
   }
 
   // This should be called once all rows are processed.
   void finish() {
-    proxy_.elementsVector_->resize(proxy_.valuesOffset_);
+    writer_.elementsVector_->resize(writer_.valuesOffset_);
     arrayVector_ = nullptr;
   }
 
   VectorWriter() = default;
 
   exec_out_t& current() {
-    return proxy_;
+    return writer_;
   }
 
   vector_t& vector() {
@@ -626,15 +626,15 @@ struct VectorWriter<ArrayProxyT<V>> {
   // Commit a not null value.
   void commit() {
     arrayVector_->setOffsetAndSize(
-        offset_, proxy_.valuesOffset_, proxy_.length_);
+        offset_, writer_.valuesOffset_, writer_.length_);
     arrayVector_->setNull(offset_, false);
-    // Will reset length to 0 and prepare proxy_ for the next item.
-    proxy_.finalize();
+    // Will reset length to 0 and prepare elementWriter_ for the next item.
+    writer_.finalize();
   }
 
   // Commit a null value.
   void commitNull() {
-    proxy_.finalizeNull();
+    writer_.finalizeNull();
     arrayVector_->setNull(offset_, true);
   }
 
@@ -652,12 +652,12 @@ struct VectorWriter<ArrayProxyT<V>> {
   }
 
   void reset() {
-    proxy_.valuesOffset_ = 0;
+    writer_.valuesOffset_ = 0;
   }
 
   vector_t* arrayVector_ = nullptr;
 
-  exec_out_t proxy_;
+  exec_out_t writer_;
 
   VectorWriter<V> childWriter_;
 
@@ -678,21 +678,21 @@ struct VectorWriter<MapWriterT<K, V>> {
     mapVector_ = &vector;
     keyWriter_.init(static_cast<key_vector_t&>(*vector.mapKeys()));
     valWriter_.init(static_cast<val_vector_t&>(*vector.mapValues()));
-    elementWriter_.initialize(this);
+    writer_.initialize(this);
   }
 
   // This should be called once all rows are processed.
   void finish() {
     // Downsize to actual used size.
-    elementWriter_.keysVector_->resize(elementWriter_.innerOffset_);
-    elementWriter_.valuesVector_->resize(elementWriter_.innerOffset_);
+    writer_.keysVector_->resize(writer_.innerOffset_);
+    writer_.valuesVector_->resize(writer_.innerOffset_);
     mapVector_ = nullptr;
   }
 
   VectorWriter() = default;
 
   exec_out_t& current() {
-    return elementWriter_;
+    return writer_;
   }
 
   vector_t& vector() {
@@ -709,16 +709,16 @@ struct VectorWriter<MapWriterT<K, V>> {
   // Commit a not null value.
   void commit() {
     mapVector_->setOffsetAndSize(
-        offset_, elementWriter_.innerOffset_, elementWriter_.length_);
+        offset_, writer_.innerOffset_, writer_.length_);
     mapVector_->setNull(offset_, false);
     // Will reset length to 0 and prepare proxy_.valuesOffset_ for the next
     // item.
-    elementWriter_.finalize();
+    writer_.finalize();
   }
 
   // Commit a null value.
   void commitNull() {
-    elementWriter_.finalizeNull();
+    writer_.finalizeNull();
     mapVector_->setNull(offset_, true);
   }
 
@@ -736,10 +736,10 @@ struct VectorWriter<MapWriterT<K, V>> {
   }
 
   void reset() {
-    elementWriter_.innerOffset_ = 0;
+    writer_.innerOffset_ = 0;
   }
 
-  exec_out_t elementWriter_;
+  exec_out_t writer_;
 
   vector_t* mapVector_;
   VectorWriter<K> keyWriter_;

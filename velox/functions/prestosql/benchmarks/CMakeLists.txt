@@ -106,3 +106,15 @@ target_compile_definitions(velox_benchmark_nested_array_proxy_with_nulls
                            PUBLIC WITH_NULLS=true)
 target_link_libraries(velox_benchmark_nested_array_proxy_with_nulls
                       ${BENCHMARK_DEPENDENCIES_NO_FUNC})
+
+add_executable(velox_benchmark_map_writer_with_nulls MapWriterBenchmarks.cpp)
+target_compile_definitions(velox_benchmark_map_writer_with_nulls
+                           PUBLIC WITH_NULLS=true)
+target_link_libraries(velox_benchmark_map_writer_with_nulls
+                      ${BENCHMARK_DEPENDENCIES_NO_FUNC})
+
+add_executable(velox_benchmark_map_writer_no_nulls MapWriterBenchmarks.cpp)
+target_link_libraries(velox_benchmark_map_writer_no_nulls
+                      ${BENCHMARK_DEPENDENCIES_NO_FUNC})
+target_compile_definitions(velox_benchmark_map_writer_no_nulls
+                           PUBLIC WITH_NULLS=false)
