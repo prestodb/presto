@@ -122,9 +122,11 @@ public class TestOrcWriter
             throws IOException
     {
         OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
-                .withStripeMinSize(new DataSize(0, MEGABYTE))
-                .withStripeMaxSize(new DataSize(32, MEGABYTE))
-                .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                        .withStripeMinSize(new DataSize(0, MEGABYTE))
+                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                        .build())
                 .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                 .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                 .withCompressionLevel(level)
@@ -195,9 +197,11 @@ public class TestOrcWriter
                 Optional.empty(),
                 NO_ENCRYPTION,
                 OrcWriterOptions.builder()
-                        .withStripeMinSize(new DataSize(0, MEGABYTE))
-                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
-                        .withStripeMaxRowCount(10)
+                        .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                                .withStripeMinSize(new DataSize(0, MEGABYTE))
+                                .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                                .withStripeMaxRowCount(10)
+                                .build())
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                         .build(),

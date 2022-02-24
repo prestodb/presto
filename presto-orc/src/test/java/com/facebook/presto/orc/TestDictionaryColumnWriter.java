@@ -186,7 +186,7 @@ public class TestDictionaryColumnWriter
             DirectConversionTester directConversionTester = new DirectConversionTester();
             OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                     .withRowGroupMaxRowCount(14_876)
-                    .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                    .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(STRIPE_MAX_ROWS).build())
                     .build();
             testDictionary(VARCHAR, input.getEncoding(), writerOptions, directConversionTester, values);
         }
@@ -248,7 +248,7 @@ public class TestDictionaryColumnWriter
         }
         int preserveDirectEncodingStripeCount = 2;
         OrcWriterOptions.Builder orcWriterOptionsBuilder = OrcWriterOptions.builder()
-                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(STRIPE_MAX_ROWS).build())
                 .withIntegerDictionaryEncodingEnabled(true)
                 .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount);
 
@@ -312,7 +312,7 @@ public class TestDictionaryColumnWriter
         long totalRows = values.size();
         for (StringDictionaryInput input : StringDictionaryInput.values()) {
             OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
-                    .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                    .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(STRIPE_MAX_ROWS).build())
                     .withStringDictionaryEncodingEnabled(false)
                     .withStringDictionarySortingEnabled(input.isSortStringDictionaryKeys())
                     .build();
@@ -381,7 +381,7 @@ public class TestDictionaryColumnWriter
         List<Integer> values = generateRandomIntegers(90_000);
         DirectConversionTester directConversionTester = new DirectConversionTester();
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
-                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(STRIPE_MAX_ROWS).build())
                 .withIntegerDictionaryEncodingEnabled(true)
                 .withRowGroupMaxRowCount(14_998)
                 .build();
@@ -448,7 +448,7 @@ public class TestDictionaryColumnWriter
         List<Long> values = generateRandomLongs(80_000);
         DirectConversionTester directConversionTester = new DirectConversionTester();
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
-                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(STRIPE_MAX_ROWS).build())
                 .withIntegerDictionaryEncodingEnabled(true)
                 .withRowGroupMaxRowCount(14_998)
                 .build();
@@ -600,7 +600,7 @@ public class TestDictionaryColumnWriter
         DirectConversionTester tester = new DirectConversionTester();
         int preserveDirectEncodingStripeCount = 2;
         OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
-                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(STRIPE_MAX_ROWS).build())
                 .withIntegerDictionaryEncodingEnabled(true)
                 .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount)
                 .build();
@@ -775,7 +775,7 @@ public class TestDictionaryColumnWriter
             throws IOException
     {
         OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
-                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(STRIPE_MAX_ROWS).build())
                 .withIntegerDictionaryEncodingEnabled(enableIntDictionary)
                 .withStringDictionarySortingEnabled(sortStringDictionaryKeys)
                 .build();

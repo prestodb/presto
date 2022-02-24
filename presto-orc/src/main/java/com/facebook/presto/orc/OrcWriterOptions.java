@@ -31,9 +31,6 @@ import static java.util.Objects.requireNonNull;
 
 public class OrcWriterOptions
 {
-    public static final DataSize DEFAULT_STRIPE_MIN_SIZE = new DataSize(32, MEGABYTE);
-    public static final DataSize DEFAULT_STRIPE_MAX_SIZE = new DataSize(64, MEGABYTE);
-    public static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
     public static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
     public static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(16, MEGABYTE);
     public static final DataSize DEFAULT_DICTIONARY_MEMORY_ALMOST_FULL_RANGE = new DataSize(4, MEGABYTE);
@@ -45,9 +42,7 @@ public class OrcWriterOptions
     public static final DwrfStripeCacheMode DEFAULT_DWRF_STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
     public static final int DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT = 0;
 
-    private final DataSize stripeMinSize;
-    private final DataSize stripeMaxSize;
-    private final int stripeMaxRowCount;
+    private final OrcWriterFlushPolicy flushPolicy;
     private final int rowGroupMaxRowCount;
     private final DataSize dictionaryMaxMemory;
     private final DataSize dictionaryMemoryAlmostFullRange;
@@ -69,9 +64,7 @@ public class OrcWriterOptions
     private final int preserveDirectEncodingStripeCount;
 
     private OrcWriterOptions(
-            DataSize stripeMinSize,
-            DataSize stripeMaxSize,
-            int stripeMaxRowCount,
+            OrcWriterFlushPolicy flushPolicy,
             int rowGroupMaxRowCount,
             DataSize dictionaryMaxMemory,
             DataSize dictionaryMemoryAlmostFullRange,
@@ -88,9 +81,7 @@ public class OrcWriterOptions
             boolean ignoreDictionaryRowGroupSizes,
             int preserveDirectEncodingStripeCount)
     {
-        requireNonNull(stripeMinSize, "stripeMinSize is null");
-        requireNonNull(stripeMaxSize, "stripeMaxSize is null");
-        checkArgument(stripeMaxRowCount >= 1, "stripeMaxRowCount must be at least 1");
+        requireNonNull(flushPolicy, "flushPolicy is null");
         checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
         requireNonNull(dictionaryMaxMemory, "dictionaryMaxMemory is null");
         requireNonNull(dictionaryMemoryAlmostFullRange, "dictionaryMemoryAlmostFullRange is null");
@@ -101,9 +92,7 @@ public class OrcWriterOptions
         requireNonNull(streamLayoutFactory, "streamLayoutFactory is null");
         requireNonNull(dwrfWriterOptions, "dwrfWriterOptions is null");
 
-        this.stripeMinSize = stripeMinSize;
-        this.stripeMaxSize = stripeMaxSize;
-        this.stripeMaxRowCount = stripeMaxRowCount;
+        this.flushPolicy = flushPolicy;
         this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         this.dictionaryMaxMemory = dictionaryMaxMemory;
         this.dictionaryMemoryAlmostFullRange = dictionaryMemoryAlmostFullRange;
@@ -121,19 +110,9 @@ public class OrcWriterOptions
         this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
     }
 
-    public DataSize getStripeMinSize()
+    public OrcWriterFlushPolicy getFlushPolicy()
     {
-        return stripeMinSize;
-    }
-
-    public DataSize getStripeMaxSize()
-    {
-        return stripeMaxSize;
-    }
-
-    public int getStripeMaxRowCount()
-    {
-        return stripeMaxRowCount;
+        return flushPolicy;
     }
 
     public int getRowGroupMaxRowCount()
@@ -215,9 +194,7 @@ public class OrcWriterOptions
     public String toString()
     {
         return toStringHelper(this)
-                .add("stripeMinSize", stripeMinSize)
-                .add("stripeMaxSize", stripeMaxSize)
-                .add("stripeMaxRowCount", stripeMaxRowCount)
+                .add("flushPolicy", flushPolicy)
                 .add("rowGroupMaxRowCount", rowGroupMaxRowCount)
                 .add("dictionaryMaxMemory", dictionaryMaxMemory)
                 .add("dictionaryMemoryAlmostFullRange", dictionaryMemoryAlmostFullRange)
@@ -248,9 +225,7 @@ public class OrcWriterOptions
 
     public static class Builder
     {
-        private DataSize stripeMinSize = DEFAULT_STRIPE_MIN_SIZE;
-        private DataSize stripeMaxSize = DEFAULT_STRIPE_MAX_SIZE;
-        private int stripeMaxRowCount = DEFAULT_STRIPE_MAX_ROW_COUNT;
+        private OrcWriterFlushPolicy flushPolicy = DefaultOrcWriterFlushPolicy.builder().build();
         private int rowGroupMaxRowCount = DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
         private DataSize dictionaryMaxMemory = DEFAULT_DICTIONARY_MAX_MEMORY;
         private DataSize dictionaryMemoryAlmostFullRange = DEFAULT_DICTIONARY_MEMORY_ALMOST_FULL_RANGE;
@@ -269,22 +244,9 @@ public class OrcWriterOptions
         private boolean ignoreDictionaryRowGroupSizes;
         private int preserveDirectEncodingStripeCount = DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 
-        public Builder withStripeMinSize(DataSize stripeMinSize)
+        public Builder withFlushPolicy(OrcWriterFlushPolicy flushPolicy)
         {
-            this.stripeMinSize = requireNonNull(stripeMinSize, "stripeMinSize is null");
-            return this;
-        }
-
-        public Builder withStripeMaxSize(DataSize stripeMaxSize)
-        {
-            this.stripeMaxSize = requireNonNull(stripeMaxSize, "stripeMaxSize is null");
-            return this;
-        }
-
-        public Builder withStripeMaxRowCount(int stripeMaxRowCount)
-        {
-            checkArgument(stripeMaxRowCount >= 1, "stripeMaxRowCount must be at least 1");
-            this.stripeMaxRowCount = stripeMaxRowCount;
+            this.flushPolicy = requireNonNull(flushPolicy, "flushPolicy is null");
             return this;
         }
 
@@ -403,9 +365,7 @@ public class OrcWriterOptions
             }
 
             return new OrcWriterOptions(
-                    stripeMinSize,
-                    stripeMaxSize,
-                    stripeMaxRowCount,
+                    flushPolicy,
                     rowGroupMaxRowCount,
                     dictionaryMaxMemory,
                     dictionaryMemoryAlmostFullRange,

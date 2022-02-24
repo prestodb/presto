@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import com.facebook.presto.orc.writer.StreamLayoutFactory;
@@ -32,9 +33,9 @@ public class OrcFileWriterConfig
         BY_COLUMN_SIZE,
     }
 
-    private DataSize stripeMinSize = OrcWriterOptions.DEFAULT_STRIPE_MIN_SIZE;
-    private DataSize stripeMaxSize = OrcWriterOptions.DEFAULT_STRIPE_MAX_SIZE;
-    private int stripeMaxRowCount = OrcWriterOptions.DEFAULT_STRIPE_MAX_ROW_COUNT;
+    private DataSize stripeMinSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MIN_SIZE;
+    private DataSize stripeMaxSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_SIZE;
+    private int stripeMaxRowCount = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_ROW_COUNT;
     private int rowGroupMaxRowCount = OrcWriterOptions.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
     private DataSize dictionaryMaxMemory = OrcWriterOptions.DEFAULT_DICTIONARY_MAX_MEMORY;
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
@@ -46,11 +47,15 @@ public class OrcFileWriterConfig
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
-        // Give separate copy to callers for isolation.
-        return OrcWriterOptions.builder()
+        DefaultOrcWriterFlushPolicy flushPolicy = DefaultOrcWriterFlushPolicy.builder()
                 .withStripeMinSize(stripeMinSize)
                 .withStripeMaxSize(stripeMaxSize)
                 .withStripeMaxRowCount(stripeMaxRowCount)
+                .build();
+
+        // Give separate copy to callers for isolation.
+        return OrcWriterOptions.builder()
+                .withFlushPolicy(flushPolicy)
                 .withRowGroupMaxRowCount(rowGroupMaxRowCount)
                 .withDictionaryMaxMemory(dictionaryMaxMemory)
                 .withMaxStringStatisticsLimit(stringStatisticsLimit)
