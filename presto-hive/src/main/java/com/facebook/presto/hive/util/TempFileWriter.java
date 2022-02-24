@@ -17,6 +17,7 @@ import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
@@ -90,7 +91,9 @@ public class TempFileWriter
                     NO_ENCRYPTION,
                     OrcWriterOptions.builder()
                             .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
-                            .withStripeMinSize(new DataSize(64, MEGABYTE))
+                            .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                                    .withStripeMinSize(new DataSize(64, MEGABYTE))
+                                    .build())
                             .withDictionaryMaxMemory(new DataSize(1, MEGABYTE))
                             .build(),
                     ImmutableMap.of(),

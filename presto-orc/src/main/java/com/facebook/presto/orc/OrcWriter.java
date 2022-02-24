@@ -19,7 +19,6 @@ import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.WriterStats.FlushReason;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -75,12 +74,9 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.io.DataOutput.createDataOutput;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.UNENCRYPTED;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
+import static com.facebook.presto.orc.FlushReason.CLOSED;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcReader.validateFile;
-import static com.facebook.presto.orc.WriterStats.FlushReason.CLOSED;
-import static com.facebook.presto.orc.WriterStats.FlushReason.DICTIONARY_FULL;
-import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_BYTES;
-import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toFileStatistics;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryptionGroup;
@@ -94,7 +90,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Integer.min;
-import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -106,21 +101,17 @@ public class OrcWriter
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
-    private final WriterStats stats;
-
     static {
         String version = OrcWriter.class.getPackage().getImplementationVersion();
         PRESTO_ORC_WRITER_VERSION = version == null ? "UNKNOWN" : version;
     }
 
+    private final WriterStats stats;
+    private final OrcWriterFlushPolicy flushPolicy;
     private final DataSink dataSink;
     private final List<Type> types;
     private final OrcEncoding orcEncoding;
     private final ColumnWriterOptions columnWriterOptions;
-    private final int stripeMinBytes;
-    private final int stripeMaxBytes;
-    private final int chunkMaxLogicalBytes;
-    private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
     private final StreamLayout streamLayout;
     private final Map<String, String> userMetadata;
@@ -226,11 +217,7 @@ public class OrcWriter
         recordValidation(validation -> validation.setCompression(compressionKind));
 
         requireNonNull(options, "options is null");
-        checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
-        this.stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
-        this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
-        this.chunkMaxLogicalBytes = max(1, stripeMaxBytes / 2);
-        this.stripeMaxRowCount = options.getStripeMaxRowCount();
+        this.flushPolicy = requireNonNull(options.getFlushPolicy(), "flushPolicy is null");
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
         this.streamLayout = requireNonNull(options.getStreamLayoutFactory().create(), "streamLayout is null");
@@ -329,9 +316,9 @@ public class OrcWriter
         int dictionaryUsefulCheckColumnSizeBytes = toIntExact(options.getDictionaryUsefulCheckColumnSize().toBytes());
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 dictionaryColumnWriters.build(),
-                stripeMinBytes,
-                stripeMaxBytes,
-                stripeMaxRowCount,
+                flushPolicy.getStripeMinBytes(),
+                flushPolicy.getStripeMaxBytes(),
+                flushPolicy.getStripeMaxRowCount(),
                 dictionaryMaxMemoryBytes,
                 dictionaryMemoryAlmostFullRangeBytes,
                 dictionaryUsefulCheckColumnSizeBytes,
@@ -397,13 +384,11 @@ public class OrcWriter
             validationBuilder.addPage(page);
         }
 
-        // avoid chunk with huge logical size
-        double averageLogicalSizePerRow = (double) page.getApproximateLogicalSizeInBytes() / page.getPositionCount();
-        int maxChunkRowCount = max(1, (int) (chunkMaxLogicalBytes / max(1, averageLogicalSizePerRow)));
+        int maxChunkRowCount = flushPolicy.getMaxChunkRowCount(page);
 
         while (page != null) {
             // logical size and row group boundaries
-            int chunkRows = min(maxChunkRowCount, min(rowGroupMaxRowCount - rowGroupRowCount, stripeMaxRowCount - stripeRowCount));
+            int chunkRows = min(maxChunkRowCount, min(rowGroupMaxRowCount - rowGroupRowCount, flushPolicy.getStripeMaxRowCount() - stripeRowCount));
 
             // align page to max size per chunk
             chunkRows = min(page.getPositionCount(), chunkRows);
@@ -454,16 +439,11 @@ public class OrcWriter
 
         // flush stripe if necessary
         bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
-        if (stripeRowCount == stripeMaxRowCount) {
-            flushStripe(MAX_ROWS);
+        boolean dictionaryIsFull = dictionaryCompressionOptimizer.isFull(bufferedBytes);
+        Optional<FlushReason> flushReason = flushPolicy.shouldFlushStripe(stripeRowCount, bufferedBytes, dictionaryIsFull);
+        if (flushReason.isPresent()) {
+            flushStripe(flushReason.get());
         }
-        else if (bufferedBytes > stripeMaxBytes) {
-            flushStripe(MAX_BYTES);
-        }
-        else if (dictionaryCompressionOptimizer.isFull(bufferedBytes)) {
-            flushStripe(DICTIONARY_FULL);
-        }
-
         columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
@@ -637,7 +617,13 @@ public class OrcWriter
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
 
         recordValidation(validation -> validation.addStripe(stripeInformation.getNumberOfRows()));
-        stats.recordStripeWritten(stripeMinBytes, stripeMaxBytes, dictionaryMaxMemoryBytes, flushReason, dictionaryCompressionOptimizer.getDictionaryMemoryBytes(), stripeInformation);
+        stats.recordStripeWritten(
+                flushPolicy.getStripeMinBytes(),
+                flushPolicy.getStripeMaxBytes(),
+                dictionaryMaxMemoryBytes,
+                flushReason,
+                dictionaryCompressionOptimizer.getDictionaryMemoryBytes(),
+                stripeInformation);
 
         return outputData;
     }

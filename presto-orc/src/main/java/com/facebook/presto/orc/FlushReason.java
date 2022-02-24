@@ -13,17 +13,20 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.StripeInformation;
-
-public interface WriterStats
+public enum FlushReason
 {
-    void recordStripeWritten(
-            int stripeMinBytes,
-            int stripeMaxBytes,
-            int dictionaryMaxMemoryBytes,
-            FlushReason flushReason,
-            int dictionaryBytes,
-            StripeInformation stripeInformation);
+    /** Stripe accumulated enough rows. */
+    MAX_ROWS,
 
-    void updateSizeInBytes(long deltaInBytes);
+    /** tripe binary size reached size limit. */
+    MAX_BYTES,
+
+    /** Dictionary binary size reached size limit. */
+    DICTIONARY_FULL,
+
+    /** Writer is closing the file. */
+    CLOSED,
+
+    /** Unspecified reason, can be used by custom flush policies. */
+    OTHER
 }

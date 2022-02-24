@@ -36,6 +36,7 @@ import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOO
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
@@ -143,9 +144,9 @@ public class TestOrcFileWriterConfig
         assertNotSame(config.toOrcWriterOptionsBuilder(), config.toOrcWriterOptionsBuilder());
         OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
 
-        assertEquals(stripeMinSize, options.getStripeMinSize());
-        assertEquals(stripeMaxSize, options.getStripeMaxSize());
-        assertEquals(stripeMaxRowCount, options.getStripeMaxRowCount());
+        assertEquals(toIntExact(stripeMinSize.toBytes()), options.getFlushPolicy().getStripeMinBytes());
+        assertEquals(toIntExact(stripeMaxSize.toBytes()), options.getFlushPolicy().getStripeMaxBytes());
+        assertEquals(stripeMaxRowCount, options.getFlushPolicy().getStripeMaxRowCount());
         assertEquals(rowGroupMaxRowCount, options.getRowGroupMaxRowCount());
         assertEquals(dictionaryMaxMemory, options.getDictionaryMaxMemory());
         assertEquals(stringStatisticsLimit, options.getMaxStringStatisticsLimit());

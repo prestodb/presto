@@ -19,10 +19,10 @@ import org.weakref.jmx.Nested;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.orc.WriterStats.FlushReason.CLOSED;
-import static com.facebook.presto.orc.WriterStats.FlushReason.DICTIONARY_FULL;
-import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_BYTES;
-import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_ROWS;
+import static com.facebook.presto.orc.FlushReason.CLOSED;
+import static com.facebook.presto.orc.FlushReason.DICTIONARY_FULL;
+import static com.facebook.presto.orc.FlushReason.MAX_BYTES;
+import static com.facebook.presto.orc.FlushReason.MAX_ROWS;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class OrcWriterStats
