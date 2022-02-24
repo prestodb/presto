@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
-import java.util.LinkedList;
 import java.util.Optional;
+import java.util.Stack;
 
 public class StackableAstVisitor<R, C>
         extends AstVisitor<R, StackableAstVisitor.StackableAstVisitorContext<C>>
@@ -32,7 +32,7 @@ public class StackableAstVisitor<R, C>
 
     public static class StackableAstVisitorContext<C>
     {
-        private final LinkedList<Node> stack = new LinkedList<>();
+        private final Stack<Node> stack = new Stack<>();
         private final C context;
 
         public StackableAstVisitorContext(C context)
@@ -57,8 +57,8 @@ public class StackableAstVisitor<R, C>
 
         public Optional<Node> getPreviousNode()
         {
-            if (stack.size() > 1) {
-                return Optional.of(stack.get(1));
+            if (stack.size() >= 2) {
+                return Optional.of(stack.get(stack.size() - 2));
             }
             return Optional.empty();
         }

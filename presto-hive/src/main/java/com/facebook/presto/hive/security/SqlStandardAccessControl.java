@@ -29,6 +29,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.RoleGrant;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
@@ -200,7 +201,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnsWithoutSubfieldInfo, Set<String> columnsWithSubfieldInfo)
     {
         MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         // TODO: Implement column level access control
@@ -248,7 +249,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        checkCanSelectFromColumns(transaction, identity, context, tableName, columnNames);
+        checkCanSelectFromColumns(transaction, identity, context, tableName, columnNames, ImmutableSet.of());
         MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         // TODO implement column level access control
         if (!checkTablePermission(transaction, identity, metastoreContext, tableName, SELECT, true)) {

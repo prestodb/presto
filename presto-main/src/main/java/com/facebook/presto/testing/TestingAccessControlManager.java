@@ -284,18 +284,18 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columns)
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnsWithoutSubFieldInfo, Set<String> columnsWithSubFieldInfo)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
-            denySelectColumns(tableName.toString(), columns);
+            denySelectColumns(tableName.toString(), columnsWithoutSubFieldInfo);
         }
-        for (String column : columns) {
+        for (String column : columnsWithoutSubFieldInfo) {
             if (shouldDenyPrivilege(identity.getUser(), column, SELECT_COLUMN)) {
-                denySelectColumns(tableName.toString(), columns);
+                denySelectColumns(tableName.toString(), columnsWithoutSubFieldInfo);
             }
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSelectFromColumns(transactionId, identity, context, tableName, columns);
+            super.checkCanSelectFromColumns(transactionId, identity, context, tableName, columnsWithoutSubFieldInfo, columnsWithSubFieldInfo);
         }
     }
 

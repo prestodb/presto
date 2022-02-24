@@ -220,9 +220,9 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnsWithoutSubfieldInfo, Set<String> columnsWithSubfieldInfo)
     {
-        denySelectColumns(tableName.toString(), columnNames);
+        denySelectColumns(tableName.toString(), columnsWithoutSubfieldInfo);
     }
 
     @Override

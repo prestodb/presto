@@ -189,13 +189,20 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
+     * Check if identity is allowed to select from the specified columns in a relation.
+     * Additionally, columns subfield references are also provided(like user.name.surname) for
+     * fine-grained access controls.
      *
+     * For example, "SELECT col.field1 from table" will have:
+     * columnsWithoutSubfieldInfo = [col]
+     * columnsWithSubfieldInfo = [col.field1]
+     *
+     * Implementations can choose which to use
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+    default void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnsWithoutSubfieldInfo, Set<String> columnsWithSubfieldInfo)
     {
-        denySelectColumns(tableName.toString(), columnNames);
+        denySelectColumns(tableName.toString(), columnsWithoutSubfieldInfo);
     }
 
     /**

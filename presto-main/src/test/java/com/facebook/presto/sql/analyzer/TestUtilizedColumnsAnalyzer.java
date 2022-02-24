@@ -46,6 +46,13 @@ public class TestUtilizedColumnsAnalyzer
     }
 
     @Test
+    public void testSubField()
+    {
+        assertUtilizedTableColumns("SELECT b.x.y FROM t10",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t10"), ImmutableSet.of("b")));
+    }
+
+    @Test
     public void testCountStar()
     {
         // Test count(*) should not need column access for anything, but should still need table access

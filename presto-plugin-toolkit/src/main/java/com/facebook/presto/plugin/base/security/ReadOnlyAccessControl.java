@@ -98,7 +98,7 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnsWithoutSubfieldInfo, Set<String> columnsWithSubfieldInfo)
     {
         // allow
     }

@@ -547,19 +547,20 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnsWithoutSubFieldInfo, Set<String> columnsWithSubFieldInfo)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
-        requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(columnsWithoutSubFieldInfo, "columnsWithoutSubFieldInfo is null");
+        requireNonNull(columnsWithSubFieldInfo, "columnsWithSubFieldInfo is null");
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanSelectFromColumns(identity, context, toCatalogSchemaTableName(tableName), columnNames));
+        authorizationCheck(() -> systemAccessControl.get().checkCanSelectFromColumns(identity, context, toCatalogSchemaTableName(tableName), columnsWithoutSubFieldInfo));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanSelectFromColumns(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), columnNames));
+            authorizationCheck(() -> entry.getAccessControl().checkCanSelectFromColumns(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), columnsWithoutSubFieldInfo, columnsWithSubFieldInfo));
         }
     }
 

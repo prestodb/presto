@@ -163,7 +163,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnsWithoutSubFieldInfo, Set<String> columnsWithSubFieldInfo)
     {
     }
 

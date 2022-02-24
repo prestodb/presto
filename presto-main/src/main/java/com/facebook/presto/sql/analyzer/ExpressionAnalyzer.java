@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
@@ -123,6 +124,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.Subfield.NestedField;
+import static com.facebook.presto.common.Subfield.PathElement;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -176,6 +179,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.reverse;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -203,6 +207,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
     private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
+    private final Multimap<QualifiedObjectName, Subfield> tableColumnReferencesWithSubfields = HashMultimap.create();
 
     private final Optional<TransactionId> transactionId;
     private final Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions;
@@ -323,6 +328,11 @@ public class ExpressionAnalyzer
         return tableColumnReferences;
     }
 
+    public Multimap<QualifiedObjectName, Subfield> getTableColumnReferencesWithSubFields()
+    {
+        return tableColumnReferencesWithSubfields;
+    }
+
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
@@ -429,6 +439,10 @@ public class ExpressionAnalyzer
 
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
                 tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
+                // If we found a direct column reference, and we will put it in tableColumnReferencesWithSubFields
+                if (isTopMostReference(node, context)) {
+                    tableColumnReferencesWithSubfields.put(field.getOriginTable().get(), new Subfield(field.getOriginColumnName().get()));
+                }
             }
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
@@ -440,11 +454,11 @@ public class ExpressionAnalyzer
         protected Type visitDereferenceExpression(DereferenceExpression node, StackableAstVisitorContext<Context> context)
         {
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
+            Scope scope = context.getContext().getScope();
 
             // Handle qualified name
             if (qualifiedName != null) {
                 // first, try to match it to a column name
-                Scope scope = context.getContext().getScope();
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
@@ -461,6 +475,8 @@ public class ExpressionAnalyzer
             }
 
             Type baseType = process(node.getBase(), context);
+            addColumnSubFieldReferences(node, context);
+
             if (((baseType instanceof TypeWithName) && ((TypeWithName) baseType).getType() instanceof RowType)) {
                 baseType = ((TypeWithName) baseType).getType();
             }
@@ -710,8 +726,10 @@ public class ExpressionAnalyzer
                             node.getIndex(),
                             "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
                 }
+                addColumnSubFieldReferences(node, context);
                 return setExpressionType(node, rowTypes.get(indexValue - 1));
             }
+            addColumnSubFieldReferences(node, context);
             return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
         }
 
@@ -1336,6 +1354,80 @@ public class ExpressionAnalyzer
             }
         }
 
+        private boolean isDereferenceOrSubscript(Expression node)
+        {
+            return node instanceof DereferenceExpression || node instanceof SubscriptExpression;
+        }
+
+        private boolean isTopMostReference(Expression node, StackableAstVisitorContext<Context> context)
+        {
+            if (!context.getPreviousNode().isPresent()) {
+                return true;
+            }
+            if (!isDereferenceOrSubscript(node)) {
+                return false;
+            }
+            return !isDereferenceOrSubscript((Expression) context.getPreviousNode().get());
+        }
+
+        private void addColumnSubFieldReferences(Expression node, StackableAstVisitorContext<Context> context)
+        {
+            // If expression is nested with multiple dereferences and subscripts, we only look at the topmost one.
+            if (!isTopMostReference(node, context)) {
+                return;
+            }
+            Scope scope = context.getContext().getScope();
+            Expression childNode = node;
+            List<PathElement> columnDereferences = new ArrayList<>();
+            while (true) {
+                if (childNode instanceof SubscriptExpression) {
+                    SubscriptExpression subscriptExpression = (SubscriptExpression) childNode;
+                    childNode = subscriptExpression.getBase();
+                    Type baseType = expressionTypes.get(NodeRef.of(childNode));
+                    if (baseType == null || !(baseType instanceof RowType)) {
+                        continue;
+                    }
+                    int index = toIntExact(((LongLiteral) subscriptExpression.getIndex()).getValue());
+                    RowType baseRowType = (RowType) baseType;
+                    Optional<String> dereference = baseRowType.getFields().get(index - 1).getName();
+                    if (!dereference.isPresent()) {
+                        break;
+                    }
+                    columnDereferences.add(new NestedField(dereference.get()));
+                    continue;
+                }
+
+                QualifiedName childQualifiedName;
+                if (childNode instanceof DereferenceExpression) {
+                    childQualifiedName = DereferenceExpression.getQualifiedName((DereferenceExpression) childNode);
+                }
+                else if (childNode instanceof Identifier) {
+                    childQualifiedName = QualifiedName.of(((Identifier) childNode).getValue());
+                }
+                else {
+                    break;
+                }
+                if (childQualifiedName != null) {
+                    Optional<ResolvedField> resolvedField = scope.tryResolveField(childNode, childQualifiedName);
+                    if (resolvedField.isPresent() &&
+                            resolvedField.get().getField().getOriginColumnName().isPresent() &&
+                            resolvedField.get().getField().getOriginTable().isPresent()) {
+                        reverse(columnDereferences);
+                        tableColumnReferencesWithSubfields.put(
+                                resolvedField.get().getField().getOriginTable().get(),
+                                new Subfield(resolvedField.get().getField().getOriginColumnName().get(), columnDereferences));
+                        break;
+                    }
+                }
+                if (childNode instanceof DereferenceExpression) {
+                    columnDereferences.add(new NestedField(((DereferenceExpression) childNode).getField().getValue()));
+                    childNode = ((DereferenceExpression) childNode).getBase();
+                    continue;
+                }
+                break;
+            }
+        }
+
         private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)
         {
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
@@ -1640,7 +1732,7 @@ public class ExpressionAnalyzer
         analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
+        analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences(), analyzer.getTableColumnReferencesWithSubFields());
 
         return new ExpressionAnalysis(
                 expressionTypes,

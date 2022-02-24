@@ -124,9 +124,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnsWithoutSubfieldInfo, Set<String> columnsWithSubfieldInfo)
     {
-        delegate().checkCanSelectFromColumns(transactionHandle, identity, context, tableName, columnNames);
+        delegate().checkCanSelectFromColumns(transactionHandle, identity, context, tableName, columnsWithoutSubfieldInfo, columnsWithSubfieldInfo);
     }
 
     @Override

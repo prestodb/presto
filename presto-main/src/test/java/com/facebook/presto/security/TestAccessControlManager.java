@@ -111,7 +111,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, context, "catalog", "property");
                     accessControlManager.checkCanShowSchemas(transactionId, identity, context, "catalog");
                     accessControlManager.checkCanShowTablesMetadata(transactionId, identity, context, new CatalogSchemaName("catalog", "schema"));
-                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of("column"), ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of("column"));
                     Set<String> catalogs = ImmutableSet.of("catalog");
                     assertEquals(accessControlManager.filterCatalogs(identity, context, catalogs), catalogs);
@@ -201,7 +201,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"), ImmutableSet.of());
                 });
     }
 
@@ -223,7 +223,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"), ImmutableSet.of());
                 });
     }
 
@@ -245,7 +245,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"), ImmutableSet.of());
                 });
     }
 
@@ -370,9 +370,9 @@ public class TestAccessControlManager
             implements ConnectorAccessControl
     {
         @Override
-        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnsWithoutSubfieldInfo, Set<String> columnsWithSubfieldInfo)
         {
-            denySelectColumns(tableName.toString(), columnNames);
+            denySelectColumns(tableName.toString(), columnsWithoutSubfieldInfo);
         }
 
         @Override

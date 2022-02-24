@@ -194,6 +194,7 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
+    public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
@@ -1057,6 +1058,11 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
+                        false),
+                booleanProperty(
+                        CHECK_ACCESS_CONTROL_WITH_SUBFIELDS,
+                        "Apply access control rules with subfield information from columns containing row types",
+                        featuresConfig.isCheckAccessControlWithSubfields(),
                         false),
                 booleanProperty(
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
@@ -1974,6 +1980,11 @@ public final class SystemSessionProperties
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
     {
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
+    }
+
+    public static boolean isCheckAccessControlWithSubfields(Session session)
+    {
+        return session.getSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, Boolean.class);
     }
 
     public static boolean isEnforceFixedDistributionForOutputOperator(Session session)

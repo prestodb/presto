@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -28,11 +29,13 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -101,14 +104,23 @@ public class Analyzer
      */
     public void checkColumnAccessPermissions(Analysis analysis)
     {
+        Map<Analysis.AccessControlInfo, Map<QualifiedObjectName, Set<String>>> subfieldReferences = analysis.getTableColumnWithSubfieldReferencesForAccessControl(session);
         analysis.getTableColumnReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
-                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                session.getRequiredTransactionId(),
-                                accessControlInfo.getIdentity(),
-                                session.getAccessControlContext(),
-                                tableName,
-                                columns)));
+                {
+                    Set<String> columnsWithSubfields = ImmutableSet.of();
+                    Map<QualifiedObjectName, Set<String>> tableColumnSubfieldReferences = subfieldReferences.get(accessControlInfo);
+                    if (tableColumnSubfieldReferences != null && tableColumnSubfieldReferences.get(tableName) != null) {
+                        columnsWithSubfields = tableColumnSubfieldReferences.get(tableName);
+                    }
+                    accessControlInfo.getAccessControl().checkCanSelectFromColumns(
+                            session.getRequiredTransactionId(),
+                            accessControlInfo.getIdentity(),
+                            session.getAccessControlContext(),
+                            tableName,
+                            columns,
+                            columnsWithSubfields);
+                }));
     }
 
     static void verifyNoAggregateWindowOrGroupingFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager, Expression predicate, String clause)

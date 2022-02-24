@@ -334,7 +334,7 @@ public class TestFileBasedSystemAccessControl
 
                     accessControlManager.checkCanCreateTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanDropTable(transactionId, alice, context, aliceTable);
-                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of(), ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanDeleteFromTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanAddColumns(transactionId, alice, context, aliceTable);
@@ -357,7 +357,7 @@ public class TestFileBasedSystemAccessControl
                     assertEquals(accessControlManager.filterTables(transactionId, alice, context, "alice-catalog", aliceTables), aliceTables);
                     assertEquals(accessControlManager.filterTables(transactionId, bob, context, "alice-catalog", aliceTables), ImmutableSet.of());
 
-                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of(), ImmutableSet.of());
                 });
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
@@ -399,7 +399,7 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(transactionId, alice, context, aliceView);
                     accessControlManager.checkCanDropView(transactionId, alice, context, aliceView);
-                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceView, ImmutableSet.of(), ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, context, aliceView, ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, context, "alice-catalog", "property");
@@ -425,7 +425,7 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceView, ImmutableSet.of(), ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, context, "alice-catalog", "property");
                 });
 

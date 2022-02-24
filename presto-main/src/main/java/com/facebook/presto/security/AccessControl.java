@@ -210,11 +210,18 @@ public interface AccessControl
     void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName, String propertyName);
 
     /**
-     * Check if identity is allowed to select from the specified columns.  The column set can be empty.
+     * Check if identity is allowed to select from the specified columns in a relation.
+     * Additionally, columns subfield references are also provided(like user.name.surname) for
+     * fine-grained access controls.
      *
+     * For example, "SELECT col.field1 from table" will have:
+     * columnsWithoutSubfieldInfo = [col]
+     * columnsWithSubfieldInfo = [col.field1]
+     *
+     * Implementations can choose which to use
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames);
+    void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnsWithoutSubfieldInfo, Set<String> columnsWithSubfieldInfo);
 
     /**
      * Check if identity is allowed to create the specified role.
