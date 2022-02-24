@@ -53,3 +53,6 @@ target_link_libraries(
 target_compile_definitions(
   velox_benchmark_call_null_free_null_arrays_and_null_elements
   PUBLIC WITH_NULL_ARRAYS=true WITH_NULL_ELEMENTS=true)
+
+add_executable(velox_benchmark_variadic VariadicBenchmark.cpp)
+target_link_libraries(velox_benchmark_variadic ${BENCHMARK_DEPENDENCIES})
