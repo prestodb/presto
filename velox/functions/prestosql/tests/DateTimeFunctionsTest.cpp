@@ -1327,6 +1327,32 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
           fromTimestampString("2018-02-28 10:00:00.500")));
 }
 
+TEST_F(DateTimeFunctionsTest, dateFormat) {
+  const auto dateFormat = [&](std::optional<Timestamp> timestamp,
+                              const std::string& formatString) {
+    return evaluateOnce<std::string>(
+        fmt::format("date_format(c0, '{}')", formatString), timestamp);
+  };
+
+  using util::fromTimestampString;
+
+  // Check null behaviors
+  EXPECT_EQ(std::nullopt, dateFormat(std::nullopt, "%Y"));
+
+  // Check invalid format
+  EXPECT_THROW(dateFormat(Timestamp(0, 0), "%Y"), VeloxUserError);
+
+  // Simple tests
+  EXPECT_EQ(
+      "2020-03-01",
+      dateFormat(fromTimestampString("2020-03-01 01:00:00.500"), "%Y-%m-%d"));
+
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ(
+      "2020-02-29",
+      dateFormat(fromTimestampString("2020-03-01 01:00:00.500"), "%Y-%m-%d"));
+}
+
 TEST_F(DateTimeFunctionsTest, parseDatetime) {
   // Check null behavior.
   EXPECT_EQ(std::nullopt, parseDatetime("1970-01-01", std::nullopt));
