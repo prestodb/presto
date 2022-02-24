@@ -1637,6 +1637,34 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testJoinOnPerformanceWarnings()
+    {
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t1.b"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t1.a = t2.a"),
+                PERFORMANCE_WARNING, "line 1:67: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a1.a = a2.a"),
+                PERFORMANCE_WARNING, "line 1:77: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a3.a = a1.a"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t3.a = t1.a"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t3.a = 1"),
+                PERFORMANCE_WARNING, "line 1:67: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t1.a = 1 AND t3.a = t1.a"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t3.a = t1.a"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a3.a = a3.b"),
+                PERFORMANCE_WARNING, "line 1:77: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a3.a = a3.b AND a3.b = a1.b"));
+        assertHasWarning(analyzeWithWarnings("select * from t1 inner join ( select t2.a as t2_a, t3.a from t2 inner join t3 on t2.a=t3.a) al ON t1.a = t1.a"),
+                PERFORMANCE_WARNING, "line 1:104: JOIN ON condition(s) do not reference the joined table 'al' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+    }
+
+    @Test
     public void testInvalidTemporaryFunctionName()
     {
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
