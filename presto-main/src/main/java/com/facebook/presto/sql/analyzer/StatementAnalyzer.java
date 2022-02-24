@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -1679,6 +1680,40 @@ class StatementAnalyzer
             return visitSetOperation(node, scope);
         }
 
+        private boolean isJoinOnConditionReferencesRelatedFields(Expression expression, Relation relation)
+        {
+            if (expression instanceof LogicalBinaryExpression) {
+                LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
+                switch (logicalBinaryExpression.getOperator()){
+                    case AND:
+                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), relation)
+                                || isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), relation);
+                    case OR:
+                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), relation)
+                                && isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), relation);
+                }
+            }
+            if (expression instanceof ComparisonExpression) {
+                ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
+                if (comparisonExpression.getLeft() instanceof Literal || comparisonExpression.getRight() instanceof Literal) {
+                    return false;
+                }
+                return isJoinOnConditionReferencesRelatedFields(comparisonExpression.getLeft(), relation)
+                        != isJoinOnConditionReferencesRelatedFields(comparisonExpression.getRight(), relation);
+            }
+            if (expression instanceof DereferenceExpression) {
+                DereferenceExpression dereferenceExpression = (DereferenceExpression) expression;
+                String expressionBase = dereferenceExpression.getBase().toString();
+                if (relation instanceof AliasedRelation) {
+                    return expressionBase.equals(((AliasedRelation) relation).getAlias().toString());
+                }
+                if (relation instanceof Table) {
+                    return expressionBase.equals(((Table) relation).getName().toString());
+                }
+            }
+            return false;
+        }
+
         @Override
         protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
@@ -1720,6 +1755,7 @@ class StatementAnalyzer
                     }
                 }
 
+                verifyJoinOnConditionReferencesRelatedFields(node.getRight(), expression);
                 verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
@@ -1730,6 +1766,37 @@ class StatementAnalyzer
             }
 
             return output;
+        }
+
+        private void verifyJoinOnConditionReferencesRelatedFields(Relation rightRelation, Expression expression)
+        {
+            if (!(rightRelation instanceof AliasedRelation || rightRelation instanceof Table)) {
+                // TODO Add handling of TableSubquery, Lateral and Table for the case when columns in
+                //  JOIN ON condition specified without table name or alias (See #17382).
+                return;
+            }
+            if (!isJoinOnConditionReferencesRelatedFields(expression, rightRelation)) {
+                String rightTableName;
+                if (rightRelation instanceof Table) {
+                    rightTableName = ((Table) rightRelation).getName().toString();
+                }
+                else {
+                    AliasedRelation aliasedRelation = (AliasedRelation) rightRelation;
+                    if (aliasedRelation.getRelation() instanceof Table) {
+                        rightTableName = ((Table) aliasedRelation.getRelation()).getName().toString();
+                    }
+                    else {
+                        rightTableName = aliasedRelation.getAlias().toString();
+                    }
+                }
+                String warningMessage = createWarningMessage(
+                        expression,
+                        format(
+                            "JOIN ON condition(s) do not reference the joined table '%s' and other tables in the same " +
+                                    "expression that can cause performance issues as it may lead to a cross join with filter",
+                            rightTableName));
+                warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
+            }
         }
 
         private String createWarningMessage(Node node, String description)
