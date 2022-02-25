@@ -37,7 +37,7 @@ class ReverseFunction : public exec::VectorFunction {
         const FlatVector<StringView>* input,
         FlatVector<StringView>* results) {
       rows.applyToSelected([&](int row) {
-        auto proxy = exec::StringProxy<FlatVector<StringView>>(results, row);
+        auto proxy = exec::StringWriter<>(results, row);
         stringImpl::reverse<isAscii>(proxy, input->valueAt(row).getString());
         proxy.finalize();
       });

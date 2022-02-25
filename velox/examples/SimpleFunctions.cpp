@@ -169,7 +169,7 @@ void register4() {
 // (arg_type<>) and output (out_type<>) values.
 //
 // Velox supports two string types: VARBINARY and VARCHAR. Both types will be
-// instantiated as `StringView` for input values and `StringProxy` for output,
+// instantiated as `StringView` for input values and `StringWriter` for output,
 // but VARBINARY semantically represents an opaque stream of bytes, while
 // VARCHAR values need to be charset encoding aware, and properly handle UTF-8
 // characters, for instance.
@@ -183,7 +183,7 @@ struct MyStringConcatFunction {
       out_type<Varchar>& result,
       const arg_type<Varchar>& varcharInput,
       const arg_type<Varbinary>& varbinaryInput) {
-    // `result` is instantiated as StringProxy; `varcharInput` and
+    // `result` is instantiated as StringWriter; `varcharInput` and
     // `varbinaryInput` are StringViews.
     result.resize(varcharInput.size() + varbinaryInput.size());
     std::memcpy(result.data(), varcharInput.data(), varcharInput.size());

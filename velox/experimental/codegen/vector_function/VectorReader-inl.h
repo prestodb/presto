@@ -322,9 +322,9 @@ struct VectorReader<
   using InputType = codegen::InputReferenceStringNullable;
 
   // This is used for the output types
-  struct StringProxy {
+  struct StringWriter {
    public:
-    StringProxy(
+    StringWriter(
         FlatVector<StringView>* vector,
         vector_size_t rowIndex,
         StringView* mutableValues)
@@ -474,7 +474,7 @@ struct VectorReader<
 
   struct PointerType {
     uint64_t* mutableNulls_;
-    StringProxy proxy_;
+    StringWriter proxy_;
 
     inline bool has_value() {
       if constexpr (Config::mayReadNull_) {
@@ -556,7 +556,7 @@ struct VectorReader<
       return *this;
     }
 
-    inline StringProxy& operator*() {
+    inline StringWriter& operator*() {
       static_assert(Config::isWriter_);
       if constexpr (Config::intializedWithNullSet_) {
         bits::setBit(mutableNulls_, proxy_.rowIndex(), bits::kNotNull);
@@ -564,7 +564,7 @@ struct VectorReader<
       return proxy_;
     }
 
-    inline const StringProxy& operator*() const {
+    inline const StringWriter& operator*() const {
       static_assert(Config::isWriter_);
       if constexpr (Config::intializedWithNullSet_) {
         bits::setBit(mutableNulls_, proxy_.rowIndex(), bits::kNotNull);
@@ -575,7 +575,7 @@ struct VectorReader<
 
   inline PointerType operator[](size_t rowIndex) {
     return PointerType{
-        mutableRawNulls_, StringProxy(vector_, rowIndex, mutableRawValues_)};
+        mutableRawNulls_, StringWriter(vector_, rowIndex, mutableRawValues_)};
   }
 
  private:

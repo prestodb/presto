@@ -54,13 +54,12 @@ void applyCastKernel(
           util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
               input.valueAt<From>(row), nullOutput);
       // Write the result output to the output vector
-      auto proxy =
-          exec::StringProxy<FlatVector<StringView>>(resultFlatVector, row);
-      proxy.resize(output.size());
+      auto writer = exec::StringWriter<>(resultFlatVector, row);
+      writer.resize(output.size());
       if (output.size()) {
-        std::memcpy(proxy.data(), output.data(), output.size());
+        std::memcpy(writer.data(), output.data(), output.size());
       }
-      proxy.finalize();
+      writer.finalize();
     }
   } else {
     auto result =

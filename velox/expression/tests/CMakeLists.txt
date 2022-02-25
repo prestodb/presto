@@ -24,9 +24,9 @@ add_executable(
   SimpleFunctionCallNullFreeTest.cpp
   SimpleFunctionPresetNullsTest.cpp
   ArrayViewTest.cpp
+  StringWriterTest.cpp
   ArrayWriterTest.cpp
-  StringProxyTest.cpp
-  ArrayWriterTest.cpp
+  StringWriterTest.cpp
   MapViewTest.cpp
   RowViewTest.cpp
   TryExprTest.cpp

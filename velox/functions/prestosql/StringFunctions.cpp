@@ -43,7 +43,7 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
         const DecodedVector* decodedInput,
         FlatVector<StringView>* results) {
       rows.applyToSelected([&](int row) {
-        auto proxy = exec::StringProxy<FlatVector<StringView>>(results, row);
+        auto proxy = exec::StringWriter<>(results, row);
         if constexpr (isLower) {
           stringImpl::lower<isAscii>(
               proxy, decodedInput->valueAt<StringView>(row));
@@ -61,12 +61,11 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
       DecodedVector* decodedInput,
       FlatVector<StringView>* results) const {
     rows.applyToSelected([&](int row) {
-      auto proxy =
-          exec::StringProxy<FlatVector<StringView>, true /*reuseInput*/>(
-              results,
-              row,
-              decodedInput->valueAt<StringView>(row) /*reusedInput*/,
-              true /*inPlace*/);
+      auto proxy = exec::StringWriter<true /*reuseInput*/>(
+          results,
+          row,
+          decodedInput->valueAt<StringView>(row) /*reusedInput*/,
+          true /*inPlace*/);
       if constexpr (isLower) {
         stringImpl::lowerAsciiInPlace(proxy);
       } else {
@@ -168,8 +167,7 @@ class ConcatFunction : public exec::VectorFunction {
       for (int i = 0; i < args.size(); i++) {
         concatInputs[i] = decodedArgs.at(i)->valueAt<StringView>(row);
       }
-      auto proxy =
-          exec::StringProxy<FlatVector<StringView>>(resultFlatVector, row);
+      auto proxy = exec::StringWriter<>(resultFlatVector, row);
       stringImpl::concatDynamic(proxy, concatInputs);
       proxy.finalize();
     });
@@ -336,7 +334,7 @@ class Replace : public exec::VectorFunction {
       const SelectivityVector& rows,
       FlatVector<StringView>* results) const {
     rows.applyToSelected([&](int row) {
-      auto proxy = exec::StringProxy<FlatVector<StringView>>(results, row);
+      auto proxy = exec::StringWriter<>(results, row);
       stringImpl::replace(
           proxy, stringReader(row), searchReader(row), replaceReader(row));
       proxy.finalize();
@@ -354,12 +352,8 @@ class Replace : public exec::VectorFunction {
       const SelectivityVector& rows,
       FlatVector<StringView>* results) const {
     rows.applyToSelected([&](int row) {
-      auto proxy =
-          exec::StringProxy<FlatVector<StringView>, true /*reuseInput*/>(
-              results,
-              row,
-              stringReader(row) /*reusedInput*/,
-              true /*inPlace*/);
+      auto proxy = exec::StringWriter<true /*reuseInput*/>(
+          results, row, stringReader(row) /*reusedInput*/, true /*inPlace*/);
       stringImpl::replaceInPlace(proxy, searchReader(row), replaceReader(row));
       proxy.finalize();
     });
