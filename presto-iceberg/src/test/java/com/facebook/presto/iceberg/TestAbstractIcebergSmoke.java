@@ -23,40 +23,38 @@ import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
-public class TestIcebergSmoke
+public class TestAbstractIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
 {
+    private final CatalogType catalogType;
+
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
+
+    protected TestAbstractIcebergSmoke(CatalogType catalogType)
+    {
+        this.catalogType = requireNonNull(catalogType, "catalogType is null");
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of());
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType);
     }
 
     @Test
@@ -434,51 +432,6 @@ public class TestIcebergSmoke
     }
 
     @Test
-    public void testConcurrentInsert()
-    {
-        final Session session = getSession();
-        assertUpdate(session, "CREATE TABLE test_concurrent_insert (col0 INTEGER, col1 VARCHAR) WITH (format = 'ORC')");
-
-        int concurrency = 5;
-        final String[] strings = {"one", "two", "three", "four", "five"};
-        final CountDownLatch countDownLatch = new CountDownLatch(concurrency);
-        AtomicInteger value = new AtomicInteger(0);
-        Set<Throwable> errors = new CopyOnWriteArraySet<>();
-        List<Thread> threads = Stream.generate(() -> new Thread(() -> {
-            int i = value.getAndIncrement();
-            try {
-                getQueryRunner().execute(session, format("INSERT INTO test_concurrent_insert VALUES(%s, '%s')", i + 1, strings[i]));
-            }
-            catch (Throwable throwable) {
-                errors.add(throwable);
-            }
-            finally {
-                countDownLatch.countDown();
-            }
-        })).limit(concurrency).collect(Collectors.toList());
-
-        threads.forEach(Thread::start);
-
-        try {
-            final int seconds = 10;
-            if (!countDownLatch.await(seconds, TimeUnit.SECONDS)) {
-                fail(format("Failed to insert in %s seconds", seconds));
-            }
-            if (!errors.isEmpty()) {
-                fail(format("Failed to insert concurrently: %s", errors.stream().map(Throwable::getMessage).collect(Collectors.joining(" & "))));
-            }
-            assertQuery(session, "SELECT count(*) FROM test_concurrent_insert", "SELECT " + concurrency);
-            assertQuery(session, "SELECT * FROM test_concurrent_insert", "VALUES(1, 'one'), (2, 'two'), (3, 'three'), (4, 'four'), (5, 'five')");
-        }
-        catch (InterruptedException e) {
-            fail("Interrupted when await insertion", e);
-        }
-        finally {
-            dropTable(session, "test_concurrent_insert");
-        }
-    }
-
-    @Test
     public void testSchemaEvolution()
     {
         // TODO: Support schema evolution for PARQUET. Schema evolution should be id based.
@@ -660,7 +613,7 @@ public class TestIcebergSmoke
         test.accept(getSession(), FileFormat.ORC);
     }
 
-    private void dropTable(Session session, String table)
+    protected void dropTable(Session session, String table)
     {
         assertUpdate(session, "DROP TABLE " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
