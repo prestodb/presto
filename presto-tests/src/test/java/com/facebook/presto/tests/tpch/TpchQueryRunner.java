@@ -24,6 +24,13 @@ public final class TpchQueryRunner
 {
     private TpchQueryRunner() {}
 
+    public static DistributedQueryRunner createQueryRunner()
+            throws Exception
+    {
+        return TpchQueryRunnerBuilder.builder()
+                .build();
+    }
+
     public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
