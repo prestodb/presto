@@ -15,7 +15,6 @@
  */
 
 #pragma once
-
 #include "velox/common/base/RawVector.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/process/ProcessBase.h"
@@ -23,10 +22,6 @@
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/type/Filter.h"
-
-extern bool enableDense;
-
-extern bool enableDense;
 
 namespace facebook::velox::dwrf {
 
