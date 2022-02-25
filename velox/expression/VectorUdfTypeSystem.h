@@ -25,8 +25,8 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
-#include "velox/expression/ComplexProxyTypes.h"
 #include "velox/expression/ComplexViewTypes.h"
+#include "velox/expression/ComplexWriterTypes.h"
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VariadicView.h"
 #include "velox/functions/UDFOutputString.h"
@@ -80,8 +80,8 @@ struct resolver<Array<V>> {
 };
 
 template <typename V>
-struct resolver<ArrayProxyT<V>> {
-  using out_type = ArrayProxy<V>;
+struct resolver<ArrayWriterT<V>> {
+  using out_type = ArrayWriter<V>;
 };
 
 template <>
@@ -588,10 +588,10 @@ struct VectorWriter<Array<V>> {
 // A new temporary VectorWriter for the new array writer interface.
 // Will eventually replace VectorWriter<Array>>.
 template <typename V>
-struct VectorWriter<ArrayProxyT<V>> {
+struct VectorWriter<ArrayWriterT<V>> {
   using vector_t = typename TypeToFlatVector<Array<V>>::type;
   using child_vector_t = typename TypeToFlatVector<V>::type;
-  using exec_out_t = ArrayProxy<V>;
+  using exec_out_t = ArrayWriter<V>;
 
   void init(vector_t& vector) {
     arrayVector_ = &vector;

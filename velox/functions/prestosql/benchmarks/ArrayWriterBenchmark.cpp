@@ -83,8 +83,8 @@ class VectorFunctionImpl : public exec::VectorFunction {
 };
 
 template <typename T>
-struct SimpleFunctionArrayProxyResize {
-  bool call(exec::ArrayProxy<int64_t>& out, const int64_t& n) {
+struct SimpleFunctionResize {
+  bool call(exec::ArrayWriter<int64_t>& out, const int64_t& n) {
     out.resize(n);
     for (int i = 0; i < n; i++) {
       if (WITH_NULLS && i % 5) {
@@ -98,8 +98,8 @@ struct SimpleFunctionArrayProxyResize {
 };
 
 template <typename T>
-struct SimpleFunctionArrayProxyPushBack {
-  bool call(exec::ArrayProxy<int64_t>& out, const int64_t& n) {
+struct SimpleFunctionPushBack {
+  bool call(exec::ArrayWriter<int64_t>& out, const int64_t& n) {
     for (int i = 0; i < n; i++) {
       if (WITH_NULLS && i % 5) {
         out.push_back(std::nullopt);
@@ -112,8 +112,8 @@ struct SimpleFunctionArrayProxyPushBack {
 };
 
 template <typename T>
-struct SimpleFunctionGeneralInterface {
-  bool call(exec::ArrayProxy<int64_t>& out, const int64_t& n) {
+struct SimpleGeneralInterface {
+  bool call(exec::ArrayWriter<int64_t>& out, const int64_t& n) {
     for (int i = 0; i < n; i++) {
       if (WITH_NULLS && i % 5) {
         out.add_null();
@@ -127,7 +127,7 @@ struct SimpleFunctionGeneralInterface {
 };
 
 template <typename T>
-struct SimpleFunctionArrayWriter {
+struct SimpleOld {
   template <typename TOut>
   bool call(TOut& out, const int64_t& n) {
     for (int i = 0; i < n; i++) {
@@ -141,23 +141,16 @@ struct SimpleFunctionArrayWriter {
   }
 };
 
-class ArrayProxyBenchmark : public functions::test::FunctionBenchmarkBase {
+class ArrayWriterBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
-  ArrayProxyBenchmark() : FunctionBenchmarkBase() {
-    registerFunction<
-        SimpleFunctionArrayProxyResize,
-        ArrayProxyT<int64_t>,
-        int64_t>({"simple_proxy_resize"});
-    registerFunction<
-        SimpleFunctionArrayProxyPushBack,
-        ArrayProxyT<int64_t>,
-        int64_t>({"simple_proxy_push_back"});
-    registerFunction<
-        SimpleFunctionGeneralInterface,
-        ArrayProxyT<int64_t>,
-        int64_t>({"simple_general"});
-    registerFunction<SimpleFunctionArrayWriter, Array<int64_t>, int64_t>(
-        {"simple_old"});
+  ArrayWriterBenchmark() : FunctionBenchmarkBase() {
+    registerFunction<SimpleFunctionResize, ArrayWriterT<int64_t>, int64_t>(
+        {"simpl_resize"});
+    registerFunction<SimpleFunctionPushBack, ArrayWriterT<int64_t>, int64_t>(
+        {"simple_push_back"});
+    registerFunction<SimpleGeneralInterface, ArrayWriterT<int64_t>, int64_t>(
+        {"simple_general"});
+    registerFunction<SimpleOld, Array<int64_t>, int64_t>({"simple_old"});
 
     facebook::velox::exec::registerVectorFunction(
         "vector_resize_optimized",
@@ -229,8 +222,8 @@ class ArrayProxyBenchmark : public functions::test::FunctionBenchmarkBase {
     auto exprSetRef = compileExpression("vector_basic(c0)", input->type());
     std::vector<std::string> functions = {
         "vector_resize_optimized",
-        "simple_proxy_push_back",
-        "simple_proxy_resize",
+        "simple_push_back",
+        "simple_resize",
         "simple_old",
         "simple_general",
     };
@@ -266,45 +259,45 @@ class ArrayProxyBenchmark : public functions::test::FunctionBenchmarkBase {
   }
 };
 
-BENCHMARK_MULTI(VectorBasic) {
-  ArrayProxyBenchmark benchmark;
+BENCHMARK_MULTI(vector_basic) {
+  ArrayWriterBenchmark benchmark;
   return benchmark.run("vector_basic");
 }
 
-BENCHMARK_MULTI(VectorResizeOptimized) {
-  ArrayProxyBenchmark benchmark;
+BENCHMARK_MULTI(vector_resize_optimized) {
+  ArrayWriterBenchmark benchmark;
   return benchmark.run("vector_resize_optimized");
 }
 
-BENCHMARK_MULTI(SimpleProxyWithResize) {
-  ArrayProxyBenchmark benchmark;
-  return benchmark.run("simple_proxy_resize");
+BENCHMARK_MULTI(simple_resize) {
+  ArrayWriterBenchmark benchmark;
+  return benchmark.run("simple_resize");
 }
 
-BENCHMARK_MULTI(SimpleProxyPushBack) {
-  ArrayProxyBenchmark benchmark;
-  return benchmark.run("simple_proxy_push_back");
+BENCHMARK_MULTI(simple_push_back) {
+  ArrayWriterBenchmark benchmark;
+  return benchmark.run("simple_push_back");
 }
 
-BENCHMARK_MULTI(SimpleGeneral) {
-  ArrayProxyBenchmark benchmark;
+BENCHMARK_MULTI(simple_general) {
+  ArrayWriterBenchmark benchmark;
   return benchmark.run("simple_general");
 }
 
-BENCHMARK_MULTI(SimpleOld) {
-  ArrayProxyBenchmark benchmark;
+BENCHMARK_MULTI(simple_old) {
+  ArrayWriterBenchmark benchmark;
   return benchmark.run("simple_old");
 }
 
-BENCHMARK_MULTI(StdBasedImplementation) {
-  ArrayProxyBenchmark benchmark;
+BENCHMARK_MULTI(std_reference) {
+  ArrayWriterBenchmark benchmark;
   return benchmark.runStdRef();
 }
 } // namespace
 } // namespace facebook::velox::exec
 
 int main(int /*argc*/, char** /*argv*/) {
-  facebook::velox::exec::ArrayProxyBenchmark benchmark;
+  facebook::velox::exec::ArrayWriterBenchmark benchmark;
   benchmark.test();
   folly::runBenchmarks();
   return 0;

@@ -369,7 +369,7 @@ struct MakeComplexMapFunction {
 
 // Test a function that writes out map<array, map<>>.
 TEST_F(MapWriterTest, nestedMap) {
-  using out_t = MapWriterT<ArrayProxyT<int64_t>, MapWriterT<int64_t, int64_t>>;
+  using out_t = MapWriterT<ArrayWriterT<int64_t>, MapWriterT<int64_t, int64_t>>;
   registerFunction<MakeComplexMapFunction, out_t, int64_t>({"complex_map"});
 
   auto result = evaluate(
@@ -442,8 +442,9 @@ TEST_F(MapWriterTest, copyFrom) {
 
 // Test copy_from e2e on Map<int64_t, Array<int64_t>>
 TEST_F(MapWriterTest, copyFromE2E) {
-  registerFunction<CopyFromTestFunc, MapWriterT<int64_t, ArrayProxyT<int64_t>>>(
-      {"f_copy_from_e2e"});
+  registerFunction<
+      CopyFromTestFunc,
+      MapWriterT<int64_t, ArrayWriterT<int64_t>>>({"f_copy_from_e2e"});
 
   auto result = evaluate(
       "f_copy_from_e2e()", makeRowVector({makeFlatVector<int64_t>(1)}));

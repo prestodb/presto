@@ -57,7 +57,7 @@ struct Func {
   }
 };
 
-class ArrayProxyTest : public functions::test::FunctionBaseTest {
+class ArrayWriterTest : public functions::test::FunctionBaseTest {
  public:
   VectorPtr prepareResult(const TypePtr& arrayType, vector_size_t size = 1) {
     VectorPtr result;
@@ -68,7 +68,7 @@ class ArrayProxyTest : public functions::test::FunctionBaseTest {
 
   template <typename T>
   void testE2E(const std::string& testFunctionName) {
-    registerFunction<Func, ArrayProxyT<T>, int64_t>({testFunctionName});
+    registerFunction<Func, ArrayWriterT<T>, int64_t>({testFunctionName});
 
     auto result = evaluate(
         fmt::format("{}(c0)", testFunctionName),
@@ -104,8 +104,8 @@ class ArrayProxyTest : public functions::test::FunctionBaseTest {
 
   struct TestWriter {
     VectorPtr result;
-    std::unique_ptr<exec::VectorWriter<ArrayProxyT<int64_t>>> writer =
-        std::make_unique<exec::VectorWriter<ArrayProxyT<int64_t>>>();
+    std::unique_ptr<exec::VectorWriter<ArrayWriterT<int64_t>>> writer =
+        std::make_unique<exec::VectorWriter<ArrayWriterT<int64_t>>>();
   };
 
   TestWriter makeTestWriter() {
@@ -119,98 +119,101 @@ class ArrayProxyTest : public functions::test::FunctionBaseTest {
   }
 };
 
-TEST_F(ArrayProxyTest, addNull) {
-  auto [result, writer] = makeTestWriter();
+TEST_F(ArrayWriterTest, addNull) {
+  auto [result, vectorWriter] = makeTestWriter();
 
-  auto& proxy = writer->current();
-  proxy.add_null();
-  proxy.add_null();
-  proxy.add_null();
-  writer->commit();
+  auto& arrayWriter = vectorWriter->current();
+  arrayWriter.add_null();
+  arrayWriter.add_null();
+  arrayWriter.add_null();
 
-  auto expected = std::vector<std::vector<std::optional<int64_t>>>{
-      {std::nullopt, std::nullopt, std::nullopt}};
-  assertEqualVectors(result, makeNullableArrayVector(expected));
-}
-
-TEST_F(ArrayProxyTest, pushBackNull) {
-  auto [result, writer] = makeTestWriter();
-
-  auto& proxy = writer->current();
-  proxy.push_back(std::nullopt);
-  proxy.push_back(std::optional<int64_t>{std::nullopt});
-  proxy.push_back(std::nullopt);
-  writer->commit();
+  vectorWriter->commit();
 
   auto expected = std::vector<std::vector<std::optional<int64_t>>>{
       {std::nullopt, std::nullopt, std::nullopt}};
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, emptyArray) {
-  auto [result, writer] = makeTestWriter();
+TEST_F(ArrayWriterTest, pushBackNull) {
+  auto [result, vectorWriter] = makeTestWriter();
 
-  writer->commit();
+  auto& arrayWriter = vectorWriter->current();
+  arrayWriter.push_back(std::nullopt);
+  arrayWriter.push_back(std::optional<int64_t>{std::nullopt});
+  arrayWriter.push_back(std::nullopt);
+  vectorWriter->commit();
+
+  auto expected = std::vector<std::vector<std::optional<int64_t>>>{
+      {std::nullopt, std::nullopt, std::nullopt}};
+  assertEqualVectors(result, makeNullableArrayVector(expected));
+}
+
+TEST_F(ArrayWriterTest, emptyArray) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  vectorWriter->commit();
 
   auto expected = std::vector<std::vector<std::optional<int64_t>>>{{}};
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, pushBack) {
-  auto [result, writer] = makeTestWriter();
+TEST_F(ArrayWriterTest, pushBack) {
+  auto [result, vectorWriter] = makeTestWriter();
 
-  auto& proxy = writer->current();
-  proxy.push_back(1);
-  proxy.push_back(2);
-  proxy.push_back(std::optional<int64_t>{3});
-  writer->commit();
+  auto& arrayWriter = vectorWriter->current();
 
-  auto expected = std::vector<std::vector<std::optional<int64_t>>>{{1, 2, 3}};
-  assertEqualVectors(result, makeNullableArrayVector(expected));
-}
+  arrayWriter.push_back(1);
+  arrayWriter.push_back(2);
+  arrayWriter.push_back(std::optional<int64_t>{3});
 
-TEST_F(ArrayProxyTest, addItem) {
-  auto [result, writer] = makeTestWriter();
-
-  auto& arrayProxy = writer->current();
-  {
-    auto& intProxy = arrayProxy.add_item();
-    intProxy = 1;
-  }
-
-  {
-    auto& intProxy = arrayProxy.add_item();
-    intProxy = 2;
-  }
-
-  {
-    auto& intProxy = arrayProxy.add_item();
-    intProxy = 3;
-  }
-
-  writer->commit();
+  vectorWriter->commit();
 
   auto expected = std::vector<std::vector<std::optional<int64_t>>>{{1, 2, 3}};
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, subscript) {
-  auto [result, writer] = makeTestWriter();
+TEST_F(ArrayWriterTest, addItem) {
+  auto [result, vectorWriter] = makeTestWriter();
 
-  auto& arrayProxy = writer->current();
-  arrayProxy.resize(3);
-  arrayProxy[0] = std::nullopt;
-  arrayProxy[1] = 2;
-  arrayProxy[2] = 3;
+  auto& arrayWriter = vectorWriter->current();
+  {
+    auto& intWriter = arrayWriter.add_item();
+    intWriter = 1;
+  }
 
-  writer->commit();
+  {
+    auto& intWriter = arrayWriter.add_item();
+    intWriter = 2;
+  }
+
+  {
+    auto& intWriter = arrayWriter.add_item();
+    intWriter = 3;
+  }
+
+  vectorWriter->commit();
+
+  auto expected = std::vector<std::vector<std::optional<int64_t>>>{{1, 2, 3}};
+  assertEqualVectors(result, makeNullableArrayVector(expected));
+}
+
+TEST_F(ArrayWriterTest, subscript) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& arrayWriter = vectorWriter->current();
+  arrayWriter.resize(3);
+  arrayWriter[0] = std::nullopt;
+  arrayWriter[1] = 2;
+  arrayWriter[2] = 3;
+
+  vectorWriter->commit();
 
   auto expected =
       std::vector<std::vector<std::optional<int64_t>>>{{std::nullopt, 2, 3}};
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, multipleRows) {
+TEST_F(ArrayWriterTest, multipleRows) {
   auto expected = std::vector<std::vector<std::optional<int64_t>>>{
       {1, 2, 3},
       {},
@@ -221,24 +224,24 @@ TEST_F(ArrayProxyTest, multipleRows) {
   auto result = prepareResult(
       std::make_shared<ArrayType>(ArrayType(BIGINT())), expected.size());
 
-  exec::VectorWriter<ArrayProxyT<int64_t>> writer;
-  writer.init(*result->as<ArrayVector>());
+  exec::VectorWriter<ArrayWriterT<int64_t>> vectorWriter;
+  vectorWriter.init(*result->as<ArrayVector>());
 
   for (auto i = 0; i < expected.size(); i++) {
-    writer.setOffset(i);
-    auto& proxy = writer.current();
+    vectorWriter.setOffset(i);
+    auto& proxy = vectorWriter.current();
     // The simple function interface will receive a proxy.
     for (auto j = 0; j < expected[i].size(); j++) {
       proxy.push_back(expected[i][j]);
     }
     // This commit is called by the vector function adapter.
-    writer.commit(true);
+    vectorWriter.commit(true);
   }
 
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, e2ePrimitives) {
+TEST_F(ArrayWriterTest, e2ePrimitives) {
   testE2E<int8_t>("f_int6");
   testE2E<int16_t>("f_int16");
   testE2E<int32_t>("f_int32");
@@ -248,27 +251,27 @@ TEST_F(ArrayProxyTest, e2ePrimitives) {
   testE2E<bool>("f_bool");
 }
 
-TEST_F(ArrayProxyTest, testTimeStamp) {
+TEST_F(ArrayWriterTest, testTimeStamp) {
   auto result =
       prepareResult(std::make_shared<ArrayType>(ArrayType(TIMESTAMP())));
 
-  exec::VectorWriter<ArrayProxyT<Timestamp>> writer;
-  writer.init(*result->as<ArrayVector>());
-  writer.setOffset(0);
-  auto& arrayProxy = writer.current();
+  exec::VectorWriter<ArrayWriterT<Timestamp>> vectorWriter;
+  vectorWriter.init(*result->as<ArrayVector>());
+  vectorWriter.setOffset(0);
+  auto& arrayWriter = vectorWriter.current();
   // General interface.
-  auto& timeStamp = arrayProxy.add_item();
+  auto& timeStamp = arrayWriter.add_item();
   timeStamp = Timestamp::fromMillis(1);
-  arrayProxy.add_null();
+  arrayWriter.add_null();
 
   // STD like interface.
-  arrayProxy.push_back(Timestamp::fromMillis(2));
-  arrayProxy.push_back(std::nullopt);
-  arrayProxy.resize(6);
-  arrayProxy[4] = std::nullopt;
-  arrayProxy[5] = Timestamp::fromMillis(3);
+  arrayWriter.push_back(Timestamp::fromMillis(2));
+  arrayWriter.push_back(std::nullopt);
+  arrayWriter.resize(6);
+  arrayWriter[4] = std::nullopt;
+  arrayWriter[5] = Timestamp::fromMillis(3);
 
-  writer.commit();
+  vectorWriter.commit();
 
   auto expected = std::vector<std::vector<std::optional<Timestamp>>>{
       {Timestamp::fromMillis(1),
@@ -280,36 +283,36 @@ TEST_F(ArrayProxyTest, testTimeStamp) {
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, testVarChar) {
+TEST_F(ArrayWriterTest, testVarChar) {
   auto result =
       prepareResult(std::make_shared<ArrayType>(ArrayType(VARCHAR())));
 
-  exec::VectorWriter<ArrayProxyT<Varchar>> writer;
-  writer.init(*result->as<ArrayVector>());
-  writer.setOffset(0);
-  auto& arrayProxy = writer.current();
+  exec::VectorWriter<ArrayWriterT<Varchar>> vectorWriter;
+  vectorWriter.init(*result->as<ArrayVector>());
+  vectorWriter.setOffset(0);
+  auto& arrayWriter = vectorWriter.current();
   // General interface is allowed only for arrays of strings.
   {
-    auto& string = arrayProxy.add_item();
-    string.resize(2);
-    string.data()[0] = 'h';
-    string.data()[1] = 'i';
+    auto& stringWriter = arrayWriter.add_item();
+    stringWriter.resize(2);
+    stringWriter.data()[0] = 'h';
+    stringWriter.data()[1] = 'i';
   }
 
-  arrayProxy.add_null();
+  arrayWriter.add_null();
 
   {
-    auto& string = arrayProxy.add_item();
-    UDFOutputString::assign(string, "welcome");
+    auto& stringWriter = arrayWriter.add_item();
+    UDFOutputString::assign(stringWriter, "welcome");
   }
 
   {
-    auto& string = arrayProxy.add_item();
+    auto& stringWriter = arrayWriter.add_item();
     UDFOutputString::assign(
-        string,
+        stringWriter,
         "test a long string, a bit longer than that, longer, and longer");
   }
-  writer.commit();
+  vectorWriter.commit();
   auto expected = std::vector<std::vector<std::optional<StringView>>>{
       {"hi"_sv,
        std::nullopt,
@@ -318,36 +321,36 @@ TEST_F(ArrayProxyTest, testVarChar) {
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, testVarBinary) {
+TEST_F(ArrayWriterTest, testVarBinary) {
   auto result =
       prepareResult(std::make_shared<ArrayType>(ArrayType(VARBINARY())));
 
-  exec::VectorWriter<ArrayProxyT<Varbinary>> writer;
-  writer.init(*result->as<ArrayVector>());
-  writer.setOffset(0);
-  auto& arrayProxy = writer.current();
+  exec::VectorWriter<ArrayWriterT<Varbinary>> vectorWriter;
+  vectorWriter.init(*result->as<ArrayVector>());
+  vectorWriter.setOffset(0);
+  auto& arrayWriter = vectorWriter.current();
   // General interface is allowed only for arrays of strings.
   {
-    auto& string = arrayProxy.add_item();
-    string.resize(2);
-    string.data()[0] = 'h';
-    string.data()[1] = 'i';
+    auto& stringWriter = arrayWriter.add_item();
+    stringWriter.resize(2);
+    stringWriter.data()[0] = 'h';
+    stringWriter.data()[1] = 'i';
   }
 
-  arrayProxy.add_null();
+  arrayWriter.add_null();
 
   {
-    auto& string = arrayProxy.add_item();
-    UDFOutputString::assign(string, "welcome");
+    auto& stringWriter = arrayWriter.add_item();
+    UDFOutputString::assign(stringWriter, "welcome");
   }
 
   {
-    auto& string = arrayProxy.add_item();
+    auto& stringWriter = arrayWriter.add_item();
     UDFOutputString::assign(
-        string,
+        stringWriter,
         "test a long string, a bit longer than that, longer, and longer");
   }
-  writer.commit();
+  vectorWriter.commit();
   auto expected = std::vector<std::vector<std::optional<StringView>>>{
       {"hi"_sv,
        std::nullopt,
@@ -365,34 +368,34 @@ TEST_F(ArrayProxyTest, testVarBinary) {
   }
 }
 
-TEST_F(ArrayProxyTest, nestedArray) {
+TEST_F(ArrayWriterTest, nestedArray) {
   auto elementType =
       ArrayType(std::make_shared<ArrayType>(ArrayType(INTEGER())));
   auto result = prepareResult(std::make_shared<ArrayType>(elementType));
 
-  exec::VectorWriter<ArrayProxyT<ArrayProxyT<int32_t>>> writer;
-  writer.init(*result.get()->as<ArrayVector>());
-  writer.setOffset(0);
-  auto& arrayProxy = writer.current();
+  exec::VectorWriter<ArrayWriterT<ArrayWriterT<int32_t>>> vectorWriter;
+  vectorWriter.init(*result.get()->as<ArrayVector>());
+  vectorWriter.setOffset(0);
+  auto& arrayWriter = vectorWriter.current();
   // Only general interface is allowed for nested arrays.
   {
-    auto& array = arrayProxy.add_item();
-    array.resize(2);
-    array[0] = 1;
-    array[1] = 2;
+    auto& innerArrayWriter = arrayWriter.add_item();
+    innerArrayWriter.resize(2);
+    innerArrayWriter[0] = 1;
+    innerArrayWriter[1] = 2;
   }
 
-  arrayProxy.add_null();
+  arrayWriter.add_null();
 
   {
-    auto& array = arrayProxy.add_item();
-    array.resize(3);
-    array[0] = 1;
-    array[1] = std::nullopt;
-    array[2] = 2;
+    auto& innerArrayWriter = arrayWriter.add_item();
+    innerArrayWriter.resize(3);
+    innerArrayWriter[0] = 1;
+    innerArrayWriter[1] = std::nullopt;
+    innerArrayWriter[2] = 2;
   }
 
-  writer.commit();
+  vectorWriter.commit();
   using array_type = std::optional<std::vector<std::optional<int32_t>>>;
   array_type array1 = {{1, 2}};
   array_type array2 = std::nullopt;
@@ -426,9 +429,11 @@ struct MakeMatrixFunc {
   }
 };
 
-TEST_F(ArrayProxyTest, nestedArrayE2E) {
-  registerFunction<MakeMatrixFunc, ArrayProxyT<ArrayProxyT<int64_t>>, int64_t>(
-      {"func"});
+TEST_F(ArrayWriterTest, nestedArrayE2E) {
+  registerFunction<
+      MakeMatrixFunc,
+      ArrayWriterT<ArrayWriterT<int64_t>>,
+      int64_t>({"func"});
 
   auto result = evaluate(
       "func(c0)",
@@ -465,66 +470,66 @@ TEST_F(ArrayProxyTest, nestedArrayE2E) {
   assertEqualVectors(result, makeNestedArrayVector<int64_t>(expected));
 }
 
-TEST_F(ArrayProxyTest, copyFromEmptyArray) {
-  auto [result, writer] = makeTestWriter();
+TEST_F(ArrayWriterTest, copyFromEmptyArray) {
+  auto [result, vectorWriter] = makeTestWriter();
 
-  auto& proxy = writer->current();
+  auto& arrayWriter = vectorWriter->current();
   std::vector<int64_t> data = {};
+  arrayWriter.copy_from(data);
 
-  proxy.copy_from(data);
-  writer->commit();
-  writer->finish();
+  vectorWriter->commit();
+  vectorWriter->finish();
 
   assertEqualVectors(result, makeNullableArrayVector<int64_t>({{}}));
 }
 
-TEST_F(ArrayProxyTest, copyFromIntArray) {
-  auto [result, writer] = makeTestWriter();
+TEST_F(ArrayWriterTest, copyFromIntArray) {
+  auto [result, vectorWriter] = makeTestWriter();
 
-  auto& proxy = writer->current();
+  auto& arrayWriter = vectorWriter->current();
   std::vector<int64_t> data = {1, 2, 3, 4};
+  arrayWriter.copy_from(data);
 
-  proxy.copy_from(data);
-  writer->commit();
-  writer->finish();
+  vectorWriter->commit();
+  vectorWriter->finish();
 
   assertEqualVectors(result, makeNullableArrayVector<int64_t>({{1, 2, 3, 4}}));
 }
 
-TEST_F(ArrayProxyTest, copyFromStringArray) {
+TEST_F(ArrayWriterTest, copyFromStringArray) {
   auto result =
       prepareResult(std::make_shared<ArrayType>(ArrayType(VARCHAR())));
 
-  exec::VectorWriter<ArrayProxyT<Varchar>> writer;
-  writer.init(*result->as<ArrayVector>());
-  writer.setOffset(0);
+  exec::VectorWriter<ArrayWriterT<Varchar>> vectorWriter;
+  vectorWriter.init(*result->as<ArrayVector>());
+  vectorWriter.setOffset(0);
 
-  auto& arrayProxy = writer.current();
+  auto& arrayWriter = vectorWriter.current();
   std::vector<std::string> data = {"hi", "welcome"};
-  arrayProxy.copy_from(data);
+  arrayWriter.copy_from(data);
 
-  writer.commit();
-  writer.finish();
+  vectorWriter.commit();
+  vectorWriter.finish();
   auto expected = std::vector<std::vector<std::optional<StringView>>>{
       {"hi"_sv, "welcome"_sv}};
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
-TEST_F(ArrayProxyTest, copyFromNestedArray) {
+TEST_F(ArrayWriterTest, copyFromNestedArray) {
   auto elementType =
       ArrayType(std::make_shared<ArrayType>(ArrayType(BIGINT())));
   auto result = prepareResult(std::make_shared<ArrayType>(elementType));
 
-  exec::VectorWriter<ArrayProxyT<ArrayProxyT<int64_t>>> writer;
-  writer.init(*result.get()->as<ArrayVector>());
-  writer.setOffset(0);
+  exec::VectorWriter<ArrayWriterT<ArrayWriterT<int64_t>>> vectorWriter;
+  vectorWriter.init(*result.get()->as<ArrayVector>());
+  vectorWriter.setOffset(0);
 
   std::vector<std::vector<int64_t>> data = {{}, {1, 2, 3, 4}, {1}};
-  auto& arrayProxy = writer.current();
-  arrayProxy.copy_from(data);
+  auto& arrayWriter = vectorWriter.current();
+  arrayWriter.copy_from(data);
 
-  writer.commit();
-  writer.finish();
+  vectorWriter.commit();
+  vectorWriter.finish();
 
   using array_type = std::optional<std::vector<std::optional<int64_t>>>;
   array_type array1 = {{}};
@@ -558,8 +563,8 @@ struct CopyFromFunc {
   }
 };
 
-TEST_F(ArrayProxyTest, copyFromE2EMapArray) {
-  registerFunction<CopyFromFunc, ArrayProxyT<MapWriterT<int64_t, int64_t>>>(
+TEST_F(ArrayWriterTest, copyFromE2EMapArray) {
+  registerFunction<CopyFromFunc, ArrayWriterT<MapWriterT<int64_t, int64_t>>>(
       {"func"});
 
   auto result = evaluate("func()", makeRowVector({makeFlatVector<int64_t>(1)}));

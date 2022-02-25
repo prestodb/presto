@@ -81,30 +81,30 @@ add_executable(velox_functions_benchmarks_compare CompareBenchmark.cpp)
 target_link_libraries(velox_functions_benchmarks_compare
                       ${BENCHMARK_DEPENDENCIES})
 
-add_executable(velox_benchmark_array_proxy_with_nulls ArrayProxyBenchmark.cpp)
-target_compile_definitions(velox_benchmark_array_proxy_with_nulls
+add_executable(velox_benchmark_array_writer_with_nulls ArrayWriterBenchmark.cpp)
+target_compile_definitions(velox_benchmark_array_writer_with_nulls
                            PUBLIC WITH_NULLS=true)
-target_link_libraries(velox_benchmark_array_proxy_with_nulls
+target_link_libraries(velox_benchmark_array_writer_with_nulls
                       ${BENCHMARK_DEPENDENCIES_NO_FUNC})
 
-add_executable(velox_benchmark_array_proxy_no_nulls ArrayProxyBenchmark.cpp)
-target_link_libraries(velox_benchmark_array_proxy_no_nulls
+add_executable(velox_benchmark_array_writer_no_nulls ArrayWriterBenchmark.cpp)
+target_link_libraries(velox_benchmark_array_writer_no_nulls
                       ${BENCHMARK_DEPENDENCIES_NO_FUNC})
-target_compile_definitions(velox_benchmark_array_proxy_no_nulls
+target_compile_definitions(velox_benchmark_array_writer_no_nulls
                            PUBLIC WITH_NULLS=false)
 
-add_executable(velox_benchmark_nested_array_proxy_no_nulls
-               NestedArrayProxyBenchmark.cpp)
-target_link_libraries(velox_benchmark_nested_array_proxy_no_nulls
+add_executable(velox_benchmark_nested_array_writer_no_nulls
+               NestedArrayWriterBenchmark.cpp)
+target_link_libraries(velox_benchmark_nested_array_writer_no_nulls
                       ${BENCHMARK_DEPENDENCIES_NO_FUNC})
-target_compile_definitions(velox_benchmark_nested_array_proxy_no_nulls
+target_compile_definitions(velox_benchmark_nested_array_writer_no_nulls
                            PUBLIC WITH_NULLS=false)
 
-add_executable(velox_benchmark_nested_array_proxy_with_nulls
-               NestedArrayProxyBenchmark.cpp)
-target_compile_definitions(velox_benchmark_nested_array_proxy_with_nulls
+add_executable(velox_benchmark_nested_array_writer_with_nulls
+               NestedArrayWriterBenchmark.cpp)
+target_compile_definitions(velox_benchmark_nested_array_writer_with_nulls
                            PUBLIC WITH_NULLS=true)
-target_link_libraries(velox_benchmark_nested_array_proxy_with_nulls
+target_link_libraries(velox_benchmark_nested_array_writer_with_nulls
                       ${BENCHMARK_DEPENDENCIES_NO_FUNC})
 
 add_executable(velox_benchmark_map_writer_with_nulls MapWriterBenchmarks.cpp)

@@ -19,7 +19,7 @@
 #include <memory>
 
 #include "velox/common/base/Portability.h"
-#include "velox/expression/ComplexProxyTypes.h"
+#include "velox/expression/ComplexWriterTypes.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
@@ -28,12 +28,12 @@
 namespace facebook::velox::exec {
 
 template <typename T>
-struct IsArrayProxy {
+struct IsArrayWriter {
   static constexpr bool value = false;
 };
 
 template <typename T>
-struct IsArrayProxy<ArrayProxy<T>> {
+struct IsArrayWriter<ArrayWriter<T>> {
   static constexpr bool value = true;
 };
 
@@ -406,7 +406,7 @@ class SimpleFunctionAdapter : public VectorFunction {
 
   template <typename Func>
   void applyUdf(ApplyContext& applyContext, Func func) const {
-    if constexpr (IsArrayProxy<T>::value || IsMapWriter<T>::value) {
+    if constexpr (IsArrayWriter<T>::value || IsMapWriter<T>::value) {
       // An optimization for arrayProxy and mapWriter that force the
       // localization of the writer.
       auto& currentWriter = applyContext.resultWriter.writer_;

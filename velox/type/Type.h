@@ -1329,12 +1329,12 @@ struct Array {
   Array() {}
 };
 
-// This is a temporary type to be used when ArrayProxy is requested by the user
+// This is a temporary type to be used when ArrayWriter is requested by the user
 // to represent an Array output type in the simple function interface.
-// Eventually this will be removed and Array will be ArrayProxyT once all proxy
+// Eventually this will be removed and Array will be ArrayWriterT once all proxy
 // types are implemented.
 template <typename ELEMENT>
-struct ArrayProxyT {
+struct ArrayWriterT {
   using element_type = ELEMENT;
 
   static_assert(
@@ -1342,7 +1342,7 @@ struct ArrayProxyT {
       "Array elements cannot be Variadic");
 
  private:
-  ArrayProxyT() {}
+  ArrayWriterT() {}
 };
 
 // This is a temporary type to be used when the fast MapWriter is requested by
@@ -1499,7 +1499,7 @@ struct CppToType<Array<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
 };
 
 template <typename ELEMENT>
-struct CppToType<ArrayProxyT<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
+struct CppToType<ArrayWriterT<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
   static auto create() {
     return ARRAY(CppToType<ELEMENT>::create());
   }

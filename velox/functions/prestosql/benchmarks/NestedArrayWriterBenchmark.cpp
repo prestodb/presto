@@ -126,13 +126,13 @@ struct SimpleFunctionOldImpl {
   }
 };
 
-class NestedArrayProxyBenchmark
+class NestedArrayWriterBenchmark
     : public functions::test::FunctionBenchmarkBase {
  public:
-  NestedArrayProxyBenchmark() : FunctionBenchmarkBase() {
+  NestedArrayWriterBenchmark() : FunctionBenchmarkBase() {
     registerFunction<
         SimpleFunctionImpl,
-        ArrayProxyT<ArrayProxyT<int64_t>>,
+        ArrayWriterT<ArrayWriterT<int64_t>>,
         int64_t>({"array_proxy"});
 
     registerFunction<SimpleFunctionOldImpl, Array<Array<int64_t>>, int64_t>(
@@ -213,18 +213,18 @@ class NestedArrayProxyBenchmark
   }
 };
 
-BENCHMARK_MULTI(VectorBasic) {
-  NestedArrayProxyBenchmark benchmark;
+BENCHMARK_MULTI(vector) {
+  NestedArrayWriterBenchmark benchmark;
   return benchmark.run("vector");
 }
 
-BENCHMARK_MULTI(simpleArrayProxy) {
-  NestedArrayProxyBenchmark benchmark;
-  return benchmark.run("array_proxy");
+BENCHMARK_MULTI(simple) {
+  NestedArrayWriterBenchmark benchmark;
+  return benchmark.run("simple");
 }
 
-BENCHMARK_MULTI(simpleArrayOld) {
-  NestedArrayProxyBenchmark benchmark;
+BENCHMARK_MULTI(simple_old) {
+  NestedArrayWriterBenchmark benchmark;
   return benchmark.run("simple_old");
 }
 
@@ -232,7 +232,7 @@ BENCHMARK_MULTI(simpleArrayOld) {
 } // namespace facebook::velox::exec
 
 int main(int /*argc*/, char** /*argv*/) {
-  facebook::velox::exec::NestedArrayProxyBenchmark benchmark;
+  facebook::velox::exec::NestedArrayWriterBenchmark benchmark;
   benchmark.test();
   folly::runBenchmarks();
 

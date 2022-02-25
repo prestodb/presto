@@ -34,13 +34,12 @@ template <typename T, typename B>
 struct VectorWriter;
 
 // Lightweight object that can be used as a proxy for array primitive elements.
-// It is returned by ArrayProxy::operator()[].
 template <typename T, bool allowNull = true>
-struct PrimitiveWriterProxy {
+struct PrimitiveWriter {
   using vector_t = typename TypeToFlatVector<T>::type;
   using element_t = typename CppToType<T>::NativeType;
 
-  PrimitiveWriterProxy(vector_t* flatVector, vector_size_t index)
+  PrimitiveWriter(vector_t* flatVector, vector_size_t index)
       : flatVector_(flatVector), index_(index) {}
 
   void operator=(std::nullopt_t) {
@@ -87,13 +86,13 @@ bool constexpr requires_commit =
 //
 // Special std::like interfaces when V is primitive:
 // - resize(n)         : Resize to n, nullity not written.
-// - operator[](index) : Returns PrimitiveWriterProxy which can be used to write
+// - operator[](index) : Returns PrimitiveWriter which can be used to write
 // value and nullity at index.
 // - push_back(std::optional<v> value) : Increase size by 1, adding a value or
 // null.
-// - back() : Return PrimitiveWriterProxy for the last element in the array.
+// - back() : Return PrimitiveWriter for the last element in the array.
 template <typename V>
-class ArrayProxy {
+class ArrayWriter {
   using child_writer_t = VectorWriter<V, void>;
   using element_t = typename child_writer_t::exec_out_t;
 
@@ -184,19 +183,16 @@ class ArrayProxy {
   }
 
   template <typename T = V>
-  typename std::enable_if<provide_std_interface<T>, PrimitiveWriterProxy<T>>::
-      type
-      operator[](vector_size_t index) {
+  typename std::enable_if<provide_std_interface<T>, PrimitiveWriter<T>>::type
+  operator[](vector_size_t index) {
     VELOX_DCHECK_LT(index, length_, "out of bound access");
-    return PrimitiveWriterProxy<V>{elementsVector_, valuesOffset_ + index};
+    return PrimitiveWriter<V>{elementsVector_, valuesOffset_ + index};
   }
 
   template <typename T = V>
-  typename std::enable_if<provide_std_interface<T>, PrimitiveWriterProxy<T>>::
-      type
-      back() {
-    return PrimitiveWriterProxy<V>{
-        elementsVector_, valuesOffset_ + length_ - 1};
+  typename std::enable_if<provide_std_interface<T>, PrimitiveWriter<T>>::type
+  back() {
+    return PrimitiveWriter<V>{elementsVector_, valuesOffset_ + length_ - 1};
   }
 
   // Any vector type with std like interface.
@@ -218,9 +214,9 @@ class ArrayProxy {
 
  private:
   // Make sure user do not use those.
-  ArrayProxy<V>() = default;
-  ArrayProxy<V>(const ArrayProxy<V>&) = default;
-  ArrayProxy<V>& operator=(const ArrayProxy<V>&) = default;
+  ArrayWriter<V>() = default;
+  ArrayWriter<V>(const ArrayWriter<V>&) = default;
+  ArrayWriter<V>& operator=(const ArrayWriter<V>&) = default;
 
   void commitMostRecentChildItem() {
     if constexpr (requires_commit<V>) {
@@ -231,7 +227,7 @@ class ArrayProxy {
     }
   }
 
-  void initialize(VectorWriter<ArrayProxyT<V>, void>* writer) {
+  void initialize(VectorWriter<ArrayWriterT<V>, void>* writer) {
     childWriter_ = &writer->childWriter_;
     elementsVector_ = &childWriter_->vector();
     childWriter_->ensureSize(1);
@@ -362,13 +358,13 @@ class MapWriter {
     length_ = size;
   }
 
-  std::tuple<PrimitiveWriterProxy<K, false>, PrimitiveWriterProxy<V>>
-  operator[](vector_size_t index) {
+  std::tuple<PrimitiveWriter<K, false>, PrimitiveWriter<V>> operator[](
+      vector_size_t index) {
     static_assert(std_interface, "operator [] not allowed for this map");
     VELOX_DCHECK_LT(index, length_, "out of bound access");
     return {
-        PrimitiveWriterProxy<K, false>{keysVector_, innerOffset_ + index},
-        PrimitiveWriterProxy<V>{valuesVector_, innerOffset_ + index}};
+        PrimitiveWriter<K, false>{keysVector_, innerOffset_ + index},
+        PrimitiveWriter<V>{valuesVector_, innerOffset_ + index}};
   }
 
   void emplace(key_element_t key, const std::optional<value_element_t>& value) {
