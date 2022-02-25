@@ -325,6 +325,16 @@ public class AddLocalExchanges
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
             }
+            else {
+                // Enable segmented aggregation if the input is pre-grouped by GroupBy key prefix.
+                for (int i = 1; i < groupingKeys.size(); ++i) {
+                    List<VariableReferenceExpression> groupingKeyPrefix = groupingKeys.subList(0, i);
+                    if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeyPrefix)).get(0).isPresent()) {
+                        // !isPresent() indicates the property was satisfied completely
+                        preGroupedSymbols = groupingKeyPrefix;
+                    }
+                }
+            }
 
             AggregationNode result = new AggregationNode(
                     node.getSourceLocation(),

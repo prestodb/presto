@@ -213,6 +213,11 @@ public final class AggregationNode
         return !preGroupedVariables.isEmpty() && groupingSets.getGroupingSetCount() == 1 && groupingSets.getGlobalGroupingSets().isEmpty();
     }
 
+    public boolean isSegmentedAggregation()
+    {
+        return isStreamable() && preGroupedVariables.size() < groupingSets.getGroupingKeys().size();
+    }
+
     @Override
     public boolean equals(Object o)
     {

@@ -2539,6 +2539,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        ImmutableList.of(),
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2644,6 +2645,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        ImmutableList.of(),
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2698,6 +2700,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        ImmutableList.of(),
                         new DataSize(0, BYTE),
                         context,
                         0,
@@ -3073,6 +3076,7 @@ public class LocalExecutionPlanner
                     distinctAggregationSpillEnabled,
                     orderByAggregationSpillEnabled,
                     node.isStreamable(),
+                    node.getPreGroupedVariables(),
                     unspillMemoryLimit,
                     context,
                     0,
@@ -3097,6 +3101,7 @@ public class LocalExecutionPlanner
                 boolean distinctSpillEnabled,
                 boolean orderBySpillEnabled,
                 boolean isStreamable,
+                List<VariableReferenceExpression> preGroupbyVariables,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
                 int startOutputChannel,
@@ -3143,7 +3148,7 @@ public class LocalExecutionPlanner
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
 
-            if (isStreamable) {
+            if (isStreamable && preGroupbyVariables.size() == groupbyVariables.size()) {
                 return new StreamingAggregationOperatorFactory(
                         context.getNextOperatorId(),
                         planNodeId,
