@@ -25,25 +25,11 @@ import java.util.List;
 public abstract class AbstractType
         implements Type
 {
-    private final TypeSignature signature;
     private final Class<?> javaType;
 
-    protected AbstractType(TypeSignature signature, Class<?> javaType)
+    protected AbstractType(Class<?> javaType)
     {
-        this.signature = signature;
         this.javaType = javaType;
-    }
-
-    @Override
-    public final TypeSignature getTypeSignature()
-    {
-        return signature;
-    }
-
-    @Override
-    public String getDisplayName()
-    {
-        return signature.toString();
     }
 
     @Override
@@ -206,6 +192,12 @@ public abstract class AbstractType
     @Override
     public int hashCode()
     {
-        return signature.hashCode();
+        return getTypeSignature().hashCode();
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return getTypeSignature().toString();
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
@@ -312,6 +313,9 @@ public class H2QueryRunner
                 }
                 else if (type instanceof TypeWithName) {
                     return getValue(((TypeWithName) type).getType(), resultSet, position);
+                }
+                else if (type instanceof DistinctType) {
+                    return getValue(((DistinctType) type).getBaseType(), resultSet, position);
                 }
                 else {
                     throw new AssertionError("unhandled type: " + type);

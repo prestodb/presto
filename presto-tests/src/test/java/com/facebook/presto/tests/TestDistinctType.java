@@ -19,17 +19,25 @@ import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DistinctType.getLowestCommonSuperType;
 import static com.facebook.presto.common.type.DistinctType.hasAncestorRelationship;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -62,8 +70,14 @@ public class TestDistinctType
     {
         try {
             Session session = testSessionBuilder().build();
-            DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
-            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("test"), ImmutableMap.of());
+            // Set properties to run queries on worker, and not on the coordinator
+            DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                    .setNodeCount(2)
+                    .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
+                    .build();
+            // By enabling test function namespace only on coordinator, we ensure that workers
+            // don't try to fetch any user defined types
+            queryRunner.enableTestFunctionNamespacesOnCoordinators(ImmutableList.of("test"), ImmutableMap.of());
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(INT00);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(INT10);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(INT11);
@@ -162,6 +176,48 @@ public class TestDistinctType
 
         assertEquals(getLowestCommonSuperType(int30, intAlt), Optional.empty());
         assertEquals(int30.getTypeSignature().toString(), "test.dt.int30:DistinctType(test.dt.int30{integer, true, null, [test.dt.int20, test.dt.int10, test.dt.int00]})");
+    }
+
+    @Test
+    public void testCasts()
+    {
+        assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int00) AS INTEGER)", "1", 1);
+        assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.varchar_alt) AS VARCHAR)", "CAST('name' AS VARCHAR)", "name");
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int00) AS VARCHAR)", "Cannot cast test.dt.int00 to varchar");
+        assertQueryFails("SELECT CAST(CAST(1 AS BIGINT) AS test.dt.int00)", "Cannot cast bigint to test.dt.int00");
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int00) AS BIGINT)", "Cannot cast test.dt.int00 to bigint");
+
+        assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int00) AS test.dt.int00)", "1", 1);
+        assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int00) AS test.dt.int30)", "1", 1);
+        assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int10) AS test.dt.int30)", "1", 1);
+        assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int30) AS test.dt.int00)", "1", 1);
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int30) AS test.dt.int11)", "Cannot cast test.dt.int30 to test.dt.int11");
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int20) AS test.dt.int21)", "Cannot cast test.dt.int20 to test.dt.int21");
+
+        assertSingleResultFromValues("SELECT CAST(ARRAY[ARRAY[CAST(x AS test.dt.int00)]] AS ARRAY<ARRAY<test.dt.int30>>)", "1", ImmutableList.of(ImmutableList.of(1)));
+        assertSingleResultFromValues("SELECT CAST(ARRAY[ARRAY[CAST(x AS test.dt.int30)]] AS ARRAY<ARRAY<test.dt.int00>>)", "1", ImmutableList.of(ImmutableList.of(1)));
+        assertSingleResultFromValues("SELECT CAST(ARRAY[CAST(x AS test.dt.int30)] AS ARRAY<test.dt.int00>)", "1", ImmutableList.of(1));
+        assertSingleResultFromValues("SELECT CAST(ARRAY[CAST(x AS test.dt.int00)] AS ARRAY<test.dt.int30>)", "1", ImmutableList.of(1));
+        assertSingleResultFromValues("SELECT ARRAY_INTERSECT(ARRAY[ARRAY[CAST(x AS test.dt.int30)]], ARRAY[ARRAY[CAST(1 AS test.dt.int11)]])", "1", ImmutableList.of(ImmutableList.of(1)));
+    }
+
+    private void assertQueryResultUnordered(@Language("SQL") String query, List<List<Object>> expectedRows)
+    {
+        MaterializedResult rows = computeActual(query);
+        assertEquals(
+                ImmutableSet.copyOf(rows.getMaterializedRows()),
+                expectedRows.stream().map(row -> new MaterializedRow(1, row)).collect(toSet()));
+    }
+
+    private void assertSingleResult(@Language("SQL") String query, Object expectedResult)
+    {
+        assertQueryResultUnordered(query, singletonList(singletonList(expectedResult)));
+    }
+
+    // We select from values in the tests, so query runs on the worker node, and we can test it end to end.
+    private void assertSingleResultFromValues(@Language("SQL") String query, String valuesInput, Object expectedResult)
+    {
+        assertQueryResultUnordered(format("%s FROM (VALUES %s) t(x)", query, valuesInput), singletonList(singletonList(expectedResult)));
     }
 
     protected DistinctType getDistinctType(String name)

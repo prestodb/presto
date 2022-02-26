@@ -104,6 +104,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionAndTypeManager
@@ -140,6 +141,7 @@ public class FunctionAndTypeManager
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
@@ -502,6 +504,10 @@ public class FunctionAndTypeManager
 
     public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
     {
+        // For casts, specialize() can load more info about types, that we might not be able to get back due to
+        // several layers of conversion between type and type signatures.
+        // So, we manually load this info here and store it in signature which will be sent to worker.
+        getCommonSuperType(fromType, toType);
         Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType.getTypeSignature(), singletonList(fromType.getTypeSignature()), false);
 
         try {
