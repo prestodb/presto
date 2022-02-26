@@ -168,6 +168,12 @@ public class TypeSignature
         return parameters.size() == 1 && parameters.get(0).isDistinctType();
     }
 
+    public DistinctTypeInfo getDistinctTypeInfo()
+    {
+        checkArgument(isDistinctType(), format("%s is not a distinct type", this));
+        return getParameters().get(0).getDistinctTypeInfo();
+    }
+
     @JsonCreator
     public static TypeSignature parseTypeSignature(String signature)
     {
