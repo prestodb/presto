@@ -21,6 +21,8 @@ import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import io.airlift.slice.Slice;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,8 +36,9 @@ import java.util.function.Function;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public class DistinctType
-        implements Type
+        extends AbstractType
 {
     private final QualifiedObjectName name;
     private final Type baseType;
@@ -43,8 +46,9 @@ public class DistinctType
     private final boolean isOrderable;
 
     private final Optional<QualifiedObjectName> parentTypeName;
+    // Types can be cached in BuiltInTypeAndFunctionNamespaceManager, so let's ensure this is thread safe.
     private Optional<DistinctType> lazilyLoadedParentType;
-    private Function<QualifiedObjectName, DistinctType> distinctTypeLoader;
+    private Optional<Function<QualifiedObjectName, DistinctType>> distinctTypeLoader;
 
     public DistinctType(DistinctTypeInfo distinctTypeInfo, Type baseType, Function<QualifiedObjectName, DistinctType> distinctTypeLoader)
     {
@@ -59,13 +63,14 @@ public class DistinctType
 
     private DistinctType(QualifiedObjectName name, Type baseType, boolean isOrderable, Optional<QualifiedObjectName> topMostAncestor, Queue<QualifiedObjectName> otherAncestors, Function<QualifiedObjectName, DistinctType> distinctTypeLoader)
     {
+        super(baseType.getJavaType());
         this.name = requireNonNull(name, "name is null");
         this.baseType = requireNonNull(baseType, "baseType is null");
         this.isOrderable = isOrderable;
         boolean rootTypeReached = otherAncestors.isEmpty();
         this.parentTypeName = rootTypeReached ? topMostAncestor : Optional.of(otherAncestors.poll());
         this.lazilyLoadedParentType = rootTypeReached ? Optional.empty() : Optional.of(new DistinctType(this.parentTypeName.get(), baseType, isOrderable, topMostAncestor, otherAncestors, distinctTypeLoader));
-        this.distinctTypeLoader = requireNonNull(distinctTypeLoader, "distinctTypeLoader is null");
+        this.distinctTypeLoader = parentTypeName.isPresent() ? Optional.of(requireNonNull(distinctTypeLoader, "distinctTypeLoader is null")) : Optional.empty();
     }
 
     public QualifiedObjectName getName()
@@ -211,12 +216,6 @@ public class DistinctType
     public boolean isOrderable()
     {
         return isOrderable;
-    }
-
-    @Override
-    public Class<?> getJavaType()
-    {
-        return baseType.getJavaType();
     }
 
     @Override
@@ -366,11 +365,19 @@ public class DistinctType
     private void assureLoaded()
     {
         // If type has no parent, or the parent type is already loaded, we don't need to do anything.
-        if (!parentTypeName.isPresent() || lazilyLoadedParentType.isPresent()) {
+        if (!distinctTypeLoader.isPresent()) {
             return;
         }
-        lazilyLoadedParentType = Optional.of(distinctTypeLoader.apply(parentTypeName.get()));
-        distinctTypeLoader = null;
+        loadParent();
+    }
+
+    private synchronized void loadParent()
+    {
+        if (!distinctTypeLoader.isPresent()) {
+            return;
+        }
+        lazilyLoadedParentType = Optional.of(distinctTypeLoader.get().apply(parentTypeName.get()));
+        distinctTypeLoader = Optional.empty();
     }
 
     private static void checkState(boolean condition, String message)

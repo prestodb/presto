@@ -27,7 +27,7 @@ import static java.lang.Long.rotateLeft;
 import static java.lang.String.format;
 
 public final class SmallintType
-        extends AbstractType
+        extends AbstractPrimitiveType
         implements FixedWidthType
 {
     public static final SmallintType SMALLINT = new SmallintType();
