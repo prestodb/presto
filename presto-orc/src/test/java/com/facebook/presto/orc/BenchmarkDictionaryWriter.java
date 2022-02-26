@@ -63,7 +63,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(MILLISECONDS)
-@Fork(2)
+@Fork(5)
 @Warmup(iterations = 3, time = 1000, timeUnit = MILLISECONDS)
 @Measurement(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
@@ -90,7 +90,7 @@ public class BenchmarkDictionaryWriter
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkDictionaryWriter.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkDictionaryWriter.class.getSimpleName() + ".writeDictionaryNoSorting*")
                 .build();
 
         new Runner(options).run();
@@ -191,8 +191,6 @@ public class BenchmarkDictionaryWriter
         private final List<Block> blocks;
 
         @Param({
-                INTEGER_TYPE,
-                BIGINT_TYPE,
                 VARCHAR_TYPE
         })
         private String typeSignature = INTEGER_TYPE;
@@ -201,6 +199,8 @@ public class BenchmarkDictionaryWriter
                 "1",
                 "5",
                 "10",
+                "25",
+                "50",
                 "100"
         })
         private String uniqueValuesPercentage = "100";

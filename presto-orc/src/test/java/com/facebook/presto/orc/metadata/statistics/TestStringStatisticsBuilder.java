@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -20,6 +22,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.STRING;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
@@ -31,6 +34,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
+/**
+ * This test uses slices as values.
+ */
 public class TestStringStatisticsBuilder
         extends AbstractStatisticsBuilderTest<StringStatisticsBuilder, Slice>
 {
@@ -48,7 +54,17 @@ public class TestStringStatisticsBuilder
 
     public TestStringStatisticsBuilder()
     {
-        super(STRING, () -> new StringStatisticsBuilder(Integer.MAX_VALUE), StringStatisticsBuilder::addValue);
+        this(StringStatisticsBuilder::addValue);
+    }
+
+    protected TestStringStatisticsBuilder(BiConsumer<StringStatisticsBuilder, Slice> adder)
+    {
+        super(STRING, () -> new StringStatisticsBuilder(Integer.MAX_VALUE), adder);
+    }
+
+    protected void addValue(StringStatisticsBuilder builder, Slice value)
+    {
+        builder.addValue(value);
     }
 
     @Test
@@ -93,11 +109,11 @@ public class TestStringStatisticsBuilder
     @Test
     public void testSum()
     {
-        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
         for (Slice value : ImmutableList.of(EMPTY_SLICE, LOW_BOTTOM_VALUE, LOW_TOP_VALUE)) {
-            stringStatisticsBuilder.addValue(value);
+            addValue(statisticsBuilder, value);
         }
-        assertStringStatistics(stringStatisticsBuilder.buildColumnStatistics(), 3, EMPTY_SLICE.length() + LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length());
+        assertStringStatistics(statisticsBuilder.buildColumnStatistics(), 3, EMPTY_SLICE.length() + LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length());
     }
 
     @Test
@@ -109,15 +125,15 @@ public class TestStringStatisticsBuilder
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 0, 0);
 
-        statisticsBuilder.addValue(EMPTY_SLICE);
+        addValue(statisticsBuilder, EMPTY_SLICE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 1, 0);
 
-        statisticsBuilder.addValue(LOW_BOTTOM_VALUE);
+        addValue(statisticsBuilder, LOW_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 3, LOW_BOTTOM_VALUE.length());
 
-        statisticsBuilder.addValue(LOW_TOP_VALUE);
+        addValue(statisticsBuilder, LOW_TOP_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 6, LOW_BOTTOM_VALUE.length() * 2 + LOW_TOP_VALUE.length());
     }
@@ -166,22 +182,22 @@ public class TestStringStatisticsBuilder
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 0, 0);
 
-        statisticsBuilder.addValue(LOW_BOTTOM_VALUE);
+        addValue(statisticsBuilder, LOW_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 1, LOW_BOTTOM_VALUE.length());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), LOW_BOTTOM_VALUE, LOW_BOTTOM_VALUE);
 
-        statisticsBuilder.addValue(LOW_TOP_VALUE);
+        addValue(statisticsBuilder, LOW_TOP_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 3, LOW_BOTTOM_VALUE.length() * 2 + LOW_TOP_VALUE.length());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), LOW_BOTTOM_VALUE, LOW_TOP_VALUE);
 
-        statisticsBuilder.addValue(HIGH_BOTTOM_VALUE);
+        addValue(statisticsBuilder, HIGH_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 6, LOW_BOTTOM_VALUE.length() * 3 + LOW_TOP_VALUE.length() * 2 + HIGH_BOTTOM_VALUE.length());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), LOW_BOTTOM_VALUE, null);
 
-        statisticsBuilder.addValue(HIGH_BOTTOM_VALUE);
+        addValue(statisticsBuilder, HIGH_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 10, LOW_BOTTOM_VALUE.length() * 4 + LOW_TOP_VALUE.length() * 3 + HIGH_BOTTOM_VALUE.length() * 3);
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), LOW_BOTTOM_VALUE, null);
@@ -193,22 +209,22 @@ public class TestStringStatisticsBuilder
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 0, 0);
 
-        statisticsBuilder.addValue(MEDIUM_TOP_VALUE);
+        addValue(statisticsBuilder, MEDIUM_TOP_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 1, MEDIUM_TOP_VALUE.length());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), MEDIUM_TOP_VALUE, MEDIUM_TOP_VALUE);
 
-        statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
+        addValue(statisticsBuilder, MEDIUM_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 3, MEDIUM_TOP_VALUE.length() * 2 + MEDIUM_BOTTOM_VALUE.length());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), MEDIUM_BOTTOM_VALUE, MEDIUM_TOP_VALUE);
 
-        statisticsBuilder.addValue(LONG_BOTTOM_VALUE);
+        addValue(statisticsBuilder, LONG_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 6, MEDIUM_TOP_VALUE.length() * 3 + MEDIUM_BOTTOM_VALUE.length() * 2 + LONG_BOTTOM_VALUE.length());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, MEDIUM_TOP_VALUE);
 
-        statisticsBuilder.addValue(LONG_BOTTOM_VALUE);
+        addValue(statisticsBuilder, LONG_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 10, MEDIUM_TOP_VALUE.length() * 4 + MEDIUM_BOTTOM_VALUE.length() * 3 + LONG_BOTTOM_VALUE.length() * 3);
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, MEDIUM_TOP_VALUE);
@@ -217,19 +233,19 @@ public class TestStringStatisticsBuilder
         statisticsList = new ArrayList<>();
 
         statisticsBuilder = new StringStatisticsBuilder(7);
-        statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
+        addValue(statisticsBuilder, MEDIUM_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), MEDIUM_BOTTOM_VALUE, MEDIUM_BOTTOM_VALUE);
 
-        statisticsBuilder.addValue(LONG_BOTTOM_VALUE);
+        addValue(statisticsBuilder, LONG_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, MEDIUM_BOTTOM_VALUE);
 
-        statisticsBuilder.addValue(HIGH_TOP_VALUE);
+        addValue(statisticsBuilder, HIGH_TOP_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, null);
 
-        statisticsBuilder.addValue(HIGH_BOTTOM_VALUE);
+        addValue(statisticsBuilder, HIGH_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, null);
     }
@@ -239,7 +255,7 @@ public class TestStringStatisticsBuilder
     {
         StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
         Slice shortSlice = Slices.wrappedBuffer(LONG_BOTTOM_VALUE.getBytes(), 0, 1);
-        statisticsBuilder.addValue(shortSlice);
+        addValue(statisticsBuilder, shortSlice);
         Slice stats = statisticsBuilder.buildColumnStatistics().getStringStatistics().getMax();
 
         // assert we only spend 1 byte for stats
@@ -259,13 +275,19 @@ public class TestStringStatisticsBuilder
     @Test
     public void testSliceWithIndexLength()
     {
-        StringStatisticsBuilder builder = new StringStatisticsBuilder(10);
         Slice slice = utf8Slice("abcdefghijklmnopqrstuvwxyz");
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 1);
         for (int i = 0; i < slice.length(); i++) {
-            builder.addValue(slice, i, 1);
+            blockBuilder.writeBytes(slice, i, 1).closeEntry();
+        }
+        Block block = blockBuilder.build();
+
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(10);
+        for (int i = 0; i < slice.length(); i++) {
+            statisticsBuilder.addValue(block, i);
         }
 
-        StringStatistics stringStatistics = builder.buildColumnStatistics().getStringStatistics();
+        StringStatistics stringStatistics = statisticsBuilder.buildColumnStatistics().getStringStatistics();
         assertEquals(stringStatistics.getMin(), slice.slice(0, 1));
         assertEquals(stringStatistics.getMax(), slice.slice(slice.length() - 1, 1));
         assertEquals(stringStatistics.getSum(), slice.length());
@@ -280,24 +302,24 @@ public class TestStringStatisticsBuilder
         assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size() / 2, 10)), expectedNumberOfValues + 10);
     }
 
-    private static void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit)
+    private void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit)
     {
         checkArgument(values != null && values.size() > 0);
-        StringStatisticsBuilder builder = new StringStatisticsBuilder(limit);
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(limit);
         for (Slice value : values) {
-            builder.addValue(value);
+            addValue(statisticsBuilder, value);
         }
-        assertMinMax(builder.buildColumnStatistics().getStringStatistics(), expectedMin, expectedMax);
+        assertMinMax(statisticsBuilder.buildColumnStatistics().getStringStatistics(), expectedMin, expectedMax);
     }
 
-    private static void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit, long expectedSum)
+    private void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit, long expectedSum)
     {
         checkArgument(values != null && values.size() > 0);
-        StringStatisticsBuilder builder = new StringStatisticsBuilder(limit);
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(limit);
         for (Slice value : values) {
-            builder.addValue(value);
+            addValue(statisticsBuilder, value);
         }
-        assertMinMax(builder.buildColumnStatistics().getStringStatistics(), expectedMin, expectedMax, expectedSum);
+        assertMinMax(statisticsBuilder.buildColumnStatistics().getStringStatistics(), expectedMin, expectedMax, expectedSum);
     }
 
     private static void assertMinMax(StringStatistics actualStringStatistics, Slice expectedMin, Slice expectedMax)

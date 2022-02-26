@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.common.block.Block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -80,6 +81,36 @@ public class StringStatisticsBuilder
 
         nonNullValueCount++;
         sum = addExact(sum, length);
+    }
+
+    @Override
+    public void addValue(Block block, int position)
+    {
+        requireNonNull(block, "block is null");
+        int sliceLength = block.getSliceLength(position);
+
+        if (nonNullValueCount == 0) {
+            checkState(minimum == null && maximum == null);
+            Slice minMaxSlice = block.getSlice(position, 0, sliceLength);
+            minimum = minMaxSlice;
+            maximum = minMaxSlice;
+        }
+        else if (minimum != null && block.bytesCompare(position, 0, sliceLength, minimum, 0, minimum.length()) <= 0) {
+            minimum = block.getSlice(position, 0, sliceLength);
+        }
+        else if (maximum != null && block.bytesCompare(position, 0, sliceLength, maximum, 0, maximum.length()) >= 0) {
+            maximum = block.getSlice(position, 0, sliceLength);
+        }
+
+        nonNullValueCount++;
+        sum = addExact(sum, sliceLength);
+    }
+
+    @Override
+    public void addKnownValue(int sliceLength)
+    {
+        nonNullValueCount++;
+        sum = addExact(sum, sliceLength);
     }
 
     /**

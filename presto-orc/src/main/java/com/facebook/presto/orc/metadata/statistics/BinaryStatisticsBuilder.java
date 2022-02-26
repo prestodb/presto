@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.common.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 
 public class BinaryStatisticsBuilder
@@ -33,6 +35,21 @@ public class BinaryStatisticsBuilder
         requireNonNull(value, "value is null");
         sum += length;
         nonNullValueCount++;
+    }
+
+    @Override
+    public void addValue(Block block, int position)
+    {
+        requireNonNull(block, "block is null");
+        sum += block.getSliceLength(position);
+        nonNullValueCount++;
+    }
+
+    @Override
+    public void addKnownValue(int sliceLength)
+    {
+        nonNullValueCount++;
+        sum = addExact(sum, sliceLength);
     }
 
     private Optional<BinaryStatistics> buildBinaryStatistics()

@@ -188,11 +188,7 @@ public class SliceDictionaryColumnWriter
             int index;
             if (!block.isNull(position)) {
                 index = dictionary.putIfAbsent(block, position);
-
-                // todo min/max statistics only need to be updated if value was not already in the dictionary, but non-null count does
-                Slice slice = type.getSlice(block, position);
-                statisticsBuilder.addValue(slice, 0, slice.length());
-
+                statisticsBuilder.addValue(block, position);
                 rawBytes += block.getSliceLength(position);
                 nonNullValueCount++;
             }
