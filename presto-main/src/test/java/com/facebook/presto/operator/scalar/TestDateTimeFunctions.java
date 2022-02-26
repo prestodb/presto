@@ -99,5 +99,8 @@ public class TestDateTimeFunctions
     {
         String sql = "FROM_UNIXTIME(a.column1, 'yyyy-mm-dd') FROM (VALUES (1)) a (column1)";
         assertNotSupported(sql, "Time zone not supported: yyyy-mm-dd");
+
+        sql = "FROM_UNIXTIME(a.column1) AT TIME ZONE 'PDT','yyyy-MM-dd HH:mm:ss' FROM (VALUES (1)) a (column1)";
+        assertNotSupported(sql, "Time zone not supported: PDT");
     }
 }
