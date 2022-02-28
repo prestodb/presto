@@ -13,21 +13,25 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.FileSystemFactory;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.authentication.GenericExceptionAction;
 import com.facebook.presto.hive.authentication.HdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.HadoopExtendedFileSystemCache;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.fs.FileSystem.getDefaultUri;
 
 public class HdfsEnvironment
 {
@@ -68,7 +72,19 @@ public class HdfsEnvironment
             throws IOException
     {
         return hdfsAuthentication.doAs(user, () -> {
-            FileSystem fileSystem = path.getFileSystem(configuration);
+            FileSystem fileSystem;
+            if (isFileSystemDisabledCache(path, configuration)) {
+                if (configuration instanceof FileSystemFactory) {
+                    fileSystem = ((FileSystemFactory) configuration).createFileSystem(path.toUri());
+                }
+                else {
+                    fileSystem = path.getFileSystem(configuration);
+                    fileSystem = new HadoopExtendedFileSystem(fileSystem);
+                }
+            }
+            else {
+                fileSystem = path.getFileSystem(configuration);
+            }
             fileSystem.setVerifyChecksum(verifyChecksum);
             checkState(fileSystem instanceof ExtendedFileSystem);
             return (ExtendedFileSystem) fileSystem;
@@ -84,5 +100,17 @@ public class HdfsEnvironment
     public void doAs(String user, Runnable action)
     {
         hdfsAuthentication.doAs(user, action);
+    }
+
+    private boolean isFileSystemDisabledCache(Path path, Configuration configuration)
+    {
+        URI uri = path.toUri();
+        String scheme = uri.getScheme();
+        if (scheme == null) {
+            uri = getDefaultUri(configuration);
+            scheme = uri.getScheme();
+        }
+        String disableCacheName = String.format("fs.%s.impl.disable.cache", scheme);
+        return configuration.getBoolean(disableCacheName, false);
     }
 }
