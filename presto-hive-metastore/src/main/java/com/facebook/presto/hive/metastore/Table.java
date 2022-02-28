@@ -17,8 +17,11 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -48,6 +51,10 @@ public class Table
     private final Optional<String> viewOriginalText;
     private final Optional<String> viewExpandedText;
 
+    @JsonSerialize(using = CustomDateTimeSerializer.class)
+    @JsonDeserialize(using = CustomDateTimeDeserializer.class)
+    private final Optional<DateTime> lastAccessTime;
+
     @JsonCreator
     public Table(
             @JsonProperty("databaseName") String databaseName,
@@ -59,7 +66,8 @@ public class Table
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
             @JsonProperty("parameters") Map<String, String> parameters,
             @JsonProperty("viewOriginalText") Optional<String> viewOriginalText,
-            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText)
+            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText,
+            @JsonProperty("lastAccessTime") Optional<DateTime> lastAccessTime)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -71,6 +79,7 @@ public class Table
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.viewOriginalText = requireNonNull(viewOriginalText, "viewOriginalText is null");
         this.viewExpandedText = requireNonNull(viewExpandedText, "viewExpandedText is null");
+        this.lastAccessTime = requireNonNull(lastAccessTime, "lastCommitDataTime is null");
     }
 
     @JsonProperty
@@ -146,6 +155,12 @@ public class Table
         return viewExpandedText;
     }
 
+    @JsonProperty
+    public Optional<DateTime> getLastAccessTime()
+    {
+        return lastAccessTime;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -170,6 +185,7 @@ public class Table
                 .add("parameters", parameters)
                 .add("viewOriginalText", viewOriginalText)
                 .add("viewExpandedText", viewExpandedText)
+                .add("lastAccessTime", lastAccessTime)
                 .toString();
     }
 
@@ -193,7 +209,8 @@ public class Table
                 Objects.equals(storage, table.storage) &&
                 Objects.equals(parameters, table.parameters) &&
                 Objects.equals(viewOriginalText, table.viewOriginalText) &&
-                Objects.equals(viewExpandedText, table.viewExpandedText);
+                Objects.equals(viewExpandedText, table.viewExpandedText) &&
+                Objects.equals(lastAccessTime, table.lastAccessTime);
     }
 
     @Override
@@ -209,7 +226,8 @@ public class Table
                 storage,
                 parameters,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                lastAccessTime);
     }
 
     public static class Builder
@@ -224,6 +242,7 @@ public class Table
         private Map<String, String> parameters = new LinkedHashMap<>();
         private Optional<String> viewOriginalText = Optional.empty();
         private Optional<String> viewExpandedText = Optional.empty();
+        private Optional<DateTime> lastAccessTime = Optional.empty();
 
         private Builder()
         {
@@ -242,6 +261,7 @@ public class Table
             parameters = new LinkedHashMap<>(table.parameters);
             viewOriginalText = table.viewOriginalText;
             viewExpandedText = table.viewExpandedText;
+            lastAccessTime = table.lastAccessTime;
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -315,6 +335,14 @@ public class Table
             return this;
         }
 
+        public Builder setLastAccessTime(Optional<Integer> lastAccessTime)
+        {
+            if (lastAccessTime.isPresent()) {
+                this.lastAccessTime = Optional.of(new DateTime(lastAccessTime.get() * 1000));
+            }
+            return this;
+        }
+
         public Builder withStorage(Consumer<Storage.Builder> consumer)
         {
             consumer.accept(storageBuilder);
@@ -333,7 +361,8 @@ public class Table
                     partitionColumns,
                     parameters,
                     viewOriginalText,
-                    viewExpandedText);
+                    viewExpandedText,
+                    lastAccessTime);
         }
     }
 }

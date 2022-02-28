@@ -634,6 +634,7 @@ public class TestHiveMaterializedViewUtils
                 partitionColumns,
                 ImmutableMap.of(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

@@ -86,7 +86,13 @@ public class TableWriteInfo
             WriterTarget target = tableFinishNode.get().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             if (target instanceof TableWriterNode.CreateName) {
                 TableWriterNode.CreateName create = (TableWriterNode.CreateName) target;
-                return Optional.of(new ExecutionWriterTarget.CreateHandle(metadata.beginCreateTable(session, create.getConnectorId().getCatalogName(), create.getTableMetadata(), create.getLayout()), create.getSchemaTableName()));
+                return Optional.of(new ExecutionWriterTarget.CreateHandle(
+                        metadata.beginCreateTable(
+                                session,
+                                create.getConnectorId().getCatalogName(),
+                                create.getTableMetadata(),
+                                create.getLayout()),
+                        create.getSchemaTableName()));
             }
             if (target instanceof TableWriterNode.InsertReference) {
                 TableWriterNode.InsertReference insert = (TableWriterNode.InsertReference) target;
