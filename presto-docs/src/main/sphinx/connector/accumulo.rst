@@ -33,6 +33,15 @@ you'll receive an ``Unsupported major.minor version 52.0`` error in your TabletS
 attempt to create an indexed table.  You'll instead need to use the *presto-accumulo-iterators* jar file
 that is located at `https://github.com/bloomberg/presto-accumulo <https://github.com/bloomberg/presto-accumulo>`_.
 
+Requirements
+------------
+
+To connect to Accumulo, you need:
+
+* Accumulo versions 1.x starting with 1.7.4. Versions 2.x are not supported.
+* Network access from the Presto coordinator and workers to the Accumulo
+  Zookeeper server. Port 2181 is the default port.
+
 Connector Configuration
 -----------------------
 
