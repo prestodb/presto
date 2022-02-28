@@ -88,7 +88,7 @@ public class FeaturesConfig
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
-    private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
+    private DataSize writerMinSize = new DataSize(32, MEGABYTE);
     private boolean optimizedScaleWriterProducerBuffer;
     private boolean optimizeMetadataQueries;
     private boolean optimizeMetadataQueriesIgnoreStats;
@@ -132,7 +132,7 @@ public class FeaturesConfig
     private boolean orderByAggregationSpillEnabled = true;
     private boolean windowSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
-    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -213,6 +213,7 @@ public class FeaturesConfig
     private boolean verboseRuntimeStatsEnabled;
     private boolean hashBasedDistinctLimitEnabled;
     private int hashBasedDistinctLimitThreshold = 10000;
+    private int fastLimitThreshold = 10000;
 
     private boolean streamingForPartialAggregationEnabled;
 
@@ -1956,6 +1957,19 @@ public class FeaturesConfig
     public int getHashBasedDistinctLimitThreshold()
     {
         return hashBasedDistinctLimitThreshold;
+    }
+
+    public int getFastLimitThreshold()
+    {
+        return fastLimitThreshold;
+    }
+
+    @Config("fast-limit-threshold")
+    @ConfigDescription("Threshold for fast limiting operations")
+    public FeaturesConfig setFastLimitThreshold(int fastLimitThreshold)
+    {
+        this.fastLimitThreshold = fastLimitThreshold;
+        return this;
     }
 
     public boolean isStreamingForPartialAggregationEnabled()

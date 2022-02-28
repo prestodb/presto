@@ -111,7 +111,7 @@ public class HashGenerationOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
+            PlanWithProperties result = plan.accept(new Rewriter(session, idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -120,12 +120,14 @@ public class HashGenerationOptimizer
     private static class Rewriter
             extends InternalPlanVisitor<PlanWithProperties, HashComputationSet>
     {
+        private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final PlanVariableAllocator variableAllocator;
         private final FunctionAndTypeManager functionAndTypeManager;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
         {
+            this.session = session;
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
@@ -205,8 +207,8 @@ public class HashGenerationOptimizer
         @Override
         public PlanWithProperties visitDistinctLimit(DistinctLimitNode node, HashComputationSet parentPreference)
         {
-            // skip hash variable generation for single bigint
-            if (canSkipHashGeneration(node.getDistinctVariables())) {
+            // skip hash variable generation for single bigint or if we are doing fast limits so users can get partial results back faster even if the query doesn't complete
+            if (canSkipHashGeneration(node.getDistinctVariables()) || node.getLimit() <= SystemSessionProperties.getFastLimitThreshold(session)) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 

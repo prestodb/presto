@@ -188,6 +188,7 @@ public class TestFeaturesConfig
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
                 .setHashBasedDistinctLimitEnabled(false)
                 .setHashBasedDistinctLimitThreshold(10000)
+                .setFastLimitThreshold(10000)
                 .setStreamingForPartialAggregationEnabled(false));
     }
 
@@ -327,6 +328,7 @@ public class TestFeaturesConfig
                 .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
                 .put("hash-based-distinct-limit-enabled", "true")
                 .put("hash-based-distinct-limit-threshold", "500")
+                .put("fast-limit-threshold", "500")
                 .put("streaming-for-partial-aggregation-enabled", "true")
                 .build();
 
@@ -464,6 +466,7 @@ public class TestFeaturesConfig
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
                 .setHashBasedDistinctLimitEnabled(true)
                 .setHashBasedDistinctLimitThreshold(500)
+                .setFastLimitThreshold(500)
                 .setStreamingForPartialAggregationEnabled(true);
         assertFullMapping(properties, expected);
     }
