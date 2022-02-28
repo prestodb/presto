@@ -125,7 +125,7 @@ public class HadoopExtendedFileSystem
     public FSDataInputStream open(Path f, int bufferSize)
             throws IOException
     {
-        return fs.open(f, bufferSize);
+        return new InputStreamWrapper(getRawFileSystem().open(f, bufferSize), this);
     }
 
     @Override
@@ -133,7 +133,7 @@ public class HadoopExtendedFileSystem
             Progressable progress)
             throws IOException
     {
-        return fs.append(f, bufferSize, progress);
+        return new OutputStreamWrapper(getRawFileSystem().append(f, bufferSize, progress), this);
     }
 
     @Override
@@ -149,8 +149,7 @@ public class HadoopExtendedFileSystem
             Progressable progress)
             throws IOException
     {
-        return fs.create(f, permission,
-                overwrite, bufferSize, replication, blockSize, progress);
+        return new OutputStreamWrapper(getRawFileSystem().create(f, permission, overwrite, bufferSize, replication, blockSize, progress), this);
     }
 
     @Override
@@ -164,8 +163,7 @@ public class HadoopExtendedFileSystem
             Options.ChecksumOpt checksumOpt)
             throws IOException
     {
-        return fs.create(f, permission,
-                flags, bufferSize, replication, blockSize, progress, checksumOpt);
+        return new OutputStreamWrapper(getRawFileSystem().create(f, permission, flags, bufferSize, replication, blockSize, progress, checksumOpt), this);
     }
 
     @Override
@@ -175,7 +173,7 @@ public class HadoopExtendedFileSystem
             Progressable progress)
             throws IOException
     {
-        return fs.createNonRecursive(f, permission, flags, bufferSize, replication, blockSize, progress);
+        return new OutputStreamWrapper(getRawFileSystem().createNonRecursive(f, permission, flags, bufferSize, replication, blockSize, progress), this);
     }
 
     @Override
@@ -631,6 +629,6 @@ public class HadoopExtendedFileSystem
     public FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
             throws Exception
     {
-        return fs.open(path);
+        return new InputStreamWrapper(getRawFileSystem().open(path), this);
     }
 }
