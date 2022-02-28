@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.metastore.TestCachingHiveMetastore.MockHiveCluster;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +36,7 @@ public class MockHiveMetastore
 
     public MockHiveMetastore(MockHiveCluster mockHiveCluster)
     {
-        super(mockHiveCluster, new MetastoreClientConfig());
+        super(mockHiveCluster, new MetastoreClientConfig(), HDFS_ENVIRONMENT);
         this.clientProvider = requireNonNull(mockHiveCluster, "mockHiveCluster is null");
     }
 

@@ -27,6 +27,8 @@ import com.google.common.net.HostAndPort;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+
 public final class S3HiveQueryRunner
 {
     private S3HiveQueryRunner() {}
@@ -56,7 +58,8 @@ public final class S3HiveQueryRunner
                                         new MetastoreClientConfig(),
                                         hiveEndpoint.getHost(),
                                         hiveEndpoint.getPort()),
-                                new MetastoreClientConfig()),
+                                new MetastoreClientConfig(),
+                                HDFS_ENVIRONMENT),
                         new HivePartitionMutator())));
     }
 }
