@@ -20,10 +20,13 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestOrcOutputBuffer
 {
@@ -46,6 +49,30 @@ public class TestOrcOutputBuffer
         sliceOutput.writeBytes(wrappedBuffer(largeByteArray), 100, size - 100);
         assertEquals(sliceOutput.writeDataTo(output), size - 100);
         assertEquals(output.slice(), wrappedBuffer(largeByteArray, 100, size - 100));
+    }
+
+    @Test
+    public void testWriteHugeByteChucksUsesMaxCompressionBufferSizeChunks()
+    {
+        int size = 1024 * 1024;
+        byte[] largeByteArray = new byte[size];
+        Arrays.fill(largeByteArray, (byte) 0xA);
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
+                .setCompressionKind(CompressionKind.ZSTD)
+                .setCompressionLevel(OptionalInt.of(7))
+                .setCompressionMaxBufferSize(new DataSize(256, KILOBYTE))
+                .build();
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
+
+        // Before the fix the compressed result would be around 90KB, after the fix it went down to 117 bytes.
+        DynamicSliceOutput output = new DynamicSliceOutput(size);
+        sliceOutput.writeBytes(largeByteArray, 10, size - 10);
+        assertTrue(sliceOutput.writeDataTo(output) < 200);
+
+        sliceOutput.reset();
+        output.reset();
+        sliceOutput.writeBytes(wrappedBuffer(largeByteArray), 100, size - 100);
+        assertTrue(sliceOutput.writeDataTo(output) < 200);
     }
 
     @Test
