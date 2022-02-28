@@ -48,8 +48,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 
 public class VariableWidthBlockBuilder
-        extends AbstractVariableWidthBlock
-        implements BlockBuilder
+        extends AbstractVariableWidthBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
 
@@ -232,6 +231,17 @@ public class VariableWidthBlockBuilder
 
     @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
+    {
+        if (!initialized) {
+            initializeCapacity();
+        }
+        sliceOutput.writeBytes(source, sourceIndex, length);
+        currentEntrySize += length;
+        return this;
+    }
+
+    @Override
+    public AbstractVariableWidthBlockBuilder writeBytes(byte[] source, int sourceIndex, int length)
     {
         if (!initialized) {
             initializeCapacity();

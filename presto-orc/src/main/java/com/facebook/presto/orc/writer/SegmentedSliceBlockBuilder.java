@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
-import com.facebook.presto.common.block.AbstractVariableWidthBlock;
+import com.facebook.presto.common.block.AbstractVariableWidthBlockBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
@@ -66,8 +66,7 @@ import static java.lang.String.format;
  * created for further appends.
  */
 public class SegmentedSliceBlockBuilder
-        extends AbstractVariableWidthBlock
-        implements BlockBuilder
+        extends AbstractVariableWidthBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SegmentedSliceBlockBuilder.class).instanceSize();
 
@@ -206,6 +205,13 @@ public class SegmentedSliceBlockBuilder
     @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
+        initializeNewSegmentIfRequired();
+        openSliceOutput.writeBytes(source, sourceIndex, length);
+        return this;
+    }
+
+    private void initializeNewSegmentIfRequired()
+    {
         if (openSegmentOffset == 0) {
             // Expand Segments if necessary.
             if (openSegmentIndex >= offsets.length) {
@@ -218,6 +224,12 @@ public class SegmentedSliceBlockBuilder
                 offsets[openSegmentIndex] = new int[SEGMENT_SIZE + 1];
             }
         }
+    }
+
+    @Override
+    public AbstractVariableWidthBlockBuilder writeBytes(byte[] source, int sourceIndex, int length)
+    {
+        initializeNewSegmentIfRequired();
         openSliceOutput.writeBytes(source, sourceIndex, length);
         return this;
     }
