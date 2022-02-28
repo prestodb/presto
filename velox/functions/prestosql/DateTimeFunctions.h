@@ -671,56 +671,6 @@ struct DateDiffFunction {
 };
 
 template <typename T>
-struct DateFormatFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  static constexpr const std::size_t kYmdLength = 10;
-
-  const date::time_zone* sessionTimeZone_ = nullptr;
-  std::optional<StringView> format_ = std::nullopt;
-
-  FOLLY_ALWAYS_INLINE bool isValidFormat(const StringView& format) {
-    return format == "%Y-%m-%d";
-  }
-
-  FOLLY_ALWAYS_INLINE void initialize(
-      const core::QueryConfig& config,
-      const arg_type<Timestamp>* /*timestamp*/,
-      const arg_type<Varchar>* formatString) {
-    sessionTimeZone_ = getTimeZoneFromConfig(config);
-
-    if (formatString != nullptr && isValidFormat(*formatString)) {
-      format_ = StringView(formatString->data(), formatString->size());
-    }
-  }
-
-  FOLLY_ALWAYS_INLINE bool call(
-      out_type<Varchar>& result,
-      const arg_type<Timestamp>& timestamp,
-      const arg_type<Varchar>& formatString) {
-    StringView format;
-    if (format_.has_value()) {
-      format = format_.value();
-    } else {
-      VELOX_USER_CHECK(
-          isValidFormat(formatString),
-          "Format {} is not implemented for TIMESTAMP yet",
-          formatString);
-      format = StringView(formatString.data(), formatString.size());
-    }
-
-    std::tm dateTime = getDateTime(timestamp, sessionTimeZone_);
-
-    char formattedDateTime[kYmdLength + 1];
-    std::strftime(
-        formattedDateTime, sizeof(formattedDateTime), format.data(), &dateTime);
-    result.resize(kYmdLength * sizeof(char));
-    std::memcpy(result.data(), formattedDateTime, kYmdLength * sizeof(char));
-    return true;
-  }
-};
-
-template <typename T>
 struct ParseDateTimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
