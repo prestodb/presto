@@ -18,10 +18,16 @@ import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -86,6 +92,33 @@ public class TestSegmentedSliceBlockBuilder
             assertLessThan(blockBuilder.compareTo(i, i + 1), 0);
             assertEquals(blockBuilder.compareTo(i, i), 0);
             assertGreaterThan(blockBuilder.compareTo(i + 1, i), 0);
+        }
+    }
+
+    @Test
+    public void testWriteBytes()
+    {
+        int entries = 100;
+        String inputChars = "abcdefghijklmnopqrstuvwwxyz01234566789!@#$%^";
+        SegmentedSliceBlockBuilder blockBuilder = new SegmentedSliceBlockBuilder(entries, inputChars.length());
+        List<String> values = new ArrayList<>();
+        Random rand = new Random(0);
+        byte[] bytes = inputChars.getBytes(UTF_8);
+        assertEquals(bytes.length, inputChars.length());
+        for (int i = 0; i < entries; i++) {
+            int valueLength = rand.nextInt(bytes.length);
+            VARCHAR.writeBytes(blockBuilder, bytes, 0, valueLength);
+            values.add(inputChars.substring(0, valueLength));
+        }
+        verifyBlockValues(blockBuilder, values);
+    }
+
+    private void verifyBlockValues(Block block, List<String> values)
+    {
+        assertEquals(block.getPositionCount(), values.size());
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            Slice slice = VARCHAR.getSlice(block, i);
+            assertEquals(slice, utf8Slice(values.get(i)));
         }
     }
 
