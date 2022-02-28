@@ -1323,6 +1323,17 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testJsonLiteral()
+    {
+        // TODO All the below should fail. Literals should be validated during analysis
+        analyze("SELECT JSON '{}{'");
+        analyze("SELECT JSON '{} \"a\"'");
+        analyze("SELECT JSON '{}{abc'");
+        analyze("SELECT JSON '{}abc'");
+        analyze("SELECT JSON ''");
+    }
+
+    @Test
     public void testLambda()
     {
         analyze("SELECT apply(5, x -> abs(x)) from t1");
