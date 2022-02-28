@@ -51,6 +51,7 @@ public class MetastoreClientConfig
     private double partitionCacheValidationPercentage;
     private int partitionCacheColumnCountLimit = 500;
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
+    private boolean deleteFilesOnTableDrop;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -287,6 +288,19 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
     {
         this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
+        return this;
+    }
+
+    public boolean isDeleteFilesOnTableDrop()
+    {
+        return deleteFilesOnTableDrop;
+    }
+
+    @Config("hive.metastore.thrift.delete-files-on-table-drop")
+    @ConfigDescription("Delete files on dropping table in case the metastore fails to do so")
+    public MetastoreClientConfig setDeleteFilesOnTableDrop(boolean deleteFilesOnTableDrop)
+    {
+        this.deleteFilesOnTableDrop = deleteFilesOnTableDrop;
         return this;
     }
 }
