@@ -445,7 +445,7 @@ public class OrcOutputBuffer
             return;
         }
 
-        checkArgument(length <= buffer.length, "Write chunk length must be less than compression buffer size");
+        checkArgument(length <= maxBufferSize, "Write chunk length must be less than max compression buffer size");
 
         boolean isCompressed = false;
         byte[] compressionBuffer = null;
@@ -497,7 +497,7 @@ public class OrcOutputBuffer
         }
 
         while (length > 0) {
-            int chunkSize = Integer.min(length, buffer.length);
+            int chunkSize = Integer.min(length, maxBufferSize);
             writeChunkToOutputStream(bytes, bytesOffset, chunkSize);
             length -= chunkSize;
             bytesOffset += chunkSize;
