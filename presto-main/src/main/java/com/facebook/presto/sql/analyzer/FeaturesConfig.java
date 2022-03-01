@@ -216,6 +216,8 @@ public class FeaturesConfig
 
     private boolean streamingForPartialAggregationEnabled;
 
+    private int maxStageCountForEagerScheduling = 25;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -1967,6 +1969,20 @@ public class FeaturesConfig
     public FeaturesConfig setStreamingForPartialAggregationEnabled(boolean streamingForPartialAggregationEnabled)
     {
         this.streamingForPartialAggregationEnabled = streamingForPartialAggregationEnabled;
+        return this;
+    }
+
+    public int getMaxStageCountForEagerScheduling()
+    {
+        return maxStageCountForEagerScheduling;
+    }
+
+    @Min(1)
+    @Config("execution-policy.max-stage-count-for-eager-scheduling")
+    @ConfigDescription("When execution policy is set to adaptive, this number determines when to switch to phased execution.")
+    public FeaturesConfig setMaxStageCountForEagerScheduling(int maxStageCountForEagerScheduling)
+    {
+        this.maxStageCountForEagerScheduling = maxStageCountForEagerScheduling;
         return this;
     }
 }

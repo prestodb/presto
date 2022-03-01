@@ -17,12 +17,19 @@ import com.facebook.presto.Session;
 
 import java.util.Collection;
 
-public class AllAtOnceExecutionPolicy
+import static com.facebook.presto.SystemSessionProperties.getMaxStageCountForEagerScheduling;
+
+public class AdaptivePhasedExecutionPolicy
         implements ExecutionPolicy
 {
     @Override
     public ExecutionSchedule createExecutionSchedule(Session session, Collection<StageExecutionAndScheduler> stages)
     {
-        return new AllAtOnceExecutionSchedule(stages);
+        if (stages.size() > getMaxStageCountForEagerScheduling(session)) {
+            return new PhasedExecutionSchedule(stages);
+        }
+        else {
+            return new AllAtOnceExecutionSchedule(stages);
+        }
     }
 }
