@@ -618,7 +618,7 @@ public class TestSqlParser
     public void testAllowIdentifierColon()
     {
         SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON));
-        sqlParser.createStatement("select * from \"foo:bar\"");
+        sqlParser.createStatement("select * from foo:bar");
     }
 
     @SuppressWarnings("deprecation")
@@ -626,7 +626,7 @@ public class TestSqlParser
     public void testAllowIdentifierAtSign()
     {
         SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN));
-        sqlParser.createStatement("select * from \"foo@bar\"");
+        sqlParser.createStatement("select * from foo@bar");
     }
 
     @Test
