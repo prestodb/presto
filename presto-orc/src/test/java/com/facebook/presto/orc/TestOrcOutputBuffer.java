@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.writer.CompressionBufferPool;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -22,6 +23,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -58,7 +60,7 @@ public class TestOrcOutputBuffer
         byte[] largeByteArray = new byte[size];
         Arrays.fill(largeByteArray, (byte) 0xA);
         ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
-                .setCompressionKind(CompressionKind.ZSTD)
+                .setCompressionKind(ZSTD)
                 .setCompressionLevel(OptionalInt.of(7))
                 .setCompressionMaxBufferSize(new DataSize(256, KILOBYTE))
                 .build();
@@ -110,5 +112,67 @@ public class TestOrcOutputBuffer
         DynamicSliceOutput output = new DynamicSliceOutput(6000);
         sliceOutput.close();
         assertEquals(sliceOutput.writeDataTo(output), 200 + 200 + 1200 + 2000 + 2500);
+    }
+
+    @Test
+    public void testMinCompressibleSize()
+    {
+        int size = 1024;
+        byte[] byteArray = new byte[size];
+        Arrays.fill(byteArray, (byte) 0xA);
+
+        CapturingCompressionBufferPool pool = new CapturingCompressionBufferPool();
+
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
+                .setCompressionKind(ZSTD)
+                .setCompressionBufferPool(pool)
+                .build();
+
+        // if input size is below minCompressibleSize then OrcOutputBuffer won't attempt to compress
+        OrcOutputBuffer orcOutputBuffer = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
+        orcOutputBuffer.writeBytes(byteArray, 0, ZSTD.getMinCompressibleSize() - 1);
+        orcOutputBuffer.flush();
+        assertEquals(pool.getLastUsedSize(), 0);
+
+        // if input size equals or greater than minCompressibleSize then OrcOutputBuffer would attempt to compress
+        orcOutputBuffer.reset();
+        orcOutputBuffer.writeBytes(byteArray, 0, ZSTD.getMinCompressibleSize());
+        orcOutputBuffer.flush();
+        assertTrue(pool.getLastUsedSize() > ZSTD.getMinCompressibleSize());
+
+        orcOutputBuffer.reset();
+        orcOutputBuffer.writeBytes(byteArray, 0, ZSTD.getMinCompressibleSize() + 10);
+        orcOutputBuffer.flush();
+        assertTrue(pool.getLastUsedSize() > ZSTD.getMinCompressibleSize() + 10);
+    }
+
+    private static class CapturingCompressionBufferPool
+            implements CompressionBufferPool
+    {
+        private int lastUsedSize;
+
+        public int getLastUsedSize()
+        {
+            return lastUsedSize;
+        }
+
+        @Override
+        public byte[] checkOut(int length)
+        {
+            this.lastUsedSize = length;
+            return new byte[length];
+        }
+
+        @Override
+        public void checkIn(byte[] buffer)
+        {
+            // do nothing
+        }
+
+        @Override
+        public long getRetainedBytes()
+        {
+            return 0;
+        }
     }
 }

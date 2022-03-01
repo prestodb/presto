@@ -58,6 +58,7 @@ public class OrcOutputBuffer
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 1024 * 1024;
 
     private final int maxBufferSize;
+    private final int minCompressibleSize;
 
     private final ChunkedSliceOutput compressedOutputStream;
     private final CompressionBufferPool compressionBufferPool;
@@ -86,6 +87,7 @@ public class OrcOutputBuffer
 
         CompressionKind compressionKind = columnWriterOptions.getCompressionKind();
         this.maxBufferSize = compressionKind == CompressionKind.NONE ? maxBufferSize : maxBufferSize - PAGE_HEADER_SIZE;
+        this.minCompressibleSize = compressionKind.getMinCompressibleSize();
 
         this.buffer = new byte[INITIAL_BUFFER_SIZE];
         this.slice = wrappedBuffer(buffer);
@@ -450,7 +452,7 @@ public class OrcOutputBuffer
         boolean isCompressed = false;
         byte[] compressionBuffer = null;
         try {
-            if (compressor != null) {
+            if (compressor != null && length >= minCompressibleSize) {
                 int minCompressionBufferSize = compressor.maxCompressedLength(length);
                 compressionBuffer = compressionBufferPool.checkOut(minCompressionBufferSize);
                 int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
@@ -470,8 +472,8 @@ public class OrcOutputBuffer
                     throw new OrcEncryptionException("Encrypted data size %s exceeds limit of 2^23", length);
                 }
             }
-            int header = isCompressed ? length << 1 : (length << 1) + 1;
 
+            int header = isCompressed ? length << 1 : (length << 1) + 1;
             writeChunkedOutput(chunk, offset, length, header);
         }
         finally {
