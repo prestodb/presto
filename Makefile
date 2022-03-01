@@ -120,6 +120,9 @@ circleci-container:			#: Build the linux container for CircleCi
 check-container:
 	$(MAKE) linux-container CONTAINER_NAME=check
 
+velox-torcharrow-container:
+	$(MAKE) linux-container CONTAINER_NAME=velox-torcharrow
+
 linux-container:
 	rm -rf /tmp/docker && \
 	mkdir -p /tmp/docker && \
