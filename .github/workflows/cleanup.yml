@@ -23,7 +23,7 @@ jobs:
       - uses: n1hility/cancel-previous-runs@2e3c1893986568a2197c41957b9c809cbcf1a61e
         with:
           token: ${{ github.token }}
-          workflow: product-test-basic-environment.yml
+          workflow: product-tests-basic-environment.yml
       - uses: n1hility/cancel-previous-runs@2e3c1893986568a2197c41957b9c809cbcf1a61e
         with:
           token: ${{ github.token }}

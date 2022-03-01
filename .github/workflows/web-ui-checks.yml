@@ -1,4 +1,4 @@
-name: ci
+name: web ui checks
 
 on:
   pull_request:
