@@ -115,6 +115,10 @@ class EvalCtx {
     return errors_.get();
   }
 
+  ErrorVectorPtr* errorsPtr() {
+    return &errors_;
+  }
+
   void swapErrors(ErrorVectorPtr* other) {
     std::swap(errors_, *other);
   }
