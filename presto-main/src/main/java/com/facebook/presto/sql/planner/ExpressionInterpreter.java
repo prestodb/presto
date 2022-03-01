@@ -813,8 +813,8 @@ public class ExpressionInterpreter
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
 
-            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
-            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType, commonType);
+            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -1149,7 +1149,7 @@ public class ExpressionInterpreter
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
-            FunctionHandle operator = metadata.getFunctionAndTypeManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
+            FunctionHandle operator = metadata.getFunctionAndTypeManager().lookupCast(CAST, sourceType, targetType);
 
             try {
                 Object castedValue = functionInvoker.invoke(operator, session.getSqlFunctionProperties(), ImmutableList.of(value));

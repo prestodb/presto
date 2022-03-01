@@ -659,7 +659,7 @@ public class ExtractSpatialJoins
             projections.put(outputVariable, outputVariable);
         }
 
-        FunctionHandle castFunctionHandle = functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), KDB_TREE.getTypeSignature());
+        FunctionHandle castFunctionHandle = functionAndTypeManager.lookupCast(CAST, VARCHAR, KDB_TREE);
 
         ImmutableList.Builder partitioningArgumentsBuilder = ImmutableList.builder()
                 .add(new CallExpression(partitionVariable.getSourceLocation(), CAST.name(), castFunctionHandle, KDB_TREE, ImmutableList.of(Expressions.constant(utf8Slice(KdbTreeUtils.toJson(kdbTree)), VARCHAR))))

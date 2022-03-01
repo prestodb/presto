@@ -93,7 +93,7 @@ public class BenchmarkMapToMapCast
         public void setup()
         {
             MetadataManager metadata = createTestMetadataManager();
-            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, mapType(DOUBLE, BIGINT).getTypeSignature(), mapType(BIGINT, DOUBLE).getTypeSignature());
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, mapType(DOUBLE, BIGINT), mapType(BIGINT, DOUBLE));
 
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(CAST.name(), functionHandle, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
