@@ -1,4 +1,4 @@
-name: ci
+name: product tests (basic)
 
 on:
   pull_request:
@@ -14,8 +14,6 @@ env:
 jobs:
   product-tests-basic-environment:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2

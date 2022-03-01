@@ -14,8 +14,6 @@ env:
 jobs:
   product-tests-specific-environment1:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -52,8 +50,6 @@ jobs:
 
   product-tests-specific-environment2:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2

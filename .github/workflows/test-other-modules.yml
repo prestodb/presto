@@ -1,4 +1,4 @@
-name: ci
+name: test other modules
 
 on:
   pull_request:

@@ -1,4 +1,4 @@
-name: ci
+name: test
 
 on:
   pull_request:
