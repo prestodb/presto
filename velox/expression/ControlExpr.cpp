@@ -760,11 +760,31 @@ void TryExpr::evalSpecialForm(
 
   auto errors = context->errors();
   if (errors) {
-    rows.applyToSelected([&](auto row) {
-      if (row < errors->size() && !errors->isNullAt(row)) {
-        (*result)->setNull(row, true);
+    if ((*result)->encoding() == VectorEncoding::Simple::CONSTANT) {
+      // Since it's constant, if any row is NULL they're all NULL, so check row
+      // 0 arbitrarily.
+      if ((*result)->isNullAt(0)) {
+        // The result is already a NULL constant, so this is a no-op.
+        return;
       }
-    });
+
+      // If the result is constant, the input should have been constant as
+      // well, so we should have consistently gotten exceptions.
+      // If this is not the case, an easy way to handle it would be to wrap
+      // the ConstantVector in a DictionaryVector and NULL out the rows that
+      // saw errors.
+      VELOX_DCHECK(
+          rows.testSelected([&](auto row) { return !errors->isNullAt(row); }));
+      // Set the result to be a NULL constant.
+      *result = BaseVector::createNullConstant(
+          (*result)->type(), (*result)->size(), context->pool());
+    } else {
+      rows.applyToSelected([&](auto row) {
+        if (row < errors->size() && !errors->isNullAt(row)) {
+          (*result)->setNull(row, true);
+        }
+      });
+    }
   }
 }
 

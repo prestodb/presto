@@ -19,6 +19,7 @@
 
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/vector/ConstantVector.h"
 
 namespace facebook::velox {
 class TryExprTest : public functions::test::FunctionBaseTest {};
@@ -124,5 +125,19 @@ TEST_F(TryExprTest, nestedTryParentErrors) {
             return false;
           }),
       result);
+}
+
+TEST_F(TryExprTest, constant) {
+  // Test a TRY around an expression over a constant vector and other constants
+  // that throws an exception (division by 0).
+  auto constant = makeConstant<int64_t>(0, 10);
+
+  // We use evaluateSimplified here because evaluate peels the encodings before
+  // invoking the expression.  Since evaluateSimplified does not, the result
+  // vector the TRY expression sees is a non-null ConstantVector.
+  auto result = evaluateSimplified<ConstantVector<int64_t>>(
+      "try(1 / c0)", makeRowVector({constant}));
+
+  assertEqualVectors(makeNullConstant(TypeKind::BIGINT, 10), result);
 }
 } // namespace facebook::velox

@@ -77,14 +77,7 @@ class FunctionBaseTest : public testing::Test,
   VectorPtr evaluate(
       const std::shared_ptr<const core::ITypedExpr>& typedExpr,
       const RowVectorPtr& data) {
-    exec::ExprSet exprSet({typedExpr}, &execCtx_);
-
-    auto rows = std::make_unique<SelectivityVector>(data->size());
-    exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-    std::vector<VectorPtr> results(1);
-    exprSet.eval(*rows, &evalCtx, &results);
-
-    return results[0];
+    return evaluateImpl<exec::ExprSet>(typedExpr, data);
   }
 
   // Use this directly if you don't want it to cast the returned vector.
@@ -110,6 +103,17 @@ class FunctionBaseTest : public testing::Test,
       const std::string& expression,
       const RowVectorPtr& data) {
     auto result = evaluate(expression, data);
+    return castEvaluateResult<T>(result, expression);
+  }
+
+  template <typename T>
+  std::shared_ptr<T> evaluateSimplified(
+      const std::string& expression,
+      const RowVectorPtr& data) {
+    auto rowType = std::dynamic_pointer_cast<const RowType>(data->type());
+    auto typedExpr = makeTypedExpr(expression, rowType);
+    auto result = evaluateImpl<exec::ExprSetSimplified>(typedExpr, data);
+
     return castEvaluateResult<T>(result, expression);
   }
 
@@ -259,6 +263,20 @@ class FunctionBaseTest : public testing::Test,
         result->encoding(),
         result->type()->toString());
     return castedResult;
+  }
+
+  template <typename ExprSet>
+  VectorPtr evaluateImpl(
+      const std::shared_ptr<const core::ITypedExpr>& typedExpr,
+      const RowVectorPtr& data) {
+    auto rows = std::make_unique<SelectivityVector>(data->size());
+    std::vector<VectorPtr> results(1);
+
+    ExprSet exprSet({typedExpr}, &execCtx_);
+    exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
+    exprSet.eval(*rows, &evalCtx, &results);
+
+    return results[0];
   }
 };
 
