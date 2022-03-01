@@ -86,14 +86,46 @@ vector from a nulls buffer, an indices buffer and a base vector.
 DecodedVector
 -------------
 
-As we’ve seen a vector can have many layers of dictionaries:
-Dict(Dict(....Dict(Flat)...)). How do we access the data in such a vector? We
-use DecodedVector.
+As we’ve seen a vector can have many layers of dictionaries: Dict(Dict(....Dict
+(Flat)...)). How do we access the data in such a vector? We use DecodedVector,
+which works for all types, or SimpleVector<T>, which works only for primitive
+types.
 
-DecodedVector combines multiple wrappings into at most one. It takes any
-vector and produces a reference to the flat base vector and an array of
-indices into that vector. DecodedVector also produces a combined nulls buffer
-from the nulls buffers of the dictionary encodings and the base vector.
+Here is an example of using SimpleVector<int32_t> to access elements of a vector
+of type INTEGER:
+
+.. code-block:: c++
+
+        auto intVector = vector->as<SimpleVector<int32_t>>();
+        rows.applyToSelected([&] (auto row) {
+            if (intVector->isNullAt(row)) {
+                // Process null value.
+            } else {
+                auto value = intVector->valueAt(row);
+                // Process non-null value of type int32_t.
+            }
+            return true;
+        });
+
+The isNullAt(index) and valueAt(index) methods of SimpleVector<T> are virtual
+and have different implementations for different encodings. For dictionary
+encoding, these methods recursively call methods of the base vectors until they
+read the innermost flat vector that returns the value. This is quite inefficient
+and hence performance-sensitive code paths should use DecodedVector instead.
+
+DecodedVector combines multiple wrappings into at most one. It takes any vector
+and produces a reference to the flat base vector and an array of indices into
+that vector.  DecodedVector also produces a combined nulls buffer from the
+nulls buffers of the dictionary encodings and the base vector.
+
+Note: It might be easy to confuse flat base vector mentioned above with a
+FlatVector<T> template class which represents flat vectors of primitive types.
+Each vector has a type and encoding. The type refers to the type of values the
+vector stores, e.g. INTERGER, MAP(INTEGER, DOUBLE), ARRAY(REAL). The encoding
+refers to the way the values are compacted, e.g. flat, dictionary, constant.
+ArrayVector, MapVector and RowVector classes represent flat vectors of types
+ARRAY, MAP and ROW respectively. FlatVector<T> represents flat vectors of
+primitive types. Flat, dictionary and constant encodings apply to all types.
 
 For scalar types, valueAt(index) and isNullAt(index) methods provide access to
 individual null flags and values. Here is an example of decoding and accessing
@@ -104,10 +136,10 @@ the values of a vector of type INTEGER:
         DecodedVector decoded(vector, rows);
         rows.applyToSelected([&] (auto row) {
             if (decoded.isNullAt(row)) {
-                // process null
+                // Process null value.
             } else {
                 auto value = decoded.valueAt<int32_t>(row);
-                // process non-null value of type int32_t
+                // Process non-null value of type int32_t.
             }
             return true;
         });
@@ -123,26 +155,112 @@ accessing the values of a vector of type ARRAY(INTEGER).
 
 .. code-block:: c++
 
+        // Decode top-level array vector.
         DecodedVector decoded(vector, rows);
         auto base = decoded.base()->as<ArrayVector>();
-        auto elements = base->elements();
         auto indices = decoded.indices();
+
+        // Access individual elements via SimpleVector<int32_t>. This is convenient, but not efficient.
+        auto elements = base->elements()->as<SimpleVector<int32_t>>();
 
         rows.applyToSelected([&] (auto row) {
             if (decoded.isNullAt(row)) {
-                // process null array
+                // Process null array.
             } else {
                 auto size = base->sizeAt(indices[row]);
                 auto offset = base->offsetAt(indices[row]);
-                // process array elements stored in [offset, offset + size) slots of the elements vector
+                // Process array elements stored in [offset, offset + size) slots of the elements vector.
+
+                for (auto i = 0; i < size; ++i) {
+                   if (elements->isNullAt(offset + i)) {
+                      // Process null element of the array.
+                   } else {
+                      auto value = elements->valueAt(offset + i);
+                      // Process non-null element of the array of type int32_t.
+                   }
+                }
             }
             return true;
         });
 
-Node: DecodedVector applied to complex type vectors processes wrappings only
+Note: DecodedVector applied to complex type vectors processes wrappings only
 for the top-level vector, e.g. array/map/row. Child vectors of the base vector
 (e.g. elements vector of an array, keys and values vectors of a map, fields of
 a row) are left unmodified. It may be necessary to decode these separately.
+
+In the example above, we access the array elements using virtual methods
+isNullAt(index) and valueAt(index) of the SimpleVector<int32_t>. To avoid
+virtual function calls in performance-sensitive parts of the code, we can use
+DecodedVector for the elements vector like so.
+
+.. code-block:: c++
+
+        // Decode top-level array vector.
+        DecodedVector decoded(vector, rows);
+        auto base = decoded.base()->as<ArrayVector>();
+        auto indices = decoded.indices();
+
+        // Decode nested elements vector.
+        SelectivityVector nestedRows(base->elements()->size());
+        DecodedVector decodedElements(base->elements(), nestedRows);
+
+        rows.applyToSelected([&] (auto row) {
+            if (decoded.isNullAt(row)) {
+                // Process null array.
+            } else {
+                auto size = base->sizeAt(indices[row]);
+                auto offset = base->offsetAt(indices[row]);
+                // Process array elements stored in [offset, offset + size) slots of the elements vector.
+
+                for (auto i = 0; i < size; ++i) {
+                   if (decodedElements.isNullAt(offset + i)) {
+                      // Process null element of the array.
+                   } else {
+                      auto value = decodedElements.valueAt<int32_t>(offset + i);
+                      // Process non-null element of the array of type int32_t.
+                   }
+                }
+            }
+            return true;
+        });
+
+When working with maps, we would need to decode both keys and values nested
+vectors. Here is what this might look like for a vector of type MAP(INTEGER, DOUBLE).
+
+.. code-block:: c++
+
+        // Decode top-level map vector.
+        DecodedVector decoded(vector, rows);
+        auto base = decoded.base()->as<MapVector>();
+        auto indices = decoded.indices();
+
+        // Decode nested keys and values vectors.
+        SelectivityVector nestedRows(base->keys()->size());
+        DecodedVector decodedKeys(base->keys(), nestedRows);
+        DecodedVector decodedValues(base->values(), nestedRows);
+
+        rows.applyToSelected([&] (auto row) {
+            if (decoded.isNullAt(row)) {
+                // Process null map.
+            } else {
+                auto size = base->sizeAt(indices[row]);
+                auto offset = base->offsetAt(indices[row]);
+                // Process map elements stored in [offset, offset + size) slots of the keys and values vectors.
+
+                for (auto i = 0; i < size; ++i) {
+                   std::optional<int32_t> key;
+                   std::optional<double> value:
+                   if (!decodedKeys.isNullAt(offset + i)) {
+                      key = decodedKeys.valueAt<int32_t>(offset + i);
+                   }
+                   if (!decodedValues.isNullAt(offset + i)) {
+                      value = decodedValues.valueAt<double>(offset + i);
+                   }
+                   // Process (key, value) pair.
+                }
+            }
+            return true;
+        });
 
 DecodedVector transparently handles all kinds of wrappings, e.g.
 constant, dictionary and sequence, but detailed description of these is out of
