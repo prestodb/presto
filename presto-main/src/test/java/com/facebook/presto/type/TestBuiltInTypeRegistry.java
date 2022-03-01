@@ -249,7 +249,7 @@ public class TestBuiltInTypeRegistry
             for (Type resultType : types) {
                 if (functionAndTypeManager.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
-                        functionAndTypeManager.lookupCast(CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
+                        functionAndTypeManager.lookupCast(CAST, sourceType, resultType);
                     }
                     catch (OperatorNotFoundException e) {
                         fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
