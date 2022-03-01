@@ -376,11 +376,25 @@ target_link_libraries(
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
 
+add_library(velox_e2e_filter_test_base E2EFilterTestBase.cpp)
+
+target_link_libraries(
+  velox_e2e_filter_test_base
+  ${VELOX_LINK_LIBS}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FMT}
+  ${LZ4}
+  ${LZO}
+  ${ZSTD}
+  ${ZLIB_LIBRARIES}
+  ${TEST_LINK_LIBS})
+
 add_executable(velox_dwrf_e2e_filter_test E2EFilterTest.cpp)
 add_test(velox_dwrf_e2e_filter_test velox_dwrf_e2e_filter_test)
 
 target_link_libraries(
   velox_dwrf_e2e_filter_test
+  velox_e2e_filter_test_base
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
   ${FMT}
