@@ -1,4 +1,4 @@
-name: ci
+name: spark integration
 
 on:
   pull_request:
@@ -15,8 +15,6 @@ env:
 jobs:
   spark-integration:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
