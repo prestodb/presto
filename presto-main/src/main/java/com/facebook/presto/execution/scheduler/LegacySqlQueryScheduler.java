@@ -413,7 +413,7 @@ public class LegacySqlQueryScheduler
                 sectionStageExecutions.stream()
                         .map(executionInfos -> executionInfos.stream()
                                 .collect(toImmutableList()))
-                        .map(executionPolicy::createExecutionSchedule)
+                        .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
                         .forEach(sectionExecutionSchedules::add);
 
                 while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {

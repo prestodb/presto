@@ -188,7 +188,8 @@ public class TestFeaturesConfig
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
                 .setHashBasedDistinctLimitEnabled(false)
                 .setHashBasedDistinctLimitThreshold(10000)
-                .setStreamingForPartialAggregationEnabled(false));
+                .setStreamingForPartialAggregationEnabled(false)
+                .setMaxStageCountForEagerScheduling(25));
     }
 
     @Test
@@ -328,6 +329,7 @@ public class TestFeaturesConfig
                 .put("hash-based-distinct-limit-enabled", "true")
                 .put("hash-based-distinct-limit-threshold", "500")
                 .put("streaming-for-partial-aggregation-enabled", "true")
+                .put("execution-policy.max-stage-count-for-eager-scheduling", "123")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -464,7 +466,8 @@ public class TestFeaturesConfig
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
                 .setHashBasedDistinctLimitEnabled(true)
                 .setHashBasedDistinctLimitThreshold(500)
-                .setStreamingForPartialAggregationEnabled(true);
+                .setStreamingForPartialAggregationEnabled(true)
+                .setMaxStageCountForEagerScheduling(123);
         assertFullMapping(properties, expected);
     }
 
