@@ -500,16 +500,16 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.get());
     }
 
-    public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
+    public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
     {
-        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
+        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType.getTypeSignature(), singletonList(fromType.getTypeSignature()), false);
 
         try {
             builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(signature);
         }
         catch (PrestoException e) {
             if (castType.isOperatorType() && e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType), toType);
+                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType.getTypeSignature()), toType.getTypeSignature());
             }
             throw e;
         }

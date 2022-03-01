@@ -83,7 +83,7 @@ public class TestFunctionAndTypeManager
     public void testIdentityCast()
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        FunctionHandle exactOperator = functionAndTypeManager.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
+        FunctionHandle exactOperator = functionAndTypeManager.lookupCast(CastType.CAST, HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator, new BuiltInFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
     }
 

@@ -120,7 +120,7 @@ public class KeyBasedSampler
             if (!Varchars.isVarcharType(type)) {
                 arg = call(
                         "CAST",
-                        functionAndTypeManager.lookupCast(CAST, rowExpression.getType().getTypeSignature(), VARCHAR.getTypeSignature()),
+                        functionAndTypeManager.lookupCast(CAST, rowExpression.getType(), VARCHAR),
                         VARCHAR,
                         rowExpression);
             }

@@ -1301,7 +1301,7 @@ public class PlanPrinter
         }
 
         try {
-            FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR.getTypeSignature());
+            FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type, VARCHAR);
             Slice coerced = (Slice) new InterpretedFunctionInvoker(functionAndTypeManager).invoke(cast, session.getSqlFunctionProperties(), value);
             return "\"" + coerced.toStringUtf8().replace("\"", "\\\"") + "\"";
         }

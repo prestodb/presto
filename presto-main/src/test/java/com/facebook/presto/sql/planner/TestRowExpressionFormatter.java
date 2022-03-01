@@ -227,7 +227,7 @@ public class TestRowExpressionFormatter
         // cast
         callExpression = call(
                 CAST.name(),
-                FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, TINYINT.getTypeSignature(), BIGINT.getTypeSignature()),
+                FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, TINYINT, BIGINT),
                 BIGINT,
                 constant(1L, TINYINT));
         assertEquals(format(callExpression), "CAST(TINYINT'1' AS bigint)");
@@ -258,7 +258,7 @@ public class TestRowExpressionFormatter
                 C_VARCHAR,
                 call(
                         CAST.name(),
-                        FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()),
+                        FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, VARCHAR, LIKE_PATTERN),
                         LIKE_PATTERN,
                         constant(utf8Slice("prefix%"), VARCHAR)));
         assertEquals(format(callExpression), "c_varchar LIKE VARCHAR'prefix%'");
