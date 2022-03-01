@@ -193,6 +193,7 @@ public class CoordinatorModule
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DispatchExecutor.class).withGeneratedName();
 
         // local dispatcher
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
