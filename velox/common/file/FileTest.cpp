@@ -33,13 +33,16 @@ void writeData(WriteFile* writeFile) {
 }
 
 void readData(ReadFile* readFile) {
-  Arena arena;
   ASSERT_EQ(readFile->size(), 15 + kOneMB);
-  ASSERT_EQ(readFile->pread(10 + kOneMB, 5, &arena), "ddddd");
-  ASSERT_EQ(readFile->pread(0, 10, &arena), "aaaaabbbbb");
-  ASSERT_EQ(readFile->pread(10, kOneMB, &arena), std::string(kOneMB, 'c'));
+  char buffer1[5];
+  ASSERT_EQ(readFile->pread(10 + kOneMB, 5, &buffer1), "ddddd");
+  char buffer2[10];
+  ASSERT_EQ(readFile->pread(0, 10, &buffer2), "aaaaabbbbb");
+  char buffer3[kOneMB];
+  ASSERT_EQ(readFile->pread(10, kOneMB, &buffer3), std::string(kOneMB, 'c'));
   ASSERT_EQ(readFile->size(), 15 + kOneMB);
-  const std::string_view arf = readFile->pread(5, 10, &arena);
+  char buffer4[10];
+  const std::string_view arf = readFile->pread(5, 10, &buffer4);
   const std::string zarf = readFile->pread(kOneMB, 15);
   auto buf = std::make_unique<char[]>(8);
   const std::string_view warf = readFile->pread(4, 8, buf.get());
@@ -100,6 +103,6 @@ TEST(LocalFile, viaRegistry) {
   }
   auto readFile = lfs->openFileForRead(filename);
   ASSERT_EQ(readFile->size(), 5);
-  Arena arena;
-  ASSERT_EQ(readFile->pread(0, 5, &arena), "snarf");
+  char buffer1[5];
+  ASSERT_EQ(readFile->pread(0, 5, &buffer1), "snarf");
 }

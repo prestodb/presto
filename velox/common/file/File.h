@@ -37,7 +37,6 @@
 #include <folly/futures/Future.h>
 
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/memory/Arena.h"
 
 namespace facebook::velox {
 
@@ -46,15 +45,8 @@ class ReadFile {
  public:
   virtual ~ReadFile() = default;
 
-  // Returns data at [offset, offset + length). Illegal to pass
-  // offset + length > size(). The returned string view will remain valid for at
-  // last as long as the |arena| remains uncleared and *this remains valid.
-  virtual std::string_view pread(uint64_t offset, uint64_t length, Arena* arena)
-      const = 0;
-
-  // Same as above, but places the read data into the provided pre-allocated
-  // buffer. Unlike the above call, we guarantee the bytes the returned
-  // string_view points to are actually copied into |buf|.
+  // Reads the data at [offset, offset + length) into the provided pre-allocated
+  // buffer 'buf'. The bytes are returned as a string_view pointing to 'buf'.
   virtual std::string_view pread(uint64_t offset, uint64_t length, void* buf)
       const = 0;
 
@@ -149,17 +141,19 @@ class InMemoryReadFile final : public ReadFile {
   explicit InMemoryReadFile(std::string file)
       : ownedFile_(std::move(file)), file_(ownedFile_) {}
 
-  std::string_view pread(uint64_t offset, uint64_t length, Arena* arena)
-      const final;
   std::string_view pread(uint64_t offset, uint64_t length, void* buf)
       const final;
+
   std::string pread(uint64_t offset, uint64_t length) const final;
+
   uint64_t preadv(
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers) const final;
+
   uint64_t size() const final {
     return file_.size();
   }
+
   uint64_t memoryUsage() const final {
     return size();
   }
@@ -201,16 +195,19 @@ class LocalReadFile final : public ReadFile {
 
   explicit LocalReadFile(int32_t fd);
 
-  std::string_view pread(uint64_t offset, uint64_t length, Arena* arena)
-      const final;
   std::string_view pread(uint64_t offset, uint64_t length, void* buf)
       const final;
+
   std::string pread(uint64_t offset, uint64_t length) const final;
+
   uint64_t size() const final;
+
   uint64_t preadv(
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers) const final;
+
   uint64_t memoryUsage() const final;
+
   bool shouldCoalesce() const final {
     return false;
   }

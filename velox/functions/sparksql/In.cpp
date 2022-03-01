@@ -16,8 +16,8 @@
 #include "folly/container/F14Set.h"
 #include "folly/hash/Hash.h"
 
-#include "velox/common/memory/Arena.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/sparksql/Arena.h"
 #include "velox/functions/sparksql/Comparisons.h"
 #include "velox/type/Filter.h"
 

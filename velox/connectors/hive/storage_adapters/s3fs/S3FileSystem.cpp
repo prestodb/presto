@@ -85,13 +85,6 @@ class S3ReadFile final : public ReadFile {
     VELOX_CHECK_GE(length_, 0);
   }
 
-  std::string_view pread(uint64_t offset, uint64_t length, Arena* arena)
-      const override {
-    char* position = arena->reserve(length);
-    preadInternal(offset, length, position);
-    return {position, length};
-  }
-
   std::string_view pread(uint64_t offset, uint64_t length, void* buffer)
       const override {
     preadInternal(offset, length, static_cast<char*>(buffer));
@@ -99,7 +92,6 @@ class S3ReadFile final : public ReadFile {
   }
 
   std::string pread(uint64_t offset, uint64_t length) const override {
-    // TODO: use allocator that doesn't initialize memory?
     std::string result(length, 0);
     char* position = result.data();
     preadInternal(offset, length, position);
