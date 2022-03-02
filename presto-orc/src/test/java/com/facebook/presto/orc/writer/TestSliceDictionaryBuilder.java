@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.VariableWidthBlock;
-import com.facebook.presto.orc.writer.SliceDictionaryBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;

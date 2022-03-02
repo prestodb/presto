@@ -15,6 +15,7 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.array.IntBigArray;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -76,17 +77,25 @@ public class SliceDictionaryBuilder
         return segmentedSliceBuilder.getSliceLength(position);
     }
 
-    public Slice getSlice(int position, int length)
+    @VisibleForTesting
+    Slice getSlice(int position, int length)
     {
         return segmentedSliceBuilder.getSlice(position, 0, length);
     }
 
-    public Slice getRawSlice(int position)
+    public Block getBlock()
+    {
+        return segmentedSliceBuilder;
+    }
+
+    @VisibleForTesting
+    Slice getRawSlice(int position)
     {
         return segmentedSliceBuilder.getRawSlice(position);
     }
 
-    public int getRawSliceOffset(int position)
+    @VisibleForTesting
+    int getRawSliceOffset(int position)
     {
         return segmentedSliceBuilder.getPositionOffset(position);
     }
