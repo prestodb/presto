@@ -126,6 +126,13 @@ public class LazyBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        assureLoaded();
+        block.writeBytesTo(position, offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         assureLoaded();

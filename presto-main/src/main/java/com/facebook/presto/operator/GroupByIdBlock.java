@@ -141,6 +141,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        block.writeBytesTo(position, offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         block.writePositionTo(position, blockBuilder);

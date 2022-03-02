@@ -257,7 +257,7 @@ public class SliceDictionaryColumnWriter
     {
         int length = dictionary.getSliceLength(dictionaryIndex);
         dictionaryLengthStream.writeLong(length);
-        dictionaryDataStream.writeSlice(dictionary.getRawSlice(dictionaryIndex), dictionary.getRawSliceOffset(dictionaryIndex), length);
+        dictionaryDataStream.writeBlockPosition(dictionary.getBlock(), dictionaryIndex, 0, length);
     }
 
     @Override
