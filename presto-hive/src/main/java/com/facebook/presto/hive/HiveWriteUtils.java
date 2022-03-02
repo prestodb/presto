@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CachingFileSystem;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -404,6 +405,9 @@ public final class HiveWriteUtils
     {
         if (fileSystem instanceof HadoopExtendedFileSystem) {
             return getRawFileSystem(((HadoopExtendedFileSystem) fileSystem).getRawFileSystem());
+        }
+        if (fileSystem instanceof CachingFileSystem) {
+            return getRawFileSystem(((CachingFileSystem) fileSystem).getDataTier());
         }
         return fileSystem;
     }
