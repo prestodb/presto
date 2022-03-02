@@ -121,7 +121,7 @@ nulls buffers of the dictionary encodings and the base vector.
 Note: It might be easy to confuse flat base vector mentioned above with a
 FlatVector<T> template class which represents flat vectors of primitive types.
 Each vector has a type and encoding. The type refers to the type of values the
-vector stores, e.g. INTERGER, MAP(INTEGER, DOUBLE), ARRAY(REAL). The encoding
+vector stores, e.g. INTEGER, MAP(INTEGER, DOUBLE), ARRAY(REAL). The encoding
 refers to the way the values are compacted, e.g. flat, dictionary, constant.
 ArrayVector, MapVector and RowVector classes represent flat vectors of types
 ARRAY, MAP and ROW respectively. FlatVector<T> represents flat vectors of
