@@ -123,6 +123,13 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        checkFieldIndex(position);
+        getRawFieldBlock(position).writeBytesTo(rowIndex, offset, length, sliceOutput);
+    }
+
+    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         checkFieldIndex(position);

@@ -250,6 +250,13 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        checkReadablePosition(position);
+        value.writeBytesTo(0, offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);

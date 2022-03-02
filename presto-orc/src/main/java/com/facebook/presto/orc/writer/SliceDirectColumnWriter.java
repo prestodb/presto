@@ -159,7 +159,7 @@ public class SliceDirectColumnWriter
     {
         int length = block.getSliceLength(position);
         lengthStream.writeLong(length);
-        dataStream.writeSlice(block.getSlice(position, 0, length));
+        dataStream.writeBlockPosition(block, position, 0, length);
         statisticsBuilder.addValue(block, position);
         return length;
     }
