@@ -169,6 +169,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        dictionary.writeBytesTo(getId(position), offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         dictionary.writePositionTo(getId(position), blockBuilder);
