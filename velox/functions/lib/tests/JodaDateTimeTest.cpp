@@ -319,6 +319,37 @@ TEST_F(JodaDateTimeTest, parseMixed) {
   EXPECT_EQ("-07:23", util::getTimeZoneName(result.timezoneId));
 }
 
+TEST_F(JodaDateTimeTest, parseFractionOfSecond) {
+  // Valid milliseconds and timezone with positive offset.
+  auto result =
+      parseAll("2022-02-23T12:15:00.364+04:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-23 12:15:00.364"), result.timestamp);
+  EXPECT_EQ("+04:00", util::getTimeZoneName(result.timezoneId));
+
+  // Valid milliseconds and timezone with negative offset.
+  result =
+      parseAll("2022-02-23T12:15:00.776-14:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-23 12:15:00.776"), result.timestamp);
+  EXPECT_EQ("-14:00", util::getTimeZoneName(result.timezoneId));
+
+  // Valid milliseconds.
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-24 02:19:33.283"),
+      parse("2022-02-24 02:19:33.283", "yyyy-MM-dd HH:mm:ss.SSS"));
+
+  // Test without milliseconds.
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-23 20:30:00"),
+      parse("2022-02-23T20:30:00", "yyyy-MM-dd'T'HH:mm:ss"));
+
+  // Assert on difference in milliseconds.
+  EXPECT_NE(
+      util::fromTimestampString("2022-02-23 12:15:00.223"),
+      parse("2022-02-23T12:15:00.776", "yyyy-MM-dd'T'HH:mm:ss.SSS"));
+}
+
 } // namespace
 
 } // namespace facebook::velox::functions

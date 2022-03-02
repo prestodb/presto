@@ -327,6 +327,10 @@ void parseFromPattern(
         jodaDate.second = number;
         break;
 
+      case JodaFormatSpecifier::FRACTION_OF_SECOND:
+        jodaDate.microsecond = number * util::kMicrosPerMsec;
+        break;
+
       default:
         VELOX_NYI(
             "Numeric Joda specifier JodaFormatSpecifier::" +
