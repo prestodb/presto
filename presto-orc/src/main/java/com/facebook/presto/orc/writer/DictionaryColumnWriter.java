@@ -65,7 +65,6 @@ public abstract class DictionaryColumnWriter
     private static final int EXPECTED_ROW_GROUP_SEGMENT_SIZE = 10_000;
 
     protected final int column;
-    protected final Type type;
     protected final ColumnWriterOptions columnWriterOptions;
     protected final Optional<DwrfDataEncryptor> dwrfEncryptor;
     protected final OrcEncoding orcEncoding;
@@ -99,7 +98,6 @@ public abstract class DictionaryColumnWriter
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
-        this.type = requireNonNull(type, "type is null");
         this.columnWriterOptions = requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");

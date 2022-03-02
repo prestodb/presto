@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
@@ -29,7 +30,6 @@ import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.openjdk.jol.info.ClassLayout;
@@ -41,6 +41,7 @@ import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.stream.LongOutputStream.createLengthOutputStream;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
@@ -52,6 +53,7 @@ public class SliceDictionaryColumnWriter
     private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(new DataSize(32, MEGABYTE).toBytes());
     private static final int EXPECTED_ENTRIES = 1_024;
 
+    private final AbstractVariableWidthType type;
     private ByteArrayOutputStream dictionaryDataStream;
     private LongOutputStream dictionaryLengthStream;
     private final int stringStatisticsLimitInBytes;
@@ -71,6 +73,8 @@ public class SliceDictionaryColumnWriter
             MetadataWriter metadataWriter)
     {
         super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+        checkArgument(type instanceof AbstractVariableWidthType, "Not an instance of AbstractVariableWidthType");
+        this.type = (AbstractVariableWidthType) type;
         this.dictionaryDataStream = new ByteArrayOutputStream(columnWriterOptions, dwrfEncryptor, Stream.StreamKind.DICTIONARY_DATA);
         this.dictionaryLengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
         this.stringStatisticsLimitInBytes = columnWriterOptions.getStringStatisticsLimit();
@@ -149,11 +153,7 @@ public class SliceDictionaryColumnWriter
 
     private long writeDirectEntry(int dictionaryIndex)
     {
-        int length = dictionary.getSliceLength(dictionaryIndex);
-        Slice rawSlice = dictionary.getRawSlice(dictionaryIndex);
-        int rawSliceOffset = dictionary.getRawSliceOffset(dictionaryIndex);
-        directColumnWriter.writeSlice(rawSlice, rawSliceOffset, length);
-        return length;
+        return directColumnWriter.writeBlockPosition(dictionary.getBlock(), dictionaryIndex);
     }
 
     @Override
@@ -171,10 +171,7 @@ public class SliceDictionaryColumnWriter
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 rowGroupIndexes[rowGroupOffset++] = dictionary.putIfAbsent(block, position);
-                // todo min/max statistics only need to be updated if value was not already in the dictionary, but non-null count does
-                Slice slice = type.getSlice(block, position);
-                statisticsBuilder.addValue(slice, 0, slice.length());
-
+                statisticsBuilder.addValue(block, position);
                 rawBytes += block.getSliceLength(position);
                 nonNullValueCount++;
             }
@@ -260,9 +257,7 @@ public class SliceDictionaryColumnWriter
     {
         int length = dictionary.getSliceLength(dictionaryIndex);
         dictionaryLengthStream.writeLong(length);
-        Slice rawSlice = dictionary.getRawSlice(dictionaryIndex);
-        int rawSliceOffset = dictionary.getRawSliceOffset(dictionaryIndex);
-        dictionaryDataStream.writeSlice(rawSlice, rawSliceOffset, length);
+        dictionaryDataStream.writeSlice(dictionary.getRawSlice(dictionaryIndex), dictionary.getRawSliceOffset(dictionaryIndex), length);
     }
 
     @Override
