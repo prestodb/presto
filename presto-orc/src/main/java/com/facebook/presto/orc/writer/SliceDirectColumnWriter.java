@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
@@ -59,7 +60,6 @@ public class SliceDirectColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
     private final int column;
-    private final Type type;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream lengthStream;
@@ -85,11 +85,11 @@ public class SliceDirectColumnWriter
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(type instanceof AbstractVariableWidthType, "type is not an AbstractVariableWidthType");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
-        this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
         this.lengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
@@ -143,9 +143,7 @@ public class SliceDirectColumnWriter
         int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                Slice value = type.getSlice(block, position);
-                elementSize += value.length();
-                writeSlice(value, 0, value.length());
+                elementSize += writeBlockPosition(block, position);
                 nonNullValueCount++;
             }
         }
@@ -157,11 +155,13 @@ public class SliceDirectColumnWriter
         presentStream.writeBoolean(value);
     }
 
-    void writeSlice(Slice slice, int sourceIndex, int length)
+    int writeBlockPosition(Block block, int position)
     {
+        int length = block.getSliceLength(position);
         lengthStream.writeLong(length);
-        dataStream.writeSlice(slice, sourceIndex, length);
-        statisticsBuilder.addValue(slice, sourceIndex, length);
+        dataStream.writeSlice(block.getSlice(position, 0, length));
+        statisticsBuilder.addValue(block, position);
+        return length;
     }
 
     @Override
