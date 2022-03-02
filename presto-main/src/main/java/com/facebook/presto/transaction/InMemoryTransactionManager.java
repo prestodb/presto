@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
@@ -62,6 +63,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
+import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -671,11 +673,12 @@ public class InMemoryTransactionManager
                 return transactionHandle;
             }
 
-            public void commit()
+            public ConnectorCommitHandle commit()
             {
                 if (finished.compareAndSet(false, true)) {
-                    connector.commit(transactionHandle);
+                    return connector.commit(transactionHandle);
                 }
+                return INSTANCE;
             }
 
             public void abort()
