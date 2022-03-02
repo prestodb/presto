@@ -18,6 +18,7 @@ import com.facebook.presto.lark.sheets.api.CachingLarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.LarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchemaStore;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -30,6 +31,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
 
 public class LarkSheetsConnector
@@ -99,9 +101,10 @@ public class LarkSheetsConnector
     }
 
     @Override
-    public void commit(ConnectorTransactionHandle transactionHandle)
+    public ConnectorCommitHandle commit(ConnectorTransactionHandle transactionHandle)
     {
         transactionManager.remove(transactionHandle);
+        return INSTANCE;
     }
 
     @Override
