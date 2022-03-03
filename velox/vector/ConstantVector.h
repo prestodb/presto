@@ -164,6 +164,10 @@ class ConstantVector final : public SimpleVector<T> {
     return isNull_ || (valueVector_ && valueVector_->mayHaveNullsRecursive());
   }
 
+  void setNull(vector_size_t /*idx*/, bool /*value*/) override {
+    VELOX_FAIL("setNull not supported on ConstantVector");
+  }
+
   const uint64_t* flatRawNulls(const SelectivityVector& rows) override {
     VELOX_DCHECK(initialized_);
     if (isNull_) {

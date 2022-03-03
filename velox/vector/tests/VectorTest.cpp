@@ -1504,3 +1504,10 @@ TEST_F(VectorTest, clearAllNulls) {
   ASSERT_FALSE(vector->mayHaveNulls());
   ASSERT_FALSE(vector->isNullAt(50));
 }
+
+TEST_F(VectorTest, constantSetNull) {
+  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
+  auto vector = vectorMaker->constantVector<int64_t>({{0}});
+
+  EXPECT_THROW(vector->setNull(0, true), VeloxRuntimeError);
+}
