@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/core/SimpleFunctionMetadata.h"
+#include "velox/type/Type.h"
 
 // Test for simple function type analysis.
 namespace facebook::velox::core {
@@ -24,31 +25,31 @@ namespace {
 class TypeAnalysisTest : public testing::Test {
  protected:
   template <typename... Args>
-  void testHasGeneric(bool expecetd) {
+  void testHasGeneric(bool expected) {
     TypeAnalysisResults results;
     (TypeAnalysis<Args>().run(results), ...);
-    ASSERT_EQ(expecetd, results.hasGeneric);
+    ASSERT_EQ(expected, results.stats.hasGeneric);
   }
 
   template <typename... Args>
-  void testHasVariadic(bool expecetd) {
+  void testHasVariadic(bool expected) {
     TypeAnalysisResults results;
     (TypeAnalysis<Args>().run(results), ...);
-    ASSERT_EQ(expecetd, results.hasVariadic);
+    ASSERT_EQ(expected, results.stats.hasVariadic);
   }
 
   template <typename... Args>
-  void testHasVariadicOfGeneric(bool expecetd) {
+  void testHasVariadicOfGeneric(bool expected) {
     TypeAnalysisResults results;
     (TypeAnalysis<Args>().run(results), ...);
-    ASSERT_EQ(expecetd, results.hasVariadicOfGeneric);
+    ASSERT_EQ(expected, results.stats.hasVariadicOfGeneric);
   }
 
   template <typename... Args>
-  void testCountConcrete(size_t expecetd) {
+  void testCountConcrete(size_t expected) {
     TypeAnalysisResults results;
     (TypeAnalysis<Args>().run(results), ...);
-    ASSERT_EQ(expecetd, results.concreteCount);
+    ASSERT_EQ(expected, results.stats.concreteCount);
   }
 
   template <typename... Args>
@@ -73,6 +74,20 @@ class TypeAnalysisTest : public testing::Test {
     TypeAnalysisResults results;
     (TypeAnalysis<Args>().run(results), ...);
     ASSERT_EQ(expected, results.variables);
+  }
+
+  template <typename... Args>
+  void testRank(uint32_t expected) {
+    TypeAnalysisResults results;
+    (TypeAnalysis<Args>().run(results), ...);
+    ASSERT_EQ(expected, results.stats.getRank());
+  }
+
+  template <typename... Args>
+  uint32_t getPriority() {
+    TypeAnalysisResults results;
+    (TypeAnalysis<Args>().run(results), ...);
+    return results.stats.computePriority();
   }
 };
 
@@ -150,10 +165,14 @@ TEST_F(TypeAnalysisTest, testStringType) {
   testStringType<int64_t>({"bigint"});
   testStringType<double>({"double"});
   testStringType<float>({"real"});
+
   testStringType<Array<int32_t>>({"array(integer)"});
+  testStringType<Map<Generic<>, int32_t>>({"map(any,integer)"});
+  testStringType<Row<int32_t, int32_t>>({"row(integer, integer)"});
+
   testStringType<Generic<>>({"any"});
   testStringType<Generic<T1>>({"__user_T1"});
-  testStringType<Map<Generic<>, int32_t>>({"map(any,integer)"});
+
   testStringType<Variadic<int32_t>>({"integer"});
 
   testStringType<int32_t, int64_t, Map<Array<int32_t>, Generic<T2>>>({
@@ -174,5 +193,46 @@ TEST_F(TypeAnalysisTest, testVariables) {
       {"__user_T2", "__user_T5"});
 }
 
+TEST_F(TypeAnalysisTest, testRank) {
+  testRank<int32_t>(1);
+  testRank<Array<int32_t>>(1);
+  testRank<Array<int32_t>, int, double>(1);
+
+  testRank<Variadic<int32_t>>(2);
+  testRank<Array<int32_t>, int, Variadic<int32_t>>(2);
+  testRank<Variadic<Array<int32_t>>>(2);
+
+  testRank<Generic<>>(3);
+  testRank<Array<int32_t>, Generic<>, Variadic<int32_t>>(3);
+  testRank<Array<int32_t>, Generic<T2>>(3);
+  testRank<Array<Generic<>>, Generic<T2>>(3);
+  testRank<Array<Generic<>>, int32_t>(3);
+  testRank<Array<int32_t>, Generic<>, Generic<>>(3);
+
+  testRank<Variadic<Generic<>>>(4);
+  testRank<Array<int32_t>, Generic<>, Variadic<Array<Generic<>>>>(4);
+}
+
+TEST_F(TypeAnalysisTest, testPriority) {
+  static size_t count = 0;
+  auto test = [&](auto a, auto b) {
+    ASSERT_LT(a, b) << "test id:" << count++;
+    count++;
+  };
+
+  test(getPriority<int32_t, int32_t>(), getPriority<Variadic<int32_t>>());
+
+  test(getPriority<Variadic<int32_t>>(), getPriority<Variadic<Generic<>>>());
+
+  test(getPriority<Variadic<int32_t>>(), getPriority<Generic<>, Generic<>>());
+
+  test(getPriority<Generic<>, Generic<>>(), getPriority<Variadic<Generic<>>>());
+
+  test(getPriority<int32_t, Generic<>>(), getPriority<Generic<>, Generic<>>());
+
+  test(
+      getPriority<Generic<>, Variadic<Array<Generic<>>>>(),
+      getPriority<Generic<>, Variadic<Generic<>>>());
+}
 } // namespace
 } // namespace facebook::velox::core

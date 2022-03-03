@@ -98,18 +98,68 @@ struct ValidateVariadicArgs {
 
 // Information collected during TypeAnalysis.
 struct TypeAnalysisResults {
-  // Whether a variadic is encountered.
-  bool hasVariadic = false;
+  struct Stats {
+    // Whether a variadic is encountered.
+    bool hasVariadic = false;
 
-  // Whether a generic is encountered.
-  bool hasGeneric = false;
+    // Whether a generic is encountered.
+    bool hasGeneric = false;
 
-  // Whether a variadic of generic is encountered.
-  // E.g: Variadic<T> or Variadic<Array<T1>>.
-  bool hasVariadicOfGeneric = false;
+    // Whether a variadic of generic is encountered.
+    // E.g: Variadic<T> or Variadic<Array<T1>>.
+    bool hasVariadicOfGeneric = false;
 
-  // The number of types that are neither generic, nor variadic.
-  size_t concreteCount = 0;
+    // The number of types that are neither generic, nor variadic.
+    size_t concreteCount = 0;
+
+    // Set a priority based on the collected information. Lower priorities are
+    // picked first during function resolution. Each signature get a rank out
+    // of 4, those ranks form a Lattice ordering.
+    // rank 1: generic free and variadic free.
+    //    e.g: int, int, int -> int.
+    // rank 2: has variadic but generic free.
+    //    e.g: Variadic<int> -> int.
+    // rank 3: has generic but no variadic of generic.
+    //    e.g: Generic<>, Generic<>, -> int.
+    // rank 4: has variadic of generic.
+    //    e.g: Variadic<Generic<>> -> int.
+
+    // If two functions have the same rank, then concreteCount is used to
+    // to resolve the ordering.
+    // e.g: consider the two functions:
+    //    1. int, Generic<>, Variadic<int> -> has rank 3. concreteCount =2
+    //    2. int, Generic<>, Generic<>     -> has rank 3. concreteCount =1
+    // in this case (1) is picked.
+    // e.g: (Generic<>, int) will be picked before (Generic<>, Generic<>)
+    // e.g: Variadic<Array<Generic<>>> is picked before Variadic<Generic<>>.
+    uint32_t getRank() {
+      if (!hasGeneric && !hasVariadic) {
+        return 1;
+      }
+
+      if (hasVariadic && !hasGeneric) {
+        VELOX_DCHECK(!hasVariadicOfGeneric);
+        return 2;
+      }
+
+      if (hasGeneric && !hasVariadicOfGeneric) {
+        return 3;
+      }
+
+      if (hasVariadicOfGeneric) {
+        VELOX_DCHECK(hasVariadic);
+        VELOX_DCHECK(hasGeneric);
+        return 4;
+      }
+
+      VELOX_UNREACHABLE("unreachable");
+    }
+
+    uint32_t computePriority() {
+      // This assumes we wont have signature longer than 1M argument.
+      return getRank() * 1000000 - concreteCount;
+    }
+  } stats;
 
   // String representaion of the type in the FunctionSignatureBuilder.
   std::ostringstream out;
@@ -131,7 +181,7 @@ struct TypeAnalysisResults {
 template <typename T>
 struct TypeAnalysis {
   void run(TypeAnalysisResults& results) {
-    results.concreteCount++;
+    results.stats.concreteCount++;
     results.out << boost::algorithm::to_lower_copy(
         std::string(CppToType<T>::name));
   }
@@ -147,14 +197,14 @@ struct TypeAnalysis<Generic<T>> {
       results.out << variableType;
       results.variables.insert(variableType);
     }
-    results.hasGeneric = true;
+    results.stats.hasGeneric = true;
   }
 };
 
 template <typename K, typename V>
 struct TypeAnalysis<Map<K, V>> {
   void run(TypeAnalysisResults& results) {
-    results.concreteCount++;
+    results.stats.concreteCount++;
     results.out << "map(";
     TypeAnalysis<K>().run(results);
     results.out << ",";
@@ -172,12 +222,12 @@ struct TypeAnalysis<Variadic<V>> {
     TypeAnalysis<V>().run(tmp);
 
     // Combine the child results.
-    results.hasVariadic = true;
-    results.hasGeneric = results.hasGeneric || tmp.hasGeneric;
-    results.hasVariadicOfGeneric =
-        tmp.hasGeneric || results.hasVariadicOfGeneric;
+    results.stats.hasVariadic = true;
+    results.stats.hasGeneric = results.stats.hasGeneric || tmp.stats.hasGeneric;
+    results.stats.hasVariadicOfGeneric =
+        tmp.stats.hasGeneric || results.stats.hasVariadicOfGeneric;
 
-    results.concreteCount += tmp.concreteCount;
+    results.stats.concreteCount += tmp.stats.concreteCount;
     results.variables.insert(tmp.variables.begin(), tmp.variables.end());
     results.out << tmp.typeAsString();
   }
@@ -186,7 +236,7 @@ struct TypeAnalysis<Variadic<V>> {
 template <typename V>
 struct TypeAnalysis<Array<V>> {
   void run(TypeAnalysisResults& results) {
-    results.concreteCount++;
+    results.stats.concreteCount++;
     results.out << "array(";
     TypeAnalysis<V>().run(results);
     results.out << ")";
@@ -201,7 +251,7 @@ struct TypeAnalysis<Row<T...>> {
   using child_type_at = typename std::tuple_element<N, child_types>::type;
 
   void run(TypeAnalysisResults& results) {
-    results.concreteCount++;
+    results.stats.concreteCount++;
     results.out << "row(";
     // This expression applies the lambda for each row child type.
     bool first = true;
@@ -228,9 +278,9 @@ class ISimpleFunctionMetadata {
   virtual std::string getName() const = 0;
   virtual bool isDeterministic() const = 0;
   virtual int32_t reuseStringsFromArg() const = 0;
-  virtual std::shared_ptr<exec::FunctionSignature> signature() const = 0;
+  virtual uint32_t priority() const = 0;
+  virtual const std::shared_ptr<exec::FunctionSignature> signature() const = 0;
   virtual std::string helpMessage(const std::string& name) const = 0;
-
   virtual ~ISimpleFunctionMetadata() = default;
 };
 
@@ -271,6 +321,10 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   static constexpr int num_args = std::tuple_size<arg_types>::value;
 
  public:
+  uint32_t priority() const override {
+    return priority_;
+  }
+
   std::string getName() const final {
     if constexpr (udf_has_name<Fun>::value) {
       return Fun::name;
@@ -321,38 +375,16 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   explicit SimpleFunctionMetadata(std::shared_ptr<const Type> returnType)
       : returnType_(
             returnType ? std::move(returnType) : CppToType<TReturn>::create()) {
+    auto analysis = analyzeSignatureTypes();
+    buildSignature(analysis);
+    priority_ = analysis.stats.computePriority();
     verifyReturnTypeCompatibility();
   }
 
   ~SimpleFunctionMetadata() override = default;
 
-  std::shared_ptr<exec::FunctionSignature> signature() const final {
-    auto builder = exec::FunctionSignatureBuilder();
-
-    TypeAnalysisResults results;
-    TypeAnalysis<return_type>().run(results);
-    builder.returnType(results.typeAsString());
-
-    // This expression applies the lambda for each input arg type.
-    (
-        [&]() {
-          // Clear string representation but keep other collected information to
-          // accumulate.
-          results.resetTypeString();
-          TypeAnalysis<Args>().run(results);
-          builder.argumentType(results.typeAsString());
-        }(),
-        ...);
-
-    for (const auto& variable : results.variables) {
-      builder.typeVariable(variable);
-    }
-
-    if (isVariadic()) {
-      builder.variableArity();
-    }
-
-    return builder.build();
+  const std::shared_ptr<exec::FunctionSignature> signature() const override {
+    return signature_;
   }
 
   std::string helpMessage(const std::string& name) const final {
@@ -376,6 +408,56 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   }
 
  private:
+  struct SignatureTypesAnalysisResults {
+    std::vector<std::string> argsTypes;
+    std::string outputType;
+    std::set<std::string> variables;
+    TypeAnalysisResults::Stats stats;
+  };
+
+  SignatureTypesAnalysisResults analyzeSignatureTypes() {
+    std::vector<std::string> argsTypes;
+
+    TypeAnalysisResults results;
+    TypeAnalysis<return_type>().run(results);
+    std::string outputType = results.typeAsString();
+
+    (
+        [&]() {
+          // Clear string representation but keep other collected information
+          // to accumulate.
+          results.resetTypeString();
+          TypeAnalysis<Args>().run(results);
+          argsTypes.push_back(results.typeAsString());
+        }(),
+        ...);
+
+    return SignatureTypesAnalysisResults{
+        std::move(argsTypes),
+        std::move(outputType),
+        std::move(results.variables),
+        std::move(results.stats)};
+  }
+
+  void buildSignature(const SignatureTypesAnalysisResults& analysis) {
+    auto builder = exec::FunctionSignatureBuilder();
+
+    builder.returnType(analysis.outputType);
+
+    for (const auto& arg : analysis.argsTypes) {
+      builder.argumentType(arg);
+    }
+
+    for (const auto& variable : analysis.variables) {
+      builder.typeVariable(variable);
+    }
+
+    if (isVariadic()) {
+      builder.variableArity();
+    }
+    signature_ = builder.build();
+  }
+
   void verifyReturnTypeCompatibility() {
     VELOX_USER_CHECK(
         CppToType<TReturn>::create()->kindEquals(returnType_),
@@ -383,6 +465,8 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   }
 
   const std::shared_ptr<const Type> returnType_;
+  std::shared_ptr<exec::FunctionSignature> signature_;
+  uint32_t priority_;
 };
 
 // wraps a UDF object to provide the inheritance
@@ -421,8 +505,8 @@ class UDFHolder final
   DECLARE_METHOD_RESOLVER(callAscii_method_resolver, callAscii);
   DECLARE_METHOD_RESOLVER(initialize_method_resolver, initialize);
 
-  // Check which of the call(), callNullable(), callNullFree(), callAscii(), and
-  // initialize() methods are available in the UDF object.
+  // Check which of the call(), callNullable(), callNullFree(), callAscii(),
+  // and initialize() methods are available in the UDF object.
   static constexpr bool udf_has_call = util::has_method<
       Fun,
       call_method_resolver,

@@ -100,15 +100,22 @@ class FunctionRegistry {
   const FunctionEntry<Function, Metadata>* resolveFunction(
       const std::string& name,
       const std::vector<TypePtr>& argTypes) {
+    const FunctionEntry<Function, Metadata>* selectedCandidate = nullptr;
+
     if (auto signatureMap = getSignatureMap(name)) {
       for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
         if (SignatureBinder(candidateSignature, argTypes).tryBind()) {
-          return functionEntry.get();
+          auto* currentCandidate = functionEntry.get();
+          if (!selectedCandidate ||
+              currentCandidate->getMetadata()->priority() <
+                  selectedCandidate->getMetadata()->priority()) {
+            selectedCandidate = currentCandidate;
+          }
         }
       }
     }
 
-    return nullptr;
+    return selectedCandidate;
   }
 
  private:

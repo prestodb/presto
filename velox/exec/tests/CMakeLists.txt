@@ -42,6 +42,7 @@ add_executable(
   HashJoinTest.cpp
   PlanNodeToStringTest.cpp
   FunctionSignatureBuilderTest.cpp
+  SimpleFunctionResolutionTest.cpp
   UnnestTest.cpp
   AssignUniqueIdTest.cpp)
 
