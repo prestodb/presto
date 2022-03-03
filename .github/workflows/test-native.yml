@@ -29,6 +29,10 @@ jobs:
       CC: /opt/rh/gcc-toolset-9/root/bin/gcc
       CXX: /opt/rh/gcc-toolset-9/root/bin/g++
 
+    concurrency:
+      group: ${{ github.workflow }}-native-build-and-test-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v1
