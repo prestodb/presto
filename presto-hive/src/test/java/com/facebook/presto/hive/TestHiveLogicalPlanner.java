@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.base.Functions;
@@ -68,6 +69,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.fs.Path;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -2566,6 +2568,107 @@ public class TestHiveLogicalPlanner
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table1);
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewResultForTwoTableJoin()
+    {
+        final String viewName = "matview";
+        final String table1 = "lineitem_partitioned";
+        final String table2 = "orders_partitioned";
+
+        @Language("SQL") final String originalQuery = format("SELECT custkey AS ck, %s.orderkey AS ok, orderstatus AS os, linenumber AS ln " +
+                "FROM %s JOIN %s " +
+                "ON %s.orderkey = %s.orderkey " +
+                "ORDER BY ck, ok, os, ln ",
+                table1, table1, table2, table1, table2, table1);
+        QueryRunner queryRunner = getQueryRunner();
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['linenumber']) AS " +
+                    "SELECT orderkey, linenumber FROM lineitem", table1));
+            assertTrue(getQueryRunner().tableExists(getSession(), table1));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['orderstatus']) AS " +
+                    "SELECT orderkey, custkey, orderstatus FROM orders", table2));
+            assertTrue(getQueryRunner().tableExists(getSession(), table2));
+
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s " +
+                            "WITH (partitioned_by = ARRAY['os', 'ln'])" +
+                            "AS %s",
+                    viewName,
+                    originalQuery));
+            assertTrue(getQueryRunner().tableExists(getSession(), viewName));
+
+//            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE os='P'", viewName), 1764);
+//            assertTrue(getQueryRunner().tableExists(getSession(), viewName));
+
+            final MaterializedResult baseResult = computeActual(originalQuery);
+            final MaterializedResult viewResult = computeActual(format("SELECT * FROM %s ", viewName));
+
+            Assert.assertEquals(baseResult, viewResult);
+        }
+        finally {
+            assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS %s", viewName));
+            queryRunner.execute(format("DROP TABLE IF EXISTS %s", table1));
+            queryRunner.execute(format("DROP TABLE IF EXISTS %s", table2));
+        }
+    }
+
+    @Test
+    public void testMaterializedViewResultForThreeTableJoin()
+    {
+        final String viewName = "mv";
+        final String table1 = "lineitem_partitioned";
+        final String table2 = "orders_partitioned";
+        final String table3 = "customer_partitioned";
+
+        @Language("SQL") final String originalQuery = format("SELECT %s.custkey ck, %s.orderkey ok, %s.nationkey nk, orderstatus os, linenumber ln " +
+                        "FROM %s JOIN %s ON " +
+                        "%s.orderkey = %s.orderkey " +
+                        "JOIN %s ON " +
+                        "%s.custkey = %s.custkey " +
+                        "ORDER BY ck, ok, nk, os, ln ",
+                table2, table2, table3,
+                table1, table2,
+                table1, table2,
+                table3,
+                table2, table3);
+        @Language("SQL") final String createMV = format(
+                "CREATE MATERIALIZED VIEW %s " +
+                        "WITH (partitioned_by = ARRAY['nk', 'os', 'ln'])" +
+                        "AS %s",
+                viewName,
+                originalQuery);
+        QueryRunner queryRunner = getQueryRunner();
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['linenumber']) AS " +
+                    "SELECT orderkey, linenumber FROM lineitem", table1));
+            assertTrue(getQueryRunner().tableExists(getSession(), table1));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['orderstatus']) AS " +
+                    "SELECT orderkey, custkey, orderstatus FROM orders", table2));
+            assertTrue(getQueryRunner().tableExists(getSession(), table2));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) AS " +
+                    "SELECT custkey, nationkey FROM customer", table3));
+            assertTrue(getQueryRunner().tableExists(getSession(), table3));
+
+            assertUpdate(createMV);
+            assertTrue(getQueryRunner().tableExists(getSession(), viewName));
+
+//            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE nationkey = 1", viewName), 2120);
+//            assertTrue(getQueryRunner().tableExists(getSession(), viewName));
+
+            Assert.assertEquals(computeActual(originalQuery),
+                    computeActual(format("SELECT * FROM %s", viewName)));
+        }
+        finally {
+            assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS %s", viewName));
+            queryRunner.execute(format("DROP TABLE IF EXISTS %s", table1));
+            queryRunner.execute(format("DROP TABLE IF EXISTS %s", table2));
+            queryRunner.execute(format("DROP TABLE IF EXISTS %s", table3));
         }
     }
 
