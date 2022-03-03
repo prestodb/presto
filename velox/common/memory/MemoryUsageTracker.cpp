@@ -67,8 +67,6 @@ void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
 
   ++usage(numAllocs_, type);
   usage(cumulativeBytes_, type) += size;
-  ++usage(numAllocs_, type);
-  usage(cumulativeBytes_, type) += size;
 
   // We track the peak usage of total memory independent of user and
   // system memory since freed user memory can be reallocated as system

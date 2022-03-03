@@ -370,8 +370,8 @@ class MemoryUsageTracker
   std::array<std::atomic<int64_t>, 2> currentUsageInBytes_{};
   std::array<std::atomic<int64_t>, 3> peakUsageInBytes_{};
   std::array<int64_t, 3> maxMemory_;
-  std::array<int64_t, 3> numAllocs_{};
-  std::array<int64_t, 3> cumulativeBytes_{};
+  std::array<std::atomic<int64_t>, 3> numAllocs_{};
+  std::array<std::atomic<int64_t>, 3> cumulativeBytes_{};
 
   int64_t reservation_{0};
 
