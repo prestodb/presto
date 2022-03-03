@@ -268,6 +268,14 @@ struct TypeAnalysis<Row<T...>> {
   }
 };
 
+// TODO: remove once old writers deprecated.
+template <typename... T>
+struct TypeAnalysis<RowWriterT<T...>> {
+  void run(TypeAnalysisResults& results) {
+    TypeAnalysis<Row<T...>>().run(results);
+  }
+};
+
 // todo(youknowjack): need a better story for types for UDFs. Mapping
 //                    c++ types <-> Velox types is imprecise (e.g. string vs
 //                    binary) and difficult to change.

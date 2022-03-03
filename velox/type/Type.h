@@ -1377,6 +1377,18 @@ struct Row {
   Row() {}
 };
 
+template <typename... T>
+struct RowWriterT {
+  template <size_t idx>
+  using type_at = typename std::tuple_element<idx, std::tuple<T...>>::type;
+
+  static_assert(
+      std::conjunction<std::bool_constant<!isVariadicType<T>::value>...>::value,
+      "Struct fields cannot be Variadic");
+
+  RowWriterT() = delete;
+};
+
 struct DynamicRow {
  private:
   DynamicRow() {}
@@ -1507,6 +1519,13 @@ struct CppToType<ArrayWriterT<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
 
 template <typename... T>
 struct CppToType<Row<T...>> : public TypeTraits<TypeKind::ROW> {
+  static auto create() {
+    return ROW({CppToType<T>::create()...});
+  }
+};
+
+template <typename... T>
+struct CppToType<RowWriterT<T...>> : public TypeTraits<TypeKind::ROW> {
   static auto create() {
     return ROW({CppToType<T>::create()...});
   }

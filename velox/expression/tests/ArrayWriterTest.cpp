@@ -242,7 +242,7 @@ TEST_F(ArrayWriterTest, multipleRows) {
 }
 
 TEST_F(ArrayWriterTest, e2ePrimitives) {
-  testE2E<int8_t>("f_int6");
+  testE2E<int8_t>("f_int8");
   testE2E<int16_t>("f_int16");
   testE2E<int32_t>("f_int32");
   testE2E<int64_t>("f_int64");

@@ -22,6 +22,7 @@
 #include <cstring>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
@@ -70,6 +71,11 @@ struct resolver<Row<T...>> {
   using in_type = RowView<true, T...>;
   using null_free_in_type = RowView<false, T...>;
   using out_type = core::RowWriter<typename resolver<T>::out_type...>;
+};
+
+template <typename... T>
+struct resolver<RowWriterT<T...>> {
+  using out_type = RowWriter<T...>;
 };
 
 template <typename V>
@@ -949,6 +955,89 @@ struct VectorWriter<Row<T...>> {
   std::tuple<VectorWriter<T>...> writers_;
   exec_out_t execOut_{};
   size_t offset_ = 0;
+};
+
+template <typename... T>
+struct VectorWriter<RowWriterT<T...>> {
+  using children_types = std::tuple<T...>;
+  using vector_t = typename TypeToFlatVector<Row<T...>>::type;
+  using exec_out_t = typename VectorExec::resolver<RowWriterT<T...>>::out_type;
+
+  VectorWriter() {}
+
+  void init(vector_t& vector) {
+    rowVector_ = &vector;
+    // Ensure that children vectors are at least of same size as top row vector.
+    initVectorWriters<0>();
+    resizeVectorWriters<0>(rowVector_->size());
+    writer_.initialize();
+  }
+
+  exec_out_t& current() {
+    return writer_;
+  }
+
+  vector_t& vector() {
+    return *rowVector_;
+  }
+
+  void ensureSize(size_t size) {
+    if (size > rowVector_->size()) {
+      rowVector_->resize(size, /*setNotNull*/ false);
+      resizeVectorWriters<0>(rowVector_->size());
+    }
+  }
+
+  void commitNull() {
+    rowVector_->setNull(writer_.offset_, true);
+  }
+
+  void commit(bool isSet = true) {
+    VELOX_DCHECK(rowVector_->size() > writer_.offset_);
+
+    if (LIKELY(isSet)) {
+      rowVector_->setNull(writer_.offset_, false);
+      writer_.finalize();
+    } else {
+      commitNull();
+    }
+  }
+
+  void setOffset(size_t offset) {
+    writer_.offset_ = offset;
+  }
+
+  void reset() {
+    writer_.offset_ = 0;
+  }
+
+ private:
+  template <size_t I>
+  void resizeVectorWriters(size_t size) {
+    if constexpr (I == sizeof...(T)) {
+      return;
+    } else {
+      std::get<I>(writer_.childrenWriters_).ensureSize(size);
+      resizeVectorWriters<I + 1>(size);
+    }
+  }
+
+  template <size_t I>
+  void initVectorWriters() {
+    if constexpr (I == sizeof...(T)) {
+      return;
+    } else {
+      using type = std::tuple_element_t<I, children_types>;
+      std::get<I>(writer_.childrenWriters_)
+          .init(static_cast<typename TypeToFlatVector<type>::type&>(
+              *rowVector_->childAt(I).get()));
+
+      initVectorWriters<I + 1>();
+    }
+  }
+
+  RowWriter<T...> writer_{};
+  vector_t* rowVector_ = nullptr;
 };
 
 template <typename T>

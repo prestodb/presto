@@ -499,4 +499,83 @@ class MapWriter {
   friend class SimpleFunctionAdapter;
 };
 
+// The object passed to the simple function interface that represent a single
+// output row entry.
+
+template <typename... T>
+class RowWriter {
+ public:
+  using writers_t = std::tuple<VectorWriter<T, void>...>;
+
+  template <vector_size_t I>
+  void set_null_at() {
+    std::get<I>(childrenVectors_)->setNull(offset_, true);
+  }
+
+  template <size_t I>
+  typename std::tuple_element_t<I, writers_t>::exec_out_t& get_writer_at() {
+    using Type = std::tuple_element_t<I, std::tuple<T...>>;
+    if constexpr (!requires_commit<Type>) {
+      VELOX_DCHECK(provide_std_interface<Type>);
+      std::get<I>(childrenVectors_)->setNull(offset_, false);
+      return std::get<I>(childrenWriters_).data_[offset_];
+    } else {
+      std::get<I>(needCommit_) = true;
+      std::get<I>(childrenWriters_).setOffset(offset_);
+      return std::get<I>(childrenWriters_).current();
+    }
+  }
+
+ private:
+  // Make sure user do not use those.
+  RowWriter<T...>() = default;
+
+  void initialize() {
+    initializeRec<0>();
+  }
+
+  template <size_t I>
+  void initializeRec() {
+    if constexpr (I == sizeof...(T)) {
+      return;
+    } else {
+      std::get<I>(needCommit_) = false;
+      std::get<I>(childrenVectors_) = &std::get<I>(childrenWriters_).vector();
+      initializeRec<I + 1>();
+    }
+  }
+
+  void finalize() {
+    finalizeRec<0>();
+  }
+
+  template <size_t I>
+  void finalizeRec() {
+    if constexpr (I == sizeof...(T)) {
+      return;
+    } else {
+      if (std::get<I>(needCommit_)) {
+        // Commit not null.
+        std::get<I>(childrenWriters_).commit(true);
+        std::get<I>(needCommit_) = false;
+      }
+      finalizeRec<I + 1>();
+    }
+  }
+
+  writers_t childrenWriters_;
+
+  std::tuple<typename VectorWriter<T, void>::vector_t*...> childrenVectors_;
+
+  template <typename>
+  using Bool = bool;
+
+  std::tuple<Bool<T>...> needCommit_;
+
+  vector_size_t offset_;
+
+  template <typename A, typename B>
+  friend struct VectorWriter;
+};
+
 } // namespace facebook::velox::exec
