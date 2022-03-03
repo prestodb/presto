@@ -20,6 +20,9 @@ jobs:
   native-specific-macos:
     if: ${{ false }}  # disable the macos run for now
     runs-on: macos-latest
+    concurrency:
+      group: ${{ github.workflow }}-native-specific-macos-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v3
       - uses: maxim-lobanov/setup-xcode@v1
@@ -105,6 +108,10 @@ jobs:
     env:
       CC: /opt/rh/gcc-toolset-9/root/bin/gcc
       CXX: /opt/rh/gcc-toolset-9/root/bin/g++
+
+    concurrency:
+      group: ${{ github.workflow }}-native-specific-linux-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v3
