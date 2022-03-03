@@ -12,6 +12,9 @@ jobs:
   web-ui-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: ${{ github.workflow }}-web-ui-checks-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v2
       - name: Web UI Checks
