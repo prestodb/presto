@@ -19,6 +19,7 @@ import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -29,6 +30,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -52,6 +54,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.sql.planner.PlanFragmenter.TOO_MANY_STAGES_MESSAGE;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -234,35 +237,58 @@ public class QueryTracker<T extends TrackedQuery>
         }
     }
 
+    private static class QueryAndTaskCount<T extends TrackedQuery>
+    {
+        private final T query;
+        private final int taskCount;
+
+        public QueryAndTaskCount(T query, int taskCount)
+        {
+            this.query = query;
+            this.taskCount = taskCount;
+        }
+
+        public T getQuery()
+        {
+            return query;
+        }
+
+        public int getTaskCount()
+        {
+            return taskCount;
+        }
+    }
+
     /**
      *  When cluster reaches max tasks limit and also a single query
      *  exceeds a threshold,  kill this query
      */
-    private void enforceTaskLimits()
+    @VisibleForTesting
+    void enforceTaskLimits()
     {
         int totalRunningTaskCount = 0;
-        int highestRunningTaskCount = 0;
-        Optional<T> highestRunningTaskQuery = Optional.empty();
+        Queue<QueryAndTaskCount> taskCountQueue = new PriorityQueue<>(comparingInt(queryAndCount -> -1 * queryAndCount.getTaskCount()));
+
         for (T query : queries.values()) {
             if (query.isDone() || !(query instanceof QueryExecution)) {
                 continue;
             }
             int runningTaskCount = ((QueryExecution) query).getRunningTaskCount();
             totalRunningTaskCount += runningTaskCount;
-            if (runningTaskCount > highestRunningTaskCount) {
-                highestRunningTaskCount = runningTaskCount;
-                highestRunningTaskQuery = Optional.of(query);
+            if (runningTaskCount > maxQueryRunningTaskCount) {
+                taskCountQueue.add(new QueryAndTaskCount(query, runningTaskCount));
             }
         }
 
         runningTaskCount.set(totalRunningTaskCount);
+        int runningTaskCountAfterKills = totalRunningTaskCount;
 
-        if (totalRunningTaskCount > maxTotalRunningTaskCountToKillQuery &&
-                highestRunningTaskCount > maxQueryRunningTaskCount &&
-                highestRunningTaskQuery.isPresent()) {
-            highestRunningTaskQuery.get().fail(new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
+        while (runningTaskCountAfterKills > maxTotalRunningTaskCountToKillQuery && !taskCountQueue.isEmpty()) {
+            QueryAndTaskCount<T> queryAndTaskCount = taskCountQueue.poll();
+            queryAndTaskCount.getQuery().fail(new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
                     "Query killed because the cluster is overloaded with too many tasks (%s) and this query was running with the highest number of tasks (%s). %s Otherwise, please try again later.",
-                    totalRunningTaskCount, highestRunningTaskCount, TOO_MANY_STAGES_MESSAGE)));
+                    totalRunningTaskCount, queryAndTaskCount.getTaskCount(), TOO_MANY_STAGES_MESSAGE)));
+            runningTaskCountAfterKills -= queryAndTaskCount.getTaskCount();
             queriesKilledDueToTooManyTask.incrementAndGet();
         }
     }
