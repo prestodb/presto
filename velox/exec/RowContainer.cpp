@@ -523,7 +523,10 @@ void RowContainer::clear() {
 
 void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
   for (auto i = 0; i < numRows; i++) {
-    bits::setBit(rows[i], probedFlagOffset_);
+    // Row may be null in case of a FULL join.
+    if (rows[i]) {
+      bits::setBit(rows[i], probedFlagOffset_);
+    }
   }
 }
 

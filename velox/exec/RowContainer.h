@@ -216,11 +216,14 @@ class RowContainer {
     return listRows<false>(iter, maxRows, kUnlimited, rows);
   }
 
-  /// Sets 'probed' flag for the specified rows. Used by the right join to mark
-  /// build-side rows that matches join condition.
+  /// Sets 'probed' flag for the specified rows. Used by the right and full join
+  /// to mark build-side rows that matches join condition. 'rows' may contain
+  /// duplicate entries for the cases where single probe row matched multiple
+  /// build rows. In case of the full join, 'rows' may include null entries that
+  /// correspond to probe rows with no match.
   void setProbedFlag(char** rows, int32_t numRows);
 
-  /// Returns rows with 'probed' flag unset. Used by the right join.
+  /// Returns rows with 'probed' flag unset. Used by the right and full join.
   int32_t listNotProbedRows(
       RowContainerIterator* iter,
       int32_t maxRows,

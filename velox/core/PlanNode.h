@@ -421,8 +421,8 @@ class AggregationNode : public PlanNode {
     kSingle
   };
 
-  static const char* stepName(Step joinType) {
-    switch (joinType) {
+  static const char* stepName(Step step) {
+    switch (step) {
       case Step::kPartial:
         return "PARTIAL";
       case Step::kFinal:

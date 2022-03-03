@@ -90,7 +90,7 @@ HashBuild::HashBuild(
     }
   }
 
-  if (joinNode->isRightJoin()) {
+  if (joinNode->isRightJoin() || joinNode->isFullJoin()) {
     // Do not ignore null keys.
     table_ = HashTable<false>::createForJoin(
         std::move(keyHashers),
@@ -117,7 +117,7 @@ HashBuild::HashBuild(
 void HashBuild::addInput(RowVectorPtr input) {
   activeRows_.resize(input->size());
   activeRows_.setAll();
-  if (!isRightJoin(joinType_)) {
+  if (!isRightJoin(joinType_) && !isFullJoin(joinType_)) {
     deselectRowsWithNulls(
         *input, keyChannels_, activeRows_, *operatorCtx_->execCtx());
   }

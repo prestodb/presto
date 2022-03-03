@@ -2,9 +2,9 @@
 Joins
 =====
 
-Velox supports inner, left, right, semi and anti hash joins using either
-partitioned or broadcast distribution strategies. Velox also supports cross
-joins. Full outer joins are not supported yet.
+Velox supports inner, left, right, full outer, semi and anti hash joins using
+either partitioned or broadcast distribution strategies. Velox also supports
+cross joins.
 
 Velox also supports inner and left merge join for the case where join inputs are
 sorted on the join keys. Right, full, semi and anti merge joins are not
@@ -22,7 +22,6 @@ values need to match, and an optional filter to apply to join results.
     :align: center
 
 The join type can be one of kInner, kLeft, kRight, kFull, kSemi, or kAnti.
-kFull join type is not supported yet.
 
 Filter is optional. If specified it can be any expression over the results of
 the join. This expression will be evaluated using the same expression
