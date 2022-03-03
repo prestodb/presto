@@ -1591,8 +1591,10 @@ class CustomTypeFactories {
   /// types.
   virtual TypePtr getType(std::vector<TypePtr> childTypes) const = 0;
 
-  /// Returns a shared pointer to the custom cast operator. If no cast operator
-  /// supports the custom type, this function throws an exception.
+  /// Returns a shared pointer to the custom cast operator. If a custom type
+  /// should be treated as its underlying native type during type castings,
+  /// return a nullptr. If a custom type does not support castings, throw an
+  /// exception.
   virtual exec::CastOperatorPtr getCastOperator() const = 0;
 };
 
@@ -1609,7 +1611,8 @@ bool typeExists(const std::string& name);
 TypePtr getType(const std::string& name, std::vector<TypePtr> childTypes);
 
 /// Returns the custom cast operator for the custom type with the specified
-/// name. Returns nullptr if a type with the specified name does not exist.
+/// name. Returns nullptr if a type with the specified name does not exist or
+/// does not have a dedicated custom cast operator.
 exec::CastOperatorPtr getCastOperator(const std::string& name);
 
 // Allows us to transparently use folly::toAppend(), folly::join(), etc.

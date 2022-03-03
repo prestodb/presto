@@ -60,6 +60,7 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
     return TIMESTAMP_WITH_TIME_ZONE();
   }
 
+  // Type casting from and to TimestampWithTimezone is not supported yet.
   exec::CastOperatorPtr getCastOperator() const override {
     VELOX_NYI(
         "Casting of {} is not implemented yet.",

@@ -37,6 +37,7 @@ add_executable(
   ComparisonsTest.cpp
   DateTimeFunctionsTest.cpp
   ElementAtTest.cpp
+  HyperLogLogCastTest.cpp
   HyperLogLogFunctionsTest.cpp
   InPredicateTest.cpp
   JsonCastTest.cpp

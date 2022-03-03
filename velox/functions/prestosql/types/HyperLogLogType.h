@@ -56,9 +56,9 @@ class HyperLogLogTypeFactories : public CustomTypeFactories {
     return HYPERLOGLOG();
   }
 
+  // HyperLogLog should be treated as Varbinary during type castings.
   exec::CastOperatorPtr getCastOperator() const override {
-    VELOX_NYI(
-        "Casting of {} is not implemented yet.", HYPERLOGLOG()->toString());
+    return nullptr;
   }
 };
 } // namespace facebook::velox
