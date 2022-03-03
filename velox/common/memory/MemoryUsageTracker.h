@@ -367,7 +367,7 @@ class MemoryUsageTracker
   std::mutex mutex_;
   std::shared_ptr<MemoryUsageTracker> parent_;
   UsageType type_;
-  std::array<std::atomic<int64_t>, 2> currentUsageInBytes_{};
+  std::array<std::atomic<int64_t>, 3> currentUsageInBytes_{};
   std::array<std::atomic<int64_t>, 3> peakUsageInBytes_{};
   std::array<int64_t, 3> maxMemory_;
   std::array<std::atomic<int64_t>, 3> numAllocs_{};
