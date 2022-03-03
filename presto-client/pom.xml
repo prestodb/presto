@@ -98,5 +98,23 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-protocol</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec-utils</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
