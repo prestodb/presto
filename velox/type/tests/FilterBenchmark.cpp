@@ -47,7 +47,7 @@ int32_t run4x64(const std::vector<int64_t>& data) {
   assert(data.size() % 4 == 0);
   for (auto i = 0; i < data.size(); i += 4) {
     auto result = filter->test4x64(V64::load(data.data() + i));
-    count += TV::compareBitMask(TV::compareResult(result));
+    count += V64::compareBitMask(result);
   }
   return count;
 }

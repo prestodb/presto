@@ -89,11 +89,11 @@ inline T roundUp(T value, U factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
-inline uint64_t lowMask(int32_t bits) {
+constexpr inline uint64_t lowMask(int32_t bits) {
   return (1UL << bits) - 1;
 }
 
-inline uint64_t highMask(int32_t bits) {
+constexpr inline uint64_t highMask(int32_t bits) {
   return lowMask(bits) << (64 - bits);
 }
 

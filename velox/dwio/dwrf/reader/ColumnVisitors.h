@@ -742,12 +742,12 @@ class DictionaryColumnVisitor
       // loading less than 8.
       V32::TV cache = V32::maskGather32<1>(
           V32::setAll(0), dictMask, filterCache_ - 3, indices);
-      auto unknowns = V32::compareResult((cache & (kUnknown << 24)) << 1);
-      auto passed = V32::compareBitMask(V32::compareResult(cache));
+      auto unknowns = V32::compareBitMask((cache & (kUnknown << 24)) << 1);
+      auto passed = V32::compareBitMask(cache);
       if (UNLIKELY(unknowns)) {
+        uint16_t bits = unknowns;
         // Ranges only over inputs that are in dictionary, the not in dictionary
         // were masked off in 'dictMask'.
-        uint16_t bits = V32::compareBitMask(unknowns);
         while (bits) {
           int index = bits::getAndClearLastSetBit(bits);
           auto value = input[i + index];
@@ -761,9 +761,9 @@ class DictionaryColumnVisitor
       }
       // Were there values not in dictionary?
       if (inDict_) {
-        auto mask = V32::compareResult(dictMask);
+        auto mask = V32::compareBitMask(dictMask);
         if (mask != V32::kAllTrue) {
-          uint16_t bits = (~V32::compareBitMask(mask)) & bits::lowMask(kWidth);
+          uint16_t bits = (V32::kAllTrue ^ mask) & bits::lowMask(kWidth);
           while (bits) {
             auto index = bits::getAndClearLastSetBit(bits);
             if (i + index >= numInput) {
@@ -1089,10 +1089,10 @@ class StringDictionaryColumnVisitor
       } else {
         cache = V32::gather32<1>(DictSuper::filterCache_ - 3, indices);
       }
-      auto unknowns = V32::compareResult((cache & (kUnknown << 24)) << 1);
-      auto passed = V32::compareBitMask(V32::compareResult(cache));
+      auto unknowns = V32::compareBitMask((cache & (kUnknown << 24)) << 1);
+      auto passed = V32::compareBitMask(cache);
       if (UNLIKELY(unknowns)) {
-        uint16_t bits = V32::compareBitMask(unknowns);
+        uint16_t bits = unknowns;
         while (bits) {
           int index = bits::getAndClearLastSetBit(bits);
           int32_t value = input[i + index];

@@ -228,8 +228,8 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
   auto rawBytes = values_->as<int8_t>();
   auto zero = V8::setAll(0);
   for (auto i = 0; i < numValues_; i += kWidth) {
-    rawBits[i / kWidth] = ~V8::compareBitMask(
-        V8::compareResult(V8::compareEq(zero, V8::load(rawBytes + i))));
+    rawBits[i / kWidth] =
+        ~V8::compareBitMask(V8::compareEq(zero, V8::load(rawBytes + i)));
   }
   BufferPtr nulls = anyNulls_
       ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)

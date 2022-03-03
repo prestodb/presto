@@ -427,7 +427,7 @@ void HashTable<ignoreNullKeys>::arrayGroupProbe(HashLookup& lookup) {
       auto loaded = simd::Vectors<int64_t>::gather64(
           table_, simd::Vectors<int64_t>::load(hashes + i));
       *simd::Vectors<int64_t>::pointer(groups + i) = loaded;
-      auto misses = simd::Vectors<int64_t>::compareResult(
+      auto misses = simd::Vectors<int64_t>::compareBitMask(
           simd::Vectors<int64_t>::compareEq(loaded, allZero));
       if (LIKELY(!misses)) {
         continue;

@@ -49,16 +49,16 @@ TEST(FilterTest, alwaysTrue) {
   EXPECT_TRUE(alwaysTrue.testNonNull());
   EXPECT_TRUE(alwaysTrue.testNull());
   __m256i int64s = {};
-  EXPECT_EQ(V64::kAllTrue, V64::compareResult(alwaysTrue.test4x64(int64s)));
+  EXPECT_EQ(V64::kAllTrue, V64::compareBitMask(alwaysTrue.test4x64(int64s)));
   __m256si int32s = {};
   EXPECT_EQ(
       V32::kAllTrue,
-      V32::compareResult(
+      V32::compareBitMask(
           alwaysTrue.test8x32(reinterpret_cast<__m256i>(int32s))));
   __m256si int16s = {};
   EXPECT_EQ(
       V16::kAllTrue,
-      V16::compareResult(
+      V16::compareBitMask(
           alwaysTrue.test16x16(reinterpret_cast<__m256i>(int16s))));
 
   EXPECT_EQ(
@@ -109,8 +109,7 @@ void checkSimd(
     default:
       FAIL() << "Bad type width " << sizeof(T);
   }
-  auto bits =
-      simd::Vectors<T>::compareBitMask(simd::Vectors<T>::compareResult(result));
+  auto bits = simd::Vectors<T>::compareBitMask(result);
   for (auto i = 0; i < simd::Vectors<T>::VSize; ++i) {
     T lane = reinterpret_cast<const T*>(vector)[i];
     EXPECT_EQ(scalarTest(lane), bits::isBitSet(&bits, i)) << "Lane " << i;
@@ -501,9 +500,7 @@ TEST(FilterTest, bytesRange) {
     EXPECT_TRUE(filter->testLength(3));
     __m256si length8 = {0, 1, 3, 0, 4, 10, 11, 12};
     // The bit for lane 2 should be set.
-    EXPECT_EQ(
-        4,
-        V32::compareBitMask(V32::compareResult(filter->test8xLength(length8))));
+    EXPECT_EQ(4, V32::compareBitMask(filter->test8xLength(length8)));
 
     EXPECT_FALSE(filter->testNull());
     EXPECT_FALSE(filter->testBytes("apple", 5));

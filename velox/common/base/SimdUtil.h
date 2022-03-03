@@ -124,13 +124,14 @@ struct Vectors<int64_t> {
   // vectors.
   using CompareType = __m256i;
 
-  // Value of compareResult(xx) where all lanes are
-  // true. compareResult produces a scalar word representing the truth
+  // Value of compareBitMask(xx) where all lanes are
+  // true. compareBitMask produces a bit mask representing the truth
   // values for a SIMD compare of this type, e.g. compareEq. Note that
   // in AVX the compare result is a vector of the shape of the compare
   // operands and in AVX512 this is a bit mask. So compareResult is a
-  // mask extracting load in AVX and no-op in AVX512.
-  static constexpr uint32_t kAllTrue = 0xffffffff;
+  // mask extracting load in AVX and no-op in AVX512. 4 bits set for 4
+  // lanes.
+  static constexpr uint32_t kAllTrue = bits::lowMask(VSize);
 
   // Returns a vector with all lanes set to 'value'.
   static auto setAll(int64_t value) {
@@ -138,8 +139,7 @@ struct Vectors<int64_t> {
   }
 
   // Returns the equality comparison result of 'left' and 'right'. Use
-  // compareResult(compareEq(x, y)) to get the result as a word and
-  // compareBitMask(compareResult(compareEq(x, y)) to get a bit mask
+  // compareBitMask(compareEq(x, y)) to get the result as a bit mask
   // with one bit per lane of x and y. This abstracts away the
   // different return types of compares in AVX and AVX512.
   static auto compareEq(TV left, TV right) {
@@ -153,13 +153,8 @@ struct Vectors<int64_t> {
   }
 
   // Returns a word representing the result of a vector comparison.
-  static auto compareResult(TV wide) {
-    return _mm256_movemask_epi8(wide);
-  }
-
-  // Reduces the result of compareResult to one bit per lane.
-  static auto compareBitMask(int32_t compareResult) {
-    return _pext_u32(compareResult, 0x80808080);
+  static auto compareBitMask(TV wide) {
+    return _mm256_movemask_pd(reinterpret_cast<__m256d>(wide));
   }
 
   // Returns the indices of one bits in the result of compareBitMask
@@ -280,7 +275,8 @@ struct Vectors<int32_t> {
   using TV = __m256si_u;
   using CompareType = __m256si;
   static constexpr int32_t VSize = 8;
-  static constexpr uint32_t kAllTrue = 0xffffffff;
+  // 0xff, 8 bits for 8 lanes.
+  static constexpr uint32_t kAllTrue = bits::lowMask(VSize);
 
   // Returns a vector of <0, 1, 2, 3, 4, 5, 6, 7}.
   static TV iota() {
@@ -299,16 +295,8 @@ struct Vectors<int32_t> {
     return (TV)_mm256_cmpgt_epi32(to256i(left), to256i(right));
   }
 
-  static auto compareResult(TV wide) {
-    return _mm256_movemask_epi8(to256i(wide));
-  }
-
-  static auto compareResult(__m256i wide) {
-    return _mm256_movemask_epi8(wide);
-  }
-
-  static auto compareBitMask(int32_t compareResult) {
-    return _pext_u32(compareResult, 0x88888888);
+  static auto compareBitMask(TV wide) {
+    return _mm256_movemask_ps(reinterpret_cast<__m256>(wide));
   }
 
   static auto compareSetBits(uint8_t bits) {
@@ -415,7 +403,8 @@ struct Vectors<int16_t> {
   using TV = __m256hi_u;
   using CompareType = __m256hi;
   static constexpr int32_t VSize = 16;
-  static constexpr uint32_t kAllTrue = 0xffffffff;
+  // 0xffff,  16 bits for 16 lanes.
+  static constexpr uint32_t kAllTrue = bits::lowMask(VSize);
 
   static auto setAll(T value) {
     return (TV)_mm256_set1_epi16(value);
@@ -429,16 +418,12 @@ struct Vectors<int16_t> {
     return (TV)_mm256_cmpgt_epi16(to256i(left), to256i(right));
   }
 
-  static auto compareResult(TV wide) {
-    return _mm256_movemask_epi8(to256i(wide));
-  }
-
-  static auto compareResult(__m256i wide) {
-    return _mm256_movemask_epi8(wide);
-  }
-
-  static auto compareBitMask(int32_t compareResult) {
-    return _pext_u32(compareResult, 0xaaaaaaaa);
+  static auto compareBitMask(TV wide) {
+    // There is no intrinsic for extracting high bits of a 16x16
+    // vector. Hence take every second bit of the high bits of a 32x1
+    // vector.
+    return _pext_u32(
+        _mm256_movemask_epi8(reinterpret_cast<__m256i>(wide)), 0xaaaaaaaa);
   }
 
   static auto compareSetBits(uint8_t bits) {
@@ -496,7 +481,8 @@ struct Vectors<int8_t> {
   using TV = __m256qi_u;
   using CompareType = __m256qi;
   static constexpr int32_t VSize = 32;
-  static constexpr uint32_t kAllTrue = 0xffffffff;
+  // 32 bits for 32 lanes.
+  static constexpr uint32_t kAllTrue = bits::lowMask(VSize);
 
   static auto setAll(T value) {
     return (__m256qi)_mm256_set1_epi8(value);
@@ -510,11 +496,8 @@ struct Vectors<int8_t> {
     return (TV)_mm256_cmpgt_epi8(to256i(left), to256i(right));
   }
 
-  static auto compareResult(TV wide) {
+  static auto compareBitMask(TV wide) {
     return _mm256_movemask_epi8(to256i(wide));
-  }
-  static auto compareBitMask(int32_t compareResult) {
-    return compareResult;
   }
 
   static TV load(const void* values) {
@@ -537,7 +520,8 @@ struct Vectors<double> {
   using T = double;
   static constexpr int32_t VSize = 4;
   using CompareType = __m256i;
-  static constexpr uint32_t kAllTrue = 0xffffffff;
+  // 4 bits for 4 lanes.
+  static constexpr uint32_t kAllTrue = bits::lowMask(VSize);
 
   using TV4 = __m256d_u;
   using TV = __m256d_u;
@@ -554,11 +538,8 @@ struct Vectors<double> {
     return reinterpret_cast<__m256i>(_mm256_cmp_pd(left, right, _CMP_GT_OQ));
   }
 
-  static auto compareResult(__m256i wide) {
-    return _mm256_movemask_epi8(wide);
-  }
-  static auto compareBitMask(int32_t compareResult) {
-    return _pext_u32(compareResult, 0x80808080);
+  static auto compareBitMask(__m256i wide) {
+    return _mm256_movemask_pd(reinterpret_cast<__m256d>(wide));
   }
 
   static auto compareSetBits(uint8_t bits) {
@@ -610,7 +591,8 @@ struct Vectors<float> {
   using TV = __m256_u;
   using CompareType = __m256si;
   static constexpr int32_t VSize = 8;
-  static constexpr uint32_t kAllTrue = 0xffffffff;
+  // 8 bits for 8 lanes.
+  static constexpr uint32_t kAllTrue = bits::lowMask(VSize);
 
   static auto setAll(T value) {
     return _mm256_set1_ps(value);
@@ -624,11 +606,8 @@ struct Vectors<float> {
     return reinterpret_cast<__m256si>(_mm256_cmp_ps(left, right, _CMP_GT_OQ));
   }
 
-  static auto compareResult(__m256si wide) {
-    return _mm256_movemask_epi8(reinterpret_cast<__m256i>(wide));
-  }
-  static auto compareBitMask(int32_t compareResult) {
-    return _pext_u32(compareResult, 0x88888888);
+  static auto compareBitMask(__m256si wide) {
+    return _mm256_movemask_ps(reinterpret_cast<__m256>(wide));
   }
 
   static auto compareSetBits(uint8_t bits) {
@@ -756,8 +735,8 @@ gather8Bits(const uint64_t* bits, __m256si indices, int32_t numIndices) {
       (__m256i)byteBits, (__m256i)(indices & 7));
   auto data = V32::maskGather32<1>(
       zero, V32::leadingMask(numIndices), bits, indices >> 3);
-  return V32::compareBitMask(
-      ~V32::compareResult(V32::compareEq(data & maskV, zero)));
+  return V32::kAllTrue ^
+      V32::compareBitMask(V32::compareEq(data & maskV, zero));
 }
 
 inline uint8_t

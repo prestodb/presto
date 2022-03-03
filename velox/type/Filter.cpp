@@ -178,7 +178,7 @@ __m256i BigintValuesUsingHashTable::test4x64(__m256i x) {
   using V64 = simd::Vectors<int64_t>;
   auto rangeMask = V64::compareGt(V64::setAll(min_), x) |
       V64::compareGt(x, V64::setAll(max_));
-  if (V64::compareResult(rangeMask) == V64::kAllTrue) {
+  if (V64::compareBitMask(rangeMask) == V64::kAllTrue) {
     return V64::setAll(0);
   }
   if (containsEmptyMarker_) {
@@ -197,8 +197,7 @@ __m256i BigintValuesUsingHashTable::test4x64(__m256i x) {
 
   auto result = V64::compareEq(x, data);
   auto missed = V64::compareEq(data, V64::setAll(kEmptyMarker));
-  uint16_t unresolved = V64::compareBitMask(
-      ~V64::compareResult(result) & ~V64::compareResult(missed));
+  uint16_t unresolved = V64::kAllTrue ^ V64::compareBitMask(result | missed);
   if (!unresolved) {
     return result;
   }
@@ -219,11 +218,11 @@ __m256i BigintValuesUsingHashTable::test4x64(__m256i x) {
     for (;;) {
       auto line = V64::load(hashTable_.data() + index);
 
-      if (V64::compareResult(V64::compareEq(line, allValue))) {
+      if (V64::compareBitMask(V64::compareEq(line, allValue))) {
         resultArray[lane] = -1;
         break;
       }
-      if (V64::compareResult(V64::compareEq(line, allEmpty))) {
+      if (V64::compareBitMask(V64::compareEq(line, allEmpty))) {
         resultArray[lane] = 0;
         break;
       }
@@ -243,10 +242,8 @@ __m256si BigintValuesUsingHashTable::test8x32(__m256i x) {
   using V32 = simd::Vectors<int32_t>;
   using V64 = simd::Vectors<int64_t>;
   auto x8x32 = reinterpret_cast<V32::TV>(x);
-  auto first =
-      V64::compareBitMask(V64::compareResult(test4x64(V32::as4x64<0>(x8x32))));
-  auto second =
-      V64::compareBitMask(V64::compareResult(test4x64(V32::as4x64<1>(x8x32))));
+  auto first = V64::compareBitMask(test4x64(V32::as4x64<0>(x8x32)));
+  auto second = V64::compareBitMask(test4x64(V32::as4x64<1>(x8x32)));
   return V32::mask(first | (second << 4));
 }
 

@@ -105,7 +105,7 @@ inline void processFixedFilter(
   using V32 = simd::Vectors<int32_t>;
   using TV = simd::Vectors<T>;
   constexpr bool is16 = sizeof(T) == 2;
-  auto word = TV::compareResult(
+  auto word = TV::compareBitMask(
       reinterpret_cast<typename TV::CompareType>(testSimd<T>(filter, values)));
   if (!word) {
     ; /* no values passed, no action*/
@@ -121,8 +121,7 @@ inline void processFixedFilter(
     }
     numValues += width;
   } else {
-    auto allBits =
-        simd::Vectors<T>::compareBitMask(word) & bits::lowMask(width);
+    auto allBits = word & bits::lowMask(width);
     auto bits = is16 ? allBits & 0xff : allBits;
     auto setBits = simd::Vectors<T>::compareSetBits(bits);
     auto numBits = __builtin_popcount(bits);

@@ -129,8 +129,7 @@ TEST_F(SimdUtilTest, gather32) {
   EXPECT_EQ(result6[6], -1);
   EXPECT_EQ(result6[7], -1);
 
-  auto bits =
-      V32::compareBitMask(V32::compareResult(V32::compareEq(result8, result6)));
+  auto bits = V32::compareBitMask(V32::compareEq(result8, result6));
   // Low 6 lanes are the same.
   EXPECT_EQ(63, bits);
 }
@@ -155,8 +154,7 @@ TEST_F(SimdUtilTest, gather64) {
     EXPECT_EQ(resultPtr[i], data4[indices4[i]]);
   }
   EXPECT_EQ(result3[3], -1);
-  auto bits =
-      V64::compareBitMask(V32::compareResult(V64::compareEq(result4, result3)));
+  auto bits = V64::compareBitMask(V64::compareEq(result4, result3));
   // Low 3 lanes are the same.
   EXPECT_EQ(7, bits);
 }
@@ -194,8 +192,7 @@ TEST_F(SimdUtilTest, permute32) {
   // Find elements that satisfy a condition and pack them to the left.
   __m256si data = {12345, 23456, 111, 32000, 14123, 20000, 25000};
   __m256si result;
-  auto bits = V32::compareBitMask(
-      V32::compareResult(V32::compareGt(data, V32::setAll(15000))));
+  auto bits = V32::compareBitMask(V32::compareGt(data, V32::setAll(15000)));
   simd::storePermute(&result, data, V32::load(&simd::byteSetBits()[bits]));
   int32_t j = 0;
   for (auto i = 0; i < 8; ++i) {
@@ -212,8 +209,7 @@ TEST_F(SimdUtilTest, permute64) {
   // Find elements that satisfy a condition and pack them to the left.
   __m256i data = {12345, 23456, 111, 32000};
   __m256i result;
-  auto bits = V64::compareBitMask(
-      V64::compareResult(V64::compareGt(data, V64::setAll(15000))));
+  auto bits = V64::compareBitMask(V64::compareGt(data, V64::setAll(15000)));
   simd::storePermute(
       &result,
       reinterpret_cast<__m256si>(data),
@@ -249,8 +245,7 @@ TEST_F(SimdUtilTest, permute16) {
       22000,
       12,
   };
-  auto bits = V16::compareBitMask(
-      V16::compareResult(V16::compareGt(data, V16::setAll(15000))));
+  auto bits = V16::compareBitMask(V16::compareGt(data, V16::setAll(15000)));
   uint8_t first8 = bits & 0xff;
   uint8_t second8 = bits >> 8;
   int16_t result[16];
@@ -277,8 +272,7 @@ TEST_F(SimdUtilTest, permuteFloat) {
   // Find elements that satisfy a condition and pack them to the left.
   __m256 data = {std::nanf("nan"), 23456, 111, 32000, 14123, 20000, 25000};
   __m256si result;
-  auto bits = VF::compareBitMask(
-      VF::compareResult(VF::compareGt(data, VF::setAll(15000))));
+  auto bits = VF::compareBitMask(VF::compareGt(data, VF::setAll(15000)));
   simd::storePermute(
       &result,
       reinterpret_cast<__m256si>(data),
@@ -298,8 +292,7 @@ TEST_F(SimdUtilTest, permuteDouble) {
   // Find elements that satisfy a condition and pack them to the left.
   __m256d data = {std::nan("nan"), 23456, 111, 32000};
   __m256i result;
-  auto bits = VD::compareBitMask(
-      VD::compareResult(VD::compareGt(data, VD::setAll(15000))));
+  auto bits = VD::compareBitMask(VD::compareGt(data, VD::setAll(15000)));
   simd::storePermute(
       &result,
       reinterpret_cast<__m256si>(data),
@@ -335,11 +328,11 @@ TEST_F(SimdUtilTest, misc) {
 
   // Masks
   for (auto i = 0; i < V32::VSize; ++i) {
-    auto compare = V32::compareResult(
+    auto compare = V32::compareBitMask(
         V32::compareEq(V32::leadingMask(i), V32::mask((1 << i) - 1)));
     EXPECT_EQ(V32::kAllTrue, compare);
     if (i < V64::VSize) {
-      compare = V64::compareResult(
+      compare = V64::compareBitMask(
           V64::compareEq(V64::leadingMask(i), V64::mask((1 << i) - 1)));
       EXPECT_EQ(V64::kAllTrue, compare);
     }
