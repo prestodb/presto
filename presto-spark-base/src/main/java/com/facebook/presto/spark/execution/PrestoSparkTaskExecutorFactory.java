@@ -515,7 +515,7 @@ public class PrestoSparkTaskExecutorFactory
                 }
 
                 if (inMemoryInput != null) {
-                    // for inmemory inputs pages can be released incrementally to save memory
+                    // for in-memory inputs pages can be released incrementally to save memory
                     remoteSourcePageInputs.add(getNullifyingIterator(inMemoryInput));
                     continue;
                 }

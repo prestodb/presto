@@ -483,7 +483,7 @@ public class TestResourceManagerClusterStateProvider
                 "environment",
                 false,
                 new Duration(1, SECONDS),
-                "http://exernalAddress",
+                "http://externalAddress",
                 "http://internalAddress",
                 new MemoryInfo(new DataSize(1, MEGABYTE), ImmutableMap.of(memoryPoolId, memoryPoolInfo)),
                 1,

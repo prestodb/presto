@@ -495,10 +495,10 @@ public class HadoopExtendedFileSystem
 
     @Override
     @SuppressWarnings("deprecation")
-    protected boolean primitiveMkdir(Path f, FsPermission abdolutePermission)
+    protected boolean primitiveMkdir(Path f, FsPermission absolutePermission)
             throws IOException
     {
-        return fs.primitiveMkdir(f, abdolutePermission);
+        return fs.primitiveMkdir(f, absolutePermission);
     }
 
     @Override // FileSystem

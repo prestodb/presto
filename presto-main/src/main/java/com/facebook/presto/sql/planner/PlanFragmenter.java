@@ -315,7 +315,7 @@ public class PlanFragmenter
         Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
         if (outputPartitioningScheme.getPartitioning().getHandle().getConnectorId().isPresent()) {
             // Do not replace the handle if the source's output handle is a system one, e.g. broadcast.
-            newOutputPartitioning = newOutputPartitioning.withAlternativePartitiongingHandle(newOutputPartitioningHandle);
+            newOutputPartitioning = newOutputPartitioning.withAlternativePartitioningHandle(newOutputPartitioningHandle);
         }
         PlanFragment newFragment = new PlanFragment(
                 fragment.getId(),

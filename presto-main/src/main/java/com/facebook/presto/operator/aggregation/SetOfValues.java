@@ -94,7 +94,7 @@ public final class SetOfValues
 
     public void add(Block value, int valuePosition)
     {
-        int hashPosition = getHashPositionOfvalue(value, valuePosition);
+        int hashPosition = getHashPositionOfValue(value, valuePosition);
         if (valuePositionByHash[hashPosition] == EMPTY_SLOT) {
             valueType.appendTo(value, valuePosition, valueBlockBuilder);
             valuePositionByHash[hashPosition] = valueBlockBuilder.getPositionCount() - 1;
@@ -104,7 +104,7 @@ public final class SetOfValues
         }
     }
 
-    private int getHashPositionOfvalue(Block value, int position)
+    private int getHashPositionOfValue(Block value, int position)
     {
         int hashPosition = getMaskedHash(hashPosition(valueType, value, position));
         while (true) {
@@ -131,7 +131,7 @@ public final class SetOfValues
         valuePositionByHash = new int[newCapacity];
         Arrays.fill(valuePositionByHash, EMPTY_SLOT);
         for (int position = 0; position < valueBlockBuilder.getPositionCount(); position++) {
-            valuePositionByHash[getHashPositionOfvalue(valueBlockBuilder, position)] = position;
+            valuePositionByHash[getHashPositionOfValue(valueBlockBuilder, position)] = position;
         }
     }
 

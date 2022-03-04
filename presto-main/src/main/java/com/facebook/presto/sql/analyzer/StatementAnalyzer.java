@@ -631,7 +631,7 @@ class StatementAnalyzer
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
 
-                // analzie only column types in subquery if column alias exists
+                // analyze only column types in subquery if column alias exists
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);

@@ -204,7 +204,7 @@ public class KeyBasedSampler
             PlanNode rewrittenLeft = rewriteWith(this, left);
             PlanNode rewrittenRight = rewriteWith(this, right);
 
-            // If at leasst one of them is unchanged means it had no join. So one side has a table scan.
+            // If at least one of them is unchanged means it had no join. So one side has a table scan.
             // So we apply filter on both sides.
             if (left == rewrittenLeft || right == rewrittenRight) {
                 // Sample both sides if at least one side is not already sampled

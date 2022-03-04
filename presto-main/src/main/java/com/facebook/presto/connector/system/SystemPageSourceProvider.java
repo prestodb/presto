@@ -100,13 +100,13 @@ public class SystemPageSourceProvider
             String columnName = ((SystemColumnHandle) entry.getKey()).getColumnName();
             newConstraints.put(columnsByName.get(columnName), entry.getValue());
         }
-        TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
+        TupleDomain<Integer> newConstraint = withColumnDomains(newConstraints.build());
 
         try {
-            return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newContraint), userToSystemFieldIndex.build());
+            return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newConstraint), userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
-            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build()));
+            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, newConstraint), userToSystemFieldIndex.build()));
         }
     }
 

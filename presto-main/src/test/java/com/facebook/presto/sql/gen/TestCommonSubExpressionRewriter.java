@@ -42,7 +42,7 @@ import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpress
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static org.testng.Assert.assertEquals;
 
-public class TestCommonSubExpressionRewritter
+public class TestCommonSubExpressionRewriter
 {
     private static final Session SESSION = TEST_SESSION;
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();

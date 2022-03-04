@@ -54,7 +54,7 @@ Property Name                                               Description
 ``pinot.connection-timeout``                                Connection Timeout to talk to Pinot servers, default is 1 minute.
 ``pinot.metadata-expiry``                                   Pinot metadata cache expiration time, default is 2 minutes.
 ``pinot.estimated-size-in-bytes-for-non-numeric-column``    Estimated byte size for non-numeric column, default is 20.
-``pinot.service-header-param``                              RPC service service header key, default is "RPC-Service".
+``pinot.service-header-param``                              RPC service header key, default is "RPC-Service".
 ``pinot.caller-header-param``                               RPC service caller header key, default is "RPC-Caller".
 ``pinot.caller-header-value``                               RPC service caller header value, default is "presto".
 ``pinot.forbid-broker-queries``                             No broker request pushing down, default is false.

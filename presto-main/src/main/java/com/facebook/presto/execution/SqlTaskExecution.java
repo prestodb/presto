@@ -1270,7 +1270,7 @@ public class SqlTaskExecution
                     break;
                 case GROUPED_EXECUTION:
                     if (!noMoreLifespans) {
-                        // There may still still be new driver groups, which means potentially new splits.
+                        // There may still be new driver groups, which means potentially new splits.
                         return false;
                     }
 

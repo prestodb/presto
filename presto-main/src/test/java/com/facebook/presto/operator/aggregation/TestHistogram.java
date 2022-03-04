@@ -211,7 +211,7 @@ public class TestHistogram
     @Test
     public void testLargerHistograms()
     {
-        InternalAggregationFunction aggregationFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction aggregationFunction = getInternalDefaultVarcharAggregation();
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
@@ -221,7 +221,7 @@ public class TestHistogram
     @Test
     public void testEmptyHistogramOutputsNull()
     {
-        InternalAggregationFunction function = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction function = getInternalDefaultVarcharAggregation();
         GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
@@ -233,8 +233,8 @@ public class TestHistogram
     @Test
     public void testSharedGroupByWithOverlappingValuesRunner()
     {
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarcharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarcharAggregation();
 
         testSharedGroupByWithOverlappingValuesRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesRunner(singleInstanceFunction);
@@ -244,8 +244,8 @@ public class TestHistogram
     public void testSharedGroupByWithDistinctValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarcharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarcharAggregation();
         testSharedGroupByWithDistinctValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithDistinctValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -254,8 +254,8 @@ public class TestHistogram
     public void testSharedGroupByWithOverlappingValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarcharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarcharAggregation();
         testSharedGroupByWithOverlappingValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -264,8 +264,8 @@ public class TestHistogram
     public void testSharedGroupByWithManyGroups()
     {
         // uses a large enough data set to induce rehashing and test correctness
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarcharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarcharAggregation();
 
         // this is to validate the test as there have been test-bugs that looked like code bugs--if both fail, likely a test bug
         testManyValuesInducingRehash(classicFunction);
@@ -382,7 +382,7 @@ public class TestHistogram
         test1.runPagesOnAccumulatorWithAssertion(0L, test1.createGroupedAccumulator(), aggregationTestOutput1);
     }
 
-    private InternalAggregationFunction getInternalDefaultVarCharAggregationn()
+    private InternalAggregationFunction getInternalDefaultVarcharAggregation()
     {
         return getAggregation(VARCHAR);
     }

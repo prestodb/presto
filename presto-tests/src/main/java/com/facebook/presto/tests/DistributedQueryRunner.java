@@ -265,10 +265,10 @@ public class DistributedQueryRunner
             }
         }
 
-        int availableCoordinaors = 0;
-        while (availableCoordinaors != coordinators.size()) {
+        int availableCoordinators = 0;
+        while (availableCoordinators != coordinators.size()) {
             MILLISECONDS.sleep(10);
-            availableCoordinaors = getResourceManager().get().getNodeManager().getCoordinators().size();
+            availableCoordinators = getResourceManager().get().getNodeManager().getCoordinators().size();
         }
     }
 

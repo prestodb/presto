@@ -185,7 +185,7 @@ public class NodeScheduler
     public NodeSelector createNodeSelector(Session session, ConnectorId connectorId, int maxTasksPerStage)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
-        // done as close to when the the split is about to be scheduled
+        // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
                 memoizeWithExpiration(createNodeMapSupplier(connectorId), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId);
 

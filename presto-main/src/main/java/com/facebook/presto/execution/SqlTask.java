@@ -145,7 +145,7 @@ public class SqlTask
                 taskNotificationExecutor,
                 maxBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
-                // because we haven't created the task context that holds the the memory context yet.
+                // because we haven't created the task context that holds the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
                 spoolingOutputBufferFactory);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
@@ -254,7 +254,7 @@ public class SqlTask
 
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
-        long taskStatusAgeInMilis = System.currentTimeMillis() - creationTimeInMillis;
+        long taskStatusAgeInMillis = System.currentTimeMillis() - creationTimeInMillis;
         // Always return a new TaskInfo with a larger version number;
         // otherwise a client will not accept the update
         long versionNumber = nextTaskInfoVersion.getAndIncrement();
@@ -329,7 +329,7 @@ public class SqlTask
                 fullGcCount,
                 fullGcTimeInMillis,
                 totalCpuTimeInNanos,
-                taskStatusAgeInMilis,
+                taskStatusAgeInMillis,
                 queuedPartitionedSplitsWeight,
                 runningPartitionedSplitsWeight);
     }

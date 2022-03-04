@@ -1038,7 +1038,7 @@ public class TestPrestoSparkQueryRunner
         // Grant user
         assertQuerySucceeds("GRANT SELECT,INSERT,DELETE,UPDATE ON hive.hive_test_new.test to user");
         MaterializedResult actual = computeActual("SHOW GRANTS ON TABLE hive.hive_test_new.test");
-        // permissions are in the eigth field
+        // permissions are in the eighth field
         List<String> grants = actual.getMaterializedRows().stream().map(row -> row.getField(7).toString()).collect(Collectors.toList());
         assertEquals(Ordering.natural().sortedCopy(grants), ImmutableList.of("DELETE", "INSERT", "SELECT", "UPDATE"));
 
@@ -1176,7 +1176,7 @@ public class TestPrestoSparkQueryRunner
         assertQuerySucceeds(format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", "tpch", "test_partition_table", "y"));
         actual = computeActual("SELECT count(*) FROM \"test_partition_table$partitions\"");
 
-        // 2 new paritions added
+        // 2 new partitions added
         assertEquals(actual.getOnlyValue().toString(), "5");
         assertQuerySucceeds("DROP TABLE test_partition_table");
     }

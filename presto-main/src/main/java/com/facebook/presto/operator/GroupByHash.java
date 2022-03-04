@@ -75,7 +75,7 @@ public interface GroupByHash
 
     boolean contains(int position, Page page, int[] hashChannels);
 
-    long getRawHash(int groupyId);
+    long getRawHash(int groupId);
 
     @VisibleForTesting
     int getCapacity();

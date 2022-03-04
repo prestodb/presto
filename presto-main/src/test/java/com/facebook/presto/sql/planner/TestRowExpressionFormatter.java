@@ -289,7 +289,7 @@ public class TestRowExpressionFormatter
     {
         RowExpression specialFormExpression;
 
-        // or and and
+        // or / and
         specialFormExpression = new SpecialFormExpression(OR, BOOLEAN, createCallExpression(NOT_EQUAL), createCallExpression(IS_DISTINCT_FROM));
         assertEquals(format(specialFormExpression), "((c_bigint) <> (BIGINT'5')) OR ((c_bigint) IS DISTINCT FROM (BIGINT'5'))");
         specialFormExpression = new SpecialFormExpression(AND, BOOLEAN, createCallExpression(EQUAL), createCallExpression(GREATER_THAN));

@@ -565,7 +565,7 @@ public final class SystemSessionProperties
                         JoinReorderingStrategy::name),
                 new PropertyMetadata<>(
                         PARTIAL_MERGE_PUSHDOWN_STRATEGY,
-                        format("Experimental: Partial merge pushdown strategy to use. Optionas are %s",
+                        format("Experimental: Partial merge pushdown strategy to use. Options are %s",
                                 Stream.of(PartialMergePushdownStrategy.values())
                                         .map(PartialMergePushdownStrategy::name)
                                         .collect(joining(","))),
@@ -685,7 +685,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
+                        "Experimental: How much memory can should be allocated per aggregation operator in unspilling process",
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),

@@ -154,7 +154,7 @@ public class TestHiveMaterializedViewUtils
     }
 
     @Test
-    public void testMaterializedDataPredicatesWithIntParitionType()
+    public void testMaterializedDataPredicatesWithIntPartitionType()
     {
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();

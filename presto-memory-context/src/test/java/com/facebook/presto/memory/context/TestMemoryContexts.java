@@ -122,7 +122,7 @@ public class TestMemoryContexts
     }
 
     @Test
-    public void testHieararchicalMemoryContexts()
+    public void testHierarchicalMemoryContexts()
     {
         TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000, 1_000);
         AggregatedMemoryContext parentContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);

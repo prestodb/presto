@@ -43,7 +43,7 @@ public class TestUnnestStatsRule
     }
 
     @Test
-    public void testUnntestStatsPopulated()
+    public void testUnnestStatsPopulated()
     {
         tester().assertStatsFor(
                 pb -> pb.unnest(

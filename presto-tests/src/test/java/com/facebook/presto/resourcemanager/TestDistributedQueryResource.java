@@ -195,7 +195,7 @@ public class TestDistributedQueryResource
     }
 
     @Test
-    public void testGetAllQueryInfoRetunsAllQueriesWithNoLimitSpecified()
+    public void testGetAllQueryInfoReturnsAllQueriesWithNoLimitSpecified()
             throws InterruptedException
     {
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");

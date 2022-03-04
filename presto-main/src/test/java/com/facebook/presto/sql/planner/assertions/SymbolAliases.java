@@ -235,7 +235,7 @@ public final class SymbolAliases
         }
 
         /*
-         * This is supplied specifically for updateAssigments, which needs to
+         * This is supplied specifically for updateAssignments, which needs to
          * update existing bindings that have already been added. Unless you're
          * certain you want this behavior, you don't want it.
          */

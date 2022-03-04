@@ -202,7 +202,7 @@ public class TestClientBuffer
         // acknowledge the pages
         buffer.getPages(3, sizeOfPages(10)).cancel(true);
 
-        // attempt to get the three elements again, which will return an empty resilt
+        // attempt to get the three elements again, which will return an empty result
         assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 0, 3);
