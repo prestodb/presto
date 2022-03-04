@@ -697,6 +697,19 @@ public class TestSqlParser
     }
 
     @Test
+    public void testSessionIdentifiers()
+    {
+        assertStatement("SET SESSION \"foo-bar\".baz = 'x'",
+                new SetSession(QualifiedName.of("foo-bar", "baz"), new StringLiteral("x")));
+        assertInvalidStatement("SET SESSION foo-bar.name = 'value'",
+                "mismatched input '-'. Expecting: '.', '='");
+        assertStatement("RESET SESSION \"foo-bar\".baz",
+                new ResetSession(QualifiedName.of("foo-bar", "baz")));
+        assertInvalidStatement("RESET SESSION foo-bar.name",
+                "mismatched input '-'. Expecting: '.', <EOF>");
+    }
+
+    @Test
     public void testShowSession()
     {
         assertStatement("SHOW SESSION", new ShowSession());
