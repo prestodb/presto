@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import io.airlift.units.DataSize;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class OrcReaderOptions
@@ -96,5 +97,91 @@ public class OrcReaderOptions
     public boolean appendRowNumber()
     {
         return appendRowNumber;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("maxMergeDistance", maxMergeDistance)
+                .add("tinyStripeThreshold", tinyStripeThreshold)
+                .add("maxBlockSize", maxBlockSize)
+                .add("zstdJniDecompressionEnabled", zstdJniDecompressionEnabled)
+                .add("mapNullKeysEnabled", mapNullKeysEnabled)
+                .add("enableTimestampMicroPrecision", enableTimestampMicroPrecision)
+                .add("appendRowNumber", appendRowNumber)
+                .toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private DataSize maxMergeDistance;
+        private DataSize tinyStripeThreshold;
+        private DataSize maxBlockSize;
+        private boolean zstdJniDecompressionEnabled;
+        private boolean mapNullKeysEnabled;
+        private boolean enableTimestampMicroPrecision;
+        private boolean appendRowNumber;
+
+        private Builder() {}
+
+        public Builder withMaxMergeDistance(DataSize maxMergeDistance)
+        {
+            this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+            return this;
+        }
+
+        public Builder withTinyStripeThreshold(DataSize tinyStripeThreshold)
+        {
+            this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
+            return this;
+        }
+
+        public Builder withMaxBlockSize(DataSize maxBlockSize)
+        {
+            this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
+            return this;
+        }
+
+        public Builder withZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
+        {
+            this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
+            return this;
+        }
+
+        public Builder withMapNullKeysEnabled(boolean mapNullKeysEnabled)
+        {
+            this.mapNullKeysEnabled = mapNullKeysEnabled;
+            return this;
+        }
+
+        public Builder withEnableTimestampMicroPrecision(boolean enableTimestampMicroPrecision)
+        {
+            this.enableTimestampMicroPrecision = enableTimestampMicroPrecision;
+            return this;
+        }
+
+        public Builder withAppendRowNumber(boolean appendRowNumber)
+        {
+            this.appendRowNumber = appendRowNumber;
+            return this;
+        }
+
+        public OrcReaderOptions build()
+        {
+            return new OrcReaderOptions(
+                    maxMergeDistance,
+                    tinyStripeThreshold,
+                    maxBlockSize,
+                    zstdJniDecompressionEnabled,
+                    mapNullKeysEnabled,
+                    enableTimestampMicroPrecision,
+                    appendRowNumber);
+        }
     }
 }
