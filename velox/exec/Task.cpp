@@ -911,6 +911,7 @@ void Task::terminate(TaskState terminalState) {
     // is cleared here so that this is 0 right after terminate as
     // tests expect.
     numRunningDrivers_ = 0;
+    stateChangedLocked();
     for (auto& driver : drivers_) {
       if (driver) {
         if (enterForTerminateLocked(driver->state()) ==
@@ -967,8 +968,6 @@ void Task::terminate(TaskState terminalState) {
   for (auto& bridge : oldBridges) {
     bridge->cancel();
   }
-  std::lock_guard<std::mutex> l(mutex_);
-  stateChangedLocked();
 }
 
 void Task::addOperatorStats(OperatorStats& stats) {
