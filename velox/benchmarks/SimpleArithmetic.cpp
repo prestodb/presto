@@ -16,6 +16,7 @@
 
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
+#include <gflags/gflags.h>
 
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
@@ -45,7 +46,7 @@ class SimpleArithmeticBenchmark
   }
 
   // Runs `expression` `times` times.
-  void run(const std::string& expression, size_t times) {
+  size_t run(const std::string& expression, size_t times) {
     folly::BenchmarkSuspender suspender;
     auto exprSet = compileExpression(expression, inputType_);
     suspender.dismiss();
@@ -54,7 +55,7 @@ class SimpleArithmeticBenchmark
     for (auto i = 0; i < times; i++) {
       count += evaluate(exprSet, rowVector_)->size();
     }
-    folly::doNotOptimizeAway(count);
+    return count;
   }
 
  private:
@@ -64,24 +65,24 @@ class SimpleArithmeticBenchmark
 
 SimpleArithmeticBenchmark benchmark;
 
-BENCHMARK(multiply, n) {
-  benchmark.run("multiply(a, a)", n);
+BENCHMARK_MULTI(multiply, n) {
+  return benchmark.run("multiply(a, a)", n);
 }
 
-BENCHMARK(multiplyHalfNull, n) {
-  benchmark.run("multiply(a, half_null)", n);
+BENCHMARK_MULTI(multiplyHalfNull, n) {
+  return benchmark.run("multiply(a, half_null)", n);
 }
 
-BENCHMARK(multiplyConstant, n) {
-  benchmark.run("multiply(a, constant)", n);
+BENCHMARK_MULTI(multiplyConstant, n) {
+  return benchmark.run("multiply(a, constant)", n);
 }
 
-BENCHMARK(multiplyNested, n) {
-  benchmark.run("multiply(multiply(a, b), b)", n);
+BENCHMARK_MULTI(multiplyNested, n) {
+  return benchmark.run("multiply(multiply(a, b), b)", n);
 }
 
-BENCHMARK(multiplyNestedDeep, n) {
-  benchmark.run(
+BENCHMARK_MULTI(multiplyNestedDeep, n) {
+  return benchmark.run(
       "multiply(multiply(multiply(a, b), a), "
       "multiply(a, multiply(a, b)))",
       n);
@@ -90,7 +91,7 @@ BENCHMARK(multiplyNestedDeep, n) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   // Set input schema.
   auto inputType = ROW({
@@ -112,8 +113,8 @@ int main(int argc, char* argv[]) {
       VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(DOUBLE())); // A
   children.emplace_back(
       VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(DOUBLE())); // B
-  children.emplace_back(
-      BaseVector::createConstant(123.45, size, pool)); // Constant
+  children.emplace_back(VectorFuzzer(opts, pool, FLAGS_fuzzer_seed)
+                            .fuzzConstant(DOUBLE())); // Constant
   opts.nullChance = 2; // 50%
   children.emplace_back(VectorFuzzer(opts, pool, FLAGS_fuzzer_seed)
                             .fuzzFlat(DOUBLE())); // HalfNull

@@ -93,7 +93,7 @@ benchmarks-build:
 benchmarks-dump:
 	$(MAKE) benchmarks-build
 	mkdir -p $(BENCHMARKS_DIR)/dumps
-	find $(BENCHMARKS_DIR) -type f -executable -exec {} --bm_min_usec 100000 \;
+	find $(BENCHMARKS_DIR) -type f -executable -exec {} --bm_max_secs 10 --bm_epochs 100000 \;
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure
