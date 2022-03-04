@@ -80,7 +80,7 @@ public class TestDistributedQueryResource
         client = null;
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testGetQueryInfos()
             throws Exception
     {
@@ -174,7 +174,7 @@ public class TestDistributedQueryResource
     }
 
     // Flaky test.
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testGetAllQueryInfoForLimits()
             throws InterruptedException
     {

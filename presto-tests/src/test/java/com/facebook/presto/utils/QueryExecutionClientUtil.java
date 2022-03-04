@@ -33,10 +33,13 @@ import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticB
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.fail;
 
 public class QueryExecutionClientUtil
 {
@@ -77,9 +80,14 @@ public class QueryExecutionClientUtil
 
     public static void runToFirstResult(HttpClient client, TestingPrestoServer server, String sql, String user)
     {
+
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
         QueryResults queryResults = postQuery(client, sql, uri, user);
         while (queryResults.getData() == null) {
+            QueryState queryState = QueryState.valueOf(queryResults.getStats().getState());
+            if (queryState == FAILED) {
+                fail(format("Query moved to state: %s, expected: %s\n%s", queryState, RUNNING, queryResults.getError()));
+            }
             queryResults = getQueryResults(client, queryResults, user);
         }
     }
