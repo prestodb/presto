@@ -543,6 +543,7 @@ public class InMemoryTransactionManager
 
             ConnectorId writeConnectorId = this.writtenConnectorId.get();
             if (writeConnectorId == null) {
+                // for read-only transaction, we return the commit handle for the read query.
                 Supplier<ListenableFuture<?>> commitReadOnlyConnectors = () -> {
                     ListenableFuture<? extends List<?>> future = Futures.allAsList(connectorIdToMetadata.values().stream()
                             .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
@@ -566,13 +567,14 @@ public class InMemoryTransactionManager
                 return future;
             };
 
+            // for transactions with read and write, we only return the commit handle for write query.
             ConnectorTransactionMetadata writeConnector = connectorIdToMetadata.get(writeConnectorId);
-            Supplier<ListenableFuture> commitFunctionNamespaceTransactions = () -> functionNamespaceFuture;
-            ListenableFuture<?> commitFuture = Futures.transformAsync(finishingExecutor.submit(writeConnector::commit), ignored -> commitFunctionNamespaceTransactions.get(), directExecutor());
-            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
-            addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
+            Supplier<ListenableFuture<?>> commitFunctionNamespaceTransactions = () -> functionNamespaceFuture;
+            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFunctionNamespaceTransactions.get(), ignored -> commitReadOnlyConnectors.get(), directExecutor());
+            ListenableFuture<?> writeCommitFuture = Futures.transformAsync(readOnlyCommitFuture, ignored -> finishingExecutor.submit(writeConnector::commit), directExecutor());
+            addExceptionCallback(writeCommitFuture, this::abortInternal);
 
-            return nonCancellationPropagating(readOnlyCommitFuture);
+            return nonCancellationPropagating(writeCommitFuture);
         }
 
         public synchronized ListenableFuture<?> asyncAbort()
