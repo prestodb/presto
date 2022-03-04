@@ -99,8 +99,8 @@ public class TestRunLengthEncodedBlock
         int positionCount = 10;
         Slice expectedValue = createExpectedValue(5);
         Block block = new RunLengthEncodedBlock(createSingleValueBlock(expectedValue), positionCount);
-        for (int postition = 0; postition < positionCount; postition++) {
-            assertEquals(block.getEstimatedDataSizeForStats(postition), expectedValue.length());
+        for (int position = 0; position < positionCount; position++) {
+            assertEquals(block.getEstimatedDataSizeForStats(position), expectedValue.length());
         }
     }
 

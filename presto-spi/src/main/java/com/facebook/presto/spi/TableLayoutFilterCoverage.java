@@ -14,7 +14,7 @@
 package com.facebook.presto.spi;
 
 /**
- * Result indicating whether a set of filters on partition columns retricts the range of values
+ * Result indicating whether a set of filters on partition columns restricts the range of values
  * on the columns
  */
 public enum TableLayoutFilterCoverage

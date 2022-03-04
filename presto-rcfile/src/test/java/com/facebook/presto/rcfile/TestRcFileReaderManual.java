@@ -89,7 +89,7 @@ public class TestRcFileReaderManual
             // straddle segment start
             assertEquals(segment.getValues(), readValues(file, segment.getOffset() - 1, 2));
 
-            // regions entirely within the the segment
+            // regions entirely within the segment
             assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + 1, 1));
             assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + 1, segment.getLength() - 1));
 

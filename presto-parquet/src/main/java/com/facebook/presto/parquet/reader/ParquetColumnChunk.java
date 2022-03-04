@@ -125,12 +125,12 @@ public class ParquetColumnChunk
     private DictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)
             throws IOException
     {
-        DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
+        DictionaryPageHeader dictHeader = pageHeader.getDictionary_page_header();
         return new DictionaryPage(
                 getSlice(compressedPageSize),
                 uncompressedPageSize,
-                dicHeader.getNum_values(),
-                getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name())));
+                dictHeader.getNum_values(),
+                getParquetEncoding(Encoding.valueOf(dictHeader.getEncoding().name())));
     }
 
     private long readDataPageV1(PageHeader pageHeader,

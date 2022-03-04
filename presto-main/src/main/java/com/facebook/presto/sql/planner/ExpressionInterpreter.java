@@ -554,7 +554,7 @@ public class ExpressionInterpreter
                 if (!isDeterministic(expression) || visitedExpression.add(expression)) {
                     operandsBuilder.add(expression);
                 }
-                // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
+                // TODO: Replace this logic with an analyzer which specifies whether it evaluates to null
                 if (expression instanceof Literal && !(expression instanceof NullLiteral)) {
                     break;
                 }

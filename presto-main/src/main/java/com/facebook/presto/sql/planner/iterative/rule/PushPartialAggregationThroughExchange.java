@@ -187,7 +187,7 @@ public class PushPartialAggregationThroughExchange
         for (PlanNode node : partials) {
             verify(aggregation.getOutputVariables().equals(node.getOutputVariables()));
         }
-        // Since this exchange source is now guaranteed to have the same symbols as the inputs to the the partial
+        // Since this exchange source is now guaranteed to have the same symbols as the inputs to the partial
         // aggregation, we don't need to rewrite symbols in the partitioning function
         List<VariableReferenceExpression> aggregationOutputs = aggregation.getOutputVariables();
         PartitioningScheme partitioning = new PartitioningScheme(

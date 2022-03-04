@@ -109,7 +109,7 @@ public class TestSegmentedSliceBlockBuilder
             assertEquals(blockBuilder.getSizeInBytes(), blockBuilder.getPositionCount() * (1L + Integer.BYTES));
 
             if (blockBuilder.getOpenSegmentIndex() > lastOpenSegmentIndex) {
-                // When new segment is created, retained should should increase due to
+                // When new segment is created, retained should increase due to
                 // copied slices and new offsets array allocation.
                 assertGreaterThan(blockBuilder.getRetainedSizeInBytes(), retainedSize);
             }

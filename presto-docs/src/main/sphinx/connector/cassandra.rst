@@ -87,7 +87,7 @@ Property Name                                                 Description
 ``cassandra.fetch-size``                                      Number of rows fetched at a time in a Cassandra query.
 
 ``cassandra.partition-size-for-batch-select``                 Number of partitions batched together into a single select for a
-                                                              single partion key column table.
+                                                              single partition key column table.
 
 ``cassandra.split-size``                                      Number of keys per split when querying Cassandra.
 

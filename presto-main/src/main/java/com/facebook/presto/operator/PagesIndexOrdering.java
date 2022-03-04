@@ -68,7 +68,7 @@ public class PagesIndexOrdering
         if (len > SMALL) {
             int l = from;
             int n = to - 1;
-            if (len > MEDIUM) { // Big arrays, pseudomedian of 9
+            if (len > MEDIUM) { // Big arrays, pseudo-median of 9
                 int s = len / 8;
                 l = median3(pagesIndex, l, l + s, l + 2 * s);
                 m = median3(pagesIndex, m - s, m, m + s);

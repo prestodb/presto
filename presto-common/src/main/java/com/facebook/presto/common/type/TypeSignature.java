@@ -359,7 +359,7 @@ public class TypeSignature
         VarcharEnumMap getVarcharEnumMap()
         {
             checkArgument(!isBigintEnum, "Invalid enum map format");
-            // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSigntures
+            // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSignatures
             Base32 base32 = new Base32();
             return new VarcharEnumMap(
                     typeName,

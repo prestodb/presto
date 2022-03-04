@@ -55,7 +55,7 @@ public class RedisRecordCursor
     private final List<RedisColumnHandle> columnHandles;
     private final RedisJedisManager redisJedisManager;
     private final JedisPool jedisPool;
-    private final ScanParams scanParms;
+    private final ScanParams scanParams;
 
     private ScanResult<String> redisCursor;
     private Iterator<String> keysIterator;
@@ -85,7 +85,7 @@ public class RedisRecordCursor
         this.columnHandles = columnHandles;
         this.redisJedisManager = redisJedisManager;
         this.jedisPool = redisJedisManager.getJedisPool(split.getNodes().get(0));
-        this.scanParms = setScanParms();
+        this.scanParams = setScanParams();
         this.currentRowValues = new FieldValueProvider[columnHandles.size()];
 
         fetchKeys();
@@ -260,11 +260,11 @@ public class RedisRecordCursor
     {
     }
 
-    private ScanParams setScanParms()
+    private ScanParams setScanParams()
     {
         if (split.getKeyDataType() == RedisDataType.STRING) {
-            ScanParams scanParms = new ScanParams();
-            scanParms.count(redisJedisManager.getRedisConnectorConfig().getRedisScanCount());
+            ScanParams scanParams = new ScanParams();
+            scanParams.count(redisJedisManager.getRedisConnectorConfig().getRedisScanCount());
 
             // when Redis key string follows "schema:table:*" format
             // scan command can efficiently query tables
@@ -282,9 +282,9 @@ public class RedisRecordCursor
                     keyMatch = split.getSchemaName() + Character.toString(redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter());
                 }
                 keyMatch = keyMatch + split.getTableName() + Character.toString(redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter()) + "*";
-                scanParms.match(keyMatch);
+                scanParams.match(keyMatch);
             }
-            return scanParms;
+            return scanParams;
         }
 
         return null;
@@ -304,7 +304,7 @@ public class RedisRecordCursor
 
                     log.debug("Scanning new Redis keys from cursor %s . %d values read so far", cursor, totalValues);
 
-                    redisCursor = jedis.scan(cursor, scanParms);
+                    redisCursor = jedis.scan(cursor, scanParams);
                     List<String> keys = redisCursor.getResult();
                     keysIterator = keys.iterator();
                 }

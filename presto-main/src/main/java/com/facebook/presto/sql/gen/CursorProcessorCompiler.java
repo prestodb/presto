@@ -205,7 +205,7 @@ public class CursorProcessorCompiler
                 .comment("boolean finished = false;")
                 .putVariable(finishedVariable, false);
 
-        // while loop loop body
+        // while loop body
         LabelNode done = new LabelNode("done");
 
         BytecodeBlock whileFunctionBlock = new BytecodeBlock()

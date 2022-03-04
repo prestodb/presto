@@ -118,7 +118,7 @@ public class VarcharEnumType
         @Override
         public String toString()
         {
-            // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSigntures
+            // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSignatures
             Base32 base32 = new Base32();
             return format("%s{%s}", typeName, enumMap.entrySet().stream()
                     .sorted(Comparator.comparing(Map.Entry::getKey))

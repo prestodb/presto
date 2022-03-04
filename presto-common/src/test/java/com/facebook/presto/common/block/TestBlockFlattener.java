@@ -37,7 +37,7 @@ import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestBlockFlattenner
+public class TestBlockFlattener
 {
     private ArrayAllocator allocator;
     private BlockFlattener flattener;

@@ -1687,7 +1687,7 @@ public class LocalExecutionPlanner
             // The probe key channels will be handed to the index according to probeVariable order
             Map<VariableReferenceExpression, Integer> probeKeyLayout = new HashMap<>();
             for (int i = 0; i < probeVariables.size(); i++) {
-                // Duplicate variables can appear and we only need to take take one of the Inputs
+                // Duplicate variables can appear and we only need to take one of the Inputs
                 probeKeyLayout.put(probeVariables.get(i), i);
             }
 

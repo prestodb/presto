@@ -51,11 +51,11 @@ public final class RowExpressionTreeRewriter<C>
 
     private List<RowExpression> rewrite(List<RowExpression> items, Context<C> context)
     {
-        List<RowExpression> rewritenExpressions = new ArrayList<>();
+        List<RowExpression> rewrittenExpressions = new ArrayList<>();
         for (RowExpression expression : items) {
-            rewritenExpressions.add(rewrite(expression, context.get()));
+            rewrittenExpressions.add(rewrite(expression, context.get()));
         }
-        return Collections.unmodifiableList(rewritenExpressions);
+        return Collections.unmodifiableList(rewrittenExpressions);
     }
 
     @SuppressWarnings("unchecked")

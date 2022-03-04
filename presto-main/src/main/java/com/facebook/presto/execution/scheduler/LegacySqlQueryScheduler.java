@@ -338,7 +338,7 @@ public class LegacySqlQueryScheduler
         ImmutableList.Builder<StageExecutionAndScheduler> stages = ImmutableList.builder();
 
         for (StreamingPlanSection childSection : section.getChildren()) {
-            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExhchangeLocations) -> {};
+            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
             stages.addAll(createStageExecutions(
                     sectionExecutionFactory,
                     childLocationsConsumer,

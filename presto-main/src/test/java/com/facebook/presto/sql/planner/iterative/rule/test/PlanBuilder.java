@@ -659,7 +659,7 @@ public class PlanBuilder
             return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputVariables));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables)
+        public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
@@ -667,7 +667,7 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputVariables)));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables, VariableReferenceExpression hashVariable)
+        public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables, VariableReferenceExpression hashVariable)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
@@ -888,14 +888,14 @@ public class PlanBuilder
                 0);
     }
 
-    public RowNumberNode rowNumber(List<VariableReferenceExpression> partitionBy, Optional<Integer> maxRowCountPerPartition, VariableReferenceExpression rownNumberVariable, PlanNode source)
+    public RowNumberNode rowNumber(List<VariableReferenceExpression> partitionBy, Optional<Integer> maxRowCountPerPartition, VariableReferenceExpression rowNumberVariable, PlanNode source)
     {
         return new RowNumberNode(
                 Optional.empty(),
                 idAllocator.getNextId(),
                 source,
                 partitionBy,
-                rownNumberVariable,
+                rowNumberVariable,
                 maxRowCountPerPartition,
                 Optional.empty());
     }

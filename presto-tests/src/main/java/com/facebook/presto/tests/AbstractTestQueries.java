@@ -846,7 +846,7 @@ public abstract class AbstractTestQueries
                         "SELECT * FROM a",
                 "VALUES (1.1, 2), (sin(3.3), 2+2)");
 
-        // implicit coersions
+        // implicit coercions
         assertQuery("VALUES 1, 2.2, 3, 4.4");
         assertQuery("VALUES (1, 2), (3.3, 4.4)");
         assertQuery("VALUES true, 1.0 in (1, 2, 3)");
@@ -2670,7 +2670,7 @@ public abstract class AbstractTestQueries
 
         // Until we migrate all connectors to parametrized varchar we check two options
         assertTrue(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar),
-                format("%s does not matche neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
+                format("%s matches neither %s nor %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
     }
 
     @Test
@@ -3983,7 +3983,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testTwoCorrelatedExistsSubqueries()
     {
-        // This is simpliefied TPC-H q21
+        // This is simplified TPC-H q21
         assertQuery("SELECT\n" +
                         "  count(*) AS numwait\n" +
                         "FROM\n" +
@@ -5875,9 +5875,9 @@ public abstract class AbstractTestQueries
                 "select count(1) from (select distinct orderkey, custkey from orders)",
         };
 
-        int[] unsampledResuts = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
+        int[] unsampledResults = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(queries[i], "select " + unsampledResuts[i]);
+            assertQuery(queries[i], "select " + unsampledResults[i]);
         }
 
         Session sessionWithKeyBasedSampling = Session.builder(getSession())
@@ -5885,9 +5885,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.2")
                 .build();
 
-        int[] sampled20PercentResuts = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
+        int[] sampled20PercentResults = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResuts[i]);
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResults[i]);
         }
 
         sessionWithKeyBasedSampling = Session.builder(getSession())
@@ -5895,9 +5895,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.1")
                 .build();
 
-        int[] sampled10PercentResuts = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
+        int[] sampled10PercentResults = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResuts[i]);
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResults[i]);
         }
     }
 

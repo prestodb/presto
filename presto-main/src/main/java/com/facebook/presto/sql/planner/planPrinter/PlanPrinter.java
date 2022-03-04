@@ -919,7 +919,7 @@ public class PlanPrinter
 
             TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
             if (predicate == null) {
-                // This happens when printing the plan framgnet on worker for debug purpose
+                // This happens when printing the plan fragment on worker for debug purpose
                 nodeOutput.appendDetailsLine(":: PREDICATE INFORMATION UNAVAILABLE");
             }
             else if (predicate.isNone()) {

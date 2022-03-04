@@ -407,7 +407,7 @@ public class FileMergeCacheManager
 
         // no lock is needed for the following operation
         if (updated) {
-            // remove the the previous or following file as well
+            // remove the previous or following file as well
             if (previousCacheFile != null) {
                 cacheFilesToDelete.add(previousCacheFile.getPath());
             }
