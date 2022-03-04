@@ -26,8 +26,10 @@
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
+
+// Constant using in comparison of REAL and DOUBLE values.
+constexpr double kEpsilon{0.000001};
 
 // note: while this is not intended for use in real critical code paths,
 //       it's probably worthwhile to make it not completely suck
@@ -537,6 +539,20 @@ class variant {
     return stream;
   }
 
+  // Compares REAL and DOUBLE (only) types for equality using kEpsilon.
+  // For testing purposes.
+  static bool equalsFloatingPointWithEpsilon(
+      const variant& a,
+      const variant& b);
+
+  // Uses kEpsilon to compare floating point types (REAL and DOUBLE).
+  // For testing purposes.
+  bool lessThanWithEpsilon(const variant& other) const;
+
+  // Uses kEpsilon to compare floating point types (REAL and DOUBLE).
+  // For testing purposes.
+  bool equalsWithEpsilon(const variant& other) const;
+
  private:
   TypeKind kind_;
   // TODO: it'd be more efficient to put union here if it ever becomes a problem
@@ -607,5 +623,4 @@ struct VariantConverter {
 
 #undef VELOX_VARIANT_SCALAR_MEMBERS
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

@@ -345,8 +345,8 @@ std::string toString(const MaterializedRow& row) {
 }
 
 std::string generateUserFriendlyDiff(
-    const std::multiset<MaterializedRow>& expectedRows,
-    const std::multiset<MaterializedRow>& actualRows) {
+    const MaterializedRowMultiset& expectedRows,
+    const MaterializedRowMultiset& actualRows) {
   std::vector<MaterializedRow> extraActualRows;
   std::set_difference(
       actualRows.begin(),
@@ -487,23 +487,89 @@ std::shared_ptr<Task> assertQueryReturnsEmptyResult(
   return result.first->task();
 }
 
+// Special function to compare multisets with vectors of variants in a way that
+// we compare all floating point values inside using 'epsilon' constant.
+// Returns true if equal.
+static bool compareMaterializedRows(
+    const MaterializedRowMultiset& left,
+    const MaterializedRowMultiset& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+
+  for (auto& it : left) {
+    if (right.count(it) == 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void assertResults(
     const std::vector<RowVectorPtr>& results,
     const std::shared_ptr<const RowType>& resultType,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner) {
-  std::multiset<MaterializedRow> actualRows;
-  for (auto vector : results) {
+  MaterializedRowMultiset actualRows;
+  for (const auto& vector : results) {
     auto rows = materialize(vector);
     std::copy(
         rows.begin(), rows.end(), std::inserter(actualRows, actualRows.end()));
   }
 
   auto expectedRows = duckDbQueryRunner.execute(duckDbSql, resultType);
-  if (actualRows != expectedRows) {
+  if (not compareMaterializedRows(actualRows, expectedRows)) {
     auto message = generateUserFriendlyDiff(expectedRows, actualRows);
     EXPECT_TRUE(false) << message << "DuckDB query: " << duckDbSql;
   }
+}
+
+// To handle the case when the sorting keys are not unique and the order
+// within the same key is not deterministic, we partition the results with
+// sorting keys and verify the partitions are equal using set-diff.
+using OrderedPartition = std::pair<MaterializedRow, MaterializedRowMultiset>;
+
+// Special function to compare ordered partitions in a way that
+// we compare all floating point values inside using 'epsilon' constant.
+// Returns true if equal.
+static bool compareOrderedPartitions(
+    const OrderedPartition& left,
+    const OrderedPartition& right) {
+  if (left.first.size() != right.first.size() or
+      left.second.size() != right.second.size()) {
+    return false;
+  }
+
+  for (size_t i = 0; i < left.first.size(); ++i) {
+    if (not left.first[i].equalsWithEpsilon(right.first[i])) {
+      return false;
+    }
+  }
+  if (not compareMaterializedRows(left.second, right.second)) {
+    return false;
+  }
+
+  return true;
+}
+
+// Special function to compare vectors of ordered partitions in a way that
+// we compare all floating point values inside using 'epsilon' constant.
+// Returns true if equal.
+static bool compareOrderedPartitionsVectors(
+    const std::vector<OrderedPartition>& left,
+    const std::vector<OrderedPartition>& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+
+  for (size_t i = 0; i < left.size(); ++i) {
+    if (not compareOrderedPartitions(left[i], right[i])) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void assertResultsOrdered(
@@ -512,41 +578,36 @@ void assertResultsOrdered(
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
     const std::vector<uint32_t>& sortingKeys) {
-  // To handle the case when the sorting keys are not unique and the order
-  // within the same key is not deterministic, we partition the results with
-  // sorting keys and verify the partitions are equal using set-diff.
-  using OrderedPartition =
-      std::pair<MaterializedRow, std::multiset<MaterializedRow>>;
-
   std::vector<OrderedPartition> actualPartitions;
   std::vector<OrderedPartition> expectedPartitions;
 
-  for (auto vector : results) {
+  for (const auto& vector : results) {
     auto rows = materialize(vector);
-    for (auto row : rows) {
+    for (const auto& row : rows) {
       auto keys = getColumns(row, sortingKeys);
       if (actualPartitions.empty() || actualPartitions.back().first != keys) {
-        actualPartitions.emplace_back(keys, std::multiset<MaterializedRow>());
+        actualPartitions.emplace_back(keys, MaterializedRowMultiset());
       }
       actualPartitions.back().second.insert(row);
     }
   }
 
   auto expectedRows = duckDbQueryRunner.executeOrdered(duckDbSql, resultType);
-  for (auto row : expectedRows) {
+  for (const auto& row : expectedRows) {
     auto keys = getColumns(row, sortingKeys);
     if (expectedPartitions.empty() || expectedPartitions.back().first != keys) {
-      expectedPartitions.emplace_back(keys, std::multiset<MaterializedRow>());
+      expectedPartitions.emplace_back(keys, MaterializedRowMultiset());
     }
     expectedPartitions.back().second.insert(row);
   }
 
-  if (expectedPartitions != actualPartitions) {
+  if (not compareOrderedPartitionsVectors(
+          expectedPartitions, actualPartitions)) {
     auto actualPartIter = actualPartitions.begin();
     auto expectedPartIter = expectedPartitions.begin();
     while (expectedPartIter != expectedPartitions.end() &&
            actualPartIter != actualPartitions.end()) {
-      if (*expectedPartIter != *actualPartIter) {
+      if (not compareOrderedPartitions(*expectedPartIter, *actualPartIter)) {
         break;
       }
       ++expectedPartIter;
@@ -660,14 +721,14 @@ velox::variant readSingleValue(
 void assertEqualResults(
     const std::vector<RowVectorPtr>& expected,
     const std::vector<RowVectorPtr>& actual) {
-  std::multiset<MaterializedRow> actualRows;
+  MaterializedRowMultiset actualRows;
   for (auto vector : actual) {
     auto rows = materialize(vector);
     std::copy(
         rows.begin(), rows.end(), std::inserter(actualRows, actualRows.end()));
   }
 
-  std::multiset<MaterializedRow> expectedRows;
+  MaterializedRowMultiset expectedRows;
   for (auto vector : expected) {
     auto rows = materialize(vector);
     std::copy(
@@ -676,7 +737,7 @@ void assertEqualResults(
         std::inserter(expectedRows, expectedRows.end()));
   }
 
-  if (actualRows != expectedRows) {
+  if (not compareMaterializedRows(actualRows, expectedRows)) {
     auto message = generateUserFriendlyDiff(expectedRows, actualRows);
     EXPECT_TRUE(false) << message << "Unexpected results";
   }
