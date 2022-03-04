@@ -29,16 +29,19 @@ public final class Output
     private final ConnectorId connectorId;
     private final String schema;
     private final String table;
+    private final String serializedCommitOutput;
 
     @JsonCreator
     public Output(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schema") String schema,
-            @JsonProperty("table") String table)
+            @JsonProperty("table") String table,
+            @JsonProperty("serializedCommitOutput") String serializedCommitOutput)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
+        this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "connectorCommitOutput is null");
     }
 
     @JsonProperty
@@ -59,6 +62,12 @@ public final class Output
         return table;
     }
 
+    @JsonProperty
+    public String getSerializedCommitOutput()
+    {
+        return serializedCommitOutput;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -71,12 +80,13 @@ public final class Output
         Output output = (Output) o;
         return Objects.equals(connectorId, output.connectorId) &&
                 Objects.equals(schema, output.schema) &&
-                Objects.equals(table, output.table);
+                Objects.equals(table, output.table) &&
+                Objects.equals(serializedCommitOutput, output.serializedCommitOutput);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table);
+        return Objects.hash(connectorId, schema, table, serializedCommitOutput);
     }
 }
