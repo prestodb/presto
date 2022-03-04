@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.resourceGroups.QueryType;
@@ -146,6 +147,9 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+
+    private final AtomicReference<ConnectorCommitHandle> commitHandle = new AtomicReference<>();
+
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
 
@@ -715,6 +719,7 @@ public class QueryStateMachine
 
         Optional<TransactionInfo> transaction = session.getTransactionId()
                 .flatMap(transactionManager::getOptionalTransactionInfo);
+
         if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
             ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
             Futures.addCallback(commitFuture, new FutureCallback<Object>()
@@ -723,6 +728,7 @@ public class QueryStateMachine
                 public void onSuccess(@Nullable Object result)
                 {
                     transitionToFinished();
+                    processConnectorCommitHandle(result);
                 }
 
                 @Override
@@ -736,6 +742,13 @@ public class QueryStateMachine
             transitionToFinished();
         }
         return true;
+    }
+
+    private void processConnectorCommitHandle(Object result)
+    {
+        if (result instanceof ConnectorCommitHandle) {
+            this.commitHandle.set((ConnectorCommitHandle) result);
+        }
     }
 
     private void transitionToFinished()
