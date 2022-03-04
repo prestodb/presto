@@ -27,4 +27,29 @@ SelectivityVector SelectivityVector::empty(vector_size_t size) {
   return SelectivityVector{size, false};
 }
 
+std::string SelectivityVector::toString(
+    vector_size_t maxSelectedRowsToPrint) const {
+  const auto selectedCnt = countSelected();
+
+  VELOX_CHECK_GE(maxSelectedRowsToPrint, 0);
+
+  std::stringstream out;
+  out << selectedCnt << " out of " << size() << " rows selected between "
+      << begin() << " and " << end();
+
+  if (selectedCnt > 0 && maxSelectedRowsToPrint > 0) {
+    out << ": ";
+    int cnt = 0;
+    testSelected([&](auto row) {
+      if (cnt > 0) {
+        out << ", ";
+      }
+      out << row;
+      ++cnt;
+      return cnt < maxSelectedRowsToPrint;
+    });
+  }
+  return out.str();
+}
+
 } // namespace facebook::velox
