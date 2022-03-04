@@ -104,6 +104,18 @@ Mathematical Functions
 
     Returns a pseudo-random number between 0 and n (exclusive).
 
+.. function:: secure_rand() -> double
+
+    This is an alias for :func:`secure_random()`.
+
+.. function:: secure_random() -> double
+
+    Returns a cryptographically secure random value in the range 0.0 <= x < 1.0.
+
+.. function:: secure_random(lower, upper) -> [same as input]
+
+    Returns a cryptographically secure random value in the range lower <= x < upper, where lower < upper.
+
 .. function:: round(x) -> [same as input]
 
     Returns ``x`` rounded to the nearest integer.
