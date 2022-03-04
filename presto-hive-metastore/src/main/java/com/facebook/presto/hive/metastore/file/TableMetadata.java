@@ -333,6 +333,7 @@ public class TableMetadata
                 partitionColumns,
                 parameters,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                0);
     }
 }

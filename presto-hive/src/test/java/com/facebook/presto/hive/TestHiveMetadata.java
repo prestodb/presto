@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.TypeManager;
@@ -27,6 +29,7 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -34,6 +37,7 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.testng.annotations.Test;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,6 +54,7 @@ import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveMetadata
 {
@@ -104,7 +109,8 @@ public class TestHiveMetadata
                 ImmutableList.of(partitionColumn),
                 ImmutableMap.of(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                0);
 
         ColumnMetadata actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new HiveColumnConverter()).apply(hiveColumnHandle1);
         ColumnMetadata expected = new ColumnMetadata("c1", IntegerType.INTEGER);
@@ -178,6 +184,35 @@ public class TestHiveMetadata
 
         verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("ASC", ASCENDING)));
         verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("DESC", DESCENDING)));
+    }
+
+    @Test
+    public void testIsUnpartitionedTable()
+    {
+        List<HivePartition> partitions = ImmutableList.of(new HivePartition(new SchemaTableName("persto", "test")));
+        HiveTableLayoutHandle tableLayoutHandle = buildTableLayoutHandle(partitions);
+        assertTrue(HiveMetadata.isUnpartitionedTable(tableLayoutHandle));
+    }
+
+    private HiveTableLayoutHandle buildTableLayoutHandle(List<HivePartition> partitions)
+    {
+        return new HiveTableLayoutHandle(
+                new SchemaTableName("presto", "test"),
+                "table_path",
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyMap(),
+                partitions,
+                TupleDomain.none(),
+                new ConstantExpression(1L, BigintType.BIGINT),
+                Collections.emptyMap(),
+                TupleDomain.none(),
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                "random_layout",
+                Optional.empty(),
+                false);
     }
 
     private void verifyPreferredOrderingColumnsRoundTrip(List<SortingColumn> sortingColumns)

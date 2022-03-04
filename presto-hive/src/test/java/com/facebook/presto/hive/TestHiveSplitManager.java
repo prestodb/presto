@@ -149,7 +149,8 @@ public class TestHiveSplitManager
             ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())),
             ImmutableMap.of(),
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            0);
 
     private ListeningExecutorService executor;
 
@@ -471,6 +472,7 @@ public class TestHiveSplitManager
                         Optional.empty(),
                         false,
                         true,
+                        0,
                         0),
                 PARTITION_NAME,
                 partitionStatistics);

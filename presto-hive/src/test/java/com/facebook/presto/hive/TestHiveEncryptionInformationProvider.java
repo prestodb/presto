@@ -52,7 +52,8 @@ public class TestHiveEncryptionInformationProvider
             ImmutableList.of(),
             ImmutableMap.of(),
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            0);
 
     @Test
     public void testNoOneReturns()

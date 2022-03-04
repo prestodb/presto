@@ -82,7 +82,8 @@ public class TestHudiDirectoryLister
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                0);
 
         HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
         HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
@@ -118,7 +119,8 @@ public class TestHudiDirectoryLister
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                0);
 
         assertThrows(TableNotFoundException.class, () -> new HudiDirectoryLister(hadoopConf, SESSION, mockTable));
     }

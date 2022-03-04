@@ -487,7 +487,7 @@ public class MetadataManager
     {
         ConnectorId connectorId = handle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return handle.getLayout().flatMap(tableLayout -> metadata.getInfo(tableLayout));
+        return handle.getLayout().flatMap(tableLayout -> metadata.getInfo(session.toConnectorSession(), tableLayout));
     }
 
     @Override
