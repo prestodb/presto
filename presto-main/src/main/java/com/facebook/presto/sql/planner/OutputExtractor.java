@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.VerifyException;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -39,7 +40,8 @@ public class OutputExtractor
         return Optional.of(new Output(
                 visitor.getConnectorId(),
                 visitor.getSchemaTableName().getSchemaName(),
-                visitor.getSchemaTableName().getTableName()));
+                visitor.getSchemaTableName().getTableName(),
+                Collections.emptyList()));
     }
 
     private class Visitor

@@ -26,6 +26,7 @@ import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -147,8 +148,6 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
-
-    private final AtomicReference<ConnectorCommitHandle> commitHandle = new AtomicReference<>();
 
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
@@ -529,6 +528,21 @@ public class QueryStateMachine
         this.output.set(output);
     }
 
+    private void attachLastDataCommitTimesToOutput(ConnectorCommitHandle commitHandle)
+    {
+        if (output.get().isPresent()) {
+            SchemaTableName table = new SchemaTableName(output.get().get().getSchema(), output.get().get().getTable());
+            Object lastDataCommitTimes = commitHandle.getLastDataCommitTimes(table);
+            if (lastDataCommitTimes != null) {
+                output.set(Optional.of(new Output(
+                        output.get().get().getConnectorId(),
+                        output.get().get().getSchema(),
+                        output.get().get().getTable(),
+                        (List<DateTime>) lastDataCommitTimes)));
+            }
+        }
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
@@ -747,7 +761,7 @@ public class QueryStateMachine
     private void processConnectorCommitHandle(Object result)
     {
         if (result instanceof ConnectorCommitHandle) {
-            this.commitHandle.set((ConnectorCommitHandle) result);
+            attachLastDataCommitTimesToOutput((ConnectorCommitHandle) result);
         }
     }
 

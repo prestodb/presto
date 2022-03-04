@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.SchemaTableName;
+
+import java.util.Collections;
+
 public interface ConnectorCommitHandle
 {
+    default Object getLastDataCommitTimes(SchemaTableName table)
+    {
+        return Collections.emptyList();
+    }
 }
