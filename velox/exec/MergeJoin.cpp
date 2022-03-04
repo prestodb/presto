@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 #include "velox/exec/MergeJoin.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
+#include "velox/expression/ControlExpr.h"
 
 namespace facebook::velox::exec {
 
@@ -35,8 +37,10 @@ MergeJoin::MergeJoin(
   VELOX_USER_CHECK(
       joinNode->isInnerJoin() || joinNode->isLeftJoin(),
       "Merge join supports only inner and left joins. Other join types are not supported yet.");
-  VELOX_USER_CHECK_NULL(
-      joinNode->filter(), "Merge join doesn't support filter yet.");
+  if (joinNode->isLeftJoin()) {
+    VELOX_USER_CHECK_NULL(
+        joinNode->filter(), "Merge left join doesn't support filter yet.");
+  }
 
   leftKeys_.reserve(numKeys_);
   rightKeys_.reserve(numKeys_);
@@ -66,6 +70,50 @@ MergeJoin::MergeJoin(
       rightProjections_.emplace_back(i, outIndex.value());
     }
   }
+
+  if (joinNode->filter()) {
+    initializeFilter(joinNode->filter(), leftType, rightType);
+  }
+}
+
+void MergeJoin::initializeFilter(
+    const std::shared_ptr<const core::ITypedExpr>& filter,
+    const RowTypePtr& leftType,
+    const RowTypePtr& rightType) {
+  std::vector<std::shared_ptr<const core::ITypedExpr>> filters = {filter};
+  filter_ =
+      std::make_unique<ExprSet>(std::move(filters), operatorCtx_->execCtx());
+
+  ChannelIndex filterChannel = 0;
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  auto numFields = filter_->expr(0)->distinctFields().size();
+  names.reserve(numFields);
+  types.reserve(numFields);
+  for (const auto& field : filter_->expr(0)->distinctFields()) {
+    const auto& name = field->field();
+    auto channel = leftType->getChildIdxIfExists(name);
+    if (channel.has_value()) {
+      auto channelValue = channel.value();
+      filterLeftInputs_.emplace_back(channelValue, filterChannel++);
+      names.emplace_back(leftType->nameOf(channelValue));
+      types.emplace_back(leftType->childAt(channelValue));
+      continue;
+    }
+    channel = rightType->getChildIdxIfExists(name);
+    if (channel.has_value()) {
+      auto channelValue = channel.value();
+      filterRightInputs_.emplace_back(channelValue, filterChannel++);
+      names.emplace_back(rightType->nameOf(channelValue));
+      types.emplace_back(rightType->childAt(channelValue));
+      continue;
+    }
+    VELOX_FAIL(
+        "Merge join filter field not found in either left or right input: {}",
+        field->toString());
+  }
+
+  filterInputType_ = ROW(std::move(names), std::move(types));
 }
 
 BlockingReason MergeJoin::isBlocked(ContinueFuture* future) {
@@ -136,12 +184,23 @@ bool MergeJoin::findEndOfMatch(Match& match, const RowVectorPtr& input) {
   return true;
 }
 
-void MergeJoin::addOutputRowForLeftJoin() {
-  for (auto& projection : leftProjections_) {
-    auto source = input_->childAt(projection.inputChannel);
-    auto target = output_->childAt(projection.outputChannel);
-    target->copy(source.get(), outputSize_, index_, 1);
+namespace {
+void copyRow(
+    const RowVectorPtr& source,
+    vector_size_t sourceIndex,
+    const RowVectorPtr& target,
+    vector_size_t targetIndex,
+    const std::vector<IdentityProjection>& projections) {
+  for (auto& projection : projections) {
+    auto sourceChild = source->childAt(projection.inputChannel);
+    auto targetChild = target->childAt(projection.outputChannel);
+    targetChild->copy(sourceChild.get(), targetIndex, sourceIndex, 1);
   }
+}
+} // namespace
+
+void MergeJoin::addOutputRowForLeftJoin() {
+  copyRow(input_, index_, output_, outputSize_, leftProjections_);
 
   for (auto& projection : rightProjections_) {
     auto target = output_->childAt(projection.outputChannel);
@@ -156,16 +215,14 @@ void MergeJoin::addOutputRow(
     vector_size_t leftIndex,
     const RowVectorPtr& right,
     vector_size_t rightIndex) {
-  for (auto& projection : leftProjections_) {
-    auto source = left->childAt(projection.inputChannel);
-    auto target = output_->childAt(projection.outputChannel);
-    target->copy(source.get(), outputSize_, leftIndex, 1);
-  }
+  copyRow(left, leftIndex, output_, outputSize_, leftProjections_);
+  copyRow(right, rightIndex, output_, outputSize_, rightProjections_);
 
-  for (auto& projection : rightProjections_) {
-    auto source = right->childAt(projection.inputChannel);
-    auto target = output_->childAt(projection.outputChannel);
-    target->copy(source.get(), outputSize_, rightIndex, 1);
+  if (filter_) {
+    // TODO Re-use output_ columns when possible.
+
+    copyRow(left, leftIndex, filterInput_, outputSize_, filterLeftInputs_);
+    copyRow(right, rightIndex, filterInput_, outputSize_, filterRightInputs_);
   }
 
   ++outputSize_;
@@ -186,6 +243,38 @@ void MergeJoin::prepareOutput() {
         outputBatchSize_,
         std::move(localColumns));
     outputSize_ = 0;
+
+    if (filterInput_ != nullptr) {
+      // When filterInput_ contains array or map columns, their child vectors
+      // (elements, keys and values) keep growing after each call to
+      // 'copyRow'. Call BaseVector::resize(0) on these child vectors to avoid
+      // that.
+      // TODO Refactor this logic into a method on BaseVector.
+      for (auto& child : filterInput_->children()) {
+        if (child->typeKind() == TypeKind::ARRAY) {
+          child->as<ArrayVector>()->elements()->resize(0);
+        } else if (child->typeKind() == TypeKind::MAP) {
+          auto* mapChild = child->as<MapVector>();
+          mapChild->mapKeys()->resize(0);
+          mapChild->mapValues()->resize(0);
+        }
+      }
+    }
+  }
+
+  if (filter_ != nullptr && filterInput_ == nullptr) {
+    std::vector<VectorPtr> inputs(filterInputType_->size());
+    for (auto i = 0; i < filterInputType_->size(); ++i) {
+      inputs[i] = BaseVector::create(
+          filterInputType_->childAt(i), outputBatchSize_, operatorCtx_->pool());
+    }
+
+    filterInput_ = std::make_shared<RowVector>(
+        operatorCtx_->pool(),
+        filterInputType_,
+        nullptr,
+        outputBatchSize_,
+        std::move(inputs));
   }
 }
 
@@ -256,7 +345,14 @@ RowVectorPtr MergeJoin::getOutput() {
   for (;;) {
     auto output = doGetOutput();
     if (output != nullptr) {
-      return output;
+      if (filter_) {
+        output = applyFilter(output);
+        if (output != nullptr) {
+          return output;
+        }
+      } else {
+        return output;
+      }
     }
 
     // Check if we need to get more data from the right side.
@@ -469,6 +565,41 @@ RowVectorPtr MergeJoin::doGetOutput() {
   }
 
   VELOX_UNREACHABLE();
+}
+
+RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
+  const auto numRows = output->size();
+
+  filterRows_.resize(numRows);
+  filterRows_.setAll();
+
+  EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
+  filter_->eval(0, 1, true, filterRows_, &evalCtx, &filterResult_);
+
+  decodedFilterResult_.decode(*filterResult_[0], filterRows_);
+
+  BufferPtr indices = allocateIndices(numRows, pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  vector_size_t numPassed = 0;
+  for (auto i = 0; i < numRows; ++i) {
+    if (!decodedFilterResult_.isNullAt(i) &&
+        decodedFilterResult_.valueAt<bool>(i)) {
+      rawIndices[numPassed++] = i;
+    }
+  }
+
+  if (numPassed == 0) {
+    // No rows passed.
+    return nullptr;
+  }
+
+  if (numPassed == numRows) {
+    // All rows passed.
+    return output;
+  }
+
+  // Some, but not all rows passed.
+  return wrap(numPassed, indices, output);
 }
 
 bool MergeJoin::isFinished() {

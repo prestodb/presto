@@ -267,3 +267,75 @@ TEST_F(MergeJoinTest, nonFirstJoinKeys) {
 
   assertQuery(plan, "VALUES (2, 40, 23), (4, 20, 22)");
 }
+
+TEST_F(MergeJoinTest, filter) {
+  vector_size_t size = 1'000;
+  // Join keys on the left side: 0, 10, 20,..
+  // Payload on the left side: 0, 1, 2, 3,..
+  auto left = makeRowVector(
+      {"t_c0", "t_c1"},
+      {
+          makeFlatVector<int32_t>(size, [](auto row) { return row * 10; }),
+          makeFlatVector<int64_t>(
+              size, [](auto row) { return row; }, nullEvery(13)),
+      });
+
+  // Join keys on the right side: 0, 5, 10, 15, 20,..
+  // Payload on the right side: 0, 1, 2, 3, 4, 5, 6, 0, 1, 2,..
+  auto right = makeRowVector(
+      {"u_c0", "u_c1"},
+      {
+          makeFlatVector<int32_t>(size, [](auto row) { return row * 5; }),
+          makeFlatVector<int64_t>(
+              size, [](auto row) { return row % 7; }, nullEvery(17)),
+      });
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  auto plan = [&](const std::string& filter) {
+    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    return PlanBuilder(planNodeIdGenerator)
+        .values({left})
+        .mergeJoin(
+            {"t_c0"},
+            {"u_c0"},
+            PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+            filter,
+            {"t_c0", "u_c0", "u_c1"},
+            core::JoinType::kInner)
+        .planNode();
+  };
+
+  assertQuery(
+      plan("(t_c1 + u_c1) % 2 = 0"),
+      "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 0");
+
+  assertQuery(
+      plan("(t_c1 + u_c1) % 2 = 1"),
+      "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 1");
+
+  // No rows pass filter.
+  assertQuery(
+      plan("(t_c1 + u_c1) % 2 < 0"),
+      "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c1) % 2 < 0");
+
+  // All rows pass filter.
+  assertQuery(
+      plan("(t_c1 + u_c1) % 2 >= 0"),
+      "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c1) % 2 >= 0");
+
+  // Filter expressions over join keys.
+  assertQuery(
+      plan("(t_c0 + u_c1) % 2 = 0"),
+      "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c0 + u_c1) % 2 = 0");
+
+  assertQuery(
+      plan("(t_c1 + u_c0) % 2 = 0"),
+      "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c0) % 2 = 0");
+
+  // Very small output batch size.
+  assertQuery(
+      makeCursorParameters(plan("(t_c1 + u_c1) % 2 = 0"), 16),
+      "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 0");
+}

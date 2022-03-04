@@ -43,6 +43,12 @@ class MergeJoin : public Operator {
   }
 
  private:
+  // Sets up 'filter_' and related member variables.
+  void initializeFilter(
+      const std::shared_ptr<const core::ITypedExpr>& filter,
+      const RowTypePtr& leftType,
+      const RowTypePtr& rightType);
+
   RowVectorPtr doGetOutput();
 
   static int32_t compare(
@@ -169,6 +175,11 @@ class MergeJoin : public Operator {
   /// for columns that correspond to the right side.
   void addOutputRowForLeftJoin();
 
+  /// Evaluates join filter on 'filterInput_' and returns 'output' that contains
+  /// a subset of rows on which the filter passed. Returns nullptr if no rows
+  /// passed the filter.
+  RowVectorPtr applyFilter(const RowVectorPtr& output);
+
   /// Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
 
@@ -182,6 +193,24 @@ class MergeJoin : public Operator {
   std::vector<ChannelIndex> rightKeys_;
   std::vector<IdentityProjection> leftProjections_;
   std::vector<IdentityProjection> rightProjections_;
+
+  /// Join filter.
+  std::unique_ptr<ExprSet> filter_;
+
+  /// Join filter input type.
+  RowTypePtr filterInputType_;
+
+  /// Maps left-side input channels to channels in 'filterInputType_'.
+  std::vector<IdentityProjection> filterLeftInputs_;
+
+  /// Maps right-side input channels to channels in 'filterInputType_'.
+  std::vector<IdentityProjection> filterRightInputs_;
+
+  /// Reusable memory for filter evaluation.
+  RowVectorPtr filterInput_;
+  SelectivityVector filterRows_;
+  std::vector<VectorPtr> filterResult_;
+  DecodedVector decodedFilterResult_;
 
   /// An instance of MergeJoinSource to pull batches of right side input from.
   std::shared_ptr<MergeJoinSource> rightSource_;
