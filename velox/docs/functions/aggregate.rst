@@ -25,9 +25,11 @@ General Aggregate Functions
 
     Returns an array created from the input ``x`` elements.
 
-.. function:: avg(x) -> double
+.. function:: avg(x) -> double|real
 
     Returns the average (arithmetic mean) of all input values.
+    When x is of type REAL, the result type is REAL.
+    For all other input types, the result type is DOUBLE.
 
 .. function:: bool_and(boolean) -> boolean
 

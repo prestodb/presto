@@ -231,7 +231,8 @@ TEST_F(AverageAggregationTest, avg) {
             .planNode();
     assertQuery(
         agg,
-        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), avg(c4), avg(c5) FROM tmp GROUP BY 1");
+        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
+        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
 
     agg = PlanBuilder()
               .values(vectors)
@@ -241,7 +242,8 @@ TEST_F(AverageAggregationTest, avg) {
               .planNode();
     assertQuery(
         agg,
-        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), avg(c4), avg(c5) FROM tmp GROUP BY 1");
+        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
+        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
 
     agg = PlanBuilder()
               .values(vectors)
@@ -253,7 +255,8 @@ TEST_F(AverageAggregationTest, avg) {
               .planNode();
     assertQuery(
         agg,
-        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), avg(c4), avg(c5) FROM tmp GROUP BY 1");
+        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
+        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
   }
 
   // group by; no input

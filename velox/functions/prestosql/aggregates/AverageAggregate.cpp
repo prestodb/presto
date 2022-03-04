@@ -30,7 +30,8 @@ struct SumCount {
 };
 
 // Partial aggregation produces a pair of sum and count.
-// Final aggregation takes a pair of sum and count and returns a double.
+// Final aggregation takes a pair of sum and count and returns a real for real
+// input types and double for other input types.
 // T is the input type for partial aggregation. Not used for final aggregation.
 template <typename T>
 class AverageAggregate : public exec::Aggregate {
@@ -54,21 +55,11 @@ class AverageAggregate : public exec::Aggregate {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    auto vector = (*result)->as<FlatVector<double>>();
-    VELOX_CHECK(vector);
-    vector->resize(numGroups);
-    uint64_t* rawNulls = getRawNulls(vector);
-
-    double* rawValues = vector->mutableRawValues();
-    for (int32_t i = 0; i < numGroups; ++i) {
-      char* group = groups[i];
-      if (isNull(group)) {
-        vector->setNull(i, true);
-      } else {
-        clearNull(rawNulls, i);
-        auto* sumCount = accumulator(group);
-        rawValues[i] = (double)sumCount->sum / sumCount->count;
-      }
+    // Real input type in Presto has special case and returns REAL, not DOUBLE.
+    if (resultType_->isDouble()) {
+      extractValuesImpl<double>(groups, numGroups, result);
+    } else {
+      extractValuesImpl<float>(groups, numGroups, result);
     }
   }
 
@@ -268,6 +259,26 @@ class AverageAggregate : public exec::Aggregate {
     return exec::Aggregate::value<SumCount>(group);
   }
 
+  template <typename TResult>
+  void extractValuesImpl(char** groups, int32_t numGroups, VectorPtr* result) {
+    auto vector = (*result)->as<FlatVector<TResult>>();
+    VELOX_CHECK(vector);
+    vector->resize(numGroups);
+    uint64_t* rawNulls = getRawNulls(vector);
+
+    TResult* rawValues = vector->mutableRawValues();
+    for (int32_t i = 0; i < numGroups; ++i) {
+      char* group = groups[i];
+      if (isNull(group)) {
+        vector->setNull(i, true);
+      } else {
+        clearNull(rawNulls, i);
+        auto* sumCount = accumulator(group);
+        rawValues[i] = (TResult)sumCount->sum / sumCount->count;
+      }
+    }
+  }
+
   DecodedVector decodedRaw_;
   DecodedVector decodedPartial_;
 };
@@ -283,14 +294,19 @@ void checkSumCountRowType(TypePtr type, const std::string& errorMessage) {
 bool registerAverageAggregate(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
-  for (const auto& inputType :
-       {"smallint", "integer", "bigint", "real", "double"}) {
+  for (const auto& inputType : {"smallint", "integer", "bigint", "double"}) {
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .returnType("double")
                              .intermediateType("row(double,bigint)")
                              .argumentType(inputType)
                              .build());
   }
+  // Real input type in Presto has special case and returns REAL, not DOUBLE.
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .returnType("real")
+                           .intermediateType("row(double,bigint)")
+                           .argumentType("real")
+                           .build());
 
   exec::registerAggregateFunction(
       name,
