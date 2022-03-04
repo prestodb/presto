@@ -13,20 +13,29 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCommitHandle
         implements ConnectorCommitHandle
 {
     public static final HiveCommitHandle EMPTY_HIVE_COMMIT_HANDLE = new HiveCommitHandle(ImmutableMap.of());
+    private static final int JSON_LENGTH_LIMIT = toIntExact(new DataSize(10, MEGABYTE).toBytes());
+    private static final JsonCodec<Object> JSON_CODEC = jsonCodec(Object.class);
 
     private final Map<SchemaTableName, List<DateTime>> lastDataCommitTimes;
 
@@ -35,8 +44,10 @@ public class HiveCommitHandle
         this.lastDataCommitTimes = requireNonNull(lastDataCommitTimes, "lastDataCommitTimes is null");
     }
 
-    public List<DateTime> getLastDataCommitTimes(SchemaTableName table)
+    @Override
+    public String getSerializedCommitOutput(SchemaTableName table)
     {
-        return lastDataCommitTimes.get(table);
+        Optional<String> serializedCommitOutput = JSON_CODEC.toJsonWithLengthLimit(lastDataCommitTimes.get(table), JSON_LENGTH_LIMIT);
+        return serializedCommitOutput.orElse(EMPTY_COMMIT_OUTPUT);
     }
 }

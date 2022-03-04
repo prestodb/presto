@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.SchemaTableName;
+
 public interface ConnectorCommitHandle
 {
+    String EMPTY_COMMIT_OUTPUT = "";
+
+    default String getSerializedCommitOutput(SchemaTableName table)
+    {
+        return EMPTY_COMMIT_OUTPUT;
+    }
 }
