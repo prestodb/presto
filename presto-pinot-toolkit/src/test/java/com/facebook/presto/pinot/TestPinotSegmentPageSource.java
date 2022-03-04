@@ -49,6 +49,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
+@Test(singleThreaded = true)
 public class TestPinotSegmentPageSource
         extends TestPinotQueryBase
 {
