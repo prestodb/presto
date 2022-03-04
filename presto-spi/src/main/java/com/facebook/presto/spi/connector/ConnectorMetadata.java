@@ -206,7 +206,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    default Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    default Optional<Object> getInfo(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         return Optional.empty();
     }

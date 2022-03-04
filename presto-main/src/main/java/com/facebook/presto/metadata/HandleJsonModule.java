@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.index.IndexHandleJacksonModule;
+import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;

@@ -78,7 +78,8 @@ public class TestHivePartitionManager
             ImmutableList.of(PARTITION_COLUMN),
             ImmutableMap.of(),
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            0);
 
     private static final List<String> PARTITIONS = ImmutableList.of("ds=2019-07-23", "ds=2019-08-23");
 

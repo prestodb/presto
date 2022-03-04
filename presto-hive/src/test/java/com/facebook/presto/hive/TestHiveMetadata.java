@@ -104,7 +104,8 @@ public class TestHiveMetadata
                 ImmutableList.of(partitionColumn),
                 ImmutableMap.of(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                0);
 
         ColumnMetadata actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new HiveColumnConverter()).apply(hiveColumnHandle1);
         ColumnMetadata expected = new ColumnMetadata("c1", IntegerType.INTEGER);

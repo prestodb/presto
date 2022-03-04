@@ -379,6 +379,8 @@ public class HiveMetadata
 
     private static final String PRESTO_TEMPORARY_TABLE_NAME_PREFIX = "__presto_temporary_table_";
 
+    private static final int MAX_NUM_OF_FETCHED_PARTITIONS = 15000;
+
     // Comma is not a reserved keyword with or without quote
     // See https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL#LanguageManualDDL-Keywords,Non-reservedKeywordsandReservedKeywords
     private static final char COMMA = ',';
@@ -739,18 +741,70 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    public Optional<Object> getInfo(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
-        if (tableLayoutHandle.getPartitions().isPresent()) {
-            return Optional.of(new HiveInputInfo(
-                    tableLayoutHandle.getPartitions().get().stream()
-                            .map(HivePartition::getPartitionId)
-                            .collect(toList()),
-                    false));
+        if (!tableLayoutHandle.getPartitions().isPresent() || tableLayoutHandle.getPartitions().get().isEmpty()) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        MetastoreContext metastoreContext = new MetastoreContext(
+                session.getIdentity(),
+                session.getQueryId(),
+                session.getClientInfo(),
+                session.getSource(),
+                getMetastoreHeaders(session),
+                isUserDefinedTypeEncodingEnabled(session),
+                metastore.getColumnConverterProvider());
+
+        if (isUnpartitionedTable(tableLayoutHandle)) {
+            return getHiveInputInfoForUnpartitionedTable(metastoreContext, tableLayoutHandle);
+        }
+        return getHiveInputInfoForPartitionedTable(metastoreContext, tableLayoutHandle);
+    }
+
+    private boolean isUnpartitionedTable(HiveTableLayoutHandle tableLayoutHandle)
+    {
+        List<HivePartition> partitions = tableLayoutHandle.getPartitions().get();
+        return partitions.stream().anyMatch(partition -> partition.getPartitionId().equals(UNPARTITIONED_ID));
+    }
+
+    private Optional<Object> getHiveInputInfoForUnpartitionedTable(
+            MetastoreContext metastoreContext, HiveTableLayoutHandle tableLayoutHandle)
+    {
+        Optional<Table> table = metastore.getTable(
+                metastoreContext,
+                tableLayoutHandle.getSchemaTableName().getSchemaName(),
+                tableLayoutHandle.getSchemaTableName().getTableName());
+
+        int lastAccessTime = table.map(Table::getLastAccessTime).orElseThrow(() -> new TableNotFoundException(tableLayoutHandle.getSchemaTableName()));
+        return Optional.of(new HiveInputInfo(
+                ImmutableList.of(UNPARTITIONED_ID),
+                false,
+                ImmutableList.of(lastAccessTime)));
+    }
+
+    private Optional<Object> getHiveInputInfoForPartitionedTable(
+            MetastoreContext metastoreContext, HiveTableLayoutHandle tableLayoutHandle)
+    {
+        List<String> partitionNames = tableLayoutHandle
+                .getPartitions().get().stream()
+                .map(HivePartition::getPartitionId)
+                .limit(MAX_NUM_OF_FETCHED_PARTITIONS)
+                .collect(toList());
+
+        Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
+                metastoreContext,
+                tableLayoutHandle.getSchemaTableName().getSchemaName(),
+                tableLayoutHandle.getSchemaTableName().getTableName(),
+                partitionNames);
+
+        List<Integer> lastAccessTimes = partitionNames.stream()
+                .map(partitionName -> partitions.get(partitionName))
+                .map(partition -> partition.isPresent() ? partition.get().getLastAccessTime() : 0)
+                .collect(toList());
+
+        return Optional.of(new HiveInputInfo(partitionNames, false, lastAccessTimes));
     }
 
     @Override

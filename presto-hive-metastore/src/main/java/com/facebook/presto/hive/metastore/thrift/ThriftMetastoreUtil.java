@@ -439,7 +439,8 @@ public final class ThriftMetastoreUtil
                         .collect(toList()))
                 .setParameters(table.getParameters() == null ? ImmutableMap.of() : table.getParameters())
                 .setViewOriginalText(Optional.ofNullable(emptyToNull(table.getViewOriginalText())))
-                .setViewExpandedText(Optional.ofNullable(emptyToNull(table.getViewExpandedText())));
+                .setViewExpandedText(Optional.ofNullable(emptyToNull(table.getViewExpandedText())))
+                .setLastAccessTime(table.getLastAccessTime());
 
         fromMetastoreApiStorageDescriptor(storageDescriptor, tableBuilder.getStorageBuilder(), table.getTableName());
 
@@ -493,7 +494,8 @@ public final class ThriftMetastoreUtil
                         .map(fieldSchema -> columnConverter.toColumn(fieldSchema))
                         .collect(toList()))
                 .setParameters(partition.getParameters())
-                .setCreateTime(partition.getCreateTime());
+                .setCreateTime(partition.getCreateTime())
+                .setLastAccessTime(partition.getLastAccessTime());
 
         // mutate apache partition to Presto partition
         partitionMutator.mutate(partitionBuilder, partition);
