@@ -14,8 +14,14 @@
 find_library(RE2 re2 REQUIRED)
 
 add_library(
-  velox_functions_lib IsNull.cpp LambdaFunctionUtil.cpp Re2Functions.cpp
-                      StringEncodingUtils.cpp JodaDateTime.cpp)
+  velox_functions_lib
+  DateTimeFormatter.cpp
+  DateTimeFormatterBuilder.cpp
+  IsNull.cpp
+  JodaDateTime.cpp
+  LambdaFunctionUtil.cpp
+  Re2Functions.cpp
+  StringEncodingUtils.cpp)
 
 target_link_libraries(velox_functions_lib velox_vector ${RE2})
 

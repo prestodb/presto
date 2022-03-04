@@ -16,6 +16,7 @@
 #include "velox/core/QueryConfig.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/lib/JodaDateTime.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -674,23 +675,19 @@ template <typename T>
 struct DateFormatFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  static constexpr const std::size_t kYmdLength = 10;
-
   const date::time_zone* sessionTimeZone_ = nullptr;
-  std::optional<StringView> format_ = std::nullopt;
-
-  FOLLY_ALWAYS_INLINE bool isValidFormat(const StringView& format) {
-    return format == "%Y-%m-%d";
-  }
+  std::shared_ptr<DateTimeFormatter> mysqlDateTime_;
+  bool isConstFormat_ = false;
 
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& config,
       const arg_type<Timestamp>* /*timestamp*/,
       const arg_type<Varchar>* formatString) {
     sessionTimeZone_ = getTimeZoneFromConfig(config);
-
-    if (formatString != nullptr && isValidFormat(*formatString)) {
-      format_ = StringView(formatString->data(), formatString->size());
+    if (formatString != nullptr) {
+      mysqlDateTime_ = buildMysqlDateTimeFormatter(
+          std::string_view(formatString->data(), formatString->size()));
+      isConstFormat_ = true;
     }
   }
 
@@ -698,24 +695,17 @@ struct DateFormatFunction {
       out_type<Varchar>& result,
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& formatString) {
-    StringView format;
-    if (format_.has_value()) {
-      format = format_.value();
-    } else {
-      VELOX_USER_CHECK(
-          isValidFormat(formatString),
-          "Format {} is not implemented for TIMESTAMP yet",
-          formatString);
-      format = StringView(formatString.data(), formatString.size());
+    if (!isConstFormat_) {
+      mysqlDateTime_ = buildMysqlDateTimeFormatter(
+          std::string_view(formatString.data(), formatString.size()));
     }
 
-    std::tm dateTime = getDateTime(timestamp, sessionTimeZone_);
-
-    char formattedDateTime[kYmdLength + 1];
-    std::strftime(
-        formattedDateTime, sizeof(formattedDateTime), format.data(), &dateTime);
-    result.resize(kYmdLength * sizeof(char));
-    std::memcpy(result.data(), formattedDateTime, kYmdLength * sizeof(char));
+    auto formattedResult = mysqlDateTime_->format(timestamp, sessionTimeZone_);
+    auto resultSize = formattedResult.size();
+    result.resize(resultSize);
+    if (resultSize != 0) {
+      std::memcpy(result.data(), formattedResult.data(), resultSize);
+    }
     return true;
   }
 };

@@ -66,6 +66,17 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         rowVector->children()[0]->as<SimpleVector<int64_t>>()->valueAt(0),
         rowVector->children()[1]->as<SimpleVector<int16_t>>()->valueAt(0)};
   }
+
+  std::optional<std::string> dateFormat(
+      std::optional<Timestamp> timestamp,
+      const std::string& format) {
+    auto resultVector = evaluate(
+        "date_format(c0, c1)",
+        makeRowVector(
+            {makeNullableFlatVector<Timestamp>({timestamp}),
+             makeNullableFlatVector<std::string>({format})}));
+    return resultVector->as<SimpleVector<StringView>>()->valueAt(0);
+  }
 };
 
 bool operator==(
@@ -1327,32 +1338,6 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
           fromTimestampString("2018-02-28 10:00:00.500")));
 }
 
-TEST_F(DateTimeFunctionsTest, dateFormat) {
-  const auto dateFormat = [&](std::optional<Timestamp> timestamp,
-                              const std::string& formatString) {
-    return evaluateOnce<std::string>(
-        fmt::format("date_format(c0, '{}')", formatString), timestamp);
-  };
-
-  using util::fromTimestampString;
-
-  // Check null behaviors
-  EXPECT_EQ(std::nullopt, dateFormat(std::nullopt, "%Y"));
-
-  // Check invalid format
-  EXPECT_THROW(dateFormat(Timestamp(0, 0), "%Y"), VeloxUserError);
-
-  // Simple tests
-  EXPECT_EQ(
-      "2020-03-01",
-      dateFormat(fromTimestampString("2020-03-01 01:00:00.500"), "%Y-%m-%d"));
-
-  setQueryTimeZone("America/Los_Angeles");
-  EXPECT_EQ(
-      "2020-02-29",
-      dateFormat(fromTimestampString("2020-03-01 01:00:00.500"), "%Y-%m-%d"));
-}
-
 TEST_F(DateTimeFunctionsTest, parseDatetime) {
   // Check null behavior.
   EXPECT_EQ(std::nullopt, parseDatetime("1970-01-01", std::nullopt));
@@ -1380,4 +1365,80 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   EXPECT_EQ(
       TimestampWithTimezone(86400000, util::getTimeZoneID("Asia/Kolkata")),
       parseDatetime("1970-01-02+00:00", "YYYY-MM-dd+HH:mm"));
+}
+
+TEST_F(DateTimeFunctionsTest, dateFormat) {
+  const auto dateFormatOnce = [&](std::optional<Timestamp> timestamp,
+                                  const std::string& formatString) {
+    return evaluateOnce<std::string>(
+        fmt::format("date_format(c0, '{}')", formatString), timestamp);
+  };
+  using util::fromTimestampString;
+
+  // Check null behaviors
+  EXPECT_EQ(std::nullopt, dateFormatOnce(std::nullopt, "%Y"));
+
+  // Normal cases
+  EXPECT_EQ(
+      "1970-01-01", dateFormat(fromTimestampString("1970-01-01"), "%Y-%m-%d"));
+  EXPECT_EQ(
+      "2000-02-29 12:00:00 AM",
+      dateFormat(
+          fromTimestampString("2000-02-29 00:00:00.987"), "%Y-%m-%d %r"));
+  EXPECT_EQ(
+      "2000-02-29 00:00:00.987000",
+      dateFormat(
+          fromTimestampString("2000-02-29 00:00:00.987"),
+          "%Y-%m-%d %H:%i:%s.%f"));
+  EXPECT_EQ(
+      "-2000-02-29 00:00:00.987000",
+      dateFormat(
+          fromTimestampString("-2000-02-29 00:00:00.987"),
+          "%Y-%m-%d %H:%i:%s.%f"));
+
+  // With timezone
+  setQueryTimeZone("Asia/Kolkata");
+
+  EXPECT_EQ(
+      "1970-01-01", dateFormat(fromTimestampString("1970-01-01"), "%Y-%m-%d"));
+  EXPECT_EQ(
+      "2000-02-29 12:00:00 AM",
+      dateFormat(
+          fromTimestampString("2000-02-29 00:00:00.987"), "%Y-%m-%d %r"));
+  EXPECT_EQ(
+      "2000-02-29 00:00:00.987000",
+      dateFormat(
+          fromTimestampString("2000-02-29 00:00:00.987"),
+          "%Y-%m-%d %H:%i:%s.%f"));
+  EXPECT_EQ(
+      "-2000-02-29 00:00:00.987000",
+      dateFormat(
+          fromTimestampString("-2000-02-29 00:00:00.987"),
+          "%Y-%m-%d %H:%i:%s.%f"));
+
+  // User format errors or unsupported errors
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%D"),
+      VeloxUserError);
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%U"),
+      VeloxUserError);
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%u"),
+      VeloxUserError);
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%V"),
+      VeloxUserError);
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%w"),
+      VeloxUserError);
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%X"),
+      VeloxUserError);
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%v"),
+      VeloxUserError);
+  EXPECT_THROW(
+      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%x"),
+      VeloxUserError);
 }
