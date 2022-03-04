@@ -414,7 +414,8 @@ public class QueryMonitor
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
-                            tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
+                            tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded),
+                            queryInfo.getOutput().get().getSerializedCommitOutput()));
         }
         return new QueryIOMetadata(inputs.build(), output);
     }

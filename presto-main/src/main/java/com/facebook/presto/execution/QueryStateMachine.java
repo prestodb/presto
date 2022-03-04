@@ -26,6 +26,7 @@ import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -147,8 +148,6 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
-
-    private final AtomicReference<ConnectorCommitHandle> commitHandle = new AtomicReference<>();
 
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
@@ -529,6 +528,21 @@ public class QueryStateMachine
         this.output.set(output);
     }
 
+    private void addSerializedCommitOutputToOutput(ConnectorCommitHandle commitHandle)
+    {
+        if (!output.get().isPresent()) {
+            return;
+        }
+
+        Output outputInfo = output.get().get();
+        SchemaTableName table = new SchemaTableName(outputInfo.getSchema(), outputInfo.getTable());
+        output.set(Optional.of(new Output(
+                outputInfo.getConnectorId(),
+                outputInfo.getSchema(),
+                outputInfo.getTable(),
+                commitHandle.getSerializedCommitOutput(table))));
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
@@ -747,7 +761,7 @@ public class QueryStateMachine
     private void processConnectorCommitHandle(Object result)
     {
         if (result instanceof ConnectorCommitHandle) {
-            this.commitHandle.set((ConnectorCommitHandle) result);
+            addSerializedCommitOutputToOutput((ConnectorCommitHandle) result);
         }
     }
 
