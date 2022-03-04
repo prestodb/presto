@@ -109,6 +109,9 @@ class ChecksumAggregate : public exec::Aggregate {
     });
   }
 
+#if defined(FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+  FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER("unsigned-integer-overflow")
+#endif
   void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
@@ -148,6 +151,9 @@ class ChecksumAggregate : public exec::Aggregate {
     });
   }
 
+#if defined(FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER)
+  FOLLY_DISABLE_UNDEFINED_BEHAVIOR_SANITIZER("unsigned-integer-overflow")
+#endif
   void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
