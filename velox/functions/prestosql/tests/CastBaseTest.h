@@ -73,12 +73,12 @@ class CastBaseTest : public FunctionBaseTest {
             std::vector<std::shared_ptr<const core::ITypedExpr>>{callExpr},
             tryCast);
 
-    auto indices =
-        ::facebook::velox::test::makeIndicesInReverse(input->size(), pool());
-
     auto result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
+
+    auto indices =
+        ::facebook::velox::test::makeIndicesInReverse(expected->size(), pool());
     assertEqualVectors(
-        wrapInDictionary(indices, input->size(), expected), result);
+        wrapInDictionary(indices, expected->size(), expected), result);
   }
 
   template <typename TTo>

@@ -34,11 +34,13 @@ class JsonCastOperator : public exec::CastOperator {
 
   void castTo(
       const BaseVector& input,
+      exec::EvalCtx* context,
       const SelectivityVector& rows,
       BaseVector& result) const override;
 
   void castFrom(
       const BaseVector& /*input*/,
+      exec::EvalCtx* /*context*/,
       const SelectivityVector& /*rows*/,
       BaseVector& /*result*/) const override {
     VELOX_NYI("Casting from JSON is not implemented yet.");

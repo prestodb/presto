@@ -16,99 +16,138 @@
 
 #include <cstdint>
 
-#include "velox/core/Expressions.h"
-#include "velox/core/ITypedExpr.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/common/base/Exceptions.h"
+#include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/vector/tests/TestingDictionaryFunction.h"
+#include "velox/vector/ComplexVector.h"
 
 using namespace facebook::velox;
 
-class JsonCastTest : public functions::test::FunctionBaseTest {
+namespace {
+
+constexpr double kInf = std::numeric_limits<double>::infinity();
+constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
+
+template <typename T>
+using TwoDimVector = std::vector<std::vector<std::optional<T>>>;
+
+} // namespace
+
+class JsonCastTest : public functions::test::CastBaseTest {
  protected:
-  JsonCastTest() {
-    exec::registerVectorFunction(
-        "testing_dictionary",
-        test::TestingDictionaryFunction::signatures(),
-        std::make_unique<test::TestingDictionaryFunction>());
+  // Populates offsets and sizes buffers for making array and map vectors.
+  // Every row has offsetEvery number of elements except the last row.
+  void makeOffsetsAndSizes(
+      int numOfElements,
+      int offsetEvery,
+      BufferPtr& offsets,
+      BufferPtr& sizes) {
+    auto rawOffsets = offsets->asMutable<vector_size_t>();
+    auto rawSizes = sizes->asMutable<vector_size_t>();
+
+    int i = 0;
+    while (i < numOfElements) {
+      rawOffsets[i / offsetEvery] = i;
+      rawSizes[i / offsetEvery] =
+          i + offsetEvery > numOfElements ? numOfElements - i : offsetEvery;
+
+      i += offsetEvery;
+    }
   }
 
-  template <typename TTo>
-  void evaluateCast(
-      const TypePtr& fromType,
-      const TypePtr& toType,
-      const RowVectorPtr& input,
-      const VectorPtr& expected) {
-    std::shared_ptr<const core::ITypedExpr> inputField =
-        std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
-    std::shared_ptr<const core::ITypedExpr> castExpr =
-        std::make_shared<const core::CastTypedExpr>(
-            toType,
-            std::vector<std::shared_ptr<const core::ITypedExpr>>{inputField},
-            false);
-
-    auto result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
-
-    assertEqualVectors(expected, result);
+  // Makes a flat vector wrapped in reversed indices.
+  template <typename T>
+  VectorPtr makeDictionaryVector(const std::vector<std::optional<T>>& data) {
+    auto vector = makeNullableFlatVector<T>(data);
+    auto reversedIndices = makeIndicesInReverse(data.size());
+    return wrapInDictionary(reversedIndices, data.size(), vector);
   }
 
-  template <typename TTo>
-  void evaluateCastDictEncoding(
-      const TypePtr& fromType,
-      const TypePtr& toType,
-      const RowVectorPtr& input,
-      const VectorPtr& expected) {
-    std::shared_ptr<const core::ITypedExpr> inputField =
-        std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
-    std::shared_ptr<const core::ITypedExpr> callExpr =
-        std::make_shared<const core::CallTypedExpr>(
-            fromType,
-            std::vector<std::shared_ptr<const core::ITypedExpr>>{inputField},
-            "testing_dictionary");
-    std::shared_ptr<const core::ITypedExpr> castExpr =
-        std::make_shared<const core::CastTypedExpr>(
-            toType,
-            std::vector<std::shared_ptr<const core::ITypedExpr>>{callExpr},
-            false);
+  // Makes an array vector whose elements vector is wrapped in a dictionary
+  // that reverses all elements. Each row of the array vector contains arraySize
+  // number of elements except the last row.
+  template <typename T>
+  ArrayVectorPtr makeArrayWithDictionaryElements(
+      const std::vector<std::optional<T>>& elements,
+      int arraySize) {
+    int size = elements.size();
+    int numOfArray = (size + arraySize - 1) / arraySize;
+    auto dictElements = makeDictionaryVector(elements);
 
-    auto indices = test::makeIndicesInReverse(input->size(), pool());
+    BufferPtr offsets =
+        AlignedBuffer::allocate<vector_size_t>(numOfArray, pool());
+    BufferPtr sizes =
+        AlignedBuffer::allocate<vector_size_t>(numOfArray, pool());
+    makeOffsetsAndSizes(size, arraySize, offsets, sizes);
 
-    auto result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
-    assertEqualVectors(
-        wrapInDictionary(indices, input->size(), expected), result);
+    return std::make_shared<ArrayVector>(
+        pool(),
+        ARRAY(CppToType<T>::create()),
+        BufferPtr(nullptr),
+        numOfArray,
+        offsets,
+        sizes,
+        dictElements,
+        0);
   }
 
-  template <typename TTo>
-  void testCast(
-      const TypePtr& fromType,
-      const TypePtr& toType,
-      const VectorPtr& input,
-      const VectorPtr& expected) {
-    // Test with flat encoding.
-    evaluateCast<TTo>(fromType, toType, makeRowVector({input}), expected);
+  // Makes a map vector whose keys and values vectors are wrapped in a
+  // dictionary that reverses all elements. Each row of the map vector contains
+  // mapSize number of keys and values except the last row.
+  template <typename TKey, typename TValue>
+  MapVectorPtr makeMapWithDictionaryElements(
+      const std::vector<std::optional<TKey>>& keys,
+      const std::vector<std::optional<TValue>>& values,
+      int mapSize) {
+    VELOX_CHECK_EQ(
+        keys.size(),
+        values.size(),
+        "keys and values must have the same number of elements.");
 
-    // Test with constant encoding that repeats the first element five times.
-    auto constInput = BaseVector::wrapInConstant(5, 0, input);
-    auto constExpected = BaseVector::wrapInConstant(5, 0, expected);
+    int size = keys.size();
+    int numOfMap = (size + mapSize - 1) / mapSize;
+    auto dictKeys = makeDictionaryVector(keys);
+    auto dictValues = makeDictionaryVector(values);
 
-    evaluateCast<TTo>(
-        fromType, toType, makeRowVector({constInput}), constExpected);
+    BufferPtr offsets =
+        AlignedBuffer::allocate<vector_size_t>(numOfMap, pool());
+    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(numOfMap, pool());
+    makeOffsetsAndSizes(size, mapSize, offsets, sizes);
 
-    // Test with dictionary encoding that reverses the indices.
-    evaluateCastDictEncoding<TTo>(
-        fromType, toType, makeRowVector({input}), expected);
+    return std::make_shared<MapVector>(
+        pool(),
+        MAP(CppToType<TKey>::create(), CppToType<TValue>::create()),
+        BufferPtr(nullptr),
+        numOfMap,
+        offsets,
+        sizes,
+        dictKeys,
+        dictValues,
+        0);
   }
 
-  template <typename TFrom, typename TTo>
-  void testCast(
-      const TypePtr& fromType,
-      const TypePtr& toType,
-      std::vector<std::optional<TFrom>> input,
-      std::vector<std::optional<TTo>> expected) {
-    auto inputVector = makeNullableFlatVector<TFrom>(input);
-    auto expectedVector = makeNullableFlatVector<TTo>(expected);
+  // Makes a row vector whose children vectors are wrapped in a dictionary
+  // that reverses all elements.
+  template <typename T>
+  RowVectorPtr makeRowWithDictionaryElements(
+      const TwoDimVector<T>& elements,
+      const TypePtr& rowType) {
+    VELOX_CHECK_NE(elements.size(), 0, "At least one child must be provided.");
 
-    testCast<TTo>(fromType, toType, inputVector, expectedVector);
+    int childrenSize = elements.size();
+    int size = elements[0].size();
+
+    std::vector<VectorPtr> dictChildren;
+    for (int i = 0; i < childrenSize; ++i) {
+      VELOX_CHECK_EQ(
+          elements[i].size(),
+          size,
+          "All children vectors must have the same size.");
+      dictChildren.push_back(makeDictionaryVector(elements[i]));
+    }
+
+    return std::make_shared<RowVector>(
+        pool(), rowType, BufferPtr(nullptr), size, dictChildren);
   }
 };
 
@@ -135,7 +174,7 @@ TEST_F(JsonCastTest, fromVarchar) {
       VARCHAR(),
       JSON(),
       {"aaa"_sv, "bbb"_sv, "ccc"_sv},
-      {"\"aaa\""_sv, "\"bbb\""_sv, "\"ccc\""_sv});
+      {R"("aaa")"_sv, R"("bbb")"_sv, R"("ccc")"_sv});
   testCast<StringView, Json>(
       VARCHAR(),
       JSON(),
@@ -152,24 +191,294 @@ TEST_F(JsonCastTest, fromVarchar) {
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
+TEST_F(JsonCastTest, fromBoolean) {
+  testCast<bool, Json>(
+      BOOLEAN(),
+      JSON(),
+      {true, false, false, std::nullopt},
+      {"true"_sv, "false"_sv, "false"_sv, std::nullopt});
+  testCast<bool, Json>(
+      BOOLEAN(),
+      JSON(),
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+}
+
+TEST_F(JsonCastTest, fromDouble) {
+  testCast<double, Json>(
+      DOUBLE(),
+      JSON(),
+      {1.1, 2.0001, 10.0, kNan, kInf, -kInf, std::nullopt},
+      {"1.1"_sv,
+       "2.0001"_sv,
+       "10"_sv,
+       "NaN"_sv,
+       "Infinity"_sv,
+       "-Infinity"_sv,
+       std::nullopt});
+  testCast<double, Json>(
+      DOUBLE(),
+      JSON(),
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+}
+
+TEST_F(JsonCastTest, fromDate) {
+  testCast<Date, Json>(
+      DATE(),
+      JSON(),
+      {0, 1000, -10000, std::nullopt},
+      {"1970-01-01"_sv, "1972-09-27"_sv, "1942-08-16"_sv, std::nullopt});
+  testCast<Date, Json>(
+      DATE(),
+      JSON(),
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+}
+
+TEST_F(JsonCastTest, fromTimestamp) {
+  testCast<Timestamp, Json>(
+      TIMESTAMP(),
+      JSON(),
+      {Timestamp{0, 0},
+       Timestamp{10000000, 0},
+       Timestamp{-1, 9000},
+       std::nullopt},
+      {"1970-01-01T00:00:00.000000000"_sv,
+       "1970-04-26T17:46:40.000000000"_sv,
+       "1969-12-31T23:59:59.000009000"_sv,
+       std::nullopt});
+  testCast<Timestamp, Json>(
+      TIMESTAMP(),
+      JSON(),
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+}
+
+TEST_F(JsonCastTest, fromArray) {
+  TwoDimVector<StringView> array{
+      {"red"_sv, "blue"_sv}, {std::nullopt, "purple"_sv}, {}};
+  std::vector<std::optional<Json>> expected{
+      R"(["red","blue"])", R"([null,"purple"])", "[]"};
+
+  auto arrayVector = makeNullableArrayVector<StringView>(array);
+  auto expectedVector = makeNullableFlatVector<Json>(expected);
+
+  testCast<Json>(ARRAY(VARCHAR()), JSON(), arrayVector, expectedVector);
+
+  // Tests array whose elements are wrapped in a dictionary.
+  std::vector<std::optional<int64_t>> elements{1, 2, 3, 4, 5, 6, 7};
+  auto arrayOfDictElements = makeArrayWithDictionaryElements(elements, 2);
+  auto arrayOfDictElementsExpected =
+      makeNullableFlatVector<Json>({"[7,6]", "[5,4]", "[3,2]", "[1]"});
+
+  testCast<Json>(
+      ARRAY(BIGINT()),
+      JSON(),
+      arrayOfDictElements,
+      arrayOfDictElementsExpected);
+
+  // Tests array vector with nulls at all rows.
+  auto allNullArray = vectorMaker_.allNullArrayVector(5, BIGINT());
+  auto allNullExpected = makeNullableFlatVector<Json>(
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  testCast<Json>(ARRAY(BIGINT()), JSON(), allNullArray, allNullExpected);
+}
+
+TEST_F(JsonCastTest, fromMap) {
+  using P = std::pair<StringView, std::optional<int64_t>>;
+
+  std::vector<P> a{{"red"_sv, 1}, {"blue"_sv, 2}};
+  std::vector<P> b{{"purple", std::nullopt}, {"orange"_sv, 2}};
+  std::vector<std::vector<P>> map{a, b, {}};
+
+  std::vector<std::optional<Json>> expected{
+      R"({"red":1,"blue":2})", R"({"purple":null,"orange":2})", "{}"};
+
+  auto mapVector = makeMapVector<StringView, int64_t>(map);
+  auto expectedVector = makeNullableFlatVector<Json>(expected);
+
+  testCast<Json>(MAP(VARCHAR(), BIGINT()), JSON(), mapVector, expectedVector);
+
+  // Tests map whose elements are wrapped in a dictionary.
+  std::vector<std::optional<StringView>> keys{
+      "a"_sv, "b"_sv, "c"_sv, "d"_sv, "e"_sv, "f"_sv, "g"_sv};
+  std::vector<std::optional<int64_t>> values{1, 2, 3, 4, 5, 6, 7};
+  auto mapOfDictElements = makeMapWithDictionaryElements(keys, values, 2);
+
+  auto mapOfDictElementsExpected = makeNullableFlatVector<Json>(
+      {R"({"g":7,"f":6})",
+       R"({"e":5,"d":4})",
+       R"({"c":3,"b":2})",
+       R"({"a":1})"});
+
+  testCast<Json>(
+      MAP(VARCHAR(), BIGINT()),
+      JSON(),
+      mapOfDictElements,
+      mapOfDictElementsExpected);
+
+  // Tests map vector with nulls at all rows.
+  auto allNullMap = vectorMaker_.allNullMapVector(5, VARCHAR(), BIGINT());
+  auto allNullExpected = makeNullableFlatVector<Json>(
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  testCast<Json>(MAP(VARCHAR(), BIGINT()), JSON(), allNullMap, allNullExpected);
+}
+
+TEST_F(JsonCastTest, fromRow) {
+  auto firstChild =
+      makeNullableFlatVector<int64_t>({std::nullopt, 2, 3, std::nullopt, 5});
+  auto secondChild = makeNullableFlatVector<StringView>(
+      {"red", std::nullopt, "blue", std::nullopt, "yellow"});
+  auto thirdChild = makeNullableFlatVector<double>(
+      {1.1, 2.2, std::nullopt, std::nullopt, 5.5});
+
+  std::vector<std::optional<Json>> expected{
+      R"([null,"red",1.1])",
+      R"([2,null,2.2])",
+      R"([3,"blue",null])",
+      R"([null,null,null])",
+      R"([5,"yellow",5.5])"};
+
+  auto rowVector = makeRowVector({firstChild, secondChild, thirdChild});
+  auto expectedVector = makeNullableFlatVector<Json>(expected);
+
+  testCast<Json>(
+      ROW({BIGINT(), VARCHAR(), DOUBLE()}), JSON(), rowVector, expectedVector);
+
+  // Tests row whose children are wrapped in dictionaries.
+  auto rowOfDictElements = makeRowWithDictionaryElements<int64_t>(
+      {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, ROW({BIGINT(), BIGINT(), BIGINT()}));
+  auto rowOfDictElementsExpected =
+      makeNullableFlatVector<Json>({"[3,6,9]", "[2,5,8]", "[1,4,7]"});
+
+  testCast<Json>(
+      ROW({BIGINT(), BIGINT(), BIGINT()}),
+      JSON(),
+      rowOfDictElements,
+      rowOfDictElementsExpected);
+
+  // Tests row vector with nulls at all rows.
+  auto allNullChild = vectorMaker_.allNullFlatVector<int64_t>(5);
+  auto nulls = AlignedBuffer::allocate<bool>(5, pool());
+  auto rawNulls = nulls->asMutable<uint64_t>();
+  bits::fillBits(rawNulls, 0, 5, false);
+
+  auto allNullRow = std::make_shared<RowVector>(
+      pool(), ROW({BIGINT()}), nulls, 5, std::vector<VectorPtr>{allNullChild});
+  auto allNullExpected = makeNullableFlatVector<Json>(
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  testCast<Json>(ROW({BIGINT()}), JSON(), allNullRow, allNullExpected);
+}
+
+TEST_F(JsonCastTest, fromNested) {
+  // Create map of array vector.
+  auto keyVector = makeFlatVector<StringView>(
+      {"red"_sv, "blue"_sv, "green"_sv, "yellow"_sv, "purple"_sv, "orange"_sv});
+  auto valueVector = makeNullableArrayVector<int64_t>(
+      {{1, 2},
+       {std::nullopt, 4},
+       {std::nullopt, std::nullopt},
+       {7, 8},
+       {9, std::nullopt},
+       {11, 12}});
+
+  auto offsets = AlignedBuffer::allocate<vector_size_t>(3, pool());
+  auto sizes = AlignedBuffer::allocate<vector_size_t>(3, pool());
+  makeOffsetsAndSizes(6, 2, offsets, sizes);
+
+  auto nulls = AlignedBuffer::allocate<bool>(3, pool());
+  auto rawNulls = nulls->asMutable<uint64_t>();
+  bits::setNull(rawNulls, 0, false);
+  bits::setNull(rawNulls, 1, true);
+  bits::setNull(rawNulls, 2, false);
+
+  auto mapVector = std::make_shared<MapVector>(
+      pool(),
+      MAP(VARCHAR(), ARRAY(BIGINT())),
+      nulls,
+      3,
+      offsets,
+      sizes,
+      keyVector,
+      valueVector,
+      0);
+
+  // Create array of map vector
+  using Pair = std::pair<StringView, std::optional<int64_t>>;
+
+  std::vector<Pair> a{Pair{"red"_sv, 1}, Pair{"blue"_sv, 2}};
+  std::vector<Pair> b{Pair{"green"_sv, std::nullopt}};
+  std::vector<Pair> c{Pair{"yellow"_sv, 4}, Pair{"purple"_sv, 5}};
+  std::vector<std::vector<std::vector<Pair>>> data{{a, b}, {b}, {c, a}};
+
+  auto arrayVector = makeArrayOfMapVector<StringView, int64_t>(data);
+
+  // Create row vector of array of map and map of array
+  auto rowVector = makeRowVector({mapVector, arrayVector});
+
+  std::vector<std::optional<Json>> expected{
+      R"([{"red":[1,2],"blue":[null,4]},[{"red":1,"blue":2},{"green":null}]])",
+      R"([null,[{"green":null}]])",
+      R"([{"purple":[9,null],"orange":[11,12]},[{"yellow":4,"purple":5},{"red":1,"blue":2}]])"};
+  auto expectedVector = makeNullableFlatVector<Json>(expected);
+
+  testCast<Json>(
+      ROW({MAP(VARCHAR(), ARRAY(BIGINT())), ARRAY(MAP(VARCHAR(), BIGINT()))}),
+      JSON(),
+      rowVector,
+      expectedVector);
+}
+
 TEST_F(JsonCastTest, unsupportedTypes) {
-  auto mapVector = makeMapVector<int64_t, int64_t>({{}});
-  auto expectedForMap = makeNullableFlatVector<Json>({"{}"});
+  // Map keys must be varchar.
+  auto invalidTypeMap = makeMapVector<int64_t, int64_t>({{}});
+  auto invalidTypeMapExpected = makeNullableFlatVector<Json>({"{}"});
   EXPECT_THROW(
       evaluateCast<Json>(
           MAP(BIGINT(), BIGINT()),
           JSON(),
-          makeRowVector({mapVector}),
-          expectedForMap),
+          makeRowVector({invalidTypeMap}),
+          invalidTypeMapExpected),
       VeloxException);
 
-  auto rowVector = makeRowVector({mapVector});
-  auto expectedForRow = makeNullableFlatVector<Json>({"[{}]"});
+  // All children of row must be of supported types.
+  auto invalidTypeRow = makeRowVector({invalidTypeMap});
+  auto invalidTypeRowExpected = makeNullableFlatVector<Json>({"[{}]"});
   EXPECT_THROW(
       evaluateCast<Json>(
           ROW({MAP(BIGINT(), BIGINT())}),
           JSON(),
-          makeRowVector({rowVector}),
-          expectedForRow),
+          makeRowVector({invalidTypeRow}),
+          invalidTypeRowExpected),
+      VeloxException);
+
+  // Map keys must not be null.
+  auto keyVector = makeNullableFlatVector<StringView>({"red"_sv, std::nullopt});
+  auto valueVector = makeNullableFlatVector<int64_t>({1, 2});
+
+  auto offsets = AlignedBuffer::allocate<vector_size_t>(1, pool());
+  auto sizes = AlignedBuffer::allocate<vector_size_t>(1, pool());
+  makeOffsetsAndSizes(2, 2, offsets, sizes);
+
+  auto invalidKeyMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(VARCHAR(), BIGINT()),
+      BufferPtr(nullptr),
+      1,
+      offsets,
+      sizes,
+      keyVector,
+      valueVector,
+      0);
+  auto invalidKeyMapExpected =
+      makeNullableFlatVector<Json>({R"({"red":1,null:2})"});
+
+  EXPECT_THROW(
+      evaluateCast<Json>(
+          MAP(VARCHAR(), BIGINT()),
+          JSON(),
+          makeRowVector({invalidKeyMap}),
+          invalidKeyMapExpected),
       VeloxException);
 }

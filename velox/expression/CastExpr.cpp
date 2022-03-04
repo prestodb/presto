@@ -443,8 +443,7 @@ void applyCustomTypeCast(
     const TypePtr& otherType,
     exec::EvalCtx* context,
     VectorPtr* result) {
-  LocalDecodedVector decoded(context, *input, allRows);
-  auto inputDecoded = decoded.get();
+  LocalDecodedVector inputDecoded(context, *input, allRows);
 
   exec::LocalSelectivityVector baseRows(
       context->execCtx(), inputDecoded->base()->size());
@@ -458,7 +457,8 @@ void applyCustomTypeCast(
     BaseVector::ensureWritable(
         *baseRows, thisType, context->pool(), &localResult);
 
-    castOperator->castTo(*inputDecoded->base(), *baseRows, *localResult);
+    castOperator->castTo(
+        *inputDecoded->base(), context, *baseRows, *localResult);
   } else {
     VELOX_NYI(
         "Casting from {} to {} is not implemented yet.",
@@ -496,8 +496,14 @@ void CastExpr::apply(
   }
 
   CastOperatorPtr castOperator;
-  if ((castOperator = getCastOperator(toType->toString())) &&
-      castOperator->isSupportedType(fromType)) {
+  if ((castOperator = getCastOperator(toType->toString()))) {
+    if (!castOperator->isSupportedType(fromType)) {
+      VELOX_FAIL(
+          "Casting from {} to {} is not supported.",
+          fromType->toString(),
+          toType->toString());
+    }
+
     applyCustomTypeCast<true>(
         input,
         rows,
@@ -507,9 +513,14 @@ void CastExpr::apply(
         fromType,
         context,
         result);
-  } else if (
-      (castOperator = getCastOperator(fromType->toString())) &&
-      castOperator->isSupportedType(toType)) {
+  } else if ((castOperator = getCastOperator(fromType->toString()))) {
+    if (!castOperator->isSupportedType(toType)) {
+      VELOX_FAIL(
+          "Casting from {} to {} is not supported.",
+          fromType->toString(),
+          toType->toString());
+    }
+
     applyCustomTypeCast<false>(
         input,
         rows,
