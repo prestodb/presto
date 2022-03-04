@@ -622,7 +622,7 @@ final class ShowQueriesRewrite
                 String propertyName = propertyEntry.getKey();
                 Object value = propertyEntry.getValue();
                 if (value == null) {
-                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifedName(objectName, columnName)));
+                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
                 }
 
                 PropertyMetadata<?> property = allProperties.get(propertyName);
@@ -630,7 +630,7 @@ final class ShowQueriesRewrite
                     throw new PrestoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",
                             propertyName,
-                            toQualifedName(objectName, columnName),
+                            toQualifiedName(objectName, columnName),
                             property.getJavaType().getName(),
                             value.getClass().getName()));
                 }
@@ -644,7 +644,7 @@ final class ShowQueriesRewrite
                     .collect(toImmutableList());
         }
 
-        private static String toQualifedName(Object objectName, Optional<String> columnName)
+        private static String toQualifiedName(Object objectName, Optional<String> columnName)
         {
             return columnName.map(s -> format("column %s of table %s", s, objectName))
                     .orElseGet(() -> "table " + objectName);

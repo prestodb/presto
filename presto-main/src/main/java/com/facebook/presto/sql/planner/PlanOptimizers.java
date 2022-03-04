@@ -52,7 +52,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
-import com.facebook.presto.sql.planner.iterative.rule.PlanRemotePojections;
+import com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjections;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
@@ -486,7 +486,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.of(
                         new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
-                        new PlanRemotePojections(metadata.getFunctionAndTypeManager()))));
+                        new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))));
 
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
@@ -518,7 +518,7 @@ public class PlanOptimizers
 
         builder.add(new IterativeOptimizer(
                 // Because ReorderJoins runs only once,
-                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
+                // PredicatePushDown, PruneUnreferencedOutputs and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 ruleStats,

@@ -80,5 +80,5 @@ Functions
 
     Returns a row that represents a ``tdigest`` data structure in the form of
     its component parts. These include arrays of the centroid means and weights,
-    the compression factor, and the the maximum, minimum, sum and count of the
+    the compression factor, and the maximum, minimum, sum and count of the
     values in the digest.

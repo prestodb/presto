@@ -489,7 +489,7 @@ public class PinotQueryGenerator
         {
             List<AggregationColumnNode> aggregationColumnNodes = computeAggregationNodes(node);
 
-            // Make two passes over the aggregatinColumnNodes: In the first pass identify all the variables that will be used
+            // Make two passes over the aggregationColumnNodes: In the first pass identify all the variables that will be used
             // Then pass that context to the source
             // And finally, in the second pass actually generate the PQL
 

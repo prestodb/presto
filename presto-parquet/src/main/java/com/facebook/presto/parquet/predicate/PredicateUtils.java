@@ -145,9 +145,9 @@ public final class PredicateUtils
             }
 
             Slice compressedData = wrappedBuffer(data, data.length - inputStream.available(), pageHeader.getCompressed_page_size());
-            DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
-            ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name()));
-            int dictionarySize = dicHeader.getNum_values();
+            DictionaryPageHeader dictHeader = pageHeader.getDictionary_page_header();
+            ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dictHeader.getEncoding().name()));
+            int dictionarySize = dictHeader.getNum_values();
 
             return Optional.of(new DictionaryPage(decompress(codecName, compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding));
         }

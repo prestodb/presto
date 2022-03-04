@@ -332,7 +332,7 @@ public class MapFlatSelectiveStreamReader
         readOffset = offset + streamPosition;
 
         if (!nonNullsAllowed) {
-            checkState(nullPositionCount == (positionCount - nonNullPositionCount), "nullPositionCount should be equal to postitionCount - nonNullPositionCount");
+            checkState(nullPositionCount == (positionCount - nonNullPositionCount), "nullPositionCount should be equal to positionCount - nonNullPositionCount");
             outputPositionCount = nullPositionCount;
             allNulls = true;
             System.arraycopy(nullPositions, 0, outputPositions, 0, nullPositionCount);

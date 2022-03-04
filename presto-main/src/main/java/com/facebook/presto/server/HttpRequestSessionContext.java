@@ -125,7 +125,7 @@ public final class HttpRequestSessionContext
     /**
      * @param servletRequest
      * @param sqlParserOptions
-     * @param tracerProvider This passed-in {@link TracerProvider} will only be used when isTracingEabled() returns true.
+     * @param tracerProvider This passed-in {@link TracerProvider} will only be used when isTracingEnabled() returns true.
      * @param sessionPropertyManager is used to provide with some default session values. In some scenarios we need
      * those default values even before session for a query is created. This is how we can get it at this
      * session context creation stage.

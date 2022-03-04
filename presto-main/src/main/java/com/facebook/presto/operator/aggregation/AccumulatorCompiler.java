@@ -126,7 +126,7 @@ public class AccumulatorCompiler
                     definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? stateDescriptors.get(i).getFactory().getGroupedStateClass() : stateDescriptors.get(i).getFactory().getSingleStateClass()),
                     stateDescriptors.get(i)));
         }
-        List<FieldDefinition> stateFileds = stateFieldAndDescriptors.stream()
+        List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
                 .map(StateFieldAndDescriptor::getStateField)
                 .collect(toImmutableList());
 
@@ -156,7 +156,7 @@ public class AccumulatorCompiler
         // Generate methods
         generateAddInput(
                 definition,
-                stateFileds,
+                stateFields,
                 inputChannelFields,
                 maskChannelField,
                 metadata.getValueInputMetadata(),
@@ -167,13 +167,13 @@ public class AccumulatorCompiler
                 grouped);
         generateAddInputWindowIndex(
                 definition,
-                stateFileds,
+                stateFields,
                 metadata.getValueInputMetadata(),
                 metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 callSiteBinder);
-        generateGetEstimatedSize(definition, stateFileds);
+        generateGetEstimatedSize(definition, stateFields);
 
         generateGetIntermediateType(
                 definition,
@@ -201,10 +201,10 @@ public class AccumulatorCompiler
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
+            generateGroupedEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
         }
 
         if (grouped) {

@@ -229,7 +229,7 @@ public class PushAggregationThroughOuterJoin
     // When the aggregation is done after the join, there will be a null value that gets aggregated over
     // where rows did not exist in the inner table.  For some aggregate functions, such as count, the result
     // of an aggregation over a single null row is one or zero rather than null. In order to ensure correct results,
-    // we add a coalesce function with the output of the new outer join and the agggregation performed over a single
+    // we add a coalesce function with the output of the new outer join and the aggregation performed over a single
     // null row.
     private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {

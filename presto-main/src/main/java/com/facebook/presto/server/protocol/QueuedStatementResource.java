@@ -428,7 +428,7 @@ public class QueuedStatementResource
 
         private ListenableFuture<?> waitForDispatched()
         {
-            // if query query submission has not finished, wait for it to finish
+            // if query submission has not finished, wait for it to finish
             synchronized (this) {
                 if (querySubmissionFuture == null) {
                     querySubmissionFuture = dispatchManager.createQuery(queryId, slug, retryCount, sessionContext, query);

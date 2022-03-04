@@ -158,7 +158,7 @@ public class TestSqlTaskExecution
             //      |
             //    Scan
             //
-            // See #testComplex for all the bahaviors that are tested. Not all of them apply here.
+            // See #testComplex for all the behaviors that are tested. Not all of them apply here.
             TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID, ImmutableList.of(VARCHAR));
             TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
                     1,

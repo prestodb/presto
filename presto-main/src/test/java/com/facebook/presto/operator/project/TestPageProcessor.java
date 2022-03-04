@@ -157,7 +157,7 @@ public class TestPageProcessor
         testPartialFilterAsList(BIGINT, 100, 0.5f, 0.5f, true, ImmutableList.of());
         testPartialFilterAsList(VARCHAR, 100, 0.5f, 0.5f, true, ImmutableList.of());
 
-        // Complext types
+        // Complex types
 
         testPartialFilterAsList(new ArrayType(BIGINT), 100, 0.5f, 0.5f, false, ImmutableList.of());
         testPartialFilterAsList(new ArrayType(VARCHAR), 100, 0.5f, 0.5f, false, ImmutableList.of());

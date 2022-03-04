@@ -55,14 +55,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-public class PlanRemotePojections
+public class PlanRemoteProjections
         implements Rule<ProjectNode>
 {
     private static final Pattern<ProjectNode> PATTERN = project();
 
     private final FunctionAndTypeManager functionAndTypeManager;
 
-    public PlanRemotePojections(FunctionAndTypeManager functionAndTypeManager)
+    public PlanRemoteProjections(FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
@@ -121,7 +121,7 @@ public class PlanRemotePojections
 
     private static List<ProjectionContext> dedupVariables(List<ProjectionContext> projectionContexts)
     {
-        ImmutableList.Builder<ProjectionContext> deduppedProjectionContexts = ImmutableList.builder();
+        ImmutableList.Builder<ProjectionContext> dedupedProjectionContexts = ImmutableList.builder();
         Set<VariableReferenceExpression> originalVariable = projectionContexts.get(projectionContexts.size() - 1).getProjections().keySet();
         SymbolMapper mapper = null;
         for (int i = 0; i < projectionContexts.size(); i++) {
@@ -141,7 +141,7 @@ public class PlanRemotePojections
             ImmutableMultimap<RowExpression, VariableReferenceExpression> reverseProjections = reverseProjectionsBuilder.build();
             if (reverseProjections.keySet().size() == projectionContexts.get(i).getProjections().size() && reverseProjections.keySet().stream().noneMatch(VariableReferenceExpression.class::isInstance)) {
                 // No duplication
-                deduppedProjectionContexts.add(new ProjectionContext(projections, projectionContexts.get(i).isRemote()));
+                dedupedProjectionContexts.add(new ProjectionContext(projections, projectionContexts.get(i).isRemote()));
                 mapper = null;
             }
             else {
@@ -169,11 +169,11 @@ public class PlanRemotePojections
                         dedupedProjectionsBuilder.put(values.get(0), key);
                     }
                 }
-                deduppedProjectionContexts.add(new ProjectionContext(dedupedProjectionsBuilder.build(), projectionContexts.get(i).isRemote()));
+                dedupedProjectionContexts.add(new ProjectionContext(dedupedProjectionsBuilder.build(), projectionContexts.get(i).isRemote()));
                 mapper = mapperBuilder.build();
             }
         }
-        return deduppedProjectionContexts.build();
+        return dedupedProjectionContexts.build();
     }
 
     private static List<ProjectionContext> mergeProjectionContexts(List<List<ProjectionContext>> projectionContexts)

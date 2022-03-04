@@ -136,7 +136,7 @@ public class AggregationMatcher
                 .add("groupingSets", groupingSets)
                 .add("preGroupedSymbols", preGroupedSymbols)
                 .add("masks", masks)
-                .add("groudId", groupId)
+                .add("groupId", groupId)
                 .add("step", step)
                 .toString();
     }

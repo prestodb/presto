@@ -59,7 +59,7 @@ public final class SubfieldExtractor
             ConnectorSession connectorSession)
     {
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
-        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimzier is null");
+        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
         this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
     }
 

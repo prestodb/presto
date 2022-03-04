@@ -296,7 +296,7 @@ public final class JsonUtil
                         return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
                     }
                     else {
-                        return new LongDeicmalJsonGeneratorWriter((DecimalType) type);
+                        return new LongDecimalJsonGeneratorWriter((DecimalType) type);
                     }
                 case StandardTypes.VARCHAR:
                     return new VarcharJsonGeneratorWriter(type);
@@ -440,12 +440,12 @@ public final class JsonUtil
         }
     }
 
-    private static class LongDeicmalJsonGeneratorWriter
+    private static class LongDecimalJsonGeneratorWriter
             implements JsonGeneratorWriter
     {
         private final DecimalType type;
 
-        public LongDeicmalJsonGeneratorWriter(DecimalType type)
+        public LongDecimalJsonGeneratorWriter(DecimalType type)
         {
             this.type = type;
         }

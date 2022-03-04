@@ -183,7 +183,7 @@ public class BenchmarkPageProcessor
                     .compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(createFilterExpression(functionManager)), ImmutableList.of(createProjectExpression(functionManager)))
                     .get();
             handcodedProcessor = new Tpch1FilterAndProject();
-            identityProjectionProcessor = createIndentityProjectionPageProcessor();
+            identityProjectionProcessor = createIdentityProjectionPageProcessor();
         }
 
         private static Page createInputPage()
@@ -289,7 +289,7 @@ public class BenchmarkPageProcessor
             }
         }
 
-        private PageProcessor createIndentityProjectionPageProcessor()
+        private PageProcessor createIdentityProjectionPageProcessor()
         {
             PageFilter filter;
             if (filterFails.equals("always")) {

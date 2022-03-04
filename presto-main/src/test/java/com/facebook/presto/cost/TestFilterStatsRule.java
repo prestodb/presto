@@ -47,7 +47,7 @@ public class TestFilterStatsRule
     }
 
     @Test
-    public void testEstimatableFilter()
+    public void testEstimableFilter()
     {
         tester().assertStatsFor(pb -> pb
                 .filter(expression("i1 = 5"),

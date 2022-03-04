@@ -153,7 +153,7 @@ public final class AggregationUtils
         double dividend = state.getC2();
         double divisor = state.getM2X();
 
-        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        // divisor deliberately not checked for zero because the result can be Infinity or NaN even if it is not zero
         return dividend / divisor;
     }
 

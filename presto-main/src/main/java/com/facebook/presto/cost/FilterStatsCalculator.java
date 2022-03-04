@@ -601,12 +601,12 @@ public class FilterStatsCalculator
 
             // NOT case
             if (node.getFunctionHandle().equals(functionResolution.notFunction())) {
-                RowExpression arguemnt = node.getArguments().get(0);
-                if (arguemnt instanceof SpecialFormExpression && ((SpecialFormExpression) arguemnt).getForm().equals(IS_NULL)) {
+                RowExpression argument = node.getArguments().get(0);
+                if (argument instanceof SpecialFormExpression && ((SpecialFormExpression) argument).getForm().equals(IS_NULL)) {
                     // IS NOT NULL case
-                    RowExpression innerArugment = ((SpecialFormExpression) arguemnt).getArguments().get(0);
-                    if (innerArugment instanceof VariableReferenceExpression) {
-                        VariableReferenceExpression variable = (VariableReferenceExpression) innerArugment;
+                    RowExpression innerArgument = ((SpecialFormExpression) argument).getArguments().get(0);
+                    if (innerArgument instanceof VariableReferenceExpression) {
+                        VariableReferenceExpression variable = (VariableReferenceExpression) innerArgument;
                         VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                         result.setOutputRowCount(input.getOutputRowCount() * (1 - variableStats.getNullsFraction()));
@@ -615,7 +615,7 @@ public class FilterStatsCalculator
                     }
                     return PlanNodeStatsEstimate.unknown();
                 }
-                return subtractSubsetStats(input, process(arguemnt));
+                return subtractSubsetStats(input, process(argument));
             }
 
             // BETWEEN case

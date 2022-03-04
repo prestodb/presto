@@ -292,7 +292,7 @@ public final class LogicalRowExpressions
     }
 
     /**
-     * Given a logical expression, the goal is to convert to conjuctive normal form (CNF).
+     * Given a logical expression, the goal is to convert to conjunctive normal form (CNF).
      * This requires making a call to `pushNegationToLeaves`. There is no guarantee as to
      * the balance of the resulting expression tree.
      *

@@ -332,7 +332,7 @@ public class ReorderJoins
             // could not be used for equality inference.
             // If they use both the left and right variables, we add them to the list of joinPredicates
             EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
-            StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
+            StreamSupport.stream(builder.nonInferableConjuncts(allFilter).spliterator(), false)
                     .map(conjunct -> allFilterInference.rewriteExpression(
                             conjunct,
                             variable -> leftVariables.contains(variable) || rightVariables.contains(variable)))
@@ -359,7 +359,7 @@ public class ReorderJoins
                 ImmutableList.Builder<RowExpression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains).getScopeEqualities());
                 EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
-                StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
+                StreamSupport.stream(builder.nonInferableConjuncts(allFilter).spliterator(), false)
                         .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputVariables::contains))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);

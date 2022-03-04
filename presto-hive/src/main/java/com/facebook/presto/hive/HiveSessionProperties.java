@@ -1142,7 +1142,7 @@ public final class HiveSessionProperties
         return session.getProperty(DWRF_WRITER_STRIPE_CACHE_ENABLED, Boolean.class);
     }
 
-    public static DataSize getDwrfWriterStripeCacheeMaxSize(ConnectorSession session)
+    public static DataSize getDwrfWriterStripeCacheMaxSize(ConnectorSession session)
     {
         return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
     }

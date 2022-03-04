@@ -148,7 +148,7 @@ public class ClientTypeSignatureParameter
         private static final ObjectMapper MAPPER = new JsonObjectMapperProvider().get();
 
         @Override
-        public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)
+        public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctx)
                 throws IOException
         {
             JsonNode node = jp.getCodec().readTree(jp);
