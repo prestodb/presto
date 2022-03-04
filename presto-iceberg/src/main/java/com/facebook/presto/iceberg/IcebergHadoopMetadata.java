@@ -130,6 +130,10 @@ public class IcebergHadoopMetadata
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        if (name.getTableType() == DATA) {
+            return Optional.empty();
+        }
+
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(tableName.getSchemaName(), name.getTableName());
         Table table;
         try {
