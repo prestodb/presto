@@ -236,7 +236,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
         for (Entry<StreamId, DiskRange> entry : getDiskRanges(allStreams).entrySet()) {
             StreamId streamId = entry.getKey();
-            if (includedStreams.keySet().contains(streamId)) {
+            if (includedStreams.containsKey(streamId)) {
                 diskRangesBuilder.put(entry);
             }
         }
