@@ -507,10 +507,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         try {
-            delegate.createTable(metastoreContext, table, principalPrivileges);
+            return delegate.createTable(metastoreContext, table, principalPrivileges);
         }
         finally {
             invalidateTable(table.getDatabaseName(), table.getTableName());
@@ -529,10 +529,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         try {
-            delegate.replaceTable(metastoreContext, databaseName, tableName, newTable, principalPrivileges);
+            return delegate.replaceTable(metastoreContext, databaseName, tableName, newTable, principalPrivileges);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -541,10 +541,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         try {
-            delegate.renameTable(metastoreContext, databaseName, tableName, newDatabaseName, newTableName);
+            return delegate.renameTable(metastoreContext, databaseName, tableName, newDatabaseName, newTableName);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -553,10 +553,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
+    public MetastoreOperationResult addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         try {
-            delegate.addColumn(metastoreContext, databaseName, tableName, columnName, columnType, columnComment);
+            return delegate.addColumn(metastoreContext, databaseName, tableName, columnName, columnType, columnComment);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -564,10 +564,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName)
+    public MetastoreOperationResult renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
         try {
-            delegate.renameColumn(metastoreContext, databaseName, tableName, oldColumnName, newColumnName);
+            return delegate.renameColumn(metastoreContext, databaseName, tableName, oldColumnName, newColumnName);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -575,10 +575,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
+    public MetastoreOperationResult dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
     {
         try {
-            delegate.dropColumn(metastoreContext, databaseName, tableName, columnName);
+            return delegate.dropColumn(metastoreContext, databaseName, tableName, columnName);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -782,10 +782,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
+    public MetastoreOperationResult addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         try {
-            delegate.addPartitions(metastoreContext, databaseName, tableName, partitions);
+            return delegate.addPartitions(metastoreContext, databaseName, tableName, partitions);
         }
         finally {
             // todo do we need to invalidate all partitions?
@@ -805,10 +805,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition)
+    public MetastoreOperationResult alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition)
     {
         try {
-            delegate.alterPartition(metastoreContext, databaseName, tableName, partition);
+            return delegate.alterPartition(metastoreContext, databaseName, tableName, partition);
         }
         finally {
             invalidatePartitionCache(databaseName, tableName);
