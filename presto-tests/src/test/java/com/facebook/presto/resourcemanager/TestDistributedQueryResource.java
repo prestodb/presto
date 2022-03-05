@@ -23,6 +23,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -41,6 +42,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
+@Listeners(StackTraceOnTimeoutListener.class)
 public class TestDistributedQueryResource
 {
     private HttpClient client;
