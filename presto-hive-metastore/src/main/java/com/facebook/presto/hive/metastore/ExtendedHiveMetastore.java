@@ -56,7 +56,7 @@ public interface ExtendedHiveMetastore
 
     void renameDatabase(MetastoreContext metastoreContext, String databaseName, String newDatabaseName);
 
-    void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges);
+    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges);
 
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
@@ -65,15 +65,15 @@ public interface ExtendedHiveMetastore
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */
-    void replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
+    MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
 
-    void renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName);
+    MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName);
 
-    void addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
+    MetastoreOperationResult addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
-    void renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName);
+    MetastoreOperationResult renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName);
 
-    void dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName);
+    MetastoreOperationResult dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName);
 
     Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues);
 
@@ -93,11 +93,11 @@ public interface ExtendedHiveMetastore
 
     Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames);
 
-    void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+    MetastoreOperationResult addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
     void dropPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition);
+    MetastoreOperationResult alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition);
 
     void createRole(MetastoreContext metastoreContext, String role, String grantor);
 
