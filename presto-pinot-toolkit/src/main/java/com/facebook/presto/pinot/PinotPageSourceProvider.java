@@ -23,6 +23,9 @@ import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
 import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
 import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
@@ -34,6 +37,9 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE;
+import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.CONFIG_USE_PLAIN_TEXT;
+
 
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -60,9 +66,7 @@ public class PinotPageSourceProvider
                 pinotConfig.getMinConnectionsPerServer(),
                 pinotConfig.getMaxBacklogPerServer(),
                 pinotConfig.getMaxConnectionsPerServer()));
-        this.pinotStreamingQueryClient = new PinotStreamingQueryClient(new GrpcQueryClient.Config(
-                pinotConfig.getStreamingServerGrpcMaxInboundMessageBytes(),
-                true));
+        this.pinotStreamingQueryClient = new PinotStreamingQueryClient(extractGrpcQueryClientConfig(pinotConfig));
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
         this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
     }
@@ -126,5 +130,21 @@ public class PinotPageSourceProvider
             default:
                 throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
         }
+    }
+
+    @VisibleForTesting
+    static GrpcQueryClient.Config extractGrpcQueryClientConfig(PinotConfig config) {
+        Map<String, Object> target = new HashMap<>();
+        target.put(CONFIG_USE_PLAIN_TEXT, !config.isUseTlsForGrpc());
+        target.put(CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE, config.getStreamingServerGrpcMaxInboundMessageBytes());
+        if (config.isUseTlsForGrpc()) {
+            target.put("tls.keystore.path", config.getGrpcTlsKeyStorePath());
+            target.put("tls.keystore.password", config.getGrpcTlsKeyStorePassword());
+            target.put("tls.keystore.type", config.getGrpcTlsKeyStoreType());
+            target.put("tls.truststore.path", config.getGrpcTlsTrustStorePath());
+            target.put("tls.truststore.password", config.getGrpcTlsTrustStorePassword());
+            target.put("tls.truststore.type", config.getGrpcTlsTrustStoreType());
+        }
+        return new GrpcQueryClient.Config(target);
     }
 }

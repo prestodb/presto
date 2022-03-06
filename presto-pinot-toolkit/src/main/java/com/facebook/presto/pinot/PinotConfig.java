@@ -48,6 +48,8 @@ public class PinotConfig
     public static final int DEFAULT_TOPN_LARGE = 10_000;
     public static final int DEFAULT_PROXY_GRPC_PORT = 8124;
 
+    public static final String DEFAULT_GRPC_TLS_STORE_TYPE = "PKCS12";
+
     private static final Duration DEFAULT_IDLE_TIMEOUT = new Duration(5, TimeUnit.MINUTES);
     private static final Duration DEFAULT_CONNECTION_TIMEOUT = new Duration(1, TimeUnit.MINUTES);
     private static final int DEFAULT_ESTIMATED_SIZE_IN_BYTES_FOR_NON_NUMERIC_COLUMN = 20;
@@ -108,8 +110,15 @@ public class PinotConfig
     private boolean useHttpsForController;
     private boolean useHttpsForBroker;
     private boolean useHttpsForProxy;
+    private boolean useTlsForGrpc;
     private Map<String, String> extraGrpcMetadata = ImmutableMap.of();
     private String overrideDistinctCountFunction = PINOT_DISTINCT_COUNT_FUNCTION_NAME;
+    private String grpcTlsKeyStorePath;
+    private String grpcTlsKeyStorePassword;
+    private String grpcTlsKeyStoreType = DEFAULT_GRPC_TLS_STORE_TYPE;
+    private String grpcTlsTrustStorePath;
+    private String grpcTlsTrustStorePassword;
+    private String grpcTlsTrustStoreType = DEFAULT_GRPC_TLS_STORE_TYPE;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -638,6 +647,76 @@ public class PinotConfig
     public PinotConfig setOverrideDistinctCountFunction(String overrideDistinctCountFunction)
     {
         this.overrideDistinctCountFunction = overrideDistinctCountFunction;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStorePath() {
+        return grpcTlsKeyStorePath;
+    }
+
+    @Config("pinot.grpc-tls-key-store-path")
+    public PinotConfig setGrpcTlsKeyStorePath(String grpcTlsKeyStorePath) {
+        this.grpcTlsKeyStorePath = grpcTlsKeyStorePath;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStorePassword() {
+        return grpcTlsKeyStorePassword;
+    }
+
+    @Config("pinot.grpc-tls-key-store-password")
+    public PinotConfig setGrpcTlsKeyStorePassword(String grpcTlsKeyStorePassword) {
+        this.grpcTlsKeyStorePassword = grpcTlsKeyStorePassword;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStoreType() {
+        return grpcTlsKeyStoreType;
+    }
+
+    @Config("pinot.grpc-tls-key-store-type")
+    public PinotConfig setGrpcTlsKeyStoreType(String grpcTlsKeyStoreType) {
+        this.grpcTlsKeyStoreType = grpcTlsKeyStoreType;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStorePath() {
+        return grpcTlsTrustStorePath;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-path")
+    public PinotConfig setGrpcTlsTrustStorePath(String grpcTlsTrustStorePath) {
+        this.grpcTlsTrustStorePath = grpcTlsTrustStorePath;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStorePassword() {
+        return grpcTlsTrustStorePassword;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-password")
+    public PinotConfig setGrpcTlsTrustStorePassword(String grpcTlsTrustStorePassword) {
+        this.grpcTlsTrustStorePassword = grpcTlsTrustStorePassword;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStoreType() {
+        return grpcTlsTrustStoreType;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-type")
+    public PinotConfig setGrpcTlsTrustStoreType(String grpcTlsTrustStoreType) {
+        this.grpcTlsTrustStoreType = grpcTlsTrustStoreType;
+        return this;
+    }
+
+    public boolean isUseTlsForGrpc() {
+        return useTlsForGrpc;
+    }
+
+    @Config("pinot.use-tls-for-grpc")
+    public PinotConfig setUseTlsForGrpc(boolean useTlsForGrpc) {
+        this.useTlsForGrpc = useTlsForGrpc;
         return this;
     }
 }

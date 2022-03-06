@@ -44,12 +44,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
+import static com.facebook.presto.pinot.PinotErrorCode.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -63,8 +58,7 @@ public class PinotSegmentPageSource
 {
     private static final Map<ErrorCode, PinotErrorCode> PINOT_ERROR_CODE_MAP = ImmutableMap.of(
             ErrorCode.PINOT_UNCLASSIFIED_ERROR, PINOT_UNCLASSIFIED_ERROR,
-            ErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE, PINOT_INSUFFICIENT_SERVER_RESPONSE,
-            ErrorCode.PINOT_INVALID_PQL_GENERATED, PINOT_INVALID_PQL_GENERATED);
+            ErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE, PINOT_INSUFFICIENT_SERVER_RESPONSE);
 
     protected final List<PinotColumnHandle> columnHandles;
     protected final List<Type> columnTypes;
@@ -494,7 +488,6 @@ public class PinotSegmentPageSource
                 String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(stringArray));
             case STRING:
-            case JSON:
                 String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
                 if (field == null || field.isEmpty()) {
                     return Slices.EMPTY_SLICE;
