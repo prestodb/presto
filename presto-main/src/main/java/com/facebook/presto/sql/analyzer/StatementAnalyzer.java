@@ -2505,7 +2505,7 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                Session viewSession = Session.builder(metadata.getSessionPropertyManager())
+                Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                         .setQueryId(session.getQueryId())
                         .setTransactionId(session.getTransactionId().orElse(null))
                         .setIdentity(identity)
@@ -2517,9 +2517,9 @@ class StatementAnalyzer
                         .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                         .setUserAgent(session.getUserAgent().orElse(null))
                         .setClientInfo(session.getClientInfo().orElse(null))
-                        .setStartTime(session.getStartTime())
-                        .build();
-
+                        .setStartTime(session.getStartTime());
+                session.getConnectorProperties().forEach((connectorId, properties) -> properties.forEach((k, v) -> viewSessionBuilder.setConnectionProperty(connectorId, k, v)));
+                Session viewSession = viewSessionBuilder.build();
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
