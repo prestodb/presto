@@ -16,19 +16,24 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
@@ -40,6 +45,7 @@ import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -176,7 +182,13 @@ public class TestDistributedQueryResource
             queuedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.QUEUED).count();
             failedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FAILED).count();
             finishedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FINISHED).count();
-            log.info(format("runningQueries: %s, queuedQueries: %s, failedQueries: %s, finishedQueries: %s", runningQueries, queuedQueries, failedQueries, finishedQueries));
+            StringBuilder stacks = new StringBuilder();
+            for (BasicQueryInfo queryInfo : queries) {
+                if (queryInfo.getState() == QueryState.FAILED) {
+                    stacks.append(queryInfo.getFailureInfo().getStack().stream().collect(joining("\n")));
+                }
+            }
+            log.info(format("runningQueries: %s, queuedQueries: %s, failedQueries: %s, finishedQueries: %s\n\nStack traces:\n%s\n\n", runningQueries, queuedQueries, failedQueries, finishedQueries, stacks.toString()));
         }
     }
 
