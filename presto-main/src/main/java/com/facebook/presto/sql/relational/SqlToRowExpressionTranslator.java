@@ -18,6 +18,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
@@ -611,6 +612,10 @@ public final class SqlToRowExpressionTranslator
 
             if (baseType instanceof TypeWithName) {
                 baseType = ((TypeWithName) baseType).getType();
+            }
+
+            if (baseType instanceof DistinctType) {
+                baseType = ((DistinctType) baseType).getBaseType();
             }
             RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();

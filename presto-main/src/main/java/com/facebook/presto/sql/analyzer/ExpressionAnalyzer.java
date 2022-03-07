@@ -20,6 +20,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
@@ -462,6 +463,9 @@ public class ExpressionAnalyzer
             Type baseType = process(node.getBase(), context);
             if (((baseType instanceof TypeWithName) && ((TypeWithName) baseType).getType() instanceof RowType)) {
                 baseType = ((TypeWithName) baseType).getType();
+            }
+            if (baseType instanceof DistinctType) {
+                baseType = ((DistinctType) baseType).getBaseType();
             }
             if (!(baseType instanceof RowType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());

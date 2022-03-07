@@ -201,6 +201,88 @@ public class TestDistinctType
         assertSingleResultFromValues("SELECT ARRAY_INTERSECT(ARRAY[ARRAY[CAST(x AS test.dt.int30)]], ARRAY[ARRAY[CAST(1 AS test.dt.int11)]])", "1", ImmutableList.of(ImmutableList.of(1)));
     }
 
+    @Test
+    public void testDistinctFrom()
+    {
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) IS DISTINCT FROM CAST(x as test.dt.int00)", "1", false);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) IS DISTINCT FROM CAST(x as test.dt.int00)", "2", true);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) IS DISTINCT FROM CAST(x as test.dt.int30)", "1", false);
+        assertSingleResultFromValues("SELECT NULL IS DISTINCT FROM CAST(x as test.dt.int00)", "1", true);
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) IS DISTINCT FROM NULL", "1", true);
+
+        assertSingleResultFromValues("SELECT ARRAY[ROW(CAST(1 as test.dt.int00))] IS DISTINCT FROM ARRAY[ROW(CAST(x as test.dt.int00))]", "1", false);
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) IS DISTINCT FROM CAST(1 as test.dt.int_alt)", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) IS DISTINCT FROM 1", ".*cannot be applied to test.dt.int00.*");
+    }
+
+    @Test
+    public void testHash()
+    {
+        assertQueryResultUnordered("SELECT DISTINCT x FROM (VALUES CAST(1 as test.dt.int00), CAST(1 as test.dt.int00), CAST(2 as test.dt.int00)) t(x)", ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2)));
+        assertSingleResult("SELECT APPROX_DISTINCT(x) FROM (VALUES CAST(1 as test.dt.int00), CAST(1 as test.dt.int00), CAST(2 as test.dt.int00)) t(x)", 2L);
+        assertQueryResultUnordered("SELECT x FROM (VALUES CAST(1 as test.dt.int00), CAST(1 as test.dt.int00), CAST(2 as test.dt.int00)) t(x) GROUP BY x", ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2)));
+
+        assertQueryResultUnordered("SELECT DISTINCT x FROM (VALUES ARRAY[CAST(1 as test.dt.int00)], ARRAY[CAST(1 as test.dt.int00)], ARRAY[CAST(2 as test.dt.int00)]) t(x)", ImmutableList.of(ImmutableList.of(ImmutableList.of(1)), ImmutableList.of(ImmutableList.of(2))));
+    }
+
+    @Test
+    public void testComparison()
+    {
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) = CAST(x as test.dt.int00)", "1", true);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) = CAST(x as test.dt.int11)", "1", true);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) = CAST(x as test.dt.int11)", "2", false);
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) = NULL", "1", null);
+        assertSingleResultFromValues("SELECT ARRAY[ROW(CAST(1 as test.dt.int30))] = ARRAY[ROW(CAST(x as test.dt.int21))]", "1", true);
+
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) <> CAST(x as test.dt.int00)", "1", false);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) <> CAST(x as test.dt.int11)", "1", false);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) <> CAST(x as test.dt.int11)", "2", true);
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) <> NULL", "1", null);
+        assertSingleResultFromValues("SELECT ARRAY[ROW(CAST(1 as test.dt.int30))] <> ARRAY[ROW(CAST(x as test.dt.int21))]", "1", false);
+
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) < CAST(x as test.dt.int00)", "1", false);
+        assertSingleResultFromValues("SELECT CAST(2 as test.dt.int30) < CAST(x as test.dt.int11)", "1", false);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) < CAST(x as test.dt.int11)", "2", true);
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) < NULL", "1", null);
+        assertSingleResultFromValues("SELECT ARRAY[ROW(CAST(1 as test.dt.int30))] < ARRAY[ROW(CAST(x as test.dt.int21))]", "2", true);
+
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) <= CAST(x as test.dt.int00)", "1", true);
+        assertSingleResultFromValues("SELECT CAST(2 as test.dt.int30) <= CAST(x as test.dt.int11)", "1", false);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) <= CAST(x as test.dt.int11)", "2", true);
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) <= NULL", "1", null);
+        assertSingleResultFromValues("SELECT ARRAY[ROW(CAST(1 as test.dt.int30))] <= ARRAY[ROW(CAST(x as test.dt.int21))]", "1", true);
+
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) > CAST(x as test.dt.int00)", "1", false);
+        assertSingleResultFromValues("SELECT CAST(2 as test.dt.int30) > CAST(x as test.dt.int11)", "1", true);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) > CAST(x as test.dt.int11)", "2", false);
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) > NULL", "1", null);
+        assertSingleResultFromValues("SELECT ARRAY[ROW(CAST(1 as test.dt.int30))] > ARRAY[ROW(CAST(x as test.dt.int21))]", "1", false);
+
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) >= CAST(x as test.dt.int00)", "1", true);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) >= CAST(x as test.dt.int11)", "1", true);
+        assertSingleResultFromValues("SELECT CAST(1 as test.dt.int30) >= CAST(x as test.dt.int11)", "2", false);
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) >= NULL", "1", null);
+        assertSingleResultFromValues("SELECT ARRAY[ROW(CAST(2 as test.dt.int30))] >= ARRAY[ROW(CAST(x as test.dt.int21))]", "1", true);
+
+        assertSingleResultFromValues("SELECT CAST(x as test.dt.int00) BETWEEN CAST(1 as test.dt.int11) AND CAST(3 as test.dt.int30)", "2", true);
+        assertSingleResultFromValues("SELECT NULL BETWEEN CAST(x as test.dt.int11) AND CAST(3 as test.dt.int30)", "2", null);
+
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) = CAST(1 as test.dt.int_alt)", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) = 1", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) <> CAST(1 as test.dt.int_alt)", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) <> 1", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) < CAST(1 as test.dt.int_alt)", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) < 1", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) <= CAST(1 as test.dt.int_alt)", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) <= 1", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) > CAST(1 as test.dt.int_alt)", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) > 1", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) >= CAST(1 as test.dt.int_alt)", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT CAST(1 as test.dt.int00) >= 1", ".*cannot be applied to test.dt.int00.*");
+        assertQueryFails("SELECT 2 BETWEEN CAST(1 as test.dt.int11) AND CAST(3 as test.dt.int30)", ".*Cannot check if integer is BETWEEN.*");
+        assertQueryFails("SELECT CAST(2 as test.dt.int_alt) BETWEEN CAST(1 as test.dt.int11) AND CAST(3 as test.dt.int30)", ".*Cannot check if test.dt.int_alt.*");
+    }
+
     private void assertQueryResultUnordered(@Language("SQL") String query, List<List<Object>> expectedRows)
     {
         MaterializedResult rows = computeActual(query);
