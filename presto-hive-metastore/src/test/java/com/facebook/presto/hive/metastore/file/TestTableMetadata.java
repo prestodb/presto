@@ -17,6 +17,7 @@ package com.facebook.presto.hive.metastore.file;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -26,10 +27,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveStorageFormat.ORC;
-import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -40,6 +40,10 @@ public class TestTableMetadata
     private static final String BASE_DIR = "src/test/resources/PR-17368";
     private static final String FILE_NAME_FORMAT = "table-0.271-%s.json";
     private static final String STORAGE_FORMAT_NOT_EQUALS = "storage format not equals";
+
+    private static final StorageFormat ORC = fromHiveStorageFormat(HiveStorageFormat.ORC);
+    private static final StorageFormat PARQUET = fromHiveStorageFormat(HiveStorageFormat.PARQUET);
+    private static final StorageFormat CUSTOM = StorageFormat.create("serde", "inputFormat", "outputFormat");
 
     @Test
     public void testAssertTableMetadataEquals()
@@ -59,10 +63,11 @@ public class TestTableMetadata
         assertJsonRoundTrip(createTableMetadata(null));
         assertJsonRoundTrip(createTableMetadata(ORC));
         assertJsonRoundTrip(createTableMetadata(PARQUET));
+        assertJsonRoundTrip(createTableMetadata(CUSTOM));
     }
 
     @Test
-    public void testDecodeFromFile()
+    public void testDecodeFromLegacyFile()
             throws IOException
     {
         assertTableMetadataEquals(load("null"), createTableMetadata(null));
@@ -70,25 +75,10 @@ public class TestTableMetadata
         assertTableMetadataEquals(load("parquet"), createTableMetadata(PARQUET));
     }
 
-    @Test(enabled = false)
-    public void testEncodeToFile()
-            throws IOException
-    {
-        dump(createTableMetadata(null), "null");
-        dump(createTableMetadata(ORC), "orc");
-        dump(createTableMetadata(PARQUET), "parquet");
-    }
-
     private static TableMetadata load(String tag)
             throws IOException
     {
         return JSON_CODEC.fromBytes(Files.readAllBytes(Paths.get(BASE_DIR, format(FILE_NAME_FORMAT, tag))));
-    }
-
-    private static void dump(TableMetadata table, String tag)
-            throws IOException
-    {
-        Files.write(Paths.get(BASE_DIR, format(FILE_NAME_FORMAT, tag)), JSON_CODEC.toBytes(table));
     }
 
     private static void assertJsonRoundTrip(TableMetadata table)
@@ -112,9 +102,10 @@ public class TestTableMetadata
         assertEquals(actual.getViewOriginalText(), expected.getViewOriginalText());
         assertEquals(actual.getViewExpandedText(), expected.getViewExpandedText());
         assertEquals(actual.getColumnStatistics(), expected.getColumnStatistics());
+        assertEquals(actual.getTableStorageFormat(), expected.getTableStorageFormat(), STORAGE_FORMAT_NOT_EQUALS);
     }
 
-    private static TableMetadata createTableMetadata(HiveStorageFormat format)
+    private static TableMetadata createTableMetadata(StorageFormat format)
     {
         return new TableMetadata(
                 "owner0",
@@ -122,7 +113,7 @@ public class TestTableMetadata
                 ImmutableList.of(column("col1"), column("col2")),
                 ImmutableList.of(column("part1")),
                 ImmutableMap.of("param1", "value1", "param2", "value2"),
-                Optional.ofNullable(format),
+                format,
                 Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
