@@ -15,6 +15,7 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -37,6 +38,7 @@ import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResul
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -45,6 +47,8 @@ import static org.testng.Assert.fail;
 @Listeners(StackTraceOnTimeoutListener.class)
 public class TestDistributedQueryResource
 {
+    private final Logger log = Logger.get(TestDistributedQueryResource.class);
+
     private HttpClient client;
     private TestingPrestoServer coordinator1;
     private TestingPrestoServer coordinator2;
@@ -172,6 +176,7 @@ public class TestDistributedQueryResource
             queuedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.QUEUED).count();
             failedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FAILED).count();
             finishedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FINISHED).count();
+            log.info(format("runningQueries: %s, queuedQueries: %s, failedQueries: %s, finishedQueries: %s", runningQueries, queuedQueries, failedQueries, finishedQueries));
         }
     }
 
