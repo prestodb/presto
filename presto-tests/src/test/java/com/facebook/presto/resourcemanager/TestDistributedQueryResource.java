@@ -185,6 +185,7 @@ public class TestDistributedQueryResource
             StringBuilder stacks = new StringBuilder();
             for (BasicQueryInfo queryInfo : queries) {
                 if (queryInfo.getState() == QueryState.FAILED) {
+                    stacks.append(queryInfo.getQuery()).append("\n");
                     stacks.append(queryInfo.getFailureInfo().getStack().stream().collect(joining("\n")));
                 }
             }
