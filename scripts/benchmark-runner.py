@@ -14,13 +14,34 @@
 # limitations under the License.
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 
 
-_FIND_CMD = "find %s -maxdepth 1 -type f"
+_FIND_BINARIES_CMD = "find %s -maxdepth 1 -type f"
+_FIND_JSON_CMD = "find %s -maxdepth 1 -name '*.json' -type f"
 _BENCHMARK_CMD = "%s --bm_json_verbose %s --bm_max_secs 10 --bm_epochs 100000"
+
+_OUTPUT_NUM_COLS = 80
+
+
+# Cosmetic helper functions.
+def color_red(text) -> str:
+    return "\033[91m{}\033[00m".format(text) if sys.stdout.isatty() else text
+
+
+def color_yellow(text) -> str:
+    return "\033[93m{}\033[00m".format(text) if sys.stdout.isatty() else text
+
+
+def color_green(text) -> str:
+    return "\033[92m{}\033[00m".format(text) if sys.stdout.isatty() else text
+
+
+def bold(text) -> str:
+    return "\033[1m{}\033[00m".format(text) if sys.stdout.isatty() else text
 
 
 def execute(cmd, print_stdout=False):
@@ -38,7 +59,7 @@ def execute(cmd, print_stdout=False):
 
 
 def run(args):
-    files = execute(_FIND_CMD % args.path)
+    files = execute(_FIND_BINARIES_CMD % args.path)
 
     if not files:
         print("No benchmark binaries found in path '%s'. Aborting..." % args.path)
@@ -64,8 +85,109 @@ def run(args):
     return 0
 
 
+def get_benchmark_handle(file_path, name):
+    return "{}/{}".format(os.path.basename(file_path), name)
+
+
+def compare_file(args, target_data, baseline_data):
+    baseline_map = {}
+    for row in baseline_data:
+        baseline_map[get_benchmark_handle(row[0], row[1])] = row[2]
+
+    passes = []
+    faster = []
+    failures = []
+
+    for row in target_data:
+        benchmark_handle = get_benchmark_handle(row[0], row[1])
+        baseline_result = baseline_map[benchmark_handle]
+        target_result = row[2]
+        delta = 1 - (target_result / baseline_result)
+
+        if abs(delta) > args.threshold:
+            if delta > 0:
+                status = color_green("✓ Pass")
+                passes.append(benchmark_handle)
+                faster.append(benchmark_handle)
+            else:
+                status = bold(color_red("✗ Fail"))
+                failures.append(benchmark_handle)
+        else:
+            status = color_green("✓ Pass")
+            passes.append(benchmark_handle)
+
+        suffix = "{:+.3f}%".format(delta * 100)
+
+        # Prefix length is 12 bytes (considering utf8 and invisible chars).
+        spacing = " " * (_OUTPUT_NUM_COLS - (12 + len(benchmark_handle) + len(suffix)))
+        print("    {}: {}{}{}".format(status, benchmark_handle, spacing, suffix))
+
+    return passes, faster, failures
+
+
+def print_list(names):
+    for n in names:
+        print("    %s" % n)
+
+
 def compare(args):
-    raise Exception("'compare' not implemented yet.")
+    print(
+        "=> Starting comparison using {} ({}%) as threshold.".format(
+            args.threshold, args.threshold * 100
+        )
+    )
+    print(
+        "=> Values are reported as percentage normalized to baseline: (1 - (tgt / baseline)) * 100"
+    )
+    print("=>    (positive means speedup; negative means regression).")
+
+    # Read file lists from both directories.
+    baseline_files = execute(_FIND_JSON_CMD % args.baseline_dump_path)
+    target_files = execute(_FIND_JSON_CMD % args.target_dump_path)
+
+    baseline_map = {os.path.basename(f): f for f in baseline_files}
+    target_map = {os.path.basename(f): f for f in target_files}
+
+    all_passes = []
+    all_faster = []
+    all_failures = []
+
+    # Compare json results from each file.
+    for file_name, target_path in target_map.items():
+        print("=" * _OUTPUT_NUM_COLS)
+        print(file_name)
+        print("=" * _OUTPUT_NUM_COLS)
+
+        if file_name not in baseline_map:
+            print("WARNING: baseline file for '%s' not found. Skipping." % file_name)
+            continue
+
+        # Open and read each file.
+        with open(target_path) as f:
+            target_data = json.load(f)
+
+        with open(baseline_map[file_name]) as f:
+            baseline_data = json.load(f)
+
+        passes, faster, failures = compare_file(args, target_data, baseline_data)
+        all_passes += passes
+        all_faster += faster
+        all_failures += failures
+
+    # Print a nice summary of the results:
+    print("Summary:")
+    if all_passes:
+        faster_summary = (
+            " ({} are faster):".format(len(all_faster)) if all_faster else ""
+        )
+        print(color_green("  Pass: %d%s " % (len(all_passes), faster_summary)))
+        print_list(all_faster)
+
+    if all_failures:
+        print(color_red("  Fail: %d" % len(all_failures)))
+        print_list(all_failures)
+        return 1
+    return 0
 
 
 def parse_args():
@@ -89,7 +211,25 @@ def parse_args():
         "compare", help="Compare benchmark dumped results."
     )
     parser_compare.set_defaults(func=compare)
-
+    parser_compare.add_argument(
+        "--baseline-dump-path",
+        required=True,
+        help="Path where containing base dump results.",
+    )
+    parser_compare.add_argument(
+        "--target-dump-path",
+        required=True,
+        help="Path where containing target dump results.",
+    )
+    parser_compare.add_argument(
+        "-t",
+        "--threshold",
+        type=float,
+        default=0.1,
+        help="Comparison threshold. "
+        "Variations larger than this threshold will be reported as failures. "
+        "Default 0.1 (10%%).",
+    )
     return parser.parse_args()
 
 
