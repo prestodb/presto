@@ -36,7 +36,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 
 class S3SelectRecordCursor<K, V extends Writable>
-        extends GenericHiveRecordCursor
+        extends GenericHiveRecordCursor<K, V>
 {
     private static final String THRIFT_STRUCT = "struct";
     private static final String START_STRUCT = "{";
@@ -46,7 +46,7 @@ class S3SelectRecordCursor<K, V extends Writable>
     public S3SelectRecordCursor(
             Configuration configuration,
             Path path,
-            RecordReader recordReader,
+            RecordReader<K, V> recordReader,
             long totalBytes,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
