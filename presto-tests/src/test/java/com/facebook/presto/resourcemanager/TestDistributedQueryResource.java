@@ -65,7 +65,7 @@ public class TestDistributedQueryResource
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"), 2);
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "120s"), 2);
         coordinator1 = runner.getCoordinator(0);
         coordinator2 = runner.getCoordinator(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
@@ -92,7 +92,7 @@ public class TestDistributedQueryResource
         client = null;
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testGetQueryInfos()
             throws Exception
     {
@@ -182,28 +182,34 @@ public class TestDistributedQueryResource
             queuedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.QUEUED).count();
             failedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FAILED).count();
             finishedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FINISHED).count();
-            StringBuilder stacks = new StringBuilder();
-            for (BasicQueryInfo queryInfo : queries) {
-                if (queryInfo.getState() == QueryState.FAILED) {
-                    stacks.append(queryInfo.getQuery()).append("\n");
-                    stacks.append(queryInfo.getFailureInfo().getStack().stream().collect(joining("\n")));
+            if (failedQueries > expectedFailedQueries) {
+                StringBuilder stacks = new StringBuilder();
+                for (BasicQueryInfo queryInfo : queries) {
+                    if (queryInfo.getState() == QueryState.FAILED) {
+                        stacks.append(queryInfo.getQuery()).append("\n");
+                        stacks.append(queryInfo.getFailureInfo().getStack().stream().collect(joining("\n")));
+                    }
                 }
+                log.info(format("Unexpected failed queries.  runningQueries: %s, queuedQueries: %s, failedQueries: %s, finishedQueries: %s\n\nStack traces:\n%s\n\n",
+                        runningQueries,
+                        queuedQueries,
+                        failedQueries,
+                        finishedQueries,
+                        stacks.toString()));
             }
-            log.info(format("runningQueries: %s, queuedQueries: %s, failedQueries: %s, finishedQueries: %s\n\nStack traces:\n%s\n\n", runningQueries, queuedQueries, failedQueries, finishedQueries, stacks.toString()));
         }
     }
 
-    // Flaky test.
     @Test(timeOut = 60_000)
     public void testGetAllQueryInfoForLimits()
             throws InterruptedException
     {
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf103.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf104.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf105.orders");
 
         waitForGlobalViewInRM(3, 3, 0, 0);
 
@@ -220,11 +226,11 @@ public class TestDistributedQueryResource
             throws InterruptedException
     {
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf103.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf104.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf105.orders");
 
         waitForGlobalViewInRM(3, 3, 0, 0);
 
