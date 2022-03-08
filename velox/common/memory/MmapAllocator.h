@@ -241,8 +241,9 @@ class MmapAllocator : public MappedMemory {
   // increment of this by the desired amount is <= 'capacity_'.
   std::atomic<MachinePageCount> numAllocated_;
 
-  //  Number of machine pages backed by memory in the
-  // address ranges in 'sizeClasses_'
+  // Number of machine pages backed by memory in the address ranges in
+  // 'sizeClasses_'. It includes pages that are already freed. Hence it should
+  // be larger than numAllocated_
   std::atomic<MachinePageCount> numMapped_;
 
   // Number of pages allocated and explicitly mmap'd by the
