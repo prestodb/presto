@@ -46,6 +46,7 @@ public class DeltaConnector
     private final DeltaSessionProperties sessionProperties;
     private final DeltaPageSourceProvider pageSourceProvider;
     private final DeltaPlanOptimizerProvider planOptimizerProvider;
+    private final DeltaTableProperties deltaTableProperties;
 
     @Inject
     public DeltaConnector(
@@ -54,7 +55,8 @@ public class DeltaConnector
             DeltaSplitManager splitManager,
             DeltaSessionProperties sessionProperties,
             DeltaPageSourceProvider pageSourceProvider,
-            DeltaPlanOptimizerProvider planOptimizerProvider)
+            DeltaPlanOptimizerProvider planOptimizerProvider,
+            DeltaTableProperties deltaTableProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -62,6 +64,7 @@ public class DeltaConnector
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
+        this.deltaTableProperties = requireNonNull(deltaTableProperties, "tableProperties is null");
     }
 
     @Override
@@ -98,6 +101,12 @@ public class DeltaConnector
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
         return planOptimizerProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getTableProperties()
+    {
+        return deltaTableProperties.getTableProperties();
     }
 
     @Override
