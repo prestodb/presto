@@ -180,6 +180,7 @@
         <module>presto-delta</module>
         <module>presto-grpc-api</module>
         <module>presto-grpc-testing-udf-server</module>
+        <module>presto-lark-sheets</module>
     </modules>
 
     <dependencyManagement>
