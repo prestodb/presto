@@ -15,14 +15,14 @@ ceil function can be implemented as:
 
 .. code-block:: c++
 
-				template <typename TExecParams>
-				struct CeilFunction {
-					template <typename T>
-					FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-          	result = std::ceil(a);
-						return true;
-					}
-				};
+  template <typename TExecParams>
+  struct CeilFunction {
+    template <typename T>
+    FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
+      result = std::ceil(a);
+      return true;
+    }
+  };
 
 All simple function classes need to be templated, and provide a "call" method
 (or one of the variations described below). The top-level template parameter
@@ -87,19 +87,19 @@ an artificial example of a ceil function that returns 0 for null input:
 
 .. code-block:: c++
 
-				template <typename TExecParams>
-				struct CeilFunction {
-					template <typename T>
-					FOLLY_ALWAYS_INLINE bool callNullable(T& result, const T* a) {
-          	// Return 0 if input is null.
-	          if (a) {
-  	          result = std::ceil(*a);
-    	      } else {
-      	      result = 0;
-        	  }
-	          return true;
-					}
-				};
+  template <typename TExecParams>
+  struct CeilFunction {
+    template <typename T>
+    FOLLY_ALWAYS_INLINE bool callNullable(T& result, const T* a) {
+      // Return 0 if input is null.
+      if (a) {
+        result = std::ceil(*a);
+      } else {
+        result = 0;
+      }
+      return true;
+    }
+  };
 
 Notice that callNullable function takes arguments as raw pointers and not
 references to allow for specifying null values.
@@ -128,7 +128,7 @@ an array:
   template <typename TExecParams>
   struct ArrayMinFunction {
     VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-
+    
     template <typename TInput>
     FOLLY_ALWAYS_INLINE bool callNullFree(
         TInput& out,
@@ -139,7 +139,6 @@ an array:
           out = array[i]
         }
       }
-
       return true;
     }
   };
@@ -160,21 +159,21 @@ the function must define a static constexpr bool is_deterministic member:
 
 .. code-block:: c++
 
-	    static constexpr bool is_deterministic = false;
+  static constexpr bool is_deterministic = false;
 
 An example of such function is rand():
 
 .. code-block:: c++
 
-				template <typename TExecParams>
-				struct RandFunction {
-        	static constexpr bool is_deterministic = false;
-
-        	FOLLY_ALWAYS_INLINE bool call(double& result) {
-	          result = folly::Random::randDouble01();
-  	        return true;
-    	    }
-				};
+  template <typename TExecParams>
+  struct RandFunction {
+    static constexpr bool is_deterministic = false;
+    
+    FOLLY_ALWAYS_INLINE bool call(double& result) {
+      result = folly::Random::randDouble01();
+      return true;
+    }
+  };
 
 All-ASCII Fast Path
 ^^^^^^^^^^^^^^^^^^^
@@ -199,29 +198,29 @@ Here is an example of a trim function:
 .. code-block:: c++
 
 
-	template <typename TExecParams>
-	struct TrimFunction {
-		VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-
-		// ASCII input always produces ASCII result.
-		static constexpr bool is_default_ascii_behavior = true;
-
-		// Properly handles multi-byte characters.
-		FOLLY_ALWAYS_INLINE bool call(
-		    out_type<Varchar>& result,
-		    const arg_type<Varchar>& input) {
-		  stringImpl::trimUnicodeWhiteSpace<leftTrim, rightTrim>(result, input);
-		  return true;
-		}
-
-		// Assumes input is all ASCII.
-		FOLLY_ALWAYS_INLINE bool callAscii(
-		    out_type<Varchar>& result,
-		    const arg_type<Varchar>& input) {
-	  	stringImpl::trimAsciiWhiteSpace<leftTrim, rightTrim>(result, input);
-		  return true;
-		}
-	};
+  template <typename TExecParams>
+  struct TrimFunction {
+    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    
+    // ASCII input always produces ASCII result.
+    static constexpr bool is_default_ascii_behavior = true;
+    
+    // Properly handles multi-byte characters.
+    FOLLY_ALWAYS_INLINE bool call(
+        out_type<Varchar>& result,
+        const arg_type<Varchar>& input) {
+      stringImpl::trimUnicodeWhiteSpace<leftTrim, rightTrim>(result, input);
+      return true;
+    }
+    
+    // Assumes input is all ASCII.
+    FOLLY_ALWAYS_INLINE bool callAscii(
+        out_type<Varchar>& result,
+        const arg_type<Varchar>& input) {
+      stringImpl::trimAsciiWhiteSpace<leftTrim, rightTrim>(result, input);
+      return true;
+    }
+  };
 
 Zero-copy String Result
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -237,8 +236,8 @@ and rows.
 
 .. code-block:: c++
 
-	// Results refer to strings in the first argument.
-	static constexpr int32_t reuse_strings_from_arg = 0;
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 0;
 
 Access to Session Properties and Constant Inputs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -261,18 +260,18 @@ properties and using it when processing inputs.
 
 .. code-block:: c++
 
-	template <typename TExecParams>
-	struct HourFunction {
-		VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-
+  template <typename TExecParams>
+  struct HourFunction {
+    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    
     const date::time_zone* timeZone_ = nullptr;
-
+    
     FOLLY_ALWAYS_INLINE void initialize(
         const core::QueryConfig& config,
         const arg_type<Timestamp>* /*timestamp*/) {
       timeZone_ = getTimeZoneFromConfig(config);
     }
-
+    
     FOLLY_ALWAYS_INLINE bool call(
         int64_t& result,
         const arg_type<Timestamp>& timestamp) {
@@ -282,7 +281,7 @@ properties and using it when processing inputs.
       result = dateTime.tm_hour;
       return true;
     }
-	};
+  };
 
 Here is another example of the :func:`date_trunc` function parsing the constant
 unit argument during initialize and re-using parsed value when processing
@@ -290,13 +289,13 @@ individual rows.
 
 .. code-block:: c++
 
-	template <typename TExecParams>
-	struct DateTruncFunction {
-		VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-
+  template <typename TExecParams>
+  struct DateTruncFunction {
+    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    
     const date::time_zone* timeZone_ = nullptr;
     std::optional<DateTimeUnit> unit_;
-
+    
     FOLLY_ALWAYS_INLINE void initialize(
         const core::QueryConfig& config,
         const arg_type<Varchar>* unitString,
@@ -306,7 +305,7 @@ individual rows.
         unit_ = fromDateTimeUnitString(*unitString);
       }
     }
-
+    
     FOLLY_ALWAYS_INLINE bool call(
         out_type<Timestamp>& result,
         const arg_type<Varchar>& unitString,
@@ -315,7 +314,7 @@ individual rows.
           unit_.has_value() ? unit_.value() : fromDateTimeUnitString(unitString);
       ...<use unit enum>...
     }
-	};
+  };
 
 Registration
 ^^^^^^^^^^^^
@@ -324,10 +323,10 @@ Use registerFunction template to register simple functions.
 
 .. code-block:: c++
 
-        template <template <class> typename Func, typename TReturn, typename... TArgs>
-        void registerFunction(
-            const std::vector<std::string>& aliases = {},
-            std::shared_ptr<const Type> returnType = nullptr)
+  template <template <class> typename Func, typename TReturn, typename... TArgs>
+  void registerFunction(
+      const std::vector<std::string>& aliases = {},
+      std::shared_ptr<const Type> returnType = nullptr)
 
 The first template parameter is the class name, the next template parameter is
 the return type, the remaining template parameters are argument types. Aliases
@@ -337,7 +336,7 @@ function defined above can be registered using the following function call:
 
 .. code-block:: c++
 
-        registerFunction<CeilFunction, double, double>({"ceil", "ceiling");
+  registerFunction<CeilFunction, double, double>({"ceil", "ceiling");
 
 Here, we register the CeilFunction function that takes a double and returns a
 double. If we want to allow the ceil function to be called on float inputs,
@@ -345,7 +344,7 @@ we need to call registerFunction again:
 
 .. code-block:: c++
 
-        registerFunction<CeilFunction, float, float>({"ceil", "ceiling");
+  registerFunction<CeilFunction, float, float>({"ceil", "ceiling");
 
 We need to call registerFunction for each signature we want to support.
 
@@ -358,26 +357,26 @@ Here is an example with ceil function.
 
 .. code-block:: c++
 
-        #include "velox/functions/prestosql/ArithmeticImpl.h"
-
-				template <typename TExecParams>
-				struct CeilFunction {
-					template <typename T>
-					FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-          	result = ceil(a);
-						return true;
-					}
-				};
+  #include "velox/functions/prestosql/ArithmeticImpl.h"
+  
+  template <typename TExecParams>
+  struct CeilFunction {
+    template <typename T>
+    FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
+      result = ceil(a);
+      return true;
+    }
+  };
 
 velox/functions/prestosql/ArithmeticImpl.h:
 
 .. code-block:: c++
 
-        template <typename T>
-        T ceil(const T& arg) {
-          T results = std::ceil(arg);
-          return results;
-        }
+  template <typename T>
+  T ceil(const T& arg) {
+    T results = std::ceil(arg);
+    return results;
+  }
 
 Make sure the header files that define the “kernels” are free of dependencies
 as much as possible to allow for faster compilation in codegen.
@@ -457,20 +456,20 @@ below shows the function arraySum, a range loop is used to iterate over the valu
 
 .. code-block:: c++
 
-        template <typename T>
-        struct arraySum {
-            VELOX_DEFINE_FUNCTION_TYPES(T);
+  template <typename T>
+  struct ArraySum {
+    VELOX_DEFINE_FUNCTION_TYPES(T);
 
-            bool call(const int64_t& output, const arg_type<Array<int64_t>>& array) {
-                output = 0;
-                for(const auto& element : array) {
-                    if(element.has_value()) {
-                        output += element.value();
-                    }
-                }
-                return true;
-            }
-        };
+    bool call(const int64_t& output, const arg_type<Array<int64_t>>& array) {
+      output = 0;
+      for(const auto& element : array) {
+        if (element.has_value()) {
+          output += element.value();
+        }
+      }
+      return true;
+    }
+  };
 
 
 ArrayView supports the following:
@@ -489,43 +488,44 @@ ArrayView supports the following:
 
 .. code-block:: c++
 
-        template <typename T>
-        struct arraySum {
-            VELOX_DEFINE_FUNCTION_TYPES(T);
-
-            bool call(const int64_t& output, const arg_type<Array<int64_t>>& array) {
-                output = 0;
-                for(const auto& value : array.skipNulls()) {
-                    output += value;
-                }
-                return true;
-            }
-        };
+  template <typename T>
+  struct ArraySum {
+    VELOX_DEFINE_FUNCTION_TYPES(T);
+    
+    bool call(const int64_t& output, const arg_type<Array<int64_t>>& array) {
+      output = 0;
+      for (const auto& value : array.skipNulls()) {
+        output += value;
+      }
+      return true;
+    }
+  };
 
 The skipNulls iterator will check the nullity at each index and skip nulls, a more performant implementation
 would skip reading the nullity when mayHaveNulls() is false.
 
 .. code-block:: c++
 
-        template <typename T>
-        struct arraySum {
-            VELOX_DEFINE_FUNCTION_TYPES(T);
+  template <typename T>
+  struct ArraySum {
+      VELOX_DEFINE_FUNCTION_TYPES(T);
 
-            bool call(const int64_t& output, const arg_type<Array<int64_t>>& array) {
-                output = 0;
-                if(array.mayHaveNulls()){
-                    for(const auto& value : array.skipNulls()) {
-                        output += value;
-                    }
-                    return true;
-                }
+      bool call(const int64_t& output, const arg_type<Array<int64_t>>& array) {
+        output = 0;
+        if (array.mayHaveNulls()) {
+          for(const auto& value : array.skipNulls()) {
+            output += value;
+          }
+          return true;
+        }
 
-                // no nulls, skip reading nullity.
-                for(const auto& element : array) {
-                    output += element.value();
-                }
-                return true;
-        };
+        // No nulls, skip reading nullity.
+        for (const auto& element : array) {
+          output += element.value();
+        }
+        return true;
+      }
+  };
 
 Note: calls to operator[], iterator de-referencing, and iterator pointer de-referencing are r-values (temporaries),
 versus l-values in STD containers. Hence those can be bound to const references or l-values but not normal references.
@@ -537,19 +537,19 @@ that sums up the keys and values.
 
 .. code-block:: c++
 
-        template <typename T>
-        struct mapSum{
-            bool call(const int64_t& output, const arg_type<Map<int64_t, int64_t>>& map) {
-                output = 0;
-                for(const auto& [key, value] : map) {
-                    output += key;
-                    if(value.has_value()){
-                        value += value.value();
-                    }
-                }
-                return true;
-            }
-        };
+  template <typename T>
+  struct MapSum{
+    bool call(const int64_t& output, const arg_type<Map<int64_t, int64_t>>& map) {
+      output = 0;
+      for (const auto& [key, value] : map) {
+        output += key;
+        if (value.has_value()) {
+          value += value.value();
+        }
+      }
+      return true;
+    }
+  };
 
 MapView supports the following:
 
