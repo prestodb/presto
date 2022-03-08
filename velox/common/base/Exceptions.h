@@ -65,8 +65,11 @@ template <typename Exception, typename StringType>
   static_assert(
       !std::is_same_v<StringType, std::string>,
       "BUG: we should not pass std::string by value to veloxCheckFail");
-  LOG(ERROR) << args.file << args.line << args.function << args.expression << s
-             << args.errorSource << args.errorCode;
+  LOG(ERROR) << "Line: " << args.file << ":" << args.line
+             << ", Function:" << args.function
+             << ", Expression: " << args.expression << s
+             << ", Source: " << args.errorSource
+             << ", ErrorCode: " << args.errorCode;
 
   throw Exception(
       args.file,
