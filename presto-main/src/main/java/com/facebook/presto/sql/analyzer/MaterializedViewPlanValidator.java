@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -182,6 +183,12 @@ public class MaterializedViewPlanValidator
     protected Void visitSubqueryExpression(SubqueryExpression node, MaterializedViewPlanValidatorContext context)
     {
         throw new SemanticException(NOT_SUPPORTED, node, "Subqueries are not supported for materialized view.");
+    }
+
+    @Override
+    protected Void visitOrderBy(OrderBy node, MaterializedViewPlanValidatorContext context)
+    {
+        throw new SemanticException(NOT_SUPPORTED, node, "OrderBy are not supported for materialized view.");
     }
 
     public static final class MaterializedViewPlanValidatorContext
