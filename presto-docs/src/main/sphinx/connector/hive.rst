@@ -138,6 +138,10 @@ Property Name                                      Description                  
                                                    installations where Presto is collocated with every
                                                    DataNode.
 
+``hive.order-based-execution-enabled``             Enable order-based execution. When it's enabled, hive files  ``false``
+                                                   become non-splittable and the table ordering properties
+                                                   would be exposed to plan optimizer
+
 ``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
                                                    format or the default Presto format?
 
