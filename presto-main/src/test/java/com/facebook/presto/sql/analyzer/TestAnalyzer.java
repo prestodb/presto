@@ -91,7 +91,7 @@ public class TestAnalyzer
     private static void assertHasWarning(WarningCollector warningCollector, StandardWarningCode code, String match)
     {
         List<PrestoWarning> warnings = warningCollector.getWarnings();
-        assertEquals(warnings.size(), 1);
+        assertTrue(warnings.size() > 0);
         PrestoWarning warning = warnings.get(0);
         assertEquals(warning.getWarningCode(), code.toWarningCode());
         assertTrue(warning.getMessage().startsWith(match));
@@ -1113,6 +1113,66 @@ public class TestAnalyzer
         PrestoWarning warning = warnings.get(0);
         assertEquals(warning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
         assertTrue(warning.getMessage().contains("COUNT(DISTINCT xxx)"));
+    }
+
+    @Test
+    public void testApproxDistinctPerformanceWarning()
+    {
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT approx_distinct(a) FROM t1 GROUP BY b");
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+
+        warningCollector = analyzeWithWarnings("SELECT approx_distinct(a, 0.0025E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 1);
+
+        // Ensure warning is the performance warning we expect
+        PrestoWarning warning = warnings.get(0);
+        assertEquals(warning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(warning.getMessage().startsWith("approx_distinct"));
+
+        // Ensure warning is only issued for values lower than threshold
+        warningCollector = analyzeWithWarnings("SELECT approx_distinct(a, 0.0055E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+    }
+
+    @Test
+    public void testApproxSetPerformanceWarning()
+    {
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT approx_set(a) FROM t1 GROUP BY b");
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+
+        warningCollector = analyzeWithWarnings("SELECT approx_set(a, 0.0015E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 1);
+
+        // Ensure warning is the performance warning we expect
+        PrestoWarning warning = warnings.get(0);
+        assertEquals(warning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(warning.getMessage().startsWith("approx_set"));
+
+        // Ensure warning is only issued for values lower than threshold
+        warningCollector = analyzeWithWarnings("SELECT approx_set(a, 0.0055E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+    }
+
+    @Test
+    public void testApproxDistinctAndApproxSetPerformanceWarning()
+    {
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT approx_distinct(a, 0.0025E0), approx_set(a, 0.0013E0) FROM t1 GROUP BY b");
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 2);
+
+        // Ensure warnings are the performance warnings we expect
+        PrestoWarning approxDistinctWarning = warnings.get(0);
+        assertEquals(approxDistinctWarning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(approxDistinctWarning.getMessage().startsWith("approx_distinct"));
+        PrestoWarning approxSetWarning = warnings.get(1);
+        assertEquals(approxSetWarning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(approxSetWarning.getMessage().startsWith("approx_set"));
     }
 
     @Test
