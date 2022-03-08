@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.IntegerType;
@@ -877,6 +878,9 @@ public class MetastoreUtil
         }
         if (type instanceof TypeWithName) {
             return getSupportedColumnStatistics(((TypeWithName) type).getType());
+        }
+        if (type instanceof DistinctType) {
+            return getSupportedColumnStatistics(((DistinctType) type).getBaseType());
         }
         if (type instanceof EnumType) {
             return getSupportedColumnStatistics(((EnumType) type).getValueType());

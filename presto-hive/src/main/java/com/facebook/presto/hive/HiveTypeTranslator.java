@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
@@ -118,6 +119,9 @@ public class HiveTypeTranslator
         }
         if (type instanceof TypeWithName) {
             return translate(((TypeWithName) type).getType());
+        }
+        if (type instanceof DistinctType) {
+            return translate(((DistinctType) type).getBaseType());
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.getTypeInfo();
