@@ -268,7 +268,7 @@ TEST_F(MergeJoinTest, nonFirstJoinKeys) {
   assertQuery(plan, "VALUES (2, 40, 23), (4, 20, 22)");
 }
 
-TEST_F(MergeJoinTest, filter) {
+TEST_F(MergeJoinTest, innerJoinFilter) {
   vector_size_t size = 1'000;
   // Join keys on the left side: 0, 10, 20,..
   // Payload on the left side: 0, 1, 2, 3,..
@@ -338,4 +338,78 @@ TEST_F(MergeJoinTest, filter) {
   assertQuery(
       makeCursorParameters(plan("(t_c1 + u_c1) % 2 = 0"), 16),
       "SELECT t_c0, u_c0, u_c1 FROM t, u WHERE t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 0");
+}
+
+TEST_F(MergeJoinTest, leftJoinFilter) {
+  // Each row on the left side has at most one match on the right side.
+  auto left = makeRowVector(
+      {"t_c0", "t_c1"},
+      {
+          makeFlatVector<int32_t>({0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50}),
+          makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+      });
+
+  auto right = makeRowVector(
+      {"u_c0", "u_c1"},
+      {
+          makeFlatVector<int32_t>({0, 10, 20, 30, 40, 50}),
+          makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5}),
+      });
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan = [&](const std::string& filter) {
+    return PlanBuilder(planNodeIdGenerator)
+        .values({left})
+        .mergeJoin(
+            {"t_c0"},
+            {"u_c0"},
+            PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+            filter,
+            {"t_c0", "t_c1", "u_c1"},
+            core::JoinType::kLeft)
+        .planNode();
+  };
+
+  // Test with different output batch sizes.
+  for (auto batchSize : {1, 3, 16}) {
+    assertQuery(
+        makeCursorParameters(plan("(t_c1 + u_c1) % 2 = 0"), batchSize),
+        "SELECT t_c0, t_c1, u_c1 FROM t LEFT JOIN u ON t_c0 = u_c0 AND (t_c1 + u_c1) % 2 = 0");
+  }
+
+  // A left-side row with multiple matches on the right side.
+  left = makeRowVector(
+      {"t_c0", "t_c1"},
+      {
+          makeFlatVector<int32_t>({5, 10}),
+          makeFlatVector<int32_t>({0, 0}),
+      });
+
+  right = makeRowVector(
+      {"u_c0", "u_c1"},
+      {
+          makeFlatVector<int32_t>({10, 10, 10, 10, 10, 10}),
+          makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5}),
+      });
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  // Test with different filters and output batch sizes.
+  for (auto batchSize : {1, 3, 16}) {
+    for (auto filter :
+         {"t_c1 + u_c1 > 3",
+          "t_c1 + u_c1 < 3",
+          "t_c1 + u_c1 > 100",
+          "t_c1 + u_c1 < 100"}) {
+      assertQuery(
+          makeCursorParameters(plan(filter), batchSize),
+          fmt::format(
+              "SELECT t_c0, t_c1, u_c1 FROM t LEFT JOIN u ON t_c0 = u_c0 AND {}",
+              filter));
+    }
+  }
 }

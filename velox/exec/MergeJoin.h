@@ -180,6 +180,156 @@ class MergeJoin : public Operator {
   /// passed the filter.
   RowVectorPtr applyFilter(const RowVectorPtr& output);
 
+  /// Evaluates 'filter_' on the specified rows of 'filterInput_' and decodes
+  /// the result using 'decodedFilterResult_'.
+  void evaluateFilter(const SelectivityVector& rows);
+
+  /// As we populate the results of the left join, we track whether a given
+  /// output row is a result of a match between left and right sides or a miss.
+  /// We use LeftJoinTracker::addMatch and addMiss methods for that.
+  ///
+  /// Once we have a batch of output, we evaluate the filter on a subset of rows
+  /// which correspond to matches between left and right sides. There is no
+  /// point evaluating filters on misses as these need to be included in the
+  /// output regardless of whether filter passes or fails.
+  ///
+  /// We also track blocks of consecutive output rows that correspond to the
+  /// same left-side row. If the filter passes on at least one row in such a
+  /// block, we keep the subset of passing rows. However, if the filter failed
+  /// on all rows in such a block, we add one of these rows back and update
+  /// build-side columns to null.
+  struct LeftJoinTracker {
+    LeftJoinTracker(vector_size_t numRows, memory::MemoryPool* pool)
+        : matchingRows_{numRows, false} {
+      leftRowNumbers_ = AlignedBuffer::allocate<vector_size_t>(numRows, pool);
+      rawLeftRowNumbers_ = leftRowNumbers_->asMutable<vector_size_t>();
+    }
+
+    /// Records a row of output that corresponds to a match between a left-side
+    /// row and a right-side row. Assigns synthetic number to uniquely identify
+    /// the corresponding left-side row. The caller must call addMatch or
+    /// addMiss method for each row of output in order, starting with the first
+    /// row.
+    void addMatch(
+        const VectorPtr& left,
+        vector_size_t leftIndex,
+        vector_size_t outputIndex) {
+      matchingRows_.setValid(outputIndex, true);
+
+      if (lastVector_ != left || lastIndex_ != leftIndex) {
+        // New left-side row.
+        ++lastLeftRowNumber_;
+        lastVector_ = left;
+        lastIndex_ = leftIndex;
+      }
+
+      rawLeftRowNumbers_[outputIndex] = lastLeftRowNumber_;
+    }
+
+    /// Returns a subset of "match" rows in [0, numRows) range that were
+    /// recorded by addMatch.
+    const SelectivityVector& matchingRows(vector_size_t numRows) {
+      matchingRows_.setValidRange(numRows, matchingRows_.size(), false);
+      matchingRows_.updateBounds();
+      return matchingRows_;
+    }
+
+    /// Records a row of output that corresponds to a left-side
+    /// row that has no match on the right-side. The caller must call addMatch
+    /// or addMiss method for each row of output in order, starting with the
+    /// first row.
+    void addMiss(vector_size_t outputIndex) {
+      matchingRows_.setValid(outputIndex, false);
+      resetLastVector();
+    }
+
+    /// Clear the left-side vector and index of the last added output row. The
+    /// left-side vector has been fully processed and is now available for
+    /// re-use, hence, need to make sure that new rows won't be confused with
+    /// the old ones.
+    void resetLastVector() {
+      lastVector_.reset();
+      lastIndex_ = -1;
+    }
+
+    /// Called for each row that the filter was evaluated on in order starting
+    /// with the first row. Calls 'onMiss' if the filter failed on all output
+    /// rows that correspond to a single left-side row. Use
+    /// 'noMoreFilterResults' to make sure 'onMiss' is called for the last
+    /// left-side row.
+    template <typename TOnMiss>
+    void processFilterResult(
+        vector_size_t outputIndex,
+        bool passed,
+        TOnMiss onMiss) {
+      auto rowNumber = rawLeftRowNumbers_[outputIndex];
+      if (currentLeftRowNumber_ != rowNumber) {
+        if (currentRow_ != -1 && !currentRowPassed_) {
+          onMiss(currentRow_);
+        }
+        currentRow_ = outputIndex;
+        currentLeftRowNumber_ = rowNumber;
+        currentRowPassed_ = false;
+      } else {
+        currentRow_ = outputIndex;
+      }
+
+      if (passed) {
+        currentRowPassed_ = true;
+      }
+    }
+
+    /// Called when all rows from the current output batch are processed and the
+    /// next batch of output will start with a new left-side row or there will
+    /// be no more batches. Calls 'onMiss' for the last left-side row if the
+    /// filter failed for all matches of that row.
+    template <typename TOnMiss>
+    void noMoreFilterResults(TOnMiss onMiss) {
+      if (!currentRowPassed_) {
+        onMiss(currentRow_);
+      }
+
+      currentRow_ = -1;
+      currentRowPassed_ = false;
+    }
+
+   private:
+    /// A subset of output rows where left side matched right side on the join
+    /// keys. Used in filter evaluation.
+    SelectivityVector matchingRows_;
+
+    /// The left-side vector and index of the last added row. Used to identify
+    /// the end of a block of output rows that correspond to the same left-side
+    /// row.
+    VectorPtr lastVector_{nullptr};
+    vector_size_t lastIndex_{-1};
+
+    /// Synthetic numbers used to uniquely identify a left-side row. We cannot
+    /// use row number from the left-side vector because a given batch of output
+    /// may contains rows from multiple left-side batches. Only "match" rows
+    /// added via addMatch are being tracked. The values for "miss" rows are
+    /// not defined.
+    BufferPtr leftRowNumbers_;
+    vector_size_t* rawLeftRowNumbers_;
+
+    /// Synthetic number assigned to the last added "match" row or zero if
+    /// no row has been added yet.
+    vector_size_t lastLeftRowNumber_{0};
+
+    /// Output index of the last output row for which filter result was
+    /// recorded.
+    vector_size_t currentRow_{-1};
+
+    /// Synthetic number for the 'currentRow'.
+    vector_size_t currentLeftRowNumber_{-1};
+
+    /// True if at least one row in a block of output rows corresponding a
+    /// single left-side row identified by 'currentRowNumber' passed the filter.
+    bool currentRowPassed_{false};
+  };
+
+  std::optional<LeftJoinTracker> leftJoinTracker_{std::nullopt};
+
   /// Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
 

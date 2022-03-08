@@ -37,10 +37,6 @@ MergeJoin::MergeJoin(
   VELOX_USER_CHECK(
       joinNode->isInnerJoin() || joinNode->isLeftJoin(),
       "Merge join supports only inner and left joins. Other join types are not supported yet.");
-  if (joinNode->isLeftJoin()) {
-    VELOX_USER_CHECK_NULL(
-        joinNode->filter(), "Merge left join doesn't support filter yet.");
-  }
 
   leftKeys_.reserve(numKeys_);
   rightKeys_.reserve(numKeys_);
@@ -73,6 +69,10 @@ MergeJoin::MergeJoin(
 
   if (joinNode->filter()) {
     initializeFilter(joinNode->filter(), leftType, rightType);
+
+    if (joinNode->isLeftJoin()) {
+      leftJoinTracker_ = LeftJoinTracker(outputBatchSize_, pool());
+    }
   }
 }
 
@@ -132,6 +132,10 @@ bool MergeJoin::needsInput() const {
 void MergeJoin::addInput(RowVectorPtr input) {
   input_ = std::move(input);
   index_ = 0;
+
+  if (leftJoinTracker_) {
+    leftJoinTracker_->resetLastVector();
+  }
 }
 
 // static
@@ -207,6 +211,11 @@ void MergeJoin::addOutputRowForLeftJoin() {
     target->setNull(outputSize_, true);
   }
 
+  if (leftJoinTracker_) {
+    // Record left-side row with no match on the right side.
+    leftJoinTracker_->addMiss(outputSize_);
+  }
+
   ++outputSize_;
 }
 
@@ -223,6 +232,11 @@ void MergeJoin::addOutputRow(
 
     copyRow(left, leftIndex, filterInput_, outputSize_, filterLeftInputs_);
     copyRow(right, rightIndex, filterInput_, outputSize_, filterRightInputs_);
+
+    if (leftJoinTracker_) {
+      // Record left-side row with a match on the right-side.
+      leftJoinTracker_->addMatch(left, leftIndex, outputSize_);
+    }
   }
 
   ++outputSize_;
@@ -350,6 +364,9 @@ RowVectorPtr MergeJoin::getOutput() {
         if (output != nullptr) {
           return output;
         }
+
+        // No rows survived the filter. Get more rows.
+        continue;
       } else {
         return output;
       }
@@ -570,21 +587,62 @@ RowVectorPtr MergeJoin::doGetOutput() {
 RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
   const auto numRows = output->size();
 
-  filterRows_.resize(numRows);
-  filterRows_.setAll();
-
-  EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
-  filter_->eval(0, 1, true, filterRows_, &evalCtx, &filterResult_);
-
-  decodedFilterResult_.decode(*filterResult_[0], filterRows_);
-
   BufferPtr indices = allocateIndices(numRows, pool());
   auto rawIndices = indices->asMutable<vector_size_t>();
   vector_size_t numPassed = 0;
-  for (auto i = 0; i < numRows; ++i) {
-    if (!decodedFilterResult_.isNullAt(i) &&
-        decodedFilterResult_.valueAt<bool>(i)) {
-      rawIndices[numPassed++] = i;
+
+  if (leftJoinTracker_) {
+    const auto& filterRows = leftJoinTracker_->matchingRows(numRows);
+
+    if (!filterRows.hasSelections()) {
+      // No matches in the output, no need to evaluate the filter.
+      return output;
+    }
+
+    evaluateFilter(filterRows);
+
+    // If all matches for a given left-side row fail the filter, add a row to
+    // the output with nulls for the right-side columns.
+    auto onMiss = [&](auto row) {
+      rawIndices[numPassed++] = row;
+
+      for (auto& projection : rightProjections_) {
+        auto target = output->childAt(projection.outputChannel);
+        target->setNull(row, true);
+      }
+    };
+
+    for (auto i = 0; i < numRows; ++i) {
+      if (filterRows.isValid(i)) {
+        const bool passed = !decodedFilterResult_.isNullAt(i) &&
+            decodedFilterResult_.valueAt<bool>(i);
+
+        leftJoinTracker_->processFilterResult(i, passed, onMiss);
+
+        if (passed) {
+          rawIndices[numPassed++] = i;
+        }
+      } else {
+        // This row doesn't have a match on the right side. Keep it
+        // unconditionally.
+        rawIndices[numPassed++] = i;
+      }
+    }
+
+    if (!leftMatch_) {
+      leftJoinTracker_->noMoreFilterResults(onMiss);
+    }
+  } else {
+    filterRows_.resize(numRows);
+    filterRows_.setAll();
+
+    evaluateFilter(filterRows_);
+
+    for (auto i = 0; i < numRows; ++i) {
+      if (!decodedFilterResult_.isNullAt(i) &&
+          decodedFilterResult_.valueAt<bool>(i)) {
+        rawIndices[numPassed++] = i;
+      }
     }
   }
 
@@ -600,6 +658,13 @@ RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
 
   // Some, but not all rows passed.
   return wrap(numPassed, indices, output);
+}
+
+void MergeJoin::evaluateFilter(const SelectivityVector& rows) {
+  EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
+  filter_->eval(0, 1, true, rows, &evalCtx, &filterResult_);
+
+  decodedFilterResult_.decode(*filterResult_[0], rows);
 }
 
 bool MergeJoin::isFinished() {
