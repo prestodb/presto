@@ -324,7 +324,7 @@ TEST_F(ArrowBridgeArrayExportTest, rowVector) {
   EXPECT_EQ(col1.size(), arrowArray.length);
   EXPECT_EQ(0, arrowArray.null_count);
   EXPECT_EQ(0, arrowArray.offset);
-  EXPECT_EQ(0, arrowArray.n_buffers);
+  EXPECT_EQ(1, arrowArray.n_buffers);
   EXPECT_EQ(vector->childrenSize(), arrowArray.n_children);
 
   EXPECT_NE(nullptr, arrowArray.children);
@@ -386,7 +386,7 @@ TEST_F(ArrowBridgeArrayExportTest, rowVectorEmpty) {
   ArrowArray arrowArray;
   exportToArrow(vectorMaker_.rowVector({}), arrowArray, pool_.get());
   EXPECT_EQ(0, arrowArray.n_children);
-  EXPECT_EQ(0, arrowArray.n_buffers);
+  EXPECT_EQ(1, arrowArray.n_buffers);
   EXPECT_EQ(nullptr, arrowArray.children);
 
   arrowArray.release(&arrowArray);
