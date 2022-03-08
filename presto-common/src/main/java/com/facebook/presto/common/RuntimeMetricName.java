@@ -44,4 +44,8 @@ public class RuntimeMetricName
     public static final String TASK_SCHEDULED_TIME_NANOS = "taskScheduledTimeNanos";
     // Blocked time for the operators due to waiting for inputs.
     public static final String TASK_BLOCKED_TIME_NANOS = "taskBlockedTimeNanos";
+    // Time taken for a read call to storage
+    public static final String STORAGE_READ_TIME_NANOS = "storageReadTimeNanos";
+    // Size of the data retrieved by read call to storage
+    public static final String STORAGE_READ_DATA_BYTES = "storageReadDataBytes";
 }
