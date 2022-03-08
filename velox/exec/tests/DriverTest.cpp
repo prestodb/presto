@@ -658,8 +658,8 @@ TEST_F(DriverTest, pauserNode) {
   params.resize(kNumTasks);
   int32_t hits;
   for (int32_t i = 0; i < kNumTasks; ++i) {
-    params[i].queryCtx = core::QueryCtx::createForTest(
-        std::make_shared<core::MemConfig>(), executor);
+    params[i].queryCtx = std::make_shared<core::QueryCtx>(
+        executor.get(), std::make_shared<core::MemConfig>());
     params[i].planNode = makeValuesFilterProject(
         rowType_,
         "m1 % 10 > 0",
@@ -690,6 +690,7 @@ TEST_F(DriverTest, pauserNode) {
     EXPECT_EQ(counters[i], kThreadsPerTask * hits);
     EXPECT_TRUE(stateFutures_.at(i).isReady());
   }
+  tasks_.clear();
 }
 
 int main(int argc, char** argv) {
