@@ -131,9 +131,8 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     }
 
     /**
-     * Register the given <i>deltaTableName</i> as <i>hiveTableName</i> in HMS using the Hive storage catalog.
-     * Hive and Delta catalogs share the same HMS in this test. Hive is used to register the tables as Delta
-     * connector doesn't have the write support yet.
+     * Register the given <i>deltaTableName</i> as <i>hiveTableName</i> in HMS using the Delta catalog.
+     * Hive and Delta catalogs share the same HMS in this test.
      *
      * @param queryRunner
      * @param deltaTableName Name of the delta table which is on the classpath.
@@ -143,7 +142,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     {
         queryRunner.execute(format(
                 "CREATE TABLE %s.\"%s\".\"%s\" (dummyColumn INT) WITH (external_location = '%s')",
-                HIVE_CATALOG,
+                DELTA_CATALOG,
                 DELTA_SCHEMA,
                 hiveTableName,
                 goldenTablePath(deltaTableName)));
