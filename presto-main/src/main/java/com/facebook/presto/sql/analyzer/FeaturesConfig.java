@@ -218,6 +218,8 @@ public class FeaturesConfig
 
     private int maxStageCountForEagerScheduling = 25;
 
+    private double hyperloglogStandardErrorWarningThreshold = 0.004;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -1983,6 +1985,19 @@ public class FeaturesConfig
     public FeaturesConfig setMaxStageCountForEagerScheduling(int maxStageCountForEagerScheduling)
     {
         this.maxStageCountForEagerScheduling = maxStageCountForEagerScheduling;
+        return this;
+    }
+
+    public double getHyperloglogStandardErrorWarningThreshold()
+    {
+        return hyperloglogStandardErrorWarningThreshold;
+    }
+
+    @Config("hyperloglog-standard-error-warning-threshold")
+    @ConfigDescription("aggregation functions can produce low-precision results when the max standard error lower than this value.")
+    public FeaturesConfig setHyperloglogStandardErrorWarningThreshold(double hyperloglogStandardErrorWarningThreshold)
+    {
+        this.hyperloglogStandardErrorWarningThreshold = hyperloglogStandardErrorWarningThreshold;
         return this;
     }
 }

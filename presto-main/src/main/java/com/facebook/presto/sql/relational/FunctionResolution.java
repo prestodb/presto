@@ -303,4 +303,28 @@ public final class FunctionResolution
     {
         return functionAndTypeManager.lookupFunction("min", fromTypes(valueType));
     }
+
+    @Override
+    public boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"));
+    }
+
+    @Override
+    public FunctionHandle approximateCountDistinctFunction(Type valueType)
+    {
+        return functionAndTypeManager.lookupFunction("approx_distinct", fromTypes(valueType));
+    }
+
+    @Override
+    public boolean isApproximateSetFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_set"));
+    }
+
+    @Override
+    public FunctionHandle approximateSetFunction(Type valueType)
+    {
+        return functionAndTypeManager.lookupFunction("approx_set", fromTypes(valueType));
+    }
 }
