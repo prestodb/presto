@@ -256,30 +256,11 @@ TEST_F(ParquetTpchTest, q1) {
                        DOUBLE(),
                        BIGINT()})
                   .orderBy({0, 1}, {kAscNullsLast, kAscNullsLast}, false)
-                  // Additional step for double type result verification
-                  .project(
-                      {"returnflag",
-                       "linestatus",
-                       "round(a0, cast(2 as integer))",
-                       "round(a1, cast(2 as integer))",
-                       "round(a2, cast(2 as integer))",
-                       "round(a3, cast(2 as integer))",
-                       "round(a4, cast(2 as integer))",
-                       "round(a5, cast(2 as integer))",
-                       "round(a6, cast(2 as integer))",
-                       "a7"})
                   .planNode();
 
   params.planNode = std::move(plan);
   auto duckDbSql = duckDb_->getTpchQuery(1);
-  // Additional steps for double type result verification.
-  const auto& duckDBRounded = fmt::format(
-      "select l_returnflag, l_linestatus, round(sum_qty, 2), "
-      "round(sum_base_price, 2), round(sum_disc_price, 2), round(sum_charge, 2), "
-      "round(avg_qty, 2), round(avg_price, 2), round(avg_disc, 2),"
-      "count_order from ({})",
-      duckDbSql);
-  auto task = assertQuery(params, filePath, sourcePlanNodeId, duckDBRounded);
+  auto task = assertQuery(params, filePath, sourcePlanNodeId, duckDbSql);
 
   const auto& stats = task->taskStats();
   // There should be two pipelines.
@@ -325,17 +306,11 @@ TEST_F(ParquetTpchTest, q6) {
                    .partialAggregation({}, {"sum(p0)"})
                    .planNode()})
           .finalAggregation({}, {"sum(a0)"}, {DOUBLE()})
-          // Additional step for double type result verification
-          .project({"round(a0, cast(2 as integer))"})
           .planNode();
 
   params.planNode = std::move(plan);
   auto duckDbSql = duckDb_->getTpchQuery(6);
-  // Additional steps for double type result verification.
-  const auto& duckDBRounded =
-      fmt::format("select round(revenue, 2) from ({})", duckDbSql);
-
-  auto task = assertQuery(params, filePath, sourcePlanNodeId, duckDBRounded);
+  auto task = assertQuery(params, filePath, sourcePlanNodeId, duckDbSql);
 
   const auto& stats = task->taskStats();
   // There should be two pipelines
