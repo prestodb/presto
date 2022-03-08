@@ -2717,6 +2717,26 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewOrderBy()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned";
+        String view = "test_orders_view";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", table));
+
+            assertQueryFails(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderpriority, ds FROM %s order by orderkey", view, table), ".*OrderBy are not supported for materialized view.*");
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewSubqueryShapes()
     {
         QueryRunner queryRunner = getQueryRunner();
