@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
 
@@ -30,8 +31,10 @@ import static com.facebook.presto.common.type.StandardTypes.DISTINCT_TYPE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static java.lang.String.format;
 
 public class DistinctTypeGreaterThanOperator
         extends SqlOperator
@@ -51,6 +54,9 @@ public class DistinctTypeGreaterThanOperator
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         DistinctType type = (DistinctType) boundVariables.getTypeVariable("T");
+        if (!type.isOrderable()) {
+            throw new PrestoException(INVALID_ARGUMENTS, format("Type %s does not allow ordering", type.getDisplayName()));
+        }
         Type baseType = type.getBaseType();
         FunctionHandle functionHandle = functionAndTypeManager.resolveOperator(GREATER_THAN, fromTypes(baseType, baseType));
 

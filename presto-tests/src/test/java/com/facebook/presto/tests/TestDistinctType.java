@@ -62,6 +62,7 @@ public class TestDistinctType
     private static final UserDefinedType INT30 = createDistinctType("test.dt.int30", Optional.of("test.dt.int20"), "integer");
 
     private static final UserDefinedType INT_ALT = createDistinctType("test.dt.int_alt", Optional.empty(), "integer");
+    private static final UserDefinedType INT_NO_ORDER = createDistinctType("test.dt.int_no_order", Optional.empty(), "integer", false);
     private static final UserDefinedType VARCHAR_ALT = createDistinctType("test.dt.varchar_alt", Optional.empty(), "varchar");
 
     @Override
@@ -85,6 +86,7 @@ public class TestDistinctType
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(INT21);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(INT30);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(INT_ALT);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(INT_NO_ORDER);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(VARCHAR_ALT);
 
             return queryRunner;
@@ -226,6 +228,35 @@ public class TestDistinctType
     }
 
     @Test
+    public void testNotOrderable()
+    {
+        assertQueryFails(
+                "SELECT CAST(1 AS test.dt.int_no_order) < CAST(2 AS test.dt.int_no_order)",
+                "Type test.dt.int_no_order\\(integer\\) does not allow ordering");
+        assertQueryFails(
+                "SELECT CAST(1 AS test.dt.int_no_order) <= CAST(2 AS test.dt.int_no_order)",
+                "Type test.dt.int_no_order\\(integer\\) does not allow ordering");
+        assertQueryFails(
+                "SELECT CAST(1 AS test.dt.int_no_order) > CAST(2 AS test.dt.int_no_order)",
+                "Type test.dt.int_no_order\\(integer\\) does not allow ordering");
+        assertQueryFails(
+                "SELECT CAST(1 AS test.dt.int_no_order) >= CAST(2 AS test.dt.int_no_order)",
+                "Type test.dt.int_no_order\\(integer\\) does not allow ordering");
+        assertQueryFails(
+                "SELECT CAST(2 AS test.dt.int_no_order) BETWEEN CAST(1 AS test.dt.int_no_order) AND CAST(3 AS test.dt.int_no_order)",
+                "Type test.dt.int_no_order\\(integer\\) does not allow ordering");
+
+        assertQueryFails(
+                "SELECT * FROM (" +
+                        "    VALUES" +
+                        "        (CAST(1 AS test.dt.int_no_order))," +
+                        "        (CAST(2 AS test.dt.int_no_order))" +
+                        ") AS t (id)" +
+                        "order by 1",
+                ".*Type test.dt.int_no_order.* is not orderable.*");
+    }
+
+    @Test
     public void testComparison()
     {
         assertSingleResultFromValues("SELECT CAST(1 as test.dt.int00) = CAST(x as test.dt.int00)", "1", true);
@@ -314,6 +345,11 @@ public class TestDistinctType
 
     private static UserDefinedType createDistinctType(String name, Optional<String> parent, String baseType)
     {
+        return createDistinctType(name, parent, baseType, true);
+    }
+
+    private static UserDefinedType createDistinctType(String name, Optional<String> parent, String baseType, boolean isOrderable)
+    {
         return new UserDefinedType(
                 QualifiedObjectName.valueOf(name),
                 new TypeSignature(
@@ -321,6 +357,6 @@ public class TestDistinctType
                                 QualifiedObjectName.valueOf(name),
                                 parseTypeSignature(baseType),
                                 parent.map(QualifiedObjectName::valueOf),
-                                true)));
+                                isOrderable)));
     }
 }
