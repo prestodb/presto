@@ -129,6 +129,8 @@ class ColumnReaderFactory {
   static ColumnReaderFactory* baseFactory();
 };
 
+namespace detail {
+
 template <typename T>
 inline void ensureCapacity(
     BufferPtr& data,
@@ -169,4 +171,14 @@ inline void resetIfNotWritable(VectorPtr& result, T&... buffer) {
     result.reset();
   }
 }
+
+// Helper method to build timestamps based on nulls/seconds/nanos
+void fillTimestamps(
+    Timestamp* timestamps,
+    const uint64_t* nulls,
+    const int64_t* seconds,
+    const uint64_t* nanos,
+    vector_size_t numValues);
+
+} // namespace detail
 } // namespace facebook::velox::dwrf

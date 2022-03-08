@@ -322,7 +322,7 @@ void FlatMapColumnReader<T>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
-  auto mapVector = resetIfWrongVectorType<MapVector>(result);
+  auto mapVector = detail::resetIfWrongVectorType<MapVector>(result);
   VectorPtr keysVector;
   VectorPtr valuesVector;
   BufferPtr offsets;
@@ -341,7 +341,7 @@ void FlatMapColumnReader<T>::next(
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
   if (mapVector) {
-    resetIfNotWritable(result, offsets, lengths);
+    detail::resetIfNotWritable(result, offsets, lengths);
   }
 
   if (!offsets) {
@@ -652,7 +652,7 @@ void FlatMapStructEncodingColumnReader<T>::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* FOLLY_NULLABLE incomingNulls) {
-  auto rowVector = resetIfWrongVectorType<RowVector>(result);
+  auto rowVector = detail::resetIfWrongVectorType<RowVector>(result);
   std::vector<VectorPtr> children;
   if (rowVector) {
     // Track children vectors in a local variable because readNulls may reset

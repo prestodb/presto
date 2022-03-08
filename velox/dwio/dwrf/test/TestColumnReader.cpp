@@ -3406,10 +3406,6 @@ TEST_P(TestColumnReader, testDoubleSkipWithNulls) {
 }
 
 TEST_P(TestColumnReader, testTimestampSkipWithNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP() << "SelectiveColumnReader doesn't support timestamps yet";
-  }
-
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -3418,6 +3414,9 @@ TEST_P(TestColumnReader, testTimestampSkipWithNulls) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(0, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+
+  EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   // 2 non-nulls, 2 nulls, 2 non-nulls, 2 nulls
@@ -3521,10 +3520,6 @@ TEST_P(TestColumnReader, testTimestampSkipWithNulls) {
 }
 
 TEST_P(TestColumnReader, testTimestamp) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP() << "SelectiveColumnReader doesn't support timestamps yet";
-  }
-
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -3533,6 +3528,9 @@ TEST_P(TestColumnReader, testTimestamp) {
 
   // set getStream
   EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+
+  EXPECT_CALL(streams, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
 
   const unsigned char buffer1[] = {

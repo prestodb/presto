@@ -46,7 +46,7 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
 
 uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {
   numValues = ColumnReader::skip(numValues);
-  ensureCapacity<int64_t>(lengths_, numValues, &memoryPool_);
+  detail::ensureCapacity<int64_t>(lengths_, numValues, &memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), numValues);
   rawLengths_ = lengths_->as<uint32_t>();
   for (auto i = 0; i < numValues; ++i) {
@@ -412,7 +412,7 @@ void SelectiveStringDirectColumnReader::read(
   auto end = rows.back() + 1;
   auto numNulls =
       nullsInReadRange_ ? BaseVector::countNulls(nullsInReadRange_, 0, end) : 0;
-  ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool_);
+  detail::ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), end - numNulls);
   rawLengths_ = lengths_->as<uint32_t>();
   lengthIndex_ = 0;

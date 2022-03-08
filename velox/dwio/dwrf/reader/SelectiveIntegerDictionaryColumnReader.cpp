@@ -81,7 +81,7 @@ void SelectiveIntegerDictionaryColumnReader::read(
     int32_t numFlags = (isBulk && nullsInReadRange_)
         ? bits::countNonNulls(nullsInReadRange_->as<uint64_t>(), 0, end)
         : end;
-    ensureCapacity<uint64_t>(
+    detail::ensureCapacity<uint64_t>(
         inDictionary_, bits::nwords(numFlags), &memoryPool_);
     inDictionaryReader_->next(
         inDictionary_->asMutable<char>(),

@@ -96,7 +96,7 @@ void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
 
   // Save the seconds into their own buffer before reading nanos into
   // 'values_'
-  ensureCapacity<uint64_t>(secondsValues_, numValues_, &memoryPool_);
+  detail::ensureCapacity<uint64_t>(secondsValues_, numValues_, &memoryPool_);
   secondsValues_->setSize(numValues_ * sizeof(int64_t));
   memcpy(
       secondsValues_->asMutable<char>(),
@@ -151,23 +151,7 @@ void SelectiveTimestampColumnReader::getValues(RowSet rows, VectorPtr* result) {
       ? (returnReaderNulls_ ? nullsInReadRange_->as<uint64_t>()
                             : rawResultNulls_)
       : nullptr;
-  for (auto i = 0; i < numValues_; i++) {
-    if (!rawNulls || !bits::isBitNull(rawNulls, i)) {
-      auto nanos = nanosData[i];
-      uint64_t zeros = nanos & 0x7;
-      nanos >>= 3;
-      if (zeros != 0) {
-        for (uint64_t j = 0; j <= zeros; ++j) {
-          nanos *= 10;
-        }
-      }
-      auto seconds = secondsData[i] + EPOCH_OFFSET;
-      if (seconds < 0 && nanos != 0) {
-        seconds -= 1;
-      }
-      rawTs[i] = Timestamp(seconds, nanos);
-    }
-  }
+  detail::fillTimestamps(rawTs, rawNulls, secondsData, nanosData, numValues_);
   values_ = tsValues;
   rawValues_ = values_->asMutable<char>();
   getFlatValues<Timestamp, Timestamp>(rows, result, type_, true);

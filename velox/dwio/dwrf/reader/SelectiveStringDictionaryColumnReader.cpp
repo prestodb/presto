@@ -134,7 +134,7 @@ void SelectiveStringDictionaryColumnReader::loadStrideDictionary() {
     strideDictStream_->seekToRowGroup(pp);
     strideDictLengthDecoder_->seekToRowGroup(pp);
 
-    ensureCapacity<int64_t>(
+    detail::ensureCapacity<int64_t>(
         strideDictOffset_, strideDictCount_ + 1, &memoryPool_);
     strideDict_ = loadDictionary(
         strideDictCount_,
@@ -224,7 +224,8 @@ void SelectiveStringDictionaryColumnReader::read(
     int32_t numFlags = (isBulk && nullsInReadRange_)
         ? bits::countNonNulls(nullsInReadRange_->as<uint64_t>(), 0, end)
         : end;
-    ensureCapacity<uint64_t>(inDict_, bits::nwords(numFlags), &memoryPool_);
+    detail::ensureCapacity<uint64_t>(
+        inDict_, bits::nwords(numFlags), &memoryPool_);
     inDictionaryReader_->next(
         inDict_->asMutable<char>(), numFlags, isBulk ? nullptr : nullsPtr);
     loadStrideDictionary();
@@ -320,7 +321,7 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
 
   Timer timer;
 
-  ensureCapacity<int64_t>(
+  detail::ensureCapacity<int64_t>(
       dictionaryOffset_, dictionaryCount_ + 1, &memoryPool_);
   dictionaryBlob_ = loadDictionary(
       dictionaryCount_, *blobStream_, *lengthDecoder_, dictionaryOffset_);

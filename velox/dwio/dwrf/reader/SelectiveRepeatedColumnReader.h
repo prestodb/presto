@@ -64,8 +64,8 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
     // Reads the lengths, leaves an uninitialized gap for a null
     // map/list. Reading these checks the null nask.
     length_->next(allLengths_.data(), rows.back() + 1, nulls);
-    ensureCapacity<vector_size_t>(offsets_, rows.size(), &memoryPool_);
-    ensureCapacity<vector_size_t>(sizes_, rows.size(), &memoryPool_);
+    detail::ensureCapacity<vector_size_t>(offsets_, rows.size(), &memoryPool_);
+    detail::ensureCapacity<vector_size_t>(sizes_, rows.size(), &memoryPool_);
     auto rawOffsets = offsets_->asMutable<vector_size_t>();
     auto rawSizes = sizes_->asMutable<vector_size_t>();
     vector_size_t nestedLength = 0;
