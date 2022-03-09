@@ -280,9 +280,6 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <includes>
-                                <include>**/tests/*.java</include>
-                            </includes>
                             <excludes>
                                 <exclude>**/TestPrestoSparkAggregations.java</exclude>
                                 <exclude>**/TestPrestoSparkJoinQueries.java</exclude>
