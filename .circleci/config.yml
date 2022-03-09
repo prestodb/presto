@@ -55,7 +55,7 @@ workflows:
 executors:
   build:
     docker:
-      - image : prestocpp/velox-circleci:sagarm-20220131
+      - image : prestocpp/velox-circleci:kpai-20220308
     resource_class: 2xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
@@ -209,6 +209,7 @@ jobs:
           name: "Build Benchmarks - Baseline"
           command: |
             git checkout $(git merge-base origin/main HEAD)
+            mkdir -p benchmark-dumps/baseline benchmark-dumps/target
             mkdir -p .ccache
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
@@ -219,9 +220,9 @@ jobs:
       - run:
           name: "Run Benchmarks - Baseline"
           command: |
-            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-dumps/baseline
       - run:
-          name: "Build Benchmarks - Current"
+          name: "Build Benchmarks - Target"
           command: |
             git checkout -
             mkdir -p .ccache
@@ -231,9 +232,16 @@ jobs:
             make benchmarks-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
       - run:
-          name: "Run Benchmarks - Current"
+          name: "Run Benchmarks - Target"
           command: |
-            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-dumps/target
+      - run:
+          name: "Benchmarks Summary"
+          command: |
+            # We don't want to fail the CI job yet, until we ensure the numbers are stable.
+            scripts/benchmark-runner.py compare \
+                --baseline-dump-path benchmark-dumps/baseline \
+                --target-dump-path benchmark-dumps/target || true
       - store_artifacts:
           path: '_build/debug/.ninja_log'
       - save_cache:

@@ -17,6 +17,7 @@ BUILD_BASE_DIR=_build
 BUILD_DIR=release
 BUILD_TYPE=Release
 BENCHMARKS_DIR=$(BUILD_BASE_DIR)/$(BUILD_DIR)/velox/benchmarks
+BENCHMARKS_DUMP_DIR=dumps
 TREAT_WARNINGS_AS_ERRORS ?= 1
 ENABLE_WALL ?= 1
 
@@ -90,10 +91,13 @@ min_debug:				#: Minimal build with debugging symbols
 benchmarks-build:
 	$(MAKE) release EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_MINIMAL=ON -DVELOX_BUILD_BENCHMARKS=ON"
 
-benchmarks-dump:
+benchmarks-run:
 	$(MAKE) benchmarks-build
-	mkdir -p $(BENCHMARKS_DIR)/dumps
-	find $(BENCHMARKS_DIR) -type f -executable -exec {} --bm_max_secs 10 --bm_epochs 100000 \;
+	scripts/benchmark-runner.py run \
+		--path $(BENCHMARKS_DIR) ${EXTRA_BENCHMARK_FLAGS}
+
+benchmarks-dump:
+	$(MAKE) benchmarks-run EXTRA_BENCHMARK_FLAGS="--dump-path ${BENCHMARKS_DUMP_DIR}"
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure

@@ -20,9 +20,10 @@ import subprocess
 import sys
 
 
-_FIND_BINARIES_CMD = "find %s -maxdepth 1 -type f"
+_FIND_BINARIES_CMD = "find %s -maxdepth 1 -type f -executable"
 _FIND_JSON_CMD = "find %s -maxdepth 1 -name '*.json' -type f"
-_BENCHMARK_CMD = "%s --bm_json_verbose %s --bm_max_secs 10 --bm_epochs 100000"
+_BENCHMARK_CMD = "%s --bm_max_secs 10 --bm_epochs 100000"
+_BENCHMARK_WITH_DUMP_CMD = _BENCHMARK_CMD + " --bm_json_verbose %s"
 
 _OUTPUT_NUM_COLS = 80
 
@@ -65,21 +66,28 @@ def run(args):
         print("No benchmark binaries found in path '%s'. Aborting..." % args.path)
         return 1
 
-    dump_path = args.dump_path if args.dump_path else os.path.join(args.path, "dumps")
-    os.makedirs(dump_path, exist_ok=True)
-
+    if args.dump_path:
+        os.makedirs(args.dump_path, exist_ok=True)
     print("Benchmark-runner found %i benchmarks binaries to execute." % len(files))
 
     # Execute and dump results for each benchmark file.
     for file_path in files:
         file_name = os.path.basename(file_path)
-        json_file_name = os.path.join(dump_path, "%s.json" % file_name)
 
-        print(
-            "Executing and dumping results for '%s' to '%s':"
-            % (file_name, json_file_name)
-        )
-        execute(_BENCHMARK_CMD % (file_path, json_file_name), print_stdout=True)
+        if args.dump_path:
+            json_file_name = os.path.join(args.dump_path, "%s.json" % file_name)
+            print(
+                "Executing and dumping results for '%s' to '%s':"
+                % (file_name, json_file_name)
+            )
+            execute(
+                _BENCHMARK_WITH_DUMP_CMD % (file_path, json_file_name),
+                print_stdout=True,
+            )
+        else:
+            print("Executing '%s':" % file_name)
+            execute(_BENCHMARK_CMD % file_path, print_stdout=True)
+
         print()
 
     return 0
@@ -102,7 +110,11 @@ def compare_file(args, target_data, baseline_data):
         benchmark_handle = get_benchmark_handle(row[0], row[1])
         baseline_result = baseline_map[benchmark_handle]
         target_result = row[2]
-        delta = 1 - (target_result / baseline_result)
+
+        if baseline_result == 0:
+            delta = target_result
+        else:
+            delta = 1 - (target_result / baseline_result)
 
         if abs(delta) > args.threshold:
             if delta > 0:
@@ -203,7 +215,7 @@ def parse_args():
     parser_run.add_argument(
         "--dump-path",
         default=None,
-        help="Path where json results will be dumped ('--path/dumps' by default)",
+        help="Path where json results will be dumped. By default only print to stdout.",
     )
     parser_run.set_defaults(func=run)
 
