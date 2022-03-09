@@ -194,13 +194,13 @@ void exportFlatStringVector(
   }
 
   // Allocate raw string buffer.
-  bridgeHolder.setBuffer(1, AlignedBuffer::allocate<char>(bufferSize, pool));
-  char* rawBuffer = bridgeHolder.getBufferAs<char>(1);
+  bridgeHolder.setBuffer(2, AlignedBuffer::allocate<char>(bufferSize, pool));
+  char* rawBuffer = bridgeHolder.getBufferAs<char>(2);
 
   // Allocate offset buffer.
   bridgeHolder.setBuffer(
-      2, AlignedBuffer::allocate<TOffset>(vector->size() + 1, pool));
-  TOffset* rawOffsets = bridgeHolder.getBufferAs<TOffset>(2);
+      1, AlignedBuffer::allocate<TOffset>(vector->size() + 1, pool));
+  TOffset* rawOffsets = bridgeHolder.getBufferAs<TOffset>(1);
   *rawOffsets = 0;
 
   // Second pass to actually copy the string data and set offsets.
@@ -734,8 +734,8 @@ VectorPtr importFromArrowImpl(
         type,
         nulls,
         arrowArray.length,
-        static_cast<const int32_t*>(arrowArray.buffers[2]), // offsets
-        static_cast<const char*>(arrowArray.buffers[1]), // values
+        static_cast<const int32_t*>(arrowArray.buffers[1]), // offsets
+        static_cast<const char*>(arrowArray.buffers[2]), // values
         arrowArray.null_count,
         wrapInBufferView);
   }

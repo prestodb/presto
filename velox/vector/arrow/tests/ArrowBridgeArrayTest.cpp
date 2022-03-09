@@ -104,8 +104,8 @@ class ArrowBridgeArrayExportTest : public testing::Test {
     ASSERT_EQ(3, arrowArray.n_buffers); // null, values, and offsets buffers.
 
     const uint64_t* nulls = static_cast<const uint64_t*>(arrowArray.buffers[0]);
-    const char* values = static_cast<const char*>(arrowArray.buffers[1]);
-    const int32_t* offsets = static_cast<const int32_t*>(arrowArray.buffers[2]);
+    const char* values = static_cast<const char*>(arrowArray.buffers[2]);
+    const int32_t* offsets = static_cast<const int32_t*>(arrowArray.buffers[1]);
 
     if (arrowArray.null_count == 0) {
       EXPECT_EQ(nulls, nullptr);
@@ -501,8 +501,8 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     auto rawValues = holder.values->asMutable<char>();
     *rawOffsets = 0;
 
-    holder.buffers[1] = (length == 0) ? nullptr : (const void*)rawValues;
-    holder.buffers[2] = (length == 0) ? nullptr : (const void*)rawOffsets;
+    holder.buffers[2] = (length == 0) ? nullptr : (const void*)rawValues;
+    holder.buffers[1] = (length == 0) ? nullptr : (const void*)rawOffsets;
 
     for (size_t i = 0; i < length; ++i) {
       if (inputValues[i] == std::nullopt) {
