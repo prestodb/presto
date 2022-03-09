@@ -92,7 +92,7 @@ template <typename T>
 struct ArrayWriterFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Array<int64_t>>& out,
       const arg_type<int64_t>& input) {
     const size_t size = arrayData[input].size();
@@ -100,7 +100,6 @@ struct ArrayWriterFunction {
     for (const auto i : arrayData[input]) {
       out.append(i);
     }
-    return true;
   }
 };
 
@@ -130,7 +129,7 @@ template <typename T>
 struct ArrayOfStringsWriterFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Array<Varchar>>& out,
       const arg_type<int64_t>& input) {
     const size_t size = stringArrayData[input].size();
@@ -138,7 +137,6 @@ struct ArrayOfStringsWriterFunction {
     for (const auto value : stringArrayData[input]) {
       out.append(out_type<Varchar>(StringView(value)));
     }
-    return true;
   }
 };
 
@@ -528,11 +526,10 @@ template <typename T>
 struct NonDefaultNullBehaviorFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool callNullable(
+  FOLLY_ALWAYS_INLINE void callNullable(
       out_type<bool>& out,
       const int64_t* input) {
     out = (input == nullptr);
-    return true;
   }
 };
 
@@ -552,19 +549,55 @@ TEST_F(SimpleFunctionTest, nonDefaultNullBehavior) {
   assertEqualVectors(expected, result);
 }
 
+// Ensure that functions can return null (return false).
+template <typename T>
+struct ReturnNullCallFunction {
+  FOLLY_ALWAYS_INLINE bool call(bool& out, const int64_t& input) {
+    return false;
+  }
+};
+
+template <typename T>
+struct ReturnNullCallNullableFunction {
+  FOLLY_ALWAYS_INLINE bool callNullable(bool& out, const int64_t* input) {
+    return false;
+  }
+};
+
+TEST_F(SimpleFunctionTest, returnNull) {
+  registerFunction<ReturnNullCallFunction, bool, int64_t>({"return_null_call"});
+  registerFunction<ReturnNullCallNullableFunction, bool, int64_t>(
+      {"return_null_call_nullable"});
+
+  const size_t rows = 10;
+  auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
+
+  // All null vector.
+  auto expected = makeFlatVector<bool>(
+      rows, [](auto) { return true; }, [](auto) { return true; });
+
+  // Check that null are being properly returned.
+  auto resultCall = evaluate<FlatVector<bool>>(
+      "return_null_call(c0)", makeRowVector({flatVector}));
+  auto resultCallNullable = evaluate<FlatVector<bool>>(
+      "return_null_call_nullable(c0)", makeRowVector({flatVector}));
+
+  assertEqualVectors(expected, resultCall);
+  assertEqualVectors(expected, resultCallNullable);
+}
+
 // Ensures that the call method can be templated.
 template <typename T>
 struct IsInputVarcharFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   template <typename TType>
-  FOLLY_ALWAYS_INLINE bool call(out_type<bool>& out, const TType&) {
+  FOLLY_ALWAYS_INLINE void call(out_type<bool>& out, const TType&) {
     if constexpr (std::is_same_v<TType, StringView>) {
       out = true;
     } else {
       out = false;
     }
-    return true;
   }
 };
 
@@ -595,7 +628,7 @@ template <typename T>
 struct MapReaderFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& out,
       const arg_type<Map<int64_t, double>>& input) {
     out = 0;
@@ -605,7 +638,6 @@ struct MapReaderFunction {
         out += entry.second.value();
       }
     }
-    return true;
   }
 };
 
@@ -637,7 +669,7 @@ template <typename T>
 struct MapArrayReaderFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       double& out,
       const arg_type<Map<int64_t, Array<double>>>& input) {
     out = 0;
@@ -651,7 +683,6 @@ struct MapArrayReaderFunction {
         }
       }
     }
-    return true;
   }
 };
 
@@ -699,7 +730,7 @@ struct MyArrayStringReuseFunction {
 
   static constexpr int32_t reuse_strings_from_arg = 0;
 
-  bool call(out_type<Array<Varchar>>& out, const arg_type<Varchar>& input) {
+  void call(out_type<Array<Varchar>>& out, const arg_type<Varchar>& input) {
     auto start = input.begin();
     auto cur = start;
 
@@ -708,7 +739,6 @@ struct MyArrayStringReuseFunction {
       out.append(std::optional{StringView(start, cur - start)});
       start = cur + 1;
     } while (cur < input.end());
-    return true;
   }
 };
 
@@ -741,10 +771,9 @@ template <typename T>
 struct MapStringOut {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  bool call(out_type<Map<Varchar, Varchar>>& out, int64_t n) {
+  void call(out_type<Map<Varchar, Varchar>>& out, int64_t n) {
     auto string = std::to_string(n);
     out.emplace(StringView(string), std::optional{StringView(string)});
-    return true;
   }
 };
 

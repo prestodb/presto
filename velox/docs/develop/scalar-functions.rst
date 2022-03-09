@@ -18,9 +18,8 @@ ceil function can be implemented as:
   template <typename TExecParams>
   struct CeilFunction {
     template <typename T>
-    FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
+    FOLLY_ALWAYS_INLINE void call(T& result, const T& a) {
       result = std::ceil(a);
-      return true;
     }
   };
 
@@ -39,13 +38,28 @@ described in the "Registration" section below.
 
 Please avoid using the obsolete VELOX_UDF_BEGIN/VELOX_UDF_END macros.
 
-The "call" function must return a boolean indicating whether the result of
-computation is null or not. True means the result is not null. False means
-the result is null. The arguments must start with an output
-parameter “result” followed by the function arguments. The “result” argument
-must be a reference. Function arguments must be const references. The C++
-types of the arguments must match Velox types as specified in the following
-mapping:
+The "call" function (or one of its variations) may return (a) void indicating
+the function never returns null values, or (b) boolean indicating whether
+the result of the computation is null. True means the result is not null;
+false means the result is null. If "ceil(0)" were to return null, the function
+above could be re-written as follows:
+
+.. code-block:: c++
+
+  template <typename TExecParams>
+  struct NullableCeilFunction {
+    template <typename T>
+    FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
+      result = std::ceil(a);
+      return a != 0;
+    }
+  };
+
+
+The argument list must start with an output parameter “result” followed by the
+function arguments. The “result” argument must be a reference. Function
+arguments must be const references. The C++ types of the arguments must match
+Velox types as specified in the following mapping:
 
 ==========  ==============================  =============================
 Velox Type  C++ Argument Type               C++ Result Type
@@ -90,19 +104,19 @@ an artificial example of a ceil function that returns 0 for null input:
   template <typename TExecParams>
   struct CeilFunction {
     template <typename T>
-    FOLLY_ALWAYS_INLINE bool callNullable(T& result, const T* a) {
+    FOLLY_ALWAYS_INLINE void callNullable(T& result, const T* a) {
       // Return 0 if input is null.
       if (a) {
         result = std::ceil(*a);
       } else {
         result = 0;
       }
-      return true;
     }
   };
 
 Notice that callNullable function takes arguments as raw pointers and not
-references to allow for specifying null values.
+references to allow for specifying null values. callNullable() can also return
+void to indicate that the function does not produce null values.
 
 Null-Free Fast Path
 *******************
@@ -196,7 +210,6 @@ scan the strings to determine whether they are ASCII or not.
 Here is an example of a trim function:
 
 .. code-block:: c++
-
 
   template <typename TExecParams>
   struct TrimFunction {

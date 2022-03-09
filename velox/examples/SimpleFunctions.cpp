@@ -41,24 +41,28 @@ namespace {
 // - The class needs to define a `call()` method which will get called for each
 //   input row. FOLLY_ALWAYS_INLINE may be used to ensure the compiler always
 //   inlines it.
-// - The `call()` method must return boolean, specifying if the returned value
-//   is not null (true) or null (false).
+//
 // - The first parameter for `call()` is always the return value of the function
 //   (taken as a non-const ref), followed by the remaining function parameters
 //   (taken as const refs).
+//
 // - Input parameters are not nullable by default; the expression eval path
 //   assumes that any null values in the inputs will produce null as output, and
 //   skips the actual `call()` execution, as an optimization. Check the examples
 //   below if you need to change this behavior and take nullable inputs.
+//
+// - The `call()` method may return bool or void. Bool controls the nullability
+//   of the output value (true means not null, false means null); void means the
+//   function never returns null.
+//
 // - The struct/class needs to take a template parameter (T), which will be used
 //   in the next examples to define string and complex types (this is a legacy
 //   requirement and will be removed in the future).
-template <typename T>
+template <typename TExecParams>
 struct MyPlusFunction {
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(int64_t& out, const int64_t& a, const int64_t& b) {
     out = a + b;
-    return true;
   }
 };
 
@@ -88,15 +92,13 @@ void register1() {
 template <typename T>
 struct MyPlusTemplatedFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(TInput& out, const TInput& a, const TInput& b) {
+  FOLLY_ALWAYS_INLINE void call(TInput& out, const TInput& a, const TInput& b) {
     out = a + b;
-    return true;
   }
 
   // You can overload for specific types to specialize.
-  FOLLY_ALWAYS_INLINE bool call(double& out, const double& a, const double& b) {
+  FOLLY_ALWAYS_INLINE void call(double& out, const double& a, const double& b) {
     out = (std::isnan(a) ? 0 : a) + (std::isnan(b) ? 0 : b);
-    return true;
   }
 };
 
@@ -121,7 +123,10 @@ void register2() {
 // If having nulls in one of the inputs does not imply null in the output, a
 // function can change the null behavior by overwriting the `callNullable()`
 // method, instead of `call()`. The main difference being that the expected
-// signature takes input parameters as pointers instead of const refs:
+// signature takes input parameters as pointers instead of const refs.
+//
+// Also, both call() and callNullabe() can be implemented returning a boolean
+// controling the nullability of the output result (true means not null).
 template <typename T>
 struct MyNullablePlusFunction {
   FOLLY_ALWAYS_INLINE bool
