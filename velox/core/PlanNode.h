@@ -191,7 +191,7 @@ class ValuesNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "values";
+    return "Values";
   }
 
  private:
@@ -223,7 +223,7 @@ class FilterNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "filter";
+    return "Filter";
   }
 
  private:
@@ -276,7 +276,7 @@ class ProjectNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "project";
+    return "Project";
   }
 
  private:
@@ -338,7 +338,7 @@ class TableScanNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "table scan";
+    return "TableScan";
   }
 
  private:
@@ -397,7 +397,7 @@ class TableWriteNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "table write";
+    return "TableWrite";
   }
 
  private:
@@ -500,7 +500,7 @@ class AggregationNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "aggregation";
+    return "Aggregation";
   }
 
  private:
@@ -555,7 +555,7 @@ class ExchangeNode : public PlanNode {
   const std::vector<std::shared_ptr<const PlanNode>>& sources() const override;
 
   std::string_view name() const override {
-    return "exchange";
+    return "Exchange";
   }
 
  private:
@@ -586,7 +586,7 @@ class MergeExchangeNode : public ExchangeNode {
   }
 
   std::string_view name() const override {
-    return "merge exchange";
+    return "MergeExchange";
   }
 
  private:
@@ -626,7 +626,7 @@ class LocalMergeNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "local merge";
+    return "LocalMerge";
   }
 
  private:
@@ -704,7 +704,7 @@ class LocalPartitionNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "local repartitioning";
+    return "LocalPartition";
   }
 
  private:
@@ -822,7 +822,7 @@ class PartitionedOutputNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "repartitioning";
+    return "PartitionedOutput";
   }
 
  private:
@@ -985,7 +985,7 @@ class HashJoinNode : public AbstractJoinNode {
             outputType) {}
 
   std::string_view name() const override {
-    return "hash join";
+    return "HashJoin";
   }
 };
 
@@ -1016,7 +1016,7 @@ class MergeJoinNode : public AbstractJoinNode {
             outputType) {}
 
   std::string_view name() const override {
-    return "merge join";
+    return "MergeJoin";
   }
 };
 
@@ -1038,7 +1038,7 @@ class CrossJoinNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "cross join";
+    return "CrossJoin";
   }
 
  private:
@@ -1095,7 +1095,7 @@ class OrderByNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "orderby";
+    return "OrderBy";
   }
 
  private:
@@ -1158,7 +1158,7 @@ class TopNNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "topN";
+    return "TopN";
   }
 
  private:
@@ -1213,7 +1213,7 @@ class LimitNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "limit";
+    return "Limit";
   }
 
  private:
@@ -1276,7 +1276,7 @@ class UnnestNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "unnest";
+    return "Unnest";
   }
 
  private:
@@ -1312,7 +1312,7 @@ class EnforceSingleRowNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "enforce single row";
+    return "EnforceSingleRow";
   }
 
  private:
@@ -1348,7 +1348,7 @@ class AssignUniqueIdNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "assign unique id";
+    return "AssignUniqueId";
   }
 
   int32_t taskUniqueId() const {

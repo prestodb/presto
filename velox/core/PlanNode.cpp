@@ -416,7 +416,7 @@ void PlanNode::toString(
         std::stringstream& stream)> addContext) const {
   const std::string indentation(indentationSize, ' ');
 
-  stream << indentation << "->" << name();
+  stream << indentation << "-> " << name();
 
   if (detailed) {
     stream << "[";
@@ -426,7 +426,7 @@ void PlanNode::toString(
   stream << std::endl;
 
   if (addContext) {
-    auto contextIndentation = indentation + "  ";
+    auto contextIndentation = indentation + "   ";
     stream << contextIndentation;
     addContext(id_, contextIndentation, stream);
     stream << std::endl;
