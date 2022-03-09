@@ -19,6 +19,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 
 using namespace facebook::velox;
@@ -151,7 +152,7 @@ class JsonCastTest : public functions::test::CastBaseTest {
   }
 };
 
-TEST_F(JsonCastTest, fromBigint) {
+TEST_F(JsonCastTest, fromInteger) {
   testCast<int64_t, Json>(
       BIGINT(),
       JSON(),
@@ -162,8 +163,13 @@ TEST_F(JsonCastTest, fromBigint) {
        "9223372036854775807"_sv,
        "-9223372036854775808"_sv,
        std::nullopt});
-  testCast<int64_t, Json>(
-      BIGINT(),
+  testCast<int8_t, Json>(
+      TINYINT(),
+      JSON(),
+      {1, -3, 0, INT8_MAX, INT8_MIN, std::nullopt},
+      {"1"_sv, "-3"_sv, "0"_sv, "127"_sv, "-128"_sv, std::nullopt});
+  testCast<int32_t, Json>(
+      INTEGER(),
       JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
@@ -208,10 +214,11 @@ TEST_F(JsonCastTest, fromDouble) {
   testCast<double, Json>(
       DOUBLE(),
       JSON(),
-      {1.1, 2.0001, 10.0, kNan, kInf, -kInf, std::nullopt},
+      {1.1, 2.0001, 10.0, 3.14e0, kNan, kInf, -kInf, std::nullopt},
       {"1.1"_sv,
        "2.0001"_sv,
        "10"_sv,
+       "3.14"_sv,
        "NaN"_sv,
        "Infinity"_sv,
        "-Infinity"_sv,
@@ -257,9 +264,9 @@ TEST_F(JsonCastTest, fromTimestamp) {
 
 TEST_F(JsonCastTest, fromArray) {
   TwoDimVector<StringView> array{
-      {"red"_sv, "blue"_sv}, {std::nullopt, "purple"_sv}, {}};
+      {"red"_sv, "blue"_sv}, {std::nullopt, std::nullopt, "purple"_sv}, {}};
   std::vector<std::optional<Json>> expected{
-      R"(["red","blue"])", R"([null,"purple"])", "[]"};
+      R"(["red","blue"])", R"([null,null,"purple"])", "[]"};
 
   auto arrayVector = makeNullableArrayVector<StringView>(array);
   auto expectedVector = makeNullableFlatVector<Json>(expected);
@@ -267,10 +274,10 @@ TEST_F(JsonCastTest, fromArray) {
   testCast<Json>(ARRAY(VARCHAR()), JSON(), arrayVector, expectedVector);
 
   // Tests array whose elements are wrapped in a dictionary.
-  std::vector<std::optional<int64_t>> elements{1, 2, 3, 4, 5, 6, 7};
+  std::vector<std::optional<int64_t>> elements{1, -2, 3, -4, 5, -6, 7};
   auto arrayOfDictElements = makeArrayWithDictionaryElements(elements, 2);
   auto arrayOfDictElementsExpected =
-      makeNullableFlatVector<Json>({"[7,6]", "[5,4]", "[3,2]", "[1]"});
+      makeNullableFlatVector<Json>({"[7,-6]", "[5,-4]", "[3,-2]", "[1]"});
 
   testCast<Json>(
       ARRAY(BIGINT()),
@@ -288,12 +295,12 @@ TEST_F(JsonCastTest, fromArray) {
 TEST_F(JsonCastTest, fromMap) {
   using P = std::pair<StringView, std::optional<int64_t>>;
 
-  std::vector<P> a{{"red"_sv, 1}, {"blue"_sv, 2}};
-  std::vector<P> b{{"purple", std::nullopt}, {"orange"_sv, 2}};
+  std::vector<P> a{{"blue"_sv, 1}, {"red"_sv, 2}};
+  std::vector<P> b{{"purple", std::nullopt}, {"orange"_sv, -2}};
   std::vector<std::vector<P>> map{a, b, {}};
 
   std::vector<std::optional<Json>> expected{
-      R"({"red":1,"blue":2})", R"({"purple":null,"orange":2})", "{}"};
+      R"({"blue":1,"red":2})", R"({"orange":-2,"purple":null})", "{}"};
 
   auto mapVector = makeMapVector<StringView, int64_t>(map);
   auto expectedVector = makeNullableFlatVector<Json>(expected);
@@ -303,14 +310,15 @@ TEST_F(JsonCastTest, fromMap) {
   // Tests map whose elements are wrapped in a dictionary.
   std::vector<std::optional<StringView>> keys{
       "a"_sv, "b"_sv, "c"_sv, "d"_sv, "e"_sv, "f"_sv, "g"_sv};
-  std::vector<std::optional<int64_t>> values{1, 2, 3, 4, 5, 6, 7};
+  std::vector<std::optional<double>> values{
+      1.1e3, 2.2, 3.14e0, -4.4, std::nullopt, -6e-10, -7.7};
   auto mapOfDictElements = makeMapWithDictionaryElements(keys, values, 2);
 
   auto mapOfDictElementsExpected = makeNullableFlatVector<Json>(
-      {R"({"g":7,"f":6})",
-       R"({"e":5,"d":4})",
-       R"({"c":3,"b":2})",
-       R"({"a":1})"});
+      {R"({"f":-6E-10,"g":-7.7})",
+       R"({"d":-4.4,"e":null})",
+       R"({"b":2.2,"c":3.14})",
+       R"({"a":1100})"});
 
   testCast<Json>(
       MAP(VARCHAR(), BIGINT()),
@@ -374,7 +382,7 @@ TEST_F(JsonCastTest, fromRow) {
 TEST_F(JsonCastTest, fromNested) {
   // Create map of array vector.
   auto keyVector = makeFlatVector<StringView>(
-      {"red"_sv, "blue"_sv, "green"_sv, "yellow"_sv, "purple"_sv, "orange"_sv});
+      {"blue"_sv, "red"_sv, "green"_sv, "yellow"_sv, "purple"_sv, "orange"_sv});
   auto valueVector = makeNullableArrayVector<int64_t>(
       {{1, 2},
        {std::nullopt, 4},
@@ -407,7 +415,7 @@ TEST_F(JsonCastTest, fromNested) {
   // Create array of map vector
   using Pair = std::pair<StringView, std::optional<int64_t>>;
 
-  std::vector<Pair> a{Pair{"red"_sv, 1}, Pair{"blue"_sv, 2}};
+  std::vector<Pair> a{Pair{"blue"_sv, 1}, Pair{"red"_sv, 2}};
   std::vector<Pair> b{Pair{"green"_sv, std::nullopt}};
   std::vector<Pair> c{Pair{"yellow"_sv, 4}, Pair{"purple"_sv, 5}};
   std::vector<std::vector<std::vector<Pair>>> data{{a, b}, {b}, {c, a}};
@@ -418,9 +426,9 @@ TEST_F(JsonCastTest, fromNested) {
   auto rowVector = makeRowVector({mapVector, arrayVector});
 
   std::vector<std::optional<Json>> expected{
-      R"([{"red":[1,2],"blue":[null,4]},[{"red":1,"blue":2},{"green":null}]])",
+      R"([{"blue":[1,2],"red":[null,4]},[{"blue":1,"red":2},{"green":null}]])",
       R"([null,[{"green":null}]])",
-      R"([{"purple":[9,null],"orange":[11,12]},[{"yellow":4,"purple":5},{"red":1,"blue":2}]])"};
+      R"([{"orange":[11,12],"purple":[9,null]},[{"purple":5,"yellow":4},{"blue":1,"red":2}]])"};
   auto expectedVector = makeNullableFlatVector<Json>(expected);
 
   testCast<Json>(

@@ -16,6 +16,7 @@
 
 #include "velox/functions/prestosql/types/JsonType.h"
 
+#include <algorithm>
 #include <string>
 
 #include "folly/CPortability.h"
@@ -267,6 +268,7 @@ void castToJsonFromMap(
 
   // Constructs the Json string of each map from Json strings of its keys and
   // values.
+  std::vector<std::pair<StringView, StringView>> sortedPairs;
   rows.applyToSelected([&](auto row) {
     if (inputMap->isNullAt(row)) {
       flatResult.set(row, "null");
@@ -276,16 +278,24 @@ void castToJsonFromMap(
     auto offset = inputMap->offsetAt(row);
     auto size = inputMap->sizeAt(row);
 
+    // Sort key-value pairs in each map.
+    sortedPairs.clear();
+    for (int i = offset, end = offset + size; i < end; ++i) {
+      sortedPairs.push_back(
+          std::make_pair(keysAsJson.at(i), valuesAsJson.at(i)));
+    }
+    std::sort(sortedPairs.begin(), sortedPairs.end());
+
     auto proxy = exec::StringWriter<>(&flatResult, row);
 
     proxy.append("{"_sv);
-    for (int i = offset, end = offset + size; i < end; ++i) {
-      if (i > offset) {
+    for (auto it = sortedPairs.begin(); it != sortedPairs.end(); ++it) {
+      if (it != sortedPairs.begin()) {
         proxy.append(","_sv);
       }
-      proxy.append(keysAsJson.at(i));
+      proxy.append(it->first);
       proxy.append(":"_sv);
-      proxy.append(valuesAsJson.at(i));
+      proxy.append(it->second);
     }
     proxy.append("}"_sv);
 
