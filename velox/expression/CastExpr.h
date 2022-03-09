@@ -40,6 +40,8 @@ class CastExpr : public SpecialForm {
       EvalCtx* context,
       VectorPtr* result) override;
 
+  std::string toString() const override;
+
  private:
   /// @tparam To The cast target type
   /// @tparam From The expression type

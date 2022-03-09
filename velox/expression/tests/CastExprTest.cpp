@@ -624,3 +624,13 @@ TEST_F(CastExprTest, testNullOnFailure) {
   EXPECT_THROW(
       testComplexCast("c0", input, expected, false), std::invalid_argument);
 }
+
+TEST_F(CastExprTest, toString) {
+  auto input = std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "a");
+  exec::ExprSet exprSet(
+      {makeCastExpr(input, BIGINT(), false),
+       makeCastExpr(input, ARRAY(VARCHAR()), false)},
+      &execCtx_);
+  ASSERT_EQ("cast((a) as BIGINT)", exprSet.exprs()[0]->toString());
+  ASSERT_EQ("cast((a) as ARRAY<VARCHAR>)", exprSet.exprs()[1]->toString());
+}

@@ -269,6 +269,8 @@ class Expr {
       VectorPtr* result);
 
  protected:
+  void appendInputs(std::stringstream& stream) const;
+
   const std::shared_ptr<const Type> type_;
   const std::vector<std::shared_ptr<Expr>> inputs_;
   const std::string name_;

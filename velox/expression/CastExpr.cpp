@@ -89,12 +89,14 @@ void populateNestedRows(
 std::string makeErrorMessage(
     const DecodedVector& input,
     vector_size_t row,
-    const TypePtr& toType) {
+    const TypePtr& toType,
+    const std::string& castExpr) {
   return fmt::format(
-      "Failed to cast from {} to {}: {}",
+      "Failed to cast from {} to {}: {}. Cast expression: {}.",
       input.base()->type()->toString(),
       toType->toString(),
-      input.base()->toString(input.index(row)));
+      input.base()->toString(input.index(row)),
+      castExpr);
 }
 
 } // namespace
@@ -119,14 +121,14 @@ void CastExpr::applyCastWithTry(
           if (nullOutput) {
             context->setError(
                 row,
-                std::make_exception_ptr(std::invalid_argument(
-                    makeErrorMessage(input, row, resultFlatVector->type()))));
+                std::make_exception_ptr(std::invalid_argument(makeErrorMessage(
+                    input, row, resultFlatVector->type(), toString()))));
           }
         } catch (const std::exception& e) {
           context->setError(
               row,
-              std::make_exception_ptr(std::invalid_argument(
-                  makeErrorMessage(input, row, resultFlatVector->type()))));
+              std::make_exception_ptr(std::invalid_argument(makeErrorMessage(
+                  input, row, resultFlatVector->type(), toString()))));
         }
       });
     } else {
@@ -624,6 +626,14 @@ void CastExpr::evalSpecialForm(
   auto fromType = inputs_[0]->type();
   auto toType = std::const_pointer_cast<const Type>(type_);
   apply(rows, input, context, fromType, toType, result);
+}
+
+std::string CastExpr::toString() const {
+  std::stringstream out;
+  out << "cast(";
+  appendInputs(out);
+  out << " as " << type_->toString() << ")";
+  return out.str();
 }
 
 } // namespace facebook::velox::exec

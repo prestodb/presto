@@ -1135,17 +1135,21 @@ void Expr::applySingleConstArgVectorFunction(
 std::string Expr::toString() const {
   std::stringstream out;
   out << name_;
+  appendInputs(out);
+  return out.str();
+}
+
+void Expr::appendInputs(std::stringstream& stream) const {
   if (!inputs_.empty()) {
-    out << "(";
+    stream << "(";
     for (auto i = 0; i < inputs_.size(); ++i) {
       if (i > 0) {
-        out << ", ";
+        stream << ", ";
       }
-      out << inputs_[i]->toString();
+      stream << inputs_[i]->toString();
     }
-    out << ")";
+    stream << ")";
   }
-  return out.str();
 }
 
 ExprSet::ExprSet(
