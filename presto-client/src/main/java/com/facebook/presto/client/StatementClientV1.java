@@ -54,6 +54,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DELEGATION_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
@@ -155,6 +156,10 @@ class StatementClientV1
         Map<String, String> customHeaders = session.getCustomHeaders();
         for (Entry<String, String> entry : customHeaders.entrySet()) {
             builder.addHeader(entry.getKey(), entry.getValue());
+        }
+
+        if (session.getDelegation() != null) {
+            builder.addHeader(PRESTO_DELEGATION_TOKEN, session.getDelegation());
         }
 
         if (session.getSource() != null) {

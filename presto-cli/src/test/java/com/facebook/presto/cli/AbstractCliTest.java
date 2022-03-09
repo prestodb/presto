@@ -73,6 +73,7 @@ public abstract class AbstractCliTest
                 "clientInfo",
                 "catalog",
                 "schema",
+                "delegation",
                 "America/Los_Angeles",
                 Locale.ENGLISH,
                 ImmutableMap.of(),

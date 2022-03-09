@@ -751,6 +751,7 @@ public class PrestoConnection
                 clientInfo.get("ClientInfo"),
                 catalog.get(),
                 schema.get(),
+                null,
                 timeZoneId.get(),
                 locale.get(),
                 ImmutableMap.of(),

@@ -42,6 +42,7 @@ public class ClientSession
     private final String clientInfo;
     private final String catalog;
     private final String schema;
+    private final String delegation;
     private final TimeZoneKey timeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
@@ -76,6 +77,7 @@ public class ClientSession
             String clientInfo,
             String catalog,
             String schema,
+            String delegation,
             String timeZoneId,
             Locale locale,
             Map<String, String> resourceEstimates,
@@ -97,6 +99,7 @@ public class ClientSession
         this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
+        this.delegation = delegation;
         this.locale = locale;
         this.timeZone = TimeZoneKey.getTimeZoneKey(timeZoneId);
         this.transactionId = transactionId;
@@ -185,6 +188,11 @@ public class ClientSession
     public String getSchema()
     {
         return schema;
+    }
+
+    public String getDelegation()
+    {
+        return delegation;
     }
 
     public TimeZoneKey getTimeZone()
@@ -284,6 +292,7 @@ public class ClientSession
         private String clientInfo;
         private String catalog;
         private String schema;
+        private String delegation;
         private TimeZoneKey timeZone;
         private Locale locale;
         private Map<String, String> resourceEstimates;
@@ -308,6 +317,7 @@ public class ClientSession
             clientInfo = clientSession.getClientInfo();
             catalog = clientSession.getCatalog();
             schema = clientSession.getSchema();
+            delegation = clientSession.getDelegation();
             timeZone = clientSession.getTimeZone();
             locale = clientSession.getLocale();
             resourceEstimates = clientSession.getResourceEstimates();
@@ -343,6 +353,12 @@ public class ClientSession
         public Builder withRoles(Map<String, SelectedRole> roles)
         {
             this.roles = roles;
+            return this;
+        }
+
+        public Builder withDelegation(String delegation)
+        {
+            this.delegation = requireNonNull(delegation, "delegation is null");
             return this;
         }
 
@@ -399,6 +415,7 @@ public class ClientSession
                     clientInfo,
                     catalog,
                     schema,
+                    delegation,
                     timeZone.getId(),
                     locale,
                     resourceEstimates,

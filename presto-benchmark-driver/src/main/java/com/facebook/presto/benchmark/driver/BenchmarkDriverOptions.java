@@ -99,6 +99,7 @@ public class BenchmarkDriverOptions
                 null,
                 catalog,
                 schema,
+                null,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 ImmutableMap.of(),

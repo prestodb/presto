@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DELEGATION_TOKEN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -90,6 +91,15 @@ public final class OkHttpUtil
         String credential = Credentials.basic(user, password);
         return chain -> chain.proceed(chain.request().newBuilder()
                 .header(AUTHORIZATION, credential)
+                .build());
+    }
+
+    public static Interceptor delegationTokenAuth(String delegationToken)
+    {
+        requireNonNull(delegationToken, "delegation token is null");
+
+        return chain -> chain.proceed(chain.request().newBuilder()
+                .header(PRESTO_DELEGATION_TOKEN, delegationToken)
                 .build());
     }
 
