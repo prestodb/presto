@@ -220,51 +220,44 @@ void Expr::eval(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
-  try {
-    if (!rows.hasSelections()) {
-      // empty input, return an empty vector of the right type
-      *result = BaseVector::createNullConstant(type(), 0, context->pool());
-      return;
-    }
-
-    // Check if there are any IFs, ANDs or ORs. These expressions are special
-    // because not all of their sub-expressions get evaluated on all the rows
-    // all the time. Therefore, we should delay loading lazy vectors until we
-    // know the minimum subset of rows needed to be loaded.
-    //
-    // If there is only one field, load it unconditionally. The very first IF,
-    // AND or OR will have to load it anyway. Pre-loading enables peeling of
-    // encodings at a higher level in the expression tree and avoids repeated
-    // peeling and wrapping in the sub-nodes.
-    //
-    // TODO: Re-work the logic of deciding when to load which field.
-    if (!hasConditionals_ || distinctFields_.size() == 1) {
-      // Load lazy vectors if any.
-      for (const auto& field : distinctFields_) {
-        context->ensureFieldLoaded(field->index(context), rows);
-      }
-    }
-
-    if (inputs_.empty()) {
-      evalAll(rows, context, result);
-      return;
-    }
-
-    // Check if this expression has been evaluated already. If so, fetch and
-    // return the previously computed result.
-    if (checkGetSharedSubexprValues(rows, context, result)) {
-      return;
-    }
-
-    evalEncodings(rows, context, result);
-
-    checkUpdateSharedSubexprValues(rows, context, *result);
-  } catch (const std::exception& e) {
-    LOG(INFO) << "Inside: " << rows.countSelected() << " from " << rows.begin()
-              << " to " << rows.end() << " wrap " << context->wrapEncoding()
-              << " expr " << toString();
-    throw;
+  if (!rows.hasSelections()) {
+    // empty input, return an empty vector of the right type
+    *result = BaseVector::createNullConstant(type(), 0, context->pool());
+    return;
   }
+
+  // Check if there are any IFs, ANDs or ORs. These expressions are special
+  // because not all of their sub-expressions get evaluated on all the rows
+  // all the time. Therefore, we should delay loading lazy vectors until we
+  // know the minimum subset of rows needed to be loaded.
+  //
+  // If there is only one field, load it unconditionally. The very first IF,
+  // AND or OR will have to load it anyway. Pre-loading enables peeling of
+  // encodings at a higher level in the expression tree and avoids repeated
+  // peeling and wrapping in the sub-nodes.
+  //
+  // TODO: Re-work the logic of deciding when to load which field.
+  if (!hasConditionals_ || distinctFields_.size() == 1) {
+    // Load lazy vectors if any.
+    for (const auto& field : distinctFields_) {
+      context->ensureFieldLoaded(field->index(context), rows);
+    }
+  }
+
+  if (inputs_.empty()) {
+    evalAll(rows, context, result);
+    return;
+  }
+
+  // Check if this expression has been evaluated already. If so, fetch and
+  // return the previously computed result.
+  if (checkGetSharedSubexprValues(rows, context, result)) {
+    return;
+  }
+
+  evalEncodings(rows, context, result);
+
+  checkUpdateSharedSubexprValues(rows, context, *result);
 }
 
 bool Expr::checkGetSharedSubexprValues(
