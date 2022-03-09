@@ -302,6 +302,9 @@ struct DriverFactory {
   /// grouped execution it is 'numDrivers' * 'numSplitGroups', otherwise it is
   /// 'numDrivers'.
   uint32_t numTotalDrivers;
+  /// The (local) node that will consume results supplied by this pipeline.
+  /// Can be null. We use that to determine the max drivers.
+  std::shared_ptr<const core::PlanNode> consumerNode;
 
   // True if 'planNodes' contains a source node for the task, e.g. TableScan or
   // Exchange.

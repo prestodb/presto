@@ -125,12 +125,14 @@ OperatorSupplier makeConsumerSupplier(
 void plan(
     const std::shared_ptr<const core::PlanNode>& planNode,
     std::vector<std::shared_ptr<const core::PlanNode>>* currentPlanNodes,
+    const std::shared_ptr<const core::PlanNode>& consumerNode,
     OperatorSupplier consumerSupplier,
     std::vector<std::unique_ptr<DriverFactory>>* driverFactories) {
   if (!currentPlanNodes) {
     driverFactories->push_back(std::make_unique<DriverFactory>());
     currentPlanNodes = &driverFactories->back()->planNodes;
     driverFactories->back()->consumerSupplier = consumerSupplier;
+    driverFactories->back()->consumerNode = consumerNode;
   }
 
   auto sources = planNode->sources();
@@ -141,6 +143,7 @@ void plan(
       plan(
           sources[i],
           mustStartNewPipeline(planNode, i) ? nullptr : currentPlanNodes,
+          planNode,
           makeConsumerSupplier(planNode),
           driverFactories);
     }
@@ -149,10 +152,22 @@ void plan(
   currentPlanNodes->push_back(planNode);
 }
 
-uint32_t maxDrivers(
-    const std::vector<std::shared_ptr<const core::PlanNode>>& planNodes) {
-  uint32_t count = std::numeric_limits<uint32_t>::max();
-  for (auto& node : planNodes) {
+// Sometimes consumer limits the number of drivers its producer can run.
+uint32_t maxDriversForConsumer(
+    const std::shared_ptr<const core::PlanNode>& node) {
+  if (std::dynamic_pointer_cast<const core::MergeJoinNode>(node)) {
+    // MergeJoinNode must run single-threaded.
+    return 1;
+  }
+  return std::numeric_limits<uint32_t>::max();
+}
+
+uint32_t maxDrivers(const DriverFactory& driverFactory) {
+  uint32_t count = maxDriversForConsumer(driverFactory.consumerNode);
+  if (count == 1) {
+    return count;
+  }
+  for (auto& node : driverFactory.planNodes) {
     if (auto aggregation =
             std::dynamic_pointer_cast<const core::AggregationNode>(node)) {
       if (aggregation->step() == core::AggregationNode::Step::kFinal ||
@@ -195,6 +210,9 @@ uint32_t maxDrivers(
             std::dynamic_pointer_cast<const core::MergeExchangeNode>(node)) {
       // MergeExchange must run single-threaded.
       return 1;
+    } else if (std::dynamic_pointer_cast<const core::MergeJoinNode>(node)) {
+      // MergeJoinNode must run single-threaded.
+      return 1;
     } else if (
         auto tableWrite =
             std::dynamic_pointer_cast<const core::TableWriteNode>(node)) {
@@ -231,13 +249,14 @@ void LocalPlanner::plan(
   detail::plan(
       planFragment.planNode,
       nullptr,
+      nullptr,
       detail::makeConsumerSupplier(consumerSupplier),
       driverFactories);
 
   (*driverFactories)[0]->outputDriver = true;
 
   for (auto& factory : *driverFactories) {
-    factory->maxDrivers = detail::maxDrivers(factory->planNodes);
+    factory->maxDrivers = detail::maxDrivers(*factory);
     factory->numDrivers = std::min(factory->maxDrivers, maxDrivers);
     // For grouped/bucketed execution we would have separate groups of drivers
     // dealing with separate split groups (one driver can access splits from

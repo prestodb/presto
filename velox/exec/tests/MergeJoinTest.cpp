@@ -413,3 +413,32 @@ TEST_F(MergeJoinTest, leftJoinFilter) {
     }
   }
 }
+
+// Verify that both left-side and right-side pipelines feeding the merge join
+// always run single-threaded.
+TEST_F(MergeJoinTest, numDrivers) {
+  auto left = makeRowVector({"t_c0"}, {makeFlatVector<int32_t>({1, 2, 3})});
+  auto right = makeRowVector({"u_c0"}, {makeFlatVector<int32_t>({0, 2, 5})});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values({left}, true)
+          .mergeJoin(
+              {"t_c0"},
+              {"u_c0"},
+              PlanBuilder(planNodeIdGenerator).values({right}, true).planNode(),
+              "",
+              {"t_c0", "u_c0"},
+              core::JoinType::kInner)
+          .planNode();
+
+  CursorParameters params;
+  params.planNode = plan;
+  params.maxDrivers = 5;
+  params.numResultDrivers = 1;
+  auto task = assertQuery(params, "SELECT 2, 2");
+  // We have two pipelines in the task and each must have 1 driver.
+  EXPECT_EQ(2, task->numTotalDrivers());
+  EXPECT_EQ(2, task->numFinishedDrivers());
+}
