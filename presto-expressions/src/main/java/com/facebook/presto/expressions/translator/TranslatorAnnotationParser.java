@@ -38,7 +38,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
+import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -158,9 +158,9 @@ class TranslatorAnnotationParser
         }
 
         if (header.getOperatorType().isPresent()) {
-            return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
+            return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, JAVA, header.isDeterministic(), header.isCalledOnNullInput());
         }
-        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
+        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, JAVA, header.isDeterministic(), header.isCalledOnNullInput());
     }
 
     @SafeVarargs

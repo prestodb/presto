@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static java.util.Objects.requireNonNull;
@@ -91,6 +92,7 @@ public class PrestoSparkQueryPlanner
                 accessControl,
                 Optional.of(queryExplainer),
                 preparedQuery.getParameters(),
+                parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(

@@ -31,6 +31,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -54,6 +55,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -116,22 +118,28 @@ public class ExpressionCompiler
             boolean isOptimizeCommonSubExpression,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
-        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(
-                new CacheKey(
-                        sqlFunctionProperties,
-                        sessionFunctions,
-                        filter,
-                        projections,
-                        uniqueKey,
-                        isOptimizeCommonSubExpression));
-        return () -> {
-            try {
-                return cursorProcessor.getConstructor().newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        try {
+            Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(
+                    new CacheKey(
+                            sqlFunctionProperties,
+                            sessionFunctions,
+                            filter,
+                            projections,
+                            uniqueKey,
+                            isOptimizeCommonSubExpression));
+            return () -> {
+                try {
+                    return cursorProcessor.getConstructor().newInstance();
+                }
+                catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
     }
 
     public Supplier<PageProcessor> compilePageProcessor(

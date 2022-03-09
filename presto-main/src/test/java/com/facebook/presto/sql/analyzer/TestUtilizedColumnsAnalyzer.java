@@ -70,7 +70,7 @@ public class TestUtilizedColumnsAnalyzer
         assertUtilizedTableColumns("SELECT x FROM (SELECT *, a as x FROM t1)",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
 
-        // Test alias expression wih multiple columns referenced in alias
+        // Test alias expression with multiple columns referenced in alias
         assertUtilizedTableColumns("SELECT x FROM (SELECT *, a + b as x FROM t1)",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b")));
 

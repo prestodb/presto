@@ -61,6 +61,8 @@ public class AlluxioCachingConfigurationProvider
             else {
                 configuration.set("alluxio.user.client.cache.timeout.duration", "-1");
             }
+            configuration.set("alluxio.user.client.cache.shadow.enabled", String.valueOf(alluxioCacheConfig.isShadowCacheEnabled()));
+            configuration.set("alluxio.user.client.cache.shadow.window", String.valueOf(alluxioCacheConfig.getShadowCacheWindow().toMillis()));
         }
     }
 }

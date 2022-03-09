@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -61,7 +62,7 @@ public class TypeProvider
         requireNonNull(expression, "expression is null");
         Symbol symbol = Symbol.from(expression);
         Type type = types.get(symbol.getName());
-        checkArgument(type != null, "no type found found for symbol '%s'", symbol);
+        checkArgument(type != null, "no type found for symbol '%s'", symbol);
 
         return type;
     }
@@ -69,7 +70,7 @@ public class TypeProvider
     public Set<VariableReferenceExpression> allVariables()
     {
         return types.entrySet().stream()
-                .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
+                .map(entry -> new VariableReferenceExpression(Optional.empty(), entry.getKey(), entry.getValue()))
                 .collect(toImmutableSet());
     }
 

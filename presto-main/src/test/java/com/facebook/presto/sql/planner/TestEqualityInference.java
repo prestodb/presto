@@ -159,7 +159,7 @@ public class TestEqualityInference
     }
 
     @Test
-    public void testExtractInferrableEqualities()
+    public void testExtractInferableEqualities()
     {
         EqualityInference inference = new EqualityInference.Builder(METADATA)
                 .extractInferenceCandidates(and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")))
@@ -194,12 +194,12 @@ public class TestEqualityInference
 
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesVariables("c1"));
 
-        // There should be equalities in the scope, that only use c1 and are all inferrable equalities
+        // There should be equalities in the scope, that only use c1 and are all inferable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesVariableScope(matchesVariables("c1"))));
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), isInferenceCandidate(METADATA)));
 
-        // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
+        // There should be equalities in the inverse scope, that never use c1 and are all inferable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesVariableScope(not(matchesVariables("c1")))));
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), isInferenceCandidate(METADATA)));
@@ -241,12 +241,12 @@ public class TestEqualityInference
         // Generating equalities for disjoint groups
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(variableBeginsWith("a", "b"));
 
-        // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
+        // There should be equalities in the scope, that only use a* and b* symbols and are all inferable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesVariableScope(variableBeginsWith("a", "b"))));
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), isInferenceCandidate(METADATA)));
 
-        // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
+        // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesVariableScope(not(variableBeginsWith("a", "b")))));
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), isInferenceCandidate(METADATA)));
@@ -430,7 +430,7 @@ public class TestEqualityInference
     private static Predicate<VariableReferenceExpression> matchesVariables(Collection<String> variables)
     {
         final Set<VariableReferenceExpression> symbolSet = variables.stream()
-                .map(name -> new VariableReferenceExpression(name, BIGINT))
+                .map(name -> new VariableReferenceExpression(Optional.empty(), name, BIGINT))
                 .collect(toImmutableSet());
 
         return Predicates.in(symbolSet);

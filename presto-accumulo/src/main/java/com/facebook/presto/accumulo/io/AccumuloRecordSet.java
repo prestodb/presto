@@ -82,7 +82,7 @@ public class AccumuloRecordSet
             throw new PrestoException(NOT_FOUND, "Failed to factory serializer class.  Is it on the classpath?", e);
         }
 
-        // Save off the column handles and createa list of the Accumulo types
+        // Save off the column handles and create a list of the Accumulo types
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (AccumuloColumnHandle column : columnHandles) {

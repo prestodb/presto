@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -27,12 +28,16 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -40,14 +45,24 @@ import java.util.Optional;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
+import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/query")
 @RolesAllowed({USER, ADMIN})
 public class DistributedQueryResource
 {
+    // Sort returned queries: RUNNING - first, then QUEUED, then other non-completed, then FAILED and in each group we sort by create time.
+    private static final Comparator<BasicQueryInfo> QUERIES_ORDERING = Ordering.<BasicQueryInfo>from((o2, o1) -> Boolean.compare(o1.getState() == QueryState.RUNNING, o2.getState() == QueryState.RUNNING))
+            .compound((o1, o2) -> Boolean.compare(o1.getState() == QueryState.QUEUED, o2.getState() == QueryState.QUEUED))
+            .compound((o1, o2) -> Boolean.compare(!o1.getState().isDone(), !o2.getState().isDone()))
+            .compound((o1, o2) -> Boolean.compare(o1.getState() == QueryState.FAILED, o2.getState() == QueryState.FAILED))
+            .compound(Comparator.comparing(item -> item.getQueryStats().getCreateTime()));
+
     private final ResourceManagerClusterStateProvider clusterStateProvider;
     private final ResourceManagerProxy proxyHelper;
 
@@ -59,10 +74,20 @@ public class DistributedQueryResource
     }
 
     @GET
-    public Response getAllQueryInfo(@QueryParam("state") String stateFilter)
+    public Response getAllQueryInfo(
+            @QueryParam("state") String stateFilter,
+            @QueryParam("limit") Integer limitFilter)
     {
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
         List<BasicQueryInfo> queries;
+        int limit = firstNonNull(limitFilter, Integer.MAX_VALUE);
+        if (limit <= 0) {
+            throw new WebApplicationException(Response
+                    .status(BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity(format("Parameter 'limit' for getAllQueryInfo must be positive. Got %d.", limit))
+                    .build());
+        }
         if (stateFilter == null) {
             queries = clusterStateProvider.getClusterQueries();
         }
@@ -75,6 +100,14 @@ public class DistributedQueryResource
             }
             queries = builder.build();
         }
+        queries = new ArrayList<>(queries);
+        if (limit < queries.size()) {
+            queries.sort(QUERIES_ORDERING);
+        }
+        else {
+            limit = queries.size();
+        }
+        queries = ImmutableList.copyOf(queries.subList(0, limit));
         return Response.ok(queries).build();
     }
 

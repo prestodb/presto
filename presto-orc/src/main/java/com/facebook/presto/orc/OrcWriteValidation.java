@@ -356,7 +356,8 @@ public class OrcWriteValidation
         requireNonNull(expectedColumnStatistics, "expectedColumnStatistics is null");
 
         if (actualColumnStatistics.getNumberOfValues() != expectedColumnStatistics.getNumberOfValues()) {
-            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected number of values in %s statistics", name);
+            String failureMessage = format("Actual Values %s does not match expected values %s", actualColumnStatistics, expectedColumnStatistics);
+            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: %s in %s statistics", failureMessage, name);
         }
 
         if (!Objects.equals(actualColumnStatistics.getBooleanStatistics(), expectedColumnStatistics.getBooleanStatistics())) {
@@ -490,7 +491,8 @@ public class OrcWriteValidation
         public void addPage(Page page)
         {
             requireNonNull(page, "page is null");
-            checkArgument(page.getChannelCount() == columnHashes.size(), "invalid page");
+            // When append row number is set to true, the page will have an additional block appended at the end
+            checkArgument(page.getChannelCount() >= columnHashes.size(), "invalid page");
 
             for (int channel = 0; channel < columnHashes.size(); channel++) {
                 Type type = types.get(channel);

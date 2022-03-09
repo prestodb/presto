@@ -418,7 +418,7 @@ The files are:
 
 The four files directly under ``etc`` are documented above (using the single-node Coordinator configuration for ``config.properties``).
 The file called ``etc/catalog/tpch.properties`` is used to defined the ``tpch`` catalog.  Each connector has their own set
-of configuration properites that are specific to the connector.
+of configuration properties that are specific to the connector.
 You can find a connector's configuration properties documented along with the connector.  The TPCH connector has no special
 configuration, so we just specify the name of the connector for the catalog, also ``tpch``.
 

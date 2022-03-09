@@ -36,6 +36,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -218,6 +219,13 @@ public abstract class AbstractTestBlock
 
     private void assertBlockSize(Block block)
     {
+        OptionalInt fixedSizeInBytesPerPosition = block.fixedSizeInBytesPerPosition();
+        if (fixedSizeInBytesPerPosition.isPresent()) {
+            // Blocks that advertise a fixed size in bytes per position should produce a size in bytes consistent with
+            // their position count
+            assertEquals(fixedSizeInBytesPerPosition.getAsInt() * (long) block.getPositionCount(), block.getSizeInBytes());
+        }
+
         // Asserting on `block` is not very effective because most blocks passed to this method is compact.
         // Therefore, we split the `block` into two and assert again.
         //------------------Test Whole Block Sizes---------------------------------------------------
@@ -317,11 +325,11 @@ public abstract class AbstractTestBlock
         //----------------Test getPositionsSizeInBytes----------------------------------------
         boolean[] positions = new boolean[block.getPositionCount()];
         fill(positions, 0, firstHalfPositionCount, true);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedFirstHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, firstHalfPositionCount), expectedFirstHalfSize);
         fill(positions, true);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedBlockSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, positions.length), expectedBlockSize);
         fill(positions, 0, firstHalfPositionCount, false);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedSecondHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, positions.length - firstHalfPositionCount), expectedSecondHalfSize);
     }
 
     // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.

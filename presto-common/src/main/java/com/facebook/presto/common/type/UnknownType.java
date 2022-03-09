@@ -21,7 +21,7 @@ import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 public final class UnknownType
-        extends AbstractType
+        extends AbstractPrimitiveType
         implements FixedWidthType
 {
     public static final UnknownType UNKNOWN = new UnknownType();

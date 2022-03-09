@@ -63,13 +63,13 @@ public class TestLongDecimalStatisticsBuilder
     }
 
     @Test
-    public void testMinAverageValueBytes()
+    public void testTotalValueBytes()
     {
         long longDecimalBytes = DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES;
-        assertMinAverageValueBytes(0L, ImmutableList.of());
-        assertMinAverageValueBytes(longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE));
-        assertMinAverageValueBytes(longDecimalBytes, ImmutableList.of(LARGE_NEGATIVE_VALUE));
-        assertMinAverageValueBytes(longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_NEGATIVE_VALUE));
+        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE));
+        assertTotalValueBytes(longDecimalBytes, ImmutableList.of(LARGE_NEGATIVE_VALUE));
+        assertTotalValueBytes(4 * longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_NEGATIVE_VALUE));
     }
 
     private static List<BigDecimal> toBigDecimalList(BigDecimal minValue, BigDecimal maxValue, List<Long> values)

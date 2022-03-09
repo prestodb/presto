@@ -51,6 +51,7 @@ public class VerifierConfig
     private boolean setupOnMainClusters = true;
     private boolean teardownOnMainClusters = true;
     private boolean skipControl;
+    private boolean skipChecksum;
 
     private boolean explain;
 
@@ -303,6 +304,19 @@ public class VerifierConfig
     {
         this.skipControl = skipControl;
         return this;
+    }
+
+    @ConfigDescription("Skip checksum, only run control and test queries.")
+    @Config("skip-checksum")
+    public VerifierConfig setSkipChecksum(boolean skipChecksum)
+    {
+        this.skipChecksum = skipChecksum;
+        return this;
+    }
+
+    public boolean isSkipChecksum()
+    {
+        return skipChecksum;
     }
 
     public boolean isExplain()

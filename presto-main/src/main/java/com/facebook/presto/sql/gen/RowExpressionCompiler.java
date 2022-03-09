@@ -115,7 +115,7 @@ public class RowExpressionCompiler
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             BytecodeGeneratorContext generatorContext;
             switch (functionMetadata.getImplementationType()) {
-                case BUILTIN:
+                case JAVA:
                     generatorContext = new BytecodeGeneratorContext(
                             RowExpressionCompiler.this,
                             context.getScope(),

@@ -32,7 +32,6 @@ import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToExecuting;
-import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResult;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
 import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -51,7 +50,7 @@ public class TestClusterStatsResource
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s"));
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"));
         server = runner.getCoordinator();
         server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
         server.getResourceGroupManager().get()
@@ -69,11 +68,10 @@ public class TestClusterStatsResource
 
     @Test(timeOut = 120_000)
     public void testClusterStatsAdjustedQueueSize()
-            throws Exception
     {
-        runToFirstResult(client, server, "SELECT * from tpch.sf101.orders");
-        runToFirstResult(client, server, "SELECT * from tpch.sf102.orders");
-        runToFirstResult(client, server, "SELECT * from tpch.sf102.orders");
+        runToExecuting(client, server, "SELECT * from tpch.sf101.orders");
+        runToExecuting(client, server, "SELECT * from tpch.sf102.orders");
+        runToExecuting(client, server, "SELECT * from tpch.sf103.orders");
         runToQueued(client, server, "SELECT * from tpch.sf104.orders");
 
         ClusterStatsResource.ClusterStats clusterStats = getClusterStats(true);

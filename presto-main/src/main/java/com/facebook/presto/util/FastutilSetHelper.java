@@ -94,8 +94,8 @@ public final class FastutilSetHelper
 
         private LongStrategy(FunctionAndTypeManager functionAndTypeManager, Type type)
         {
-            hashCodeHandle = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -136,8 +136,8 @@ public final class FastutilSetHelper
 
         private DoubleStrategy(FunctionAndTypeManager functionAndTypeManager, Type type)
         {
-            hashCodeHandle = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -178,10 +178,10 @@ public final class FastutilSetHelper
 
         private ObjectStrategy(FunctionAndTypeManager functionAndTypeManager, Type type)
         {
-            hashCodeHandle = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(type)))
+            hashCodeHandle = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type)))
+            equalsHandle = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }

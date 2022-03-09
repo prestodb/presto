@@ -28,6 +28,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableBiMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.StatsUtil.toVariableStatsEstimate;
@@ -87,7 +88,7 @@ public class ConnectorFilterStatsCalculatorService
 
         for (Map.Entry<ColumnHandle, ColumnStatistics> entry : tableStatistics.getColumnStatistics().entrySet()) {
             String columnName = columnNames.get(entry.getKey());
-            VariableReferenceExpression variable = new VariableReferenceExpression(columnName, columnTypes.get(columnName));
+            VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), columnName, columnTypes.get(columnName));
             builder.addVariableStatistics(variable, toVariableStatsEstimate(tableStatistics, entry.getValue()));
         }
         return builder.build();

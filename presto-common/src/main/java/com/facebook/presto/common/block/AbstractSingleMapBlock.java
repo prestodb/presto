@@ -31,7 +31,7 @@ public abstract class AbstractSingleMapBlock
     private int getAbsolutePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
+            throw new IllegalArgumentException("position is not valid: " + position);
         }
         return position + getOffset();
     }
@@ -42,7 +42,7 @@ public abstract class AbstractSingleMapBlock
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
             if (getRawKeyBlock().isNull(position / 2)) {
-                throw new IllegalStateException("Map key is null");
+                throw new IllegalStateException("Map key is null at position: " + position);
             }
             return false;
         }
@@ -142,6 +142,18 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            getRawKeyBlock().writeBytesTo(position / 2, offset, length, sliceOutput);
+        }
+        else {
+            getRawValueBlock().writeBytesTo(position / 2, offset, length, sliceOutput);
+        }
+    }
+
+    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         position = getAbsolutePosition(position);
@@ -232,7 +244,7 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
         throw new UnsupportedOperationException();
     }

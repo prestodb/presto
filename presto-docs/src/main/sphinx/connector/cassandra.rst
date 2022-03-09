@@ -77,7 +77,7 @@ Property Name                                      Description
         If authorization is enabled, ``cassandra.username`` must have enough permissions to perform ``SELECT`` queries on
         the ``system.size_estimates`` table.
 
-.. _Cassandra consistency: http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html
+.. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/2.2/cassandra/dml/dmlConfigConsistency.html
 
 The following advanced configuration properties are available:
 
@@ -87,7 +87,7 @@ Property Name                                                 Description
 ``cassandra.fetch-size``                                      Number of rows fetched at a time in a Cassandra query.
 
 ``cassandra.partition-size-for-batch-select``                 Number of partitions batched together into a single select for a
-                                                              single partion key column table.
+                                                              single partition key column table.
 
 ``cassandra.split-size``                                      Number of keys per split when querying Cassandra.
 
@@ -163,7 +163,7 @@ The ``users`` table is an example Cassandra table from the Cassandra
 `Getting Started`_ guide. It can be created along with the ``mykeyspace``
 keyspace using Cassandra's cqlsh (CQL interactive terminal):
 
-.. _Getting Started: https://wiki.apache.org/cassandra/GettingStarted
+.. _Getting Started: https://cassandra.apache.org/doc/latest/cassandra/getting_started/index.html
 
 .. code-block:: none
 
@@ -207,7 +207,7 @@ BLOB              VARBINARY
 BOOLEAN           BOOLEAN
 DECIMAL           DOUBLE
 DOUBLE            DOUBLE
-FLOAT             DOUBLE
+FLOAT             REAL
 INET              VARCHAR(45)
 INT               INTEGER
 LIST<?>           VARCHAR
@@ -217,7 +217,7 @@ TEXT              VARCHAR
 TIMESTAMP         TIMESTAMP
 TIMEUUID          VARCHAR
 VARCHAR           VARCHAR
-VARIANT           VARCHAR
+VARINT            VARCHAR
 SMALLINT          INTEGER
 TINYINT           INTEGER
 DATE              DATE

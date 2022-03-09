@@ -15,9 +15,9 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.StreamLayout.ByColumnSize;
-import com.facebook.presto.orc.StreamLayout.ByStreamSize;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.StreamSizeLayoutFactory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -36,6 +36,7 @@ import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOO
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
@@ -54,7 +55,7 @@ public class TestOrcFileWriterConfig
                 .setDictionaryMaxMemory(new DataSize(16, MEGABYTE))
                 .setStringStatisticsLimit(new DataSize(64, BYTE))
                 .setMaxCompressionBufferSize(new DataSize(256, KILOBYTE))
-                .setStreamLayoutType(BY_STREAM_SIZE)
+                .setStreamLayoutType(BY_COLUMN_SIZE)
                 .setDwrfStripeCacheEnabled(false)
                 .setDwrfStripeCacheMaxSize(new DataSize(8, MEGABYTE))
                 .setDwrfStripeCacheMode(INDEX_AND_FOOTER));
@@ -71,7 +72,7 @@ public class TestOrcFileWriterConfig
                 .put("hive.orc.writer.dictionary-max-memory", "13MB")
                 .put("hive.orc.writer.string-statistics-limit", "17MB")
                 .put("hive.orc.writer.max-compression-buffer-size", "19MB")
-                .put("hive.orc.writer.stream-layout-type", "BY_COLUMN_SIZE")
+                .put("hive.orc.writer.stream-layout-type", "BY_STREAM_SIZE")
                 .put("hive.orc.writer.dwrf-stripe-cache-enabled", "true")
                 .put("hive.orc.writer.dwrf-stripe-cache-max-size", "10MB")
                 .put("hive.orc.writer.dwrf-stripe-cache-mode", "FOOTER")
@@ -85,7 +86,7 @@ public class TestOrcFileWriterConfig
                 .setDictionaryMaxMemory(new DataSize(13, MEGABYTE))
                 .setStringStatisticsLimit(new DataSize(17, MEGABYTE))
                 .setMaxCompressionBufferSize(new DataSize(19, MEGABYTE))
-                .setStreamLayoutType(BY_COLUMN_SIZE)
+                .setStreamLayoutType(BY_STREAM_SIZE)
                 .setDwrfStripeCacheEnabled(true)
                 .setDwrfStripeCacheMaxSize(new DataSize(10, MEGABYTE))
                 .setDwrfStripeCacheMode(FOOTER);
@@ -143,14 +144,14 @@ public class TestOrcFileWriterConfig
         assertNotSame(config.toOrcWriterOptionsBuilder(), config.toOrcWriterOptionsBuilder());
         OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
 
-        assertEquals(stripeMinSize, options.getStripeMinSize());
-        assertEquals(stripeMaxSize, options.getStripeMaxSize());
-        assertEquals(stripeMaxRowCount, options.getStripeMaxRowCount());
+        assertEquals(toIntExact(stripeMinSize.toBytes()), options.getFlushPolicy().getStripeMinBytes());
+        assertEquals(toIntExact(stripeMaxSize.toBytes()), options.getFlushPolicy().getStripeMaxBytes());
+        assertEquals(stripeMaxRowCount, options.getFlushPolicy().getStripeMaxRowCount());
         assertEquals(rowGroupMaxRowCount, options.getRowGroupMaxRowCount());
         assertEquals(dictionaryMaxMemory, options.getDictionaryMaxMemory());
         assertEquals(stringStatisticsLimit, options.getMaxStringStatisticsLimit());
         assertEquals(maxCompressionBufferSize, options.getMaxCompressionBufferSize());
-        assertTrue(options.getStreamLayout() instanceof ByStreamSize);
+        assertTrue(options.getStreamLayoutFactory() instanceof StreamSizeLayoutFactory);
         assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
     }
 
@@ -161,10 +162,10 @@ public class TestOrcFileWriterConfig
 
         config.setStreamLayoutType(BY_STREAM_SIZE);
         OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
-        assertTrue(options.getStreamLayout() instanceof ByStreamSize);
+        assertTrue(options.getStreamLayoutFactory() instanceof StreamSizeLayoutFactory);
 
         config.setStreamLayoutType(BY_COLUMN_SIZE);
         options = config.toOrcWriterOptionsBuilder().build();
-        assertTrue(options.getStreamLayout() instanceof ByColumnSize);
+        assertTrue(options.getStreamLayoutFactory() instanceof ColumnSizeLayoutFactory);
     }
 }

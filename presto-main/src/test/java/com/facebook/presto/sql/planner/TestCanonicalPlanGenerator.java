@@ -205,7 +205,7 @@ public class TestCanonicalPlanGenerator
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
         assertEquals(leafCanonicalPlans.get(0), leafCanonicalPlans.get(1));
-        assertEquals(objectMapper.writeValueAsString(leafCanonicalPlans.get(0)), objectMapper.writeValueAsString(leafCanonicalPlans.get(1)));
+        assertEquals(objectMapper.writeValueAsString(leafCanonicalPlans.get(0)).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""), objectMapper.writeValueAsString(leafCanonicalPlans.get(1)).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""));
     }
 
     private void assertDifferentCanonicalLeafSubPlan(String sql1, String sql2)
@@ -217,7 +217,7 @@ public class TestCanonicalPlanGenerator
         Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), fragment2.getPartitioningScheme());
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
-        assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
+        assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""), objectMapper.writeValueAsString(canonicalPlan2).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""));
     }
 
     // We add the following field test to make sure corresponding canonical class is still correct.
@@ -230,21 +230,25 @@ public class TestCanonicalPlanGenerator
     {
         assertEquals(
                 Arrays.stream(PartitioningScheme.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("partitioning", "outputLayout", "hashColumn", "replicateNullsAndAny", "bucketToPartition"));
         assertEquals(
                 Arrays.stream(Partitioning.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("handle", "arguments"));
         assertEquals(
                 Arrays.stream(PartitioningHandle.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("connectorId", "transactionHandle", "connectorHandle"));
         assertEquals(
                 Arrays.stream(CanonicalPartitioningScheme.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("connectorId", "connectorHandle", "arguments", "outputLayout"));
@@ -255,22 +259,26 @@ public class TestCanonicalPlanGenerator
     {
         assertEquals(
                 Arrays.stream(TableScanNode.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("table", "assignments", "outputVariables", "currentConstraint", "enforcedConstraint"));
         assertEquals(
                 Arrays.stream(CanonicalTableScanNode.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("table", "assignments", "outputVariables"));
 
         assertEquals(
                 Arrays.stream(TableHandle.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("connectorId", "connectorHandle", "transaction", "layout", "dynamicFilter"));
         assertEquals(
                 Arrays.stream(CanonicalTableHandle.class.getDeclaredFields())
+                        .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
                 ImmutableSet.of("connectorId", "tableHandle", "layoutIdentifier", "layoutHandle"));

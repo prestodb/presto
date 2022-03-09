@@ -119,7 +119,7 @@ public class TestIcebergSystemTables
                         "('is_current_ancestor', 'boolean', '', '')");
 
         // Test the number of history entries
-        assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 3");
+        assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 2");
     }
 
     @Test
@@ -133,8 +133,8 @@ public class TestIcebergSystemTables
                         "('manifest_list', 'varchar', '', '')," +
                         "('summary', 'map(varchar, varchar)', '', '')");
 
-        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append', 'append'");
-        assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '0', '3', '6'");
+        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append'");
+        assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '3', '6'");
     }
 
     @Test

@@ -16,14 +16,16 @@ package com.facebook.presto.operator.scalar.annotations;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
+import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -34,6 +36,8 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
+import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -48,9 +52,10 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -90,9 +95,15 @@ public class CodegenScalarFromAnnotationsParser
     {
         return Arrays.stream(method.getParameters())
                 .map(p -> {
-                    checkCondition(p.getType() == Type.class, FUNCTION_IMPLEMENTATION_ERROR, "Codegen scalar function %s must have paramter [%s] of type Type", method, p.getName());
+                    checkCondition(p.getType() == Type.class, FUNCTION_IMPLEMENTATION_ERROR, "Codegen scalar function %s must have parameter [%s] of type Type", method, p.getName());
                     checkCondition(p.getAnnotationsByType(BlockPosition.class).length == 0, FUNCTION_IMPLEMENTATION_ERROR, "Block and Position format is not supported for codegen function %s", method);
                     checkCondition(p.getAnnotationsByType(IsNull.class).length == 0, FUNCTION_IMPLEMENTATION_ERROR, "Null flag format is not supported for codegen function %s", method);
+                    TypeSignature signature = parseTypeSignature(p.getAnnotation(SqlType.class).value());
+                    if (signature.isFunction()) {
+                        int params = signature.getParameters().size();
+                        checkCondition(params == 2 || params == 3, FUNCTION_IMPLEMENTATION_ERROR, "Only unary and binary functions are supported in codegen function %s", method);
+                        return functionTypeArgumentProperty(params == 2 ? UnaryFunctionInterface.class : BinaryFunctionInterface.class);
+                    }
                     return valueTypeArgumentProperty(p.getAnnotation(SqlNullable.class) == null ? RETURN_NULL_ON_NULL : USE_BOXED_TYPE);
                 })
                 .collect(toImmutableList());
@@ -146,7 +157,8 @@ public class CodegenScalarFromAnnotationsParser
             @Override
             public String getDescription()
             {
-                return "";
+                Description description = method.getAnnotation(Description.class);
+                return description == null ? "" : description.value();
             }
 
             @Override

@@ -20,11 +20,14 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -35,10 +38,8 @@ import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -140,8 +141,10 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
@@ -172,7 +175,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -204,7 +207,7 @@ public class ExpressionAnalyzer
     private final Optional<TransactionId> transactionId;
     private final Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions;
     private final SqlFunctionProperties sqlFunctionProperties;
-    private final List<Expression> parameters;
+    private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
 
     private ExpressionAnalyzer(
@@ -214,7 +217,7 @@ public class ExpressionAnalyzer
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -224,7 +227,7 @@ public class ExpressionAnalyzer
         this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
         this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-        this.parameters = requireNonNull(parameters, "parameters is null");
+        this.parameters = requireNonNull(parameters, "parameterMap is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
@@ -460,6 +463,9 @@ public class ExpressionAnalyzer
             Type baseType = process(node.getBase(), context);
             if (((baseType instanceof TypeWithName) && ((TypeWithName) baseType).getType() instanceof RowType)) {
                 baseType = ((TypeWithName) baseType).getType();
+            }
+            if (baseType instanceof DistinctType) {
+                baseType = ((DistinctType) baseType).getBaseType();
             }
             if (!(baseType instanceof RowType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
@@ -779,7 +785,7 @@ public class ExpressionAnalyzer
 
             if (!JSON.equals(type)) {
                 try {
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
+                    functionAndTypeManager.lookupCast(CAST, VARCHAR, type);
                 }
                 catch (IllegalArgumentException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -971,16 +977,36 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            if (functionMetadata.getImplementationType() == FunctionImplementationType.BUILTIN && functionMetadata.getName().getObjectName().equalsIgnoreCase("REDUCE_AGG")) {
-                Expression initialValueArg = (Expression) node.getArguments().get(1);
+            if (functionMetadata.getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "REDUCE_AGG"))) {
+                Expression initialValueArg = node.getArguments().get(1);
                 // For builtin reduce_agg, we make sure the initial value is not null as we cannot handle null properly now.
 
                 if (!isNonNullConstant(initialValueArg)) {
                     throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, initialValueArg, "REDUCE_AGG only supports non-NULL literal as the initial value", initialValueArg);
                 }
             }
+
             Type type = functionAndTypeManager.getType(functionMetadata.getReturnType());
+
+            if (type instanceof MapType) {
+                Type keyType = ((MapType) type).getKeyType();
+                if (TypeUtils.isApproximateNumericType(keyType)) {
+                    String warningMessage = createWarningMessage(node, "Map keys with real/double type can be non-deterministic. Please use decimal type instead");
+                    warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, warningMessage));
+                }
+            }
+
             return setExpressionType(node, type);
+        }
+
+        private String createWarningMessage(Node node, String message)
+        {
+            if (node.getLocation().isPresent()) {
+                return format("%s Expression:%s line %s:%s", message, node, node.getLocation().get().getLineNumber(), node.getLocation().get().getColumnNumber());
+            }
+            else {
+                return format("%s Expression:%s", message, node);
+            }
         }
 
         @Override
@@ -1021,7 +1047,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node, "invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
             }
 
-            Type resultType = process(parameters.get(node.getPosition()), context);
+            Type resultType = process(parameters.get(NodeRef.of(node)), context);
             return setExpressionType(node, resultType);
         }
 
@@ -1082,7 +1108,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
                 try {
-                    functionAndTypeManager.lookupCast(CAST, value.getTypeSignature(), type.getTypeSignature());
+                    functionAndTypeManager.lookupCast(CAST, value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -1230,7 +1256,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
                 Type type = types.get(i);
-                fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
+                fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getLocation(), lambdaArgument.getName().getValue(), type));
                 setExpressionType(lambdaArgument, type);
             }
 
@@ -1416,7 +1442,7 @@ public class ExpressionAnalyzer
         {
             if (sqlFunctionProperties.isLegacyTypeCoercionWarningEnabled()) {
                 if ((type.getTypeSignature().getBase().equals(StandardTypes.DATE) || type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) && superType.getTypeSignature().getBase().equals(StandardTypes.VARCHAR)) {
-                    warningCollector.add(new PrestoWarning(StandardWarningCode.SEMANTIC_WARNING, format("This query relies on legacy semantic behavior that coerces date/timestamp to varchar. Expression: %s", expression)));
+                    warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, format("This query relies on legacy semantic behavior that coerces date/timestamp to varchar. Expression: %s", expression)));
                 }
             }
             NodeRef<Expression> ref = NodeRef.of(expression);
@@ -1528,7 +1554,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Expression expression,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector)
     {
         return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, warningCollector, false);
@@ -1540,7 +1566,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Expression expression,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1553,7 +1579,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Iterable<Expression> expressions,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1566,7 +1592,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Iterable<Expression> expressions,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1641,7 +1667,7 @@ public class ExpressionAnalyzer
                 Optional.empty(),
                 sqlFunctionProperties,
                 TypeProvider.copyOf(argumentTypes),
-                emptyList(),
+                emptyMap(),
                 node -> new SemanticException(NOT_SUPPORTED, node, "SQL function does not support subquery"),
                 WarningCollector.NOOP,
                 false);
@@ -1652,7 +1678,7 @@ public class ExpressionAnalyzer
                         .withRelationType(
                                 RelationId.anonymous(),
                                 new RelationType(argumentTypes.entrySet().stream()
-                                        .map(entry -> Field.newUnqualified(entry.getKey(), entry.getValue()))
+                                        .map(entry -> Field.newUnqualified(expression.getLocation(), entry.getKey(), entry.getValue()))
                                         .collect(toImmutableList()))).build());
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
@@ -1688,7 +1714,7 @@ public class ExpressionAnalyzer
                 analysis.isDescribe());
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
@@ -1700,7 +1726,7 @@ public class ExpressionAnalyzer
                 false);
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
     {
         return createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
@@ -1715,7 +1741,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createWithoutSubqueries(
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             SemanticErrorCode errorCode,
             String message,
             WarningCollector warningCollector,
@@ -1735,7 +1761,7 @@ public class ExpressionAnalyzer
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
             boolean isDescribe)
@@ -1758,7 +1784,7 @@ public class ExpressionAnalyzer
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
             boolean isDescribe)

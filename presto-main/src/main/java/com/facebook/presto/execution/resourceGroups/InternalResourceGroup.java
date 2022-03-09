@@ -152,7 +152,7 @@ public class InternalResourceGroup
     private final CounterStat timeBetweenStartsSec = new CounterStat();
 
     @GuardedBy("root")
-    private AtomicLong lastRunningQueryStartTime = new AtomicLong();
+    private AtomicLong lastRunningQueryStartTime = new AtomicLong(currentTimeMillis());
     @GuardedBy("root")
     private AtomicBoolean isDirty = new AtomicBoolean();
 
@@ -278,7 +278,7 @@ public class InternalResourceGroup
             if (subGroups.isEmpty()) {
                 return runningQueries.stream()
                         .map(ManagedQueryExecution::getBasicQueryInfo)
-                        .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id)))
+                        .map(queryInfo -> createQueryStateInfo(queryInfo))
                         .collect(toImmutableList());
             }
 
@@ -758,7 +758,13 @@ public class InternalResourceGroup
             }
             updateEligibility();
             executor.execute(query::startWaitingForResources);
-            lastRunningQueryStartTime.set(currentTimeMillis());
+            group = this;
+            long lastRunningQueryStartTimeMillis = currentTimeMillis();
+            lastRunningQueryStartTime.set(lastRunningQueryStartTimeMillis);
+            while (group.parent.isPresent()) {
+                group.parent.get().lastRunningQueryStartTime.set(lastRunningQueryStartTimeMillis);
+                group = group.parent.get();
+            }
         }
     }
 
@@ -863,7 +869,6 @@ public class InternalResourceGroup
             if (subGroup == null) {
                 return false;
             }
-
             boolean started = subGroup.internalStartNext();
             if (started) {
                 long currentTime = System.currentTimeMillis();

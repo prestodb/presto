@@ -249,6 +249,90 @@ public class TestMapBlockBuilder
         }
     }
 
+    @Test
+    public void testDirectBlockEntry()
+    {
+        MapType innerMapType = new MapType(
+                BIGINT,
+                BIGINT,
+                KEY_BLOCK_EQUALS,
+                KEY_BLOCK_HASH_CODE);
+
+        MapType mapType = new MapType(
+                BIGINT,
+                innerMapType,
+                KEY_BLOCK_EQUALS,
+                KEY_BLOCK_HASH_CODE);
+
+        MapBlockBuilder blockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, MAP_POSITIONS);
+
+        int numberOfOuterElements = 10;
+        int numberOfInnerElements = 500;
+        int outerKeyBase = 100;
+        int keyBase = 1_000;
+        int valueBase = 1_000_000;
+
+        // The following code produces a Map{Long, Map{Long, Long}}.
+        // The number of rows is MAP_POSITIONS(100)
+        // Each row has 10 entries of map{long, map{long, long}}, (This is called outer map)
+        // Each outer map's value has 500 entries of map {long, long} (This is called inner map).
+        for (int element = 0; element < MAP_POSITIONS; element++) {
+            blockBuilder.beginDirectEntry();
+
+            BlockBuilder outerKeyBuilder = blockBuilder.getKeyBlockBuilder();
+            for (int outer = 0; outer < numberOfOuterElements; outer++) {
+                BIGINT.writeLong(outerKeyBuilder, element * outerKeyBase + outer);
+            }
+
+            MapBlockBuilder outerValueBuilder = (MapBlockBuilder) blockBuilder.getValueBlockBuilder();
+            for (int outer = 0; outer < numberOfOuterElements; outer++) {
+                outerValueBuilder.beginDirectEntry();
+                BlockBuilder innerKeyBuilder = outerValueBuilder.getKeyBlockBuilder();
+                for (int inner = 0; inner < numberOfInnerElements; inner++) {
+                    BIGINT.writeLong(innerKeyBuilder, inner + outer * keyBase);
+                }
+
+                BlockBuilder innerValueBuilder = outerValueBuilder.getValueBlockBuilder();
+                for (int inner = 0; inner < numberOfInnerElements; inner++) {
+                    BIGINT.writeLong(innerValueBuilder, inner + outer * valueBase);
+                }
+                outerValueBuilder.closeEntry();
+            }
+            blockBuilder.closeEntry();
+        }
+
+        assertEquals(blockBuilder.getPositionCount(), MAP_POSITIONS);
+        for (int element = 0; element < blockBuilder.getPositionCount(); element++) {
+            SingleMapBlock outerBlock = (SingleMapBlock) blockBuilder.getBlock(element);
+            assertEquals(outerBlock.getPositionCount(), numberOfOuterElements * 2);
+            for (int outer = 0; outer < numberOfOuterElements; outer++) {
+                assertEquals(outerBlock.getLong(outer * 2), (long) element * outerKeyBase + outer);
+                SingleMapBlock innerValueBlock = (SingleMapBlock) outerBlock.getBlock(outer * 2 + 1);
+                assertEquals(innerValueBlock.getPositionCount(), numberOfInnerElements * 2);
+
+                for (int inner = 0; inner < numberOfInnerElements; inner++) {
+                    assertEquals(innerValueBlock.getLong(inner * 2), (long) outer * keyBase + inner);
+                    assertEquals(innerValueBlock.getLong(inner * 2 + 1), (long) outer * valueBase + inner);
+                }
+            }
+        }
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class)
+    public void testMismatchedKeyValuePositionCountThrows()
+    {
+        MapBlockBuilder mapBlockBuilder = createMapBlockBuilder();
+        mapBlockBuilder.beginDirectEntry();
+        // Write 2 keys.
+        mapBlockBuilder.getKeyBlockBuilder().writeLong(1);
+        mapBlockBuilder.getKeyBlockBuilder().writeLong(2);
+        // Write 3 values.
+        mapBlockBuilder.getValueBlockBuilder().writeLong(3);
+        mapBlockBuilder.getValueBlockBuilder().writeLong(4);
+        mapBlockBuilder.getValueBlockBuilder().writeLong(5);
+        mapBlockBuilder.closeEntry();
+    }
+
     private void appendSingleEntryMap(MapBlockBuilder mapBlockBuilder, int i)
     {
         BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionMutator;
@@ -148,7 +149,7 @@ public final class ThriftMetastoreUtil
         return result;
     }
 
-    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges)
+    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges, ColumnConverter columnConverter)
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
 
@@ -166,8 +167,8 @@ public final class ThriftMetastoreUtil
         result.setTableType(tableType.name());
 
         result.setParameters(table.getParameters());
-        result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
-        result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
+        result.setPartitionKeys(table.getPartitionColumns().stream().map(col -> ThriftMetastoreUtil.toMetastoreApiFieldSchema(col, columnConverter)).collect(toList()));
+        result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage(), columnConverter));
         result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
@@ -356,20 +357,20 @@ public final class ThriftMetastoreUtil
                         .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()));
     }
 
-    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
+    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics, ColumnConverter columnConverter)
     {
-        org.apache.hadoop.hive.metastore.api.Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
+        org.apache.hadoop.hive.metastore.api.Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition(), columnConverter);
         partition.setParameters(MetastoreUtil.updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().getBasicStatistics()));
         return partition;
     }
 
-    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition)
+    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition, ColumnConverter columnConverter)
     {
         org.apache.hadoop.hive.metastore.api.Partition result = new org.apache.hadoop.hive.metastore.api.Partition();
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
-        result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage()));
+        result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage(), columnConverter));
         result.setParameters(partition.getParameters());
         result.setCreateTime(partition.getCreateTime());
         return result;
@@ -399,16 +400,16 @@ public final class ThriftMetastoreUtil
                 .build();
     }
 
-    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table)
+    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table, ColumnConverter columnConverter)
     {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
-        return fromMetastoreApiTable(table, storageDescriptor.getCols());
+        return fromMetastoreApiTable(table, storageDescriptor.getCols(), columnConverter);
     }
 
-    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table, List<FieldSchema> schema)
+    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table, List<FieldSchema> schema, ColumnConverter columnConverter)
     {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
@@ -431,10 +432,10 @@ public final class ThriftMetastoreUtil
                 .setOwner(nullToEmpty(table.getOwner()))
                 .setTableType(tableType)
                 .setDataColumns(schema.stream()
-                        .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
+                        .map(columnConverter::toColumn)
                         .collect(toList()))
                 .setPartitionColumns(table.getPartitionKeys().stream()
-                        .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
+                        .map(columnConverter::toColumn)
                         .collect(toList()))
                 .setParameters(table.getParameters() == null ? ImmutableMap.of() : table.getParameters())
                 .setViewOriginalText(Optional.ofNullable(emptyToNull(table.getViewOriginalText())))
@@ -476,7 +477,8 @@ public final class ThriftMetastoreUtil
 
         return serdeInfo;
     }
-    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator)
+
+    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator, ColumnConverter columnConverter)
     {
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
@@ -488,7 +490,7 @@ public final class ThriftMetastoreUtil
                 .setTableName(partition.getTableName())
                 .setValues(partition.getValues())
                 .setColumns(storageDescriptor.getCols().stream()
-                        .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
+                        .map(fieldSchema -> columnConverter.toColumn(fieldSchema))
                         .collect(toList()))
                 .setParameters(partition.getParameters())
                 .setCreateTime(partition.getCreateTime());
@@ -648,14 +650,9 @@ public final class ThriftMetastoreUtil
         }
     }
 
-    public static FieldSchema toMetastoreApiFieldSchema(Column column)
+    public static FieldSchema toMetastoreApiFieldSchema(Column column, ColumnConverter columnConverter)
     {
-        return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
-    }
-
-    public static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)
-    {
-        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType()), Optional.ofNullable(emptyToNull(fieldSchema.getComment())));
+        return columnConverter.fromColumn(column);
     }
 
     public static void fromMetastoreApiStorageDescriptor(StorageDescriptor storageDescriptor, Storage.Builder builder, String tablePartitionName)
@@ -673,7 +670,7 @@ public final class ThriftMetastoreUtil
                 .setParameters(storageDescriptor.getParameters() == null ? ImmutableMap.of() : storageDescriptor.getParameters());
     }
 
-    private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage)
+    private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage, ColumnConverter columnConverter)
     {
         if (storage.isSkewed()) {
             throw new IllegalArgumentException("Writing to skewed table/partition is not supported");
@@ -686,7 +683,7 @@ public final class ThriftMetastoreUtil
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(emptyToNull(storage.getLocation()));
         sd.setCols(columns.stream()
-                .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
+                .map(col -> ThriftMetastoreUtil.toMetastoreApiFieldSchema(col, columnConverter))
                 .collect(toList()));
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());

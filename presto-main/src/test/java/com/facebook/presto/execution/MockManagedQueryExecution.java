@@ -20,6 +20,7 @@ import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +56,7 @@ public class MockManagedQueryExecution
     private QueryState state = WAITING_FOR_PREREQUISITES;
     private Throwable failureCause;
     private Optional<ResourceGroupQueryLimits> resourceGroupQueryLimits = Optional.empty();
+    private final ResourceGroupId resourceGroupId;
 
     public MockManagedQueryExecution(long memoryUsage)
     {
@@ -68,11 +70,17 @@ public class MockManagedQueryExecution
 
     public MockManagedQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage)
     {
+        this(memoryUsage, queryId, priority, cpuUsage, null);
+    }
+
+    public MockManagedQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage, ResourceGroupId resourceGroupId)
+    {
         this.memoryUsage = succinctBytes(memoryUsage);
         this.cpuUsage = cpuUsage;
         this.session = testSessionBuilder()
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
                 .build();
+        this.resourceGroupId = resourceGroupId;
     }
 
     public void complete()
@@ -110,7 +118,7 @@ public class MockManagedQueryExecution
         return new BasicQueryInfo(
                 new QueryId("test"),
                 session.toSessionRepresentation(),
-                Optional.empty(),
+                Optional.ofNullable(resourceGroupId),
                 state,
                 new MemoryPoolId("test"),
                 !state.isDone(),
@@ -147,7 +155,8 @@ public class MockManagedQueryExecution
                         OptionalDouble.empty()),
                 null,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     @Override

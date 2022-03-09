@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,7 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +40,7 @@ public class IcebergSplit
     private final FileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final Map<Integer, String> partitionKeys;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
 
     @JsonCreator
     public IcebergSplit(
@@ -47,14 +49,17 @@ public class IcebergSplit
             @JsonProperty("length") long length,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys)
+            @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys,
+            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
     {
+        requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.path = requireNonNull(path, "path is null");
         this.start = start;
         this.length = length;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
     }
 
     @JsonProperty
@@ -93,15 +98,18 @@ public class IcebergSplit
         return partitionKeys;
     }
 
+    @JsonProperty
     @Override
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return NO_PREFERENCE;
+        return nodeSelectionStrategy;
     }
-
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
+        if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
+            return nodeProvider.get(path, 2);
+        }
         return addresses;
     }
 
@@ -112,6 +120,7 @@ public class IcebergSplit
                 .put("path", path)
                 .put("start", start)
                 .put("length", length)
+                .put("nodeSelectionStrategy", nodeSelectionStrategy)
                 .build();
     }
 

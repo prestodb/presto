@@ -15,6 +15,7 @@ package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -54,13 +56,14 @@ public final class TopNNode
 
     @JsonCreator
     public TopNNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("step") Step step)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be positive");
@@ -119,7 +122,7 @@ public final class TopNNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkCondition(newChildren != null && newChildren.size() == 1, GENERIC_INTERNAL_ERROR, "Expect exactly 1 child PlanNode");
-        return new TopNNode(getId(), newChildren.get(0), count, orderingScheme, step);
+        return new TopNNode(getSourceLocation(), getId(), newChildren.get(0), count, orderingScheme, step);
     }
 
     private static void checkArgument(boolean condition, String message)

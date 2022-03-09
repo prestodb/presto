@@ -20,10 +20,13 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -47,11 +50,12 @@ public final class StatementRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, accessControl, warningCollector), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, accessControl, warningCollector), "Statement rewrite returned null");
         }
         return node;
     }
@@ -65,6 +69,7 @@ public final class StatementRewrite
                 Optional<QueryExplainer> queryExplainer,
                 Statement node,
                 List<Expression> parameters,
+                Map<NodeRef<Parameter>, Expression> parameterLookup,
                 AccessControl accessControl,
                 WarningCollector warningCollector);
     }

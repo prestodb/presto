@@ -31,4 +31,16 @@ public abstract class GroupingElement
     {
         return visitor.visitGroupingElement(this, context);
     }
+
+    void validateExpressions(List<Expression> expressions)
+    {
+        expressions.forEach(expression -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
+            @Override
+            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                throw new UnsupportedOperationException("GROUP BY does not support lambda expressions, please use GROUP BY # instead");
+            }
+        }, expression, null));
+    }
 }

@@ -37,6 +37,8 @@ public class NodeSchedulerConfig
     private int maxPendingSplitsPerTask = 10;
     private int maxUnacknowledgedSplitsPerTask = 500;
     private String networkTopology = NetworkTopologyType.LEGACY;
+    private NodeSelectionHashStrategy nodeSelectionHashStrategy = NodeSelectionHashStrategy.MODULAR_HASHING;
+    private int minVirtualNodeCount = 1000;
     private ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = ResourceAwareSchedulingStrategy.RANDOM;
 
     @NotNull
@@ -79,6 +81,7 @@ public class NodeSchedulerConfig
 
     @Config("node-scheduler.max-pending-splits-per-task")
     @LegacyConfig({"node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
+    @ConfigDescription("The number of splits weighted at the standard split weight that can be assigned and queued for each task")
     public NodeSchedulerConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
     {
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
@@ -96,6 +99,7 @@ public class NodeSchedulerConfig
     }
 
     @Config("node-scheduler.max-splits-per-node")
+    @ConfigDescription("The number of splits weighted at the standard split weight that are allowed to be scheduled on each node")
     public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
@@ -113,6 +117,34 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)
     {
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
+        return this;
+    }
+
+    public NodeSelectionHashStrategy getNodeSelectionHashStrategy()
+    {
+        return nodeSelectionHashStrategy;
+    }
+
+    @Config("node-scheduler.node-selection-hash-strategy")
+    @ConfigDescription("Hashing strategy used for node selection when scheduling splits to nodes. Options are MODULAR_HASHING, CONSISTENT_HASHING")
+    public NodeSchedulerConfig setNodeSelectionHashStrategy(NodeSelectionHashStrategy nodeSelectionHashStrategy)
+    {
+        this.nodeSelectionHashStrategy = nodeSelectionHashStrategy;
+        return this;
+    }
+
+    public int getMinVirtualNodeCount()
+    {
+        return minVirtualNodeCount;
+    }
+
+    @Config("node-scheduler.consistent-hashing-min-virtual-node-count")
+    @ConfigDescription("When CONSISTENT_HASHING node selection hash strategy is used, the minimum number of virtual node count. Default 1000. " +
+            "The actual virtual node count is guaranteed to be larger than this number. When number is smaller than physical node count, " +
+            "physical node is used, otherwise the smallest multiplier of physical node count that is greater than this value is used.")
+    public NodeSchedulerConfig setMinVirtualNodeCount(int minVirtualNodeCount)
+    {
+        this.minVirtualNodeCount = minVirtualNodeCount;
         return this;
     }
 

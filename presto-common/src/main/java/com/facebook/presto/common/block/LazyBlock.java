@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
@@ -126,6 +127,13 @@ public class LazyBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        assureLoaded();
+        block.writeBytesTo(position, offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         assureLoaded();
@@ -186,6 +194,13 @@ public class LazyBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        assureLoaded();
+        return block.fixedSizeInBytesPerPosition();
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         assureLoaded();
@@ -193,10 +208,10 @@ public class LazyBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
         assureLoaded();
-        return block.getPositionsSizeInBytes(positions);
+        return block.getPositionsSizeInBytes(positions, usedPositionCount);
     }
 
     @Override

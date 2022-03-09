@@ -17,10 +17,15 @@ import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.testng.annotations.Test;
+
+import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.testng.Assert.assertFalse;
 import static org.testng.util.Strings.isNullOrEmpty;
 
 public abstract class AbstractTestHiveFileSystemS3
@@ -56,5 +61,19 @@ public abstract class AbstractTestHiveFileSystemS3
     protected Path getBasePath()
     {
         return new Path(format("s3://%s/", writableBucket));
+    }
+
+    @Test
+    public void testIgnoreHadoopFolderMarker()
+            throws Exception
+    {
+        Path basePath = getBasePath();
+        FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
+
+        String markerFileName = "test_table_$folder$";
+        Path filePath = new Path(basePath, markerFileName);
+        fs.create(filePath).close();
+
+        assertFalse(Arrays.stream(fs.listStatus(basePath)).anyMatch(file -> file.getPath().getName().equalsIgnoreCase(markerFileName)));
     }
 }

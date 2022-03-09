@@ -51,7 +51,7 @@ add a file ``etc/function-namespace/example.properties`` with the
 following contents::
 
     function-namespace-manager.name=mysql
-    database-url=localhost:1080
+    database-url=jdbc:mysql://example.net:3306/database?user=root&password=password
     function-namespaces-table-name=example_function_namespaces
     functions-table-name=example_sql_functions
 
@@ -90,3 +90,8 @@ Name                                        Description
 ``function-namespaces-table-name``          The name of the table that stores all the function namespaces managed by this manager.
 ``functions-table-name``                    The name of the table that stores all the functions managed by this manager.
 =========================================== ==================================================================================================
+
+See Also
+--------
+
+:doc:`create-function`, :doc:`alter-function`, :doc:`drop-function`, :doc:`show-functions`

@@ -176,13 +176,37 @@ public class MapBlockBuilder
         return getSingleValueBlockInternal(position);
     }
 
+    public BlockBuilder getKeyBlockBuilder()
+    {
+        return keyBlockBuilder;
+    }
+
+    public BlockBuilder getValueBlockBuilder()
+    {
+        return valueBlockBuilder;
+    }
+
+    /**
+     * Recommended way to build a Map is to first call beginBlockEntry which returns a BlockBuilder
+     * On this returned BlockBuilder, write key and value alternatively and call closeEntry.
+     * This works well for Presto, but when using the writer externally outside of Presto as a library
+     * the caller of the library, can't produce vectorized code due to mixing of key and value blocks.
+     * This method beginDirectEntry along with exposing keyBlockBuilder and valueBlockBuilder addresses
+     * this concern. BenchmarkMapBlockBuilder shows that both approaches are comparable.
+     */
     @Override
-    public SingleMapBlockWriter beginBlockEntry()
+    public void beginDirectEntry()
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
+    }
+
+    @Override
+    public SingleMapBlockWriter beginBlockEntry()
+    {
+        beginDirectEntry();
         return new SingleMapBlockWriter(keyBlockBuilder.getPositionCount() * 2, keyBlockBuilder, valueBlockBuilder);
     }
 

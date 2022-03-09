@@ -284,7 +284,7 @@ public class TestDataVerification
 
         assertTrue(event.isPresent());
         assertEquals(event.get().getStatus(), FAILED_RESOLVED.name());
-        assertEquals(event.get().getErrorCode(), "PRESTO(COMPILER_ERROR)");
+        assertEquals(event.get().getErrorCode(), "PRESTO(GENERATED_BYTECODE_TOO_LARGE)");
         assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
         assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());
         assertNotNull(event.get().getTestQueryInfo().getChecksumQuery());

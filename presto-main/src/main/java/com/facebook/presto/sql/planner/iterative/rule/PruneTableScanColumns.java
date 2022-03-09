@@ -39,6 +39,7 @@ public class PruneTableScanColumns
     {
         return Optional.of(
                 new TableScanNode(
+                        tableScanNode.getSourceLocation(),
                         tableScanNode.getId(),
                         tableScanNode.getTable(),
                         filteredCopy(tableScanNode.getOutputVariables(), referencedOutputs::contains),

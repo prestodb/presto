@@ -45,9 +45,9 @@ public class IntegerColumnStatistics
     }
 
     @Override
-    public long getMinAverageValueSizeInBytes()
+    public long getTotalValueSizeInBytes()
     {
-        return INTEGER_VALUE_BYTES;
+        return getNumberOfValues() * INTEGER_VALUE_BYTES;
     }
 
     @Override

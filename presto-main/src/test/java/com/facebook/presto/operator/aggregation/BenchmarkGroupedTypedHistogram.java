@@ -79,7 +79,7 @@ public class BenchmarkGroupedTypedHistogram
         // these must be manually set in each class now; the mechanism to change and test was removed; the enum was kept in case we want to revisit. Retesting showed linear was superior
         //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to be best, by about 10-15%
-//        private ProbeType mainProbeTyepe;
+//        private ProbeType mainProbeType;
 //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to best
 //        private ProbeType valueStoreProbeType;

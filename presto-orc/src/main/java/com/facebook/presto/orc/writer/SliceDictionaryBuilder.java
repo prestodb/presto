@@ -15,6 +15,7 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.array.IntBigArray;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -24,8 +25,6 @@ import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-// TODO this class is not memory efficient.  We can bypass all of the Presto type and block code
-// since we are only interested in a hash of byte arrays.
 public class SliceDictionaryBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBuilder.class).instanceSize();
@@ -78,39 +77,27 @@ public class SliceDictionaryBuilder
         return segmentedSliceBuilder.getSliceLength(position);
     }
 
-    public Slice getSlice(int position, int length)
+    @VisibleForTesting
+    Slice getSlice(int position, int length)
     {
         return segmentedSliceBuilder.getSlice(position, 0, length);
     }
 
-    public Slice getRawSlice(int position)
+    public Block getBlock()
+    {
+        return segmentedSliceBuilder;
+    }
+
+    @VisibleForTesting
+    Slice getRawSlice(int position)
     {
         return segmentedSliceBuilder.getRawSlice(position);
     }
 
-    public int getRawSliceOffset(int position)
+    @VisibleForTesting
+    int getRawSliceOffset(int position)
     {
         return segmentedSliceBuilder.getPositionOffset(position);
-    }
-
-    public void clear()
-    {
-        slicePositionByHash.fill(EMPTY_SLOT);
-        segmentedSliceBuilder.reset();
-    }
-
-    public int putIfAbsent(Block block, int position)
-    {
-        requireNonNull(block, "block must not be null");
-        int slicePosition;
-        long hashPosition = getHashPositionOfElement(block, position);
-        if (slicePositionByHash.get(hashPosition) != EMPTY_SLOT) {
-            slicePosition = slicePositionByHash.get(hashPosition);
-        }
-        else {
-            slicePosition = addNewElement(hashPosition, block, position);
-        }
-        return slicePosition;
     }
 
     public int getEntryCount()
@@ -121,8 +108,9 @@ public class SliceDictionaryBuilder
     /**
      * Get slot position of element at {@code position} of {@code block}
      */
-    private long getHashPositionOfElement(Block block, int position)
+    public int putIfAbsent(Block block, int position)
     {
+        requireNonNull(block, "block must not be null");
         checkArgument(!block.isNull(position), "position is null");
         int length = block.getSliceLength(position);
         long hashPosition = getMaskedHash(block.hash(position, 0, length));
@@ -130,11 +118,11 @@ public class SliceDictionaryBuilder
             int slicePosition = this.slicePositionByHash.get(hashPosition);
             if (slicePosition == EMPTY_SLOT) {
                 // Doesn't have this element
-                return hashPosition;
+                return addNewElement(hashPosition, block, position);
             }
             if (segmentedSliceBuilder.equals(slicePosition, block, position, length)) {
                 // Already has this element
-                return hashPosition;
+                return slicePosition;
             }
 
             hashPosition = getMaskedHash(hashPosition + 1);

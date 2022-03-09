@@ -38,8 +38,10 @@ public class TestTaskStats
             6,
             7,
             5,
+            28L,
             8,
             6,
+            29L,
             24,
             10,
 
@@ -100,8 +102,10 @@ public class TestTaskStats
         assertEquals(actual.getTotalDrivers(), 6);
         assertEquals(actual.getQueuedDrivers(), 7);
         assertEquals(actual.getQueuedPartitionedDrivers(), 5);
+        assertEquals(actual.getQueuedPartitionedSplitsWeight(), 28L);
         assertEquals(actual.getRunningDrivers(), 8);
         assertEquals(actual.getRunningPartitionedDrivers(), 6);
+        assertEquals(actual.getRunningPartitionedSplitsWeight(), 29L);
         assertEquals(actual.getBlockedDrivers(), 24);
         assertEquals(actual.getCompletedDrivers(), 10);
 

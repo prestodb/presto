@@ -50,6 +50,7 @@ public class AggregatedResourceGroupInfoBuilder
     private int maxQueuedQueries;
     private long memoryUsageBytes;
     private int numQueuedQueries;
+    private int numRunningQueries;
 
     private void init(ResourceGroupInfo resourceGroupInfo)
     {
@@ -63,6 +64,7 @@ public class AggregatedResourceGroupInfoBuilder
         this.maxQueuedQueries = resourceGroupInfo.getMaxQueuedQueries();
         this.memoryUsageBytes = resourceGroupInfo.getMemoryUsage().toBytes();
         this.numQueuedQueries = resourceGroupInfo.getNumQueuedQueries();
+        this.numRunningQueries = resourceGroupInfo.getNumRunningQueries();
         this.subGroupsMap = new HashMap<>();
         this.runningQueriesBuilder = ImmutableList.builder();
         addRunningQueries(resourceGroupInfo.getRunningQueries());
@@ -77,6 +79,7 @@ public class AggregatedResourceGroupInfoBuilder
         }
         checkState(resourceGroupInfo != null && this.id.equals(resourceGroupInfo.getId()));
         this.numQueuedQueries = addExact(this.numQueuedQueries, resourceGroupInfo.getNumQueuedQueries());
+        this.numRunningQueries = addExact(this.numRunningQueries, resourceGroupInfo.getNumRunningQueries());
         if (resourceGroupStatePreference.get(resourceGroupInfo.getState()) < resourceGroupStatePreference.get(this.state)) {
             this.state = resourceGroupInfo.getState();
         }
@@ -124,7 +127,7 @@ public class AggregatedResourceGroupInfoBuilder
                 maxQueuedQueries,
                 DataSize.succinctBytes(memoryUsageBytes),
                 numQueuedQueries,
-                runningQueries.size(),
+                numRunningQueries,
                 0,
                 subGroupsMap.values().stream().map(AggregatedResourceGroupInfoBuilder::build).collect(toImmutableList()),
                 runningQueries);

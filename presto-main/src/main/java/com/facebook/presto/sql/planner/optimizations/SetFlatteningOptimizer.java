@@ -70,7 +70,7 @@ public class SetFlatteningOptimizer
             flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = flattenedVariableMap.build();
 
-            return new UnionNode(node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
+            return new UnionNode(node.getSourceLocation(), node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
         }
 
         @Override
@@ -81,7 +81,7 @@ public class SetFlatteningOptimizer
             flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = flattenedVariableMap.build();
 
-            return new IntersectNode(node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
+            return new IntersectNode(node.getSourceLocation(), node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
         }
 
         @Override
@@ -92,7 +92,7 @@ public class SetFlatteningOptimizer
             flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = flattenedVariableMap.build();
 
-            return new ExceptNode(node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
+            return new ExceptNode(node.getSourceLocation(), node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
         }
 
         private static void flattenSetOperation(
@@ -137,6 +137,7 @@ public class SetFlatteningOptimizer
             }
 
             return new AggregationNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     rewrittenNode,
                     node.getAggregations(),

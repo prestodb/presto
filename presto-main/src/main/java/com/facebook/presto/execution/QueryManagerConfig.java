@@ -318,7 +318,7 @@ public class QueryManagerConfig
     }
 
     @Config("concurrency-threshold-to-enable-resource-group-refresh")
-    @ConfigDescription("Resource group concurrency threshold precentage, once crossed new queries won't run till updated resource group info comes from resource manager")
+    @ConfigDescription("Resource group concurrency threshold percentage, once crossed new queries won't run till updated resource group info comes from resource manager")
     public QueryManagerConfig setConcurrencyThresholdToEnableResourceGroupRefresh(double concurrencyThresholdToEnableResourceGroupRefresh)
     {
         this.concurrencyThresholdToEnableResourceGroupRefresh = concurrencyThresholdToEnableResourceGroupRefresh;

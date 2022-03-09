@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -63,9 +64,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
-        return block.getPositionsSizeInBytes(positions);
+        return block.getPositionsSizeInBytes(positions, usedPositionCount);
     }
 
     @Override
@@ -141,6 +142,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        block.writeBytesTo(position, offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         block.writePositionTo(position, blockBuilder);
@@ -198,6 +205,12 @@ public class GroupByIdBlock
     public long getSizeInBytes()
     {
         return block.getSizeInBytes();
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return block.fixedSizeInBytesPerPosition();
     }
 
     @Override

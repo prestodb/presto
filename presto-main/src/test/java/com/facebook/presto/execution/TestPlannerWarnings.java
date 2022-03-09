@@ -189,7 +189,7 @@ public class TestPlannerWarnings
         public Result apply(ProjectNode node, Captures captures, Context context)
         {
             if (node.getLocality().equals(UNKNOWN)) {
-                return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), node.getSource(), node.getAssignments(), LOCAL));
+                return Result.ofPlanNode(new ProjectNode(Optional.empty(), context.getIdAllocator().getNextId(), node.getSource(), node.getAssignments(), LOCAL));
             }
             return Result.empty();
         }

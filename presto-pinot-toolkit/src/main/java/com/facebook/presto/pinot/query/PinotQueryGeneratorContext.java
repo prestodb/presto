@@ -336,7 +336,7 @@ public class PinotQueryGeneratorContext
 
         String expressions = outputs.stream()
                 .filter(o -> !groupByColumns.contains(o)) // remove the group by columns from the query as Pinot barfs if the group by column is an expression
-                .map(o -> selections.get(o).getDefinition())
+                .map(o -> updateSelection(selections.get(o).getDefinition(), session))
                 .collect(Collectors.joining(", "));
 
         if (expressions.isEmpty()) {
@@ -375,7 +375,7 @@ public class PinotQueryGeneratorContext
                 }
             }
             else {
-                queryLimit = pinotConfig.getTopNLarge();
+                queryLimit = PinotSessionProperties.getTopNLarge(session);
             }
         }
         String limitClause = "";
@@ -425,9 +425,19 @@ public class PinotQueryGeneratorContext
         int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
         boolean isQueryShort = (hasAggregation() || hasGroupBy()) || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
         boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
-        String expressions = outputs.stream()
-                .map(o -> selections.get(o).getDefinition())
+        String groupByExpressions = groupByColumns.stream()
+                .map(x -> selections.get(x).getDefinition())
                 .collect(Collectors.joining(", "));
+        String selectExpressions = outputs.stream()
+                .filter(o -> !groupByColumns.contains(o))
+                .map(o -> updateSelection(selections.get(o).getDefinition(), session))
+                .collect(Collectors.joining(", "));
+        String expressions = (groupByExpressions.isEmpty()) ?
+                selectExpressions :
+                (selectExpressions.isEmpty()) ?
+                        groupByExpressions :
+                        groupByExpressions + ", " + selectExpressions;
+
         String tableName = from.orElseThrow(() -> new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Table name not encountered yet"));
 
         // Rules for limit:
@@ -451,7 +461,7 @@ public class PinotQueryGeneratorContext
                 queryLimit = limit.getAsInt();
             }
             else {
-                queryLimit = pinotConfig.getTopNLarge();
+                queryLimit = PinotSessionProperties.getTopNLarge(session);
             }
         }
         String limitClause = "";
@@ -459,7 +469,18 @@ public class PinotQueryGeneratorContext
             limitClause = " LIMIT " + queryLimit;
         }
         String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
-        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, ImmutableList.of(), groupByColumns.size(), filter.isPresent(), isQueryShort);
+        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(true);
+        List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
+        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
+    }
+
+    private String updateSelection(String definition, ConnectorSession session)
+    {
+        final String overrideDistinctCountFunction = PinotSessionProperties.getOverrideDistinctCountFunction(session);
+        if (!PINOT_DISTINCT_COUNT_FUNCTION_NAME.equalsIgnoreCase(overrideDistinctCountFunction)) {
+            return definition.replaceFirst(PINOT_DISTINCT_COUNT_FUNCTION_NAME.toUpperCase() + "\\(", overrideDistinctCountFunction.toUpperCase() + "\\(");
+        }
+        return definition;
     }
 
     private List<Integer> getIndicesMappingFromPinotSchemaToPrestoSchema(String query, Map<VariableReferenceExpression, PinotColumnHandle> assignments)
@@ -486,11 +507,21 @@ public class PinotQueryGeneratorContext
             expressionsInPinotOrder.put(outputColumn, outputColumnDefinition);
         }
 
-        checkSupported(
-                assignments.size() == expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
-                "Expected returned expressions %s to match selections %s",
-                Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
-                Joiner.on(",").withKeyValueSeparator("=").join(assignments));
+        if (useSqlSyntax) {
+            checkSupported(
+                    assignments.size() <= expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
+                    "Expected returned expressions %s is a superset of selections %s",
+                    Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
+                    Joiner.on(",").withKeyValueSeparator("=").join(assignments));
+        }
+        else {
+            checkSupported(
+                    assignments.size() == expressionsInPinotOrder.keySet().stream()
+                        .filter(key -> !hiddenColumnSet.contains(key)).count(),
+                    "Expected returned expressions %s to match selections %s",
+                    Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
+                    Joiner.on(",").withKeyValueSeparator("=").join(assignments));
+        }
 
         Map<VariableReferenceExpression, Integer> assignmentToIndex = new HashMap<>();
         Iterator<Map.Entry<VariableReferenceExpression, PinotColumnHandle>> assignmentsIterator = assignments.entrySet().iterator();
@@ -512,12 +543,17 @@ public class PinotQueryGeneratorContext
                 index = assignmentToIndex.get(expression.getKey());
             }
             if (index == null) {
-                throw new PinotException(
-                        PINOT_UNSUPPORTED_EXPRESSION, Optional.of(query),
-                        format(
-                                "Expected to find a Pinot column handle for the expression %s, but we have %s",
-                                expression,
-                                Joiner.on(",").withKeyValueSeparator(":").join(assignmentToIndex)));
+                if (useSqlSyntax) {
+                    index = -1; // negative output index means to skip this value returned by pinot at query time
+                }
+                else {
+                    throw new PinotException(
+                            PINOT_UNSUPPORTED_EXPRESSION, Optional.of(query),
+                            format(
+                                    "Expected to find a Pinot column handle for the expression %s, but we have %s",
+                                    expression,
+                                    Joiner.on(",").withKeyValueSeparator(":").join(assignmentToIndex)));
+                }
             }
             outputIndices.add(index);
         }

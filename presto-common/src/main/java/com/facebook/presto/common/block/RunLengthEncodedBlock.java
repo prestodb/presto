@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.predicate.Utils;
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
@@ -81,6 +84,12 @@ public class RunLengthEncodedBlock
     public long getSizeInBytes()
     {
         return value.getSizeInBytes();
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size does not increase with each row
     }
 
     @Override
@@ -160,7 +169,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(@Nullable boolean[] positions, int usedPositionCount)
     {
         return value.getSizeInBytes();
     }
@@ -247,6 +256,13 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         value.writeBytesTo(0, offset, length, blockBuilder);
+    }
+
+    @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        checkReadablePosition(position);
+        value.writeBytesTo(0, offset, length, sliceOutput);
     }
 
     @Override

@@ -14,14 +14,15 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.StreamLayout;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
+import com.facebook.presto.orc.writer.StreamLayoutFactory;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
-import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_STREAM_SIZE;
+import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_COLUMN_SIZE;
 
 @SuppressWarnings("unused")
 public class OrcFileWriterConfig
@@ -32,30 +33,34 @@ public class OrcFileWriterConfig
         BY_COLUMN_SIZE,
     }
 
-    private DataSize stripeMinSize = OrcWriterOptions.DEFAULT_STRIPE_MIN_SIZE;
-    private DataSize stripeMaxSize = OrcWriterOptions.DEFAULT_STRIPE_MAX_SIZE;
-    private int stripeMaxRowCount = OrcWriterOptions.DEFAULT_STRIPE_MAX_ROW_COUNT;
+    private DataSize stripeMinSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MIN_SIZE;
+    private DataSize stripeMaxSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_SIZE;
+    private int stripeMaxRowCount = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_ROW_COUNT;
     private int rowGroupMaxRowCount = OrcWriterOptions.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
     private DataSize dictionaryMaxMemory = OrcWriterOptions.DEFAULT_DICTIONARY_MAX_MEMORY;
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
     private DataSize maxCompressionBufferSize = OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
-    private StreamLayoutType streamLayoutType = BY_STREAM_SIZE;
+    private StreamLayoutType streamLayoutType = BY_COLUMN_SIZE;
     private boolean isDwrfStripeCacheEnabled;
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
-        // Give separate copy to callers for isolation.
-        return OrcWriterOptions.builder()
+        DefaultOrcWriterFlushPolicy flushPolicy = DefaultOrcWriterFlushPolicy.builder()
                 .withStripeMinSize(stripeMinSize)
                 .withStripeMaxSize(stripeMaxSize)
                 .withStripeMaxRowCount(stripeMaxRowCount)
+                .build();
+
+        // Give separate copy to callers for isolation.
+        return OrcWriterOptions.builder()
+                .withFlushPolicy(flushPolicy)
                 .withRowGroupMaxRowCount(rowGroupMaxRowCount)
                 .withDictionaryMaxMemory(dictionaryMaxMemory)
                 .withMaxStringStatisticsLimit(stringStatisticsLimit)
                 .withMaxCompressionBufferSize(maxCompressionBufferSize)
-                .withStreamLayout(getStreamLayout(streamLayoutType))
+                .withStreamLayoutFactory(getStreamLayoutFactory(streamLayoutType))
                 .withDwrfStripeCacheEnabled(isDwrfStripeCacheEnabled)
                 .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
                 .withDwrfStripeCacheMode(dwrfStripeCacheMode);
@@ -201,13 +206,13 @@ public class OrcFileWriterConfig
         return this;
     }
 
-    private static StreamLayout getStreamLayout(StreamLayoutType type)
+    private static StreamLayoutFactory getStreamLayoutFactory(StreamLayoutType type)
     {
         switch (type) {
             case BY_COLUMN_SIZE:
-                return new StreamLayout.ByColumnSize();
+                return new StreamLayoutFactory.ColumnSizeLayoutFactory();
             case BY_STREAM_SIZE:
-                return new StreamLayout.ByStreamSize();
+                return new StreamLayoutFactory.StreamSizeLayoutFactory();
             default:
                 throw new RuntimeException("Unrecognized type " + type);
         }

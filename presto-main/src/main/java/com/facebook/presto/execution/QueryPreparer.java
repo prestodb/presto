@@ -74,7 +74,13 @@ public class QueryPreparer
     public PreparedQuery prepareQuery(Session session, Statement wrappedStatement, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
-        Statement statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session, warningCollector);
+        Statement statement = wrappedStatement;
+        Optional<String> prepareSql = Optional.empty();
+        if (statement instanceof Execute) {
+            prepareSql = Optional.of(session.getPreparedStatementFromExecute((Execute) statement));
+            statement = sqlParser.createStatement(prepareSql.get(), createParsingOptions(session, warningCollector));
+        }
+
         if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             Statement innerStatement = ((Explain) statement).getStatement();
             Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
@@ -91,7 +97,7 @@ public class QueryPreparer
         if (isLogFormattedQueryEnabled(session)) {
             formattedQuery = Optional.of(getFormattedQuery(statement, parameters));
         }
-        return new PreparedQuery(statement, parameters, formattedQuery);
+        return new PreparedQuery(statement, parameters, formattedQuery, prepareSql);
     }
 
     private static String getFormattedQuery(Statement statement, List<Expression> parameters)
@@ -100,16 +106,6 @@ public class QueryPreparer
                 statement,
                 parameters.isEmpty() ? Optional.empty() : Optional.of(parameters));
         return format("-- Formatted Query:\n%s", formattedQuery);
-    }
-
-    private static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session, WarningCollector warningCollector)
-    {
-        if (!(statement instanceof Execute)) {
-            return statement;
-        }
-
-        String sql = session.getPreparedStatementFromExecute((Execute) statement);
-        return sqlParser.createStatement(sql, createParsingOptions(session, warningCollector));
     }
 
     private static void validateParameters(Statement node, List<Expression> parameterValues)
@@ -128,12 +124,14 @@ public class QueryPreparer
         private final Statement statement;
         private final List<Expression> parameters;
         private final Optional<String> formattedQuery;
+        private final Optional<String> prepareSql;
 
-        public PreparedQuery(Statement statement, List<Expression> parameters, Optional<String> formattedQuery)
+        public PreparedQuery(Statement statement, List<Expression> parameters, Optional<String> formattedQuery, Optional<String> prepareSql)
         {
             this.statement = requireNonNull(statement, "statement is null");
             this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
             this.formattedQuery = requireNonNull(formattedQuery, "formattedQuery is null");
+            this.prepareSql = requireNonNull(prepareSql, "prepareSql is null");
         }
 
         public Statement getStatement()
@@ -149,6 +147,11 @@ public class QueryPreparer
         public Optional<String> getFormattedQuery()
         {
             return formattedQuery;
+        }
+
+        public Optional<String> getPrepareSql()
+        {
+            return prepareSql;
         }
     }
 }

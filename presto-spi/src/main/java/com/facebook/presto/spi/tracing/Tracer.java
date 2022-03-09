@@ -47,4 +47,6 @@ public interface Tracer
      * @param annotation message associated with the end point of the trace
      */
     void endTrace(String annotation);
+
+    String getTracerId();
 }

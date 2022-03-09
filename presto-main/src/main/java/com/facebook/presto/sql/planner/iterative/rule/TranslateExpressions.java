@@ -42,7 +42,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToE
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 public class TranslateExpressions
         extends RowExpressionRewriteRuleSet
@@ -70,6 +70,7 @@ public class TranslateExpressions
             {
                 Map<NodeRef<Expression>, Type> types = analyzeCallExpressionTypes(callExpression, session, variableAllocator.getTypes());
                 return new CallExpression(
+                        callExpression.getSourceLocation(),
                         callExpression.getDisplayName(),
                         callExpression.getFunctionHandle(),
                         callExpression.getType(),
@@ -133,7 +134,7 @@ public class TranslateExpressions
                                         sqlParser,
                                         TypeProvider.copyOf(lambdaArgumentSymbolTypes),
                                         lambdaExpression.getBody(),
-                                        emptyList(),
+                                        emptyMap(),
                                         NOOP));
                     }
                 }
@@ -154,7 +155,7 @@ public class TranslateExpressions
                         sqlParser,
                         typeProvider,
                         expression,
-                        emptyList(),
+                        emptyMap(),
                         NOOP);
             }
 

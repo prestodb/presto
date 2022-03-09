@@ -156,13 +156,24 @@ public class RowBlockBuilder
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
+    public BlockBuilder getBlockBuilder(int fieldIndex)
+    {
+        return fieldBlockBuilders[fieldIndex];
+    }
+
     @Override
-    public SingleRowBlockWriter beginBlockEntry()
+    public void beginDirectEntry()
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
+    }
+
+    @Override
+    public SingleRowBlockWriter beginBlockEntry()
+    {
+        beginDirectEntry();
         return new SingleRowBlockWriter(fieldBlockBuilders[0].getPositionCount(), fieldBlockBuilders);
     }
 

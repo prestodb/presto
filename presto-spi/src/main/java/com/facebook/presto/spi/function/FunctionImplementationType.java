@@ -15,9 +15,10 @@ package com.facebook.presto.spi.function;
 
 public enum FunctionImplementationType
 {
-    BUILTIN(false),
+    JAVA(false),
     SQL(false),
-    THRIFT(true);
+    THRIFT(true),
+    GRPC(true);
 
     private final boolean external;
 

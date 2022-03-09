@@ -41,6 +41,6 @@ public class EvaluateZeroSample
     @Override
     public Result apply(SampleNode sample, Captures captures, Context context)
     {
-        return Result.ofPlanNode(new ValuesNode(sample.getId(), sample.getOutputVariables(), ImmutableList.of()));
+        return Result.ofPlanNode(new ValuesNode(sample.getSourceLocation(), sample.getId(), sample.getOutputVariables(), ImmutableList.of()));
     }
 }

@@ -27,12 +27,14 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.TimeZone;
 
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_CREDENTIALS_PATH_KEY;
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_OAUTH_SCOPES_KEY;
@@ -66,6 +68,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWO
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.TIMEZONE_ID;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -147,6 +150,21 @@ final class PrestoDriverUri
     public Properties getProperties()
     {
         return properties;
+    }
+
+    public String getTimeZoneId()
+            throws SQLException
+    {
+        Optional<String> timezone = TIMEZONE_ID.getValue(properties);
+
+        if (timezone.isPresent()) {
+            List<String> timeZoneIds = Arrays.asList(TimeZone.getAvailableIDs());
+            if (!timeZoneIds.contains(timezone.get())) {
+                throw new SQLException("Specified timeZoneId is not supported: " + timezone.get());
+            }
+            return timezone.get();
+        }
+        return TimeZone.getDefault().getID();
     }
 
     public Map<String, String> getExtraCredentials()

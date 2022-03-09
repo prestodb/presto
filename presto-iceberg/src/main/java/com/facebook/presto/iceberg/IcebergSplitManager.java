@@ -27,9 +27,10 @@ import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
-import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
-import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
+import static com.facebook.presto.iceberg.IcebergUtil.getHadoopIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -38,7 +39,7 @@ public class IcebergSplitManager
     private final IcebergTransactionManager transactionManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final IcebergResourceFactory resourceFactory;
-    private final boolean nativeCatalogMode;
+    private final CatalogType catalogType;
 
     @Inject
     public IcebergSplitManager(
@@ -51,7 +52,7 @@ public class IcebergSplitManager
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         requireNonNull(config, "config is null");
-        this.nativeCatalogMode = config.isNativeMode();
+        this.catalogType = config.getCatalogType();
     }
 
     @Override
@@ -69,12 +70,12 @@ public class IcebergSplitManager
         }
 
         Table icebergTable;
-        if (nativeCatalogMode) {
-            icebergTable = resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table.getSchemaTableName()));
+        if (catalogType == HADOOP) {
+            icebergTable = getHadoopIcebergTable(resourceFactory, session, table.getSchemaTableName());
         }
         else {
-            ExtendedHiveMetastore metastore = ((IcebergMetadata) transactionManager.get(transaction)).getMetastore();
-            icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+            ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) transactionManager.get(transaction)).getMetastore();
+            icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
         }
 
         TableScan tableScan = icebergTable.newScan()
@@ -83,7 +84,7 @@ public class IcebergSplitManager
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks());
+        IcebergSplitSource splitSource = new IcebergSplitSource(session, tableScan.planTasks());
         return splitSource;
     }
 }

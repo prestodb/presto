@@ -65,11 +65,11 @@ public class LongColumnWriter
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream dataStream;
-    private final PresentOutputStream presentStream;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private final CompressedMetadataWriter metadataWriter;
     private long columnStatisticsRetainedSizeInBytes;
+    private PresentOutputStream presentStream;
 
     private final Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier;
     private LongValueStatisticsBuilder statisticsBuilder;
@@ -86,10 +86,10 @@ public class LongColumnWriter
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(type instanceof FixedWidthType, "Type is not instance of FixedWidthType");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
-        checkArgument(type instanceof FixedWidthType, "Type is not instance of FixedWidthType");
 
         this.column = column;
         this.type = requireNonNull(type, "type is null");
@@ -119,7 +119,19 @@ public class LongColumnWriter
     public void beginRowGroup()
     {
         presentStream.recordCheckpoint();
+        beginDataRowGroup();
+    }
+
+    void beginDataRowGroup()
+    {
         dataStream.recordCheckpoint();
+    }
+
+    void updatePresentStream(PresentOutputStream updatedPresentStream)
+    {
+        requireNonNull(updatedPresentStream, "updatedPresentStream is null");
+        checkState(presentStream.getBufferedBytes() == 0, "Present stream has some content");
+        presentStream = updatedPresentStream;
     }
 
     @Override
@@ -138,12 +150,17 @@ public class LongColumnWriter
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 long value = type.getLong(block, position);
-                dataStream.writeLong(value);
-                statisticsBuilder.addValue(value);
+                writeValue(value);
                 nonNullValueCount++;
             }
         }
         return nonNullValueCount * typeSize + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+    }
+
+    void writeValue(long value)
+    {
+        dataStream.writeLong(value);
+        statisticsBuilder.addValue(value);
     }
 
     @Override

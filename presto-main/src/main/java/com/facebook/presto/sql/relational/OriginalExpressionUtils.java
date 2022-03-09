@@ -14,14 +14,18 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +47,7 @@ public final class OriginalExpressionUtils
 
     public static SymbolReference asSymbolReference(VariableReferenceExpression variable)
     {
-        return new SymbolReference(variable.getName());
+        return createSymbolReference(variable);
     }
 
     /**
@@ -84,6 +88,12 @@ public final class OriginalExpressionUtils
         public Expression getExpression()
         {
             return expression;
+        }
+
+        @Override
+        public Optional<SourceLocation> getSourceLocation()
+        {
+            return ExpressionTreeUtils.getSourceLocation(expression);
         }
 
         @Override

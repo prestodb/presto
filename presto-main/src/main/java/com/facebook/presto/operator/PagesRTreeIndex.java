@@ -162,12 +162,12 @@ public class PagesRTreeIndex
         IntArrayList matchingPositions = new IntArrayList();
 
         Rectangle queryRectangle = getExtent(probeGeometry);
-        boolean probeIsPoint = queryRectangle.isPointlike();
+        boolean probeIsPoint = queryRectangle.isPointLike();
         rtree.findIntersections(queryRectangle, geometryWithPosition -> {
             OGCGeometry buildGeometry = geometryWithPosition.getGeometry();
             Rectangle buildEnvelope = geometryWithPosition.getExtent();
             if (partitions.isEmpty() || (probePartition == geometryWithPosition.getPartition() &&
-                    (probeIsPoint || buildEnvelope.isPointlike() || testReferencePoint(queryRectangle, buildEnvelope, probePartition)))) {
+                    (probeIsPoint || buildEnvelope.isPointLike() || testReferencePoint(queryRectangle, buildEnvelope, probePartition)))) {
                 OptionalDouble radius = radiusChannel == -1 ?
                         OptionalDouble.empty() :
                         OptionalDouble.of(getRadius(geometryWithPosition.getPosition()));

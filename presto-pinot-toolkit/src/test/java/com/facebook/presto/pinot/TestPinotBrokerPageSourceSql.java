@@ -178,6 +178,7 @@ public class TestPinotBrokerPageSourceSql
                                 false))),
                 generatedPinotQuery,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 new MockPinotClusterInfoFetcher(pinotConfig),
                 objectMapper);
         assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable\"}");
@@ -215,6 +216,7 @@ public class TestPinotBrokerPageSourceSql
                 pinotConfig,
                 new TestingConnectorSession(ImmutableList.of()),
                 generatedSql,
+                actualHandles,
                 actualHandles,
                 new MockPinotClusterInfoFetcher(pinotConfig),
                 objectMapper);

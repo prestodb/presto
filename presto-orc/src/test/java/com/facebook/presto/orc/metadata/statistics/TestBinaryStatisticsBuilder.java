@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -20,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.NONE;
 import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
@@ -36,7 +38,7 @@ public class TestBinaryStatisticsBuilder
 
     public TestBinaryStatisticsBuilder()
     {
-        super(NONE, BinaryStatisticsBuilder::new, BinaryStatisticsBuilder::addValue);
+        super(NONE, BinaryStatisticsBuilder::new, TestBinaryStatisticsBuilder::addValue);
     }
 
     @Test
@@ -53,19 +55,24 @@ public class TestBinaryStatisticsBuilder
     {
         BinaryStatisticsBuilder binaryStatisticsBuilder = new BinaryStatisticsBuilder();
         for (Slice value : ImmutableList.of(EMPTY_SLICE, FIRST_VALUE, SECOND_VALUE)) {
-            binaryStatisticsBuilder.addValue(value);
+            addValue(binaryStatisticsBuilder, value);
         }
         assertBinaryStatistics(binaryStatisticsBuilder.buildColumnStatistics(), 3, EMPTY_SLICE.length() + FIRST_VALUE.length() + SECOND_VALUE.length());
     }
 
     @Test
-    public void testSliceWithIndexLength()
+    public void testBlockBinaryStatistics()
     {
-        BinaryStatisticsBuilder binaryStatisticsBuilder = new BinaryStatisticsBuilder();
-        Slice slice = utf8Slice("abcdefghijklmnopqrstuvwxyz");
+        String alphabets = "abcdefghijklmnopqrstuvwxyz";
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, alphabets.length(), alphabets.length());
+        Slice slice = utf8Slice(alphabets);
         for (int i = 0; i < slice.length(); i++) {
-            binaryStatisticsBuilder.addValue(slice, i, 1);
+            VARBINARY.writeSlice(blockBuilder, slice, i, 1);
         }
+        blockBuilder.appendNull();
+
+        BinaryStatisticsBuilder binaryStatisticsBuilder = new BinaryStatisticsBuilder();
+        binaryStatisticsBuilder.addBlock(VARBINARY, blockBuilder);
 
         BinaryStatistics binaryStatistics = binaryStatisticsBuilder.buildColumnStatistics().getBinaryStatistics();
         assertEquals(binaryStatistics.getSum(), slice.length());
@@ -80,26 +87,26 @@ public class TestBinaryStatisticsBuilder
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedBinaryStatistics(statisticsList, 0, 0);
 
-        statisticsBuilder.addValue(EMPTY_SLICE);
+        addValue(statisticsBuilder, EMPTY_SLICE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedBinaryStatistics(statisticsList, 1, 0);
 
-        statisticsBuilder.addValue(FIRST_VALUE);
+        addValue(statisticsBuilder, FIRST_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedBinaryStatistics(statisticsList, 3, FIRST_VALUE.length());
 
-        statisticsBuilder.addValue(SECOND_VALUE);
+        addValue(statisticsBuilder, SECOND_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedBinaryStatistics(statisticsList, 6, FIRST_VALUE.length() * 2 + SECOND_VALUE.length());
     }
 
     @Test
-    public void testMinAverageValueBytes()
+    public void testTotalValueBytes()
     {
-        assertMinAverageValueBytes(0L, ImmutableList.of());
-        assertMinAverageValueBytes(BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
-        assertMinAverageValueBytes(FIRST_VALUE.length() + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE));
-        assertMinAverageValueBytes((FIRST_VALUE.length() + SECOND_VALUE.length()) / 2 + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE, SECOND_VALUE));
+        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
+        assertTotalValueBytes(FIRST_VALUE.length() + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE));
+        assertTotalValueBytes((FIRST_VALUE.length() + SECOND_VALUE.length()) + 2 * BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE, SECOND_VALUE));
     }
 
     private void assertMergedBinaryStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)
@@ -121,5 +128,13 @@ public class TestBinaryStatisticsBuilder
             assertNull(columnStatistics.getBinaryStatistics());
             assertEquals(columnStatistics.getNumberOfValues(), 0);
         }
+    }
+
+    public static void addValue(BinaryStatisticsBuilder binaryStatisticsBuilder, Slice slice)
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, slice.length());
+        blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
+
+        binaryStatisticsBuilder.addBlock(VARBINARY, blockBuilder);
     }
 }

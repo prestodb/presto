@@ -57,6 +57,7 @@ public class ImplementBernoulliSampleAsFilter
     public Result apply(SampleNode sample, Captures captures, Context context)
     {
         return Result.ofPlanNode(new FilterNode(
+                sample.getSourceLocation(),
                 sample.getId(),
                 sample.getSource(),
                 castToRowExpression(new ComparisonExpression(

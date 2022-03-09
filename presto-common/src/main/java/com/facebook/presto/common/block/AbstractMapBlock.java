@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToOffsetsArray;
@@ -30,6 +31,8 @@ import static com.facebook.presto.common.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.common.block.BlockUtil.countAndMarkSelectedPositionsFromOffsets;
+import static com.facebook.presto.common.block.BlockUtil.countSelectedPositionsFromOffsets;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
 import static com.facebook.presto.common.block.MapBlockBuilder.buildHashTable;
@@ -156,6 +159,26 @@ public abstract class AbstractMapBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size per row is variable on the number of entries in each row
+    }
+
+    private OptionalInt keyAndValueFixedSizeInBytesPerRow()
+    {
+        OptionalInt keyFixedSizePerRow = getRawKeyBlock().fixedSizeInBytesPerPosition();
+        if (!keyFixedSizePerRow.isPresent()) {
+            return OptionalInt.empty();
+        }
+        OptionalInt valueFixedSizePerRow = getRawValueBlock().fixedSizeInBytesPerPosition();
+        if (!valueFixedSizePerRow.isPresent()) {
+            return OptionalInt.empty();
+        }
+
+        return OptionalInt.of(keyFixedSizePerRow.getAsInt() + valueFixedSizePerRow.getAsInt());
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
@@ -213,33 +236,41 @@ public abstract class AbstractMapBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public final long getPositionsSizeInBytes(boolean[] positions, int selectedMapPositions)
     {
-        // We can use either the getRegionSizeInBytes or getPositionsSizeInBytes
-        // from the underlying raw blocks to implement this function. We chose
-        // getPositionsSizeInBytes with the assumption that constructing a
-        // positions array is cheaper than calling getRegionSizeInBytes for each
-        // used position.
         int positionCount = getPositionCount();
         checkValidPositions(positions, positionCount);
-        boolean[] entryPositions = new boolean[getRawKeyBlock().getPositionCount()];
-        int usedEntryCount = 0;
-        int usedPositionCount = 0;
-        for (int i = 0; i < positions.length; ++i) {
-            if (positions[i]) {
-                usedPositionCount++;
-                int entriesStart = getOffsets()[getOffsetBase() + i];
-                int entriesEnd = getOffsets()[getOffsetBase() + i + 1];
-                for (int j = entriesStart; j < entriesEnd; j++) {
-                    entryPositions[j] = true;
-                }
-                usedEntryCount += (entriesEnd - entriesStart);
-            }
+        if (selectedMapPositions == 0) {
+            return 0;
         }
-        return getRawKeyBlock().getPositionsSizeInBytes(entryPositions) +
-                getRawValueBlock().getPositionsSizeInBytes(entryPositions) +
-                (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) usedEntryCount;
+        if (selectedMapPositions == positionCount) {
+            return getSizeInBytes();
+        }
+        int[] offsets = getOffsets();
+        int offsetBase = getOffsetBase();
+        OptionalInt fixedKeyAndValueSizePerRow = keyAndValueFixedSizeInBytesPerRow();
+
+        int selectedEntryCount;
+        long keyAndValuesSizeInBytes;
+        if (fixedKeyAndValueSizePerRow.isPresent()) {
+            // no new positions array need be created, we can just count the number of elements
+            selectedEntryCount = countSelectedPositionsFromOffsets(positions, offsets, offsetBase);
+            keyAndValuesSizeInBytes = fixedKeyAndValueSizePerRow.getAsInt() * (long) selectedEntryCount;
+        }
+        else {
+            // We can use either the getRegionSizeInBytes or getPositionsSizeInBytes
+            // from the underlying raw blocks to implement this function. We chose
+            // getPositionsSizeInBytes with the assumption that constructing a
+            // positions array is cheaper than calling getRegionSizeInBytes for each
+            // used position.
+            boolean[] entryPositions = new boolean[getRawKeyBlock().getPositionCount()];
+            selectedEntryCount = countAndMarkSelectedPositionsFromOffsets(positions, offsets, offsetBase, entryPositions);
+            keyAndValuesSizeInBytes = getRawKeyBlock().getPositionsSizeInBytes(entryPositions, selectedEntryCount) +
+                    getRawValueBlock().getPositionsSizeInBytes(entryPositions, selectedEntryCount);
+        }
+        return keyAndValuesSizeInBytes +
+                (Integer.BYTES + Byte.BYTES) * (long) selectedMapPositions +
+                Integer.BYTES * HASH_MULTIPLIER * (long) selectedEntryCount;
     }
 
     @Override

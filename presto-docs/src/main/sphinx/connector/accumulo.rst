@@ -181,7 +181,7 @@ You can then issue ``INSERT`` statements to put data into Accumulo.
     (2 rows)
 
 As you'd expect, rows inserted into Accumulo via the shell or
-programatically will also show up when queried. (The Accumulo shell
+programmatically will also show up when queried. (The Accumulo shell
 thinks "-5321" is an option and not a number... so we'll just make TBL a
 little younger.)
 
@@ -514,7 +514,7 @@ Serializers
 
 The Presto connector for Accumulo has a pluggable serializer framework
 for handling I/O between Presto and Accumulo. This enables end-users the
-ability to programatically serialized and deserialize their special data
+ability to programmatically serialized and deserialize their special data
 formats within Accumulo, while abstracting away the complexity of the
 connector itself.
 

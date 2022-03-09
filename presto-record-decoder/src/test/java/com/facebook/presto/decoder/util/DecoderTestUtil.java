@@ -15,6 +15,7 @@ package com.facebook.presto.decoder.util;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
+import io.airlift.slice.Slice;
 
 import java.util.Map;
 
@@ -25,6 +26,13 @@ import static org.testng.Assert.assertTrue;
 public final class DecoderTestUtil
 {
     private DecoderTestUtil() {}
+
+    public static void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Slice value)
+    {
+        FieldValueProvider provider = decodedRow.get(handle);
+        assertNotNull(provider);
+        assertEquals(provider.getSlice(), value);
+    }
 
     public static void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, String value)
     {

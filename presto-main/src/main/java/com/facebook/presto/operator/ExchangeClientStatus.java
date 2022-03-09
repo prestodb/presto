@@ -124,7 +124,7 @@ public class ExchangeClientStatus
                 mergeAvgs(averageBytesPerRequest, successfulRequestsCount, other.averageBytesPerRequest, other.successfulRequestsCount),
                 successfulRequestsCount + other.successfulRequestsCount,
                 bufferedPages + other.bufferedPages,
-                noMoreLocations && other.noMoreLocations, // if at least one has some locations, mergee has some too
+                noMoreLocations && other.noMoreLocations, // if at least one has some locations, merge has some too
                 ImmutableList.of()); // pageBufferClientStatuses may be long, so we don't want to combine the lists
     }
 

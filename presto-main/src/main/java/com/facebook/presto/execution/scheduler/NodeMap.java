@@ -15,12 +15,15 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.google.common.collect.SetMultimap;
 
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static java.lang.String.format;
 
 public class NodeMap
 {
@@ -31,6 +34,7 @@ public class NodeMap
     private final List<InternalNode> allNodes;
     private final SetMultimap<InetAddress, InternalNode> allNodesByHost;
     private final SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort;
+    private final ConsistentHashingNodeProvider consistentHashingNodeProvider;
 
     public NodeMap(
             Map<String, InternalNode> activeNodesByNodeId,
@@ -39,7 +43,8 @@ public class NodeMap
             List<InternalNode> activeNodes,
             List<InternalNode> allNodes,
             SetMultimap<InetAddress, InternalNode> allNodesByHost,
-            SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort)
+            SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort,
+            ConsistentHashingNodeProvider consistentHashingNodeProvider)
     {
         this.activeNodesByNodeId = activeNodesByNodeId;
         this.activeWorkersByNetworkPath = activeWorkersByNetworkPath;
@@ -48,6 +53,7 @@ public class NodeMap
         this.allNodes = allNodes;
         this.allNodesByHost = allNodesByHost;
         this.allNodesByHostAndPort = allNodesByHostAndPort;
+        this.consistentHashingNodeProvider = consistentHashingNodeProvider;
     }
 
     public Map<String, InternalNode> getActiveNodesByNodeId()
@@ -83,5 +89,17 @@ public class NodeMap
     public SetMultimap<HostAddress, InternalNode> getAllNodesByHostAndPort()
     {
         return allNodesByHostAndPort;
+    }
+
+    public NodeProvider getActiveNodeProvider(NodeSelectionHashStrategy nodeSelectionHashStrategy)
+    {
+        switch (nodeSelectionHashStrategy) {
+            case MODULAR_HASHING:
+                return new ModularHashingNodeProvider(activeNodes);
+            case CONSISTENT_HASHING:
+                return consistentHashingNodeProvider;
+            default:
+                throw new IllegalArgumentException(format("Unknown NodeSelectionHashStrategy: %s", nodeSelectionHashStrategy));
+        }
     }
 }

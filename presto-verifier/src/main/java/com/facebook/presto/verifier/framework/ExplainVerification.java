@@ -73,8 +73,8 @@ public class ExplainVerification
             QueryBundle test,
             Optional<QueryResult<String>> controlQueryResult,
             Optional<QueryResult<String>> testQueryResult,
-            ChecksumQueryContext controlContext,
-            ChecksumQueryContext testContext)
+            ChecksumQueryContext controlChecksumQueryContext,
+            ChecksumQueryContext testChecksumQueryContext)
     {
         checkArgument(controlQueryResult.isPresent(), "control query plan is missing");
         checkArgument(testQueryResult.isPresent(), "test query plan is missing");

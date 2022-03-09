@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
@@ -28,14 +29,12 @@ public class SingleArrayBlockWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayBlockWriter.class).instanceSize();
 
     private final BlockBuilder blockBuilder;
-    private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     public SingleArrayBlockWriter(BlockBuilder blockBuilder, int start)
     {
         super(start);
         this.blockBuilder = blockBuilder;
-        this.initialBlockBuilderSize = blockBuilder.getSizeInBytes();
     }
 
     @Override
@@ -47,7 +46,17 @@ public class SingleArrayBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        return blockBuilder.getSizeInBytes() - initialBlockBuilderSize;
+        long size = blockBuilder.getSizeInBytes();
+        if (start == 0) {
+            return size;
+        }
+        return size - blockBuilder.getRegionSizeInBytes(0, start);
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override

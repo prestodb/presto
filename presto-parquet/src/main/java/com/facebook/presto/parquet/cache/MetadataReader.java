@@ -32,6 +32,7 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -144,6 +145,8 @@ public final class MetadataReader
                             metaData.num_values,
                             metaData.total_compressed_size,
                             metaData.total_uncompressed_size);
+                    column.setColumnIndexReference(toColumnIndexReference(columnChunk));
+                    column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
                     blockMetaData.addColumn(column);
                 }
                 blockMetaData.setPath(filePath);
@@ -207,11 +210,14 @@ public final class MetadataReader
     public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
     {
         org.apache.parquet.column.statistics.Statistics<?> stats = org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType(type);
+        stats.setNumNulls(-1);
         if (statistics != null) {
             if (statistics.isSetMax() && statistics.isSetMin()) {
                 stats.setMinMaxFromBytes(statistics.min.array(), statistics.max.array());
             }
-            stats.setNumNulls(statistics.null_count);
+            if (statistics.isSetNull_count()) {
+                stats.setNumNulls(statistics.null_count);
+            }
         }
         return stats;
     }
@@ -304,5 +310,21 @@ public final class MetadataReader
             throws IOException
     {
         return readFooter(parquetDataSource, fileSize);
+    }
+
+    private static IndexReference toColumnIndexReference(ColumnChunk columnChunk)
+    {
+        if (columnChunk.isSetColumn_index_offset() && columnChunk.isSetColumn_index_length()) {
+            return new IndexReference(columnChunk.getColumn_index_offset(), columnChunk.getColumn_index_length());
+        }
+        return null;
+    }
+
+    private static IndexReference toOffsetIndexReference(ColumnChunk columnChunk)
+    {
+        if (columnChunk.isSetOffset_index_offset() && columnChunk.isSetOffset_index_length()) {
+            return new IndexReference(columnChunk.getOffset_index_offset(), columnChunk.getOffset_index_length());
+        }
+        return null;
     }
 }

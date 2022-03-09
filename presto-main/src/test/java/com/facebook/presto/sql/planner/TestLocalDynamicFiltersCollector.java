@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
@@ -29,7 +31,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testCollector()
     {
-        VariableReferenceExpression variable = new VariableReferenceExpression("variable", BIGINT);
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "variable", BIGINT);
 
         LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector();
         assertEquals(collector.getPredicate(), TupleDomain.all());

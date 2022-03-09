@@ -19,6 +19,8 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementa
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
@@ -34,8 +36,6 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.TOP_DOWN;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
@@ -60,7 +60,7 @@ public class TestFeaturesConfig
                 .setMemoryCostWeight(10)
                 .setNetworkCostWeight(15)
                 .setDistributedIndexJoinsEnabled(false)
-                .setJoinDistributionType(PARTITIONED)
+                .setJoinDistributionType(JoinDistributionType.AUTOMATIC)
                 .setJoinMaxBroadcastTableSize(new DataSize(100, MEGABYTE))
                 .setGroupedExecutionEnabled(true)
                 .setRecoverableGroupedExecutionEnabled(false)
@@ -70,7 +70,7 @@ public class TestFeaturesConfig
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(true)
                 .setSpatialJoinsEnabled(true)
-                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
+                .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
                 .setPartialMergePushdownStrategy(FeaturesConfig.PartialMergePushdownStrategy.NONE)
                 .setMaxReorderedJoins(9)
                 .setRedistributeWrites(true)
@@ -78,6 +78,8 @@ public class TestFeaturesConfig
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
                 .setOptimizedScaleWriterProducerBuffer(false)
                 .setOptimizeMetadataQueries(false)
+                .setOptimizeMetadataQueriesIgnoreStats(false)
+                .setOptimizeMetadataQueriesCallThreshold(100)
                 .setOptimizeHashGeneration(true)
                 .setPushTableWriteThroughUnion(true)
                 .setDictionaryAggregation(false)
@@ -94,6 +96,8 @@ public class TestFeaturesConfig
                 .setAggregationSpillEnabled(true)
                 .setDistinctAggregationSpillEnabled(true)
                 .setDedupBasedDistinctAggregationSpillEnabled(false)
+                .setDistinctAggregationLargeBlockSpillEnabled(false)
+                .setDistinctAggregationLargeBlockSizeThreshold(DataSize.valueOf("50MB"))
                 .setOrderByAggregationSpillEnabled(true)
                 .setWindowSpillEnabled(true)
                 .setOrderBySpillEnabled(true)
@@ -181,7 +185,11 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
                 .setVerboseRuntimeStatsEnabled(false)
-                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED));
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
+                .setHashBasedDistinctLimitEnabled(false)
+                .setHashBasedDistinctLimitThreshold(10000)
+                .setStreamingForPartialAggregationEnabled(false)
+                .setMaxStageCountForEagerScheduling(25));
     }
 
     @Test
@@ -231,6 +239,8 @@ public class TestFeaturesConfig
                 .put("writer-min-size", "42GB")
                 .put("optimized-scale-writer-producer-buffer", "true")
                 .put("optimizer.optimize-metadata-queries", "true")
+                .put("optimizer.optimize-metadata-queries-ignore-stats", "true")
+                .put("optimizer.optimize-metadata-queries-call-threshold", "200")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
@@ -245,6 +255,8 @@ public class TestFeaturesConfig
                 .put("experimental.aggregation-spill-enabled", "false")
                 .put("experimental.distinct-aggregation-spill-enabled", "false")
                 .put("experimental.dedup-based-distinct-aggregation-spill-enabled", "true")
+                .put("experimental.distinct-aggregation-large-block-spill-enabled", "true")
+                .put("experimental.distinct-aggregation-large-block-size-threshold", "10MB")
                 .put("experimental.order-by-aggregation-spill-enabled", "false")
                 .put("experimental.window-spill-enabled", "false")
                 .put("experimental.order-by-spill-enabled", "false")
@@ -314,6 +326,10 @@ public class TestFeaturesConfig
                 .put("query-optimization-with-materialized-view-enabled", "true")
                 .put("verbose-runtime-stats-enabled", "true")
                 .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
+                .put("hash-based-distinct-limit-enabled", "true")
+                .put("hash-based-distinct-limit-threshold", "500")
+                .put("streaming-for-partial-aggregation-enabled", "true")
+                .put("execution-policy.max-stage-count-for-eager-scheduling", "123")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -351,6 +367,8 @@ public class TestFeaturesConfig
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
                 .setOptimizedScaleWriterProducerBuffer(true)
                 .setOptimizeMetadataQueries(true)
+                .setOptimizeMetadataQueriesIgnoreStats(true)
+                .setOptimizeMetadataQueriesCallThreshold(200)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeMixedDistinctAggregations(true)
                 .setPushTableWriteThroughUnion(false)
@@ -369,6 +387,8 @@ public class TestFeaturesConfig
                 .setAggregationSpillEnabled(false)
                 .setDistinctAggregationSpillEnabled(false)
                 .setDedupBasedDistinctAggregationSpillEnabled(true)
+                .setDistinctAggregationLargeBlockSpillEnabled(true)
+                .setDistinctAggregationLargeBlockSizeThreshold(DataSize.valueOf("10MB"))
                 .setOrderByAggregationSpillEnabled(false)
                 .setWindowSpillEnabled(false)
                 .setOrderBySpillEnabled(false)
@@ -443,7 +463,11 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
                 .setVerboseRuntimeStatsEnabled(true)
-                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF);
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
+                .setHashBasedDistinctLimitEnabled(true)
+                .setHashBasedDistinctLimitThreshold(500)
+                .setStreamingForPartialAggregationEnabled(true)
+                .setMaxStageCountForEagerScheduling(123);
         assertFullMapping(properties, expected);
     }
 

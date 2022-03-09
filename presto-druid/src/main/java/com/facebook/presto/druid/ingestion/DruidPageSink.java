@@ -54,7 +54,7 @@ public class DruidPageSink
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.druidPageWriter = requireNonNull(druidPageWriter, "pageWriter is null");
         this.dataPath = new Path(druidConfig.getIngestionStoragePath(), tableHandle.getTableName() + UUID.randomUUID());
-        this.dataFileList = new ArrayList<String>();
+        this.dataFileList = new ArrayList<>();
     }
 
     @Override

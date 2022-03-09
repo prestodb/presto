@@ -64,6 +64,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -113,6 +114,7 @@ import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -284,7 +286,13 @@ public class PageFunctionCompiler
         if (projectionCache == null) {
             return compileProjectionInternal(sqlFunctionProperties, sessionFunctions, projections, isOptimizeCommonSubExpression, classNameSuffix);
         }
-        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, sessionFunctions, projections, isOptimizeCommonSubExpression));
+        try {
+            return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, sessionFunctions, projections, isOptimizeCommonSubExpression));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
     }
 
     private Supplier<PageProjectionWithOutputs> toPageProjectionWithOutputs(Supplier<PageProjection> pageProjection, int[] outputChannels)
@@ -635,7 +643,13 @@ public class PageFunctionCompiler
         if (filterCache == null) {
             return compileFilterInternal(sqlFunctionProperties, sessionFunctions, filter, isOptimizeCommonSubExpression, classNameSuffix);
         }
-        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, sessionFunctions, ImmutableList.of(filter), isOptimizeCommonSubExpression));
+        try {
+            return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, sessionFunctions, ImmutableList.of(filter), isOptimizeCommonSubExpression));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
     }
 
     private Supplier<PageFilter> compileFilterInternal(

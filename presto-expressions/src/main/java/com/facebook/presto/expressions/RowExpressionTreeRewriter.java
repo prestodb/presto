@@ -51,11 +51,11 @@ public final class RowExpressionTreeRewriter<C>
 
     private List<RowExpression> rewrite(List<RowExpression> items, Context<C> context)
     {
-        List<RowExpression> rewritenExpressions = new ArrayList<>();
+        List<RowExpression> rewrittenExpressions = new ArrayList<>();
         for (RowExpression expression : items) {
-            rewritenExpressions.add(rewrite(expression, context.get()));
+            rewrittenExpressions.add(rewrite(expression, context.get()));
         }
-        return Collections.unmodifiableList(rewritenExpressions);
+        return Collections.unmodifiableList(rewrittenExpressions);
     }
 
     @SuppressWarnings("unchecked")
@@ -102,7 +102,7 @@ public final class RowExpressionTreeRewriter<C>
             List<RowExpression> arguments = rewrite(call.getArguments(), context);
 
             if (!sameElements(call.getArguments(), arguments)) {
-                return new CallExpression(call.getDisplayName(), call.getFunctionHandle(), call.getType(), arguments);
+                return new CallExpression(call.getSourceLocation(), call.getDisplayName(), call.getFunctionHandle(), call.getType(), arguments);
             }
             return call;
         }
@@ -132,7 +132,7 @@ public final class RowExpressionTreeRewriter<C>
 
             RowExpression body = rewrite(lambda.getBody(), context.get());
             if (body != lambda.getBody()) {
-                return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), body);
+                return new LambdaDefinitionExpression(lambda.getSourceLocation(), lambda.getArgumentTypes(), lambda.getArguments(), body);
             }
 
             return lambda;

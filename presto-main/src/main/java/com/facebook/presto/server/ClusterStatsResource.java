@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
@@ -202,6 +205,7 @@ public class ClusterStatsResource
         }
     }
 
+    @ThriftStruct
     public static class ClusterStats
     {
         private final long runningQueries;
@@ -219,6 +223,7 @@ public class ClusterStatsResource
         private final long adjustedQueueSize;
 
         @JsonCreator
+        @ThriftConstructor
         public ClusterStats(
                 @JsonProperty("runningQueries") long runningQueries,
                 @JsonProperty("blockedQueries") long blockedQueries,
@@ -246,66 +251,77 @@ public class ClusterStatsResource
         }
 
         @JsonProperty
+        @ThriftField(1)
         public long getRunningQueries()
         {
             return runningQueries;
         }
 
         @JsonProperty
+        @ThriftField(2)
         public long getBlockedQueries()
         {
             return blockedQueries;
         }
 
         @JsonProperty
+        @ThriftField(3)
         public long getQueuedQueries()
         {
             return queuedQueries;
         }
 
         @JsonProperty
+        @ThriftField(4)
         public long getActiveWorkers()
         {
             return activeWorkers;
         }
 
         @JsonProperty
+        @ThriftField(5)
         public long getRunningDrivers()
         {
             return runningDrivers;
         }
 
         @JsonProperty
+        @ThriftField(6)
         public long getRunningTasks()
         {
             return runningTasks;
         }
 
         @JsonProperty
+        @ThriftField(7)
         public double getReservedMemory()
         {
             return reservedMemory;
         }
 
         @JsonProperty
+        @ThriftField(8)
         public long getTotalInputRows()
         {
             return totalInputRows;
         }
 
         @JsonProperty
+        @ThriftField(9)
         public long getTotalInputBytes()
         {
             return totalInputBytes;
         }
 
         @JsonProperty
+        @ThriftField(10)
         public long getTotalCpuTimeSecs()
         {
             return totalCpuTimeSecs;
         }
 
         @JsonProperty
+        @ThriftField(11)
         public long getAdjustedQueueSize()
         {
             return adjustedQueueSize;

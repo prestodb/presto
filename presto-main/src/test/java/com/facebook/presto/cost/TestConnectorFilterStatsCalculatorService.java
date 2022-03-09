@@ -77,7 +77,7 @@ public class TestConnectorFilterStatsCalculatorService
                 .setColumnStatistics(xColumn, xStats)
                 .build();
         standardTypes = TypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
-                .add(new VariableReferenceExpression("x", DOUBLE))
+                .add(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE))
                 .build());
         translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
     }

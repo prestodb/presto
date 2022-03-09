@@ -57,6 +57,7 @@ public class QueryInfo
     private final String query;
     // expand the original query to a more accurate one if the data flow indicated by the original query is too obscure.
     private final Optional<String> expandedQuery;
+    private final Optional<String> preparedQuery;
     private final QueryStats queryStats;
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
@@ -96,6 +97,7 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("expandedQuery") Optional<String> expandedQuery,
+            @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
@@ -131,11 +133,12 @@ public class QueryInfo
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
-        requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
+        requireNonNull(addedPreparedStatements, "addedPreparedStatements is null");
         requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
         requireNonNull(expandedQuery, "expandedQuery is null");
+        requireNonNull(preparedQuery, "preparedQuery is null");
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
@@ -156,6 +159,7 @@ public class QueryInfo
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
         this.expandedQuery = expandedQuery;
+        this.preparedQuery = preparedQuery;
         this.queryStats = queryStats;
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
@@ -235,6 +239,12 @@ public class QueryInfo
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    @JsonProperty
+    public Optional<String> getPreparedQuery()
+    {
+        return preparedQuery;
     }
 
     @JsonProperty

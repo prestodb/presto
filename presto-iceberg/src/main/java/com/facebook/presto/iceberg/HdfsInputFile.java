@@ -56,7 +56,8 @@ public class HdfsInputFile
     @Override
     public SeekableInputStream newStream()
     {
-        return environment.doAs(user, delegate::newStream);
+        // Hack: this wrapping is required to circumvent https://github.com/prestodb/presto/issues/16206
+        return new HdfsInputStream(environment.doAs(user, delegate::newStream));
     }
 
     @Override
@@ -69,5 +70,40 @@ public class HdfsInputFile
     public boolean exists()
     {
         return environment.doAs(user, delegate::exists);
+    }
+
+    private static class HdfsInputStream
+            extends SeekableInputStream
+    {
+        private final SeekableInputStream delegate;
+
+        public HdfsInputStream(SeekableInputStream delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public int read() throws IOException
+        {
+            return delegate.read();
+        }
+
+        @Override
+        public long getPos() throws IOException
+        {
+            return delegate.getPos();
+        }
+
+        @Override
+        public void seek(long newPos) throws IOException
+        {
+            delegate.seek(newPos);
+        }
+
+        @Override
+        public void close() throws IOException
+        {
+            delegate.close();
+        }
     }
 }

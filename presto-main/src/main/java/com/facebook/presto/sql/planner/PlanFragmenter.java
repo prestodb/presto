@@ -35,6 +35,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -314,7 +315,7 @@ public class PlanFragmenter
         Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
         if (outputPartitioningScheme.getPartitioning().getHandle().getConnectorId().isPresent()) {
             // Do not replace the handle if the source's output handle is a system one, e.g. broadcast.
-            newOutputPartitioning = newOutputPartitioning.withAlternativePartitiongingHandle(newOutputPartitioningHandle);
+            newOutputPartitioning = newOutputPartitioning.withAlternativePartitioningHandle(newOutputPartitioningHandle);
         }
         PlanFragment newFragment = new PlanFragment(
                 fragment.getId(),
@@ -543,7 +544,7 @@ public class PlanFragmenter
                     .map(PlanFragment::getId)
                     .collect(toImmutableList());
 
-            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
+            return new RemoteSourceNode(exchange.getSourceLocation(), exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
         }
 
         private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
@@ -589,6 +590,7 @@ public class PlanFragmenter
             }
 
             TableScanNode scan = createTemporaryTableScan(
+                    exchange.getSourceLocation(),
                     temporaryTableHandle,
                     exchange.getOutputVariables(),
                     variableToColumnMap,
@@ -598,6 +600,7 @@ public class PlanFragmenter
                     !exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                     "materialized remote exchange is not supported when replicateNullsAndAny is needed");
             TableFinishNode write = createTemporaryTableWrite(
+                    scan.getSourceLocation(),
                     temporaryTableHandle,
                     variableToColumnMap,
                     exchange.getOutputVariables(),
@@ -625,7 +628,7 @@ public class PlanFragmenter
                 checkArgument(argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression, format("Expect argument to be ConstantExpression or VariableReferenceExpression, get %s (%s)", argument.getClass(), argument));
                 VariableReferenceExpression variable;
                 if (argument instanceof ConstantExpression) {
-                    variable = variableAllocator.newVariable("constant_partition", argument.getType());
+                    variable = variableAllocator.newVariable(argument.getSourceLocation(), "constant_partition", argument.getType());
                     constants.put(variable, argument);
                 }
                 else {
@@ -649,6 +652,7 @@ public class PlanFragmenter
         }
 
         private TableScanNode createTemporaryTableScan(
+                Optional<SourceLocation> sourceLocation,
                 TableHandle tableHandle,
                 List<VariableReferenceExpression> outputVariables,
                 Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
@@ -676,6 +680,7 @@ public class PlanFragmenter
                     .collect(toImmutableMap(identity(), variable -> columnHandles.get(outputColumns.get(variable).getName())));
 
             return new TableScanNode(
+                    sourceLocation,
                     idAllocator.getNextId(),
                     selectedLayout.getLayout().getNewTableHandle(),
                     outputVariables,
@@ -685,7 +690,7 @@ public class PlanFragmenter
         }
 
         private TableFinishNode createTemporaryTableWrite(
-                TableHandle tableHandle,
+                Optional<SourceLocation> sourceLocation, TableHandle tableHandle,
                 Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
                 List<VariableReferenceExpression> outputs,
                 List<List<VariableReferenceExpression>> inputs,
@@ -714,9 +719,9 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
-                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
+                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getSourceLocation(), variable.getName(), variable.getType())));
                             constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
-                            return new ProjectNode(idAllocator.getNextId(), source, assignments.build(), Locality.LOCAL);
+                            return new ProjectNode(source.getSourceLocation(), idAllocator.getNextId(), source, assignments.build(), Locality.LOCAL);
                         })
                         .collect(toImmutableList());
             }
@@ -755,6 +760,7 @@ public class PlanFragmenter
                     Optional.empty());
 
             ExchangeNode writerRemoteSource = new ExchangeNode(
+                    sourceLocation,
                     idAllocator.getNextId(),
                     REPARTITION,
                     REMOTE_STREAMING,
@@ -792,11 +798,13 @@ public class PlanFragmenter
             if (isTableWriterMergeOperatorEnabled(session)) {
                 StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionAndTypeManager());
                 tableWriterMerge = new TableWriterMergeNode(
+                        sourceLocation,
                         idAllocator.getNextId(),
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 new TableWriterNode(
+                                        sourceLocation,
                                         idAllocator.getNextId(),
                                         writerSource,
                                         Optional.of(insertReference),
@@ -816,6 +824,7 @@ public class PlanFragmenter
             }
             else {
                 tableWriterMerge = new TableWriterNode(
+                        sourceLocation,
                         idAllocator.getNextId(),
                         writerSource,
                         Optional.of(insertReference),
@@ -831,6 +840,7 @@ public class PlanFragmenter
             }
 
             return new TableFinishNode(
+                    sourceLocation,
                     idAllocator.getNextId(),
                     ensureSourceOrderingGatheringExchange(
                             idAllocator.getNextId(),
@@ -1301,6 +1311,7 @@ public class PlanFragmenter
 
             TableHandle newTableHandle = metadata.getAlternativeTableHandle(session, node.getTable(), fragmentPartitioningHandle);
             return new TableScanNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     newTableHandle,
                     node.getOutputVariables(),

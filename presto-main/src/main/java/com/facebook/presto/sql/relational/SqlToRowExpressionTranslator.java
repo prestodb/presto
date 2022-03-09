@@ -18,6 +18,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
@@ -125,6 +126,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -238,7 +240,7 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitIdentifier(Identifier node, Void context)
         {
             // identifier should never be reachable with the exception of lambda within VALUES (#9711)
-            return new VariableReferenceExpression(node.getValue(), getType(node));
+            return new VariableReferenceExpression(getSourceLocation(node), node.getValue(), getType(node));
         }
 
         @Override
@@ -250,13 +252,13 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitFieldReference(FieldReference node, Void context)
         {
-            return field(node.getFieldIndex(), getType(node));
+            return field(getSourceLocation(node), node.getFieldIndex(), getType(node));
         }
 
         @Override
         protected RowExpression visitNullLiteral(NullLiteral node, Void context)
         {
-            return constantNull(UnknownType.UNKNOWN);
+            return constantNull(getSourceLocation(node), UnknownType.UNKNOWN);
         }
 
         @Override
@@ -347,6 +349,7 @@ public final class SqlToRowExpressionTranslator
 
             if (JSON.equals(type)) {
                 return call(
+                        getSourceLocation(node),
                         "json_parse",
                         functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR)),
                         getType(node),
@@ -354,8 +357,9 @@ public final class SqlToRowExpressionTranslator
             }
 
             return call(
+                    getSourceLocation(node),
                     CAST.name(),
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), getType(node).getTypeSignature()),
+                    functionAndTypeManager.lookupCast(CAST, VARCHAR, getType(node)),
                     getType(node),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
@@ -412,6 +416,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
+                    getSourceLocation(node),
                     node.getOperator().name(),
                     functionResolution.comparisonFunction(node.getOperator(), left.getType(), right.getType()),
                     BOOLEAN,
@@ -445,10 +450,10 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSymbolReference(SymbolReference node, Void context)
         {
-            VariableReferenceExpression variable = new VariableReferenceExpression(node.getName(), getType(node));
+            VariableReferenceExpression variable = new VariableReferenceExpression(getSourceLocation(node), node.getName(), getType(node));
             Integer channel = layout.get(variable);
             if (channel != null) {
-                return field(channel, variable.getType());
+                return field(variable.getSourceLocation(), channel, variable.getType());
             }
 
             return variable;
@@ -467,7 +472,7 @@ public final class SqlToRowExpressionTranslator
                     .map(Identifier::getValue)
                     .collect(toImmutableList());
 
-            return new LambdaDefinitionExpression(argumentTypes, argumentNames, body);
+            return new LambdaDefinitionExpression(getSourceLocation(node), argumentTypes, argumentNames, body);
         }
 
         @Override
@@ -493,6 +498,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
+                    getSourceLocation(node),
                     node.getOperator().name(),
                     functionResolution.arithmeticFunction(node.getOperator(), left.getType(), right.getType()),
                     getType(node),
@@ -510,6 +516,7 @@ public final class SqlToRowExpressionTranslator
                     return expression;
                 case MINUS:
                     return call(
+                            getSourceLocation(node),
                             NEGATION.name(),
                             functionAndTypeManager.resolveOperator(NEGATION, fromTypes(expression.getType())),
                             getType(node),
@@ -533,7 +540,7 @@ public final class SqlToRowExpressionTranslator
                 default:
                     throw new IllegalStateException("Unknown logical operator: " + node.getOperator());
             }
-            return specialForm(form, BOOLEAN, process(node.getLeft(), context), process(node.getRight(), context));
+            return specialForm(getSourceLocation(node), form, BOOLEAN, process(node.getLeft(), context), process(node.getRight(), context));
         }
 
         @Override
@@ -542,10 +549,10 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getExpression(), context);
 
             if (node.isSafe()) {
-                return call(TRY_CAST.name(), functionAndTypeManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+                return call(getSourceLocation(node), TRY_CAST.name(), functionAndTypeManager.lookupCast(TRY_CAST, value.getType(), getType(node)), getType(node), value);
             }
 
-            return call(CAST.name(), functionAndTypeManager.lookupCast(CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+            return call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, value.getType(), getType(node)), getType(node), value);
         }
 
         @Override
@@ -568,7 +575,7 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
             // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END
-            return buildSwitch(new ConstantExpression(true, BOOLEAN), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
+            return buildSwitch(new ConstantExpression(getSourceLocation(node), true, BOOLEAN), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
         }
 
         private RowExpression buildSwitch(RowExpression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue, Type returnType, Void context)
@@ -579,6 +586,7 @@ public final class SqlToRowExpressionTranslator
 
             for (WhenClause clause : whenClauses) {
                 arguments.add(specialForm(
+                        getSourceLocation(clause),
                         WHEN,
                         getType(clause.getResult()),
                         process(clause.getOperand(), context),
@@ -587,7 +595,7 @@ public final class SqlToRowExpressionTranslator
 
             arguments.add(defaultValue
                     .map((value) -> process(value, context))
-                    .orElse(constantNull(returnType)));
+                    .orElse(constantNull(operand.getSourceLocation(), returnType)));
 
             return specialForm(SWITCH, returnType, arguments.build());
         }
@@ -604,6 +612,10 @@ public final class SqlToRowExpressionTranslator
 
             if (baseType instanceof TypeWithName) {
                 baseType = ((TypeWithName) baseType).getType();
+            }
+
+            if (baseType instanceof DistinctType) {
+                baseType = ((DistinctType) baseType).getBaseType();
             }
             RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
@@ -625,7 +637,7 @@ public final class SqlToRowExpressionTranslator
             }
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
-            return specialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant((long) index, INTEGER));
+            return specialForm(getSourceLocation(node.getBase()), DEREFERENCE, returnType, process(node.getBase(), context), constant((long) index, INTEGER));
         }
 
         @Override
@@ -640,7 +652,7 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(process(node.getFalseValue().get(), context));
             }
             else {
-                arguments.add(constantNull(getType(node)));
+                arguments.add(constantNull(getSourceLocation(node), getType(node)));
             }
 
             return specialForm(IF, getType(node), arguments.build());
@@ -687,6 +699,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression expression = process(node.getValue(), context);
 
             return call(
+                    getSourceLocation(node),
                     "not",
                     functionResolution.notFunction(),
                     BOOLEAN,
@@ -698,13 +711,13 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression expression = process(node.getValue(), context);
 
-            return specialForm(IS_NULL, BOOLEAN, expression);
+            return specialForm(getSourceLocation(node), IS_NULL, BOOLEAN, expression);
         }
 
         @Override
         protected RowExpression visitNotExpression(NotExpression node, Void context)
         {
-            return call("not", functionResolution.notFunction(), BOOLEAN, process(node.getValue(), context));
+            return call(getSourceLocation(node), "not", functionResolution.notFunction(), BOOLEAN, process(node.getValue(), context));
         }
 
         @Override
@@ -713,7 +726,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
 
-            return specialForm(NULL_IF, getType(node), first, second);
+            return specialForm(getSourceLocation(node), NULL_IF, getType(node), first, second);
         }
 
         @Override
@@ -724,6 +737,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression max = process(node.getMax(), context);
 
             return call(
+                    getSourceLocation(node),
                     BETWEEN.name(),
                     functionAndTypeManager.resolveOperator(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
                     BOOLEAN,
@@ -740,20 +754,20 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape().isPresent()) {
                 RowExpression escape = process(node.getEscape().get(), context);
-                return likeFunctionCall(value, call("LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
+                return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            return likeFunctionCall(value, call(CAST.name(), functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
         }
 
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
         {
             if (value.getType() instanceof VarcharType) {
-                return call("LIKE", functionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
+                return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
             }
 
             checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
-            return call("LIKE", functionResolution.likeCharFunction(value.getType()), BOOLEAN, value, pattern);
+            return call(value.getSourceLocation(), "LIKE", functionResolution.likeCharFunction(value.getType()), BOOLEAN, value, pattern);
         }
 
         @Override
@@ -773,9 +787,10 @@ public final class SqlToRowExpressionTranslator
                         "Subscript index out of bounds %s: should be >= 1 and <= %s",
                         offset,
                         base.getType().getTypeParameters().size());
-                return specialForm(DEREFERENCE, getType(node), base, Expressions.constant(offset - 1, INTEGER));
+                return specialForm(getSourceLocation(node), DEREFERENCE, getType(node), base, Expressions.constant(offset - 1, INTEGER));
             }
             return call(
+                    getSourceLocation(node),
                     SUBSCRIPT.name(),
                     functionAndTypeManager.resolveOperator(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
                     getType(node),

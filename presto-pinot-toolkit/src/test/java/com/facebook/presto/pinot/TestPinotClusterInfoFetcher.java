@@ -31,7 +31,18 @@ public class TestPinotClusterInfoFetcher
     @Test
     public void testBrokersParsed()
     {
-        HttpClient httpClient = new TestingHttpClient((request) -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
+        testBrokersParsed(false);
+        testBrokersParsed(true);
+    }
+
+    private void testBrokersParsed(boolean useHttps)
+    {
+        HttpClient httpClient = new TestingHttpClient(request -> {
+            Assert.assertEquals(request.getUri().getScheme(), useHttps ? "https" : "http");
+            return TestingResponse.mockResponse(
+                HttpStatus.OK,
+                MediaType.JSON_UTF_8,
+                "{\n" +
                 "  \"tableName\": \"dummy\",\n" +
                 "  \"brokers\": [\n" +
                 "    {\n" +
@@ -69,10 +80,12 @@ public class TestPinotClusterInfoFetcher
                 "      ]\n" +
                 "    }\n" +
                 "  ]\n" +
-                "}"));
+                "}");
+        });
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS))
-                .setControllerUrls("localhost:7900");
+                .setControllerUrls("localhost:7900")
+                .setUseHttpsForController(useHttps);
         PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
         ImmutableSet<String> brokers = ImmutableSet.copyOf(pinotClusterInfoFetcher.getAllBrokersForTable("dummy"));
         Assert.assertEquals(ImmutableSet.of("dummy-broker-host1-datacenter1:6513", "dummy-broker-host2-datacenter1:6513", "dummy-broker-host3-datacenter1:6513", "dummy-broker-host4-datacenter1:6513"), brokers);
@@ -81,7 +94,16 @@ public class TestPinotClusterInfoFetcher
     @Test
     public void testInstanceParsed()
     {
-        HttpClient httpClient = new TestingHttpClient((request) -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8,
+        testInstanceParsed(false);
+        testInstanceParsed(true);
+    }
+    private void testInstanceParsed(boolean useHttps)
+    {
+        HttpClient httpClient = new TestingHttpClient((request) -> {
+            Assert.assertEquals(request.getUri().getScheme(), useHttps ? "https" : "http");
+            return TestingResponse.mockResponse(
+                HttpStatus.OK,
+                MediaType.JSON_UTF_8,
                 "{\n" +
                 "  \"instanceName\": \"Server_192.168.1.19_8098\",\n" +
                 "  \"hostName\": \"192.168.1.19\",\n" +
@@ -93,8 +115,9 @@ public class TestPinotClusterInfoFetcher
                 "  ],\n" +
                 "  \"pools\": null,\n" +
                 "  \"grpcPort\": 8090\n" +
-                "}"));
-        PinotConfig pinotConfig = new PinotConfig().setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS)).setControllerUrls("localhost:7900");
+                "}");
+        });
+        PinotConfig pinotConfig = new PinotConfig().setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS)).setControllerUrls("localhost:7900").setUseHttpsForController(useHttps);
         PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
         final PinotClusterInfoFetcher.Instance instance = pinotClusterInfoFetcher.getInstance("Server_192.168.1.19_8098");
         Assert.assertEquals(instance.getInstanceName(), "Server_192.168.1.19_8098");

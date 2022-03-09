@@ -17,18 +17,15 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionExecutor;
 import com.google.inject.Inject;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,18 +37,18 @@ import static java.util.Objects.requireNonNull;
 public class SqlFunctionExecutors
 {
     private final Map<Language, FunctionImplementationType> supportedLanguages;
-    private final Optional<ThriftSqlFunctionExecutor> thriftSqlFunctionExecutor;
+    private final SqlFunctionExecutor sqlFunctionExecutor;
 
     @Inject
-    public SqlFunctionExecutors(Map<Language, FunctionImplementationType> supportedLanguages, @Nullable ThriftSqlFunctionExecutor thriftSqlFunctionExecutor)
+    public SqlFunctionExecutors(Map<Language, FunctionImplementationType> supportedLanguages, SqlFunctionExecutor sqlFunctionExecutor)
     {
         this.supportedLanguages = requireNonNull(supportedLanguages, "supportedLanguages is null");
-        this.thriftSqlFunctionExecutor = Optional.ofNullable(thriftSqlFunctionExecutor);
+        this.sqlFunctionExecutor = requireNonNull(sqlFunctionExecutor, "sqlFunctionExecutor is null");
     }
 
     public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
     {
-        thriftSqlFunctionExecutor.ifPresent(executor -> executor.setBlockEncodingSerde(blockEncodingSerde));
+        sqlFunctionExecutor.setBlockEncodingSerde(blockEncodingSerde);
     }
 
     public Set<Language> getSupportedLanguages()
@@ -66,8 +63,9 @@ public class SqlFunctionExecutors
 
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, ScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
     {
-        checkArgument(functionImplementation instanceof ThriftScalarFunctionImplementation, format("Only support ThriftScalarFunctionImplementation, got %s", functionImplementation.getClass()));
-        checkState(thriftSqlFunctionExecutor.isPresent(), "Thrift SQL function executor is not setup");
-        return thriftSqlFunctionExecutor.get().executeFunction(source, (ThriftScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
+        checkArgument(functionImplementation instanceof RemoteScalarFunctionImplementation, format("Only support RemoteScalarFunctionImplementation, got %s", functionImplementation.getClass()));
+        FunctionImplementationType implementationType = ((RemoteScalarFunctionImplementation) functionImplementation).getImplementationType();
+        checkState(sqlFunctionExecutor.getImplementationType().equals(implementationType), format("%s SQL function executor is not setup", implementationType));
+        return sqlFunctionExecutor.executeFunction(source, (RemoteScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
     }
 }

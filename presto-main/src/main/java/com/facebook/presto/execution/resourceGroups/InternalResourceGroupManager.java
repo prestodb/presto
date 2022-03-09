@@ -100,7 +100,7 @@ public final class InternalResourceGroupManager<C>
     private final ResourceGroupService resourceGroupService;
     private final AtomicReference<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfos = new AtomicReference<>(ImmutableMap.of());
     private final AtomicReference<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfosSnapshot = new AtomicReference<>(ImmutableMap.of());
-    private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0L);
+    private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(-1L);
     private final double concurrencyThreshold;
     private final Duration resourceGroupRuntimeInfoRefreshInterval;
     private final boolean isResourceManagerEnabled;

@@ -86,8 +86,8 @@ public class DataVerification
             QueryObjectBundle test,
             Optional<QueryResult<Void>> controlQueryResult,
             Optional<QueryResult<Void>> testQueryResult,
-            ChecksumQueryContext controlContext,
-            ChecksumQueryContext testContext)
+            ChecksumQueryContext controlChecksumQueryContext,
+            ChecksumQueryContext testChecksumQueryContext)
     {
         List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
@@ -95,15 +95,15 @@ public class DataVerification
         Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
         Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns);
 
-        controlContext.setChecksumQuery(formatSql(controlChecksumQuery));
-        testContext.setChecksumQuery(formatSql(testChecksumQuery));
+        controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
+        testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         QueryResult<ChecksumResult> controlChecksum = callAndConsume(
                 () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlContext::setChecksumQueryId));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId));
         QueryResult<ChecksumResult> testChecksum = callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testContext::setChecksumQueryId));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId));
 
         return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
     }

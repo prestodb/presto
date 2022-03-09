@@ -27,10 +27,12 @@ import scala.Tuple2;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.spark.SparkErrorCode.STORAGE_ERROR;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -46,6 +48,7 @@ public class PrestoSparkStorageBasedBroadcastDependency
 
     private RddAndMore<PrestoSparkStorageHandle> broadcastDependency;
     private final DataSize maxBroadcastSize;
+    private final DataSize queryMaxTotalMemoryPerNode;
     private final long queryCompletionDeadline;
     private final TempStorage tempStorage;
     private final TempDataOperationContext tempDataOperationContext;
@@ -53,10 +56,18 @@ public class PrestoSparkStorageBasedBroadcastDependency
 
     private Broadcast<List<PrestoSparkStorageHandle>> broadcastVariable;
 
-    public PrestoSparkStorageBasedBroadcastDependency(RddAndMore<PrestoSparkStorageHandle> broadcastDependency, DataSize maxBroadcastSize, long queryCompletionDeadline, TempStorage tempStorage, TempDataOperationContext tempDataOperationContext, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
+    public PrestoSparkStorageBasedBroadcastDependency(
+            RddAndMore<PrestoSparkStorageHandle> broadcastDependency,
+            DataSize maxBroadcastSize,
+            DataSize queryMaxTotalMemoryPerNode,
+            long queryCompletionDeadline,
+            TempStorage tempStorage,
+            TempDataOperationContext tempDataOperationContext,
+            Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
     {
         this.broadcastDependency = requireNonNull(broadcastDependency, "broadcastDependency cannot be null");
         this.maxBroadcastSize = requireNonNull(maxBroadcastSize, "maxBroadcastSize cannot be null");
+        this.queryMaxTotalMemoryPerNode = requireNonNull(queryMaxTotalMemoryPerNode, "queryMaxTotalMemoryPerNode cannot be null");
         this.queryCompletionDeadline = queryCompletionDeadline;
         this.tempStorage = requireNonNull(tempStorage, "tempStorage cannot be null");
         this.tempDataOperationContext = requireNonNull(tempDataOperationContext, "tempDataOperationContext cannot be null");
@@ -94,6 +105,14 @@ public class PrestoSparkStorageBasedBroadcastDependency
 
         if (uncompressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
             throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Uncompressed broadcast size: %s", succinctBytes(uncompressedBroadcastSizeInBytes)));
+        }
+
+        if (compressedBroadcastSizeInBytes > queryMaxTotalMemoryPerNode.toBytes() || uncompressedBroadcastSizeInBytes > queryMaxTotalMemoryPerNode.toBytes()) {
+            throw exceededLocalTotalMemoryLimit(
+                    queryMaxTotalMemoryPerNode,
+                    format("Compressed broadcast size: %s; Uncompressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes), succinctBytes(uncompressedBroadcastSizeInBytes)),
+                    false,
+                    Optional.empty());
         }
 
         broadcastVariable = sparkContext.broadcast(broadcastValue);
