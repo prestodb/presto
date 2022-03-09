@@ -15,18 +15,16 @@ package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 
 import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class QueryRewriteConfig
 {
@@ -45,9 +43,7 @@ public class QueryRewriteConfig
     {
         this.tablePrefix = tablePrefix == null ?
                 null :
-                QualifiedName.of(Arrays.stream(tablePrefix.split("\\."))
-                        .map(Identifier::new)
-                        .collect(Collectors.toList()));
+                QualifiedName.of(Splitter.on(".").splitToList(tablePrefix));
         return this;
     }
 
