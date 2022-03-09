@@ -18,8 +18,7 @@ import com.facebook.presto.orc.writer.CompressionBufferPool;
 import com.facebook.presto.orc.writer.CompressionBufferPool.LastUsedCompressionBufferPool;
 import io.airlift.units.DataSize;
 
-import java.util.OptionalInt;
-
+import static com.facebook.presto.orc.CompressionLevel.DEFAULT_COMPRESSION;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
@@ -29,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class ColumnWriterOptions
 {
     private final CompressionKind compressionKind;
-    private final OptionalInt compressionLevel;
+    private final CompressionLevel compressionLevel;
     private final int compressionMaxBufferSize;
     private final DataSize stringStatisticsLimit;
     private final boolean integerDictionaryEncodingEnabled;
@@ -41,7 +40,7 @@ public class ColumnWriterOptions
 
     public ColumnWriterOptions(
             CompressionKind compressionKind,
-            OptionalInt compressionLevel,
+            CompressionLevel compressionLevel,
             DataSize compressionMaxBufferSize,
             DataSize stringStatisticsLimit,
             boolean integerDictionaryEncodingEnabled,
@@ -69,7 +68,7 @@ public class ColumnWriterOptions
         return compressionKind;
     }
 
-    public OptionalInt getCompressionLevel()
+    public CompressionLevel getCompressionLevel()
     {
         return compressionLevel;
     }
@@ -122,7 +121,7 @@ public class ColumnWriterOptions
     public static class Builder
     {
         private CompressionKind compressionKind;
-        private OptionalInt compressionLevel = OptionalInt.empty();
+        private CompressionLevel compressionLevel = DEFAULT_COMPRESSION;
         private DataSize compressionMaxBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
         private DataSize stringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private boolean integerDictionaryEncodingEnabled;
@@ -140,9 +139,9 @@ public class ColumnWriterOptions
             return this;
         }
 
-        public Builder setCompressionLevel(OptionalInt compressionLevel)
+        public Builder setCompressionLevel(CompressionLevel compressionLevel)
         {
-            this.compressionLevel = compressionLevel;
+            this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
             return this;
         }
 

@@ -13,12 +13,20 @@
  */
 package com.facebook.presto.orc.zlib;
 
+import com.facebook.presto.orc.CompressionLevel;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.compress.Compressor;
 
 import java.nio.ByteBuffer;
-import java.util.OptionalInt;
+import java.util.Map;
 import java.util.zip.Deflater;
 
+import static com.facebook.presto.orc.CompressionLevel.BEST_COMPRESSION;
+import static com.facebook.presto.orc.CompressionLevel.BEST_SPEED;
+import static com.facebook.presto.orc.CompressionLevel.BETTER_COMPRESSION;
+import static com.facebook.presto.orc.CompressionLevel.BETTER_SPEED;
+import static com.facebook.presto.orc.CompressionLevel.DEFAULT_COMPRESSION;
+import static com.facebook.presto.orc.CompressionLevel.ULTRA_COMPRESSION;
 import static java.util.Objects.requireNonNull;
 import static java.util.zip.Deflater.FULL_FLUSH;
 
@@ -26,14 +34,24 @@ public class DeflateCompressor
         implements Compressor
 {
     private static final int EXTRA_COMPRESSION_SPACE = 16;
-    private static final int DEFAULT_COMPRESSION_LEVEL = 4;
+
+    // ultra compression level is same as the best compression level
+    private static final Map<CompressionLevel, Integer> COMPRESSION_LEVELS = ImmutableMap.<CompressionLevel, Integer>builder()
+            .put(BEST_SPEED, 1)
+            .put(BETTER_SPEED, 2)
+            .put(DEFAULT_COMPRESSION, 4)
+            .put(BETTER_COMPRESSION, 7)
+            .put(BEST_COMPRESSION, 9)
+            .put(ULTRA_COMPRESSION, 9)
+            .build();
 
     private final int compressionLevel;
 
-    public DeflateCompressor(OptionalInt compressionLevel)
+    public DeflateCompressor(CompressionLevel compressionLevel)
     {
         requireNonNull(compressionLevel, "compressionLevel is null");
-        this.compressionLevel = compressionLevel.orElse(DEFAULT_COMPRESSION_LEVEL);
+        this.compressionLevel = requireNonNull(COMPRESSION_LEVELS.get(compressionLevel),
+                () -> String.format("Cannot resolve %s compression level", compressionLevel));
     }
 
     @Override

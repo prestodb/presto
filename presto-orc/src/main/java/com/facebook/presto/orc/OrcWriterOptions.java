@@ -19,8 +19,8 @@ import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactor
 import io.airlift.units.DataSize;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.CompressionLevel.DEFAULT_COMPRESSION;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,7 +50,7 @@ public class OrcWriterOptions
     private final DataSize dictionaryUsefulCheckColumnSize;
     private final DataSize maxStringStatisticsLimit;
     private final DataSize maxCompressionBufferSize;
-    private final OptionalInt compressionLevel;
+    private final CompressionLevel compressionLevel;
     private final StreamLayoutFactory streamLayoutFactory;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
@@ -72,7 +72,7 @@ public class OrcWriterOptions
             DataSize dictionaryUsefulCheckColumnSize,
             DataSize maxStringStatisticsLimit,
             DataSize maxCompressionBufferSize,
-            OptionalInt compressionLevel,
+            CompressionLevel compressionLevel,
             StreamLayoutFactory streamLayoutFactory,
             boolean integerDictionaryEncodingEnabled,
             boolean stringDictionarySortingEnabled,
@@ -150,7 +150,7 @@ public class OrcWriterOptions
         return maxCompressionBufferSize;
     }
 
-    public OptionalInt getCompressionLevel()
+    public CompressionLevel getCompressionLevel()
     {
         return compressionLevel;
     }
@@ -233,7 +233,7 @@ public class OrcWriterOptions
         private DataSize dictionaryUsefulCheckColumnSize = DEFAULT_DICTIONARY_USEFUL_CHECK_COLUMN_SIZE;
         private DataSize maxStringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private DataSize maxCompressionBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
-        private OptionalInt compressionLevel = OptionalInt.empty();
+        private CompressionLevel compressionLevel = DEFAULT_COMPRESSION;
         private StreamLayoutFactory streamLayoutFactory = new ColumnSizeLayoutFactory();
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
@@ -294,7 +294,7 @@ public class OrcWriterOptions
             return this;
         }
 
-        public Builder withCompressionLevel(OptionalInt compressionLevel)
+        public Builder withCompressionLevel(CompressionLevel compressionLevel)
         {
             this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
             return this;

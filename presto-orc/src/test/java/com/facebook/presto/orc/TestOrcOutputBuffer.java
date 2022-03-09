@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.CompressionLevel.BEST_COMPRESSION;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -61,7 +61,7 @@ public class TestOrcOutputBuffer
         Arrays.fill(largeByteArray, (byte) 0xA);
         ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
                 .setCompressionKind(ZSTD)
-                .setCompressionLevel(OptionalInt.of(7))
+                .setCompressionLevel(BEST_COMPRESSION)
                 .setCompressionMaxBufferSize(new DataSize(256, KILOBYTE))
                 .build();
         OrcOutputBuffer sliceOutput = new OrcOutputBuffer(columnWriterOptions, Optional.empty());

@@ -37,7 +37,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -62,16 +61,18 @@ public class TestOrcWriter
     public static Object[][] zstdCompressionLevels()
     {
         ImmutableList.Builder<Object[]> parameters = new ImmutableList.Builder<>();
-        parameters.add(new Object[] {ORC, NONE, OptionalInt.empty()});
-        parameters.add(new Object[] {DWRF, ZSTD, OptionalInt.of(7)});
-        parameters.add(new Object[] {DWRF, ZSTD, OptionalInt.empty()});
-        parameters.add(new Object[] {DWRF, ZLIB, OptionalInt.of(5)});
-        parameters.add(new Object[] {DWRF, ZLIB, OptionalInt.empty()});
+        parameters.add(new Object[] {ORC, NONE, CompressionLevel.DEFAULT_COMPRESSION});
+
+        for (CompressionKind compressionKind : ImmutableList.of(ZSTD, ZLIB)) {
+            for (CompressionLevel compressionLevel : CompressionLevel.values()) {
+                parameters.add(new Object[] {DWRF, compressionKind, compressionLevel});
+            }
+        }
         return parameters.build().toArray(new Object[0][]);
     }
 
     @Test(dataProvider = "compressionLevels")
-    public void testWriteOutputStreamsInOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
+    public void testWriteOutputStreamsInOrder(OrcEncoding encoding, CompressionKind kind, CompressionLevel level)
             throws IOException
     {
         testStreamOrder(encoding, kind, level, new StreamSizeLayoutFactory(), () -> new Consumer<Stream>()
@@ -90,7 +91,7 @@ public class TestOrcWriter
     }
 
     @Test(dataProvider = "compressionLevels")
-    public void testOutputStreamsByColumnSize(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
+    public void testOutputStreamsByColumnSize(OrcEncoding encoding, CompressionKind kind, CompressionLevel level)
             throws IOException
     {
         testStreamOrder(encoding, kind, level, new ColumnSizeLayoutFactory(), () -> new Consumer<Stream>()
@@ -118,7 +119,7 @@ public class TestOrcWriter
         });
     }
 
-    private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level, StreamLayoutFactory streamLayoutFactory, Supplier<Consumer<Stream>> streamConsumerFactory)
+    private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, CompressionLevel level, StreamLayoutFactory streamLayoutFactory, Supplier<Consumer<Stream>> streamConsumerFactory)
             throws IOException
     {
         OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()

@@ -45,7 +45,6 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
@@ -54,6 +53,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getPageFileStripeMa
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.pagefile.PageFileFooterOutput.createEmptyPageFileFooterOutput;
 import static com.facebook.presto.hive.util.ConfigurationUtils.PAGE_FILE_COMPRESSION;
+import static com.facebook.presto.orc.CompressionLevel.DEFAULT_COMPRESSION;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.lang.String.format;
@@ -149,11 +149,11 @@ public class PageFileWriterFactory
                 pageDecompressor = new AirliftDecompressorAdapter(new Lz4Decompressor());
                 break;
             case GZIP:
-                pageCompressor = new AirliftCompressorAdapter(new DeflateCompressor(OptionalInt.empty()));
+                pageCompressor = new AirliftCompressorAdapter(new DeflateCompressor(DEFAULT_COMPRESSION));
                 pageDecompressor = new AirliftDecompressorAdapter(new InflateDecompressor());
                 break;
             case ZSTD:
-                pageCompressor = new AirliftCompressorAdapter(new ZstdJniCompressor(OptionalInt.empty()));
+                pageCompressor = new AirliftCompressorAdapter(new ZstdJniCompressor(DEFAULT_COMPRESSION));
                 pageDecompressor = new AirliftDecompressorAdapter(new ZstdJniDecompressor());
                 break;
             default:

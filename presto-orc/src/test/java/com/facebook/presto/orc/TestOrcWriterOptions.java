@@ -21,8 +21,8 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.CompressionLevel.DEFAULT_COMPRESSION;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -70,7 +70,7 @@ public class TestOrcWriterOptions
         DataSize dictionaryUsefulCheckColumnSize = new DataSize(1, MEGABYTE);
         DataSize stringMaxStatisticsLimit = new DataSize(128, BYTE);
         DataSize maxCompressionBufferSize = new DataSize(512, KILOBYTE);
-        OptionalInt compressionLevel = OptionalInt.of(5);
+        CompressionLevel compressionLevel = DEFAULT_COMPRESSION;
         StreamLayoutFactory streamLayoutFactory = new StreamLayoutFactory.StreamSizeLayoutFactory();
         boolean integerDictionaryEncodingEnabled = true;
         boolean stringDictionarySortingEnabled = false;
@@ -133,7 +133,7 @@ public class TestOrcWriterOptions
         DataSize maxCompressionBufferSize = new DataSize(512, KILOBYTE);
         DataSize dwrfStripeCacheMaxSize = new DataSize(4, MEGABYTE);
         DwrfStripeCacheMode dwrfStripeCacheMode = DwrfStripeCacheMode.INDEX_AND_FOOTER;
-        OptionalInt compressionLevel = OptionalInt.of(5);
+        CompressionLevel compressionLevel = DEFAULT_COMPRESSION;
         StreamLayoutFactory streamLayoutFactory = new ColumnSizeLayoutFactory();
         boolean integerDictionaryEncodingEnabled = false;
         boolean stringDictionarySortingEnabled = true;

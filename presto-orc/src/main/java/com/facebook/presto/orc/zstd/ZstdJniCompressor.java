@@ -13,26 +13,43 @@
  */
 package com.facebook.presto.orc.zstd;
 
+import com.facebook.presto.orc.CompressionLevel;
 import com.github.luben.zstd.Zstd;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.compress.Compressor;
 
 import java.nio.ByteBuffer;
-import java.util.OptionalInt;
+import java.util.Map;
 
+import static com.facebook.presto.orc.CompressionLevel.BEST_COMPRESSION;
+import static com.facebook.presto.orc.CompressionLevel.BEST_SPEED;
+import static com.facebook.presto.orc.CompressionLevel.BETTER_COMPRESSION;
+import static com.facebook.presto.orc.CompressionLevel.BETTER_SPEED;
+import static com.facebook.presto.orc.CompressionLevel.DEFAULT_COMPRESSION;
+import static com.facebook.presto.orc.CompressionLevel.ULTRA_COMPRESSION;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ZstdJniCompressor
         implements Compressor
 {
-    private static final int DEFAULT_COMPRESSION_LEVEL = 3; // default level
+    // see https://facebook.github.io/zstd/zstd_manual.html#Chapter5
+    private static final Map<CompressionLevel, Integer> COMPRESSION_LEVELS = ImmutableMap.<CompressionLevel, Integer>builder()
+            .put(BEST_SPEED, 1)
+            .put(BETTER_SPEED, 2)
+            .put(DEFAULT_COMPRESSION, 3)
+            .put(BETTER_COMPRESSION, 6)
+            .put(BEST_COMPRESSION, 7)
+            .put(ULTRA_COMPRESSION, 9)
+            .build();
 
     private final int compressionLevel;
 
-    public ZstdJniCompressor(OptionalInt compressionLevel)
+    public ZstdJniCompressor(CompressionLevel compressionLevel)
     {
         requireNonNull(compressionLevel, "compressionLevel is null");
-        this.compressionLevel = compressionLevel.orElse(DEFAULT_COMPRESSION_LEVEL);
+        this.compressionLevel = requireNonNull(COMPRESSION_LEVELS.get(compressionLevel),
+                () -> String.format("Cannot resolve %s compression level", compressionLevel));
     }
 
     @Override
