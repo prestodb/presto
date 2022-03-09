@@ -22,6 +22,14 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 
+#if __has_include("filesystem")
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
 namespace facebook::velox::exec::test {
 
 HiveConnectorTestBase::HiveConnectorTestBase() {
@@ -140,6 +148,25 @@ std::vector<std::shared_ptr<TempFilePath>> HiveConnectorTestBase::makeFilePaths(
     filePaths.emplace_back(TempFilePath::create());
   }
   return filePaths;
+}
+
+std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>>
+HiveConnectorTestBase::makeHiveConnectorSplits(
+    const std::string& filePath,
+    uint32_t splitCount,
+    dwio::common::FileFormat format) {
+  const int fileSize = fs::file_size(filePath);
+  // Take the upper bound.
+  const int splitSize = std::ceil((fileSize) / splitCount);
+  std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>> splits;
+
+  // Add all the splits.
+  for (int i = 0; i < splitCount; i++) {
+    auto split = std::make_shared<connector::hive::HiveConnectorSplit>(
+        kHiveConnectorId, "file:" + filePath, format, i * splitSize, splitSize);
+    splits.push_back(std::move(split));
+  }
+  return splits;
 }
 
 std::vector<std::shared_ptr<connector::ConnectorSplit>>

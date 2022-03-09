@@ -84,6 +84,13 @@ class HiveConnectorTestBase : public OperatorTestBase {
     return makeHiveConnectorSplit(filePath, {}, start, length);
   }
 
+  /// Split file at path 'filePath' into 'splitCount' splits.
+  static std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>>
+  makeHiveConnectorSplits(
+      const std::string& filePath,
+      uint32_t splitCount,
+      dwio::common::FileFormat format);
+
   static std::shared_ptr<connector::hive::HiveConnectorSplit>
   makeHiveConnectorSplit(
       const std::string& filePath,
