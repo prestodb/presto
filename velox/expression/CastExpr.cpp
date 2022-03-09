@@ -86,6 +86,17 @@ void populateNestedRows(
   nestedRows.updateBounds();
 }
 
+std::string makeErrorMessage(
+    const DecodedVector& input,
+    vector_size_t row,
+    const TypePtr& toType) {
+  return fmt::format(
+      "Failed to cast from {} to {}: {}",
+      input.base()->type()->toString(),
+      toType->toString(),
+      input.base()->toString(input.index(row)));
+}
+
 } // namespace
 
 template <typename To, typename From>
@@ -109,13 +120,13 @@ void CastExpr::applyCastWithTry(
             context->setError(
                 row,
                 std::make_exception_ptr(std::invalid_argument(
-                    "Cast error for input #" + std::to_string(row))));
+                    makeErrorMessage(input, row, resultFlatVector->type()))));
           }
         } catch (const std::exception& e) {
           context->setError(
               row,
               std::make_exception_ptr(std::invalid_argument(
-                  "Cast error for input #" + std::to_string(row))));
+                  makeErrorMessage(input, row, resultFlatVector->type()))));
         }
       });
     } else {

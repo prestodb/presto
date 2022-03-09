@@ -193,9 +193,10 @@ class CastExprTest : public functions::test::FunctionBaseTest {
     auto rowVector = makeRowVector({inputVector});
     std::string castFunction = tryCast ? "try_cast" : "cast";
     if (expectFailure) {
-      EXPECT_ANY_THROW(
+      EXPECT_THROW(
           evaluate<FlatVector<typename CppToType<TTo>::NativeType>>(
-              castFunction + "(c0 as " + typeString + ")", rowVector));
+              castFunction + "(c0 as " + typeString + ")", rowVector),
+          std::invalid_argument);
       return;
     }
     // run try cast and get the result vector
@@ -389,7 +390,7 @@ TEST_F(CastExprTest, truncateVsRound) {
   EXPECT_THROW(
       (testCast<int32_t, int8_t>(
           "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5})),
-      std::exception);
+      std::invalid_argument);
 }
 
 TEST_F(CastExprTest, nullInputs) {
@@ -620,5 +621,6 @@ TEST_F(CastExprTest, testNullOnFailure) {
   testComplexCast("c0", input, expected, true);
 
   // nullOnFailure is false, so we should throw.
-  EXPECT_THROW(testComplexCast("c0", input, expected, false), std::exception);
+  EXPECT_THROW(
+      testComplexCast("c0", input, expected, false), std::invalid_argument);
 }
