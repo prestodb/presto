@@ -487,13 +487,15 @@ class UDFHolder final
  public:
   using Metadata = core::SimpleFunctionMetadata<Fun, TReturn, TArgs...>;
 
-  using exec_return_type = typename Exec::template resolver<TReturn>::out_type;
+  template <typename T>
+  using exec_resolver = typename Exec::template resolver<T>;
+
+  using exec_return_type = typename exec_resolver<TReturn>::out_type;
   using optional_exec_return_type = std::optional<exec_return_type>;
 
   template <typename T>
-  using exec_arg_type = typename Exec::template resolver<T>::in_type;
-  using exec_arg_types =
-      std::tuple<typename Exec::template resolver<TArgs>::in_type...>;
+  using exec_arg_type = typename exec_resolver<T>::in_type;
+  using exec_arg_types = std::tuple<typename exec_resolver<TArgs>::in_type...>;
   template <typename T>
   using optional_exec_arg_type = std::optional<exec_arg_type<T>>;
 
@@ -505,7 +507,7 @@ class UDFHolder final
   template <typename T>
   using exec_no_nulls_arg_type =
       typename null_free_in_type_resolver::template resolve<
-          typename Exec::template resolver<T>>::type;
+          exec_resolver<T>>::type;
 
   DECLARE_METHOD_RESOLVER(call_method_resolver, call);
   DECLARE_METHOD_RESOLVER(callNullable_method_resolver, callNullable);
@@ -596,15 +598,15 @@ class UDFHolder final
 
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& config,
-      const typename Exec::template resolver<TArgs>::in_type*... constantArgs) {
+      const typename exec_resolver<TArgs>::in_type*... constantArgs) {
     if constexpr (udf_has_initialize) {
       return instance_.initialize(config, constantArgs...);
     }
   }
 
   FOLLY_ALWAYS_INLINE bool call(
-      typename Exec::template resolver<TReturn>::out_type& out,
-      const typename Exec::template resolver<TArgs>::in_type&... args) {
+      exec_return_type& out,
+      const typename exec_resolver<TArgs>::in_type&... args) {
     if constexpr (udf_has_call) {
       return instance_.call(out, args...);
     } else if constexpr (udf_has_callNullable) {
@@ -617,7 +619,7 @@ class UDFHolder final
 
   FOLLY_ALWAYS_INLINE bool callNullable(
       exec_return_type& out,
-      const typename Exec::template resolver<TArgs>::in_type*... args) {
+      const typename exec_resolver<TArgs>::in_type*... args) {
     if constexpr (udf_has_callNullable) {
       return instance_.callNullable(out, args...);
     } else if constexpr (udf_has_call) {
@@ -635,8 +637,8 @@ class UDFHolder final
   }
 
   FOLLY_ALWAYS_INLINE bool callAscii(
-      typename Exec::template resolver<TReturn>::out_type& out,
-      const typename Exec::template resolver<TArgs>::in_type&... args) {
+      exec_return_type& out,
+      const typename exec_resolver<TArgs>::in_type&... args) {
     if constexpr (udf_has_callAscii) {
       return instance_.callAscii(out, args...);
     } else if constexpr (udf_has_call) {
@@ -650,7 +652,7 @@ class UDFHolder final
   }
 
   FOLLY_ALWAYS_INLINE bool callNullFree(
-      typename Exec::template resolver<TReturn>::out_type& out,
+      exec_return_type& out,
       const exec_no_nulls_arg_type<TArgs>&... args) {
     if constexpr (udf_has_callNullFree) {
       return instance_.callNullFree(out, args...);
