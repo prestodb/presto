@@ -40,6 +40,7 @@ add_library(
   OrderBy.cpp
   PartitionedOutput.cpp
   PartitionedOutputBufferManager.cpp
+  PlanNodeStats.cpp
   RowContainer.cpp
   StreamingAggregation.cpp
   TableScan.cpp

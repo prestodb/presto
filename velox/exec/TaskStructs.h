@@ -27,54 +27,6 @@ class MergeSource;
 /// Corresponds to Presto TaskState, needed for reporting query completion.
 enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
 
-/// Stores execution stats per pipeline.
-struct PipelineStats {
-  // Cumulative OperatorStats for finished Drivers. The subscript is the
-  // operator id, which is the initial ordinal position of the
-  // operator in the DriverFactory.
-  std::vector<OperatorStats> operatorStats;
-
-  // True if contains the source node for the task.
-  bool inputPipeline;
-
-  // True if contains the sync node for the task.
-  bool outputPipeline;
-
-  PipelineStats(bool _inputPipeline, bool _outputPipeline)
-      : inputPipeline{_inputPipeline}, outputPipeline{_outputPipeline} {}
-};
-
-/// Stores execution stats per task.
-struct TaskStats {
-  int32_t numTotalSplits{0};
-  int32_t numFinishedSplits{0};
-  int32_t numRunningSplits{0};
-  int32_t numQueuedSplits{0};
-  std::unordered_set<int32_t> completedSplitGroups;
-
-  // The subscript is given by each Operator's
-  // DriverCtx::pipelineId. This is a sum total reflecting fully
-  // processed Splits for Drivers of this pipeline.
-  std::vector<PipelineStats> pipelineStats;
-
-  // Epoch time (ms) when task starts to run
-  uint64_t executionStartTimeMs{0};
-
-  // Epoch time (ms) when last split is processed. For some tasks there might be
-  // some additional time to send buffered results before the task finishes.
-  uint64_t executionEndTimeMs{0};
-
-  // Epoch time (ms) when first split is fetched from the task by an operator.
-  uint64_t firstSplitStartTimeMs{0};
-
-  // Epoch time (ms) when last split is fetched from the task by an operator.
-  uint64_t lastSplitStartTimeMs{0};
-
-  // Epoch time (ms) when the task completed, e.g. all splits were processed and
-  // results have been consumed.
-  uint64_t endTimeMs{0};
-};
-
 struct BarrierState {
   int32_t numRequested;
   std::vector<std::shared_ptr<Driver>> drivers;

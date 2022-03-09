@@ -76,6 +76,71 @@ TEST_F(PlanNodeToStringTest, recursiveAndDetailed) {
       plan_->toString(true, true));
 }
 
+TEST_F(PlanNodeToStringTest, withContext) {
+  auto addContext = [](const core::PlanNodeId& planNodeId,
+                       const std::string& /* indentation */,
+                       std::stringstream& stream) {
+    stream << "Context for " << planNodeId;
+  };
+
+  ASSERT_EQ(
+      "->project\n"
+      "  Context for 4\n",
+      plan_->toString(false, false, addContext));
+
+  ASSERT_EQ(
+      "->project[expressions: (out3:BIGINT, plus(cast ROW[\"out1\"] as BIGINT,10)), ]\n"
+      "  Context for 4\n",
+      plan_->toString(true, false, addContext));
+
+  ASSERT_EQ(
+      "->project\n"
+      "  Context for 4\n"
+      "  ->filter\n"
+      "    Context for 3\n"
+      "    ->project\n"
+      "      Context for 2\n"
+      "      ->filter\n"
+      "        Context for 1\n"
+      "        ->values\n"
+      "          Context for 0\n",
+      plan_->toString(false, true, addContext));
+
+  ASSERT_EQ(
+      "->project[expressions: (out3:BIGINT, plus(cast ROW[\"out1\"] as BIGINT,10)), ]\n"
+      "  Context for 4\n"
+      "  ->filter[expression: lt(mod(cast ROW[\"out1\"] as BIGINT,10),8)]\n"
+      "    Context for 3\n"
+      "    ->project[expressions: (out1:SMALLINT, ROW[\"c0\"]), (out2:BIGINT, plus(mod(cast ROW[\"c0\"] as BIGINT,100),mod(cast ROW[\"c1\"] as BIGINT,50))), ]\n"
+      "      Context for 2\n"
+      "      ->filter[expression: lt(mod(cast ROW[\"c0\"] as BIGINT,10),9)]\n"
+      "        Context for 1\n"
+      "        ->values[5 rows in 1 vectors]\n"
+      "          Context for 0\n",
+      plan_->toString(true, true, addContext));
+}
+
+TEST_F(PlanNodeToStringTest, withMultiLineContext) {
+  auto addContext = [](const core::PlanNodeId& planNodeId,
+                       const std::string& indentation,
+                       std::stringstream& stream) {
+    stream << "Context for " << planNodeId << ": line 1" << std::endl;
+    stream << indentation << "Context for " << planNodeId << ": line 2";
+  };
+
+  ASSERT_EQ(
+      "->project\n"
+      "  Context for 4: line 1\n"
+      "  Context for 4: line 2\n",
+      plan_->toString(false, false, addContext));
+
+  ASSERT_EQ(
+      "->project[expressions: (out3:BIGINT, plus(cast ROW[\"out1\"] as BIGINT,10)), ]\n"
+      "  Context for 4: line 1\n"
+      "  Context for 4: line 2\n",
+      plan_->toString(true, false, addContext));
+}
+
 TEST_F(PlanNodeToStringTest, aggregation) {
   // Global aggregation.
   auto plan = PlanBuilder()

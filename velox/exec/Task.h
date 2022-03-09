@@ -20,6 +20,7 @@
 #include "velox/exec/LocalPartition.h"
 #include "velox/exec/MergeSource.h"
 #include "velox/exec/Split.h"
+#include "velox/exec/TaskStats.h"
 #include "velox/exec/TaskStructs.h"
 #include "velox/vector/ComplexVector.h"
 

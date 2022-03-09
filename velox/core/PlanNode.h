@@ -97,9 +97,29 @@ class PlanNode {
   virtual const std::vector<std::shared_ptr<const PlanNode>>& sources()
       const = 0;
 
-  std::string toString(bool detailed = false, bool recursive = false) const {
+  /// Returns a set of leaf plan node IDs.
+  std::unordered_set<core::PlanNodeId> leafPlanNodeIds() const;
+
+  /// Returns human-friendly representation of the plan. By default, returns the
+  /// plan node name. Includes plan node details such as join keys and aggregate
+  /// function names if 'detailed' is true. Returns the whole sub-tree if
+  /// 'recursive' is true. Includes additional context for each plan node if
+  /// 'addContext' is not null.
+  ///
+  /// @param addContext Optional lambda to add context for a given plan node.
+  /// Receives plan node ID, indentation and std::stringstring where to append
+  /// the context. Use indentation for second and subsequent lines of a
+  /// mult-line context. Do not use indentation for single-line context. Do not
+  /// add trailing new-line character for the last or only line of context.
+  std::string toString(
+      bool detailed = false,
+      bool recursive = false,
+      std::function<void(
+          const PlanNodeId& planNodeId,
+          const std::string& indentation,
+          std::stringstream& stream)> addContext = nullptr) const {
     std::stringstream stream;
-    toString(stream, detailed, recursive, 0);
+    toString(stream, detailed, recursive, 0, addContext);
     return stream.str();
   }
 
@@ -118,31 +138,13 @@ class PlanNode {
   //         ...
   void toString(
       std::stringstream& stream,
-      bool detailed = false,
-      bool recursive = false,
-      size_t indentation = 0) const {
-    auto addIndentation = [&]() {
-      auto counter = indentation;
-      while (counter) {
-        stream << " ";
-        counter--;
-      }
-    };
-
-    addIndentation();
-    stream << "->" << name();
-    if (detailed) {
-      stream << "[";
-      addDetails(stream);
-      stream << "]";
-    }
-    stream << "\n";
-    if (recursive) {
-      for (auto& source : sources()) {
-        source->toString(stream, detailed, true, indentation + 2);
-      }
-    }
-  }
+      bool detailed,
+      bool recursive,
+      size_t indentationSize,
+      std::function<void(
+          const PlanNodeId& planNodeId,
+          const std::string& indentation,
+          std::stringstream& stream)> addContext) const;
 
   const std::string id_;
 };
