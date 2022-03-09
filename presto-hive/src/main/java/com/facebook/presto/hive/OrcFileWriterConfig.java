@@ -22,6 +22,8 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.OptionalInt;
+
 import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_COLUMN_SIZE;
 
 @SuppressWarnings("unused")
@@ -32,6 +34,8 @@ public class OrcFileWriterConfig
         BY_STREAM_SIZE,
         BY_COLUMN_SIZE,
     }
+
+    public static final int DEFAULT_COMPRESSION_LEVEL = Integer.MIN_VALUE;
 
     private DataSize stripeMinSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MIN_SIZE;
     private DataSize stripeMaxSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_SIZE;
@@ -44,6 +48,7 @@ public class OrcFileWriterConfig
     private boolean isDwrfStripeCacheEnabled;
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
+    private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
@@ -52,6 +57,11 @@ public class OrcFileWriterConfig
                 .withStripeMaxSize(stripeMaxSize)
                 .withStripeMaxRowCount(stripeMaxRowCount)
                 .build();
+
+        OptionalInt resolvedCompressionLevel = OptionalInt.empty();
+        if (compressionLevel != DEFAULT_COMPRESSION_LEVEL) {
+            resolvedCompressionLevel = OptionalInt.of(compressionLevel);
+        }
 
         // Give separate copy to callers for isolation.
         return OrcWriterOptions.builder()
@@ -63,7 +73,8 @@ public class OrcFileWriterConfig
                 .withStreamLayoutFactory(getStreamLayoutFactory(streamLayoutType))
                 .withDwrfStripeCacheEnabled(isDwrfStripeCacheEnabled)
                 .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
-                .withDwrfStripeCacheMode(dwrfStripeCacheMode);
+                .withDwrfStripeCacheMode(dwrfStripeCacheMode)
+                .withCompressionLevel(resolvedCompressionLevel);
     }
 
     @NotNull
@@ -126,6 +137,18 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
         this.dictionaryMaxMemory = dictionaryMaxMemory;
+        return this;
+    }
+
+    public int getCompressionLevel()
+    {
+        return compressionLevel;
+    }
+
+    @Config("hive.orc.writer.compression-level")
+    public OrcFileWriterConfig setCompressionLevel(int compressionLevel)
+    {
+        this.compressionLevel = compressionLevel;
         return this;
     }
 

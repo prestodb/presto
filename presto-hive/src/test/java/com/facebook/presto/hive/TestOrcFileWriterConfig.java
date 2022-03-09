@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -58,7 +59,8 @@ public class TestOrcFileWriterConfig
                 .setStreamLayoutType(BY_COLUMN_SIZE)
                 .setDwrfStripeCacheEnabled(false)
                 .setDwrfStripeCacheMaxSize(new DataSize(8, MEGABYTE))
-                .setDwrfStripeCacheMode(INDEX_AND_FOOTER));
+                .setDwrfStripeCacheMode(INDEX_AND_FOOTER)
+                .setCompressionLevel(Integer.MIN_VALUE));
     }
 
     @Test
@@ -76,6 +78,7 @@ public class TestOrcFileWriterConfig
                 .put("hive.orc.writer.dwrf-stripe-cache-enabled", "true")
                 .put("hive.orc.writer.dwrf-stripe-cache-max-size", "10MB")
                 .put("hive.orc.writer.dwrf-stripe-cache-mode", "FOOTER")
+                .put("hive.orc.writer.compression-level", "5")
                 .build();
 
         OrcFileWriterConfig expected = new OrcFileWriterConfig()
@@ -89,7 +92,8 @@ public class TestOrcFileWriterConfig
                 .setStreamLayoutType(BY_STREAM_SIZE)
                 .setDwrfStripeCacheEnabled(true)
                 .setDwrfStripeCacheMaxSize(new DataSize(10, MEGABYTE))
-                .setDwrfStripeCacheMode(FOOTER);
+                .setDwrfStripeCacheMode(FOOTER)
+                .setCompressionLevel(5);
 
         assertFullMapping(properties, expected);
     }
@@ -115,6 +119,7 @@ public class TestOrcFileWriterConfig
         StreamLayoutType streamLayoutType = BY_STREAM_SIZE;
         DataSize dwrfStripeCacheMaxSize = new DataSize(4, MEGABYTE);
         DwrfStripeCacheMode dwrfStripeCacheMode = INDEX;
+        int compressionLevel = 5;
 
         OrcFileWriterConfig config = new OrcFileWriterConfig()
                 .setStripeMinSize(stripeMinSize)
@@ -127,7 +132,8 @@ public class TestOrcFileWriterConfig
                 .setStreamLayoutType(streamLayoutType)
                 .setDwrfStripeCacheEnabled(false)
                 .setDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
-                .setDwrfStripeCacheMode(dwrfStripeCacheMode);
+                .setDwrfStripeCacheMode(dwrfStripeCacheMode)
+                .setCompressionLevel(5);
 
         assertEquals(stripeMinSize, config.getStripeMinSize());
         assertEquals(stripeMaxSize, config.getStripeMaxSize());
@@ -140,6 +146,7 @@ public class TestOrcFileWriterConfig
         assertFalse(config.isDwrfStripeCacheEnabled());
         assertEquals(dwrfStripeCacheMaxSize, config.getDwrfStripeCacheMaxSize());
         assertEquals(dwrfStripeCacheMode, config.getDwrfStripeCacheMode());
+        assertEquals(compressionLevel, config.getCompressionLevel());
 
         assertNotSame(config.toOrcWriterOptionsBuilder(), config.toOrcWriterOptionsBuilder());
         OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
@@ -153,6 +160,7 @@ public class TestOrcFileWriterConfig
         assertEquals(maxCompressionBufferSize, options.getMaxCompressionBufferSize());
         assertTrue(options.getStreamLayoutFactory() instanceof StreamSizeLayoutFactory);
         assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
+        assertEquals(OptionalInt.of(compressionLevel), options.getCompressionLevel());
     }
 
     @Test
@@ -167,5 +175,14 @@ public class TestOrcFileWriterConfig
         config.setStreamLayoutType(BY_COLUMN_SIZE);
         options = config.toOrcWriterOptionsBuilder().build();
         assertTrue(options.getStreamLayoutFactory() instanceof ColumnSizeLayoutFactory);
+    }
+
+    @Test
+    public void testDefaultCompressionLevel()
+    {
+        OrcFileWriterConfig config = new OrcFileWriterConfig();
+        OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
+
+        assertEquals(OptionalInt.empty(), options.getCompressionLevel());
     }
 }
