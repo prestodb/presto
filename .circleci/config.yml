@@ -22,7 +22,6 @@ workflows:
       - macos-build
       - format-check
       - header-check
-      - linux-benchmarks
 
   # Daily documentation update
   nightly:
@@ -55,7 +54,7 @@ workflows:
 executors:
   build:
     docker:
-      - image : prestocpp/velox-circleci:kpai-20220308
+      - image : prestocpp/velox-circleci:sagarm-20220131
     resource_class: 2xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
