@@ -152,6 +152,11 @@ public final class MetadataUtil
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
+    public static QualifiedName createQualifiedName(QualifiedObjectName name)
+    {
+        return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+    }
+
     public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)
     {
         GrantorSpecification.Type type = specification.getType();

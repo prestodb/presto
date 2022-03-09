@@ -15,7 +15,9 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -74,20 +76,7 @@ public class DereferenceExpression
      */
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
-        List<Identifier> parts = null;
-        if (expression.base instanceof Identifier) {
-            parts = ImmutableList.of((Identifier) expression.base, expression.field);
-        }
-        else if (expression.base instanceof DereferenceExpression) {
-            QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) expression.base);
-            if (baseQualifiedName != null) {
-                ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
-                builder.addAll(baseQualifiedName.getOriginalParts());
-                builder.add(expression.field);
-                parts = builder.build();
-            }
-        }
-
+        List<String> parts = tryParseParts(expression.base, expression.field.getValue().toLowerCase(Locale.ENGLISH));
         return parts == null ? null : QualifiedName.of(parts);
     }
 
@@ -105,6 +94,22 @@ public class DereferenceExpression
         }
 
         return result;
+    }
+
+    private static List<String> tryParseParts(Expression base, String fieldName)
+    {
+        if (base instanceof Identifier) {
+            return ImmutableList.of(((Identifier) base).getValue(), fieldName);
+        }
+        else if (base instanceof DereferenceExpression) {
+            QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) base);
+            if (baseQualifiedName != null) {
+                List<String> newList = new ArrayList<>(baseQualifiedName.getParts());
+                newList.add(fieldName);
+                return newList;
+            }
+        }
+        return null;
     }
 
     @Override
