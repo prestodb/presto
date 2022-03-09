@@ -151,7 +151,7 @@ public class QueryResource
         // Filter list by the query state (if specified).
         if (stateFilter != null) {
             QueryState expectedState = QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
-            queries.removeIf(item -> item.getState() == expectedState);
+            queries.removeIf(item -> item.getState() != expectedState);
         }
 
         // If limit is smaller than number of queries, then ensure that the more recent items are at the front.
