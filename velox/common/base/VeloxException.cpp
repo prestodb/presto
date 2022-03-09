@@ -21,6 +21,11 @@
 namespace facebook {
 namespace velox {
 
+ExceptionContext& getExceptionContext() {
+  thread_local ExceptionContext context;
+  return context;
+}
+
 VeloxException::VeloxException(
     const char* file,
     size_t line,
@@ -40,6 +45,7 @@ VeloxException::VeloxException(
         state.message = message;
         state.errorSource = errorSource;
         state.errorCode = errorCode;
+        state.context = getExceptionContext().message();
         state.isRetriable = isRetriable;
       })) {}
 
@@ -134,6 +140,10 @@ void VeloxException::State::finalize() const {
     elaborateMessage += "Expression: ";
     elaborateMessage += failingExpression;
     elaborateMessage += '\n';
+  }
+
+  if (!context.empty()) {
+    elaborateMessage += "Context: " + context + "\n";
   }
 
   if (function) {

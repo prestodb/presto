@@ -436,3 +436,69 @@ TEST(ExceptionTests, ExceptionWithErrorCode) {
           "False",
           "operator()"));
 }
+
+TEST(ExceptionTests, context) {
+  // No context.
+  verifyVeloxException(
+      [&]() { VELOX_CHECK_EQ(1, 3); },
+      "Exception: VeloxRuntimeError"
+      "\nError Source: RUNTIME"
+      "\nError Code: INVALID_STATE"
+      "\nReason: (1 vs. 3)"
+      "\nRetriable: False"
+      "\nExpression: 1 == 3"
+      "\nFunction: operator()"
+      "\nFile: ");
+
+  // With context.
+  {
+    std::string troubleshootingAid = "Troubleshooting aid.";
+    facebook::velox::ExceptionContextSetter context(
+        {[](auto* arg) { return std::string(static_cast<char*>(arg)); },
+         troubleshootingAid.data()});
+
+    verifyVeloxException(
+        [&]() { VELOX_CHECK_EQ(1, 3); },
+        "Exception: VeloxRuntimeError"
+        "\nError Source: RUNTIME"
+        "\nError Code: INVALID_STATE"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: Troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+  }
+
+  // Different context.
+  {
+    std::string debuggingInfo = "Debugging info.";
+    facebook::velox::ExceptionContextSetter context(
+        {[](auto* arg) { return std::string(static_cast<char*>(arg)); },
+         debuggingInfo.data()});
+
+    verifyVeloxException(
+        [&]() { VELOX_CHECK_EQ(1, 3); },
+        "Exception: VeloxRuntimeError"
+        "\nError Source: RUNTIME"
+        "\nError Code: INVALID_STATE"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: Debugging info."
+        "\nFunction: operator()"
+        "\nFile: ");
+  }
+
+  // No context.
+  verifyVeloxException(
+      [&]() { VELOX_CHECK_EQ(1, 3); },
+      "Exception: VeloxRuntimeError"
+      "\nError Source: RUNTIME"
+      "\nError Code: INVALID_STATE"
+      "\nReason: (1 vs. 3)"
+      "\nRetriable: False"
+      "\nExpression: 1 == 3"
+      "\nFunction: operator()"
+      "\nFile: ");
+}

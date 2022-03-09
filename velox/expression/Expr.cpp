@@ -220,6 +220,11 @@ void Expr::eval(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  // Make sure to include current expression in the error message in case of an
+  // exception.
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   if (!rows.hasSelections()) {
     // empty input, return an empty vector of the right type
     *result = BaseVector::createNullConstant(type(), 0, context->pool());

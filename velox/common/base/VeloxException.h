@@ -34,6 +34,47 @@ DECLARE_int32(velox_exception_stacktrace_rate_limit_ms);
 namespace facebook {
 namespace velox {
 
+/// Holds a pointer to a function that provides addition context to be
+/// added to the detailed error message in case of an exception.
+struct ExceptionContext {
+  using MessageFunction = std::string (*)(void* arg);
+
+  /// Function to call in case of an exception to get additional context.
+  MessageFunction messageFunc{nullptr};
+
+  /// Value to pass to `messageFunc`. Can be null.
+  void* arg{nullptr};
+
+  /// Calls `messageFunc(arg)` and returns the result. Returns empty string if
+  /// `messageFunc` is null.
+  std::string message() {
+    return messageFunc ? messageFunc(arg) : "";
+  }
+};
+
+/// Returns a reference to thread_local variable that holds a function that can
+/// be used to get addition context to be added to the detailed error message in
+/// case an exception occurs. This is to used in cases when stack trace would
+/// not provide enough information, e.g. in case of hierarchical processing like
+/// expression evaluation.
+ExceptionContext& getExceptionContext();
+
+/// RAII class to set and restore context for exceptions.
+class ExceptionContextSetter {
+ public:
+  explicit ExceptionContextSetter(ExceptionContext value)
+      : prev_{getExceptionContext()} {
+    getExceptionContext() = std::move(value);
+  }
+
+  ~ExceptionContextSetter() {
+    getExceptionContext() = std::move(prev_);
+  }
+
+ private:
+  ExceptionContext prev_;
+};
+
 namespace error_source {
 using namespace folly::string_literals;
 
@@ -151,6 +192,10 @@ class VeloxException : public std::exception {
     return state_->errorSource == error_source::kErrorSourceUser;
   }
 
+  const std::string& context() const {
+    return state_->context;
+  }
+
  private:
   struct State {
     std::unique_ptr<process::StackTrace> stackTrace;
@@ -162,6 +207,7 @@ class VeloxException : public std::exception {
     std::string message;
     std::string errorSource;
     std::string errorCode;
+    std::string context;
     bool isRetriable;
 
     mutable folly::once_flag once;

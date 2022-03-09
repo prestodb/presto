@@ -2481,3 +2481,24 @@ TEST_F(ExprTest, peeledConstant) {
     folly::doNotOptimizeAway(result->toString(i));
   }
 }
+
+TEST_F(ExprTest, exceptionContext) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3}),
+      makeFlatVector<int32_t>({1, 2, 3}),
+  });
+
+  try {
+    evaluate("(c0 + c1) % 0", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("mod(cast((plus(c0, c1)) as BIGINT), literal)", e.context());
+  }
+
+  try {
+    evaluate("c0 + (c1 % 0)", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("mod(cast((c1) as BIGINT), literal)", e.context());
+  }
+}
