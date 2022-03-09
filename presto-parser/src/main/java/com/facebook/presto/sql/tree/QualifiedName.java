@@ -20,43 +20,43 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.common.collect.Iterables.transform;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
 {
     private final List<String> parts;
-    private final List<Identifier> originalParts;
+    private final List<String> originalParts;
 
     public static QualifiedName of(String first, String... rest)
     {
         requireNonNull(first, "first is null");
-        return of(ImmutableList.copyOf(Lists.asList(first, rest).stream().map(Identifier::new).collect(Collectors.toList())));
+        return of(ImmutableList.copyOf(Lists.asList(first, rest)));
     }
 
     public static QualifiedName of(String name)
     {
         requireNonNull(name, "name is null");
-        return of(ImmutableList.of(new Identifier(name)));
+        return of(ImmutableList.of(name));
     }
 
-    public static QualifiedName of(Iterable<Identifier> originalParts)
+    public static QualifiedName of(Iterable<String> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
         checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        List<String> parts = ImmutableList.copyOf(transform(originalParts, part -> part.toLowerCase(ENGLISH)));
 
-        return new QualifiedName(ImmutableList.copyOf(originalParts));
+        return new QualifiedName(ImmutableList.copyOf(originalParts), parts);
     }
 
-    private QualifiedName(List<Identifier> originalParts)
+    private QualifiedName(List<String> originalParts, List<String> parts)
     {
         this.originalParts = originalParts;
-        this.parts = originalParts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
+        this.parts = parts;
     }
 
     public List<String> getParts()
@@ -64,7 +64,7 @@ public class QualifiedName
         return parts;
     }
 
-    public List<Identifier> getOriginalParts()
+    public List<String> getOriginalParts()
     {
         return originalParts;
     }
@@ -85,8 +85,8 @@ public class QualifiedName
             return Optional.empty();
         }
 
-        List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
-        return Optional.of(new QualifiedName(subList));
+        List<String> subList = parts.subList(0, parts.size() - 1);
+        return Optional.of(new QualifiedName(subList, subList));
     }
 
     public boolean hasSuffix(QualifiedName suffix)

@@ -228,14 +228,14 @@ public class QueryRewriter
 
     private QualifiedName generateTemporaryName(Optional<QualifiedName> originalName, QualifiedName prefix)
     {
-        List<Identifier> parts = new ArrayList<>();
+        List<String> parts = new ArrayList<>();
         int originalSize = originalName.map(QualifiedName::getOriginalParts).map(List::size).orElse(0);
         int prefixSize = prefix.getOriginalParts().size();
         if (originalName.isPresent() && originalSize > prefixSize) {
             parts.addAll(originalName.get().getOriginalParts().subList(0, originalSize - prefixSize));
         }
         parts.addAll(prefix.getOriginalParts());
-        parts.set(parts.size() - 1, new Identifier(prefix.getSuffix() + "_" + randomUUID().toString().replace("-", "")));
+        parts.set(parts.size() - 1, prefix.getSuffix() + "_" + randomUUID().toString().replace("-", ""));
         return QualifiedName.of(parts);
     }
 
