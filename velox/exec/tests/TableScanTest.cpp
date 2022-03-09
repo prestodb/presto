@@ -1970,6 +1970,34 @@ TEST_P(TableScanTest, groupedExecution) {
   EXPECT_EQ(numRead, numSplits * 10'000);
 }
 
+TEST_P(TableScanTest, addSplitsToFailedTask) {
+  auto data = makeRowVector(
+      {makeFlatVector<int32_t>(12'000, [](auto row) { return row % 5; })});
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, kTableScanTest, {data});
+
+  core::PlanNodeId scanNodeId;
+  exec::test::CursorParameters params;
+  params.planNode = exec::test::PlanBuilder()
+                        .tableScan(ROW({"c0"}, {INTEGER()}))
+                        .capturePlanNodeId(scanNodeId)
+                        .project({"5 / c0"})
+                        .planNode();
+
+  auto cursor = std::make_unique<exec::test::TaskCursor>(params);
+  cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->path));
+
+  EXPECT_THROW(while (cursor->moveNext()){}, VeloxUserError);
+
+  // Verify that splits can be added to the task ever after task has failed.
+  // In this case these splits will be ignored.
+  cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->path));
+  cursor->task()->addSplitWithSequence(
+      scanNodeId, makeHiveSplit(filePath->path), 20L);
+  cursor->task()->setMaxSplitSequenceId(scanNodeId, 20L);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableScanTests,
     TableScanTest,

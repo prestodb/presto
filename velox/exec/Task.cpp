@@ -442,13 +442,13 @@ void Task::setMaxSplitSequenceId(
   checkPlanNodeIdForSplit(planNodeId);
 
   std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(isRunningLocked());
-
-  auto& splitsState = splitsStates_[planNodeId];
-  // We could have been sent an old split again, so only change max id, when the
-  // new one is greater.
-  splitsState.maxSequenceId =
-      std::max(splitsState.maxSequenceId, maxSequenceId);
+  if (isRunningLocked()) {
+    auto& splitsState = splitsStates_[planNodeId];
+    // We could have been sent an old split again, so only change max id, when
+    // the new one is greater.
+    splitsState.maxSequenceId =
+        std::max(splitsState.maxSequenceId, maxSequenceId);
+  }
 }
 
 bool Task::addSplitWithSequence(
@@ -460,15 +460,16 @@ bool Task::addSplitWithSequence(
   bool added = false;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(isRunningLocked());
-
-    // The same split can be added again in some systems. The systems that want
-    // 'one split processed once only' would use this method and duplicate
-    // splits would be ignored.
-    auto& splitsState = splitsStates_[planNodeId];
-    if (sequenceId > splitsState.maxSequenceId) {
-      promise = addSplitLocked(splitsState, std::move(split));
-      added = true;
+    if (isRunningLocked()) {
+      // The same split can be added again in some systems. The systems that
+      // want
+      // 'one split processed once only' would use this method and duplicate
+      // splits would be ignored.
+      auto& splitsState = splitsStates_[planNodeId];
+      if (sequenceId > splitsState.maxSequenceId) {
+        promise = addSplitLocked(splitsState, std::move(split));
+        added = true;
+      }
     }
   }
   if (promise) {
@@ -482,9 +483,9 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
   std::unique_ptr<ContinuePromise> promise;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(isRunningLocked());
-
-    promise = addSplitLocked(splitsStates_[planNodeId], std::move(split));
+    if (isRunningLocked()) {
+      promise = addSplitLocked(splitsStates_[planNodeId], std::move(split));
+    }
   }
   if (promise) {
     promise->setValue(false);
