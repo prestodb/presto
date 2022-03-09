@@ -16,7 +16,7 @@ Description
 
 Grants the specified privileges to the specified grantee.
 
-Specifying ``ALL PRIVILEGES`` grants :doc:`delete`, :doc:`insert` and :doc:`select` privileges.
+Specifying ``ALL PRIVILEGES`` grants :doc:`delete`, :doc:`insert`, :doc:`update` and :doc:`select` privileges.
 
 Specifying ``ROLE PUBLIC`` grants privileges to the ``PUBLIC`` role and hence to all users.
 
