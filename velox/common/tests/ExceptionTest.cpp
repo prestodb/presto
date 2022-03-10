@@ -15,7 +15,6 @@
  */
 
 #include <fmt/format.h>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "velox/common/base/Exceptions.h"
@@ -72,7 +71,7 @@ void verifyVeloxException(
 
 // Ensures that expressions on the stream are not evaluated unless the condition
 // is met.
-TEST(ExceptionTests, LazyStreamEvaluation) {
+TEST(ExceptionTest, lazyStreamEvaluation) {
   Counter c;
 
   EXPECT_EQ(0, c.counter);
@@ -114,7 +113,7 @@ TEST(ExceptionTests, LazyStreamEvaluation) {
   EXPECT_EQ(2, i);
 }
 
-TEST(ExceptionTests, ExceptionMessageCheck) {
+TEST(ExceptionTest, messageCheck) {
   verifyVeloxException(
       []() { VELOX_CHECK(4 > 5, "Test message 1"); },
       "Exception: VeloxRuntimeError\nError Source: RUNTIME\n"
@@ -122,7 +121,7 @@ TEST(ExceptionTests, ExceptionMessageCheck) {
       "Retriable: False\nExpression: 4 > 5\nFunction: operator()\nFile: ");
 }
 
-TEST(ExceptionTests, ExceptionMessageUnreachable) {
+TEST(ExceptionTest, messageUnreachable) {
   verifyVeloxException(
       []() { VELOX_UNREACHABLE("Test message 3"); },
       "Exception: VeloxRuntimeError\nError Source: RUNTIME\n"
@@ -167,7 +166,7 @@ TEST(ExceptionTests, ExceptionMessageUnreachable) {
   macro(3, 2);                                                             \
   macro(1, -1, "Message 2");
 
-TEST(ExceptionTests, GreaterThan) {
+TEST(ExceptionTest, greaterThan) {
   RUN_TEST(GT);
 }
 
@@ -194,7 +193,7 @@ TEST(ExceptionTests, GreaterThan) {
   macro(3, 3);                                                             \
   macro(1, -1, "Message 2");
 
-TEST(ExceptionTests, GreaterEqual) {
+TEST(ExceptionTest, greaterEqual) {
   RUN_TEST(GE);
 }
 
@@ -229,7 +228,7 @@ TEST(ExceptionTests, GreaterEqual) {
   macro(2, 3);                                                             \
   macro(-1, 1, "Message 2");
 
-TEST(ExceptionTests, LessThan) {
+TEST(ExceptionTest, lessThan) {
   RUN_TEST(LT);
 }
 
@@ -256,7 +255,7 @@ TEST(ExceptionTests, LessThan) {
   macro(1, 1);                                                             \
   macro(-3, 3, "Message 2");
 
-TEST(ExceptionTests, LessEqual) {
+TEST(ExceptionTest, lessEqual) {
   RUN_TEST(LE);
 }
 
@@ -288,7 +287,7 @@ TEST(ExceptionTests, LessEqual) {
     macro(f, false, "Message 3");                                            \
   }
 
-TEST(ExceptionTests, Equal) {
+TEST(ExceptionTest, equal) {
   RUN_TEST(EQ);
 }
 
@@ -320,7 +319,7 @@ TEST(ExceptionTests, Equal) {
     macro(t, false, "Message 3");                                            \
   }
 
-TEST(ExceptionTests, NotEqual) {
+TEST(ExceptionTest, notEqual) {
   RUN_TEST(NE);
 }
 
@@ -348,11 +347,11 @@ TEST(ExceptionTests, NotEqual) {
     macro(b);                                                                \
   }
 
-TEST(ExceptionTests, NotNull) {
+TEST(ExceptionTest, notNull) {
   RUN_TEST(NOT_NULL);
 }
 
-TEST(ExceptionTests, ExpressionString) {
+TEST(ExceptionTest, expressionString) {
   size_t i = 1;
   size_t j = 100;
   std::string msgTemplate =
@@ -382,7 +381,7 @@ TEST(ExceptionTests, ExpressionString) {
       fmt::format(msgTemplate, "i + j * 2 >= 1000", "201 vs. 1000"));
 }
 
-TEST(ExceptionTests, ExceptionMessageAssertNotImplemented) {
+TEST(ExceptionTest, notImplemented) {
   verifyVeloxException(
       []() { VELOX_NYI(); },
       "Exception: VeloxRuntimeError\nError Source: RUNTIME\n"
@@ -396,7 +395,7 @@ TEST(ExceptionTests, ExceptionMessageAssertNotImplemented) {
       "Function: operator()\nFile: ");
 }
 
-TEST(ExceptionTests, ExceptionWithErrorCode) {
+TEST(ExceptionTest, errorCode) {
   std::string msgTemplate =
       "Exception: {}"
       "\nError Source: {}"
@@ -437,7 +436,7 @@ TEST(ExceptionTests, ExceptionWithErrorCode) {
           "operator()"));
 }
 
-TEST(ExceptionTests, context) {
+TEST(ExceptionTest, context) {
   // No context.
   verifyVeloxException(
       [&]() { VELOX_CHECK_EQ(1, 3); },
