@@ -1686,17 +1686,17 @@ class StatementAnalyzer
             return visitSetOperation(node, scope);
         }
 
-        private boolean isJoinOnConditionReferencesRelatedFields(Expression expression, Relation relation)
+        private boolean isJoinOnConditionReferencesRelatedFields(Expression expression, Scope scope)
         {
             if (expression instanceof LogicalBinaryExpression) {
                 LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
-                switch (logicalBinaryExpression.getOperator()){
+                switch (logicalBinaryExpression.getOperator()) {
                     case AND:
-                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), relation)
-                                || isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), relation);
+                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), scope)
+                                || isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), scope);
                     case OR:
-                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), relation)
-                                && isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), relation);
+                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), scope)
+                                && isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), scope);
                 }
             }
             if (expression instanceof ComparisonExpression) {
@@ -1704,18 +1704,12 @@ class StatementAnalyzer
                 if (comparisonExpression.getLeft() instanceof Literal || comparisonExpression.getRight() instanceof Literal) {
                     return false;
                 }
-                return isJoinOnConditionReferencesRelatedFields(comparisonExpression.getLeft(), relation)
-                        != isJoinOnConditionReferencesRelatedFields(comparisonExpression.getRight(), relation);
+                return isJoinOnConditionReferencesRelatedFields(comparisonExpression.getLeft(), scope)
+                        != isJoinOnConditionReferencesRelatedFields(comparisonExpression.getRight(), scope);
             }
-            if (expression instanceof DereferenceExpression) {
-                DereferenceExpression dereferenceExpression = (DereferenceExpression) expression;
-                String expressionBase = dereferenceExpression.getBase().toString();
-                if (relation instanceof AliasedRelation) {
-                    return expressionBase.equals(((AliasedRelation) relation).getAlias().toString());
-                }
-                if (relation instanceof Table) {
-                    return expressionBase.equals(((Table) relation).getName().toString());
-                }
+            if (expression instanceof DereferenceExpression || expression instanceof Identifier) {
+                Optional<ResolvedField> resolvedField = scope.tryResolveField(expression);
+                return resolvedField.isPresent();
             }
             return false;
         }
@@ -1761,7 +1755,7 @@ class StatementAnalyzer
                     }
                 }
 
-                verifyJoinOnConditionReferencesRelatedFields(node.getRight(), expression);
+                verifyJoinOnConditionReferencesRelatedFields(right, expression, node.getRight());
                 verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
@@ -1774,35 +1768,37 @@ class StatementAnalyzer
             return output;
         }
 
-        private void verifyJoinOnConditionReferencesRelatedFields(Relation rightRelation, Expression expression)
+        private void verifyJoinOnConditionReferencesRelatedFields(Scope rightScope, Expression expression, Relation rightRelation)
         {
-            if (!(rightRelation instanceof AliasedRelation || rightRelation instanceof Table)) {
-                // TODO Add handling of TableSubquery, Lateral and Table for the case when columns in
-                //  JOIN ON condition specified without table name or alias (See #17382).
-                return;
-            }
-            if (!isJoinOnConditionReferencesRelatedFields(expression, rightRelation)) {
-                String rightTableName;
-                if (rightRelation instanceof Table) {
-                    rightTableName = ((Table) rightRelation).getName().toString();
-                }
-                else {
-                    AliasedRelation aliasedRelation = (AliasedRelation) rightRelation;
-                    if (aliasedRelation.getRelation() instanceof Table) {
-                        rightTableName = ((Table) aliasedRelation.getRelation()).getName().toString();
-                    }
-                    else {
-                        rightTableName = aliasedRelation.getAlias().toString();
-                    }
-                }
-                String warningMessage = createWarningMessage(
-                        expression,
-                        format(
-                            "JOIN ON condition(s) do not reference the joined table '%s' and other tables in the same " +
-                                    "expression that can cause performance issues as it may lead to a cross join with filter",
-                            rightTableName));
+            if (!isJoinOnConditionReferencesRelatedFields(expression, rightScope)) {
+                Optional<String> tableName = tryGetTableName(rightRelation);
+                String warningMessage = tableName.isPresent() ?
+                        createWarningMessage(
+                                expression,
+                                format(
+                                        "JOIN ON condition(s) do not reference the joined table '%s' and other tables in the same " +
+                                                "expression that can cause performance issues as it may lead to a cross join with filter",
+                                        tableName.get())) :
+                        createWarningMessage(
+                                expression,
+                                "JOIN ON condition(s) do not reference the joined relation and other relation in the same " +
+                                        "expression that can cause performance issues as it may lead to a cross join with filter");
                 warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
             }
+        }
+
+        private Optional<String> tryGetTableName(Relation relation)
+        {
+            if (relation instanceof Table) {
+                return Optional.of(((Table) relation).getName().toString());
+            }
+            else if (relation instanceof AliasedRelation) {
+                AliasedRelation aliasedRelation = (AliasedRelation) relation;
+                if (aliasedRelation.getRelation() instanceof Table) {
+                    return Optional.of(((Table) aliasedRelation.getRelation()).getName().toString());
+                }
+            }
+            return Optional.empty();
         }
 
         private String createWarningMessage(Node node, String description)
