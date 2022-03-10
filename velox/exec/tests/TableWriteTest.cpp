@@ -213,20 +213,20 @@ TEST_F(TableWriteTest, constantVectors) {
 
 // Test TableWriter create empty ORC or not based on the config
 TEST_F(TableWriteTest, writeEmptyFile) {
-  std::string outputFile = "/tmp/velox-TableWriteTest-writeEmptyFile";
-  ASSERT_FALSE(fs::exists(outputFile))
-      << "output file can't exist in the first place";
+  auto outputFile = TempFilePath::create();
+  fs::remove(outputFile->path);
 
-  auto plan = PlanBuilder()
-                  .tableScan(rowType_)
-                  .filter("false")
-                  .tableWrite(
-                      rowType_->names(),
-                      std::make_shared<core::InsertTableHandle>(
-                          kHiveConnectorId,
-                          std::make_shared<HiveInsertTableHandle>(outputFile)),
-                      "rows")
-                  .planNode();
+  auto plan =
+      PlanBuilder()
+          .tableScan(rowType_)
+          .filter("false")
+          .tableWrite(
+              rowType_->names(),
+              std::make_shared<core::InsertTableHandle>(
+                  kHiveConnectorId,
+                  std::make_shared<HiveInsertTableHandle>(outputFile->path)),
+              "rows")
+          .planNode();
 
   auto execute = [](const std::shared_ptr<const core::PlanNode>& plan,
                     std::shared_ptr<core::QueryCtx> queryCtx =
@@ -238,12 +238,11 @@ TEST_F(TableWriteTest, writeEmptyFile) {
   };
 
   execute(plan);
-  ASSERT_FALSE(fs::exists(outputFile));
+  ASSERT_FALSE(fs::exists(outputFile->path));
 
   auto queryCtx = core::QueryCtx::createForTest();
   queryCtx->setConfigOverridesUnsafe(
       {{core::QueryConfig::kCreateEmptyFiles, "true"}});
   execute(plan, queryCtx);
-  ASSERT_TRUE(fs::exists(outputFile));
-  fs::remove(outputFile);
+  ASSERT_TRUE(fs::exists(outputFile->path));
 }
