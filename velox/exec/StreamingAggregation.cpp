@@ -31,8 +31,7 @@ StreamingAggregation::StreamingAggregation(
           aggregationNode->step() == core::AggregationNode::Step::kPartial
               ? "PartialAggregation"
               : "Aggregation"),
-      outputBatchSize_{
-          driverCtx->execCtx->queryCtx()->config().preferredOutputBatchSize()},
+      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
       step_{aggregationNode->step()} {
   auto numKeys = aggregationNode->groupingKeys().size();
   decodedKeys_.resize(numKeys);

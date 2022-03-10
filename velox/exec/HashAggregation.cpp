@@ -31,12 +31,9 @@ HashAggregation::HashAggregation(
           aggregationNode->step() == core::AggregationNode::Step::kPartial
               ? "PartialAggregation"
               : "Aggregation"),
-      outputBatchSize_{
-          driverCtx->execCtx->queryCtx()->config().preferredOutputBatchSize()},
+      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
       maxPartialAggregationMemoryUsage_(
-          driverCtx->execCtx->queryCtx()
-              ->config()
-              .maxPartialAggregationMemoryUsage()),
+          driverCtx->queryConfig().maxPartialAggregationMemoryUsage()),
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
       isDistinct_(aggregationNode->aggregates().empty()),
       isGlobal_(aggregationNode->groupingKeys().empty()),

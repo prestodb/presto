@@ -168,10 +168,6 @@ class OperatorCtx {
     return driverCtx_->execCtx.get();
   }
 
-  core::QueryCtx* queryCtx() const {
-    return driverCtx_->execCtx->queryCtx();
-  }
-
   Driver* driver() const {
     return driverCtx_->driver;
   }

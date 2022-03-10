@@ -60,8 +60,7 @@ HashProbe::HashProbe(
           operatorId,
           joinNode->id(),
           "HashProbe"),
-      outputBatchSize_{
-          driverCtx->execCtx->queryCtx()->config().preferredOutputBatchSize()},
+      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
       joinType_{joinNode->joinType()},
       filterResult_(1),
       outputRows_(outputBatchSize_) {

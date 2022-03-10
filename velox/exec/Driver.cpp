@@ -74,6 +74,10 @@ DriverCtx::DriverCtx(
       splitGroupId(_splitGroupId),
       partitionId(_partitionId) {}
 
+const core::QueryConfig& DriverCtx::queryConfig() const {
+  return task->queryCtx()->config();
+}
+
 velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool() {
   return task->addOperatorPool(execCtx->pool());
 }

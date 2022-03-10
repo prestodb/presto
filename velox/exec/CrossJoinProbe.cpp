@@ -28,8 +28,7 @@ CrossJoinProbe::CrossJoinProbe(
           operatorId,
           joinNode->id(),
           "CrossJoinProbe"),
-      outputBatchSize_{
-          driverCtx->execCtx->queryCtx()->config().preferredOutputBatchSize()} {
+      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()} {
   bool isIdentityProjection = true;
 
   auto probeType = joinNode->sources()[0]->outputType();

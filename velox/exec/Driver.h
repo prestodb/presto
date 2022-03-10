@@ -178,6 +178,8 @@ struct DriverCtx {
       uint32_t _splitGroupId,
       uint32_t _partitionId);
 
+  const core::QueryConfig& queryConfig() const;
+
   velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool();
 
   // Makes an extract of QueryCtx for use in a connector. 'planNodeId'
