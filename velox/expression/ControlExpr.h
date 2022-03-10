@@ -87,6 +87,8 @@ class ConstantExpr : public SpecialForm {
     return sharedSubexprValues_;
   }
 
+  std::string toString() const override;
+
  private:
   const variant value_;
   bool needToSetIsAscii_;

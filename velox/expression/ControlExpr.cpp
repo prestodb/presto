@@ -66,6 +66,15 @@ void ConstantExpr::evalSpecialFormSimplified(
   }
 }
 
+std::string ConstantExpr::toString() const {
+  if (sharedSubexprValues_ == nullptr) {
+    return fmt::format("{}:{}", value_.toJson(), type()->toString());
+  } else {
+    return fmt::format(
+        "{}:{}", sharedSubexprValues_->toString(0), type()->toString());
+  }
+}
+
 void FieldReference::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
