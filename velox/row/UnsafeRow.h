@@ -42,6 +42,13 @@ struct ScalarTraits {
     auto flatVector = v->template asFlatVector<InMemoryType>();
     flatVector->set(i, val);
   }
+
+  static void set(
+      FlatVector<InMemoryType>* flatVector,
+      vector_size_t i,
+      SerializedType val) {
+    flatVector->set(i, val);
+  }
 };
 
 template <>
@@ -59,6 +66,11 @@ struct ScalarTraits<TypeKind::TIMESTAMP> {
 
   static void set(VectorPtr v, vector_size_t i, SerializedType val) {
     auto flatVector = v->template asFlatVector<InMemoryType>();
+    flatVector->set(i, Timestamp::fromMicros(val));
+  }
+
+  static void
+  set(FlatVector<Timestamp>* flatVector, vector_size_t i, SerializedType val) {
     flatVector->set(i, Timestamp::fromMicros(val));
   }
 };
@@ -85,6 +97,20 @@ struct ScalarTraits<TypeKind::TIMESTAMP> {
     static void set(VectorPtr v, vector_size_t i, const StringView& val) {  \
       auto flatVector = v->template asFlatVector<StringView>();             \
       flatVector->set(i, val);                                              \
+    }                                                                       \
+                                                                            \
+    static void set(                                                        \
+        FlatVector<StringView>* flatVector,                                 \
+        vector_size_t i,                                                    \
+        const StringView& val) {                                            \
+      flatVector->set(i, val);                                              \
+    }                                                                       \
+                                                                            \
+    static void setNoCopy(                                                  \
+        FlatVector<StringView>* flatVector,                                 \
+        vector_size_t i,                                                    \
+        const StringView& val) {                                            \
+      flatVector->setNoCopy(i, val);                                        \
     }                                                                       \
   };
 

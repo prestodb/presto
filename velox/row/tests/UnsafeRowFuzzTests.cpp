@@ -19,7 +19,7 @@
 #include <folly/Random.h>
 #include <folly/init/Init.h>
 
-#include "velox/row/UnsafeRowDeserializer.h"
+#include "velox/row/UnsafeRowBatchDeserializer.h"
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -57,17 +57,19 @@ class UnsafeRowFuzzTests : public ::testing::Test {
 };
 
 TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
-  auto rowType = ROW({
-      BOOLEAN(),
-      TINYINT(),
-      SMALLINT(),
-      INTEGER(),
-      BIGINT(),
-      REAL(),
-      DOUBLE(),
-      VARCHAR(),
-      TIMESTAMP(),
-  });
+  auto rowType = ROW(
+      {BOOLEAN(),
+       TINYINT(),
+       SMALLINT(),
+       INTEGER(),
+       BIGINT(),
+       REAL(),
+       DOUBLE(),
+       VARCHAR(),
+       TIMESTAMP(),
+       ROW({VARCHAR(), INTEGER()}),
+       ARRAY(INTEGER()),
+       MAP(VARCHAR(), ARRAY(INTEGER()))});
 
   VectorFuzzer::Options opts;
   opts.vectorSize = 1;
@@ -91,7 +93,7 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
 
     // Deserialize previous bytes back to row vector
     VectorPtr outputVector =
-        UnsafeRowDynamicVectorDeserializer::deserializeComplex(
+        UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
             std::string_view(buffer_, rowSize.value()), rowType, pool_.get());
 
     assertEqualVectors(
