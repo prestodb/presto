@@ -60,32 +60,49 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   /// \return size of variable length data written, 0 if no variable length
   /// data is written or only fixed data length data is written, std::nullopt
   /// otherwise
-  template <typename DataType>
   static std::optional<size_t> serialize(
       const TypePtr& type,
-      const DataType& data,
+      const VectorPtr& data,
       char* buffer,
       size_t idx = 0) {
     VELOX_CHECK_NOT_NULL(buffer);
 
-    if (type->isTimestamp()) {
-      // Follow Spark, serialize timestamp as micros.
-      return serializeTimestampMicros(data, buffer, idx);
-    }
-
-    if (type->isFixedWidth()) {
-      return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          serializeFixedLength, type->kind(), data, buffer, idx);
-    }
-
     switch (type->kind()) {
+#define FIXED_WIDTH(kind)                                             \
+  case TypeKind::kind:                                                \
+    return UnsafeRowSerializer::serializeFixedLength<TypeKind::kind>( \
+        data, buffer, idx);
+      FIXED_WIDTH(BOOLEAN);
+      FIXED_WIDTH(TINYINT);
+      FIXED_WIDTH(SMALLINT);
+      FIXED_WIDTH(INTEGER);
+      FIXED_WIDTH(BIGINT);
+      FIXED_WIDTH(REAL);
+      FIXED_WIDTH(DOUBLE);
+      FIXED_WIDTH(TIMESTAMP);
+      FIXED_WIDTH(DATE);
+#undef FIXED_WIDTH
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
         return serializeStringView(data, buffer, idx);
       case TypeKind::ARRAY:
+        return serializeArray(
+            type,
+            data->wrappedVector()->template asUnchecked<ArrayVector>(),
+            buffer,
+            data->wrappedIndex(idx));
       case TypeKind::MAP:
+        return serializeMap(
+            type,
+            data->wrappedVector()->template asUnchecked<MapVector>(),
+            buffer,
+            data->wrappedIndex(idx));
       case TypeKind::ROW:
-        return serializeComplexType(type, data, buffer, idx);
+        return serializeRow(
+            type,
+            data->wrappedVector()->template asUnchecked<RowVector>(),
+            buffer,
+            data->wrappedIndex(idx));
       default:
         throw UnsupportedSerializationException();
     }
@@ -132,59 +149,6 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
     return nullSet - buffer + serializedDataSize.value_or(0);
   }
 
-/// Template definition for unsupported types in the dynamic path.
-#define FUNC(TYPE)                                              \
-  inline static std::optional<size_t> serializeComplexType(     \
-      const TypePtr& type,                                      \
-      const TYPE& /*data*/,                                     \
-      char* /*buffer*/,                                         \
-      size_t /*idx*/) {                                         \
-    VELOX_CHECK(false, "Unsupported type " + type->toString()); \
-  }
-  FUNC(int8_t)
-  FUNC(int16_t)
-  FUNC(int32_t)
-  FUNC(int64_t)
-  FUNC(double)
-  FUNC(float)
-  FUNC(std::string)
-  FUNC(StringView)
-  FUNC(char*)
-  FUNC(Timestamp)
-  FUNC(Date)
-
-#undef FUNC
-
-  /// Dynamic complex type serialization function.
-  /// \param type
-  /// \param data
-  /// \param buffer
-  /// \param idx
-  /// \return size of variable length data written, 0 if no variable length data
-  /// is written or only fixed data length data is written, std::nullopt
-  /// otherwise
-  inline static std::optional<size_t> serializeComplexType(
-      const TypePtr& type,
-      const VectorPtr& data,
-      char* buffer,
-      size_t idx) {
-    if (type->isArray()) {
-      const auto* arrays = data->wrappedVector()->as<ArrayVector>();
-      VELOX_CHECK(arrays, "Invalid array in unsaferow conversion from");
-      return serializeComplexType(
-          type, arrays, buffer, data->wrappedIndex(idx));
-    } else if (type->isMap()) {
-      const auto* maps = data->wrappedVector()->as<MapVector>();
-      VELOX_CHECK(maps, "Invalid map in unsaferow conversion from");
-      return serializeComplexType(type, maps, buffer, data->wrappedIndex(idx));
-    } else if (type->isRow()) {
-      const auto* rows = data->wrappedVector()->as<RowVector>();
-      VELOX_CHECK(rows, "Invalid row in unsaferow conversion from");
-      return serializeComplexType(type, rows, buffer, data->wrappedIndex(idx));
-    }
-    throw UnsupportedSerializationException();
-  }
-
   /// Serializing an element in Velox array given its
   /// offset and size (the elements in that location) in an the array
   /// \return the size of written bytes
@@ -213,7 +177,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   /// \return size of variable length data written, 0 if no variable length data
   /// is written or only fixed data length data is written, std::nullopt
   /// otherwise
-  inline static std::optional<size_t> serializeComplexType(
+  inline static std::optional<size_t> serializeArray(
       const TypePtr& type,
       const ArrayVector* data,
       char* buffer,
@@ -241,7 +205,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   /// \return size of variable length data written, 0 if no variable length data
   /// is written or only fixed data length data is written, std::nullopt
   /// otherwise
-  inline static std::optional<size_t> serializeComplexType(
+  inline static std::optional<size_t> serializeMap(
       const TypePtr& type,
       const MapVector* data,
       char* buffer,
@@ -296,7 +260,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   /// otherwise
   // TODO: This function is untested, please add a test case to
   //  UnsafeRowSerializerTest.cpp
-  inline static std::optional<size_t> serializeComplexType(
+  inline static std::optional<size_t> serializeRow(
       const TypePtr& type,
       const RowVector* data,
       char* buffer,

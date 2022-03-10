@@ -57,6 +57,8 @@ struct UnsafeRowStaticUtilities {
       return TypeKind::VARCHAR;
     } else if constexpr (std::is_same_v<SqlType, VarbinaryType>) {
       return TypeKind::VARBINARY;
+    } else if constexpr (std::is_same_v<SqlType, TimestampType>) {
+      return TypeKind::TIMESTAMP;
     } else {
       return TypeKind::INVALID;
     }

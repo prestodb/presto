@@ -214,13 +214,12 @@ class UnsafeRowSerializerTests
 
 TEST_F(UnsafeRowSerializerTests, fixedLengthPrimitive) {
   int16_t smallint = 0x1234;
-  auto smallintSerialized = UnsafeRowDynamicSerializer::serialize(
-      createScalarType(TypeKind::SMALLINT), smallint, buffer_);
+  auto smallintSerialized =
+      UnsafeRowSerializer::serialize<SmallintType>(smallint, buffer_);
   ASSERT_TRUE(checkFixedLength(smallintSerialized, 0, &smallint));
 
   float real = 3.4;
-  auto realSerialized = UnsafeRowDynamicSerializer::serialize(
-      createScalarType(TypeKind::REAL), real, buffer_);
+  auto realSerialized = UnsafeRowSerializer::serialize<RealType>(real, buffer_);
   EXPECT_TRUE(checkFixedLength(realSerialized, 0, &real));
 
   bool boolean = true;
@@ -242,7 +241,7 @@ TEST_F(UnsafeRowSerializerTests, fixedLengthVectorPtr) {
   EXPECT_TRUE(checkFixedLength(intSerialized0, 0, &intVal0));
 
   auto intSerialized1 =
-      UnsafeRowDynamicSerializer::serialize(INTEGER(), intVector, buffer_, 3);
+      UnsafeRowSerializer::serialize<IntegerType>(intVector, buffer_, 3);
   int intVal1 = 0x01234567;
   EXPECT_TRUE(checkFixedLength(intSerialized1, 0, &intVal1));
 
@@ -264,11 +263,11 @@ TEST_F(UnsafeRowSerializerTests, StringsDynamic) {
       makeFlatVectorPtr<StringView>(4, VARCHAR(), pool_.get(), nulls, elements);
 
   auto serialized0 =
-      UnsafeRowDynamicSerializer::serialize(VARCHAR(), stringVec, buffer_, 0);
+      UnsafeRowSerializer::serialize<VarcharType>(stringVec, buffer_, 0);
   EXPECT_TRUE(checkVariableLength(serialized0, 13, u8"Hello, World!"));
 
   auto serialized1 =
-      UnsafeRowDynamicSerializer::serialize(VARBINARY(), stringVec, buffer_, 1);
+      UnsafeRowSerializer::serialize<VarcharType>(stringVec, buffer_, 1);
   EXPECT_TRUE(checkVariableLength(serialized1, 0, u8""));
 
   auto serialized2 =
@@ -287,8 +286,8 @@ TEST_F(UnsafeRowSerializerTests, timestamp) {
   auto timestampVec = makeFlatVectorPtr<Timestamp>(
       2, TIMESTAMP(), pool_.get(), nulls, elements);
 
-  auto serialized0 = UnsafeRowDynamicSerializer::serialize(
-      TIMESTAMP(), timestampVec, buffer_, 0);
+  auto serialized0 =
+      UnsafeRowSerializer::serialize<TimestampType>(timestampVec, buffer_, 0);
   int64_t expected0 = 1'000'000 + 2; // 1s + 2000ns in micros.
   EXPECT_TRUE(checkFixedLength(serialized0, 0, &expected0));
 
@@ -298,7 +297,7 @@ TEST_F(UnsafeRowSerializerTests, timestamp) {
 
   auto timestamp = Timestamp(-1, 2'000);
   auto serialized3 =
-      UnsafeRowDynamicSerializer::serialize(TIMESTAMP(), timestamp, buffer_);
+      UnsafeRowSerializer::serialize<TimestampType>(timestamp, buffer_);
   int64_t expected3 = -1'000'000L + 2;
   EXPECT_TRUE(checkFixedLength(serialized3, 0, &expected3));
 }
