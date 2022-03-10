@@ -18,6 +18,7 @@
 #include <folly/Likely.h>
 #include <optional>
 #include <tuple>
+#include <utility>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
@@ -503,9 +504,25 @@ class MapWriter {
 // output row entry.
 
 template <typename... T>
+class RowWriter;
+
+template <size_t I, class... Types>
+inline auto get(const RowWriter<Types...>& writer) {
+  using type = std::tuple_element_t<I, std::tuple<Types...>>;
+  static_assert(
+      provide_std_interface<type>,
+      "operation not supported, use general interface instead");
+
+  return PrimitiveWriter<type>(
+      std::get<I>(writer.childrenVectors_), writer.offset_);
+}
+
+template <typename... T>
 class RowWriter {
  public:
   using writers_t = std::tuple<VectorWriter<T, void>...>;
+  static constexpr bool std_interface =
+      (true && ... && provide_std_interface<T>);
 
   template <vector_size_t I>
   void set_null_at() {
@@ -526,41 +543,66 @@ class RowWriter {
     }
   }
 
+  void operator=(const std::tuple<T...>& inputs) {
+    static_assert(
+        std_interface,
+        "operation not supported, use general interface instead");
+    assignImpl(inputs, std::index_sequence_for<T...>{});
+  }
+
+  void operator=(const std::tuple<std::optional<T>...>& inputs) {
+    static_assert(
+        std_interface,
+        "operation not supported, use general interface instead");
+    assignImpl(inputs, std::index_sequence_for<T...>{});
+  }
+
  private:
   // Make sure user do not use those.
   RowWriter<T...>() = default;
 
   void initialize() {
-    initializeRec<0>();
+    initializeImpl(std::index_sequence_for<T...>());
   }
 
-  template <size_t I>
-  void initializeRec() {
-    if constexpr (I == sizeof...(T)) {
-      return;
-    } else {
-      std::get<I>(needCommit_) = false;
-      std::get<I>(childrenVectors_) = &std::get<I>(childrenWriters_).vector();
-      initializeRec<I + 1>();
-    }
+  template <std::size_t... Is>
+  void initializeImpl(std::index_sequence<Is...>) {
+    (
+        [&]() {
+          std::get<Is>(needCommit_) = false;
+          std::get<Is>(childrenVectors_) =
+              &std::get<Is>(childrenWriters_).vector();
+        }(),
+        ...);
+  }
+
+  template <std::size_t... Is>
+  void assignImpl(const std::tuple<T...>& inputs, std::index_sequence<Is...>) {
+    ((exec::get<Is>(*this) = std::get<Is>(inputs)), ...);
+  }
+
+  template <std::size_t... Is>
+  void assignImpl(
+      const std::tuple<std::optional<T>...>& inputs,
+      std::index_sequence<Is...>) {
+    ((exec::get<Is>(*this) = std::get<Is>(inputs)), ...);
   }
 
   void finalize() {
-    finalizeRec<0>();
+    finalizeImpl(std::index_sequence_for<T...>{});
   }
 
-  template <size_t I>
-  void finalizeRec() {
-    if constexpr (I == sizeof...(T)) {
-      return;
-    } else {
-      if (std::get<I>(needCommit_)) {
-        // Commit not null.
-        std::get<I>(childrenWriters_).commit(true);
-        std::get<I>(needCommit_) = false;
-      }
-      finalizeRec<I + 1>();
-    }
+  template <std::size_t... Is>
+  void finalizeImpl(std::index_sequence<Is...>) {
+    (
+        [&]() {
+          if (std::get<Is>(needCommit_)) {
+            // Commit not null.
+            std::get<Is>(childrenWriters_).commit(true);
+            std::get<Is>(needCommit_) = false;
+          }
+        }(),
+        ...);
   }
 
   writers_t childrenWriters_;
@@ -576,6 +618,9 @@ class RowWriter {
 
   template <typename A, typename B>
   friend struct VectorWriter;
+
+  template <size_t I, class... Types>
+  friend auto get(const RowWriter<Types...>& writer);
 };
 
 } // namespace facebook::velox::exec

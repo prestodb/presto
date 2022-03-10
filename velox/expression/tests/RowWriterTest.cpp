@@ -236,6 +236,38 @@ TEST_F(RowWriterTest, varBinary) {
   ASSERT_EQ(exec::get<0>(reader[1]), std::nullopt);
 }
 
+TEST_F(RowWriterTest, assignToTuple) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& rowWriter = vectorWriter->current();
+
+  rowWriter = std::make_tuple(std::nullopt, std::optional<int64_t>(), 2);
+
+  vectorWriter->commit();
+
+  auto expected = makeRowVector(
+      {nullEntry(), nullEntry(), vectorMaker_.flatVector<int64_t>({2})});
+
+  assertEqualVectors(result, expected);
+}
+
+TEST_F(RowWriterTest, execGet) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& rowWriter = vectorWriter->current();
+
+  exec::get<0>(rowWriter) = std::nullopt;
+  exec::get<1>(rowWriter) = std::optional<int64_t>();
+  exec::get<2>(rowWriter) = 2;
+
+  vectorWriter->commit();
+
+  auto expected = makeRowVector(
+      {nullEntry(), nullEntry(), vectorMaker_.flatVector<int64_t>({2})});
+
+  assertEqualVectors(result, expected);
+}
+
 TEST_F(RowWriterTest, nested) {
   // Output is row(row(int, string), double).
   auto result = prepareResult(

@@ -678,7 +678,7 @@ class RowView {
 };
 
 template <size_t I, bool returnsOptionalValues, class... Types>
-auto get(const RowView<returnsOptionalValues, Types...>& row) {
+inline auto get(const RowView<returnsOptionalValues, Types...>& row) {
   return row.template at<I>();
 }
 
