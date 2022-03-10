@@ -16,4 +16,4 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_library(velox_row INTERFACE)
+add_library(velox_row UnsafeRow24Deserializer.cpp)

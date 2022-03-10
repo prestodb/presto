@@ -18,8 +18,10 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/row/UnsafeRow24Deserializer.h"
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/row/UnsafeRowParser.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/TypeAliases.h"
@@ -29,10 +31,37 @@ using namespace facebook::velox::row;
 
 namespace facebook::velox::row {
 namespace {
+
 class UnsafeRowDeserializerTest : public ::testing::Test {};
 
 class UnsafeRowStaticDeserializerTest : public ::testing::Test {};
 
+struct UnsafeRowLegacyWrapper {
+  static VectorPtr Deserialize(
+      const std::vector<std::string_view>& rows,
+      TypePtr type,
+      memory::MemoryPool* pool) {
+    std::vector<std::optional<std::string_view>> rows_opt;
+    for (std::string_view row : rows)
+      rows_opt.emplace_back(row);
+    return UnsafeRowDynamicVectorDeserializer::deserializeComplex(
+        rows_opt, type, pool);
+  }
+};
+
+struct UnsafeRow24Wrapper {
+  static VectorPtr Deserialize(
+      const std::vector<std::string_view>& s,
+      TypePtr type,
+      memory::MemoryPool* pool) {
+    VELOX_CHECK(type->isRow());
+    return UnsafeRow24Deserializer::Create(
+               std::dynamic_pointer_cast<const RowType>(type))
+        ->DeserializeRows(pool, {s});
+  }
+};
+
+template <typename T>
 class UnsafeRowVectorDeserializerTest : public ::testing::Test {
  public:
   UnsafeRowVectorDeserializerTest()
@@ -93,6 +122,9 @@ class UnsafeRowVectorDeserializerTest : public ::testing::Test {
   // variable pointing to the row pointer held by the smart pointer BufferPtr
   char* buffer;
 };
+
+using DeserImpls = ::testing::Types<UnsafeRowLegacyWrapper, UnsafeRow24Wrapper>;
+TYPED_TEST_SUITE(UnsafeRowVectorDeserializerTest, DeserImpls);
 
 template <typename T>
 testing::AssertionResult checkVariableLengthData(
@@ -155,7 +187,7 @@ testing::AssertionResult checkPrimitiveIterator(
 
 TEST_F(UnsafeRowDeserializerTest, DeserializePrimitives) {
   /*
-   * UnsfafeRow with 7 elements:
+   * UnsafeRow with 7 elements:
    *  index | type        | value
    *  ------|-------------|-------
    *  0     | BOOLEAN     | true
@@ -417,7 +449,7 @@ TEST_F(UnsafeRowStaticDeserializerTest, MapStdContainer) {
   ASSERT_FALSE(val0->find(3)->second.has_value());
 }
 
-TEST_F(UnsafeRowVectorDeserializerTest, FixedWidthArray) {
+TYPED_TEST(UnsafeRowVectorDeserializerTest, FixedWidthArray) {
   /*
    * UnsafeRow with 2 elements (element 2 is ignored):
    * Element 1: Array of TinyInt with 5 elements
@@ -474,7 +506,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, FixedWidthArray) {
       checkPrimitiveIterator<uint8_t>(array0Iter[5], TypeKind::TINYINT, true));
 
   VectorPtr val0 = UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-      rowParser.dataAt(0), rowParser.typeAt(0), pool_.get());
+      rowParser.dataAt(0), rowParser.typeAt(0), this->pool_.get());
   /*
    * ArrayVector<FlatVector<int8_t>>:
    * offsets: 0
@@ -486,7 +518,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, FixedWidthArray) {
   int32_t arrayVectorOffsets[1] = {0};
   vector_size_t arrayVectorLengths[1] = {5};
   bool arrayVectorNulls[1] = {0};
-  ASSERT_TRUE(checkVectorMetadata(
+  ASSERT_TRUE(this->checkVectorMetadata(
       arrayVectorPtr,
       arrayVectorSize,
       arrayVectorOffsets,
@@ -507,7 +539,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, FixedWidthArray) {
   ASSERT_TRUE(arrayFlatVector->isNullAt(4));
 }
 
-TEST_F(UnsafeRowVectorDeserializerTest, NestedArray) {
+TYPED_TEST(UnsafeRowVectorDeserializerTest, NestedArray) {
   /*
    * type: Array->Array->Array->TinyInt
    * ArrayVector<ArrayVector<ArrayVector<FlatVector<int8_t>>>
@@ -583,11 +615,10 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedArray) {
 
   auto rowData =
       std::string_view(reinterpret_cast<const char*>(data0), 17 * 2 * 8);
-  std::vector<TypePtr> rowTypes{ARRAY(ARRAY(ARRAY(TINYINT())))};
-  UnsafeRowDynamicParser rowParser = UnsafeRowDynamicParser(rowTypes, rowData);
-
-  VectorPtr val0 = UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-      rowParser.dataAt(0), rowParser.typeAt(0), pool_.get());
+  ;
+  auto rowType = ROW({"f0"}, {ARRAY(ARRAY(ARRAY(TINYINT())))});
+  VectorPtr val = TypeParam::Deserialize({rowData}, rowType, this->pool_.get());
+  VectorPtr val0 = val->as<RowVector>()->childAt(0);
 
   /*
    * ArrayVector<ArrayVector<ArrayVector<FlatVector<int8_t>>>
@@ -601,7 +632,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedArray) {
   int32_t outermostArrayOffsets[1] = {0};
   vector_size_t outermostArraySizes[1] = {3};
   bool outermostArrayNulls[1] = {0};
-  ASSERT_TRUE(checkVectorMetadata(
+  ASSERT_TRUE(this->checkVectorMetadata(
       outermostArrayVectorPtr,
       outermostArraySize,
       outermostArrayOffsets,
@@ -622,7 +653,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedArray) {
   int32_t outerArrayOffsets[3] = {0, 2, 5};
   vector_size_t outerArraySizes[3] = {2, 3, 1};
   bool outerArrayNulls[3] = {0, 0, 0};
-  ASSERT_TRUE(checkVectorMetadata(
+  ASSERT_TRUE(this->checkVectorMetadata(
       outerArrayVectorPtr,
       outerArraySize,
       outerArrayOffsets,
@@ -644,7 +675,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedArray) {
   int32_t innerArrayOffsets[6] = {0, 2, 4, 7, 7, 8};
   vector_size_t innerArraySizes[6] = {2, 2, 3, 0, 1, 2};
   bool innerArrayNulls[6] = {0, 0, 0, 1, 0, 0};
-  ASSERT_TRUE(checkVectorMetadata(
+  ASSERT_TRUE(this->checkVectorMetadata(
       innerArrayVectorPtr,
       innerArraySize,
       innerArrayOffsets,
@@ -668,7 +699,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedArray) {
       0);
 }
 
-TEST_F(UnsafeRowVectorDeserializerTest, NestedMap) {
+TYPED_TEST(UnsafeRowVectorDeserializerTest, NestedMap) {
   /*
    * TypePtr: Map<Short, Map<Short, Short>>
    * {
@@ -723,11 +754,13 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedMap) {
 
   auto rowData =
       std::string_view(reinterpret_cast<const char*>(data0), 12 * 2 * 8);
-  std::vector<TypePtr> rowTypes{MAP(SMALLINT(), MAP(SMALLINT(), SMALLINT()))};
-  UnsafeRowDynamicParser rowParser = UnsafeRowDynamicParser(rowTypes, rowData);
 
-  VectorPtr val0 = UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-      rowParser.dataAt(0), rowParser.typeAt(0), pool_.get());
+  VectorPtr val = TypeParam::Deserialize(
+      {rowData},
+      ROW({"f0"}, {MAP(SMALLINT(), MAP(SMALLINT(), SMALLINT()))}),
+      this->pool_.get());
+  VectorPtr val0 = val->as<RowVector>()->childAt(0);
+  /* DO NOT SUBMIT */ LOG(ERROR) << __FUNCTION__ << ": val=" << val->toString();
 
   /*
    * Map<Short, Map<Short, Short>>
@@ -742,7 +775,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedMap) {
   // print_buffer(reinterpret_cast<const char
   // *>(outerMapVectorPtr->sizes()->asMutable<vector_size_t>()), 128);
   bool outerMapNulls[1] = {0};
-  ASSERT_TRUE(checkVectorMetadata(
+  ASSERT_TRUE(this->checkVectorMetadata(
       outerMapVectorPtr,
       outerMapSize,
       outerMapOffsets,
@@ -774,7 +807,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedMap) {
   int32_t innerMapOffsets[2] = {0, 2};
   vector_size_t innerMapSizes[2] = {2, 1};
   bool innerMapNulls[2] = {0, 0};
-  ASSERT_TRUE(checkVectorMetadata(
+  ASSERT_TRUE(this->checkVectorMetadata(
       innerMapVectorPtr,
       innerMapSize,
       innerMapOffsets,
@@ -782,7 +815,7 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedMap) {
       innerMapNulls));
 }
 
-TEST_F(UnsafeRowVectorDeserializerTest, RowVector) {
+TYPED_TEST(UnsafeRowVectorDeserializerTest, RowVector) {
   // row[0], 0b010010
   // {0x0101010101010101, null, 0xABCDEF, 56llu << 32 | 4, null, 64llu << 32 |
   // 60, "1234", "Make time for civilization, for civilization wont make time."}
@@ -827,13 +860,12 @@ TEST_F(UnsafeRowVectorDeserializerTest, RowVector) {
   auto row1 = std::string_view(reinterpret_cast<const char*>(data1), 12 * 8);
 
   // Two rows
-  std::vector<std::optional<std::string_view>> rows{row0, row1};
+  std::vector<std::string_view> rows{row0, row1};
 
   auto rowType =
       ROW({BIGINT(), VARCHAR(), BIGINT(), VARCHAR(), VARCHAR(), VARCHAR()});
 
-  VectorPtr val0 = UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-      rows, rowType, pool_.get());
+  VectorPtr val0 = TypeParam::Deserialize(rows, rowType, this->pool_.get());
 
   auto rowVectorPtr = std::dynamic_pointer_cast<RowVector>(val0);
 
@@ -859,6 +891,7 @@ Make time for civilization, for civilization wont make time.}");
 Im a string with 30 characters}");
 }
 
+template <typename T>
 class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
  public:
   UnsafeRowComplexDeserializerTests() {}
@@ -904,53 +937,92 @@ class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
   std::array<char[1024], kMaxBuffers> buffers_{};
 };
 
-TEST_F(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationRowsTests) {
-  std::vector<std::optional<std::string_view>> serializedVec;
+TYPED_TEST_SUITE(UnsafeRowComplexDeserializerTests, DeserImpls);
+
+TYPED_TEST(
+    UnsafeRowComplexDeserializerTests,
+    UnsafeRowDeserializationRowsTests) {
+  std::vector<std::string_view> serializedVec;
   int32_t batchSize = 10;
-  const auto& inputVector = createInputRow(batchSize);
+  const auto& inputVector = this->createInputRow(batchSize);
   for (size_t i = 0; i < batchSize; ++i) {
     // Serialize rowVector into bytes.
     auto rowSize = UnsafeRowDynamicSerializer::serialize(
-        inputVector->type(), inputVector, buffers_[i], /*idx=*/i);
+        inputVector->type(), inputVector, this->buffers_[i], /*idx=*/i);
     ASSERT_TRUE(rowSize.has_value());
-    serializedVec.push_back(std::string_view(buffers_[i], rowSize.value()));
+    serializedVec.push_back(
+        std::string_view(this->buffers_[i], rowSize.value()));
   }
-  VectorPtr outputVector =
-      UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-          serializedVec, inputVector->type(), pool_.get());
-  assertEqualVectors(inputVector, outputVector);
+  VectorPtr outputVector = TypeParam::Deserialize(
+      serializedVec, inputVector->type(), this->pool_.get());
+  this->assertEqualVectors(inputVector, outputVector);
 }
 
-TEST_F(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationTests) {
-  const auto& inputVector = createInputRow(1);
+TYPED_TEST(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationTests) {
+  const auto& inputVector = this->createInputRow(1);
   // Serialize rowVector into bytes.
   auto rowSize = UnsafeRowDynamicSerializer::serialize(
-      inputVector->type(), inputVector, buffers_[0], /*idx=*/0);
+      inputVector->type(), inputVector, this->buffers_[0], /*idx=*/0);
 
-  VectorPtr outputVector =
-      UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-          std::string_view(buffers_[0], rowSize.value()),
-          inputVector->type(),
-          pool_.get());
-  assertEqualVectors(inputVector, outputVector);
+  VectorPtr outputVector = TypeParam::Deserialize(
+      {std::string_view(this->buffers_[0], rowSize.value())},
+      inputVector->type(),
+      this->pool_.get());
+  this->assertEqualVectors(inputVector, outputVector);
 }
 
-TEST_F(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationRows2Tests) {
-  const auto& inputVector = createInputRow(2);
+TYPED_TEST(
+    UnsafeRowComplexDeserializerTests,
+    UnsafeRowDeserializationRows2Tests) {
+  const auto& inputVector = this->createInputRow(2);
   // Serialize rowVector into bytes.
   auto rowSize = UnsafeRowDynamicSerializer::serialize(
-      inputVector->type(), inputVector, buffers_[0], /*idx=*/0);
+      inputVector->type(), inputVector, this->buffers_[0], /*idx=*/0);
 
   auto nextRowSize = UnsafeRowDynamicSerializer::serialize(
-      inputVector->type(), inputVector, buffers_[1], /*idx=*/1);
+      inputVector->type(), inputVector, this->buffers_[1], /*idx=*/1);
 
-  VectorPtr outputVector =
-      UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-          {std::string_view(buffers_[0], rowSize.value()),
-           std::string_view(buffers_[1], nextRowSize.value())},
-          inputVector->type(),
-          pool_.get());
-  assertEqualVectors(inputVector, outputVector);
+  VectorPtr outputVector = TypeParam::Deserialize(
+      {std::string_view(this->buffers_[0], rowSize.value()),
+       std::string_view(this->buffers_[1], nextRowSize.value())},
+      inputVector->type(),
+      this->pool_.get());
+  this->assertEqualVectors(inputVector, outputVector);
+}
+
+VectorFuzzer::Options fuzzerOptions() {
+  return {
+      .nullChance = 10,
+      .stringVariableLength = true,
+      .containerVariableLength = true,
+      .useMicrosecondPrecisionTimestamp = true,
+  };
+}
+
+TYPED_TEST(UnsafeRowComplexDeserializerTests, Fuzzer) {
+  if (std::is_same_v<TypeParam, UnsafeRowLegacyWrapper>) {
+    LOG(WARNING) << "Disabled for legacy unsafe row deserializer";
+    return;
+  }
+  std::string buffer(100 << 20, '\0'); // Up to 100MB.
+  VectorFuzzer fuzzer(fuzzerOptions(), this->pool_.get(), 0);
+  for (int i = 0; i < 100; ++i) {
+    auto seed = i; // TODO: Switch to folly::Random::rand32().
+    fuzzer.reSeed(seed);
+    const TypePtr type = fuzzer.randRowType();
+    LOG(INFO) << "i=" << i << " seed=" << seed << " type=" << type->toString();
+    const VectorPtr input = fuzzer.fuzz(type);
+    std::vector<std::string_view> rowData;
+    char* data = &buffer[0];
+    for (int i = 0; i < input->size(); ++i) {
+      auto size = UnsafeRowDynamicSerializer::serialize(type, input, data, i);
+      ASSERT_TRUE(size);
+      rowData.emplace_back(data, *size);
+      data += *size;
+    }
+    auto output = TypeParam::Deserialize(rowData, type, this->pool_.get());
+    this->assertEqualVectors(input, output);
+  }
 }
 
 } // namespace
