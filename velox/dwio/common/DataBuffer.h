@@ -158,7 +158,6 @@ class DataBuffer final {
   void append(uint64_t offset, const T* src, uint64_t items) {
     reserve(offset + items);
     unsafeAppend(offset, src, items);
-    size_ = (offset + items);
   }
 
   void extendAppend(uint64_t offset, const T* src, uint64_t items) {
@@ -167,13 +166,13 @@ class DataBuffer final {
       reserve(newSize + ((newSize + 1) / 2) + 1);
     }
     unsafeAppend(offset, src, items);
-    size_ = newSize;
   }
 
   void unsafeAppend(uint64_t offset, const T* src, uint64_t items) {
     if (LIKELY(items > 0)) {
       std::memcpy(data() + offset, src, sizeInBytes(items));
     }
+    size_ = (offset + items);
   }
 
   void unsafeAppend(T value) {
