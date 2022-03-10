@@ -41,37 +41,34 @@ inline constexpr char digits[36] = {
 template <typename T>
 struct PlusFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = plus(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct MinusFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = minus(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct MultiplyFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = multiply(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct DivideFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b)
 // depend on compiler have correct behaviour for divide by zero
 #if defined(__has_feature)
@@ -81,227 +78,202 @@ struct DivideFunction {
 #endif
   {
     result = a / b;
-    return true;
   }
 };
 
 template <typename T>
 struct ModulusFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = modulus(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct CeilFunction {
   template <typename TOutput, typename TInput = TOutput>
-  FOLLY_ALWAYS_INLINE bool call(TOutput& result, const TInput& a) {
+  FOLLY_ALWAYS_INLINE void call(TOutput& result, const TInput& a) {
     if constexpr (std::is_integral<TInput>::value) {
       result = a;
     } else {
       result = ceil(a);
     }
-    return true;
   }
 };
 
 template <typename T>
 struct FloorFunction {
   template <typename TOutput, typename TInput = TOutput>
-  FOLLY_ALWAYS_INLINE bool call(TOutput& result, const TInput& a) {
+  FOLLY_ALWAYS_INLINE void call(TOutput& result, const TInput& a) {
     if constexpr (std::is_integral<TInput>::value) {
       result = a;
     } else {
       result = floor(a);
     }
-    return true;
   }
 };
 
 template <typename T>
 struct AbsFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+  FOLLY_ALWAYS_INLINE void call(TInput& result, const TInput& a) {
     result = abs(a);
-    return true;
   }
 };
 
 template <typename T>
 struct NegateFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+  FOLLY_ALWAYS_INLINE void call(TInput& result, const TInput& a) {
     result = negate(a);
-    return true;
   }
 };
 
 template <typename T>
 struct RoundFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const int32_t b = 0) {
     result = round(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct PowerFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(double& result, const TInput& a, const TInput& b) {
     result = std::pow(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct ExpFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::exp(a);
-    return true;
   }
 };
 
 template <typename T>
 struct MinFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = std::min(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct ClampFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& v, const TInput& lo, const TInput& hi) {
     result = std::clamp(v, lo, hi);
-    return true;
   }
 };
 
 template <typename T>
 struct LnFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::log(a);
-    return true;
   }
 };
 
 template <typename T>
 struct Log2Function {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::log2(a);
-    return true;
   }
 };
 
 template <typename T>
 struct Log10Function {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::log10(a);
-    return true;
   }
 };
 
 template <typename T>
 struct CosFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::cos(a);
-    return true;
   }
 };
 
 template <typename T>
 struct CoshFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::cosh(a);
-    return true;
   }
 };
 
 template <typename T>
 struct AcosFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::acos(a);
-    return true;
   }
 };
 
 template <typename T>
 struct SinFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::sin(a);
-    return true;
   }
 };
 
 template <typename T>
 struct AsinFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::asin(a);
-    return true;
   }
 };
 
 template <typename T>
 struct TanFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::tan(a);
-    return true;
   }
 };
 
 template <typename T>
 struct TanhFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::tanh(a);
-    return true;
   }
 };
 
 template <typename T>
 struct AtanFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::atan(a);
-    return true;
   }
 };
 
 template <typename T>
 struct Atan2Function {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double y, double x) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double y, double x) {
     result = std::atan2(y, x);
-    return true;
   }
 };
 
 template <typename T>
 struct SqrtFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::sqrt(a);
-    return true;
   }
 };
 
 template <typename T>
 struct CbrtFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::cbrt(a);
-    return true;
   }
 };
 
 template <typename T>
 struct WidthBucketFunction {
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       double operand,
       double bound1,
@@ -339,22 +311,20 @@ struct WidthBucketFunction {
     if (bound1 > bound2) {
       result = bucketCount - result + 1;
     }
-    return true;
   }
 };
 
 template <typename T>
 struct RadiansFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = a * (M_PI / 180);
-    return true;
   }
 };
 
 template <typename T>
 struct SignFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+  FOLLY_ALWAYS_INLINE void call(TInput& result, const TInput& a) {
     if constexpr (std::is_floating_point<TInput>::value) {
       if (std::isnan(a)) {
         result = std::numeric_limits<TInput>::quiet_NaN();
@@ -364,47 +334,41 @@ struct SignFunction {
     } else {
       result = (a == 0) ? 0 : (a > 0) ? 1 : -1;
     }
-    return true;
   }
 };
 
 template <typename T>
 struct InfinityFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result) {
+  FOLLY_ALWAYS_INLINE void call(double& result) {
     result = std::numeric_limits<double>::infinity();
-    return true;
   }
 };
 
 template <typename T>
 struct IsFiniteFunction {
-  FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(bool& result, double a) {
     result = !std::isinf(a);
-    return true;
   }
 };
 
 template <typename T>
 struct IsInfiniteFunction {
-  FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(bool& result, double a) {
     result = std::isinf(a);
-    return true;
   }
 };
 
 template <typename T>
 struct IsNanFunction {
-  FOLLY_ALWAYS_INLINE bool call(bool& result, double a) {
+  FOLLY_ALWAYS_INLINE void call(bool& result, double a) {
     result = std::isnan(a);
-    return true;
   }
 };
 
 template <typename T>
 struct NanFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result) {
+  FOLLY_ALWAYS_INLINE void call(double& result) {
     result = std::numeric_limits<double>::quiet_NaN();
-    return true;
   }
 };
 
@@ -427,7 +391,7 @@ template <typename T>
 struct FromBaseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(int64_t& result, const arg_type<Varchar>& input, int64_t radix) {
     checkRadix(radix);
 
@@ -447,8 +411,6 @@ struct FromBaseFunction {
         std::errc::result_out_of_range,
         "{} is out of range.",
         input.getString());
-
-    return true;
   }
 };
 
@@ -456,7 +418,7 @@ template <typename T>
 struct ToBaseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(out_type<Varchar>& result, const int64_t& value, const int64_t& radix) {
     checkRadix(radix);
 
@@ -485,15 +447,13 @@ struct ToBaseFunction {
         runningValue /= radix;
       }
     }
-    return true;
   }
 };
 
 template <typename T>
 struct PiFunction {
-  FOLLY_ALWAYS_INLINE bool call(double& result) {
+  FOLLY_ALWAYS_INLINE void call(double& result) {
     result = M_PI;
-    return true;
   }
 };
 } // namespace facebook::velox::functions

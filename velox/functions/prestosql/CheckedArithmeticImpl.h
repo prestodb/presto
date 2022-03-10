@@ -20,7 +20,9 @@
 #include <string>
 #include "folly/Likely.h"
 #include "velox/common/base/Exceptions.h"
+
 namespace facebook::velox::functions {
+
 template <typename T>
 T checkedPlus(const T& a, const T& b) {
   T result;

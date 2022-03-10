@@ -633,9 +633,19 @@ class UDFHolder final
       !(udf_has_initialize && Metadata::isVariadic()),
       "Initialize is not supported for UDFs with VariadicArgs.");
 
+  // Default null behavior means assuming null output if any of the inputs is
+  // null, without calling the function implementation.
   static constexpr bool is_default_null_behavior = !udf_has_callNullable;
+
+  // If any of the the provided "call" flavors can produce null (in case any of
+  // them return bool). This is only false if all the call methods provided for
+  // a function return void.
+  static constexpr bool can_produce_null_output = udf_has_call_return_bool |
+      udf_has_callNullable_return_bool | udf_has_callNullFree_return_bool |
+      udf_has_callAscii_return_bool;
+
   // This is true when callNullFree is implemented, but not call or
-  // callNullable.  In this case if any input is NULL or any complex type in
+  // callNullable. In this case if any input is NULL or any complex type in
   // the input contains a NULL element (recursively) the function will return
   // NULL directly, skipping evaluation.
   static constexpr bool is_default_contains_nulls_behavior =

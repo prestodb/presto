@@ -61,6 +61,11 @@ class SimpleFunctionAdapter : public VectorFunction {
       typename TypeToFlatVector<typename FUNC::return_type>::type;
   std::unique_ptr<FUNC> fn_;
 
+  // Whether the return type for this UDF allows for fast path iteration.
+  static constexpr bool fastPathIteration =
+      return_type_traits::isPrimitiveType && return_type_traits::isFixedWidth &&
+      (return_type_traits::typeKind != TypeKind::BOOLEAN);
+
   struct ApplyContext {
     ApplyContext(
         const SelectivityVector* _rows,
@@ -138,7 +143,6 @@ class SimpleFunctionAdapter : public VectorFunction {
       EvalCtx* context,
       VectorPtr* result) const override {
     ApplyContext applyContext{&rows, outputType, context, result};
-    DecodedArgs decodedArgs{rows, args, context};
 
     // Enable fast all-ASCII path if all string inputs are ASCII and the
     // function provides ASCII-only path.
@@ -146,6 +150,15 @@ class SimpleFunctionAdapter : public VectorFunction {
       applyContext.allAscii = isAsciiArgs(rows, args);
     }
 
+    // If this UDF can take the fast path iteration, we set all active rows as
+    // non-nulls in the result vector. The assumption is that the majority of
+    // rows will return non-null values (and hence won't have to touch the null
+    // buffer during iteration).
+    if constexpr (fastPathIteration) {
+      (*result)->clearNulls(rows);
+    }
+
+    DecodedArgs decodedArgs{rows, args, context};
     unpack<0>(applyContext, true, decodedArgs);
 
     // Check if the function reuses input strings for the result, and add
@@ -270,9 +283,6 @@ class SimpleFunctionAdapter : public VectorFunction {
 
   // unpacking zips like const char* notnull, const T* values
 
-  // todo(youknowjack): I don't think this will work with more than 2 arguments
-  //                    how can compiler know how to expand the packs?
-
   // unpack: base case
   template <
       int32_t POSITION,
@@ -299,23 +309,17 @@ class SimpleFunctionAdapter : public VectorFunction {
     bool callNullFree = FUNC::is_default_contains_nulls_behavior ||
         (FUNC::udf_has_callNullFree && !applyContext.mayHaveNullsRecursive);
 
-    // iterate the rows
-    if constexpr (
-        return_type_traits::isPrimitiveType &&
-        return_type_traits::isFixedWidth &&
-        return_type_traits::typeKind != TypeKind::BOOLEAN) {
+    // Iterate the rows.
+    if constexpr (fastPathIteration) {
       uint64_t* nullBuffer = nullptr;
       auto* data = applyContext.result->mutableRawValues();
       auto writeResult = [&applyContext, &nullBuffer, &data](
                              auto row, bool notNull, auto out) INLINE_LAMBDA {
+        // For fast path iteration, all active rows were already set as non-null
+        // beforehand, so we only need to update the null buffer if the function
+        // returned null (which is not the common case).
         if (notNull) {
           data[row] = out;
-          if (applyContext.result->rawNulls()) {
-            if (!nullBuffer) {
-              nullBuffer = applyContext.result->mutableRawNulls();
-            }
-            bits::clearNull(nullBuffer, row);
-          }
         } else {
           if (!nullBuffer) {
             nullBuffer = applyContext.result->mutableRawNulls();
