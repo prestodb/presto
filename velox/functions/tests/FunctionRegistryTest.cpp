@@ -447,4 +447,61 @@ TEST_F(FunctionRegistryTest, registerFunctionTwice) {
   ASSERT_EQ(signatures.size(), 1);
 }
 
+template <typename T>
+struct TestFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void call(
+      out_type<Varchar>& out,
+      const arg_type<Varchar>&,
+      const arg_type<Varchar>&) {
+    out = "1"_sv;
+  }
+
+  void call(int32_t& out, const arg_type<Variadic<Varchar>>&) {
+    out = 2;
+  }
+
+  void
+  call(float& out, const arg_type<Generic<T1>>&, const arg_type<Generic<T1>>&) {
+    out = 3;
+  }
+
+  void call(int64_t& out, const arg_type<Variadic<Generic<>>>&) {
+    out = 4;
+  }
+
+  void call(
+      double& out,
+      const arg_type<Varchar>&,
+      const arg_type<Variadic<Generic<>>>&) {
+    out = 5;
+  }
+};
+
+TEST_F(FunctionRegistryTest, resolveFunctionsBasedOnPriority) {
+  std::string func = "func_with_priority";
+
+  registerFunction<TestFunction, double, Varchar, Variadic<Generic<>>>({func});
+  registerFunction<TestFunction, Varchar, Varchar, Varchar>({func});
+  registerFunction<TestFunction, int64_t, Variadic<Generic<>>>({func});
+  registerFunction<TestFunction, int32_t, Variadic<Varchar>>({func});
+  registerFunction<TestFunction, float, Generic<T1>, Generic<T1>>({func});
+
+  auto result1 = resolveFunction(func, {VARCHAR(), VARCHAR()});
+  ASSERT_EQ(*result1, *VARCHAR());
+
+  auto result2 = resolveFunction(func, {VARCHAR(), VARCHAR(), VARCHAR()});
+  ASSERT_EQ(*result2, *INTEGER());
+
+  auto result3 = resolveFunction(func, {VARCHAR(), INTEGER()});
+  ASSERT_EQ(*result3, *DOUBLE());
+
+  auto result4 = resolveFunction(func, {INTEGER(), VARCHAR()});
+  ASSERT_EQ(*result4, *BIGINT());
+
+  auto result5 = resolveFunction(func, {INTEGER(), INTEGER()});
+  ASSERT_EQ(*result5, *REAL());
+}
+
 } // namespace facebook::velox

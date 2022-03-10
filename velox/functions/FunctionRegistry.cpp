@@ -93,13 +93,11 @@ std::shared_ptr<const Type> resolveFunction(
 std::shared_ptr<const Type> resolveSimpleFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  auto simpleFunctionSignatures =
-      exec::SimpleFunctions().getFunctionSignatures(functionName);
-  for (const auto* signature : simpleFunctionSignatures) {
-    exec::SignatureBinder binder(*signature, argTypes);
-    if (binder.tryBind()) {
-      return binder.tryResolveReturnType();
-    }
+  auto resolvedFunction =
+      exec::SimpleFunctions().resolveFunction(functionName, argTypes);
+
+  if (resolvedFunction) {
+    return resolvedFunction->getMetadata()->returnType();
   }
 
   return nullptr;
