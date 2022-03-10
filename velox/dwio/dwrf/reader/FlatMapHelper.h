@@ -20,30 +20,16 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::dwrf::flatmap_helper {
+namespace detail {
 
 // Reset vector with the desired size/hasNulls properties
-void reset(BaseVector& vector, vector_size_t size, bool hasNulls);
+void reset(VectorPtr& vector, vector_size_t size, bool hasNulls);
 
-// Initialize flat vector
-template <typename T>
-void initializeFlatVector(
-    VectorPtr& vector,
-    memory::MemoryPool& pool,
-    vector_size_t size,
-    bool hasNulls,
-    std::vector<BufferPtr>&& stringBuffers = {}) {
-  if (vector) {
-    auto& flatVector = dynamic_cast<FlatVector<T>&>(*vector);
-    reset(flatVector, size, hasNulls);
-    flatVector.stringBuffers() = stringBuffers;
-  } else {
-    vector = std::make_shared<FlatVector<T>>(
-        &pool,
-        hasNulls ? AlignedBuffer::allocate<bool>(size, &pool) : nullptr,
-        0 /*length*/,
-        AlignedBuffer::allocate<T>(size, &pool),
-        std::move(stringBuffers));
-    vector->setNullCount(0);
+// Reset vector smart pointer if any of the buffers is not single referenced.
+template <typename... T>
+void resetIfNotWritable(VectorPtr& vector, const T&... buffer) {
+  if ((... | (buffer && buffer->refCount() > 1))) {
+    vector.reset();
   }
 }
 
@@ -54,6 +40,36 @@ void initializeStringVector(
     vector_size_t size,
     bool hasNulls,
     std::vector<BufferPtr>&& stringBuffers);
+
+} // namespace detail
+
+// Initialize flat vector
+template <typename T>
+void initializeFlatVector(
+    VectorPtr& vector,
+    memory::MemoryPool& pool,
+    vector_size_t size,
+    bool hasNulls,
+    std::vector<BufferPtr>&& stringBuffers = {}) {
+  detail::reset(vector, size, hasNulls);
+  if (vector) {
+    auto& flatVector = dynamic_cast<FlatVector<T>&>(*vector);
+    detail::resetIfNotWritable(vector, flatVector.nulls(), flatVector.values());
+    if (vector) {
+      flatVector.stringBuffers() = stringBuffers;
+    }
+  }
+
+  if (!vector) {
+    vector = std::make_shared<FlatVector<T>>(
+        &pool,
+        hasNulls ? AlignedBuffer::allocate<bool>(size, &pool) : nullptr,
+        0 /*length*/,
+        AlignedBuffer::allocate<T>(size, &pool),
+        std::move(stringBuffers));
+    vector->setNullCount(0);
+  }
+}
 
 // Initialize map vector.
 void initializeMapVector(

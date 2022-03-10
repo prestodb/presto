@@ -16,13 +16,17 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "folly/Random.h"
 #include "folly/lang/Assume.h"
 #include "velox/common/base/test_utils/GTestUtils.h"
 #include "velox/common/caching/DataCache.h"
+#include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
+#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
@@ -1076,4 +1080,171 @@ TEST(TestReader, testEmptyFile) {
   VectorPtr batch;
   EXPECT_FALSE(rowReader->next(1, batch));
   EXPECT_FALSE(batch);
+}
+
+namespace {
+
+using IteraterCallback =
+    std::function<void(const std::vector<BufferPtr>&, size_t)>;
+
+template <typename T>
+std::vector<BufferPtr> getBuffers(const VectorPtr& vector) {
+  auto flat = vector->asFlatVector<T>();
+  return {flat->nulls(), flat->values()};
+}
+
+size_t
+iterateVector(const VectorPtr& vector, IteraterCallback cb, size_t index = 0) {
+  switch (vector->typeKind()) {
+    case TypeKind::ROW:
+      cb({vector->nulls()}, index++);
+      for (auto& child : vector->as<RowVector>()->children()) {
+        index = iterateVector(child, cb, index);
+      }
+      break;
+    case TypeKind::ARRAY: {
+      auto array = vector->as<ArrayVector>();
+      cb({array->nulls(), array->offsets(), array->sizes()}, index++);
+      index = iterateVector(array->elements(), cb, index);
+      break;
+    }
+    case TypeKind::MAP: {
+      auto map = vector->as<MapVector>();
+      cb({map->nulls(), map->offsets(), map->sizes()}, index++);
+      index = iterateVector(map->mapKeys(), cb, index);
+      index = iterateVector(map->mapValues(), cb, index);
+      break;
+    }
+    case TypeKind::BOOLEAN:
+      cb(getBuffers<bool>(vector), index++);
+      break;
+    case TypeKind::TINYINT:
+      cb(getBuffers<int8_t>(vector), index++);
+      break;
+    case TypeKind::SMALLINT:
+      cb(getBuffers<int16_t>(vector), index++);
+      break;
+    case TypeKind::INTEGER:
+      cb(getBuffers<int32_t>(vector), index++);
+      break;
+    case TypeKind::BIGINT:
+      cb(getBuffers<int64_t>(vector), index++);
+      break;
+    case TypeKind::REAL:
+      cb(getBuffers<float>(vector), index++);
+      break;
+    case TypeKind::DOUBLE:
+      cb(getBuffers<double>(vector), index++);
+      break;
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      cb(getBuffers<StringView>(vector), index++);
+      break;
+    case TypeKind::TIMESTAMP:
+      cb(getBuffers<Timestamp>(vector), index++);
+      break;
+    default:
+      folly::assume_unreachable();
+  }
+  return index;
+}
+
+void testBufferLifeCycle(
+    const std::shared_ptr<const RowType>& schema,
+    const std::shared_ptr<Config>& config,
+    std::mt19937& rng,
+    size_t batchSize,
+    bool hasNull) {
+  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto& pool = *scopedPool;
+  std::vector<VectorPtr> batches;
+  std::function<bool(vector_size_t)> isNullAt = nullptr;
+  if (hasNull) {
+    isNullAt = [](vector_size_t i) { return i % 2 == 0; };
+  }
+  auto vector =
+      BatchMaker::createBatch(schema, batchSize * 2, pool, rng, isNullAt);
+  batches.push_back(vector);
+
+  auto sink = std::make_unique<MemorySink>(pool, 1024 * 1024);
+  auto sinkPtr = sink.get();
+  auto writer =
+      E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
+
+  auto input =
+      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
+
+  ReaderOptions readerOpts;
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setReturnFlatVector(true);
+  auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  std::vector<BufferPtr> buffers;
+  std::vector<size_t> bufferIndices;
+  VectorPtr result;
+  rowReader->next(batchSize, result);
+  // Iterate through the vector hierarchy to introduce additional buffer
+  // reference randomly.
+  iterateVector(
+      result, [&](const std::vector<BufferPtr>& vectorBuffers, size_t index) {
+        EXPECT_EQ(buffers.size(), index);
+        auto bufferIndex = folly::Random::rand32(vectorBuffers.size(), rng);
+        buffers.push_back(vectorBuffers.at(bufferIndex));
+        bufferIndices.push_back(bufferIndex);
+      });
+
+  rowReader->next(batchSize, result);
+  // Verify buffers are recreated instead of being reused.
+  iterateVector(
+      result, [&](const std::vector<BufferPtr>& vectorBuffers, size_t index) {
+        auto bufferIndex = bufferIndices.at(index);
+        if (buffers.at(index)) {
+          EXPECT_NE(
+              vectorBuffers.at(bufferIndex).get(), buffers.at(index).get());
+        }
+      });
+}
+
+} // namespace
+
+TEST(TestReader, testBufferLifeCycle) {
+  const size_t batchSize = 10;
+  auto schema = ROW({
+      MAP(VARCHAR(), INTEGER()),
+      MAP(BIGINT(), ARRAY(VARCHAR())),
+      MAP(INTEGER(), MAP(TINYINT(), VARCHAR())),
+      MAP(SMALLINT(),
+          ROW({
+              VARCHAR(),
+              REAL(),
+              BOOLEAN(),
+          })),
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      REAL(),
+      DOUBLE(),
+      VARCHAR(),
+      VARBINARY(),
+      TIMESTAMP(),
+      ARRAY(INTEGER()),
+      MAP(SMALLINT(), REAL()),
+      ROW({DOUBLE(), BIGINT()}),
+  });
+
+  auto config = std::make_shared<Config>();
+  config->set(Config::FLATTEN_MAP, true);
+  config->set(Config::MAP_FLAT_COLS, {0, 1, 2, 3});
+
+  auto seed = folly::Random::rand32();
+  LOG(INFO) << "seed: " << seed;
+  std::mt19937 rng{seed};
+
+  for (auto i = 0; i < 10; ++i) {
+    testBufferLifeCycle(schema, config, rng, batchSize, false);
+    testBufferLifeCycle(schema, config, rng, batchSize, true);
+  }
 }

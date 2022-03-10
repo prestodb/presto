@@ -159,7 +159,7 @@ class StringKeyBuffer {
     callback(data, data_[ordinal + 1] - data);
   }
 
-  BufferPtr getBuffer() const {
+  const BufferPtr& getBuffer() const {
     return buffer_;
   }
 

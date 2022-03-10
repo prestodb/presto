@@ -18,18 +18,51 @@
 #include "velox/dwio/common/exception/Exceptions.h"
 
 namespace facebook::velox::dwrf::flatmap_helper {
+namespace detail {
 
-void reset(BaseVector& vector, vector_size_t size, bool hasNulls) {
-  if (hasNulls != vector.mayHaveNulls()) {
+void reset(VectorPtr& vector, vector_size_t size, bool hasNulls) {
+  if (!vector) {
+    return;
+  }
+
+  if (vector.use_count() > 1) {
+    vector.reset();
+    return;
+  }
+
+  if (hasNulls != vector->mayHaveNulls()) {
     if (hasNulls) {
-      vector.mutableNulls(size);
+      vector->mutableNulls(size);
     } else {
-      vector.resetNulls();
+      vector->resetNulls();
     }
   }
-  vector.resize(size);
-  vector.setSize(0);
+  vector->resize(size);
+  vector->setSize(0);
 }
+
+void initializeStringVector(
+    VectorPtr& vector,
+    memory::MemoryPool& pool,
+    const std::vector<const BaseVector*>& vectors) {
+  vector_size_t size = 0;
+  bool hasNulls = false;
+  std::vector<BufferPtr> buffers;
+  for (auto vec : vectors) {
+    size += vec->size();
+    hasNulls = hasNulls || vec->mayHaveNulls();
+    auto& stringBuffers =
+        dynamic_cast<const FlatVector<StringView>&>(*vec->wrappedVector())
+            .stringBuffers();
+    for (auto& buffer : stringBuffers) {
+      buffers.push_back(buffer);
+    }
+  }
+  initializeFlatVector<StringView>(
+      vector, pool, size, hasNulls, std::move(buffers));
+}
+
+} // namespace detail
 
 // initialize flat vector that can fit all the vectors appended
 template <TypeKind K>
@@ -48,28 +81,6 @@ void initializeFlatVector(
   initializeFlatVector<NativeType>(vector, pool, size, hasNulls);
 }
 
-void initializeStringVector(
-    VectorPtr& vector,
-    memory::MemoryPool& pool,
-    const std::vector<const BaseVector*>& vectors) {
-  vector_size_t size = 0;
-  bool hasNulls = false;
-  std::vector<BufferPtr> buffers;
-  for (auto vec : vectors) {
-    size += vec->size();
-    hasNulls = hasNulls || vec->mayHaveNulls();
-    const std::vector<BufferPtr>* src = nullptr;
-
-    src = &dynamic_cast<const FlatVector<StringView>&>(*vec->wrappedVector())
-               .stringBuffers();
-    for (auto& buffer : *src) {
-      buffers.push_back(buffer);
-    }
-  }
-  initializeFlatVector<StringView>(
-      vector, pool, size, hasNulls, std::move(buffers));
-}
-
 template <TypeKind K>
 void initializeVectorImpl(
     VectorPtr& vector,
@@ -85,7 +96,7 @@ void initializeVectorImpl<TypeKind::VARCHAR>(
     const std::shared_ptr<const Type>& /* type */,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
-  initializeStringVector(vector, pool, vectors);
+  detail::initializeStringVector(vector, pool, vectors);
 }
 
 template <>
@@ -94,7 +105,7 @@ void initializeVectorImpl<TypeKind::VARBINARY>(
     const std::shared_ptr<const Type>& /* type */,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
-  initializeStringVector(vector, pool, vectors);
+  detail::initializeStringVector(vector, pool, vectors);
 }
 
 namespace {
@@ -123,19 +134,21 @@ void initializeVectorImpl<TypeKind::ARRAY>(
     addVector(elements, array.elements().get());
   }
 
-  VectorPtr elementsVector;
+  detail::reset(vector, size, hasNulls);
+  VectorPtr origElementsVector;
   if (vector) {
     auto& arrayVector = dynamic_cast<ArrayVector&>(*vector);
-    reset(arrayVector, size, hasNulls);
-    elementsVector = arrayVector.elements();
-  }
-  if (elements.size() > 0) {
-    initializeVector(
-        elementsVector, type->asArray().elementType(), pool, elements);
+    origElementsVector = arrayVector.elements();
+    detail::resetIfNotWritable(
+        vector,
+        arrayVector.nulls(),
+        arrayVector.offsets(),
+        arrayVector.sizes());
   }
 
   if (!vector) {
-    auto arrayType = elementsVector ? ARRAY(elementsVector->type()) : type;
+    auto arrayType =
+        origElementsVector ? ARRAY(origElementsVector->type()) : type;
     vector = std::make_shared<ArrayVector>(
         &pool,
         arrayType,
@@ -143,8 +156,17 @@ void initializeVectorImpl<TypeKind::ARRAY>(
         0 /* length */,
         AlignedBuffer::allocate<vector_size_t>(size, &pool),
         AlignedBuffer::allocate<vector_size_t>(size, &pool),
-        elementsVector,
+        origElementsVector,
         0 /* nullCount */);
+  }
+  origElementsVector.reset();
+
+  if (elements.size() > 0) {
+    initializeVector(
+        vector->as<ArrayVector>()->elements(),
+        type->asArray().elementType(),
+        pool,
+        elements);
   }
 }
 
@@ -170,29 +192,25 @@ void initializeMapVector(
     size = sizeOverride.value();
   }
 
-  VectorPtr keysVector;
-  VectorPtr valuesVector;
+  detail::reset(vector, size, hasNulls);
+  VectorPtr origKeysVector;
+  VectorPtr origValuesVector;
   if (vector) {
     auto& mapVector = dynamic_cast<MapVector&>(*vector);
-    reset(mapVector, size, hasNulls);
-    keysVector = mapVector.mapKeys();
-    valuesVector = mapVector.mapValues();
-  }
-  auto& mapType = type->asMap();
-  if (keys.size() > 0) {
-    initializeVector(keysVector, mapType.keyType(), pool, keys);
-  }
-  if (values.size() > 0) {
-    initializeVector(valuesVector, mapType.valueType(), pool, values);
+    origKeysVector = mapVector.mapKeys();
+    origValuesVector = mapVector.mapValues();
+    detail::resetIfNotWritable(
+        vector, mapVector.nulls(), mapVector.offsets(), mapVector.sizes());
   }
 
   if (!vector) {
     // When read-string-as-row flag is on, string readers produce ROW(BIGINT,
     // BIGINT) type instead of VARCHAR or VARBINARY. In these cases, type_->type
     // is not the right type of the final vector.
-    auto resultMapType = (keysVector == nullptr || valuesVector == nullptr)
+    auto resultMapType =
+        (origKeysVector == nullptr || origValuesVector == nullptr)
         ? type
-        : MAP(keysVector->type(), valuesVector->type());
+        : MAP(origKeysVector->type(), origValuesVector->type());
 
     vector = std::make_shared<MapVector>(
         &pool,
@@ -201,9 +219,20 @@ void initializeMapVector(
         0 /* length */,
         AlignedBuffer::allocate<vector_size_t>(size, &pool),
         AlignedBuffer::allocate<vector_size_t>(size, &pool),
-        keysVector,
-        valuesVector,
+        origKeysVector,
+        origValuesVector,
         0 /* nullCount */);
+  }
+  origKeysVector.reset();
+  origValuesVector.reset();
+
+  auto& mapType = type->asMap();
+  auto& mapVector = dynamic_cast<MapVector&>(*vector);
+  if (keys.size() > 0) {
+    initializeVector(mapVector.mapKeys(), mapType.keyType(), pool, keys);
+  }
+  if (values.size() > 0) {
+    initializeVector(mapVector.mapValues(), mapType.valueType(), pool, values);
   }
 }
 
@@ -234,28 +263,25 @@ void initializeVectorImpl<TypeKind::ROW>(
       fields.at(col).push_back(row.childAt(col).get());
     }
   }
+
+  detail::reset(vector, size, hasNulls);
+  std::vector<VectorPtr> origChildren;
   if (vector) {
     auto& rowVector = dynamic_cast<RowVector&>(*vector);
-    reset(rowVector, size, hasNulls);
-    for (size_t col = 0; col < rowType.size(); ++col) {
-      initializeVector(
-          rowVector.childAt(col), rowType.childAt(col), pool, fields.at(col));
-    }
+    origChildren = rowVector.children();
+    detail::resetIfNotWritable(vector, vector->nulls());
   } else {
-    std::vector<VectorPtr> children;
-    children.reserve(rowType.size());
-    for (size_t col = 0; col < rowType.size(); ++col) {
-      initializeVector(
-          children.emplace_back(), rowType.childAt(col), pool, fields.at(col));
-    }
+    origChildren.resize(rowType.size());
+  }
 
+  if (!vector) {
     // When read-string-as-row flag is on, string readers produce ROW(BIGINT,
     // BIGINT) type instead of VARCHAR or VARBINARY. In these cases, type_->type
     // is not the right type of the final struct.
     std::vector<TypePtr> types;
-    types.reserve(children.size());
-    for (auto i = 0; i < children.size(); i++) {
-      const auto& child = children[i];
+    types.reserve(origChildren.size());
+    for (auto i = 0; i < origChildren.size(); i++) {
+      const auto& child = origChildren[i];
       if (child) {
         types.emplace_back(child->type());
       } else {
@@ -268,8 +294,15 @@ void initializeVectorImpl<TypeKind::ROW>(
         ROW(std::move(types)),
         hasNulls ? AlignedBuffer::allocate<bool>(size, &pool, true) : nullptr,
         0 /* length */,
-        children,
+        origChildren,
         0 /* nullCount */);
+  }
+  origChildren.clear();
+
+  auto& rowVector = dynamic_cast<RowVector&>(*vector);
+  for (size_t col = 0; col < rowType.size(); ++col) {
+    initializeVector(
+        rowVector.childAt(col), rowType.childAt(col), pool, fields.at(col));
   }
 }
 

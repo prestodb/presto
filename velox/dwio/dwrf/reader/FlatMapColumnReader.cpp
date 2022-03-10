@@ -23,7 +23,6 @@ namespace facebook::velox::dwrf {
 
 using dwio::common::TypeWithId;
 using memory::MemoryPool;
-using namespace flatmap_helper;
 
 StringKeyBuffer::StringKeyBuffer(
     MemoryPool& pool,
@@ -300,7 +299,7 @@ template <typename T>
 void FlatMapColumnReader<T>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
-  initializeFlatVector<T>(vector, memoryPool_, size, false);
+  flatmap_helper::initializeFlatVector<T>(vector, memoryPool_, size, false);
   vector->setSize(size);
 }
 
@@ -308,7 +307,7 @@ template <>
 void FlatMapColumnReader<StringView>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
-  initializeFlatVector<StringView>(
+  flatmap_helper::initializeFlatVector<StringView>(
       vector,
       memoryPool_,
       size,
@@ -387,7 +386,8 @@ void FlatMapColumnReader<T>::next(
     }
 
     initKeysVector(keysVector, totalChildren);
-    initializeVector(valuesVector, mapValueType, memoryPool_, nodeBatches);
+    flatmap_helper::initializeVector(
+        valuesVector, mapValueType, memoryPool_, nodeBatches);
 
     if (!returnFlatVector_) {
       for (auto batch : nodeBatches) {
@@ -417,7 +417,7 @@ void FlatMapColumnReader<T>::next(
         if (bulkInMapIter.hasValueAt(j)) {
           nodes[j]->fillKeysVector(keysVector, offset, stringKeyBuffer_.get());
           if (returnFlatVector_) {
-            copyOne(
+            flatmap_helper::copyOne(
                 mapValueType,
                 *valuesVector,
                 offset,
