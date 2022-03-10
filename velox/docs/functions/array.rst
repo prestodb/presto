@@ -53,6 +53,11 @@ Array Functions
         SELECT array_min(ARRAY [-1, -2, NULL]); -- NULL
         SELECT array_min(ARRAY []); -- NULL
 
+.. function:: arrays_overlap(x, y) -> boolean
+
+    Tests if arrays ``x`` and ``y`` have any non-null elements in common.
+    Returns null if there are no non-null elements in common but either array contains null.
+
 .. function:: array_position(x, element) -> bigint
 
     Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).
