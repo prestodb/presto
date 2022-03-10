@@ -94,7 +94,8 @@ TEST(LocalFile, writeAndRead) {
 
 TEST(LocalFile, viaRegistry) {
   filesystems::registerLocalFileSystem();
-  const char filename[] = "/tmp/test";
+  auto tempFile = ::exec::test::TempFilePath::create();
+  const auto& filename = tempFile->path.c_str();
   remove(filename);
   auto lfs = filesystems::getFileSystem(filename, nullptr);
   {
