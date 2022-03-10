@@ -22,7 +22,11 @@ namespace facebook::velox::exec {
 
 class Driver;
 class JoinBridge;
+class LocalExchangeMemoryManager;
+class LocalExchangeSource;
 class MergeSource;
+class MergeJoinSource;
+class Split;
 
 /// Corresponds to Presto TaskState, needed for reporting query completion.
 enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
