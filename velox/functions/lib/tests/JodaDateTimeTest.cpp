@@ -265,6 +265,11 @@ TEST_F(JodaDateTimeTest, parseTimezone) {
   EXPECT_EQ("+14:00", parseTZ("+14:00", "ZZ"));
   EXPECT_EQ("-14:00", parseTZ("-14:00", "ZZ"));
 
+  // Valid long format without colon:
+  EXPECT_EQ("+00:01", parseTZ("+0001", "ZZ"));
+  EXPECT_EQ("+11:00", parseTZ("+1100", "ZZ"));
+  EXPECT_EQ("-04:30", parseTZ("-0430", "ZZ"));
+
   // Invalid long format:
   EXPECT_THROW(parseTZ("+14:01", "ZZ"), VeloxUserError);
   EXPECT_THROW(parseTZ("-14:01", "ZZ"), VeloxUserError);
@@ -314,9 +319,15 @@ TEST_F(JodaDateTimeTest, parseMixed) {
   EXPECT_EQ(util::fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
   EXPECT_EQ("+09:00", util::getTimeZoneName(result.timezoneId));
 
+  // Timezone offset in -hh:mm format.
   result = parseAll("-07:232021-11-05+01:00", "ZZYYYY-MM-dd+HH:mm");
   EXPECT_EQ(util::fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
   EXPECT_EQ("-07:23", util::getTimeZoneName(result.timezoneId));
+
+  // Timezone offset in +hhmm format.
+  result = parseAll("+01332022-03-08+13:00", "ZZYYYY-MM-dd+HH:mm");
+  EXPECT_EQ(util::fromTimestampString("2022-03-08 13:00:00"), result.timestamp);
+  EXPECT_EQ("+01:33", util::getTimeZoneName(result.timezoneId));
 }
 
 TEST_F(JodaDateTimeTest, parseFractionOfSecond) {

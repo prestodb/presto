@@ -25,6 +25,7 @@
 namespace facebook::velox::functions {
 
 static thread_local std::string timezoneBuffer = "+00:00";
+static const char* defaultTrailingOffset = "00";
 
 namespace {
 
@@ -170,11 +171,13 @@ void parseFail(const std::string& input, const char* cur, const char* end) {
 // not be parsed.
 int64_t
 parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
-  // For timezone offset ids, there are only two formats allowed by Joda:
+  // For timezone offset ids, there are three formats allowed by Joda:
   //
   // 1. '+' or '-' followed by two digits: "+00"
   // 2. '+' or '-' followed by two digits, ":", then two more digits:
   //    "+00:00"
+  // 3. '+' or '-' followed by four digits:
+  //    "+0000"
   if (cur < end && (*cur == '-' || *cur == '+')) {
     // Long format: "+00:00"
     if ((end - cur) >= 6 && *(cur + 3) == ':') {
@@ -187,6 +190,22 @@ parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
       }
       return 6;
     }
+    // Long format without colon: "+0000"
+    else if ((end - cur) >= 5 && *(cur + 3) != ':') {
+      // Same fast path described above.
+      if (std::strncmp(cur + 1, "0000", 4) == 0) {
+        jodaDate.timezoneId = 0;
+      } else {
+        // We need to concatenate the 3 first chars with ":" followed by the
+        // last 2 chars before calling getTimeZoneID, so we use a static
+        // thread_local buffer to prevent extra allocations.
+        std::memcpy(&timezoneBuffer[0], cur, 3);
+        std::memcpy(&timezoneBuffer[4], cur + 3, 2);
+
+        jodaDate.timezoneId = util::getTimeZoneID(timezoneBuffer);
+      }
+      return 5;
+    }
     // Short format: "+00"
     else if ((end - cur) >= 3) {
       // Same fast path described above.
@@ -197,6 +216,7 @@ parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
         // calling getTimeZoneID, so we use a static thread_local buffer to
         // prevent extra allocations.
         std::memcpy(&timezoneBuffer[0], cur, 3);
+        std::memcpy(&timezoneBuffer[4], defaultTrailingOffset, 2);
         jodaDate.timezoneId = util::getTimeZoneID(timezoneBuffer);
       }
       return 3;
