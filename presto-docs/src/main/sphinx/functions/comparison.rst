@@ -154,6 +154,8 @@ Expression              Meaning
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
 
+.. _like_operator:
+
 LIKE
 ----
 The LIKE operator is used to match a specified character pattern in a string. Patterns can contain
