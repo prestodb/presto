@@ -22,6 +22,7 @@
 #include <sstream>
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/SimpleFunctionMetadata.h"
+#include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
@@ -117,6 +118,24 @@ std::shared_ptr<const Type> resolveVectorFunction(
   }
 
   return nullptr;
+}
+
+std::pair<TypePtr, TypePtr> resolveAggregateFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes) {
+  if (auto aggregateFunctionSignatures =
+          exec::getAggregateFunctionSignatures(functionName)) {
+    for (const auto& signature : aggregateFunctionSignatures.value()) {
+      exec::SignatureBinder binder(*signature, argTypes);
+      if (binder.tryBind()) {
+        return std::make_pair(
+            binder.tryResolveReturnType(),
+            binder.tryResolveType(signature->intermediateType()));
+      }
+    }
+  }
+
+  return std::make_pair(nullptr, nullptr);
 }
 
 } // namespace facebook::velox
