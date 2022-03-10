@@ -974,7 +974,7 @@ struct UnsafeRowDynamicVectorDeserializer {
     }
 
     return std::make_shared<RowVector>(
-        pool, type, nulls, columnVectors[0]->size(), columnVectors);
+        pool, type, nulls, numStructs, columnVectors);
   }
 
   /**
