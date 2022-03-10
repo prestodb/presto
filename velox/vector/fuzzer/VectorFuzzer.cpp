@@ -15,8 +15,11 @@
  */
 
 #include "velox/vector/fuzzer/VectorFuzzer.h"
+
+#include <fmt/format.h>
 #include <codecvt>
 #include <locale>
+
 #include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"
 #include "velox/vector/FlatVector.h"
@@ -247,7 +250,8 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
           size, constantIndex, fuzz(type, innerVectorSize));
     }
   } else {
-    vector = type->size() > 0 ? fuzzComplex(type, size) : fuzzFlat(type, size);
+    vector = type->isPrimitiveType() ? fuzzFlat(type, size)
+                                     : fuzzComplex(type, size);
   }
 
   // Toss a coin and add dictionary indirections.
@@ -409,6 +413,47 @@ variant VectorFuzzer::randVariant(const TypePtr& arg) {
     return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         randVariantImpl, arg->kind(), rng_, opts_);
   }
+}
+
+TypePtr VectorFuzzer::randType(int maxDepth) {
+  static TypePtr kScalarTypes[]{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      REAL(),
+      DOUBLE(),
+      VARCHAR(),
+      VARBINARY(),
+      TIMESTAMP(),
+      DATE(),
+  };
+  static constexpr int kNumScalarTypes =
+      sizeof(kScalarTypes) / sizeof(kScalarTypes[0]);
+  // Should we generate a scalar type?
+  if (maxDepth <= 1 || folly::Random::rand32(2, rng_)) {
+    return kScalarTypes[folly::Random::rand32(kNumScalarTypes, rng_)];
+  }
+  switch (folly::Random::rand32(3, rng_)) {
+    case 0:
+      return MAP(randType(0), randType(maxDepth - 1));
+    case 1:
+      return ARRAY(randType(maxDepth - 1));
+    default:
+      return randRowType(maxDepth - 1);
+  }
+}
+
+RowTypePtr VectorFuzzer::randRowType(int maxDepth) {
+  int numFields = folly::Random::rand32(rng_) % 7;
+  std::vector<std::string> names;
+  std::vector<TypePtr> fields;
+  for (int i = 0; i < numFields; ++i) {
+    names.push_back(fmt::format("f{}", i));
+    fields.push_back(randType(maxDepth));
+  }
+  return ROW(std::move(names), std::move(fields));
 }
 
 } // namespace facebook::velox
