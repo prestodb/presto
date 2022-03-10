@@ -30,6 +30,7 @@ add_executable(
   StringWriterTest.cpp
   MapViewTest.cpp
   RowViewTest.cpp
+  GenericViewTest.cpp
   TryExprTest.cpp
   VariadicViewTest.cpp
   VectorReaderTest.cpp)
