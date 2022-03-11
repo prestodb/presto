@@ -105,7 +105,8 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    if (mayPushdown && std::is_same<T, ResultType>::value) {
+    if (mayPushdown && args[0]->isLazy() &&
+        std::is_same<T, ResultType>::value) {
       BaseAggregate::template pushdown<MinMaxHook<T, false>>(
           groups, rows, args[0]);
       return;
@@ -179,7 +180,8 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    if (mayPushdown && std::is_same<T, ResultType>::value) {
+    if (mayPushdown && args[0]->isLazy() &&
+        std::is_same<T, ResultType>::value) {
       BaseAggregate::template pushdown<MinMaxHook<T, true>>(
           groups, rows, args[0]);
       return;

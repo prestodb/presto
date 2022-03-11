@@ -1685,6 +1685,16 @@ TEST_P(TableScanTest, aggregationPushdown) {
            .planNode();
   assertQuery(
       op, {filePath}, "SELECT c5, min(c0), max(c0 + c1) FROM tmp GROUP BY 1");
+
+  op = PlanBuilder()
+           .tableScan(rowType_, tableHandle, assignments)
+           .project({"c5", "c0 + 1 as a", "c1 + 2 as b", "c2 + 3 as c"})
+           .singleAggregation({0}, {"min(a)", "max(b)", "sum(c)"})
+           .planNode();
+  assertQuery(
+      op,
+      {filePath},
+      "SELECT c5, min(c0 + 1), max(c1 + 2), sum(c2 + 3) FROM tmp GROUP BY 1");
 }
 
 TEST_P(TableScanTest, bitwiseAggregationPushdown) {

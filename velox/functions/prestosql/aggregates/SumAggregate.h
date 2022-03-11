@@ -115,7 +115,7 @@ class SumAggregate
       bool mayPushdown) {
     const auto& arg = args[0];
 
-    if (mayPushdown) {
+    if (mayPushdown && arg->isLazy()) {
       BaseAggregate::template pushdown<SumHook<TInput, TData>>(
           groups, rows, arg);
       return;

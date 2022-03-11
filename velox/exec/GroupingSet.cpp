@@ -198,7 +198,7 @@ void GroupingSet::addInputForActiveRows(
     // TODO(spershin): We disable the pushdown at the moment if selectivity
     // vector has changed after groups generation, we might want to revisit
     // this.
-    const bool canPushdown = (&rows != &activeRows_) && mayPushdown &&
+    const bool canPushdown = (&rows == &activeRows_) && mayPushdown &&
         mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
     populateTempVectors(i, input);
     if (isRawInput_) {

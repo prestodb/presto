@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "velox/common/serialization/Registry.h"
 #include "velox/core/PlanNode.h"
 #include "velox/vector/BaseVector.h"
 
