@@ -222,35 +222,6 @@ VectorPtr DeserializeFixedWidthArrayElements(
   });
 }
 
-uint8_t arrayElementStride(TypeKind kind) {
-  switch (kind) {
-    case TypeKind::BOOLEAN:
-    case TypeKind::TINYINT:
-      return 1;
-    case TypeKind::SMALLINT:
-      return 2;
-    case TypeKind::INTEGER:
-      return 4;
-    case TypeKind::BIGINT:
-      return 8;
-    case TypeKind::REAL:
-      return 4;
-    case TypeKind::DOUBLE:
-    case TypeKind::VARCHAR:
-    case TypeKind::VARBINARY:
-    case TypeKind::TIMESTAMP:
-      return 8;
-    case TypeKind::DATE:
-      return 4;
-    case TypeKind::ARRAY:
-    case TypeKind::MAP:
-    case TypeKind::ROW:
-      return 8;
-    default:
-      VELOX_NYI();
-  }
-}
-
 // Memory layout:
 //   int64_t size
 //   int64_t nulls[]
@@ -258,7 +229,7 @@ uint8_t arrayElementStride(TypeKind kind) {
 // Note that elements are not padded out to 8 bytes each unlike structs; bool
 // arrays, for example, consume a total of 8 + size bytes.
 ArrayVectorPtr DeserializeArray(
-    const std::shared_ptr<const ArrayType>& type,
+    const std::shared_ptr<const Type>& elementType,
     memory::MemoryPool* pool,
     const std::vector<const char*>& arrays) {
   const vector_size_t numArrays = arrays.size();
@@ -277,7 +248,7 @@ ArrayVectorPtr DeserializeArray(
     offsets[i + 1] = offsets[i] + sizes[i];
   }
   VectorPtr elementsVector;
-  switch (type->elementType()->kind()) {
+  switch (elementType->kind()) {
 #define FIXED_WIDTH(kind, stride)                                   \
   case TypeKind::kind:                                              \
     elementsVector =                                                \
@@ -310,13 +281,12 @@ ArrayVectorPtr DeserializeArray(
         }
         DCHECK_EQ(elementCount, offsets[i] + sizes[i]);
       }
-      elementsVector =
-          Deserialize(type->elementType(), pool, elementBases, elements);
+      elementsVector = Deserialize(elementType, pool, elementBases, elements);
     }
   }
   return std::make_shared<ArrayVector>(
       pool,
-      type,
+      ARRAY(elementType),
       std::move(nulls),
       numArrays,
       std::move(offsetsBuffer),
@@ -331,57 +301,42 @@ ArrayVectorPtr DeserializeArray(
 MapVectorPtr DeserializeMap(
     const std::shared_ptr<const MapType>& type,
     memory::MemoryPool* pool,
-    const std::vector<const char*>& maps) {
+    std::vector<const char*>& maps) {
   const vector_size_t numMaps = maps.size();
   BufferPtr nulls = makeNullBuffer(pool, maps);
-  BufferPtr offsetsBuffer = allocateOffsets(numMaps, pool);
-  BufferPtr sizesBuffer = allocateSizes(numMaps, pool);
-  vector_size_t* offsets = offsetsBuffer->asMutable<vector_size_t>();
-  vector_size_t* sizes = sizesBuffer->asMutable<vector_size_t>();
-  std::vector<const char*> keyBases;
-  std::vector<const char*> keys;
-  std::vector<const char*> valueBases;
-  std::vector<const char*> values;
-  const uint32_t keyStride = arrayElementStride(type->keyType()->kind());
-  const uint32_t valueStride = arrayElementStride(type->valueType()->kind());
   for (int i = 0; i < numMaps; ++i) {
-    offsets[i] = keys.size();
-    if (!maps[i]) {
-      sizes[i] = 0; // The contract is vague on whether this can be junk.
-      continue;
-    }
-    const char* data = maps[i];
-    const char* keyBegin = data + sizeof(int64_t);
-    const char* valueBegin = keyBegin + *reinterpret_cast<const int64_t*>(data);
-    DCHECK_GT(valueBegin, keyBegin);
-    const int64_t mapLength = *reinterpret_cast<const int64_t*>(keyBegin);
-    DCHECK_EQ(mapLength, *reinterpret_cast<const int64_t*>(valueBegin));
-    sizes[i] = mapLength;
-    DCHECK(mapLength >= 0 && mapLength <= 1 << 20); // Sanity check.
-    const char* keyNulls = keyBegin + sizeof(int64_t);
-    const char* keyPointer = keyNulls + nullSizeBytes(mapLength);
-    const char* valueNulls = valueBegin + sizeof(int64_t);
-    const char* valuePointer = valueNulls + nullSizeBytes(mapLength);
-    for (int e = 0; e < mapLength; ++e) {
-      keyBases.push_back(keyBegin);
-      keys.push_back(bits::isBitSet(keyNulls, e) ? nullptr : keyPointer);
-      valueBases.push_back(valueBegin);
-      values.push_back(bits::isBitSet(valueNulls, e) ? nullptr : valuePointer);
-      keyPointer += keyStride;
-      valuePointer += valueStride;
-    }
-    DCHECK_EQ(keys.size(), values.size());
-    DCHECK_EQ(keys.size(), offsets[i] + sizes[i]);
+    maps[i] = maps[i] ? maps[i] + 8 : nullptr;
+  }
+  // We use std::as_const to document maps should not be modified, since we
+  // calculate the value array pointers from it below.
+  auto keys = DeserializeArray(type->keyType(), pool, std::as_const(maps));
+  VELOX_CHECK_EQ(keys->size(), numMaps);
+  for (int i = 0; i < numMaps; ++i) {
+    maps[i] = maps[i] ? maps[i] + *reinterpret_cast<const int64_t*>(maps[i] - 8)
+                      : nullptr;
+  }
+  auto values = DeserializeArray(type->valueType(), pool, maps);
+  VELOX_CHECK_EQ(values->size(), numMaps);
+  VELOX_CHECK_EQ(
+      keys->offsetAt(numMaps - 1) + keys->sizeAt(numMaps - 1),
+      values->offsetAt(numMaps - 1) + values->sizeAt(numMaps - 1));
+  // Debug-only sanity checks.
+  for (int i = 0; i < numMaps; ++i) {
+    DCHECK_EQ(keys->isNullAt(i), values->isNullAt(i));
+    // DeserializeArray sets the size to zero for null arrays and sets the
+    // offset.
+    DCHECK_EQ(keys->sizeAt(i), values->sizeAt(i));
+    DCHECK_EQ(keys->offsetAt(i), values->offsetAt(i));
   }
   return std::make_shared<MapVector>(
       pool,
       type,
       std::move(nulls),
       numMaps,
-      std::move(offsetsBuffer),
-      std::move(sizesBuffer),
-      Deserialize(type->keyType(), pool, keyBases, keys),
-      Deserialize(type->valueType(), pool, valueBases, values));
+      keys->mutableOffsets(numMaps),
+      keys->mutableSizes(numMaps),
+      keys->elements(),
+      values->elements());
 }
 
 // Dispatches to the type-specific deserialization function. Note there are
@@ -392,7 +347,7 @@ VectorPtr Deserialize(
     memory::MemoryPool* pool,
     const std::vector<const char*>& basePointers,
     std::vector<const char*>& valuePointers) {
-  auto resolveValuePointers = [&]() -> const std::vector<const char*>& {
+  auto resolveValuePointers = [&]() -> std::vector<const char*>& {
     for (int i = 0; i < valuePointers.size(); ++i) {
       if (valuePointers[i]) {
         auto [data, size] = decodeVarOffset(basePointers[i], valuePointers[i]);
@@ -423,7 +378,7 @@ VectorPtr Deserialize(
       return DeserializeString(type, pool, basePointers, valuePointers);
     case TypeKind::ARRAY:
       return DeserializeArray(
-          std::dynamic_pointer_cast<const ArrayType>(type),
+          std::dynamic_pointer_cast<const ArrayType>(type)->elementType(),
           pool,
           resolveValuePointers());
     case TypeKind::MAP:
