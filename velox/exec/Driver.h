@@ -244,6 +244,10 @@ class Driver {
   // closing non-running Drivers.
   void closeByTask();
 
+  // This is called if the creation of drivers failed and we want to disconnect
+  // driver from the task before driver's destruction.
+  void disconnectFromTask();
+
  private:
   void enqueueInternal();
 

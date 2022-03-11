@@ -484,6 +484,10 @@ void Driver::closeByTask() {
   task_ = nullptr;
 }
 
+void Driver::disconnectFromTask() {
+  task_ = nullptr;
+}
+
 bool Driver::mayPushdownAggregation(Operator* aggregation) const {
   for (auto i = 1; i < operators_.size(); ++i) {
     auto op = operators_[i].get();

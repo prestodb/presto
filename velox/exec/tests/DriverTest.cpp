@@ -693,6 +693,132 @@ TEST_F(DriverTest, pauserNode) {
   tasks_.clear();
 }
 
+namespace {
+
+// Custom node for the custom factory.
+class ThrowNode : public core::PlanNode {
+ public:
+  ThrowNode(
+      const core::PlanNodeId& id,
+      std::shared_ptr<const core::PlanNode> input)
+      : PlanNode(id), sources_{input} {}
+
+  const std::shared_ptr<const RowType>& outputType() const override {
+    return sources_[0]->outputType();
+  }
+
+  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
+    return sources_;
+  }
+
+  std::string_view name() const override {
+    return "Throw";
+  }
+
+ private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+
+  std::vector<std::shared_ptr<const core::PlanNode>> sources_;
+};
+
+// Custom operator for the custom factory.
+class ThrowOperator : public Operator {
+ public:
+  ThrowOperator(
+      DriverCtx* ctx,
+      int32_t id,
+      std::shared_ptr<const core::PlanNode> node)
+      : Operator(ctx, node->outputType(), id, node->id(), "Throw") {}
+
+  bool needsInput() const override {
+    return !noMoreInput_ && !input_;
+  }
+
+  void addInput(RowVectorPtr input) override {
+    input_ = std::move(input);
+  }
+
+  void noMoreInput() override {
+    Operator::noMoreInput();
+  }
+
+  RowVectorPtr getOutput() override {
+    return std::move(input_);
+  }
+
+  BlockingReason isBlocked(ContinueFuture* /*future*/) override {
+    return BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return noMoreInput_ && input_ == nullptr;
+  }
+};
+
+// Custom factory that throws during driver creation.
+class ThrowNodeFactory : public Operator::PlanNodeTranslator {
+ public:
+  ThrowNodeFactory() = default;
+
+  std::unique_ptr<Operator> translate(
+      DriverCtx* ctx,
+      int32_t id,
+      const std::shared_ptr<const core::PlanNode>& node) override {
+    if (std::dynamic_pointer_cast<const ThrowNode>(node)) {
+      VELOX_CHECK_EQ(driversCreated, 0, "Can only create 1 'throw driver'.");
+      ++driversCreated;
+      return std::make_unique<ThrowOperator>(ctx, id, node);
+    }
+    return nullptr;
+  }
+
+  std::optional<uint32_t> maxDrivers(
+      const std::shared_ptr<const core::PlanNode>& node) override {
+    if (std::dynamic_pointer_cast<const ThrowNode>(node)) {
+      return 5;
+    }
+    return std::nullopt;
+  }
+
+ private:
+  uint32_t driversCreated{0};
+};
+
+} // namespace
+
+// Use a node for which driver factory would throw on any driver beyond id 0.
+// This is to test that we do not crash due to early driver destruction and we
+// have a proper error being propagated out.
+TEST_F(DriverTest, driverCreationThrow) {
+  Operator::registerOperator(std::make_unique<ThrowNodeFactory>());
+
+  auto rows = makeRowVector({"c0"}, {makeFlatVector<int32_t>({1, 2, 3})});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values({rows}, true)
+                  .addNode([](std::string id,
+                              std::shared_ptr<const core::PlanNode> input) {
+                    return std::make_shared<ThrowNode>(id, input);
+                  })
+                  .planNode();
+
+  // Ensure execution threw correct error.
+  try {
+    CursorParameters params;
+    params.planNode = std::move(plan);
+    params.maxDrivers = 5;
+    params.numResultDrivers = 1;
+    getResults(params);
+    FAIL() << "Expected exception.";
+  } catch (const VeloxException& ex) {
+    EXPECT_NE(
+        std::string::npos,
+        ex.message().find("Can only create 1 'throw driver'."));
+  }
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::init(&argc, &argv, false);

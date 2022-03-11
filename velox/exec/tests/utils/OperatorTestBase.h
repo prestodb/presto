@@ -95,6 +95,8 @@ class OperatorTestBase : public testing::Test,
 
   RowVectorPtr getResults(std::shared_ptr<const core::PlanNode> planNode);
 
+  RowVectorPtr getResults(const CursorParameters& params);
+
   static std::shared_ptr<const RowType> makeRowType(
       std::vector<std::shared_ptr<const Type>>&& types) {
     return velox::test::VectorMaker::rowType(
