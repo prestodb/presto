@@ -42,7 +42,7 @@ TableWriter::TableWriter(
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
   connectorQueryCtx_ =
-      driverCtx_->createConnectorQueryCtx(connectorId, stats_.planNodeId);
+      operatorCtx_->createConnectorQueryCtx(connectorId, stats_.planNodeId);
 
   auto names = tableWriteNode->columnNames();
   auto types = tableWriteNode->columns()->children();

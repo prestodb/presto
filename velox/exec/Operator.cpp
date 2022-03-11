@@ -19,11 +19,67 @@
 #include "velox/exec/Task.h"
 
 #include "velox/common/process/ProcessBase.h"
+#include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
+namespace {
+// Basic implementation of the connector::ExpressionEvaluator interface.
+class SimpleExpressionEvaluator : public connector::ExpressionEvaluator {
+ public:
+  explicit SimpleExpressionEvaluator(core::ExecCtx* execCtx)
+      : execCtx_(execCtx) {}
+
+  std::unique_ptr<exec::ExprSet> compile(
+      const std::shared_ptr<const core::ITypedExpr>& expression)
+      const override {
+    auto expressions = {expression};
+    return std::make_unique<exec::ExprSet>(std::move(expressions), execCtx_);
+  }
+
+  void evaluate(
+      exec::ExprSet* exprSet,
+      const SelectivityVector& rows,
+      RowVectorPtr& input,
+      VectorPtr* result) const override {
+    exec::EvalCtx context(execCtx_, exprSet, input.get());
+
+    std::vector<VectorPtr> results = {*result};
+    exprSet->eval(0, 1, true, rows, &context, &results);
+
+    *result = results[0];
+  }
+
+ private:
+  core::ExecCtx* execCtx_;
+};
+} // namespace
 
 OperatorCtx::OperatorCtx(DriverCtx* driverCtx)
     : driverCtx_(driverCtx), pool_(driverCtx_->addOperatorPool()) {}
+
+core::ExecCtx* OperatorCtx::execCtx() const {
+  if (!execCtx_) {
+    execCtx_ = std::make_unique<core::ExecCtx>(
+        pool_, driverCtx_->task->queryCtx().get());
+  }
+  return execCtx_.get();
+}
+
+std::unique_ptr<connector::ConnectorQueryCtx>
+OperatorCtx::createConnectorQueryCtx(
+    const std::string& connectorId,
+    const std::string& planNodeId) const {
+  if (!expressionEvaluator_) {
+    expressionEvaluator_ =
+        std::make_unique<SimpleExpressionEvaluator>(execCtx());
+  }
+  return std::make_unique<connector::ConnectorQueryCtx>(
+      pool_,
+      driverCtx_->task->queryCtx()->getConnectorConfig(connectorId),
+      expressionEvaluator_.get(),
+      driverCtx_->task->queryCtx()->mappedMemory(),
+      fmt::format("{}.{}", driverCtx_->task->taskId(), planNodeId));
+}
 
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {

@@ -158,9 +158,6 @@ class BlockingState {
 };
 
 struct DriverCtx {
-  std::shared_ptr<Task> task;
-  std::unique_ptr<core::ExecCtx> execCtx;
-  std::unique_ptr<connector::ExpressionEvaluator> expressionEvaluator;
   const int driverId;
   const int pipelineId;
   /// Id of the split group this driver should process in case of grouped
@@ -169,6 +166,9 @@ struct DriverCtx {
   /// Id of the partition to use by this driver. For local exchange, for
   /// instance.
   const uint32_t partitionId;
+
+  std::shared_ptr<Task> task;
+  memory::MemoryPool* FOLLY_NONNULL pool;
   Driver* FOLLY_NONNULL driver;
 
   explicit DriverCtx(
@@ -181,13 +181,6 @@ struct DriverCtx {
   const core::QueryConfig& queryConfig() const;
 
   velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool();
-
-  // Makes an extract of QueryCtx for use in a connector. 'planNodeId'
-  // is the id of the calling TableScan. This and the task id identify
-  // the scan for column access tracking.
-  std::unique_ptr<connector::ConnectorQueryCtx> createConnectorQueryCtx(
-      const std::string& connectorId,
-      const std::string& planNodeId) const;
 };
 
 class Driver {

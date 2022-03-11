@@ -68,7 +68,7 @@ RowVectorPtr TableScan::getOutput() {
 
       if (!connector_) {
         connector_ = connector::getConnector(connectorSplit->connectorId);
-        connectorQueryCtx_ = driverCtx_->createConnectorQueryCtx(
+        connectorQueryCtx_ = operatorCtx_->createConnectorQueryCtx(
             connectorSplit->connectorId, planNodeId_);
         dataSource_ = connector_->createDataSource(
             outputType_,

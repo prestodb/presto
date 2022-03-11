@@ -18,6 +18,7 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -190,7 +191,16 @@ TEST_P(TableScanTest, allColumns) {
   writeToFile(filePath->path, kTableScanTest, vectors);
   createDuckDbTable(vectors);
 
-  assertQuery(tableScanNode(), {filePath}, "SELECT * FROM tmp");
+  auto plan = tableScanNode();
+  auto task = assertQuery(plan, {filePath}, "SELECT * FROM tmp");
+
+  // A quick sanity check for memory usage reporting. Check that peak total
+  // memory usage for the project node is > 0.
+  auto planStats = toPlanStats(task->taskStats());
+  auto scanNodeId = plan->id();
+  auto it = planStats.find(scanNodeId);
+  ASSERT_TRUE(it != planStats.end());
+  ASSERT_TRUE(it->second.peakMemoryBytes > 0);
 }
 
 TEST_P(TableScanTest, columnAliases) {

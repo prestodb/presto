@@ -22,40 +22,8 @@
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/Task.h"
-#include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
-namespace {
-// Basic implementation of the connector::ExpressionEvaluator interface.
-class SimpleExpressionEvaluator : public connector::ExpressionEvaluator {
- public:
-  explicit SimpleExpressionEvaluator(core::ExecCtx* execCtx)
-      : execCtx_(execCtx) {}
-
-  std::unique_ptr<exec::ExprSet> compile(
-      const std::shared_ptr<const core::ITypedExpr>& expression)
-      const override {
-    auto expressions = {expression};
-    return std::make_unique<exec::ExprSet>(std::move(expressions), execCtx_);
-  }
-
-  void evaluate(
-      exec::ExprSet* exprSet,
-      const SelectivityVector& rows,
-      RowVectorPtr& input,
-      VectorPtr* result) const override {
-    exec::EvalCtx context(execCtx_, exprSet, input.get());
-
-    std::vector<VectorPtr> results = {*result};
-    exprSet->eval(0, 1, true, rows, &context, &results);
-
-    *result = results[0];
-  }
-
- private:
-  core::ExecCtx* execCtx_;
-};
-} // namespace
 
 DriverCtx::DriverCtx(
     std::shared_ptr<Task> _task,
@@ -63,35 +31,19 @@ DriverCtx::DriverCtx(
     int _pipelineId,
     uint32_t _splitGroupId,
     uint32_t _partitionId)
-    : task(_task),
-      execCtx(std::make_unique<core::ExecCtx>(
-          task->addDriverPool(),
-          task->queryCtx().get())),
-      expressionEvaluator(
-          std::make_unique<SimpleExpressionEvaluator>(execCtx.get())),
-      driverId(_driverId),
+    : driverId(_driverId),
       pipelineId(_pipelineId),
       splitGroupId(_splitGroupId),
-      partitionId(_partitionId) {}
+      partitionId(_partitionId),
+      task(_task),
+      pool(task->addDriverPool()) {}
 
 const core::QueryConfig& DriverCtx::queryConfig() const {
   return task->queryCtx()->config();
 }
 
 velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool() {
-  return task->addOperatorPool(execCtx->pool());
-}
-
-std::unique_ptr<connector::ConnectorQueryCtx>
-DriverCtx::createConnectorQueryCtx(
-    const std::string& connectorId,
-    const std::string& planNodeId) const {
-  return std::make_unique<connector::ConnectorQueryCtx>(
-      execCtx->pool(),
-      task->queryCtx()->getConnectorConfig(connectorId),
-      expressionEvaluator.get(),
-      task->queryCtx()->mappedMemory(),
-      fmt::format("{}.{}", task->taskId(), planNodeId));
+  return task->addOperatorPool(pool);
 }
 
 BlockingState::BlockingState(
