@@ -181,6 +181,10 @@ struct TypeAnalysisResults {
 template <typename T>
 struct TypeAnalysis {
   void run(TypeAnalysisResults& results) {
+    // This should only handle primitives and OPAQUE.
+    static_assert(
+        CppToType<T>::isPrimitiveType ||
+        CppToType<T>::typeKind == TypeKind::OPAQUE);
     results.stats.concreteCount++;
     results.out << boost::algorithm::to_lower_copy(
         std::string(CppToType<T>::name));
@@ -207,7 +211,7 @@ struct TypeAnalysis<Map<K, V>> {
     results.stats.concreteCount++;
     results.out << "map(";
     TypeAnalysis<K>().run(results);
-    results.out << ",";
+    results.out << ", ";
     TypeAnalysis<V>().run(results);
     results.out << ")";
   }
@@ -269,6 +273,20 @@ struct TypeAnalysis<Row<T...>> {
 };
 
 // TODO: remove once old writers deprecated.
+template <typename V>
+struct TypeAnalysis<ArrayWriterT<V>> {
+  void run(TypeAnalysisResults& results) {
+    TypeAnalysis<Array<V>>().run(results);
+  }
+};
+
+template <typename K, typename V>
+struct TypeAnalysis<MapWriterT<K, V>> {
+  void run(TypeAnalysisResults& results) {
+    TypeAnalysis<Map<K, V>>().run(results);
+  }
+};
+
 template <typename... T>
 struct TypeAnalysis<RowWriterT<T...>> {
   void run(TypeAnalysisResults& results) {

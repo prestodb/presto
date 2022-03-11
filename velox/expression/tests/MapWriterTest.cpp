@@ -247,13 +247,13 @@ TEST_F(MapWriterTest, resizeAndSubscriptAccess) {
 }
 
 TEST_F(MapWriterTest, e2ePrimitives) {
-  testE2E<int8_t>("f_int8");
-  testE2E<int16_t>("f_int16");
-  testE2E<int32_t>("f_int32");
-  testE2E<int64_t>("f_int64");
-  testE2E<float>("f_float");
-  testE2E<double>("f_double");
-  testE2E<bool>("f_bool");
+  testE2E<int8_t>("map_writer_f_int8");
+  testE2E<int16_t>("map_writer_f_int16");
+  testE2E<int32_t>("map_writer_f_int32");
+  testE2E<int64_t>("map_writer_f_int64");
+  testE2E<float>("map_writer_f_float");
+  testE2E<double>("map_writer_f_double");
+  testE2E<bool>("map_writer_f_bool");
 }
 
 TEST_F(MapWriterTest, testTimeStamp) {

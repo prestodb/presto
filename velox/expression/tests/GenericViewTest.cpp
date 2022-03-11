@@ -264,14 +264,15 @@ struct HashAllArgs {
 };
 
 TEST_F(GenericViewTest, e2eHashVariadicSameType) {
-  registerFunction<HashAllArgs, int64_t, Variadic<Generic<T1>>>({"func"});
+  registerFunction<HashAllArgs, int64_t, Variadic<Generic<T1>>>(
+      {"hash_all_args"});
 
   auto vectorInt1 = vectorMaker_.flatVector<int64_t>({1, 2, 3});
   auto vectorInt2 = vectorMaker_.flatVector<int64_t>({1, 2, 3});
   auto vectorDouble = vectorMaker_.flatVector<double>({4, 5, 6});
 
   auto result1 = evaluate<FlatVector<int64_t>>(
-      "func(c0, c1)", makeRowVector({vectorInt1, vectorInt2}));
+      "hash_all_args(c0, c1)", makeRowVector({vectorInt1, vectorInt2}));
 
   for (auto i = 0; i < 3; i++) {
     ASSERT_EQ(
@@ -282,7 +283,7 @@ TEST_F(GenericViewTest, e2eHashVariadicSameType) {
   // All arguments expected to be of the same type.
   ASSERT_THROW(
       evaluate<FlatVector<int64_t>>(
-          "func(c0, c1, c2)",
+          "hash_all_args(c0, c1, c2)",
           makeRowVector({vectorInt1, vectorInt2, vectorDouble})),
       std::invalid_argument);
 }

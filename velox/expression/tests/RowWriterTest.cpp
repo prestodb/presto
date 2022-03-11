@@ -146,15 +146,15 @@ TEST_F(RowWriterTest, getWriterAt) {
 }
 
 TEST_F(RowWriterTest, e2ePrimitives) {
-  testE2EPrimitive<int8_t, int8_t, int8_t>("f_int8");
-  testE2EPrimitive<int16_t, int16_t, int16_t>("f_int16");
-  testE2EPrimitive<int32_t, int32_t, int32_t>("f_int32");
-  testE2EPrimitive<int64_t, int64_t, int64_t>("f_int64");
-  testE2EPrimitive<float, float, float>("f_float");
-  testE2EPrimitive<double, double, double>("f_double");
-  testE2EPrimitive<bool, bool, bool>("f_bool");
-  testE2EPrimitive<double, float, bool>("f_mix1");
-  testE2EPrimitive<int32_t, int64_t, double>("f_mix2");
+  testE2EPrimitive<int8_t, int8_t, int8_t>("row_writer_f_int8");
+  testE2EPrimitive<int16_t, int16_t, int16_t>("row_writer_f_int16");
+  testE2EPrimitive<int32_t, int32_t, int32_t>("row_writer_f_int32");
+  testE2EPrimitive<int64_t, int64_t, int64_t>("row_writer_f_int64");
+  testE2EPrimitive<float, float, float>("row_writer_f_float");
+  testE2EPrimitive<double, double, double>("row_writer_f_double");
+  testE2EPrimitive<bool, bool, bool>("row_writer_f_bool");
+  testE2EPrimitive<double, float, bool>("row_writer_f_mix1");
+  testE2EPrimitive<int32_t, int64_t, double>("row_writer_f_mix2");
 }
 
 TEST_F(RowWriterTest, timeStamp) {

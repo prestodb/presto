@@ -56,7 +56,7 @@ class SimpleFunctionPresetNullsTest : public functions::test::FunctionBaseTest {
     };
 
     static void registerUdf() {
-      registerFunction<udf, T, T>({"func"});
+      registerFunction<udf, T, T>({"preset_nulls_test_func"});
     }
   };
 
@@ -112,8 +112,9 @@ class SimpleFunctionPresetNullsTest : public functions::test::FunctionBaseTest {
 
     auto input = createInput<T>(size);
     auto result = createResults<T>(size);
-    evaluate<SimpleVector<T>>("func(c0)", input, rows, result);
-    auto expectedResult = evaluate("func(c0)", input);
+    evaluate<SimpleVector<T>>(
+        "preset_nulls_test_func(c0)", input, rows, result);
+    auto expectedResult = evaluate("preset_nulls_test_func(c0)", input);
 
     assertEqualVectors(result, expectedResult);
   }

@@ -242,13 +242,13 @@ TEST_F(ArrayWriterTest, multipleRows) {
 }
 
 TEST_F(ArrayWriterTest, e2ePrimitives) {
-  testE2E<int8_t>("f_int8");
-  testE2E<int16_t>("f_int16");
-  testE2E<int32_t>("f_int32");
-  testE2E<int64_t>("f_int64");
-  testE2E<float>("f_float");
-  testE2E<double>("f_double");
-  testE2E<bool>("f_bool");
+  testE2E<int8_t>("array_writer_f_int8");
+  testE2E<int16_t>("array_writer_f_int16");
+  testE2E<int32_t>("array_writer_f_int32");
+  testE2E<int64_t>("array_writer_f_int64");
+  testE2E<float>("array_writer_f_float");
+  testE2E<double>("array_writer_f_double");
+  testE2E<bool>("array_writer_f_bool");
 }
 
 TEST_F(ArrayWriterTest, testTimeStamp) {
@@ -433,10 +433,10 @@ TEST_F(ArrayWriterTest, nestedArrayE2E) {
   registerFunction<
       MakeMatrixFunc,
       ArrayWriterT<ArrayWriterT<int64_t>>,
-      int64_t>({"func"});
+      int64_t>({"make_matrix"});
 
   auto result = evaluate(
-      "func(c0)",
+      "make_matrix(c0)",
       makeRowVector(
           {makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})}));
 
@@ -565,9 +565,10 @@ struct CopyFromFunc {
 
 TEST_F(ArrayWriterTest, copyFromE2EMapArray) {
   registerFunction<CopyFromFunc, ArrayWriterT<MapWriterT<int64_t, int64_t>>>(
-      {"func"});
+      {"copy_from"});
 
-  auto result = evaluate("func()", makeRowVector({makeFlatVector<int64_t>(1)}));
+  auto result =
+      evaluate("copy_from()", makeRowVector({makeFlatVector<int64_t>(1)}));
 
   // Test results.
   DecodedVector decoded;

@@ -167,7 +167,7 @@ TEST_F(TypeAnalysisTest, testStringType) {
   testStringType<float>({"real"});
 
   testStringType<Array<int32_t>>({"array(integer)"});
-  testStringType<Map<Generic<>, int32_t>>({"map(any,integer)"});
+  testStringType<Map<Generic<>, int32_t>>({"map(any, integer)"});
   testStringType<Row<int32_t, int32_t>>({"row(integer, integer)"});
 
   testStringType<Generic<>>({"any"});
@@ -178,8 +178,13 @@ TEST_F(TypeAnalysisTest, testStringType) {
   testStringType<int32_t, int64_t, Map<Array<int32_t>, Generic<T2>>>({
       "integer",
       "bigint",
-      "map(array(integer),__user_T2)",
+      "map(array(integer), __user_T2)",
   });
+
+  testStringType<ArrayWriterT<int32_t>>({"array(integer)"});
+  testStringType<MapWriterT<int64_t, double>>({"map(bigint, double)"});
+  testStringType<RowWriterT<Generic<>, double, Generic<T1>>>(
+      {"row(any, double, __user_T1)"});
 }
 
 TEST_F(TypeAnalysisTest, testVariables) {

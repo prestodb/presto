@@ -450,7 +450,7 @@ struct MapComplexKeyF {
 
 TEST_F(NullableMapViewTest, mapCoplexKey) {
   registerFunction<MapComplexKeyF, double, Map<Array<double>, double>>(
-      {"func"});
+      {"map_complex_key"});
 
   const vector_size_t size = 10;
   auto values1 = makeArrayVector<double>(
@@ -464,7 +464,7 @@ TEST_F(NullableMapViewTest, mapCoplexKey) {
       [](auto /*row*/, auto index) { return 1.2 * index; });
 
   auto result = evaluate<FlatVector<double>>(
-      "func(map(array_constructor(c0), c1))",
+      "map_complex_key(map(array_constructor(c0), c1))",
       makeRowVector({values1, values2}));
 
   auto expected =

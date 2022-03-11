@@ -290,7 +290,8 @@ struct NestedArrayF {
 };
 
 TEST_F(NullableArrayViewTest, nestedArray) {
-  registerFunction<NestedArrayF, int64_t, Array<Array<int64_t>>>({"func"});
+  registerFunction<NestedArrayF, int64_t, Array<Array<int64_t>>>(
+      {"nested_array_func"});
   std::vector<std::vector<int64_t>> arrayData = {
       {0, 1, 2, 4},
       {99, 98},
@@ -301,7 +302,8 @@ TEST_F(NullableArrayViewTest, nestedArray) {
   size_t rows = arrayData.size();
   auto arrayVector = makeArrayVector(arrayData);
   auto result = evaluate<FlatVector<int64_t>>(
-      "func(array_constructor(c0, c0))", makeRowVector({arrayVector}));
+      "nested_array_func(array_constructor(c0, c0))",
+      makeRowVector({arrayVector}));
 
   auto expected = makeFlatVector<int64_t>(rows, [&](auto row) {
     return 2 * std::accumulate(arrayData[row].begin(), arrayData[row].end(), 0);
