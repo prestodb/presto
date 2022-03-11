@@ -53,7 +53,7 @@ class ArrowBridgeArrayExportTest : public testing::Test {
     if constexpr (isString) {
       validateStringArray(inputData, arrowArray);
     } else {
-      validatePrimitiveArray(inputData, arrowArray);
+      validateNumericalArray(inputData, arrowArray);
     }
 
     arrowArray.release(&arrowArray);
@@ -62,7 +62,7 @@ class ArrowBridgeArrayExportTest : public testing::Test {
   }
 
   template <typename T>
-  void validatePrimitiveArray(
+  void validateNumericalArray(
       const std::vector<std::optional<T>>& inputData,
       const ArrowArray& arrowArray) {
     ASSERT_EQ(2, arrowArray.n_buffers); // null and values buffers.
@@ -331,8 +331,8 @@ TEST_F(ArrowBridgeArrayExportTest, rowVector) {
   EXPECT_EQ(nullptr, arrowArray.dictionary);
 
   // Validate data in the children arrays.
-  validatePrimitiveArray(col1, *arrowArray.children[0]);
-  validatePrimitiveArray(col2, *arrowArray.children[1]);
+  validateNumericalArray(col1, *arrowArray.children[0]);
+  validateNumericalArray(col2, *arrowArray.children[1]);
   validateStringArray(col3, *arrowArray.children[2]);
 
   arrowArray.release(&arrowArray);
@@ -368,7 +368,7 @@ TEST_F(ArrowBridgeArrayExportTest, rowVectorNullable) {
   EXPECT_EQ(nullptr, arrowArray.dictionary);
 
   // Validate data in the children arrays.
-  validatePrimitiveArray(col1, *arrowArray.children[0]);
+  validateNumericalArray(col1, *arrowArray.children[0]);
 
   // Check if the null buffer has the correct bits set.
   const uint64_t* nulls = static_cast<const uint64_t*>(arrowArray.buffers[0]);
