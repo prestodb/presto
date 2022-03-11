@@ -25,11 +25,34 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 public class MockQueryExecution
         implements QueryExecution
 {
+    private static final AtomicLong ID_COUNTER = new AtomicLong(0);
+
+    private final QueryId queryId;
+    private final int runningTaskCount;
+    private Optional<Throwable> failureReason = Optional.empty();
+
+    public MockQueryExecution()
+    {
+        this(0);
+    }
+
+    private MockQueryExecution(int runningTaskCount)
+    {
+        this.queryId = QueryId.valueOf(String.valueOf(ID_COUNTER.getAndIncrement()));
+        this.runningTaskCount = runningTaskCount;
+    }
+
+    public static MockQueryExecution withRunningTaskCount(int runningTaskCount)
+    {
+        return new MockQueryExecution(runningTaskCount);
+    }
+
     @Override
     public QueryState getState()
     {
@@ -101,7 +124,7 @@ public class MockQueryExecution
     @Override
     public int getRunningTaskCount()
     {
-        return 0;
+        return runningTaskCount;
     }
 
     @Override
@@ -125,7 +148,7 @@ public class MockQueryExecution
     @Override
     public QueryId getQueryId()
     {
-        return null;
+        return queryId;
     }
 
     @Override
@@ -172,7 +195,14 @@ public class MockQueryExecution
 
     @Override
     public void fail(Throwable cause)
-    { }
+    {
+        this.failureReason = Optional.ofNullable(cause);
+    }
+
+    public Optional<Throwable> getFailureReason()
+    {
+        return failureReason;
+    }
 
     @Override
     public void pruneInfo()

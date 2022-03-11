@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.272-SNAPSHOT</version>
+    <version>0.273-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -180,6 +180,7 @@
         <module>presto-delta</module>
         <module>presto-grpc-api</module>
         <module>presto-grpc-testing-udf-server</module>
+        <module>presto-lark-sheets</module>
     </modules>
 
     <dependencyManagement>
