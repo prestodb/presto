@@ -30,20 +30,30 @@ bool hasNull(const std::vector<const char*>& rows) {
   return std::find(rows.begin(), rows.end(), nullptr) != rows.end();
 }
 
+struct NullBuffer {
+  NullBuffer(size_t size, memory::MemoryPool* pool)
+      : buf_(AlignedBuffer::allocate<bool>(size, pool, bits::kNotNull)) {}
+
+  FOLLY_ALWAYS_INLINE void setNull(int i) {
+    bits::setNull(raw_, i);
+  }
+
+  BufferPtr buf_;
+  uint64_t* raw_{buf_->asMutable<uint64_t>()};
+};
+
 BufferPtr makeNullBuffer(
     memory::MemoryPool* pool,
     const std::vector<const char*>& rows) {
   if (!hasNull(rows)) {
     return nullptr;
   }
-  auto result =
-      AlignedBuffer::allocate<bool>(rows.size(), pool, bits::kNotNull);
-  auto* rawNulls = result->asMutable<uint64_t>();
+  NullBuffer nulls(rows.size(), pool);
   for (int i = 0; i < rows.size(); ++i) {
     if (!rows[i])
-      bits::setNull(rawNulls, i);
+      nulls.setNull(i);
   }
-  return result;
+  return std::move(nulls.buf_);
 }
 
 // Decodes an uint64_t that points to variable length data.
@@ -67,35 +77,49 @@ VectorPtr Deserialize(
 // FixedWidth types mostly have the same representation in Vectors and
 // UnsafeRow, with the exception of bools (bitpacked) and timestamp (micros
 // only).
-template <TypeKind kind>
+template <TypeKind kind, typename ValuePointerNextCallback>
 VectorPtr DeserializeFixedWidth(
     memory::MemoryPool* pool,
-    const std::vector<const char*>& valuePointers) {
+    std::size_t size,
+    ValuePointerNextCallback valuePointers) {
   static_assert(TypeTraits<kind>::isFixedWidth);
   using T = typename TypeTraits<kind>::NativeType;
-  BufferPtr nulls = makeNullBuffer(pool, valuePointers);
-  BufferPtr values = AlignedBuffer::allocate<T>(valuePointers.size(), pool);
+  NullBuffer nulls(size, pool);
+  bool hasNull = false;
+  BufferPtr values = AlignedBuffer::allocate<T>(size, pool);
   T* data = values->template asMutable<T>();
-  for (int i = 0; i < valuePointers.size(); ++i) {
-    if (!valuePointers[i]) {
+  for (int i = 0; i < size; ++i) {
+    const char* valuePointer = valuePointers();
+    if (UNLIKELY(!valuePointer)) {
+      hasNull = true;
+      nulls.setNull(i);
       continue;
     }
     if constexpr (kind == TypeKind::BOOLEAN) {
-      bits::setBit(data, i, *reinterpret_cast<const bool*>(valuePointers[i]));
+      bits::setBit(data, i, *reinterpret_cast<const bool*>(valuePointer));
     } else if constexpr (kind == TypeKind::TIMESTAMP) {
       data[i] = Timestamp::fromMicros(
-          *reinterpret_cast<const int64_t*>(valuePointers[i]));
+          *reinterpret_cast<const int64_t*>(valuePointer));
     } else {
-      data[i] = *reinterpret_cast<const T*>(valuePointers[i]);
+      data[i] = *reinterpret_cast<const T*>(valuePointer);
     }
   }
   return std::make_shared<FlatVector<T>>(
       pool,
       ScalarType<kind>::create(),
-      std::move(nulls),
-      valuePointers.size(),
+      hasNull ? std::move(nulls.buf_) : nullptr,
+      size,
       std::move(values),
       /*stringBuffers=*/std::vector<BufferPtr>{});
+}
+
+template <TypeKind kind>
+VectorPtr DeserializeFixedWidth(
+    memory::MemoryPool* pool,
+    const std::vector<const char*>& valuePointers) {
+  auto row = valuePointers.begin();
+  return DeserializeFixedWidth<kind>(
+      pool, valuePointers.size(), [&row] { return *row++; });
 }
 
 // Strings are the simplest variable-length type.
@@ -131,18 +155,39 @@ RowVectorPtr DeserializeRow(
     const std::vector<const char*>& rows) {
   const std::vector<TypePtr>& fieldTypes = type->children();
   auto nulls = makeNullBuffer(pool, rows);
-  std::vector<const char*> fieldPointers(rows.size());
   std::vector<VectorPtr> fields;
   std::size_t offset = nullSizeBytes(fieldTypes.size());
-  for (int i = 0; i < fieldTypes.size(); ++i) {
-    for (int row = 0; row < rows.size(); ++row) {
-      // Converting fixed-width fields directly into a VectorPtr without
-      // producing a valuePointer vector would yield a significant speedup.
-      fieldPointers[row] = rows[row] && !bits::isBitSet(rows[row], i)
-          ? rows[row] + offset
-          : nullptr;
+  for (int field = 0; field < fieldTypes.size(); ++field) {
+    auto row = rows.begin();
+    auto fieldPointerCallback = [&row, field, offset] {
+      const char* data = *row++;
+      return data && !bits::isBitSet(data, field) ? data + offset : nullptr;
+    };
+    switch (fieldTypes[field]->kind()) {
+#define FIXED_WIDTH(kind)                                   \
+  case TypeKind::kind:                                      \
+    fields.push_back(DeserializeFixedWidth<TypeKind::kind>( \
+        pool, rows.size(), fieldPointerCallback));          \
+    break
+      FIXED_WIDTH(BOOLEAN);
+      FIXED_WIDTH(TINYINT);
+      FIXED_WIDTH(SMALLINT);
+      FIXED_WIDTH(INTEGER);
+      FIXED_WIDTH(BIGINT);
+      FIXED_WIDTH(REAL);
+      FIXED_WIDTH(DOUBLE);
+      FIXED_WIDTH(TIMESTAMP);
+      FIXED_WIDTH(DATE);
+#undef FIXED_WIDTH
+      default: {
+        std::vector<const char*> fieldPointers(rows.size());
+        for (int i = 0; i < rows.size(); ++i) {
+          fieldPointers[i] = fieldPointerCallback();
+        }
+        fields.push_back(
+            Deserialize(fieldTypes[field], pool, rows, fieldPointers));
+      }
     }
-    fields.push_back(Deserialize(fieldTypes[i], pool, rows, fieldPointers));
     offset += sizeof(uint64_t);
   }
   return std::make_shared<RowVector>(
@@ -290,19 +335,19 @@ VectorPtr Deserialize(
     const std::vector<const char*>& basePointers,
     const std::vector<const char*>& valuePointers) {
   switch (type->kind()) {
-#define SCALAR_CASE(kind) \
+#define FIXED_WIDTH(kind) \
   case TypeKind::kind:    \
     return DeserializeFixedWidth<TypeKind::kind>(pool, valuePointers)
-    SCALAR_CASE(BOOLEAN);
-    SCALAR_CASE(TINYINT);
-    SCALAR_CASE(SMALLINT);
-    SCALAR_CASE(INTEGER);
-    SCALAR_CASE(BIGINT);
-    SCALAR_CASE(REAL);
-    SCALAR_CASE(DOUBLE);
-    SCALAR_CASE(TIMESTAMP);
-    SCALAR_CASE(DATE);
-#undef SCALAR_CASE
+    FIXED_WIDTH(BOOLEAN);
+    FIXED_WIDTH(TINYINT);
+    FIXED_WIDTH(SMALLINT);
+    FIXED_WIDTH(INTEGER);
+    FIXED_WIDTH(BIGINT);
+    FIXED_WIDTH(REAL);
+    FIXED_WIDTH(DOUBLE);
+    FIXED_WIDTH(TIMESTAMP);
+    FIXED_WIDTH(DATE);
+#undef FIXED_WIDTH
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
       return DeserializeString(type, pool, basePointers, valuePointers);
@@ -344,18 +389,11 @@ std::unique_ptr<UnsafeRow24Deserializer> UnsafeRow24Deserializer::Create(
 
     RowVectorPtr DeserializeRows(
         memory::MemoryPool* pool,
-        const std::vector<std::string_view>& rows) final {
-      valuePointers_.resize(rows.size());
-      for (int i = 0; i < rows.size(); ++i) {
-        valuePointers_[i] = rows[i].data();
-      }
-      auto result = DeserializeRow(type_, pool, valuePointers_);
-      VELOX_CHECK(result->type()->isRow());
-      return result;
+        const std::vector<const char*>& rows) final {
+      return DeserializeRow(type_, pool, rows);
     }
 
     RowTypePtr type_;
-    std::vector<const char*> valuePointers_;
   };
 
   return std::make_unique<Wrapper>(rowType);

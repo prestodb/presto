@@ -31,9 +31,10 @@ class UnsafeRow24Deserializer {
 
   static std::unique_ptr<UnsafeRow24Deserializer> Create(RowTypePtr rowType);
 
+  // We are allowed to mutate `rows`.
   virtual RowVectorPtr DeserializeRows(
       memory::MemoryPool* pool,
-      const std::vector<std::string_view>& rows) = 0;
+      const std::vector<const char*>& rows) = 0;
 
  protected:
   UnsafeRow24Deserializer() = default;

@@ -51,13 +51,16 @@ struct UnsafeRowLegacyWrapper {
 
 struct UnsafeRow24Wrapper {
   static VectorPtr Deserialize(
-      const std::vector<std::string_view>& s,
+      const std::vector<std::string_view>& rows,
       TypePtr type,
       memory::MemoryPool* pool) {
     VELOX_CHECK(type->isRow());
+    std::vector<const char*> row_data;
+    for (std::string_view row : rows)
+      row_data.push_back(row.data());
     return UnsafeRow24Deserializer::Create(
                std::dynamic_pointer_cast<const RowType>(type))
-        ->DeserializeRows(pool, {s});
+        ->DeserializeRows(pool, row_data);
   }
 };
 
