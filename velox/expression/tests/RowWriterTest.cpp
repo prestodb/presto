@@ -417,5 +417,87 @@ TEST_F(RowWriterTest, commitNull) {
   ASSERT_EQ(exec::get<1>(row0).value(), 1);
 }
 
+TEST_F(RowWriterTest, copyFromSimple) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& rowWriter = vectorWriter->current();
+
+  rowWriter.copy_from(
+      std::make_tuple(std::nullopt, std::optional<int64_t>(), 2));
+
+  vectorWriter->commit();
+
+  auto expected = makeRowVector(
+      {nullEntry(), nullEntry(), vectorMaker_.flatVector<int64_t>({2})});
+
+  assertEqualVectors(result, expected);
+}
+
+TEST_F(RowWriterTest, copyFromRowOfArrays) {
+  auto result = prepareResult(
+      makeRowType({ARRAY(BIGINT()), ARRAY(DOUBLE()), ARRAY(BOOLEAN())}));
+
+  VectorWriter<RowWriterT<
+      ArrayWriterT<int64_t>,
+      ArrayWriterT<double>,
+      ArrayWriterT<bool>>>
+      vectorWriter;
+  vectorWriter.init(*result->as<RowVector>());
+
+  vectorWriter.setOffset(0);
+
+  auto& rowWriter = vectorWriter.current();
+
+  std::vector<std::optional<int64_t>> expected1 = {1, std::nullopt, 2};
+  std::vector<std::optional<double>> expected2 = {
+      0.7, std::nullopt, std::nullopt};
+  std::vector<std::optional<bool>> expected3 = {std::nullopt, true, false};
+
+  rowWriter.copy_from(std::make_tuple(expected1, expected2, expected3));
+
+  vectorWriter.commit();
+
+  assertEqualVectors(
+      result,
+      makeRowVector(
+          {makeNullableArrayVector<int64_t>({expected1}),
+           makeNullableArrayVector<double>({expected2}),
+           makeNullableArrayVector<bool>({expected3})}));
+}
+
+TEST_F(RowWriterTest, copyFromArrayOfRow) {
+  auto result = prepareResult(ARRAY(makeRowType({BIGINT(), BIGINT()})));
+
+  VectorWriter<ArrayWriterT<RowWriterT<int64_t, int64_t>>> vectorWriter;
+  vectorWriter.init(*result->as<ArrayVector>());
+  vectorWriter.setOffset(0);
+
+  auto& rowWriter = vectorWriter.current();
+
+  std::vector<std::tuple<int64_t, int64_t>> data{{2, 1}, {1, 2}};
+  rowWriter.copy_from(data);
+  vectorWriter.commit();
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(result->size());
+  decoded.decode(*result, rows);
+  VectorReader<Array<Row<int64_t, int64_t>>> reader(&decoded);
+
+  auto arrayView = reader[0];
+  ASSERT_EQ(arrayView.size(), 2);
+
+  ASSERT_TRUE(arrayView[0].has_value());
+  ASSERT_TRUE(arrayView[1].has_value());
+
+  auto row0 = arrayView[0].value();
+  ASSERT_EQ(exec::get<0>(row0).value(), 2);
+  ASSERT_EQ(exec::get<1>(row0).value(), 1);
+
+  auto row1 = arrayView[1].value();
+  ASSERT_EQ(exec::get<0>(row1).value(), 1);
+  ASSERT_EQ(exec::get<1>(row1).value(), 2);
+}
+
 } // namespace
 } // namespace facebook::velox::exec

@@ -557,6 +557,11 @@ class RowWriter {
     assignImpl(inputs, std::index_sequence_for<T...>{});
   }
 
+  template <typename... K>
+  void copy_from(const std::tuple<K...>& inputs) {
+    copyFromImpl(inputs, std::index_sequence_for<T...>{});
+  }
+
  private:
   // Make sure user do not use those.
   RowWriter<T...>() = default;
@@ -572,6 +577,24 @@ class RowWriter {
           std::get<Is>(needCommit_) = false;
           std::get<Is>(childrenVectors_) =
               &std::get<Is>(childrenWriters_).vector();
+        }(),
+        ...);
+  }
+
+  template <typename... K, std::size_t... Is>
+  void copyFromImpl(
+      const std::tuple<K...>& inputs,
+      std::index_sequence<Is...>) {
+    using children_types = std::tuple<T...>;
+    (
+        [&]() {
+          if constexpr (provide_std_interface<
+                            std::tuple_element_t<Is, children_types>>) {
+            exec::get<Is>(*this) = std::get<Is>(inputs);
+          } else {
+            auto& writer = get_writer_at<Is>();
+            writer.copy_from(std::get<Is>(inputs));
+          }
         }(),
         ...);
   }
