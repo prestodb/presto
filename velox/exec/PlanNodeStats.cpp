@@ -36,6 +36,9 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   inputRows += stats.inputPositions;
   inputBytes += stats.inputBytes;
 
+  rawInputRows += stats.rawInputPositions;
+  rawInputBytes += stats.rawInputBytes;
+
   outputRows += stats.outputPositions;
   outputBytes += stats.outputBytes;
 
@@ -51,8 +54,11 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
 std::string PlanNodeStats::toString(bool includeInputStats) const {
   std::stringstream out;
   if (includeInputStats) {
-    out << "Input: " << inputRows << " rows (" << inputBytes << " bytes"
-        << "), ";
+    out << "Input: " << inputRows << " rows (" << inputBytes << " bytes), ";
+    if (rawInputRows != inputRows) {
+      out << "Raw Input: " << rawInputRows << " rows (" << rawInputBytes
+          << " bytes), ";
+    }
   }
   out << "Output: " << outputRows << " rows (" << outputBytes << " bytes)"
       << ", Cpu time: " << cpuWallTiming.cpuNanos << "ns"

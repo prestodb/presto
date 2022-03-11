@@ -51,6 +51,14 @@ struct PlanNodeStats {
   /// Sum of input bytes for all corresponding operators.
   uint64_t inputBytes{0};
 
+  /// Sum of raw input rows for all corresponding operators. Applies primarily
+  /// to TableScan operator which reports rows before pushed down filter as raw
+  /// input.
+  vector_size_t rawInputRows{0};
+
+  /// Sum of raw input bytes for all corresponding operators.
+  uint64_t rawInputBytes{0};
+
   /// Sum of output rows for all corresponding operators. When
   /// plan node corresponds to multiple operator types, operators of only one of
   /// these types report non-zero output rows.
