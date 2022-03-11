@@ -235,9 +235,9 @@ vectors. Here is what this might look like for a vector of type MAP(INTEGER, DOU
         auto indices = decoded.indices();
 
         // Decode nested keys and values vectors.
-        SelectivityVector nestedRows(base->keys()->size());
-        DecodedVector decodedKeys(base->keys(), nestedRows);
-        DecodedVector decodedValues(base->values(), nestedRows);
+        SelectivityVector nestedRows(base->mapKeys()->size());
+        DecodedVector decodedKeys(*base->mapKeys(), nestedRows);
+        DecodedVector decodedValues(*base->mapValues(), nestedRows);
 
         rows.applyToSelected([&] (auto row) {
             if (decoded.isNullAt(row)) {
@@ -249,7 +249,7 @@ vectors. Here is what this might look like for a vector of type MAP(INTEGER, DOU
 
                 for (auto i = 0; i < size; ++i) {
                    std::optional<int32_t> key;
-                   std::optional<double> value:
+                   std::optional<double> value;
                    if (!decodedKeys.isNullAt(offset + i)) {
                       key = decodedKeys.valueAt<int32_t>(offset + i);
                    }
