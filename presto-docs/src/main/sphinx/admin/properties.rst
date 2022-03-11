@@ -5,6 +5,11 @@ Properties Reference
 This section describes the most important config properties that
 may be used to tune Presto or alter its behavior when required.
 
+The following pages are not a complete list of all configuration and
+session properties available in Presto, and do not include any connector-specific
+catalog configuration properties. For more information on catalog configuration
+properties, refer to the :doc:`connector documentation </connector/>`.
+
 .. contents::
     :local:
     :backlinks: none
