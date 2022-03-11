@@ -41,6 +41,7 @@ option(VELOX_ENABLE_PARSE "Build parser used for unit tests." ON)
 option(VELOX_ENABLE_EXAMPLES
        "Build examples. This will enable VELOX_ENABLE_EXPRESSION automatically."
        ON)
+option(VELOX_ENABLE_SUBSTRAIT "Buid Substrait-to-Velox converter." OFF)
 option(VELOX_ENABLE_BENCHMARKS "Build velox top level benchmarks." OFF)
 option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
 option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
@@ -60,6 +61,7 @@ if(${VELOX_BUILD_MINIMAL})
   set(VELOX_ENABLE_SPARK_FUNCTIONS OFF)
   set(VELOX_ENABLE_EXAMPLES OFF)
   set(VELOX_ENABLE_S3 OFF)
+  set(VELOX_ENABLE_SUBSTRAIT OFF)
 endif()
 
 if(${VELOX_BUILD_TESTING})
