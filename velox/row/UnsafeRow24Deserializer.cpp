@@ -68,9 +68,9 @@ FOLLY_ALWAYS_INLINE std::pair<const char*, uint32_t> decodeVarOffset(
 // valuePointers.size() with the given type. Deserialize dispatches to the
 // type-specific implementations. basePointers are used when decoding
 // variable-length data (arrays, maps, structs, and strings).
-//
-// Deserialize is allowed to mutate the valuePointer array.
-VectorPtr Deserialize(
+
+// DeserializeVariableLength is allowed to mutate the valuePointer array.
+VectorPtr DeserializeVariableLength(
     const TypePtr& type,
     memory::MemoryPool* pool,
     const std::vector<const char*>& basePointers,
@@ -177,8 +177,8 @@ RowVectorPtr DeserializeRow(
         for (int i = 0; i < rows.size(); ++i) {
           fieldPointers[i] = fieldPointerCallback();
         }
-        fields.push_back(
-            Deserialize(fieldTypes[field], pool, rows, fieldPointers));
+        fields.push_back(DeserializeVariableLength(
+            fieldTypes[field], pool, rows, fieldPointers));
       }
     }
     offset += sizeof(uint64_t);
@@ -281,7 +281,8 @@ ArrayVectorPtr DeserializeArray(
         }
         DCHECK_EQ(elementCount, offsets[i] + sizes[i]);
       }
-      elementsVector = Deserialize(elementType, pool, elementBases, elements);
+      elementsVector =
+          DeserializeVariableLength(elementType, pool, elementBases, elements);
     }
   }
   return std::make_shared<ArrayVector>(
@@ -342,7 +343,7 @@ MapVectorPtr DeserializeMap(
 // Dispatches to the type-specific deserialization function. Note there are
 // optimizations for fixed-width types in some cases, so not all fixed-width
 // vector deserialization routes through here.
-VectorPtr Deserialize(
+VectorPtr DeserializeVariableLength(
     const TypePtr& type,
     memory::MemoryPool* pool,
     const std::vector<const char*>& basePointers,
@@ -357,22 +358,6 @@ VectorPtr Deserialize(
     return valuePointers;
   };
   switch (type->kind()) {
-#define FIXED_WIDTH(kind)                                                     \
-  case TypeKind::kind:                                                        \
-    return DeserializeFixedWidth<TypeKind::kind>(                             \
-        pool, valuePointers.size(), [row = valuePointers.begin()]() mutable { \
-          return *row++;                                                      \
-        })
-    FIXED_WIDTH(BOOLEAN);
-    FIXED_WIDTH(TINYINT);
-    FIXED_WIDTH(SMALLINT);
-    FIXED_WIDTH(INTEGER);
-    FIXED_WIDTH(BIGINT);
-    FIXED_WIDTH(REAL);
-    FIXED_WIDTH(DOUBLE);
-    FIXED_WIDTH(TIMESTAMP);
-    FIXED_WIDTH(DATE);
-#undef FIXED_WIDTH
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
       return DeserializeString(type, pool, basePointers, valuePointers);
@@ -386,16 +371,13 @@ VectorPtr Deserialize(
           std::dynamic_pointer_cast<const MapType>(type),
           pool,
           resolveValuePointers());
-    case TypeKind::ROW: {
+    case TypeKind::ROW:
       return DeserializeRow(
           std::dynamic_pointer_cast<const RowType>(type),
           pool,
           resolveValuePointers());
-    }
-
     default:
-      VELOX_NYI(
-          "UnsafeRow deserialization of {} is not supported", type->toString());
+      VELOX_CHECK(false, "Unexpected type: {}", type->toString());
   }
 }
 
