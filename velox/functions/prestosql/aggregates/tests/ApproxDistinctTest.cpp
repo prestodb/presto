@@ -36,7 +36,7 @@ class ApproxDistinctTest : public AggregationTestBase {
             .singleAggregation(
                 {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
             .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
@@ -44,7 +44,7 @@ class ApproxDistinctTest : public AggregationTestBase {
                  {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
              .finalAggregation()
              .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
@@ -52,7 +52,7 @@ class ApproxDistinctTest : public AggregationTestBase {
                  {}, {fmt::format("approx_set(c0, {})", maxStandardError)})
              .project({"cardinality(a0)"})
              .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
@@ -61,7 +61,7 @@ class ApproxDistinctTest : public AggregationTestBase {
              .finalAggregation()
              .project({"cardinality(a0)"})
              .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
   }
 
   void testGlobalAgg(const VectorPtr& values, int64_t expectedResult) {
@@ -69,21 +69,21 @@ class ApproxDistinctTest : public AggregationTestBase {
                   .values({makeRowVector({values})})
                   .singleAggregation({}, {"approx_distinct(c0)"})
                   .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
              .partialAggregation({}, {"approx_distinct(c0)"})
              .finalAggregation()
              .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
              .singleAggregation({}, {"approx_set(c0)"})
              .project({"cardinality(a0)"})
              .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
 
     op = PlanBuilder()
              .values({makeRowVector({values})})
@@ -91,7 +91,7 @@ class ApproxDistinctTest : public AggregationTestBase {
              .finalAggregation()
              .project({"cardinality(a0)"})
              .planNode();
-    ASSERT_EQ(readSingleValue(op), expectedResult);
+    EXPECT_EQ(readSingleValue(op), expectedResult);
   }
 
   template <typename T, typename U>
@@ -204,6 +204,28 @@ TEST_F(ApproxDistinctTest, groupByVeryLowCardinalityIntegers) {
   testGroupByAgg(keys, values, {{0, 1}, {1, 3}});
 }
 
+TEST_F(ApproxDistinctTest, groupByAllNulls) {
+  vector_size_t size = 1'000;
+  auto keys = makeFlatVector<int32_t>(size, [](auto row) { return row % 2; });
+  auto values = makeFlatVector<int32_t>(
+      size, [](auto row) { return row % 2 == 0 ? 27 : row % 3; }, nullEvery(2));
+
+  std::unordered_map<int32_t, int64_t> expectedResult = {{0, 0}, {1, 3}};
+  auto expected = toRowVector(expectedResult);
+  auto op = PlanBuilder()
+                .values({makeRowVector({keys, values})})
+                .singleAggregation({0}, {"approx_distinct(c1)"})
+                .planNode();
+  assertQuery(op, expected);
+
+  op = PlanBuilder()
+           .values({makeRowVector({keys, values})})
+           .partialAggregation({0}, {"approx_distinct(c1)"})
+           .finalAggregation()
+           .planNode();
+  assertQuery(op, expected);
+}
+
 TEST_F(ApproxDistinctTest, globalAggIntegers) {
   vector_size_t size = 1'000;
   auto values =
@@ -243,6 +265,43 @@ TEST_F(ApproxDistinctTest, globalAggIntegersWithError) {
   testGlobalAgg(values, 0.01, 1000);
   testGlobalAgg(values, 0.1, 1008);
   testGlobalAgg(values, 0.2, 930);
+}
+
+TEST_F(ApproxDistinctTest, globalAggAllNulls) {
+  vector_size_t size = 1'000;
+  auto values = makeFlatVector<int32_t>(
+      size, [](auto row) { return row; }, nullEvery(1));
+
+  auto op = PlanBuilder()
+                .values({makeRowVector({values})})
+                .singleAggregation({}, {"approx_distinct(c0, 0.01)"})
+                .planNode();
+  EXPECT_EQ(readSingleValue(op), 0ll);
+
+  op = PlanBuilder()
+           .values({makeRowVector({values})})
+           .partialAggregation({}, {"approx_distinct(c0, 0.01)"})
+           .finalAggregation()
+           .planNode();
+  EXPECT_EQ(readSingleValue(op), 0ll);
+
+  // approx_distinct over null inputs returns zero, but
+  // cardinality(approx_set(x)) over null inputs returns null. See
+  // https://github.com/prestodb/presto/issues/17465
+  op = PlanBuilder()
+           .values({makeRowVector({values})})
+           .singleAggregation({}, {"approx_set(c0, 0.01)"})
+           .project({"cardinality(a0)"})
+           .planNode();
+  EXPECT_TRUE(readSingleValue(op).isNull());
+
+  op = PlanBuilder()
+           .values({makeRowVector({values})})
+           .partialAggregation({}, {"approx_set(c0, 0.01)"})
+           .finalAggregation()
+           .project({"cardinality(a0)"})
+           .planNode();
+  EXPECT_TRUE(readSingleValue(op).isNull());
 }
 
 } // namespace

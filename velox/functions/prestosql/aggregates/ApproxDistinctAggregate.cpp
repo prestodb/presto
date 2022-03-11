@@ -144,7 +144,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       VELOX_CHECK(result);
       auto flatResult = (*result)->asFlatVector<int64_t>();
 
-      extract(
+      extract<true>(
           groups,
           numGroups,
           flatResult,
@@ -161,7 +161,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     VELOX_CHECK(result);
     auto flatResult = (*result)->asFlatVector<StringView>();
 
-    extract(
+    extract<false>(
         groups,
         numGroups,
         flatResult,
@@ -282,7 +282,10 @@ class ApproxDistinctAggregate : public exec::Aggregate {
   }
 
  private:
-  template <typename ExtractResult, typename ExtractFunc>
+  template <
+      bool convertNullToZero,
+      typename ExtractResult,
+      typename ExtractFunc>
   void extract(
       char** groups,
       int32_t numGroups,
@@ -300,7 +303,14 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     for (auto i = 0; i < numGroups; ++i) {
       char* group = groups[i];
       if (isNull(group)) {
-        result->setNull(i, true);
+        if constexpr (convertNullToZero) {
+          // This condition is for approx_distinct. approx_distinct is an
+          // approximation of count(distinct), hence, it makes sense for it to
+          // be consistent with count(distinct) which returns 0 for null input.
+          result->set(i, 0);
+        } else {
+          result->setNull(i, true);
+        }
       } else {
         if (rawNulls) {
           bits::clearBit(rawNulls, i);
