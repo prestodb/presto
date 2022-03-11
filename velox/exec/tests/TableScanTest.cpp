@@ -1627,8 +1627,18 @@ TEST_P(TableScanTest, aggregationPushdown) {
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, kTableScanTest, vectors);
   createDuckDbTable(vectors);
-  auto tableHandle = makeTableHandle(SubfieldFilters(), nullptr);
-  std::string query;
+  auto tableHandle = makeTableHandle(SubfieldFilters());
+
+  // Get the number of values processed via aggregation pushdown into scan.
+  auto loadedToValueHook = [](const std::shared_ptr<Task> task,
+                              int operatorIndex = 0) {
+    auto stats = task->taskStats()
+                     .pipelineStats[0]
+                     .operatorStats[operatorIndex]
+                     .runtimeStats;
+    auto it = stats.find("loadedToValueHook");
+    return it != stats.end() ? it->second.sum : 0;
+  };
 
   auto assignments = allRegularColumns(rowType_);
 
@@ -1638,30 +1648,39 @@ TEST_P(TableScanTest, aggregationPushdown) {
           .partialAggregation(
               {5}, {"max(c0)", "sum(c1)", "sum(c2)", "sum(c3)", "sum(c4)"})
           .planNode();
-  query =
-      "SELECT c5, max(c0), sum(c1), sum(c2), sum(c3), sum(c4) "
-      "FROM tmp group by c5";
-  assertQuery(op, {filePath}, query);
+
+  auto task = assertQuery(
+      op,
+      {filePath},
+      "SELECT c5, max(c0), sum(c1), sum(c2), sum(c3), sum(c4) FROM tmp group by c5");
+  // 5 aggregates processing 10K rows each via pushdown.
+  EXPECT_EQ(5 * 10'000, loadedToValueHook(task));
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
            .singleAggregation(
                {5}, {"max(c0)", "max(c1)", "max(c2)", "max(c3)", "max(c4)"})
            .planNode();
-  query =
-      "SELECT c5, max(c0), max(c1), max(c2), max(c3), max(c4) "
-      "FROM tmp group by c5";
-  assertQuery(op, {filePath}, query);
+
+  task = assertQuery(
+      op,
+      {filePath},
+      "SELECT c5, max(c0), max(c1), max(c2), max(c3), max(c4) FROM tmp group by c5");
+  // 5 aggregates processing 10K rows each via pushdown.
+  EXPECT_EQ(5 * 10'000, loadedToValueHook(task));
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
            .singleAggregation(
                {5}, {"min(c0)", "min(c1)", "min(c2)", "min(c3)", "min(c4)"})
            .planNode();
-  query =
-      "SELECT c5, min(c0), min(c1), min(c2), min(c3), min(c4) "
-      "FROM tmp group by c5";
-  assertQuery(op, {filePath}, query);
+
+  task = assertQuery(
+      op,
+      {filePath},
+      "SELECT c5, min(c0), min(c1), min(c2), min(c3), min(c4) FROM tmp group by c5");
+  // 5 aggregates processing 10K rows each via pushdown.
+  EXPECT_EQ(5 * 10'000, loadedToValueHook(task));
 
   // Pushdown should also happen if there is a FilterProject node that doesn't
   // touch columns being aggregated
@@ -1671,7 +1690,11 @@ TEST_P(TableScanTest, aggregationPushdown) {
            .singleAggregation({0}, {"sum(c1)"})
            .planNode();
 
-  assertQuery(op, {filePath}, "SELECT c0 % 5, sum(c1) FROM tmp group by 1");
+  task =
+      assertQuery(op, {filePath}, "SELECT c0 % 5, sum(c1) FROM tmp group by 1");
+  // LazyVector stats are reported on the closest operator upstream of the
+  // aggregation, e.g. project operator.
+  EXPECT_EQ(10'000, loadedToValueHook(task, 1));
 
   // Add remaining filter to scan to expose LazyVectors wrapped in Dictionary to
   // aggregation.
@@ -1681,8 +1704,13 @@ TEST_P(TableScanTest, aggregationPushdown) {
            .tableScan(rowType_, tableHandle, assignments)
            .singleAggregation({5}, {"max(c0)"})
            .planNode();
-  query = "SELECT c5, max(c0) FROM tmp WHERE length(c5) % 2 = 0 GROUP BY c5 ";
-  assertQuery(op, {filePath}, query);
+  task = assertQuery(
+      op,
+      {filePath},
+      "SELECT c5, max(c0) FROM tmp WHERE length(c5) % 2 = 0 GROUP BY c5");
+  // Values in rows that passed the filter should be aggregated via pushdown.
+  EXPECT_GT(loadedToValueHook(task), 0);
+  EXPECT_LT(loadedToValueHook(task), 10'000);
 
   // No pushdown if two aggregates use the same column or a column is not a
   // LazyVector
@@ -1691,26 +1719,29 @@ TEST_P(TableScanTest, aggregationPushdown) {
            .tableScan(rowType_, tableHandle, assignments)
            .singleAggregation({5}, {"min(c0)", "max(c0)"})
            .planNode();
-  assertQuery(
+  task = assertQuery(
       op, {filePath}, "SELECT c5, min(c0), max(c0) FROM tmp GROUP BY 1");
+  EXPECT_EQ(0, loadedToValueHook(task));
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
            .project({"c5", "c0", "c0 + c1 AS c0_plus_c1"})
            .singleAggregation({0}, {"min(c0)", "max(c0_plus_c1)"})
            .planNode();
-  assertQuery(
+  task = assertQuery(
       op, {filePath}, "SELECT c5, min(c0), max(c0 + c1) FROM tmp GROUP BY 1");
+  EXPECT_EQ(0, loadedToValueHook(task));
 
   op = PlanBuilder()
            .tableScan(rowType_, tableHandle, assignments)
            .project({"c5", "c0 + 1 as a", "c1 + 2 as b", "c2 + 3 as c"})
            .singleAggregation({0}, {"min(a)", "max(b)", "sum(c)"})
            .planNode();
-  assertQuery(
+  task = assertQuery(
       op,
       {filePath},
       "SELECT c5, min(c0 + 1), max(c1 + 2), sum(c2 + 3) FROM tmp GROUP BY 1");
+  EXPECT_EQ(0, loadedToValueHook(task));
 }
 
 TEST_P(TableScanTest, bitwiseAggregationPushdown) {
