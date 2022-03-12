@@ -22,7 +22,7 @@ import sys
 
 _FIND_BINARIES_CMD = "find %s -maxdepth 1 -type f -executable"
 _FIND_JSON_CMD = "find %s -maxdepth 1 -name '*.json' -type f"
-_BENCHMARK_CMD = "%s --bm_max_secs 10 --bm_epochs 100000"
+_BENCHMARK_CMD = "%s --bm_max_secs 10 --bm_max_trials 100000"
 _BENCHMARK_WITH_DUMP_CMD = _BENCHMARK_CMD + " --bm_json_verbose %s"
 
 _OUTPUT_NUM_COLS = 80
