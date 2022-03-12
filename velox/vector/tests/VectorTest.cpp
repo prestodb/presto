@@ -697,8 +697,8 @@ class VectorTest : public testing::Test {
             oddIndices.size() - oddIndices.size() / 2));
     std::stringstream evenStream;
     std::stringstream oddStream;
-    OutputStream eventOutputStream(&evenStream);
-    OutputStream oddOutputStream(&oddStream);
+    OStreamOutputStream eventOutputStream(&evenStream);
+    OStreamOutputStream oddOutputStream(&oddStream);
     even.flush(&eventOutputStream);
     odd.flush(&oddOutputStream);
     ByteStream input;

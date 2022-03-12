@@ -61,7 +61,7 @@ class PrestoSerializerTest : public ::testing::Test {
 
     serializer->append(rowVector, folly::Range(rows.data(), numRows));
     facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
-    OutputStream out(output, &listener);
+    OStreamOutputStream out(output, &listener);
     serializer->flush(&out);
   }
 

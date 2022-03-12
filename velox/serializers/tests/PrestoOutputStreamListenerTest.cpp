@@ -24,7 +24,7 @@ class PrestoOutputStreamListenerTest : public ::testing::Test {};
 TEST_F(PrestoOutputStreamListenerTest, basic) {
   std::stringstream out;
   serializer::presto::PrestoOutputStreamListener streamlListener;
-  auto os = std::make_unique<OutputStream>(&out, &streamlListener);
+  auto os = std::make_unique<OStreamOutputStream>(&out, &streamlListener);
 
   std::string str1 = "this";
   std::string str2 = "is";
