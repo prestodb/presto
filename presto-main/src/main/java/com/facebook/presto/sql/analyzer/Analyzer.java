@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -41,6 +42,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindow
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumns;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -108,7 +110,7 @@ public class Analyzer
                                 accessControlInfo.getIdentity(),
                                 session.getAccessControlContext(),
                                 tableName,
-                                columns)));
+                                columns.stream().map(column -> new Subfield(column)).collect(toImmutableSet()))));
     }
 
     static void verifyNoAggregateWindowOrGroupingFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager, Expression predicate, String clause)
