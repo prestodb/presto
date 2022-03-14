@@ -34,6 +34,10 @@ if(${VELOX_ENABLE_BENCHMARKS})
   add_subdirectory(benchmarks)
 endif()
 
+if(${VELOX_ENABLE_BENCHMARKS_BASIC})
+  add_subdirectory(benchmarks/basic)
+endif()
+
 if(${VELOX_ENABLE_EXPRESSION})
   add_subdirectory(expression)
 endif()

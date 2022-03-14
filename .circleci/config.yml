@@ -22,7 +22,7 @@ workflows:
       - macos-build
       - format-check
       - header-check
-      - linux-benchmarks
+      - linux-benchmarks-basic
 
   # Daily documentation update
   nightly:
@@ -193,7 +193,7 @@ jobs:
             cd _build/release && ctest -j 16 -VV --output-on-failure
           no_output_timeout: 1h
 
-  linux-benchmarks:
+  linux-benchmarks-basic:
     executor: build
     steps:
       - checkout
@@ -209,18 +209,18 @@ jobs:
           name: "Build Benchmarks - Baseline"
           command: |
             git checkout $(git merge-base origin/main HEAD)
-            mkdir -p benchmark-dumps/baseline benchmark-dumps/target
+            mkdir -p benchmark-basic-dumps/baseline benchmark-basic-dumps/target
             mkdir -p .ccache
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make benchmarks-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
       - run:
           name: "Run Benchmarks - Baseline"
           command: |
-            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-dumps/baseline
+            make benchmarks-basic-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-basic-dumps/baseline
       - run:
           name: "Build Benchmarks - Target"
           command: |
@@ -229,19 +229,19 @@ jobs:
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make benchmarks-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
       - run:
           name: "Run Benchmarks - Target"
           command: |
-            make benchmarks-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-dumps/target
+            make benchmarks-basic-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-basic-dumps/target
       - run:
           name: "Benchmarks Summary"
           command: |
             # We don't want to fail the CI job yet, until we ensure the numbers are stable.
             scripts/benchmark-runner.py compare \
-                --baseline-dump-path benchmark-dumps/baseline \
-                --target-dump-path benchmark-dumps/target || true
+                --baseline-dump-path benchmark-basic-dumps/baseline \
+                --target-dump-path benchmark-basic-dumps/target || true
       - store_artifacts:
           path: '_build/debug/.ninja_log'
       - save_cache:

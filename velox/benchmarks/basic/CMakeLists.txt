@@ -12,4 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(basic)
+add_executable(velox_benchmark_simple_arithmetic SimpleArithmetic.cpp)
+
+target_link_libraries(
+  velox_benchmark_simple_arithmetic
+  velox_type
+  velox_vector
+  velox_vector_fuzzer
+  velox_expression
+  velox_parse_parser
+  velox_serialization
+  ${FOLLY}
+  ${FOLLY_BENCHMARK}
+  ${DOUBLE_CONVERSION}
+  ${GTEST_BOTH_LIBRARIES}
+  ${gflags_LIBRARIES}
+  glog::glog)
