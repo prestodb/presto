@@ -173,6 +173,7 @@ import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.SparkErrorCode.UNSUPPORTED_STORAGE_TYPE;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
+import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
@@ -510,7 +511,7 @@ public class PrestoSparkQueryExecutionFactory
                 log.error(eventFailure, "Error publishing query immediate failure event");
             }
 
-            throw failureInfo.get().toFailure();
+            throw toPrestoSparkFailure(session, failureInfo.get());
         }
     }
 
@@ -1005,7 +1006,7 @@ public class PrestoSparkQueryExecutionFactory
                     log.error(eventFailure, "Error publishing query completed event");
                 }
 
-                throw failureInfo.get().toFailure();
+                throw toPrestoSparkFailure(session, failureInfo.get());
             }
 
             processShuffleStats();
