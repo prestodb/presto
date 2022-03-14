@@ -752,13 +752,14 @@ std::shared_ptr<Task> assertQuery(
   }
   auto task = cursor->task();
 
-  if (!task->isFinished()) {
+  if (not task->isFinished()) {
     // The Task can return results before the Driver is finished executing.
     // Wait for the Task to finish before returning it to ensure it's stable
     // e.g. the Driver isn't updating it anymore.
     auto& executor = folly::QueuedImmediateExecutor::instance();
-    auto future = task->finishFuture().via(&executor);
+    auto future = task->stateChangeFuture(1'000'000).via(&executor);
     future.wait();
+    EXPECT_TRUE(task->isFinished());
   }
 
   return task;
