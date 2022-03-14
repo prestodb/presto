@@ -15,6 +15,7 @@
  */
 #include "velox/duckdb/conversion/DuckParser.h"
 #include <gtest/gtest.h>
+#include "velox/core/PlanNode.h"
 #include "velox/parse/Expressions.h"
 
 using namespace facebook::velox;
@@ -295,4 +296,24 @@ TEST(DuckParserTest, like) {
   EXPECT_EQ(
       "like(\"name\",\"%#_%\",\"#\")",
       parseExpr("name LIKE '%#_%' ESCAPE '#'")->toString());
+}
+
+TEST(DuckParserTest, orderBy) {
+  auto parse = [](const auto& expr) {
+    auto orderBy = parseOrderByExpr(expr);
+    return fmt::format(
+        "{} {}", orderBy.first->toString(), orderBy.second.toString());
+  };
+
+  EXPECT_EQ("\"c1\" ASC NULLS LAST", parse("c1"));
+  EXPECT_EQ("\"c1\" ASC NULLS LAST", parse("c1 ASC"));
+  EXPECT_EQ("\"c1\" DESC NULLS LAST", parse("c1 DESC"));
+
+  EXPECT_EQ("\"c1\" ASC NULLS FIRST", parse("c1 NULLS FIRST"));
+  EXPECT_EQ("\"c1\" ASC NULLS LAST", parse("c1 NULLS LAST"));
+
+  EXPECT_EQ("\"c1\" ASC NULLS FIRST", parse("c1 ASC NULLS FIRST"));
+  EXPECT_EQ("\"c1\" ASC NULLS LAST", parse("c1 ASC NULLS LAST"));
+  EXPECT_EQ("\"c1\" DESC NULLS FIRST", parse("c1 DESC NULLS FIRST"));
+  EXPECT_EQ("\"c1\" DESC NULLS LAST", parse("c1 DESC NULLS LAST"));
 }

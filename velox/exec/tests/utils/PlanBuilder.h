@@ -254,10 +254,15 @@ class PlanBuilder {
       const std::vector<core::SortOrder>& sortOrder,
       std::vector<std::shared_ptr<const core::PlanNode>> sources);
 
-  PlanBuilder& orderBy(
-      const std::vector<ChannelIndex>& keyIndices,
-      const std::vector<core::SortOrder>& sortOrder,
-      bool isPartial);
+  /// Adds an OrderByNode using specified ORDER BY clauses.
+  ///
+  /// For example,
+  ///
+  ///     .orderBy({"a", "b DESC", "c ASC NULLS FIRST"})
+  ///
+  /// By default, uses ASC NULLS LAST sort order, e.g. column "a" above will use
+  /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
+  PlanBuilder& orderBy(const std::vector<std::string>& keys, bool isPartial);
 
   PlanBuilder& topN(
       const std::vector<ChannelIndex>& keyIndices,

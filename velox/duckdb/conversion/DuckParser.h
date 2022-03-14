@@ -20,6 +20,7 @@
 
 namespace facebook::velox::core {
 class IExpr;
+class SortOrder;
 } // namespace facebook::velox::core
 
 namespace facebook::velox::duckdb {
@@ -32,5 +33,11 @@ namespace facebook::velox::duckdb {
 // containing upper case letters (e.g: "concatRow" will be parsed as
 // "concatrow").
 std::shared_ptr<const core::IExpr> parseExpr(const std::string& exprString);
+
+// Parses an ORDER BY clause using DuckDB's internal postgresql-based parser,
+// converting it to a pair of an IExpr tree and a core::SortOrder. Uses ASC
+// NULLS LAST as the default sort order.
+std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
+    const std::string& exprString);
 
 } // namespace facebook::velox::duckdb

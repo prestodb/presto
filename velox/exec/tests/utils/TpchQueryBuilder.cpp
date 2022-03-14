@@ -175,29 +175,28 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
                "count(0)"})
           .planNode();
 
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .localPartition({}, {partialAggStage})
-          .finalAggregation(
-              {0, 1},
-              {"sum(a0)",
-               "sum(a1)",
-               "sum(a2)",
-               "sum(a3)",
-               "avg(a4)",
-               "avg(a5)",
-               "avg(a6)",
-               "count(a7)"},
-              {DOUBLE(),
-               DOUBLE(),
-               DOUBLE(),
-               DOUBLE(),
-               DOUBLE(),
-               DOUBLE(),
-               DOUBLE(),
-               BIGINT()})
-          .orderBy({0, 1}, {core::kAscNullsLast, core::kAscNullsLast}, false)
-          .planNode();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .localPartition({}, {partialAggStage})
+                  .finalAggregation(
+                      {0, 1},
+                      {"sum(a0)",
+                       "sum(a1)",
+                       "sum(a2)",
+                       "sum(a3)",
+                       "avg(a4)",
+                       "avg(a5)",
+                       "avg(a6)",
+                       "count(a7)"},
+                      {DOUBLE(),
+                       DOUBLE(),
+                       DOUBLE(),
+                       DOUBLE(),
+                       DOUBLE(),
+                       DOUBLE(),
+                       DOUBLE(),
+                       BIGINT()})
+                  .orderBy({"l_returnflag", "l_linestatus"}, false)
+                  .planNode();
 
   TpchPlan context;
   context.plan = std::move(plan);

@@ -38,25 +38,28 @@ class MergeTest : public OperatorTestBase {
       const auto sql = fmt::format(
           "SELECT * FROM tmp ORDER BY {} {}", key, sortOrderSqls[i]);
       auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-      auto plan = PlanBuilder(planNodeIdGenerator)
-                      .localMerge(
-                          {keyIndex},
-                          {sortOrder},
-                          {PlanBuilder(planNodeIdGenerator)
-                               .values(input)
-                               .orderBy({keyIndex}, {sortOrder}, true)
-                               .planNode()})
-                      .planNode();
+      auto plan =
+          PlanBuilder(planNodeIdGenerator)
+              .localMerge(
+                  {keyIndex},
+                  {sortOrder},
+                  {PlanBuilder(planNodeIdGenerator)
+                       .values(input)
+                       .orderBy(
+                           {fmt::format("{} {}", key, sortOrderSqls[i])}, true)
+                       .planNode()})
+              .planNode();
 
       assertQueryOrdered(plan, sql, {keyIndex});
 
       // Use multiple sources for local merge.
       std::vector<std::shared_ptr<const core::PlanNode>> sources;
       for (auto j = 0; j < input.size(); j++) {
-        sources.push_back(PlanBuilder(planNodeIdGenerator)
-                              .values({input[j]})
-                              .orderBy({keyIndex}, {sortOrder}, true)
-                              .planNode());
+        sources.push_back(
+            PlanBuilder(planNodeIdGenerator)
+                .values({input[j]})
+                .orderBy({fmt::format("{} {}", key, sortOrderSqls[i])}, true)
+                .planNode());
       }
       plan = PlanBuilder(planNodeIdGenerator)
                  .localMerge({keyIndex}, {sortOrder}, std::move(sources))
@@ -98,7 +101,9 @@ class MergeTest : public OperatorTestBase {
                     {PlanBuilder(planNodeIdGenerator)
                          .values(input)
                          .orderBy(
-                             sortingKeys, {sortOrders[i], sortOrders[j]}, true)
+                             {fmt::format("{} {}", key1, sortOrderSqls[i]),
+                              fmt::format("{} {}", key2, sortOrderSqls[j])},
+                             true)
                          .planNode()})
                 .planNode();
 
@@ -110,7 +115,10 @@ class MergeTest : public OperatorTestBase {
           sources.push_back(
               PlanBuilder(planNodeIdGenerator)
                   .values({input[k]})
-                  .orderBy(sortingKeys, {sortOrders[i], sortOrders[j]}, true)
+                  .orderBy(
+                      {fmt::format("{} {}", key1, sortOrderSqls[i]),
+                       fmt::format("{} {}", key2, sortOrderSqls[j])},
+                      true)
                   .planNode());
         }
         plan = PlanBuilder(planNodeIdGenerator)

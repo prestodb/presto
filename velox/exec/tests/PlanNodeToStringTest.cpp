@@ -263,18 +263,17 @@ TEST_F(PlanNodeToStringTest, crossJoin) {
 TEST_F(PlanNodeToStringTest, orderBy) {
   auto plan = PlanBuilder()
                   .values({data_})
-                  .orderBy({1}, {core::kAscNullsFirst}, true)
+                  .orderBy({"c1 ASC NULLS FIRST"}, true)
                   .planNode();
 
   ASSERT_EQ("-> OrderBy\n", plan->toString());
   ASSERT_EQ(
       "-> OrderBy[PARTIAL c1 ASC NULLS FIRST]\n", plan->toString(true, false));
 
-  plan =
-      PlanBuilder()
-          .values({data_})
-          .orderBy({1, 0}, {core::kAscNullsFirst, core::kDescNullsLast}, false)
-          .planNode();
+  plan = PlanBuilder()
+             .values({data_})
+             .orderBy({"c1 ASC NULLS FIRST", "c0 DESC NULLS LAST"}, false)
+             .planNode();
 
   ASSERT_EQ("-> OrderBy\n", plan->toString());
   ASSERT_EQ(

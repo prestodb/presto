@@ -28,7 +28,7 @@ class OrderByTest : public OperatorTestBase {
     auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
     auto plan = PlanBuilder()
                     .values(input)
-                    .orderBy({keyIndex}, {core::kAscNullsLast}, false)
+                    .orderBy({fmt::format("{} ASC NULLS LAST", key)}, false)
                     .planNode();
 
     assertQueryOrdered(
@@ -38,7 +38,7 @@ class OrderByTest : public OperatorTestBase {
 
     plan = PlanBuilder()
                .values(input)
-               .orderBy({keyIndex}, {core::kDescNullsFirst}, false)
+               .orderBy({fmt::format("{} DESC NULLS FIRST", key)}, false)
                .planNode();
 
     assertQueryOrdered(
@@ -55,7 +55,7 @@ class OrderByTest : public OperatorTestBase {
     auto plan = PlanBuilder()
                     .values(input)
                     .filter(filter)
-                    .orderBy({keyIndex}, {core::kAscNullsLast}, false)
+                    .orderBy({fmt::format("{} ASC NULLS LAST", key)}, false)
                     .planNode();
 
     assertQueryOrdered(
@@ -67,7 +67,7 @@ class OrderByTest : public OperatorTestBase {
     plan = PlanBuilder()
                .values(input)
                .filter(filter)
-               .orderBy({keyIndex}, {core::kDescNullsFirst}, false)
+               .orderBy({fmt::format("{} DESC NULLS FIRST", key)}, false)
                .planNode();
 
     assertQueryOrdered(
@@ -92,11 +92,13 @@ class OrderByTest : public OperatorTestBase {
 
     for (int i = 0; i < sortOrders.size(); i++) {
       for (int j = 0; j < sortOrders.size(); j++) {
-        auto plan =
-            PlanBuilder()
-                .values(input)
-                .orderBy(keyIndices, {sortOrders[i], sortOrders[j]}, false)
-                .planNode();
+        auto plan = PlanBuilder()
+                        .values(input)
+                        .orderBy(
+                            {fmt::format("{} {}", key1, sortOrderSqls[i]),
+                             fmt::format("{} {}", key2, sortOrderSqls[j])},
+                            false)
+                        .planNode();
 
         assertQueryOrdered(
             plan,
@@ -154,7 +156,7 @@ TEST_F(OrderByTest, singleKey) {
 
   auto plan = PlanBuilder()
                   .values(vectors)
-                  .orderBy({0}, {core::kDescNullsLast}, false)
+                  .orderBy({"c0 DESC NULLS LAST"}, false)
                   .planNode();
 
   assertQueryOrdered(
@@ -162,7 +164,7 @@ TEST_F(OrderByTest, singleKey) {
 
   plan = PlanBuilder()
              .values(vectors)
-             .orderBy({0}, {core::kAscNullsFirst}, false)
+             .orderBy({"c0 ASC NULLS FIRST"}, false)
              .planNode();
 
   assertQueryOrdered(plan, "SELECT * FROM tmp ORDER BY c0 NULLS FIRST", {0});
@@ -185,20 +187,18 @@ TEST_F(OrderByTest, multipleKeys) {
 
   testTwoKeys(vectors, "c0", "c1");
 
-  auto plan =
-      PlanBuilder()
-          .values(vectors)
-          .orderBy({0, 1}, {core::kAscNullsFirst, core::kAscNullsLast}, false)
-          .planNode();
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .orderBy({"c0 ASC NULLS FIRST", "c1 ASC NULLS LAST"}, false)
+                  .planNode();
 
   assertQueryOrdered(
       plan, "SELECT * FROM tmp ORDER BY c0 NULLS FIRST, c1 NULLS LAST", {0, 1});
 
-  plan =
-      PlanBuilder()
-          .values(vectors)
-          .orderBy({0, 1}, {core::kDescNullsLast, core::kDescNullsFirst}, false)
-          .planNode();
+  plan = PlanBuilder()
+             .values(vectors)
+             .orderBy({"c0 DESC NULLS LAST", "c1 DESC NULLS FIRST"}, false)
+             .planNode();
 
   assertQueryOrdered(
       plan,
@@ -258,7 +258,7 @@ TEST_F(OrderByTest, unknown) {
 
   auto plan = PlanBuilder()
                   .values({vector})
-                  .orderBy({0}, {core::kDescNullsLast}, false)
+                  .orderBy({"c0 DESC NULLS LAST"}, false)
                   .planNode();
 
   assertQueryOrdered(
