@@ -137,11 +137,6 @@ void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,
     uint32_t concurrentSplitGroups) {
-  if (concurrentSplitGroups > 1) {
-    VELOX_CHECK(
-        self->isGroupedExecution(),
-        "concurrentSplitGroups parameter applies only to grouped execution");
-  }
   VELOX_CHECK_GE(
       maxDrivers, 1, "maxDrivers parameter must be greater then or equal to 1");
   VELOX_CHECK_GE(
