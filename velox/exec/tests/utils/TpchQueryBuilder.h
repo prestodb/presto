@@ -82,6 +82,7 @@ class TpchQueryBuilder {
  private:
   TpchPlan getQ1Plan() const;
   TpchPlan getQ6Plan() const;
+  TpchPlan getQ18Plan() const;
 
   const std::vector<std::string>& getTableFilePaths(
       const std::string& tableName) const {
@@ -102,6 +103,15 @@ class TpchQueryBuilder {
       aliases.push_back(getColumnAlias(tableName, name));
     }
     return aliases;
+  }
+
+  std::shared_ptr<const RowType> getRowType(
+      const std::string& tableName,
+      const std::vector<std::string>& columnNames) const {
+    const auto aliases = getColumnAliases(tableName, columnNames);
+    auto columnSelector = std::make_shared<dwio::common::ColumnSelector>(
+        tableMetadata_.at(tableName).type, aliases);
+    return columnSelector->buildSelectedReordered();
   }
 
   std::vector<std::string> getProjectColumnAliases(

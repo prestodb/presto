@@ -23,6 +23,8 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 
+#include <vector>
+
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
@@ -43,6 +45,7 @@ class ParquetTpchTest : public testing::Test {
     parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
     parquet::registerParquetReaderFactory();
+
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
@@ -104,6 +107,18 @@ class ParquetTpchTest : public testing::Test {
     return exec::test::assertQuery(params, addSplits, duckQuery, *duckDb_);
   }
 
+  void assertQuery(
+      int queryId,
+      const int expectedPipelineCount,
+      const int expectedFinishedSplits) const {
+    auto tpchPlan = tpchBuilder_.getQueryPlan(queryId);
+    auto duckDbSql = duckDb_->getTpchQuery(queryId);
+    auto task = assertQuery(tpchPlan, duckDbSql);
+    const auto& stats = task->taskStats();
+    ASSERT_EQ(expectedPipelineCount, stats.pipelineStats.size());
+    ASSERT_EQ(expectedFinishedSplits, stats.numFinishedSplits);
+  }
+
   static std::shared_ptr<DuckDbQueryRunner> duckDb_;
   static std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
   static TpchQueryBuilder tpchBuilder_;
@@ -114,35 +129,37 @@ std::shared_ptr<DuckDbQueryRunner> ParquetTpchTest::duckDb_ = nullptr;
 std::shared_ptr<exec::test::TempDirectoryPath> ParquetTpchTest::tempDirectory_ =
     nullptr;
 TpchQueryBuilder ParquetTpchTest::tpchBuilder_(
-    facebook::velox::dwio::common::FileFormat::PARQUET);
+    dwio::common::FileFormat::PARQUET);
+
 std::unordered_map<std::string, std::string>
-    ParquetTpchTest::duckDbParquetWriteSQL_ = {std::make_pair(
-        "lineitem",
-        R"(COPY (SELECT l_orderkey, l_partkey, l_suppkey, l_linenumber,
+    ParquetTpchTest::duckDbParquetWriteSQL_ = {
+        std::make_pair(
+            "lineitem",
+            R"(COPY (SELECT l_orderkey, l_partkey, l_suppkey, l_linenumber,
         l_quantity::DOUBLE as l_quantity, l_extendedprice::DOUBLE as l_extendedprice, l_discount::DOUBLE as l_discount,
         l_tax::DOUBLE as l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate,
-        l_shipinstruct, l_shipmode, l_comment FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))")};
+        l_shipinstruct, l_shipmode, l_comment FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
+        std::make_pair(
+            "orders",
+            R"(COPY (SELECT o_orderkey, o_custkey, o_orderstatus,
+        o_totalprice::DOUBLE as o_totalprice,
+        o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment
+        FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
+        std::make_pair(
+            "customer",
+            R"(COPY (SELECT c_custkey, c_name, c_address, c_nationkey, c_phone,
+        c_acctbal::DOUBLE as c_acctbal, c_mktsegment, c_comment
+        FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
+};
 
-TEST_F(ParquetTpchTest, q1) {
-  auto tpchPlan = tpchBuilder_.getQueryPlan(1);
-  auto duckDbSql = duckDb_->getTpchQuery(1);
-  auto task = assertQuery(tpchPlan, duckDbSql);
-
-  const auto& stats = task->taskStats();
-  // There should be two pipelines.
-  ASSERT_EQ(2, stats.pipelineStats.size());
-  // We used the default of 10 splits per file.
-  ASSERT_EQ(10, stats.numFinishedSplits);
+TEST_F(ParquetTpchTest, Q1) {
+  assertQuery(1, 2, 10);
 }
 
-TEST_F(ParquetTpchTest, q6) {
-  auto tpchPlan = tpchBuilder_.getQueryPlan(6);
-  auto duckDbSql = duckDb_->getTpchQuery(6);
-  auto task = assertQuery(tpchPlan, duckDbSql);
+TEST_F(ParquetTpchTest, Q6) {
+  assertQuery(6, 2, 10);
+}
 
-  const auto& stats = task->taskStats();
-  // There should be two pipelines
-  ASSERT_EQ(2, stats.pipelineStats.size());
-  // We used the default of 10 splits
-  ASSERT_EQ(10, stats.numFinishedSplits);
+TEST_F(ParquetTpchTest, Q18) {
+  assertQuery(18, 5, 30);
 }
