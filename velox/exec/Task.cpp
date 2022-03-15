@@ -1321,23 +1321,11 @@ StopReason Task::shouldStop() {
   return StopReason::kNone;
 }
 
-folly::SemiFuture<bool> Task::finishFuture() {
-  auto [promise, future] =
-      makeVeloxPromiseContract<bool>("CancelPool::finishFuture");
-  std::lock_guard<std::mutex> l(mutex_);
-  if (numThreads_ == 0) {
-    promise.setValue(true);
-    return std::move(future);
-  }
-  finishPromises_.push_back(std::move(promise));
-  return std::move(future);
-}
-
 void Task::finished() {
-  for (auto& promise : finishPromises_) {
+  for (auto& promise : pausePromises_) {
     promise.setValue(true);
   }
-  finishPromises_.clear();
+  pausePromises_.clear();
 }
 
 StopReason Task::shouldStopLocked() {
@@ -1354,4 +1342,15 @@ StopReason Task::shouldStopLocked() {
   return StopReason::kNone;
 }
 
+ContinueFuture Task::requestPauseLocked(bool pause) {
+  pauseRequested_ = pause;
+
+  auto [promise, future] = makeVeloxPromiseContract<bool>("Task::requestPause");
+  if (numThreads_ == 0) {
+    promise.setValue(true);
+    return std::move(future);
+  }
+  pausePromises_.push_back(std::move(promise));
+  return std::move(future);
+}
 } // namespace facebook::velox::exec

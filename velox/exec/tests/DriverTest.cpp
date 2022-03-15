@@ -191,9 +191,8 @@ class DriverTest : public OperatorTestBase {
         } else if (operation == ResultOperation::kYield) {
           cursor->task()->requestYield();
         } else if (operation == ResultOperation::kPause) {
-          cursor->task()->requestPause(true);
           auto& executor = folly::QueuedImmediateExecutor::instance();
-          auto future = cursor->task()->finishFuture().via(&executor);
+          auto future = cursor->task()->requestPause(true).via(&executor);
           future.wait();
           paused = true;
         }
@@ -357,7 +356,7 @@ TEST_F(DriverTest, cancel) {
   }
   EXPECT_GE(numRead, 1'000'000);
   auto& executor = folly::QueuedImmediateExecutor::instance();
-  auto future = tasks_[0]->finishFuture().via(&executor);
+  auto future = tasks_[0]->stateChangeFuture(1'000'000).via(&executor);
   future.wait();
   EXPECT_TRUE(stateFutures_.at(0).isReady());
   EXPECT_EQ(tasks_[0]->numRunningDrivers(), 0);
@@ -402,7 +401,7 @@ TEST_F(DriverTest, slow) {
   // are updated some tens of instructions after this. Determinism
   // requires a barrier.
   auto& executor = folly::QueuedImmediateExecutor::instance();
-  auto future = tasks_[0]->finishFuture().via(&executor);
+  auto future = tasks_[0]->stateChangeFuture(1'000'000).via(&executor);
   future.wait();
   // Note that the driver count drops after the last thread stops and
   // realizes the future.
@@ -543,7 +542,7 @@ class TestingPauser : public Operator {
       sleep(1);
       if (counter_ % 7 == 0) {
         // Every 7th time, stop and resume other Tasks. This operation is
-        // globally serilized.
+        // globally serialized.
         std::lock_guard<std::mutex> l(pauseMutex_);
 
         for (auto i = 0; i <= counter_ % 3; ++i) {
@@ -551,9 +550,8 @@ class TestingPauser : public Operator {
           if (!task) {
             continue;
           }
-          task->requestPause(true);
           auto& executor = folly::QueuedImmediateExecutor::instance();
-          auto future = task->finishFuture().via(&executor);
+          auto future = task->requestPause(true).via(&executor);
           future.wait();
           sleep(2);
           Task::resume(task);

@@ -378,7 +378,7 @@ class Task : public std::enable_shared_from_this<Task> {
   StopReason enterForTerminateLocked(ThreadState& state);
 
   // Marks that the Driver is not on thread. If no more Drivers in the
-  // CancelPool are on thread, this realizes any finishFutures. The
+  // CancelPool are on thread, this realizes requestPause futures. The
   // Driver may go off thread because of hasBlockingFuture or pause
   // requested or terminate requested. The return value indicates the
   // reason. If kTerminate is returned, the isTerminated flag is set.
@@ -399,14 +399,12 @@ class Task : public std::enable_shared_from_this<Task> {
   // are to yield.
   StopReason shouldStop();
 
-  void requestPause(bool pause) {
+  ContinueFuture requestPause(bool pause) {
     std::lock_guard<std::mutex> l(mutex_);
-    requestPauseLocked(pause);
+    return requestPauseLocked(pause);
   }
 
-  void requestPauseLocked(bool pause) {
-    pauseRequested_ = pause;
-  }
+  ContinueFuture requestPauseLocked(bool pause);
 
   void requestTerminate() {
     std::lock_guard<std::mutex> l(mutex_);
@@ -424,11 +422,6 @@ class Task : public std::enable_shared_from_this<Task> {
   bool pauseRequested() const {
     return pauseRequested_;
   }
-
-  // Returns a future that is completed when all threads have acknowledged
-  // terminate or pause. If the future is realized there is no running activity
-  // on behalf of threads that have entered 'this'.
-  folly::SemiFuture<bool> finishFuture();
 
   std::mutex& mutex() {
     return mutex_;
@@ -607,15 +600,15 @@ class Task : public std::enable_shared_from_this<Task> {
 
   // Thread counts and cancellation -related state.
   //
-  // Some of the below are declared atomic for tsan because they are
+  // Some of the variables below are declared atomic for tsan because they are
   // sometimes tested outside of 'mutex_' for a value of 0/false,
-  // which is safe to access without acquiring 'nutex_'.Thread counts
+  // which is safe to access without acquiring 'mutex_'.Thread counts
   // and promises are guarded by 'mutex_'
   std::atomic<bool> pauseRequested_{false};
   std::atomic<bool> terminateRequested_{false};
   std::atomic<int32_t> toYield_ = 0;
   int32_t numThreads_ = 0;
-  std::vector<VeloxPromise<bool>> finishPromises_;
+  std::vector<VeloxPromise<bool>> pausePromises_;
 };
 
 } // namespace facebook::velox::exec
