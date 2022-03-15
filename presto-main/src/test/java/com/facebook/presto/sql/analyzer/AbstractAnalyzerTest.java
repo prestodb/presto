@@ -34,7 +34,6 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -54,6 +53,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingWarningCollector;
 import com.facebook.presto.testing.TestingWarningCollectorConfig;
@@ -129,7 +129,7 @@ public class AbstractAnalyzerTest
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager);
+        accessControl = new TestingAccessControlManager(transactionManager);
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
 
@@ -245,6 +245,19 @@ public class AbstractAnalyzerTest
                                                 new RowType.Field(Optional.of("z"), DOUBLE))))))),
                         new ColumnMetadata("c", RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("d"), BIGINT)))))),
+                false));
+
+        // table with nested arrays, structs
+        SchemaTableName table11 = new SchemaTableName("s1", "t11");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table11, ImmutableList.of(
+                        new ColumnMetadata("a", new ArrayType(RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("x"), BIGINT),
+                                new RowType.Field(Optional.of("y"), BIGINT))))),
+                        new ColumnMetadata("b", RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("w"), BIGINT),
+                                new RowType.Field(Optional.of("x"),
+                                        new ArrayType(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("y"), BIGINT))))))))))),
                 false));
 
         // valid view referencing table in same schema
