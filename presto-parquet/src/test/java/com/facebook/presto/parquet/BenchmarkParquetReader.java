@@ -273,13 +273,13 @@ public class BenchmarkParquetReader
                 throws IOException
         {
             FileParquetDataSource dataSource = new FileParquetDataSource(file);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, file.length()).getParquetMetadata();
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, file.length(), Optional.empty()).getParquetMetadata();
             MessageType schema = parquetMetadata.getFileMetaData().getSchema();
             MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
 
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification, null, null, false);
+            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification, null, null, false, Optional.empty());
         }
 
         protected boolean getNullability()
