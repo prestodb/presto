@@ -54,11 +54,14 @@ class CoalesceFunction : public exec::VectorFunction {
       } else {
         *copyRows = *activeRows;
         copyRows->deselectNulls(rawNulls, 0, activeRows->end());
-        (*result)->copy(arg.get(), *copyRows, nullptr);
+        if (copyRows->hasSelections()) {
+          (*result)->copy(arg.get(), *copyRows, nullptr);
+        } else {
+          continue;
+        }
       }
 
       activeRows->deselectNonNulls(rawNulls, 0, activeRows->end());
-      activeRows->updateBounds();
       if (!activeRows->hasSelections()) {
         // no nulls left
         return;
