@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DoubleType;
@@ -580,11 +581,11 @@ class StatementAnalyzer
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
 
             // user must have read and insert permission in order to analyze stats of a table
-            analysis.addTableColumnReferences(
+            analysis.addTableColumnAndSubfieldReferences(
                     accessControl,
                     session.getIdentity(),
-                    ImmutableMultimap.<QualifiedObjectName, String>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                    ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
+                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(Subfield::new).collect(toImmutableSet()))
                             .build());
             try {
                 accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
@@ -1850,16 +1851,16 @@ class StatementAnalyzer
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(leftField.get()));
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
                 if (leftField.get().getField().getOriginTable().isPresent() && leftField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnReferences(
+                    analysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), leftField.get().getField().getOriginColumnName().get()));
+                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get())));
                 }
                 if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnReferences(
+                    analysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), rightField.get().getField().getOriginColumnName().get()));
+                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get())));
                 }
             }
 

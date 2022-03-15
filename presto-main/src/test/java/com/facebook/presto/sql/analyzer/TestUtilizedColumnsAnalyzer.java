@@ -488,6 +488,14 @@ public class TestUtilizedColumnsAnalyzer
     }
 
     @Test
+    public void testDereference()
+    {
+        assertUtilizedTableColumns(
+                "SELECT b.x.y FROM t10",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t10"), ImmutableSet.of("b")));
+    }
+
+    @Test
     public void testNoPruningWhenShortCircuited()
     {
         // Should not prune even if conditional is constant
