@@ -18,23 +18,32 @@ import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.DictionaryPage;
 import io.airlift.slice.Slice;
+import org.apache.parquet.crypto.AesCipher;
+import org.apache.parquet.crypto.ModuleCipherFactory;
+import org.apache.parquet.format.BlockCipher;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
 import java.util.LinkedList;
+import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 
 public class PageReader
 {
-    private final CompressionCodecName codec;
     private final long valueCount;
     private final LinkedList<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
     private final OffsetIndex offsetIndex;
+    private final Optional<BlockCipher.Decryptor> blockDecryptor;
     private int pageIndex;
+    private byte[] dataPageAdditionalAuthenticationData;
+    private byte[] dictionaryPageAdditionalAuthenticationData;
+
+    protected final CompressionCodecName codec;
 
     /**
      * @param compressedPages This parameter will be mutated destructively as {@link DataPage} entries are removed as part of {@link #readPage()}. The caller
@@ -45,13 +54,17 @@ public class PageReader
             DictionaryPage compressedDictionaryPage)
             throws IOException
     {
-        this(codec, compressedPages, compressedDictionaryPage, null);
+        this(codec, compressedPages, compressedDictionaryPage, null, Optional.empty(), null, -1, -1);
     }
 
     public PageReader(CompressionCodecName codec,
                       LinkedList<DataPage> compressedPages,
                       DictionaryPage compressedDictionaryPage,
-                      OffsetIndex offsetIndex)
+                      OffsetIndex offsetIndex,
+                      Optional<BlockCipher.Decryptor> blockDecryptor,
+                      byte[] fileAdditionalAuthenticationData,
+                      int rowGroupOrdinal,
+                      int columnOrdinal)
     {
         this.codec = codec;
         this.compressedPages = compressedPages;
@@ -63,6 +76,11 @@ public class PageReader
         this.valueCount = count;
         this.offsetIndex = offsetIndex;
         this.pageIndex = 0;
+        this.blockDecryptor = blockDecryptor;
+        if (blockDecryptor.isPresent()) {
+            dataPageAdditionalAuthenticationData = AesCipher.createModuleAAD(fileAdditionalAuthenticationData, ModuleCipherFactory.ModuleType.DataPage, rowGroupOrdinal, columnOrdinal, 0);
+            dictionaryPageAdditionalAuthenticationData = AesCipher.createModuleAAD(fileAdditionalAuthenticationData, ModuleCipherFactory.ModuleType.DictionaryPage, rowGroupOrdinal, columnOrdinal, -1);
+        }
     }
 
     public long getTotalValueCount()
@@ -75,13 +93,17 @@ public class PageReader
         if (compressedPages.isEmpty()) {
             return null;
         }
-        DataPage compressedPage = compressedPages.removeFirst();
+        if (blockDecryptor.isPresent()) {
+            AesCipher.quickUpdatePageAAD(dataPageAdditionalAuthenticationData, pageIndex);
+        }
+        DataPage compressedPage = compressedPages.remove(0);
         try {
+            Slice slice = decryptSliceIfNeeded(compressedPage.getSlice(), dataPageAdditionalAuthenticationData);
             long firstRowIndex = getFirstRowIndex(pageIndex, offsetIndex);
             pageIndex = pageIndex + 1;
             if (compressedPage instanceof DataPageV1) {
                 DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
-                Slice slice = decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize());
+                slice = decompress(codec, slice, dataPageV1.getUncompressedSize());
                 return new DataPageV1(
                         slice,
                         dataPageV1.getValueCount(),
@@ -100,7 +122,7 @@ public class PageReader
                 int uncompressedSize = toIntExact(dataPageV2.getUncompressedSize()
                         - dataPageV2.getDefinitionLevels().length()
                         - dataPageV2.getRepetitionLevels().length());
-                Slice slice = decompress(codec, dataPageV2.getSlice(), uncompressedSize);
+                slice = decompress(codec, slice, uncompressedSize);
                 return new DataPageV2(
                         dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),
@@ -126,8 +148,9 @@ public class PageReader
             return null;
         }
         try {
+            Slice slice = decryptSliceIfNeeded(compressedDictionaryPage.getSlice(), dictionaryPageAdditionalAuthenticationData);
             return new DictionaryPage(
-                    decompress(codec, compressedDictionaryPage.getSlice(), compressedDictionaryPage.getUncompressedSize()),
+                    decompress(codec, slice, compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
                     compressedDictionaryPage.getEncoding());
         }
@@ -139,5 +162,16 @@ public class PageReader
     public static long getFirstRowIndex(int pageIndex, OffsetIndex offsetIndex)
     {
         return offsetIndex == null ? -1 : offsetIndex.getFirstRowIndex(pageIndex);
+    }
+
+    // additional authenticated data for AES cipher
+    private Slice decryptSliceIfNeeded(Slice slice, byte[] additionalAuthenticationData)
+            throws IOException
+    {
+        if (!blockDecryptor.isPresent()) {
+            return slice;
+        }
+        byte[] plainText = blockDecryptor.get().decrypt(slice.getBytes(), additionalAuthenticationData);
+        return wrappedBuffer(plainText);
     }
 }
