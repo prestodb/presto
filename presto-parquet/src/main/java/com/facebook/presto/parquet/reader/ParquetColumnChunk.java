@@ -22,17 +22,26 @@ import com.facebook.presto.parquet.cache.MetadataReader;
 import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.EncodingStats;
+import org.apache.parquet.crypto.AesCipher;
+import org.apache.parquet.crypto.InternalColumnDecryptionSetup;
+import org.apache.parquet.crypto.InternalFileDecryptor;
+import org.apache.parquet.crypto.ModuleCipherFactory.ModuleType;
+import org.apache.parquet.format.BlockCipher;
 import org.apache.parquet.format.DataPageHeader;
 import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -68,21 +77,43 @@ public class ParquetColumnChunk
         return descriptor;
     }
 
-    protected PageHeader readPageHeader()
+    protected PageHeader readPageHeader(BlockCipher.Decryptor headerBlockDecryptor, byte[] pageHeaderAAD)
             throws IOException
     {
-        return Util.readPageHeader(stream);
+        return Util.readPageHeader(stream, headerBlockDecryptor, pageHeaderAAD);
     }
 
-    public PageReader readAllPages()
+    public PageReader readAllPages(InternalFileDecryptor fileDecryptor, int rowGroupOrdinal, int columnOrdinal)
             throws IOException
     {
         LinkedList<DataPage> pages = new LinkedList<>();
         DictionaryPage dictionaryPage = null;
         long valueCount = 0;
         int dataPageCount = 0;
+        int pageOrdinal = 0;
+        byte[] dataPageHeaderAAD = null;
+        BlockCipher.Decryptor headerBlockDecryptor = null;
+        InternalColumnDecryptionSetup columnDecryptionSetup = null;
+        if (fileDecryptor != null) {
+            ColumnPath columnPath = ColumnPath.get(descriptor.getColumnDescriptor().getPath());
+            columnDecryptionSetup = fileDecryptor.getColumnSetup(columnPath);
+            headerBlockDecryptor = columnDecryptionSetup.getMetaDataDecryptor();
+            if (null != headerBlockDecryptor) {
+                dataPageHeaderAAD = AesCipher.createModuleAAD(fileDecryptor.getFileAAD(), ModuleType.DataPageHeader, rowGroupOrdinal, columnOrdinal, pageOrdinal);
+            }
+        }
         while (hasMorePages(valueCount, dataPageCount)) {
-            PageHeader pageHeader = readPageHeader();
+            byte[] pageHeaderAAD = dataPageHeaderAAD;
+            if (null != headerBlockDecryptor) {
+                // Important: this verifies file integrity (makes sure dictionary page had not been removed)
+                if (null == dictionaryPage && hasDictionaryPage(descriptor.getColumnChunkMetaData())) {
+                    pageHeaderAAD = AesCipher.createModuleAAD(fileDecryptor.getFileAAD(), ModuleType.DictionaryPageHeader, rowGroupOrdinal, columnOrdinal, -1);
+                }
+                else {
+                    AesCipher.quickUpdatePageAAD(dataPageHeaderAAD, pageOrdinal);
+                }
+            }
+            PageHeader pageHeader = readPageHeader(headerBlockDecryptor, pageHeaderAAD);
             int uncompressedPageSize = pageHeader.getUncompressed_page_size();
             int compressedPageSize = pageHeader.getCompressed_page_size();
             long firstRowIndex = -1;
@@ -97,18 +128,22 @@ public class ParquetColumnChunk
                     firstRowIndex = PageReader.getFirstRowIndex(dataPageCount, offsetIndex);
                     valueCount += readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, firstRowIndex, pages);
                     dataPageCount = dataPageCount + 1;
+                    pageOrdinal = pageOrdinal + 1;
                     break;
                 case DATA_PAGE_V2:
                     firstRowIndex = PageReader.getFirstRowIndex(dataPageCount, offsetIndex);
                     valueCount += readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, firstRowIndex, pages);
                     dataPageCount = dataPageCount + 1;
+                    pageOrdinal = pageOrdinal + 1;
                     break;
                 default:
                     stream.skipFully(compressedPageSize);
                     break;
             }
         }
-        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, offsetIndex);
+        byte[] fileAad = (fileDecryptor == null) ? null : fileDecryptor.getFileAAD();
+        BlockCipher.Decryptor dataDecryptor = (columnDecryptionSetup == null) ? null : columnDecryptionSetup.getDataDecryptor();
+        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, offsetIndex, dataDecryptor, fileAad, rowGroupOrdinal, columnOrdinal);
     }
 
     private Slice getSlice(int size) throws IOException
@@ -122,7 +157,7 @@ public class ParquetColumnChunk
         return wrappedBuffer(buffer.array(), buffer.position(), size);
     }
 
-    private DictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)
+    protected DictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)
             throws IOException
     {
         DictionaryPageHeader dictHeader = pageHeader.getDictionary_page_header();
@@ -185,5 +220,17 @@ public class ParquetColumnChunk
     {
         return offsetIndex == null ? valuesCount < descriptor.getColumnChunkMetaData().getValueCount()
                 : pagesCount < offsetIndex.getPageCount();
+    }
+
+    private boolean hasDictionaryPage(ColumnChunkMetaData columnChunkMetaData)
+    {
+        EncodingStats stats = columnChunkMetaData.getEncodingStats();
+        if (stats != null) {
+            return stats.hasDictionaryPages() && stats.hasDictionaryEncodedPages();
+        }
+        else {
+            Set<Encoding> encodings = columnChunkMetaData.getEncodings();
+            return encodings.contains(Encoding.PLAIN_DICTIONARY) || encodings.contains(Encoding.RLE_DICTIONARY);
+        }
     }
 }

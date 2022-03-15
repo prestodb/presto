@@ -18,6 +18,7 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetDataSourceId;
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -38,14 +39,14 @@ public class CachingParquetMetadataSource
     }
 
     @Override
-    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable)
+    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable, InternalFileDecryptor fileDecryptor)
             throws IOException
     {
         try {
             if (cacheable) {
-                return cache.get(parquetDataSource.getId(), () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable));
+                return cache.get(parquetDataSource.getId(), () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, fileDecryptor));
             }
-            return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable);
+            return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, fileDecryptor);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), IOException.class);

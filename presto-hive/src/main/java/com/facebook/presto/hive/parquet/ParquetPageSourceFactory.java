@@ -32,6 +32,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils;
@@ -50,7 +51,12 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.DecryptionPropertiesFactory;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.HiddenColumnChunkMetaData;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
@@ -221,8 +227,15 @@ public class ParquetPageSourceFactory
         ParquetDataSource dataSource = null;
         try {
             FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
-            dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
-            ParquetMetadata parquetMetadata = parquetMetadataSource.getParquetMetadata(dataSource, fileSize, hiveFileContext.isCacheable()).getParquetMetadata();
+            // Lambda expression below requires final variable
+            final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, stats);
+            dataSource = parquetDataSource;
+            FileDecryptionProperties fileDecryptionProperties = createDecryptionProperties(path, configuration);
+            InternalFileDecryptor fileDecryptor = (fileDecryptionProperties == null) ?
+                    null : new InternalFileDecryptor(fileDecryptionProperties);
+
+
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> parquetMetadataSource.getParquetMetadata(parquetDataSource, fileSize, hiveFileContext.isCacheable(), fileDecryptor).getParquetMetadata());
 
             if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
                 return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
@@ -243,9 +256,12 @@ public class ParquetPageSourceFactory
 
             ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if (firstDataPage >= start && firstDataPage < start + length) {
-                    footerBlocks.add(block);
+                Integer firstIndex = findFirstNonHiddenColumnId(block);
+                if (firstIndex != null) {
+                    long firstDataPage = block.getColumns().get(firstIndex).getFirstDataPageOffset();
+                    if (firstDataPage >= start && firstDataPage < start + length) {
+                        footerBlocks.add(block);
+                    }
                 }
             }
 
@@ -281,7 +297,8 @@ public class ParquetPageSourceFactory
                     verificationEnabled,
                     parquetPredicate,
                     blockIndexStores,
-                    columnIndexFilterEnabled);
+                    columnIndexFilterEnabled,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -502,5 +519,37 @@ public class ParquetPageSourceFactory
             return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
         }
         return getParquetType(prestoType, messageType, useParquetColumnNames, column, tableName, path);
+    }
+
+    /**
+     * This method create FileDecryptionProperties objects based user provided class and configuration.
+     * <p>
+     * The usage is like this. Create a class implementing DecryptionPropertiesFactory by following the example of org.apache.parquet.crypto.SampleCryptoPropertiesFactory.
+     * <p>
+     * Then register this class e.g. conf.set(CRYPTO_FACTORY_CLASS_PROPERTY_NAME, org.apache.parquet.crypto.retriever.SampleCryptoPropertiesFactory.class.getName());
+     *
+     * @param file         the file path
+     * @param hadoopConfig Configuration
+     * @return
+     */
+    private static FileDecryptionProperties createDecryptionProperties(Path file, Configuration hadoopConfig)
+    {
+        DecryptionPropertiesFactory cryptoFactory = DecryptionPropertiesFactory.loadFactory(hadoopConfig);
+        if (null == cryptoFactory) {
+            return null;
+        }
+        return cryptoFactory.getFileDecryptionProperties(hadoopConfig, file);
+    }
+
+    private static Integer findFirstNonHiddenColumnId(BlockMetaData block)
+    {
+        List<ColumnChunkMetaData> columns = block.getColumns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columns.get(i))) {
+                return i;
+            }
+        }
+        // all columns are hidden (encrypted but not accessible to current user)
+        return null;
     }
 }

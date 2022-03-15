@@ -76,6 +76,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.DecryptionPropertiesFactory;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -299,7 +302,11 @@ public class IcebergPageSourceProvider
                     Optional.empty(), Optional.of(fileSize), modificationTime, false);
             FSDataInputStream inputStream = fileSystem.openFile(path, hiveFileContext);
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileSize).getParquetMetadata();
+            FileDecryptionProperties fileDecryptionProperties = createDecryptionProperties(path, configuration);
+            InternalFileDecryptor fileDecryptor = (fileDecryptionProperties == null) ?
+                    null : new InternalFileDecryptor(fileDecryptionProperties);
+
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(dataSource, fileSize,  fileDecryptor));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
@@ -347,7 +354,8 @@ public class IcebergPageSourceProvider
                     verificationEnabled,
                     parquetPredicate,
                     blockIndexStores,
-                    columnIndexFilterEnabled);
+                    columnIndexFilterEnabled,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
@@ -663,5 +671,25 @@ public class IcebergPageSourceProvider
                     .collect(toImmutableList());
         }
         return columnAttributes;
+    }
+
+    /**
+     * This method create FileDecryptionProperties objects based user provided class and configuration.
+     * <p>
+     * The usage is like this. Create a class implementing DecryptionPropertiesFactory by following the example of org.apache.parquet.crypto.SampleCryptoPropertiesFactory.
+     * <p>
+     * Then register this class e.g. conf.set(CRYPTO_FACTORY_CLASS_PROPERTY_NAME, org.apache.parquet.crypto.retriever.SampleCryptoPropertiesFactory.class.getName());
+     *
+     * @param file         the file path
+     * @param hadoopConfig Configuration
+     * @return
+     */
+    public static FileDecryptionProperties createDecryptionProperties(Path file, Configuration hadoopConfig)
+    {
+        DecryptionPropertiesFactory cryptoFactory = DecryptionPropertiesFactory.loadFactory(hadoopConfig);
+        if (null == cryptoFactory) {
+            return null;
+        }
+        return cryptoFactory.getFileDecryptionProperties(hadoopConfig, file);
     }
 }
