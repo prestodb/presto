@@ -30,7 +30,6 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.predicate.Predicate;
-import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
@@ -42,6 +41,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.DecryptionPropertiesFactory;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -65,8 +67,10 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
+import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHiddenColumnId;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
+import static com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.getColumnIndexStore;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -110,8 +114,15 @@ class HudiParquetPageSources
                     modificationTime,
                     false);
             FSDataInputStream inputStream = filesystem.openFile(path, hiveFileContext);
-            dataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileSize).getParquetMetadata();
+            // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
+            final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
+            dataSource = parquetDataSource;
+            DecryptionPropertiesFactory cryptoFactory = DecryptionPropertiesFactory.loadFactory(configuration);
+            FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ?
+                    null : cryptoFactory.getFileDecryptionProperties(configuration, path);
+            Optional<InternalFileDecryptor> fileDecryptor = (fileDecryptionProperties == null) ?
+                    Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             List<Type> parquetFields = regularColumns.stream()
@@ -127,12 +138,15 @@ class HudiParquetPageSources
             List<BlockMetaData> blocks = new ArrayList<>();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                Optional<ColumnIndexStore> columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
-                if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
-                    blocks.add(block);
-                    blockIndexStores.add(columnIndexStore.orElse(null));
+                Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
+                if (firstIndex.isPresent()) {
+                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
+                    Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
+                    if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
+                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
+                        blocks.add(block);
+                        blockIndexStores.add(columnIndexStore.orElse(null));
+                    }
                 }
             }
 
@@ -148,7 +162,8 @@ class HudiParquetPageSources
                     verificationEnabled,
                     parquetPredicate,
                     blockIndexStores,
-                    columnIndexFilterEnabled);
+                    columnIndexFilterEnabled,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<com.facebook.presto.common.type.Type> prestoTypes = ImmutableList.builder();

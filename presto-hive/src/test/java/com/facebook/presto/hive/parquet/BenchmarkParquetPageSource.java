@@ -267,7 +267,7 @@ public class BenchmarkParquetPageSource
             PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
             pageProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compilePageProcessor(testSession.getSqlFunctionProperties(), filterConjunction(), projections).get();
 
-            parquetMetadata = MetadataReader.readFooter(new FileParquetDataSource(parquetFile), parquetFile.length()).getParquetMetadata();
+            parquetMetadata = MetadataReader.readFooter(new FileParquetDataSource(parquetFile), parquetFile.length(), Optional.empty()).getParquetMetadata();
         }
 
         @TearDown
@@ -290,7 +290,7 @@ public class BenchmarkParquetPageSource
                 fields.add(ColumnIOConverter.constructField(getTypeFromTypeSignature(), messageColumnIO.getChild(i)));
             }
 
-            ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), batchReadEnabled, enableVerification, null, null, false);
+            ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), batchReadEnabled, enableVerification, null, null, false, Optional.empty());
             return new ParquetPageSource(parquetReader, Collections.nCopies(channelCount, type), fields, columnNames, new RuntimeStats());
         }
 

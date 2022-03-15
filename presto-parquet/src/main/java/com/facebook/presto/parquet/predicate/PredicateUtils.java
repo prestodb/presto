@@ -30,6 +30,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.crypto.HiddenColumnChunkMetaData;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
@@ -105,10 +106,10 @@ public final class PredicateUtils
     {
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builder();
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            Statistics<?> columnStatistics = columnMetaData.getStatistics();
-            if (columnStatistics != null) {
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
                 RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-                if (descriptor != null) {
+                if (columnStatistics != null && descriptor != null) {
                     statistics.put(descriptor, columnStatistics);
                 }
             }
@@ -119,9 +120,9 @@ public final class PredicateUtils
     private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
     {
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-            if (descriptor != null) {
-                if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+                if (descriptor != null && isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
                     byte[] buffer = new byte[toIntExact(columnMetaData.getTotalSize())];
                     dataSource.readFully(columnMetaData.getStartingPos(), buffer);
                     //  Early abort, predicate already filters block so no more dictionaries need be read
