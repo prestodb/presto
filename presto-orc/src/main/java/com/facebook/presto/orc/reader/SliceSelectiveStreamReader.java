@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -68,7 +69,7 @@ public class SliceSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         ColumnEncoding.ColumnEncodingKind kind = stripe.getColumnEncodings().get(context.getStreamDescriptor().getStreamId())
@@ -94,7 +95,7 @@ public class SliceSelectiveStreamReader
                 throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timeZone, stripe);
     }
 
     @Override

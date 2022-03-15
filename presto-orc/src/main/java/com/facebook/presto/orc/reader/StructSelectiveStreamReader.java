@@ -41,6 +41,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -625,7 +626,7 @@ public class StructSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -638,7 +639,7 @@ public class StructSelectiveStreamReader
         rowGroupOpen = false;
 
         for (SelectiveStreamReader reader : nestedReaders.values()) {
-            reader.startStripe(stripe);
+            reader.startStripe(timeZone, stripe);
         }
     }
 
@@ -767,7 +768,7 @@ public class StructSelectiveStreamReader
         }
 
         @Override
-        public void startStripe(Stripe stripe)
+        public void startStripe(ZoneId timeZone, Stripe stripe)
         {
         }
 
@@ -837,7 +838,7 @@ public class StructSelectiveStreamReader
         }
 
         @Override
-        public void startStripe(Stripe stripe)
+        public void startStripe(ZoneId timeZone, Stripe stripe)
         {
         }
 

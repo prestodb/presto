@@ -41,6 +41,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -707,7 +708,7 @@ public class ListSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -722,7 +723,7 @@ public class ListSelectiveStreamReader
         rowGroupOpen = false;
 
         if (elementStreamReader != null) {
-            elementStreamReader.startStripe(stripe);
+            elementStreamReader.startStripe(timeZone, stripe);
         }
     }
 

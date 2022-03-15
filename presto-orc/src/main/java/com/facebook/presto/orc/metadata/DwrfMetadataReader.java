@@ -331,7 +331,8 @@ public class DwrfMetadataReader
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
                 stripeFooter.getEncryptedGroupsList().stream()
                         .map(OrcMetadataReader::byteStringToSlice)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                Optional.empty());
     }
 
     private static Stream toStream(OrcDataSourceId orcDataSourceId, DwrfProto.Stream stream)

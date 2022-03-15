@@ -59,6 +59,7 @@ import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -232,6 +233,7 @@ public class OrcWriter
         recordValidation(validation -> validation.setCompression(compressionKind));
         recordValidation(validation -> validation.setFlattenedNodes(flattenedNodes));
         recordValidation(validation -> validation.setOrcTypes(orcTypes));
+        recordValidation(validation -> validation.setTimeZone(hiveStorageTimeZone.toTimeZone().toZoneId()));
 
         requireNonNull(options, "options is null");
         this.flushPolicy = requireNonNull(options.getFlushPolicy(), "flushPolicy is null");
@@ -616,7 +618,8 @@ public class OrcWriter
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         List<Slice> encryptedGroups = createEncryptedGroups(encryptedStreams, encryptedColumnEncodings);
 
-        StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, unencryptedColumnEncodings, encryptedGroups);
+        Optional<ZoneId> timeZone = Optional.of(hiveStorageTimeZone.toTimeZone().toZoneId());
+        StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, unencryptedColumnEncodings, encryptedGroups, timeZone);
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
         outputData.add(createDataOutput(footer));
         dwrfStripeCacheWriter.ifPresent(stripeCacheWriter -> stripeCacheWriter.addStripeFooter(createDataOutput(footer)));

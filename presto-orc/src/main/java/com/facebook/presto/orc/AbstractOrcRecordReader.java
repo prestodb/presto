@@ -43,6 +43,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -250,6 +251,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         stripeReader = new StripeReader(
                 orcDataSource,
+                hiveStorageTimeZone.toTimeZone().toZoneId(),
                 decompressor,
                 types,
                 includedOrcColumns,
@@ -666,9 +668,10 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         SharedBuffer sharedDecompressionBuffer = new SharedBuffer(currentStripeSystemMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer"));
         Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, dwrfEncryptionInfo, sharedDecompressionBuffer);
         if (stripe != null) {
+            ZoneId timeZone = stripe.getTimeZone();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
-                    column.startStripe(stripe);
+                    column.startStripe(timeZone, stripe);
                 }
             }
 

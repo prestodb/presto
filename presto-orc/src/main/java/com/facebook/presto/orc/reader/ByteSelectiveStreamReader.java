@@ -31,6 +31,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
@@ -97,7 +98,7 @@ public class ByteSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
     {
         presentStreamSource = getBooleanMissingStreamSource();
         dataStreamSource = getByteMissingStreamSource();

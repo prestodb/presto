@@ -17,10 +17,11 @@ import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.stream.InputStreamSources;
 
 import java.io.IOException;
+import java.time.ZoneId;
 
 public interface StreamReader
 {
-    void startStripe(Stripe stripe)
+    void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException;
 
     void startRowGroup(InputStreamSources dataStreamSources)

@@ -31,13 +31,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -72,7 +72,7 @@ public class StructBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    StructBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
+    StructBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -92,7 +92,7 @@ public class StructBatchStreamReader
 
             StreamDescriptor fieldStream = nestedStreams.get(fieldName);
             if (fieldStream != null) {
-                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, hiveStorageTimeZone, options, systemMemoryContext));
+                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, options, systemMemoryContext));
             }
         }
         this.fieldNames = fieldNames.build();
@@ -169,7 +169,7 @@ public class StructBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -182,7 +182,7 @@ public class StructBatchStreamReader
         rowGroupOpen = false;
 
         for (BatchStreamReader structField : structFields.values()) {
-            structField.startStripe(stripe);
+            structField.startStripe(timeZone, stripe);
         }
     }
 

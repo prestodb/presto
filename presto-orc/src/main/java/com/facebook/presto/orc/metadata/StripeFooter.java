@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,15 +28,17 @@ public class StripeFooter
 {
     private final List<Stream> streams;
     private final Map<Integer, ColumnEncoding> columnEncodings;
+    private final Optional<ZoneId> timeZone;
 
     // encrypted StripeEncryptionGroups
     private final List<Slice> stripeEncryptionGroups;
 
-    public StripeFooter(List<Stream> streams, Map<Integer, ColumnEncoding> columnEncodings, List<Slice> stripeEncryptionGroups)
+    public StripeFooter(List<Stream> streams, Map<Integer, ColumnEncoding> columnEncodings, List<Slice> stripeEncryptionGroups, Optional<ZoneId> timeZone)
     {
         this.streams = ImmutableList.copyOf(requireNonNull(streams, "streams is null"));
         this.columnEncodings = ImmutableMap.copyOf(requireNonNull(columnEncodings, "columnEncodings is null"));
         this.stripeEncryptionGroups = ImmutableList.copyOf(requireNonNull(stripeEncryptionGroups, "stripeEncryptionGroups is null"));
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     public Map<Integer, ColumnEncoding> getColumnEncodings()
@@ -50,5 +54,10 @@ public class StripeFooter
     public List<Slice> getStripeEncryptionGroups()
     {
         return stripeEncryptionGroups;
+    }
+
+    public Optional<ZoneId> getTimeZone()
+    {
+        return timeZone;
     }
 }
