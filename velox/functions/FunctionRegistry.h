@@ -48,11 +48,4 @@ std::shared_ptr<const Type> resolveVectorFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
-/// Given name of aggregate function and argument types, returns a pair of the
-/// return type and intermediate type if function exists otherwise returns a
-/// pair of nullptr
-std::pair<TypePtr, TypePtr> resolveAggregateFunction(
-    const std::string& functionName,
-    const std::vector<TypePtr>& argTypes);
-
 } // namespace facebook::velox

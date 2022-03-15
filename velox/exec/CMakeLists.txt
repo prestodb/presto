@@ -14,6 +14,7 @@
 add_library(
   velox_exec
   Aggregate.cpp
+  AggregateFunctionRegistry.cpp
   AggregationMasks.cpp
   ContainerRowSerde.cpp
   CrossJoinBuild.cpp

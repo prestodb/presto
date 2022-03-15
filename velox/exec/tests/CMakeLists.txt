@@ -22,6 +22,7 @@ add_executable(
   TableScanTest.cpp
   TaskTest.cpp
   AggregationTest.cpp
+  AggregateFunctionRegistryTest.cpp
   RowContainerTest.cpp
   HashTableTest.cpp
   TreeOfLosersTest.cpp

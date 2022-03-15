@@ -14,7 +14,7 @@
 add_library(velox_function_registry FunctionRegistry.cpp)
 
 target_link_libraries(velox_function_registry velox_expression velox_type
-                      velox_core velox_exception velox_exec)
+                      velox_core velox_exception)
 
 add_subdirectory(lib)
 if(${VELOX_ENABLE_PRESTO_FUNCTIONS})
