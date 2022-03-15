@@ -285,6 +285,10 @@ void FlatVector<StringView>::copy(
     const BaseVector* source,
     const SelectivityVector& rows,
     const vector_size_t* toSourceRow) {
+  if (!rows.hasSelections()) {
+    return;
+  }
+
   auto leaf = source->wrappedVector()->asUnchecked<SimpleVector<StringView>>();
   VELOX_CHECK(leaf, "Assigning non-string to string");
   if (pool_ == leaf->pool()) {

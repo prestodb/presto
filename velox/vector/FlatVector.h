@@ -233,6 +233,9 @@ class FlatVector final : public SimpleVector<T> {
       const BaseVector* source,
       const SelectivityVector& rows,
       const vector_size_t* toSourceRow) override {
+    if (!rows.hasSelections()) {
+      return;
+    }
     copyValuesAndNulls(source, rows, toSourceRow);
   }
 

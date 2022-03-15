@@ -16,9 +16,6 @@
 
 #include "velox/vector/SimpleVector.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/vector/ConstantVector.h"
-#include "velox/vector/DictionaryVector.h"
-#include "velox/vector/FlatVector.h"
 
 namespace facebook {
 namespace velox {
