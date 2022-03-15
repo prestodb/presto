@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <folly/init/Init.h>
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -162,4 +163,10 @@ TEST_F(ParquetTpchTest, Q6) {
 
 TEST_F(ParquetTpchTest, Q18) {
   assertQuery(18, 5, 30);
+}
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
 }
