@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.cache.Cache;
@@ -30,6 +31,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -72,6 +74,7 @@ public class CachingDirectoryLister
             ExtendedFileSystem fileSystem,
             Table table,
             Path path,
+            Optional<Partition> partition,
             NamenodeStats namenodeStats,
             HiveDirectoryContext hiveDirectoryContext)
     {
@@ -80,7 +83,7 @@ public class CachingDirectoryLister
             return files.iterator();
         }
 
-        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, hiveDirectoryContext);
+        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext);
         if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(table.getSchemaTableName())) {
             return cachingIterator(iterator, path);
         }

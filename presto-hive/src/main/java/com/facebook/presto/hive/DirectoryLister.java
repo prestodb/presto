@@ -14,10 +14,12 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Iterator;
+import java.util.Optional;
 
 public interface DirectoryLister
 {
@@ -25,6 +27,7 @@ public interface DirectoryLister
             ExtendedFileSystem fileSystem,
             Table table,
             Path path,
+            Optional<Partition> partition,
             NamenodeStats namenodeStats,
             HiveDirectoryContext hiveDirectoryContext);
 }
