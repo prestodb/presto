@@ -629,7 +629,7 @@ public class TestHiveSplitManager
             implements DirectoryLister
     {
         @Override
-        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, NamenodeStats namenodeStats, HiveDirectoryContext hiveDirectoryContext)
+        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, Optional<Partition> partition, NamenodeStats namenodeStats, HiveDirectoryContext hiveDirectoryContext)
         {
             try {
                 return ImmutableList.of(
