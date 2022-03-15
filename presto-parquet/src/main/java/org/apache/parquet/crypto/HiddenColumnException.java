@@ -11,15 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.cache;
+package org.apache.parquet.crypto;
 
-import com.facebook.presto.parquet.ParquetDataSource;
-import org.apache.parquet.crypto.InternalFileDecryptor;
+import org.apache.parquet.ParquetRuntimeException;
 
-import java.io.IOException;
+import java.util.Arrays;
 
-public interface ParquetMetadataSource
+public class HiddenColumnException
+        extends ParquetRuntimeException
 {
-    ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable, InternalFileDecryptor fileDecryptor)
-            throws IOException;
+    private static final long serialVersionUID = 1L;
+
+    public HiddenColumnException(String[] columnPath, String filePath)
+    {
+        super("User does not have access to the encryption key for encrypted column = " + Arrays.toString(columnPath) + " for file: " + filePath);
+    }
 }

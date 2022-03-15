@@ -32,6 +32,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils;
@@ -50,6 +51,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.DecryptionPropertiesFactory;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -221,8 +225,15 @@ public class ParquetPageSourceFactory
         ParquetDataSource dataSource = null;
         try {
             FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
-            dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
-            ParquetMetadata parquetMetadata = parquetMetadataSource.getParquetMetadata(dataSource, fileSize, hiveFileContext.isCacheable()).getParquetMetadata();
+            // Lambda expression below requires final variable
+            final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, stats);
+            dataSource = parquetDataSource;
+            DecryptionPropertiesFactory cryptoFactory = DecryptionPropertiesFactory.loadFactory(configuration);
+            FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ?
+                    null : cryptoFactory.getFileDecryptionProperties(configuration, path);
+            InternalFileDecryptor fileDecryptor = (fileDecryptionProperties == null) ?
+                    null : new InternalFileDecryptor(fileDecryptionProperties);
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> parquetMetadataSource.getParquetMetadata(parquetDataSource, fileSize, hiveFileContext.isCacheable(), fileDecryptor).getParquetMetadata());
 
             if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
                 return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
@@ -243,9 +254,12 @@ public class ParquetPageSourceFactory
 
             ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if (firstDataPage >= start && firstDataPage < start + length) {
-                    footerBlocks.add(block);
+                Integer firstIndex = MetadataReader.findFirstNonHiddenColumnId(block);
+                if (firstIndex != null) {
+                    long firstDataPage = block.getColumns().get(firstIndex).getFirstDataPageOffset();
+                    if (firstDataPage >= start && firstDataPage < start + length) {
+                        footerBlocks.add(block);
+                    }
                 }
             }
 
@@ -281,7 +295,8 @@ public class ParquetPageSourceFactory
                     verificationEnabled,
                     parquetPredicate,
                     blockIndexStores,
-                    columnIndexFilterEnabled);
+                    columnIndexFilterEnabled,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
