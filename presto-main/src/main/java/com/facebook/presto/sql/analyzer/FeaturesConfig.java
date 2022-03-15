@@ -187,6 +187,7 @@ public class FeaturesConfig
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
+    private boolean checkAccessControlWithSubfields;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
@@ -1720,6 +1721,18 @@ public class FeaturesConfig
     public FeaturesConfig setCheckAccessControlOnUtilizedColumnsOnly(boolean checkAccessControlOnUtilizedColumnsOnly)
     {
         this.checkAccessControlOnUtilizedColumnsOnly = checkAccessControlOnUtilizedColumnsOnly;
+        return this;
+    }
+
+    public boolean isCheckAccessControlWithSubfields()
+    {
+        return checkAccessControlWithSubfields;
+    }
+
+    @Config("check-access-control-with-subfields")
+    public FeaturesConfig setCheckAccessControlWithSubfields(boolean checkAccessControlWithSubfields)
+    {
+        this.checkAccessControlWithSubfields = checkAccessControlWithSubfields;
         return this;
     }
 
