@@ -339,11 +339,9 @@ folly::Range<vector_size_t*> initializeRowNumberMapping(
 } // namespace
 
 void HashProbe::prepareOutput(vector_size_t size) {
-  VectorPtr outputAsBase = std::move(output_);
-  BaseVector::ensureWritable(
-      SelectivityVector::empty(), outputType_, pool(), &outputAsBase);
-  output_ = std::static_pointer_cast<RowVector>(outputAsBase);
-  output_->resize(size);
+  // TODO Reuse output vector when possible.
+  output_ = std::static_pointer_cast<RowVector>(
+      BaseVector::create(outputType_, size, pool()));
 }
 
 void HashProbe::fillOutput(vector_size_t size) {

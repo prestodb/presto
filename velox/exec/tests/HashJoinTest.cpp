@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -81,16 +82,9 @@ class HashJoinTest : public HiveConnectorTestBase {
 
     // A quick sanity check for memory usage reporting. Check that peak total
     // memory usage for the hash join node is > 0.
+    auto planStats = toPlanStats(task->taskStats());
     auto joinNodeId = params.planNode->id();
-    uint64_t peakUsage = 0;
-    for (const auto& pipeline : task->taskStats().pipelineStats) {
-      for (const auto& op : pipeline.operatorStats) {
-        if (op.planNodeId == joinNodeId) {
-          peakUsage += op.memoryStats.peakTotalMemoryReservation;
-        }
-      }
-    }
-    ASSERT_TRUE(peakUsage > 0);
+    ASSERT_TRUE(planStats.at(joinNodeId).peakMemoryBytes > 0);
   }
 
   static std::vector<std::string> makeKeyNames(
@@ -1279,4 +1273,45 @@ TEST_F(HashJoinTest, fullJoin) {
   assertQuery(
       op,
       "SELECT t.c0, t.c1, u.c1 FROM t FULL OUTER JOIN u ON t.c0 = u.c0 AND (t.c1 + u.c1) % 2 = 3");
+}
+
+// Verify the size of the join output vectors when projecting build-side
+// variable-width column.
+TEST_F(HashJoinTest, memoryUsage) {
+  std::vector<RowVectorPtr> probeData;
+  probeData.reserve(10);
+  for (auto i = 0; i < 10; i++) {
+    probeData.push_back(makeRowVector(
+        {makeFlatVector<int32_t>(1'000, [](auto row) { return row % 5; })}));
+  }
+  auto buildData = makeRowVector(
+      {"u_c0", "u_c1"},
+      {makeFlatVector<int32_t>({0, 1, 2}),
+       makeFlatVector<std::string>({
+           std::string(40, 'a'),
+           std::string(50, 'b'),
+           std::string(30, 'c'),
+       })});
+
+  core::PlanNodeId joinNodeId;
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values(probeData)
+          .hashJoin(
+              {"c0"},
+              {"u_c0"},
+              PlanBuilder(planNodeIdGenerator).values({buildData}).planNode(),
+              "",
+              {"c0", "u_c1"})
+          .capturePlanNodeId(joinNodeId)
+          .singleAggregation({}, {"count(1)"})
+          .planNode();
+
+  auto task = assertQuery(plan, "SELECT 6000");
+
+  auto planStats = toPlanStats(task->taskStats());
+  auto outputBytes = planStats.at(joinNodeId).outputBytes;
+  ASSERT_LT(outputBytes, 512 * 1024);
 }
