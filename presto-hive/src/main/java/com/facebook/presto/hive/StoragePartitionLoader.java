@@ -280,9 +280,9 @@ public class StoragePartitionLoader
                 checkState(
                         tableBucketInfo.get().getTableBucketCount() == tableBucketInfo.get().getReadBucketCount(),
                         "Table and read bucket count should be the same for virtual bucket");
-                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), splittable));
+                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), partition.getPartition(), splittable));
             }
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable));
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, partition.getPartition(), splittable));
         }
 
         fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, partition.getPartition()));
@@ -314,7 +314,7 @@ public class StoragePartitionLoader
         }
 
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, cacheable);
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, hiveDirectoryContext))
+        return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -328,6 +328,7 @@ public class StoragePartitionLoader
             BucketSplitInfo bucketSplitInfo,
             Optional<HiveSplit.BucketConversion> bucketConversion,
             String partitionName,
+            Optional<Partition> partition,
             boolean splittable)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
@@ -340,7 +341,7 @@ public class StoragePartitionLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, new HiveDirectoryContext(FAIL, isUseListDirectoryCache(session))));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, partition, namenodeStats, new HiveDirectoryContext(FAIL, isUseListDirectoryCache(session))));
         }
         catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -459,11 +460,11 @@ public class StoragePartitionLoader
         return splitList;
     }
 
-    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable)
+    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, Optional<Partition> partition, boolean splittable)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session));
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, hiveDirectoryContext))
+        return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
                     return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);
