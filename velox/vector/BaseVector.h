@@ -350,10 +350,6 @@ class BaseVector {
     clearNulls(0, size());
   }
 
-  virtual void clear() {
-    resize(0);
-  }
-
   // Sets the size to 'size' and ensures there is space for the
   // indicated number of nulls and top level values.
   // 'setNotNull' indicates if nulls in range [oldSize, newSize) should be set

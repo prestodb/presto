@@ -90,8 +90,8 @@ void FilterProject::addInput(RowVectorPtr input) {
 
   for (int32_t i = 0; i < firstProjected; ++i) {
     if (results_[i]) {
-      if (results_[i]->encoding() == VectorEncoding::Simple::FLAT) {
-        results_[i]->clear();
+      if (BaseVector::isReusableFlatVector(results_[i])) {
+        results_[i]->resize(0);
       } else {
         results_[i] = nullptr;
       }

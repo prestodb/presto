@@ -144,7 +144,7 @@ VectorPtr Operator::getResultVector(ChannelIndex index) {
   }
 
   if (BaseVector::isReusableFlatVector(vector)) {
-    vector->clear();
+    vector->resize(0);
     return std::move(vector);
   }
 

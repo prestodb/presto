@@ -88,9 +88,8 @@ class Expr {
     if (sharedSubexprRows_) {
       sharedSubexprRows_->clearAll();
     }
-    if (sharedSubexprValues_.unique() &&
-        sharedSubexprValues_->encoding() == VectorEncoding::Simple::FLAT) {
-      sharedSubexprValues_->clear();
+    if (BaseVector::isReusableFlatVector(sharedSubexprValues_)) {
+      sharedSubexprValues_->resize(0);
     } else {
       sharedSubexprValues_ = nullptr;
     }
