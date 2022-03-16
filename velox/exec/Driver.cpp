@@ -142,31 +142,18 @@ class CancelGuard {
 };
 } // namespace
 
-Driver::~Driver() {
-  if (task_) {
-    LOG(ERROR) << "Driver destructed while still in Task: "
-               << task_->toString();
-    DLOG(FATAL) << "Driver destructed while referencing task";
-  }
-}
-
 // static
 void Driver::enqueue(std::shared_ptr<Driver> driver) {
   // This is expected to be called inside the Driver's Tasks's mutex.
   driver->enqueueInternal();
-  auto& task = driver->task_;
-  if (!task) {
-    return;
-  }
-  task->queryCtx()->executor()->add([driver]() { Driver::run(driver); });
+  driver->task()->queryCtx()->executor()->add(
+      [driver]() { Driver::run(driver); });
 }
 
 Driver::Driver(
     std::unique_ptr<DriverCtx> ctx,
     std::vector<std::unique_ptr<Operator>>&& operators)
-    : ctx_(std::move(ctx)),
-      task_(ctx_->task),
-      operators_(std::move(operators)) {
+    : ctx_(std::move(ctx)), operators_(std::move(operators)) {
   curOpIndex_ = operators_.size() - 1;
   // Operators need access to their Driver for adaptation.
   ctx_->driver = this;
@@ -244,22 +231,17 @@ void Driver::enqueueInternal() {
 StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>* blockingState) {
-  // Update the next operator's queueTime.
-  if (curOpIndex_ < operators_.size()) {
-    operators_[curOpIndex_]->stats().addRuntimeStat(
-        "queuedWallNanos",
-        (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000);
-  }
-  // Get 'task_' into a local because this could be unhooked from it on another
-  // thread.
-  auto task = task_;
-  auto stop = !task ? StopReason::kTerminate : task->enter(state_);
+  const auto queuedWallNanos =
+      (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000;
+
+  auto& task = ctx_->task;
+  auto stop = task->enter(state_);
   if (stop != StopReason::kNone) {
     if (stop == StopReason::kTerminate) {
       // ctx_ still has a reference to the Task. 'this' is not on
       // thread from the Task's viewpoint, hence no need to call
       // close().
-      ctx_->task->setError(std::make_exception_ptr(VeloxRuntimeError(
+      task->setError(std::make_exception_ptr(VeloxRuntimeError(
           __FILE__,
           __LINE__,
           __FUNCTION__,
@@ -272,7 +254,13 @@ StopReason Driver::runInternal(
     return stop;
   }
 
-  CancelGuard guard(task_.get(), &state_, [&](StopReason reason) {
+  // Update the next operator's queueTime.
+  if (curOpIndex_ < operators_.size()) {
+    operators_[curOpIndex_]->stats().addRuntimeStat(
+        "queuedWallNanos", queuedWallNanos);
+  }
+
+  CancelGuard guard(task.get(), &state_, [&](StopReason reason) {
     // This is run on error or cancel exit.
     if (reason == StopReason::kTerminate) {
       task->setError(std::make_exception_ptr(VeloxRuntimeError(
@@ -299,7 +287,7 @@ StopReason Driver::runInternal(
 
     for (;;) {
       for (int32_t i = numOperators - 1; i >= 0; --i) {
-        stop = task_->shouldStop();
+        stop = task->shouldStop();
         if (stop != StopReason::kNone) {
           guard.notThrown();
           return stop;
@@ -354,7 +342,7 @@ StopReason Driver::runInternal(
               i += 2;
               continue;
             } else {
-              stop = task_->shouldStop();
+              stop = task->shouldStop();
               if (stop != StopReason::kNone) {
                 guard.notThrown();
                 return stop;
@@ -399,11 +387,11 @@ StopReason Driver::runInternal(
       }
     }
   } catch (velox::VeloxException& e) {
-    task_->setError(std::current_exception());
+    task->setError(std::current_exception());
     // The CancelPoolGuard will close 'self' and remove from task_.
     return StopReason::kAlreadyTerminated;
   } catch (std::exception& e) {
-    task_->setError(std::current_exception());
+    task->setError(std::current_exception());
     // The CancelGuard will close 'self' and remove from task_.
     return StopReason::kAlreadyTerminated;
   }
@@ -454,15 +442,18 @@ void Driver::addStatsToTask() {
   for (auto& op : operators_) {
     auto& stats = op->stats();
     stats.memoryStats.update(op->pool()->getMemoryUsageTracker());
-    task_->addOperatorStats(stats);
+    ctx_->task->addOperatorStats(stats);
   }
 }
 
 void Driver::close() {
-  if (!task_) {
+  if (closed_) {
     // Already closed.
     return;
   }
+
+  closed_ = true;
+
   if (!isOnThread() && !isTerminated()) {
     LOG(FATAL) << "Driver::close is only allowed from the Driver's thread";
   }
@@ -470,9 +461,7 @@ void Driver::close() {
   for (auto& op : operators_) {
     op->close();
   }
-  auto task = std::move(task_);
-
-  Task::removeDriver(task, this);
+  Task::removeDriver(ctx_->task, this);
 }
 
 void Driver::closeByTask() {
@@ -481,11 +470,6 @@ void Driver::closeByTask() {
   for (auto& op : operators_) {
     op->close();
   }
-  task_ = nullptr;
-}
-
-void Driver::disconnectFromTask() {
-  task_ = nullptr;
 }
 
 bool Driver::mayPushdownAggregation(Operator* aggregation) const {
