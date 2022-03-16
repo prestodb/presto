@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.common.model.HoodieLogFile;
@@ -44,6 +45,32 @@ public class TestCustomSplitConversionUtils
     {
         List<String> deltaLogPaths = Arrays.asList("test1", "test2", "test3");
         List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+        String expectedMaxCommitTime = "max_commit_time";
+
+        FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);
+        FileSplit hudiSplit = new HoodieRealtimeFileSplit(baseSplit, BASE_PATH, deltaLogFiles, expectedMaxCommitTime, Option.empty());
+
+        // Test conversion of HudiSplit -> customSplitInfo
+        Map<String, String> customSplitInfo = CustomSplitConversionUtils.extractCustomSplitInfo(hudiSplit);
+
+        // Test conversion of (customSplitInfo + baseSplit) -> HudiSplit
+        HoodieRealtimeFileSplit recreatedSplit = (HoodieRealtimeFileSplit) CustomSplitConversionUtils.recreateSplitWithCustomInfo(baseSplit, customSplitInfo);
+
+        assertEquals(FILE_PATH, recreatedSplit.getPath());
+        assertEquals(SPLIT_START_POS, recreatedSplit.getStart());
+        assertEquals(SPLIT_LENGTH, recreatedSplit.getLength());
+        assertEquals(SPLIT_HOSTS, recreatedSplit.getLocations());
+        assertEquals(BASE_PATH, recreatedSplit.getBasePath());
+        assertEquals(deltaLogPaths, recreatedSplit.getDeltaLogPaths());
+        assertEquals(expectedMaxCommitTime, recreatedSplit.getMaxCommitTime());
+    }
+
+    @Test
+    public void testHudiRealtimeSplitConverterNoLogRoundTrip()
+            throws IOException
+    {
+        List<String> deltaLogPaths = ImmutableList.of();
+        List<HoodieLogFile> deltaLogFiles = ImmutableList.of();
         String expectedMaxCommitTime = "max_commit_time";
 
         FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);
