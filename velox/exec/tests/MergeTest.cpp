@@ -22,58 +22,50 @@ using namespace facebook::velox::exec::test;
 class MergeTest : public OperatorTestBase {
  protected:
   void testSingleKey(
-      const std::vector<RowVectorPtr>& input,
+      const std::vector<RowVectorPtr>& inputVectors,
       const std::string& key) {
-    auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
-    std::vector<core::SortOrder> sortOrders = {
-        core::kAscNullsLast,
-        core::kAscNullsFirst,
-        core::kDescNullsFirst,
-        core::kDescNullsLast};
+    auto keyIndex = inputVectors[0]->type()->asRow().getChildIdx(key);
+
     std::vector<std::string> sortOrderSqls = {
         "NULLS LAST", "NULLS FIRST", "DESC NULLS FIRST", "DESC NULLS LAST"};
 
-    for (auto i = 0; i < sortOrders.size(); ++i) {
-      const auto sortOrder = sortOrders[i];
-      const auto sql = fmt::format(
-          "SELECT * FROM tmp ORDER BY {} {}", key, sortOrderSqls[i]);
+    for (const auto& sortOrderSql : sortOrderSqls) {
+      const auto orderByClause = fmt::format("{} {}", key, sortOrderSql);
       auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-      auto plan =
-          PlanBuilder(planNodeIdGenerator)
-              .localMerge(
-                  {keyIndex},
-                  {sortOrder},
-                  {PlanBuilder(planNodeIdGenerator)
-                       .values(input)
-                       .orderBy(
-                           {fmt::format("{} {}", key, sortOrderSqls[i])}, true)
-                       .planNode()})
-              .planNode();
+      auto plan = PlanBuilder(planNodeIdGenerator)
+                      .localMerge(
+                          {orderByClause},
+                          {PlanBuilder(planNodeIdGenerator)
+                               .values(inputVectors)
+                               .orderBy({orderByClause}, true)
+                               .planNode()})
+                      .planNode();
 
-      assertQueryOrdered(plan, sql, {keyIndex});
+      assertQueryOrdered(
+          plan, "SELECT * FROM tmp ORDER BY " + orderByClause, {keyIndex});
 
       // Use multiple sources for local merge.
       std::vector<std::shared_ptr<const core::PlanNode>> sources;
-      for (auto j = 0; j < input.size(); j++) {
-        sources.push_back(
-            PlanBuilder(planNodeIdGenerator)
-                .values({input[j]})
-                .orderBy({fmt::format("{} {}", key, sortOrderSqls[i])}, true)
-                .planNode());
+      for (const auto& input : inputVectors) {
+        sources.push_back(PlanBuilder(planNodeIdGenerator)
+                              .values({input})
+                              .orderBy({orderByClause}, true)
+                              .planNode());
       }
       plan = PlanBuilder(planNodeIdGenerator)
-                 .localMerge({keyIndex}, {sortOrder}, std::move(sources))
+                 .localMerge({orderByClause}, std::move(sources))
                  .planNode();
 
-      assertQueryOrdered(plan, sql, {keyIndex});
+      assertQueryOrdered(
+          plan, "SELECT * FROM tmp ORDER BY " + orderByClause, {keyIndex});
     }
   }
 
   void testTwoKeys(
-      const std::vector<RowVectorPtr>& input,
+      const std::vector<RowVectorPtr>& inputVectors,
       const std::string& key1,
       const std::string& key2) {
-    auto rowType = input[0]->type()->asRow();
+    auto rowType = inputVectors[0]->type()->asRow();
     auto sortingKeys = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
     std::vector<core::SortOrder> sortOrders = {
@@ -86,46 +78,35 @@ class MergeTest : public OperatorTestBase {
 
     for (auto i = 0; i < sortOrders.size(); ++i) {
       for (auto j = 0; j < sortOrders.size(); ++j) {
+        const std::vector<std::string> orderByClauses = {
+            fmt::format("{} {}", key1, sortOrderSqls[i]),
+            fmt::format("{} {}", key2, sortOrderSqls[j])};
         const auto sql = fmt::format(
-            "SELECT * FROM tmp ORDER BY {} {}, {} {}",
-            key1,
-            sortOrderSqls[i],
-            key2,
-            sortOrderSqls[j]);
+            "SELECT * FROM tmp ORDER BY {}, {}",
+            orderByClauses[0],
+            orderByClauses[1]);
         auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-        auto plan =
-            PlanBuilder(planNodeIdGenerator)
-                .localMerge(
-                    sortingKeys,
-                    {sortOrders[i], sortOrders[j]},
-                    {PlanBuilder(planNodeIdGenerator)
-                         .values(input)
-                         .orderBy(
-                             {fmt::format("{} {}", key1, sortOrderSqls[i]),
-                              fmt::format("{} {}", key2, sortOrderSqls[j])},
-                             true)
-                         .planNode()})
-                .planNode();
+        auto plan = PlanBuilder(planNodeIdGenerator)
+                        .localMerge(
+                            orderByClauses,
+                            {PlanBuilder(planNodeIdGenerator)
+                                 .values(inputVectors)
+                                 .orderBy(orderByClauses, true)
+                                 .planNode()})
+                        .planNode();
 
         assertQueryOrdered(plan, sql, sortingKeys);
 
         // Use multiple sources for local merge.
         std::vector<std::shared_ptr<const core::PlanNode>> sources;
-        for (auto k = 0; k < input.size(); k++) {
-          sources.push_back(
-              PlanBuilder(planNodeIdGenerator)
-                  .values({input[k]})
-                  .orderBy(
-                      {fmt::format("{} {}", key1, sortOrderSqls[i]),
-                       fmt::format("{} {}", key2, sortOrderSqls[j])},
-                      true)
-                  .planNode());
+        for (const auto& input : inputVectors) {
+          sources.push_back(PlanBuilder(planNodeIdGenerator)
+                                .values({input})
+                                .orderBy(orderByClauses, true)
+                                .planNode());
         }
         plan = PlanBuilder(planNodeIdGenerator)
-                   .localMerge(
-                       sortingKeys,
-                       {sortOrders[i], sortOrders[j]},
-                       std::move(sources))
+                   .localMerge(orderByClauses, std::move(sources))
                    .planNode();
 
         assertQueryOrdered(plan, sql, sortingKeys);

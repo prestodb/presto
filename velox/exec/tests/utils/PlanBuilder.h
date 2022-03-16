@@ -249,9 +249,16 @@ class PlanBuilder {
       bool ignoreNullKeys,
       const std::vector<TypePtr>& resultTypes = {});
 
+  /// Adds a LocalMergeNode using specified ORDER BY clauses.
+  ///
+  /// For example,
+  ///
+  ///     .localMerge({"a", "b DESC", "c ASC NULLS FIRST"})
+  ///
+  /// By default, uses ASC NULLS LAST sort order, e.g. column "a" above will use
+  /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
   PlanBuilder& localMerge(
-      const std::vector<ChannelIndex>& keyIndices,
-      const std::vector<core::SortOrder>& sortOrder,
+      const std::vector<std::string>& keys,
       std::vector<std::shared_ptr<const core::PlanNode>> sources);
 
   /// Adds an OrderByNode using specified ORDER BY clauses.

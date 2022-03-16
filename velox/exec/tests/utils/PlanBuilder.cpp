@@ -420,20 +420,46 @@ PlanBuilder& PlanBuilder::streamingAggregation(
   return *this;
 }
 
+namespace {
+std::pair<
+    std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>,
+    std::vector<core::SortOrder>>
+parseOrderByClauses(
+    const std::vector<std::string>& keys,
+    const RowTypePtr& inputType,
+    memory::MemoryPool* pool) {
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
+  std::vector<core::SortOrder> sortingOrders;
+  for (const auto& key : keys) {
+    auto [untypedExpr, sortOrder] = duckdb::parseOrderByExpr(key);
+    auto typedExpr =
+        core::Expressions::inferTypes(untypedExpr, inputType, pool);
+
+    auto sortingKey =
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
+    VELOX_CHECK_NOT_NULL(
+        sortingKey,
+        "ORDER BY clause must use a column name, not an expression: {}",
+        key);
+    sortingKeys.emplace_back(sortingKey);
+    sortingOrders.emplace_back(sortOrder);
+  }
+
+  return {sortingKeys, sortingOrders};
+}
+} // namespace
+
 PlanBuilder& PlanBuilder::localMerge(
-    const std::vector<ChannelIndex>& keyIndices,
-    const std::vector<core::SortOrder>& sortOrder,
+    const std::vector<std::string>& keys,
     std::vector<std::shared_ptr<const core::PlanNode>> sources) {
   VELOX_CHECK_NULL(planNode_, "localMerge() must be the first call");
   VELOX_CHECK_GE(
       sources.size(), 1, "localMerge() requires at least one source");
+
   const auto& inputType = sources[0]->outputType();
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
-  std::vector<core::SortOrder> sortingOrders;
-  for (int i = 0; i < keyIndices.size(); i++) {
-    sortingKeys.push_back(field(inputType, keyIndices[i]));
-    sortingOrders.push_back(sortOrder[i]);
-  }
+  auto [sortingKeys, sortingOrders] =
+      parseOrderByClauses(keys, inputType, pool_);
+
   planNode_ = std::make_shared<core::LocalMergeNode>(
       nextPlanNodeId(), sortingKeys, sortingOrders, std::move(sources));
 
@@ -443,21 +469,8 @@ PlanBuilder& PlanBuilder::localMerge(
 PlanBuilder& PlanBuilder::orderBy(
     const std::vector<std::string>& keys,
     bool isPartial) {
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
-  std::vector<core::SortOrder> sortingOrders;
-  for (auto i = 0; i < keys.size(); ++i) {
-    auto [untypedExpr, sortOrder] = duckdb::parseOrderByExpr(keys[i]);
-    auto typedExpr = inferTypes(untypedExpr);
-
-    auto sortingKey =
-        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
-    VELOX_CHECK_NOT_NULL(
-        sortingKey,
-        "ORDER BY clause must use column names, not expressions: {}",
-        keys[i]);
-    sortingKeys.emplace_back(sortingKey);
-    sortingOrders.emplace_back(sortOrder);
-  }
+  auto [sortingKeys, sortingOrders] =
+      parseOrderByClauses(keys, planNode_->outputType(), pool_);
 
   planNode_ = std::make_shared<core::OrderByNode>(
       nextPlanNodeId(), sortingKeys, sortingOrders, isPartial, planNode_);

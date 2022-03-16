@@ -380,20 +380,18 @@ TEST_F(PlanNodeToStringTest, partitionedOutput) {
 }
 
 TEST_F(PlanNodeToStringTest, localMerge) {
-  auto plan = PlanBuilder()
-                  .localMerge(
-                      {1},
-                      {core::kAscNullsFirst},
-                      {PlanBuilder().values({data_}).planNode()})
-                  .planNode();
+  auto plan =
+      PlanBuilder()
+          .localMerge(
+              {"c1 NULLS FIRST"}, {PlanBuilder().values({data_}).planNode()})
+          .planNode();
 
   ASSERT_EQ("-> LocalMerge\n", plan->toString());
   ASSERT_EQ("-> LocalMerge[c1 ASC NULLS FIRST]\n", plan->toString(true, false));
 
   plan = PlanBuilder()
              .localMerge(
-                 {1, 0},
-                 {core::kAscNullsFirst, core::kDescNullsLast},
+                 {"c1 NULLS FIRST", "c0 DESC"},
                  {PlanBuilder().values({data_}).planNode()})
              .planNode();
 
