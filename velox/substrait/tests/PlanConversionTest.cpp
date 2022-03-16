@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#include <google/protobuf/util/json_util.h>
+#include <fstream>
+#include <sstream>
+
 #include "velox/common/base/test_utils/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
@@ -23,16 +27,11 @@
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/type/Type.h"
 #include "velox/type/tests/FilterBuilder.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
-
-#include <google/protobuf/util/json_util.h>
-
-#include <fstream>
-#include <iostream>
-#include <sstream>
 
 #if __has_include("filesystem")
 #include <filesystem>
@@ -41,6 +40,7 @@ namespace fs = std::filesystem;
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #endif
+
 using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::exec;
@@ -181,12 +181,12 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
       std::vector<std::string> paths = planConverter->getPaths();
 
       // In test, need to get the absolute path of the generated ORC file.
+      auto tempPath = getTmpDirPath();
       std::vector<std::string> absolutePaths;
       absolutePaths.reserve(paths.size());
-      for (auto path : paths) {
-        std::string currentPath = fs::current_path().c_str();
-        std::string absolutePath = "file://" + currentPath + path;
-        absolutePaths.emplace_back(absolutePath);
+
+      for (const auto& path : paths) {
+        absolutePaths.emplace_back(fmt::format("file://{}{}", tempPath, path));
       }
 
       std::vector<u_int64_t> starts = planConverter->getStarts();
@@ -196,6 +196,13 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
           planNode, partitionIndex, absolutePaths, starts, lengths);
       return resIter;
     }
+
+    std::string getTmpDirPath() const {
+      return tmpDir_->path;
+    }
+
+    std::shared_ptr<exec::test::TempDirectoryPath> tmpDir_{
+        exec::test::TempDirectoryPath::create()};
   };
 
   // This method can be used to create a Fixed-width type of Vector without Null
@@ -455,19 +462,34 @@ TEST_P(PlanConversionTest, queryTest) {
       " the quickly ironic pains lose car"};
   vectors.emplace_back(createSpecificStringVector(10, lCommentData, *pool));
 
-  BufferPtr nulls = nullptr;
-  uint64_t nullCount = 0;
-  RowVectorPtr rv = std::make_shared<RowVector>(
-      &(*pool), type, nulls, 10, vectors, nullCount);
-  std::vector<RowVectorPtr> batches;
   // Batches has only one RowVector here.
-  batches.reserve(1);
-  batches.emplace_back(rv);
+  uint64_t nullCount = 0;
+  std::vector<RowVectorPtr> batches{std::make_shared<RowVector>(
+      pool.get(), type, nullptr, 10, vectors, nullCount)};
 
-  // Will write the data into an ORC file.
+  // Find the Velox path according current path.
+  std::string veloxPath;
   std::string currentPath = fs::current_path().c_str();
+  size_t pos = 0;
+
+  if ((pos = currentPath.find("project")) != std::string::npos) {
+    // In Github test, the Velox home is /root/project.
+    veloxPath = currentPath.substr(0, pos) + "project";
+  } else if ((pos = currentPath.find("velox")) != std::string::npos) {
+    veloxPath = currentPath.substr(0, pos) + "velox";
+  } else if ((pos = currentPath.find("fbcode")) != std::string::npos) {
+    veloxPath = currentPath;
+  } else {
+    throw std::runtime_error("Current path is not a valid Velox path.");
+  }
+
+  // Find and deserialize Substrait plan json file.
+  std::string subPlanPath = veloxPath + "/velox/substrait/tests/sub.json";
+  auto veloxConverter = std::make_shared<VeloxConverter>();
+
+  // Writes data into an ORC file.
   auto sink = std::make_unique<facebook::velox::dwio::common::FileSink>(
-      currentPath + "/mock_lineitem.orc");
+      veloxConverter->getTmpDirPath() + "/mock_lineitem.orc");
   auto config = std::make_shared<facebook::velox::dwrf::Config>();
   const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max();
   facebook::velox::dwrf::WriterOptions options;
@@ -485,23 +507,6 @@ TEST_P(PlanConversionTest, queryTest) {
   }
   writer->close();
 
-  // Find the Velox path according current path.
-  std::string veloxPath;
-  size_t pos = 0;
-  if ((pos = currentPath.find("project")) != std::string::npos) {
-    // In Github test, the Velox home is /root/project.
-    veloxPath = currentPath.substr(0, pos) + "project";
-  } else if ((pos = currentPath.find("velox")) != std::string::npos) {
-    veloxPath = currentPath.substr(0, pos) + "velox";
-  } else if ((pos = currentPath.find("fbcode")) != std::string::npos) {
-    veloxPath = currentPath;
-  } else {
-    throw std::runtime_error("Current path is not a valid Velox path.");
-  }
-
-  // Begin to trigger Velox's computing with the Substrait plan.
-  std::string subPlanPath = veloxPath + "/velox/substrait/tests/sub.json";
-  auto veloxConverter = std::make_shared<VeloxConverter>();
   auto resIter = veloxConverter->getResIter(subPlanPath);
   while (resIter->HasNext()) {
     auto rv = resIter->Next();
