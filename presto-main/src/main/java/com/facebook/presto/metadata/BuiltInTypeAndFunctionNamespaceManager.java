@@ -115,6 +115,7 @@ import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
 import com.facebook.presto.operator.scalar.ArraySortComparatorFunction;
 import com.facebook.presto.operator.scalar.ArraySortFunction;
+import com.facebook.presto.operator.scalar.ArrayTrimFunction;
 import com.facebook.presto.operator.scalar.ArrayUnionFunction;
 import com.facebook.presto.operator.scalar.ArraysOverlapFunction;
 import com.facebook.presto.operator.scalar.BitwiseFunctions;
@@ -769,6 +770,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayUnionFunction.class)
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
+                .scalar(ArrayTrimFunction.class)
                 .scalar(ArrayIndeterminateOperator.class)
                 .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)

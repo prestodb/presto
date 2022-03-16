@@ -71,4 +71,12 @@ public interface StandardFunctionResolution
     boolean isMinFunction(FunctionHandle functionHandle);
 
     FunctionHandle minFunction(Type valueType);
+
+    boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle);
+
+    FunctionHandle approximateCountDistinctFunction(Type valueType);
+
+    boolean isApproximateSetFunction(FunctionHandle functionHandle);
+
+    FunctionHandle approximateSetFunction(Type valueType);
 }

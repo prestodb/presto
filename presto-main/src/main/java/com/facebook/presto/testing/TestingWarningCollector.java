@@ -19,13 +19,13 @@ import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
@@ -36,7 +36,7 @@ public class TestingWarningCollector
         implements WarningCollector
 {
     @GuardedBy("this")
-    private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
+    private final Multimap<WarningCode, PrestoWarning> warnings = LinkedHashMultimap.create();
     private final WarningCollectorConfig config;
 
     private final boolean addWarnings;
@@ -59,7 +59,7 @@ public class TestingWarningCollector
     {
         requireNonNull(warning, "warning is null");
         if (warnings.size() < config.getMaxWarnings()) {
-            warnings.putIfAbsent(warning.getWarningCode(), warning);
+            warnings.put(warning.getWarningCode(), warning);
         }
     }
 
