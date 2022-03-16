@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.sql.rewrite;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor;
+import com.facebook.presto.sql.analyzer.MaterializedViewQueryOptimizer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -36,8 +39,17 @@ import static com.facebook.presto.sql.rewrite.MaterializedViewOptimizationRewrit
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewOptimizationRewrite
+        extends AstVisitor<Node, Void>
         implements StatementRewrite.Rewrite
 {
+    private final Logger logger = Logger.get(MaterializedViewQueryOptimizer.class);
+    private Query materializedViewQuery;
+    private MaterializedViewInformationExtractor.MaterializedViewInfo materializedViewInfo;
+
+    public MaterializedViewOptimizationRewrite() {
+        this.materializedViewQuery = requireNonNull(materializedViewQuery, "materialized view query is null");
+    }
+
     @Override
     public Statement rewrite(
             Session session,
@@ -51,6 +63,21 @@ public class MaterializedViewOptimizationRewrite
             WarningCollector warningCollector)
     {
         return (Statement) new MaterializedViewOptimizationRewrite.Visitor(metadata, session, parser, accessControl).process(node, null);
+    }
+
+    public Node rewrite(Node node)
+    {
+        // TODO: Implement ways to handle non-optimizable query without throw/catch. https://github.com/prestodb/presto/issues/16541
+        try {
+            MaterializedViewInformationExtractor materializedViewInformationExtractor = new MaterializedViewInformationExtractor();
+            materializedViewInformationExtractor.process(materializedViewQuery);
+            materializedViewInfo = materializedViewInformationExtractor.getMaterializedViewInfo();
+            return process(node);
+        }
+        catch (Exception ex) {
+            logger.warn(ex.getMessage());
+            return node;
+        }
     }
 
     private static final class Visitor

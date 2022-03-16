@@ -45,26 +45,4 @@ public class MaterializedViewCandidateExtractor
         tableNames.add(createQualifiedObjectName(session, node, node.getName()));
         return null;
     }
-
-    public Set<QualifiedObjectName> getMaterializedViewCandidates()
-    {
-        Set<QualifiedObjectName> materializedViewCandidates = new HashSet<>();
-
-        for (QualifiedObjectName baseTable : tableNames) {
-            List<QualifiedObjectName> materializedViews = metadata.getReferencedMaterializedViews(session, baseTable);
-
-            if (materializedViewCandidates.isEmpty()) {
-                materializedViewCandidates.addAll(materializedViews);
-            }
-            else {
-                materializedViewCandidates.retainAll(materializedViews);
-            }
-
-            if (materializedViewCandidates.isEmpty()) {
-                return materializedViewCandidates;
-            }
-        }
-
-        return materializedViewCandidates;
-    }
 }

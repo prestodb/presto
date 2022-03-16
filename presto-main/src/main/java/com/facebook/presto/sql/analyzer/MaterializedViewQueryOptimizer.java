@@ -123,21 +123,6 @@ public class MaterializedViewQueryOptimizer
                 functionAndTypeManager);
     }
 
-    public Node rewrite(Node node)
-    {
-        // TODO: Implement ways to handle non-optimizable query without throw/catch. https://github.com/prestodb/presto/issues/16541
-        try {
-            MaterializedViewInformationExtractor materializedViewInformationExtractor = new MaterializedViewInformationExtractor();
-            materializedViewInformationExtractor.process(materializedViewQuery);
-            materializedViewInfo = materializedViewInformationExtractor.getMaterializedViewInfo();
-            return process(node);
-        }
-        catch (Exception ex) {
-            logger.warn(ex.getMessage());
-            return node;
-        }
-    }
-
     @Override
     protected Node visitNode(Node node, Void context)
     {
@@ -176,69 +161,14 @@ public class MaterializedViewQueryOptimizer
         if (!removablePrefix.isPresent()) {
             removablePrefix = Optional.of(new Identifier(baseTable.getName().toString()));
         }
-        if (node.getGroupBy().isPresent()) {
-            ImmutableSet.Builder<Expression> expressionsInGroupByBuilder = ImmutableSet.builder();
-            for (GroupingElement element : node.getGroupBy().get().getGroupingElements()) {
-                element = removeGroupingElementPrefix(element, removablePrefix);
-                Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
-                if (groupByOfMaterializedView.isPresent()) {
-                    for (Expression expression : element.getExpressions()) {
-                        if (!groupByOfMaterializedView.get().contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
-                            throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
-                        }
-                    }
-                }
-                expressionsInGroupByBuilder.addAll(element.getExpressions());
-            }
-            expressionsInGroupBy = Optional.of(expressionsInGroupByBuilder.build());
-        }
-        // TODO: Add HAVING validation to the validator https://github.com/prestodb/presto/issues/16406
-        if (node.getHaving().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
-        }
-        if (materializedViewInfo.getWhereClause().isPresent()) {
-            if (!node.getWhere().isPresent()) {
-                throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
-            }
-            QualifiedObjectName baseTableName = createQualifiedObjectName(session, baseTable, baseTable.getName());
 
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
-            if (!tableHandle.isPresent()) {
-                throw new SemanticException(MISSING_TABLE, node, "Table does not exist");
-            }
+        MaterializedViewInfoValidation getGroupByQuery = new MaterializedViewInfoValidation(metadata, session, sqlParser, accessControl, domainTranslator, materializedView, materializedViewQuery);
+        MaterializedViewInfoValidation getHavingQuery = new MaterializedViewInfoValidation(metadata, session, sqlParser, accessControl, domainTranslator, materializedView, materializedViewQuery);
+        MaterializedViewInfoValidation getWhereQuery = new MaterializedViewInfoValidation(metadata, session, sqlParser, accessControl, domainTranslator, materializedView, materializedViewQuery);
 
-            ImmutableList.Builder<Field> fields = ImmutableList.builder();
-
-            for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.get()).values()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                fields.add(Field.newUnqualified(materializedViewInfo.getWhereClause().get().getLocation(), columnMetadata.getName(), columnMetadata.getType()));
-            }
-
-            Scope scope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(fields.build()))
-                    .build();
-
-            // Given base query's filter condition and materialized view's filter condition, the goal is to check if MV's filters contain Base's filters (Base implies MV).
-            // Let base query's filter condition be A, and MV's filter condition be B.
-            // One way to evaluate A implies B is to evaluate logical expression A^~B and check if the output domain is none.
-            // If the resulting domain is none, then A^~B is false. Thus A implies B.
-            // For more information and examples: https://fb.quip.com/WwmxA40jLMxR
-            // TODO: Implement method that utilizes external SAT solver libraries. https://github.com/prestodb/presto/issues/16536
-            RowExpression materializedViewWhereCondition = convertToRowExpression(materializedViewInfo.getWhereClause().get(), scope);
-            RowExpression baseQueryWhereCondition = convertToRowExpression(node.getWhere().get(), scope);
-            RowExpression rewriteLogicExpression = and(baseQueryWhereCondition,
-                    call(baseQueryWhereCondition.getSourceLocation(),
-                            "not",
-                            new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(),
-                            materializedViewWhereCondition.getType(),
-                            materializedViewWhereCondition));
-            RowExpression disjunctiveNormalForm = logicalRowExpressions.convertToDisjunctiveNormalForm(rewriteLogicExpression);
-            ExtractionResult<VariableReferenceExpression> result = domainTranslator.fromPredicate(session.toConnectorSession(), disjunctiveNormalForm, BASIC_COLUMN_EXTRACTOR);
-
-            if (!result.getTupleDomain().equals(TupleDomain.none())) {
-                throw new IllegalStateException("View filter condition does not contain base query's filter condition");
-            }
-        }
+        getGroupByQuery.getgroupByQuery(node, removablePrefix, materializedViewInfo, expressionsInGroupBy);
+        getHavingQuery.getHavingQuery( node, baseTable);
+        getWhereQuery.getWhereQuery( node, baseTable);
 
         return new QuerySpecification(
                 (Select) process(node.getSelect(), context),
@@ -429,7 +359,7 @@ public class MaterializedViewQueryOptimizer
         return groupByOfMaterializedView.contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression);
     }
 
-    private RowExpression convertToRowExpression(Expression expression, Scope scope)
+    public RowExpression convertToRowExpression(Expression expression, Scope scope)
     {
         ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                 session,

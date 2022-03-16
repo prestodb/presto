@@ -58,6 +58,8 @@ public class MaterializedViewInformationExtractor
         }
         materializedViewInfo.setBaseTable(node.getFrom().get());
         materializedViewInfo.setWhereClause(node.getWhere());
+        materializedViewInfo.setHavingClause(node.getHaving());
+
         return super.visitQuerySpecification(node, context);
     }
 
@@ -100,6 +102,7 @@ public class MaterializedViewInformationExtractor
         private final Map<Expression, Identifier> baseToViewColumnMap = new HashMap<>();
         private Optional<Relation> baseTable = Optional.empty();
         private Optional<Expression> whereClause = Optional.empty();
+        private Optional<Expression> havingClause = Optional.empty();
         private Optional<Set<Expression>> groupBy = Optional.empty();
         private boolean isDistinct;
         private Optional<Identifier> removablePrefix = Optional.empty();
@@ -144,6 +147,12 @@ public class MaterializedViewInformationExtractor
             this.whereClause = whereClause;
         }
 
+        private void setHavingClause(Optional<Expression> havingClause)
+        {
+            checkState(!this.havingClause.isPresent());
+            this.havingClause = havingClause;
+        }
+
         private void setDistinct(boolean state)
         {
             isDistinct = state;
@@ -162,6 +171,11 @@ public class MaterializedViewInformationExtractor
         public Optional<Expression> getWhereClause()
         {
             return whereClause;
+        }
+
+        public Optional<Expression> getHavingClause()
+        {
+            return havingClause;
         }
 
         public boolean isDistinct()
