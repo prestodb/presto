@@ -17,8 +17,12 @@ target_link_libraries(velox_vector_test_lib velox_vector)
 
 add_executable(
   velox_vector_test
-  VectorMakerTest.cpp VectorTest.cpp DecodedVectorTest.cpp
-  SelectivityVectorTest.cpp EnsureWritableVectorTest.cpp
+  VectorMakerTest.cpp
+  VectorTest.cpp
+  VectorEstimateFlatSizeTest.cpp
+  DecodedVectorTest.cpp
+  SelectivityVectorTest.cpp
+  EnsureWritableVectorTest.cpp
   MayHaveNullsRecursiveTest.cpp)
 
 add_test(velox_vector_test velox_vector_test)

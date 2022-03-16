@@ -327,7 +327,7 @@ StopReason Driver::runInternal(
               result = op->getOutput();
               if (result) {
                 op->stats().outputPositions += result->size();
-                resultBytes = result->retainedSize();
+                resultBytes = result->estimateFlatSize();
                 op->stats().outputBytes += resultBytes;
               }
             }

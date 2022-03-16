@@ -653,5 +653,20 @@ bool BaseVector::isReusableFlatVector(const VectorPtr& vector) {
   return checkNullsAndValueBuffers() && checkStringBuffers();
 }
 
+uint64_t BaseVector::estimateFlatSize() const {
+  if (length_ == 0) {
+    return 0;
+  }
+
+  if (isLazyNotLoaded(*this)) {
+    return 0;
+  }
+
+  auto leaf = wrappedVector();
+  VELOX_DCHECK_GT(leaf->size(), 0);
+  auto avgRowSize = 1.0 * leaf->retainedSize() / leaf->size();
+  return length_ * avgRowSize;
+}
+
 } // namespace velox
 } // namespace facebook

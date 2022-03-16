@@ -139,6 +139,8 @@ class RowVector : public BaseVector {
     return size;
   }
 
+  uint64_t estimateFlatSize() const override;
+
   std::string toString(vector_size_t index) const override;
 
   void ensureWritable(const SelectivityVector& rows) override;
@@ -365,6 +367,8 @@ class ArrayVector : public BaseVector {
         sizes_->capacity() + elements_->retainedSize();
   }
 
+  uint64_t estimateFlatSize() const override;
+
   std::string toString(vector_size_t index) const override;
 
   void ensureWritable(const SelectivityVector& rows) override;
@@ -540,6 +544,8 @@ class MapVector : public BaseVector {
     return BaseVector::retainedSize() + offsets_->capacity() +
         sizes_->capacity() + keys_->retainedSize() + values_->retainedSize();
   }
+
+  uint64_t estimateFlatSize() const override;
 
   std::string toString(vector_size_t index) const override;
 

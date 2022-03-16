@@ -580,6 +580,11 @@ class BaseVector {
     return nulls_ ? nulls_->capacity() : 0;
   }
 
+  /// Returns an estimate of the 'retainedSize' of a flat representation of the
+  /// data stored in this vector. Returns zero if this is a lazy vector that
+  /// hasn't been loaded yet.
+  virtual uint64_t estimateFlatSize() const;
+
   // Returns true if 'vector' is a unique reference to a flat vector
   // and nulls and values are uniquely referenced.
   static bool isReusableFlatVector(const std::shared_ptr<BaseVector>& vector);

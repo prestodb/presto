@@ -257,6 +257,11 @@ class LazyVector : public BaseVector {
                       : BaseVector::retainedSize();
   }
 
+  /// Returns zero if vector has not been loaded yet.
+  uint64_t estimateFlatSize() const override {
+    return isLoaded() ? loadedVector()->estimateFlatSize() : 0;
+  }
+
   std::string toString(vector_size_t index) const override {
     return loadedVector()->toString(index);
   }

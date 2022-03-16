@@ -300,6 +300,17 @@ void RowVector::ensureWritable(const SelectivityVector& rows) {
   BaseVector::ensureWritable(rows);
 }
 
+uint64_t RowVector::estimateFlatSize() const {
+  uint64_t total = BaseVector::retainedSize();
+  for (const auto& child : children_) {
+    if (child) {
+      total += child->estimateFlatSize();
+    }
+  }
+
+  return total;
+}
+
 bool ArrayVector::equalValueAt(
     const BaseVector* other,
     vector_size_t index,
@@ -576,6 +587,11 @@ void ArrayVector::ensureWritable(const SelectivityVector& rows) {
       BaseVector::pool_,
       &elements_);
   BaseVector::ensureWritable(rows);
+}
+
+uint64_t ArrayVector::estimateFlatSize() const {
+  return BaseVector::retainedSize() + offsets_->capacity() +
+      sizes_->capacity() + elements_->estimateFlatSize();
 }
 
 bool MapVector::equalValueAt(
@@ -913,6 +929,12 @@ void MapVector::ensureWritable(const SelectivityVector& rows) {
       BaseVector::pool_,
       &values_);
   BaseVector::ensureWritable(rows);
+}
+
+uint64_t MapVector::estimateFlatSize() const {
+  return BaseVector::retainedSize() + offsets_->capacity() +
+      sizes_->capacity() + keys_->estimateFlatSize() +
+      values_->estimateFlatSize();
 }
 
 } // namespace velox
