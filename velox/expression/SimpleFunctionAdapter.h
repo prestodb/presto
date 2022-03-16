@@ -63,8 +63,7 @@ class SimpleFunctionAdapter : public VectorFunction {
 
   // Whether the return type for this UDF allows for fast path iteration.
   static constexpr bool fastPathIteration =
-      return_type_traits::isPrimitiveType && return_type_traits::isFixedWidth &&
-      (return_type_traits::typeKind != TypeKind::BOOLEAN);
+      return_type_traits::isPrimitiveType && return_type_traits::isFixedWidth;
 
   struct ApplyContext {
     ApplyContext(
@@ -319,7 +318,11 @@ class SimpleFunctionAdapter : public VectorFunction {
         // beforehand, so we only need to update the null buffer if the function
         // returned null (which is not the common case).
         if (notNull) {
-          data[row] = out;
+          if constexpr (return_type_traits::typeKind == TypeKind::BOOLEAN) {
+            bits::setBit(data, row, out);
+          } else {
+            data[row] = out;
+          }
         } else {
           if (!nullBuffer) {
             nullBuffer = applyContext.result->mutableRawNulls();
@@ -333,7 +336,7 @@ class SimpleFunctionAdapter : public VectorFunction {
         // improvement when there are no nulls.
         if (applyContext.mayHaveNullsRecursive) {
           applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-            auto out = typename return_type_traits::NativeType();
+            typename return_type_traits::NativeType out{};
             auto containsNull = (readers.containsNull(row) || ...);
             bool notNull;
             if (containsNull) {
@@ -347,7 +350,7 @@ class SimpleFunctionAdapter : public VectorFunction {
           });
         } else {
           applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-            typename return_type_traits::NativeType out;
+            typename return_type_traits::NativeType out{};
             bool notNull = doApplyNullFree<0>(row, out, readers...);
 
             writeResult(row, notNull, out);
@@ -359,13 +362,13 @@ class SimpleFunctionAdapter : public VectorFunction {
           // functions that repeatedly update the output.
           // The opposite optimization (eliminating the temp) is easier to do
           // by the compiler (assuming the function call is inlined).
-          typename return_type_traits::NativeType out;
+          typename return_type_traits::NativeType out{};
           bool notNull = doApplyNotNull<0>(row, out, readers...);
           writeResult(row, notNull, out);
         });
       } else {
         applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-          typename return_type_traits::NativeType out;
+          typename return_type_traits::NativeType out{};
           bool notNull = doApply<0>(row, out, readers...);
           writeResult(row, notNull, out);
         });
