@@ -92,6 +92,10 @@ class QueryConfig {
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
   }
 
+  // Returns the target size for a Task's buffered output. The
+  // producer Drivers are blocked when the buffered size exceeds
+  // this. The Drivers are resumed when the buffered size goes below
+  // PartitionedOutputBufferManager::kContinuePct % of this.
   uint64_t maxPartitionedOutputBufferSize() const {
     static constexpr uint64_t kDefault = 32UL << 20;
     return get<uint64_t>(kMaxPartitionedOutputBufferSize, kDefault);

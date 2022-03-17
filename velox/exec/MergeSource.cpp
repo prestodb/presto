@@ -203,7 +203,7 @@ class MergeExchangeSource : public MergeSource {
     }
     if (!inputStream_) {
       inputStream_ = std::make_unique<ByteStream>();
-      mergeExchange_->stats().rawInputBytes += currentPage_->byteSize();
+      mergeExchange_->stats().rawInputBytes += currentPage_->size();
       currentPage_->prepareStreamForDeserialize(inputStream_.get());
     }
 

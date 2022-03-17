@@ -224,8 +224,11 @@ void Task::start(
     }
 
     if (factory->needsExchangeClient()) {
-      self->exchangeClients_[pipeline] =
-          std::make_shared<ExchangeClient>(self->destination_);
+      // Low-water mark for filling the exchange queue is 1/2 of the per worker
+      // buffer size of the producers.
+      self->exchangeClients_[pipeline] = std::make_shared<ExchangeClient>(
+          self->destination_,
+          self->queryCtx()->config().maxPartitionedOutputBufferSize() / 2);
     }
   }
 

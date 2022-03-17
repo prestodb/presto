@@ -15,23 +15,24 @@
  */
 #pragma once
 
+#include "velox/exec/Exchange.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
 
-// nullptr in groups indicates that there is no more data.
+// nullptr in pages indicates that there is no more data.
 // sequence is the same as specified in BufferManager::getData call. The caller
 // is expected to advance sequence by the number of entries in groups and call
 // BufferManager::acknowledge.
 using DataAvailableCallback = std::function<void(
-    std::vector<std::shared_ptr<VectorStreamGroup>>& groups,
+    std::vector<std::shared_ptr<SerializedPage>>& pages,
     int64_t sequence)>;
 
 struct DataAvailable {
   DataAvailableCallback callback;
   int64_t sequence;
-  std::vector<std::shared_ptr<VectorStreamGroup>> data;
+  std::vector<std::shared_ptr<SerializedPage>> data;
 
   void notify() {
     if (callback) {
@@ -42,7 +43,7 @@ struct DataAvailable {
 
 class DestinationBuffer {
  public:
-  void enqueue(std::shared_ptr<VectorStreamGroup> data) {
+  void enqueue(std::shared_ptr<SerializedPage> data) {
     // drop duplicate end markers
     if (data == nullptr && !data_.empty() && data_.back() == nullptr) {
       return;
@@ -58,19 +59,19 @@ class DestinationBuffer {
       uint64_t maxBytes,
       int64_t sequence,
       DataAvailableCallback notify,
-      std::vector<std::shared_ptr<VectorStreamGroup>>& result);
+      std::vector<std::shared_ptr<SerializedPage>>& result);
 
   // Removes data from the queue. If 'fromGetData' we do not give a
   // warning for the case where no data is removed, otherwise we
   // expect that data does get freed. We cannot assert that data gets
   // deleted because acknowledge messages can arrive out of order.
-  std::vector<std::shared_ptr<VectorStreamGroup>> acknowledge(
+  std::vector<std::shared_ptr<SerializedPage>> acknowledge(
       int64_t sequence,
       bool fromGetData);
 
   // Returns all data to be freed in 'freed' and their size in
   // 'totalFreed'. 'this' can be destroyed after this.
-  std::vector<std::shared_ptr<VectorStreamGroup>> deleteResults();
+  std::vector<std::shared_ptr<SerializedPage>> deleteResults();
 
   // Returns and clears the notify callback, if any, along with arguments for
   // the callback.
@@ -79,7 +80,7 @@ class DestinationBuffer {
   std::string toString();
 
  private:
-  std::vector<std::shared_ptr<VectorStreamGroup>> data_;
+  std::vector<std::shared_ptr<SerializedPage>> data_;
   // The sequence number of the first in 'data_'.
   int64_t sequence_ = 0;
   DataAvailableCallback notify_ = nullptr;
@@ -94,17 +95,7 @@ class PartitionedOutputBuffer {
       std::shared_ptr<Task> task,
       bool broadcast,
       int numDestinations,
-      uint32_t numDrivers)
-      : task_(std::move(task)),
-        broadcast_(broadcast),
-        numDrivers_(numDrivers),
-        maxSize_(task_->queryCtx()->config().maxPartitionedOutputBufferSize()),
-        continueSize_(maxSize_ / 2) {
-    buffers_.reserve(numDestinations);
-    for (int i = 0; i < numDestinations; i++) {
-      buffers_.push_back(std::make_unique<DestinationBuffer>());
-    }
-  }
+      uint32_t numDrivers);
 
   /// The total number of broadcast buffers may not be known at the task start
   /// time. This method can be called to update the total number of broadcast
@@ -117,7 +108,7 @@ class PartitionedOutputBuffer {
 
   BlockingReason enqueue(
       int destination,
-      std::unique_ptr<VectorStreamGroup> data,
+      std::shared_ptr<SerializedPage> data,
       ContinueFuture* future);
 
   void noMoreData();
@@ -149,6 +140,10 @@ class PartitionedOutputBuffer {
   std::string toString();
 
  private:
+  // Percentage of maxSize below which a blocked producer should
+  // be unblocked.
+  static constexpr int32_t kContinuePct = 90;
+
   /// If this is called due to a driver processed all its data (no more data),
   /// we increment the number of finished drivers. If it is called due to us
   /// updating the total number of drivers, we don't.
@@ -157,7 +152,7 @@ class PartitionedOutputBuffer {
   // Updates buffered size and returns possibly continuable producer promises in
   // 'promises'.
   void updateAfterAcknowledgeLocked(
-      const std::vector<std::shared_ptr<VectorStreamGroup>>& freed,
+      const std::vector<std::shared_ptr<SerializedPage>>& freed,
       std::vector<VeloxPromise<bool>>& promises);
 
   /// Given an updated total number of broadcast buffers, add any missing ones
@@ -181,7 +176,7 @@ class PartitionedOutputBuffer {
   // While noMoreBroadcastBuffers_ is false, stores the enqueued data to
   // broadcast to destinations that have not yet been initialized. Cleared
   // after receiving no-more-broadcast-buffers signal.
-  std::vector<std::shared_ptr<VectorStreamGroup>> dataToBroadcast_;
+  std::vector<std::shared_ptr<SerializedPage>> dataToBroadcast_;
 
   std::mutex mutex_;
   // Actual data size in 'buffers_'.
@@ -218,7 +213,7 @@ class PartitionedOutputBufferManager {
   BlockingReason enqueue(
       const std::string& taskId,
       int destination,
-      std::unique_ptr<VectorStreamGroup> data,
+      std::shared_ptr<SerializedPage> data,
       ContinueFuture* future);
 
   void noMoreData(const std::string& taskId);
@@ -261,6 +256,18 @@ class PartitionedOutputBufferManager {
   static std::weak_ptr<PartitionedOutputBufferManager> getInstance(
       const std::string& host = "local");
 
+  // Returns a new stream listener if a listener factory has been set.
+  std::unique_ptr<OutputStreamListener> newListener() const {
+    return listenerFactory_ ? listenerFactory_() : nullptr;
+  }
+
+  // Sets the stream listener factory. This allows custom processing of data for
+  // repartitioning, e.g. computing checksums.
+  void setListenerFactory(
+      std::function<std::unique_ptr<OutputStreamListener>()> factory) {
+    listenerFactory_ = factory;
+  }
+
   std::string toString();
 
  private:
@@ -271,5 +278,8 @@ class PartitionedOutputBufferManager {
       std::unordered_map<std::string, std::shared_ptr<PartitionedOutputBuffer>>,
       std::mutex>
       buffers_;
+
+  std::function<std::unique_ptr<OutputStreamListener>()> listenerFactory_{
+      nullptr};
 };
 } // namespace facebook::velox::exec

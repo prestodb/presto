@@ -27,35 +27,41 @@ class SerializedPage {
  public:
   static constexpr int kSerializedPageOwner = -11;
 
-  // Construct from a bounded stream
-  SerializedPage(
-      std::istream* stream,
-      uint64_t size,
-      memory::MappedMemory* memory);
+  // Construct from IOBuf chain.
+  explicit SerializedPage(std::unique_ptr<folly::IOBuf> iobuf);
 
   ~SerializedPage() = default;
 
-  uint64_t byteSize() const {
-    return allocation_.byteSize();
+  // Returns the size of the serialized data in bytes.
+  uint64_t size() const {
+    return iobufBytes_;
   }
 
   // Makes 'input' ready for deserializing 'this' with
   // VectorStreamGroup::read().
   void prepareStreamForDeserialize(ByteStream* input);
 
-  static std::unique_ptr<SerializedPage> fromVectorStreamGroup(
-      VectorStreamGroup* group) {
-    std::stringstream out;
-    OutputStreamListener listener;
-    OStreamOutputStream outputStream(&out, &listener);
-    group->flush(&outputStream);
-    return std::make_unique<SerializedPage>(
-        &out, out.tellp(), group->mappedMemory());
+  std::unique_ptr<folly::IOBuf> getIOBuf() const {
+    return iobuf_->clone();
   }
 
  private:
-  memory::MappedMemory::Allocation allocation_;
+  static int64_t chainBytes(folly::IOBuf& iobuf) {
+    int64_t size = 0;
+    for (auto& range : iobuf) {
+      size += range.size();
+    }
+    return size;
+  }
+
+  // Buffers containing the serialized data. The memory is owned by 'iobuf_'.
   std::vector<ByteRange> ranges_;
+
+  // IOBuf holding the data in 'ranges_.
+  std::unique_ptr<folly::IOBuf> iobuf_;
+
+  // Number of payload bytes in 'iobuf_'.
+  const int64_t iobufBytes_;
 };
 
 // Queue of results retrieved from source. Owned by shared_ptr by
@@ -63,6 +69,8 @@ class SerializedPage {
 // for input.
 class ExchangeQueue {
  public:
+  explicit ExchangeQueue(int64_t minBytes) : minBytes_(minBytes) {}
+
   ~ExchangeQueue() {
     std::lock_guard<std::mutex> l(mutex_);
     clearAllPromises();
@@ -82,6 +90,7 @@ class ExchangeQueue {
       checkComplete();
       return;
     }
+    totalBytes_ += page->size();
     queue_.push_back(std::move(page));
     if (!promises_.empty()) {
       // Resume one of the waiting drivers.
@@ -121,7 +130,20 @@ class ExchangeQueue {
     auto page = std::move(queue_.front());
     queue_.pop_front();
     *atEnd = false;
+    totalBytes_ -= page->size();
     return page;
+  }
+
+  // Returns the total bytes held by SerializedPages in 'this'.
+  uint64_t totalBytes() const {
+    return totalBytes_;
+  }
+
+  // Returns the target size for totalBytes(). An exchange client
+  // should not fetch more data until the queue totalBytes() is below
+  // minBytes().
+  uint64_t minBytes() const {
+    return minBytes_;
   }
 
   void addSource() {
@@ -159,6 +181,12 @@ class ExchangeQueue {
   // When set, all promises will be realized and the next dequeue will
   // throw an exception with this message.
   std::string error_;
+  // Total size of SerializedPages in queue.
+  uint64_t totalBytes_{0};
+
+  // If 'totalBytes_' < 'minBytes_', an exchange should request more data from
+  // producers.
+  uint64_t minBytes_;
 };
 
 class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
@@ -238,8 +266,11 @@ struct RemoteConnectorSplit : public connector::ConnectorSplit {
 // per consumer thread.
 class ExchangeClient {
  public:
-  explicit ExchangeClient(int destination)
-      : destination_(destination), queue_(std::make_shared<ExchangeQueue>()) {
+  static constexpr int32_t kDefaultMinSize = 32 << 20; // 32 MB.
+
+  explicit ExchangeClient(int destination, int64_t minSize = kDefaultMinSize)
+      : destination_(destination),
+        queue_(std::make_shared<ExchangeQueue>(minSize)) {
     VELOX_CHECK(
         destination >= 0,
         "Exchange client destination must be greater than zero, got {}",
