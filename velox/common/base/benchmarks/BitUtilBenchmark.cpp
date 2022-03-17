@@ -17,6 +17,8 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 
+#include <optional>
+
 #include "velox/common/base/BitUtil.h"
 DECLARE_bool(bmi2); // NOLINT
 
