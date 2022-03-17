@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/exec/PlanNodeStats.h"
-#include "velox/exec/Operator.h"
 #include "velox/exec/TaskStats.h"
 
 namespace facebook::velox::exec {
@@ -49,6 +48,10 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   blockedWallNanos += stats.blockedWallNanos;
 
   peakMemoryBytes += stats.memoryStats.peakTotalMemoryReservation;
+
+  for (const auto& entry : stats.runtimeStats) {
+    customStats[entry.first].merge(entry.second);
+  }
 }
 
 std::string PlanNodeStats::toString(bool includeInputStats) const {
@@ -88,9 +91,32 @@ std::unordered_map<core::PlanNodeId, PlanNodeStats> toPlanStats(
   return planStats;
 }
 
+namespace {
+void printCustomStats(
+    const std::unordered_map<std::string, RuntimeMetric>& stats,
+    const std::string& indentation,
+    std::stringstream& stream) {
+  int width = 0;
+  for (const auto& entry : stats) {
+    if (width < entry.first.size()) {
+      width = entry.first.size();
+    }
+  }
+  width += 3;
+
+  for (const auto& entry : stats) {
+    stream << std::endl;
+    stream << indentation << std::left << std::setw(width) << entry.first
+           << " sum: " << entry.second.sum << ", count: " << entry.second.count
+           << ", min: " << entry.second.min << ", max: " << entry.second.max;
+  }
+}
+} // namespace
+
 std::string printPlanWithStats(
     const core::PlanNode& plan,
-    const TaskStats& taskStats) {
+    const TaskStats& taskStats,
+    bool includeCustomStats) {
   auto planStats = toPlanStats(taskStats);
   auto leafPlanNodes = plan.leafPlanNodeIds();
 
@@ -109,12 +135,19 @@ std::string printPlanWithStats(
         // Include break down by operator type if there are more than one of
         // these.
         if (stats.operatorStats.size() > 1) {
-          int cnt = 0;
           for (const auto& entry : stats.operatorStats) {
             stream << std::endl;
             stream << indentation << entry.first << ": "
                    << entry.second->toString(includeInputStats);
-            ++cnt;
+
+            if (includeCustomStats) {
+              printCustomStats(
+                  entry.second->customStats, indentation + "   ", stream);
+            }
+          }
+        } else {
+          if (includeCustomStats) {
+            printCustomStats(stats.customStats, indentation + "   ", stream);
           }
         }
       });
