@@ -11,20 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+set(velox_benchmark_deps
+    velox_type
+    velox_vector
+    velox_vector_fuzzer
+    velox_expression
+    velox_parse_parser
+    velox_serialization
+    ${FOLLY}
+    ${FOLLY_BENCHMARK}
+    ${DOUBLE_CONVERSION}
+    ${GTEST_BOTH_LIBRARIES}
+    ${gflags_LIBRARIES}
+    glog::glog)
 
-add_executable(velox_benchmark_simple_arithmetic SimpleArithmetic.cpp)
+add_executable(velox_benchmark_basic_simple_arithmetic SimpleArithmetic.cpp)
+target_link_libraries(velox_benchmark_basic_simple_arithmetic
+                      ${velox_benchmark_deps})
 
-target_link_libraries(
-  velox_benchmark_simple_arithmetic
-  velox_type
-  velox_vector
-  velox_vector_fuzzer
-  velox_expression
-  velox_parse_parser
-  velox_serialization
-  ${FOLLY}
-  ${FOLLY_BENCHMARK}
-  ${DOUBLE_CONVERSION}
-  ${GTEST_BOTH_LIBRARIES}
-  ${gflags_LIBRARIES}
-  glog::glog)
+add_executable(velox_benchmark_basic_comparison_conjunct ComparisonConjunct.cpp)
+target_link_libraries(velox_benchmark_basic_comparison_conjunct
+                      ${velox_benchmark_deps})
