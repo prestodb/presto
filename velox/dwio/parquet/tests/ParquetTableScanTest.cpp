@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <folly/init/Init.h>
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -222,4 +223,10 @@ TEST_F(ParquetTableScanTest, countStar) {
                   .planNode();
 
   assertQuery(plan, {split}, "SELECT 20");
+}
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
 }
