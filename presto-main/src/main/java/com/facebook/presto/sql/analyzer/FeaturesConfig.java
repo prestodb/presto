@@ -101,6 +101,7 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
+    private boolean useAlternativeFunctionSignatures;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
@@ -407,6 +408,19 @@ public class FeaturesConfig
     public boolean isLegacyLogFunction()
     {
         return legacyLogFunction;
+    }
+
+    @Config("use-alternative-function-signatures")
+    @ConfigDescription("Override intermediate aggregation type of some aggregation functions to be compatible with Velox")
+    public FeaturesConfig setUseAlternativeFunctionSignatures(boolean value)
+    {
+        this.useAlternativeFunctionSignatures = value;
+        return this;
+    }
+
+    public boolean isUseAlternativeFunctionSignatures()
+    {
+        return useAlternativeFunctionSignatures;
     }
 
     @Config("deprecated.group-by-uses-equal")
