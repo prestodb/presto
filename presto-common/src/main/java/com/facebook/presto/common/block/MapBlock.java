@@ -35,6 +35,7 @@ public class MapBlock
     private final int startOffset;
     private final int positionCount;
 
+    @Nullable
     private final boolean[] mapIsNull;
     private final int[] offsets;
     private final Block keyBlock;
@@ -253,7 +254,9 @@ public class MapBlock
         consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
         consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
-        consumer.accept(mapIsNull, sizeOf(mapIsNull));
+        if (mapIsNull != null) {
+            consumer.accept(mapIsNull, sizeOf(mapIsNull));
+        }
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }

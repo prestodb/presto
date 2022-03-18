@@ -34,6 +34,7 @@ public class RowBlock
     private final int startOffset;
     private final int positionCount;
 
+    @Nullable
     private final boolean[] rowIsNull;
     private final int[] fieldBlockOffsets;
     private final Block[] fieldBlocks;
@@ -240,7 +241,9 @@ public class RowBlock
             consumer.accept(fieldBlocks[i], fieldBlocks[i].getRetainedSizeInBytes());
         }
         consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
-        consumer.accept(rowIsNull, sizeOf(rowIsNull));
+        if (rowIsNull != null) {
+            consumer.accept(rowIsNull, sizeOf(rowIsNull));
+        }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
