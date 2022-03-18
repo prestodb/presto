@@ -182,4 +182,25 @@ wrap(vector_size_t size, BufferPtr mapping, const RowVectorPtr& vector) {
       size,
       wrappedChildren);
 }
+
+void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx) {
+  LocalDecodedVector decodedHolder(&execCtx);
+  LocalSelectivityVector baseRowsHolder(&execCtx);
+  LocalSelectivityVector rowsHolder(&execCtx);
+  SelectivityVector* rows = nullptr;
+  for (auto& child : input->children()) {
+    if (isLazyNotLoaded(*child)) {
+      if (!rows) {
+        rows = rowsHolder.get(input->size());
+        rows->setAll();
+      }
+      LazyVector::ensureLoadedRows(
+          child,
+          *rows,
+          *decodedHolder.get(),
+          *baseRowsHolder.get(input->size()));
+    }
+  }
+}
+
 } // namespace facebook::velox::exec

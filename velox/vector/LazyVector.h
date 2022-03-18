@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/vector/DecodedVector.h"
 #include "velox/vector/SimpleVector.h"
 
 namespace facebook::velox {
@@ -265,6 +266,23 @@ class LazyVector : public BaseVector {
   std::string toString(vector_size_t index) const override {
     return loadedVector()->toString(index);
   }
+
+  // Loads 'rows' of 'vector'. 'vector' may be an arbitrary wrapping
+  // of a LazyVector. 'rows' are translated through the wrappers. If
+  // there is no LazyVector inside 'vector', this has no
+  // effect. 'vector' may be replaced by a a new vector with 'rows'
+  // loaded and the rest as after default construction.
+  static void ensureLoadedRows(
+      VectorPtr& vector,
+      const SelectivityVector& rows);
+
+  // as ensureLoadedRows, above, but takes a scratch DecodedVector and
+  // SelectivityVector as arguments to enable reuse.
+  static void ensureLoadedRows(
+      VectorPtr& vector,
+      const SelectivityVector& rows,
+      DecodedVector& decoded,
+      SelectivityVector& baseRows);
 
  private:
   std::unique_ptr<VectorLoader> loader_;

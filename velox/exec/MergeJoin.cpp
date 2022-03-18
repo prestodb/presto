@@ -173,16 +173,19 @@ bool MergeJoin::findEndOfMatch(Match& match, const RowVectorPtr& input) {
   }
 
   if (endIndex == numInput) {
+    // Inputs are kept past getting a new batch of inputs. LazyVectors
+    // must be loaded before advancing to the next batch.
+    loadColumns(input, *operatorCtx_->execCtx());
     match.inputs.push_back(input);
     match.endIndex = endIndex;
     return false;
   }
 
   if (endIndex > 0) {
+    // Match ends here, no need to pre-load lazies.
     match.inputs.push_back(input);
     match.endIndex = endIndex;
   }
-
   match.complete = true;
   return true;
 }
@@ -540,6 +543,10 @@ RowVectorPtr MergeJoin::doGetOutput() {
         ++endIndex;
       }
 
+      if (endIndex == input_->size()) {
+        // Matches continue in subsequent input. Load all lazies.
+        loadColumns(input_, *operatorCtx_->execCtx());
+      }
       leftMatch_ = Match{
           {input_}, index_, endIndex, endIndex < input_->size(), std::nullopt};
 

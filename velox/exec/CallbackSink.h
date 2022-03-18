@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/exec/Operator.h"
+#include "velox/exec/OperatorUtils.h"
 
 namespace facebook::velox::exec {
 
@@ -30,6 +31,7 @@ class CallbackSink : public Operator {
         callback_{callback} {}
 
   void addInput(RowVectorPtr input) override {
+    loadColumns(input, *operatorCtx_->execCtx());
     blockingReason_ = callback_(input, &future_);
   }
 

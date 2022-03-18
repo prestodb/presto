@@ -235,79 +235,24 @@ BaseVector* EvalCtx::getRawField(int32_t index) const {
 }
 
 void EvalCtx::ensureFieldLoaded(int32_t index, const SelectivityVector& rows) {
-  auto field = getRawField(index);
+  auto field = getField(index);
   if (isLazyNotLoaded(*field)) {
     const auto& rowsToLoad = isFinalSelection_ ? rows : *finalSelection_;
 
     LocalDecodedVector holder(this);
     auto decoded = holder.get();
-    decoded->decode(*field, rowsToLoad, false);
-
-    VELOX_CHECK_EQ(decoded->base()->encoding(), VectorEncoding::Simple::LAZY);
-    auto lazyVector = decoded->base()->asUnchecked<LazyVector>();
-
-    raw_vector<vector_size_t> rowNumbers;
-    RowSet rowSet;
-    if (decoded->isConstantMapping()) {
-      rowNumbers.push_back(decoded->index(rowsToLoad.begin()));
-    } else if (decoded->isIdentityMapping()) {
-      if (rows.isAllSelected()) {
-        auto iota = velox::iota(rows.end(), rowNumbers);
-        rowSet = RowSet(iota, rowsToLoad.end());
-      } else {
-        rowNumbers.reserve(rowsToLoad.end());
-        rowsToLoad.applyToSelected(
-            [&rowNumbers](auto row) { rowNumbers.push_back(row); });
-        rowSet = RowSet(rowNumbers);
-      }
-    } else {
-      LocalSelectivityVector baseRowsHolder(this, decoded->base()->size());
-      auto baseRows = baseRowsHolder.get();
-      baseRows->clearAll();
-      rowsToLoad.applyToSelected([&](auto row) {
-        if (!decoded->isNullAt(row)) {
-          baseRows->setValid(decoded->index(row), true);
-        }
-      });
-      baseRows->updateBounds();
-
-      rowNumbers.reserve(baseRows->end());
-      baseRows->applyToSelected(
-          [&rowNumbers](auto row) { rowNumbers.push_back(row); });
-      rowSet = RowSet(rowNumbers);
-
-      // If we have a mapping that is not a single level of dictionary, we
-      // collapse this to a single level of dictionary. The reason is
-      // that the inner levels of dictionary will reference rows that
-      // are not loaded, since the load was done for only the rows that
-      // are reachable from 'field'.
-      if (field->encoding() != VectorEncoding::Simple::DICTIONARY ||
-          lazyVector != field->valueVector().get()) {
-        lazyVector->load(rowSet, nullptr);
-        BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(
-            field->size(), field->pool());
-        std::memcpy(
-            indices->asMutable<vector_size_t>(),
-            decoded->indices(),
-            sizeof(vector_size_t) * field->size());
-        const_cast<RowVector*>(row_)->childAt(index) =
-            BaseVector::wrapInDictionary(
-                BufferPtr(nullptr),
-                std::move(indices),
-                field->size(),
-                lazyVector->loadedVectorShared());
-        return;
-      }
+    LocalSelectivityVector baseRowsHolder(this, 0);
+    auto baseRows = baseRowsHolder.get();
+    auto rawField = field.get();
+    LazyVector::ensureLoadedRows(field, rowsToLoad, *decoded, *baseRows);
+    if (rawField != field.get()) {
+      const_cast<RowVector*>(row_)->childAt(index) = field;
     }
-
-    lazyVector->load(rowSet, nullptr);
+  } else {
+    // This is needed in any case because wrappers must be initialized also if
+    // they contain a loaded lazyVector.
+    field->loadedVector();
   }
-  // An explicit call to loadedVector() is necessary to allow for proper
-  // initialization of dictionaries, sequences, etc. on top of lazy vector
-  // after it has been loaded. If encoding has been peeled off, the loading of
-  // the lazy vector would have happen already, but we still need to
-  // initialize this vector.
-  field->loadedVector();
 }
 
 } // namespace facebook::velox::exec

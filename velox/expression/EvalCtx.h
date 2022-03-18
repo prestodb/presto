@@ -252,6 +252,9 @@ class LocalSelectivityVector {
       : context_(context->execCtx()),
         vector_(context_->getSelectivityVector(size)) {}
 
+  explicit LocalSelectivityVector(core::ExecCtx* context)
+      : context_(context), vector_(nullptr) {}
+
   explicit LocalSelectivityVector(EvalCtx* context)
       : context_(context->execCtx()), vector_(nullptr) {}
 
@@ -321,6 +324,8 @@ class LocalSelectivityVector {
 
 class LocalDecodedVector {
  public:
+  explicit LocalDecodedVector(core::ExecCtx* context) : context_(context) {}
+
   explicit LocalDecodedVector(EvalCtx* context)
       : context_(context->execCtx()) {}
 

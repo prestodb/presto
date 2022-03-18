@@ -69,4 +69,8 @@ wrapChild(vector_size_t size, BufferPtr mapping, const VectorPtr& child);
 // specified mapping. Returns vector as-is if mapping is null.
 RowVectorPtr
 wrap(vector_size_t size, BufferPtr mapping, const RowVectorPtr& vector);
+
+// Ensures that all LazyVectors reachable from 'input' are loaded for all rows.
+void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx);
+
 } // namespace facebook::velox::exec
