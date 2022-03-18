@@ -60,8 +60,20 @@ class DenseHll {
   /// Serializes internal state using Presto DenseV2 format.
   void serialize(char* output);
 
-  /// Returns true if 'input' has Presto DenseV2 format.
+  /// Returns true if 'input' contains Presto DenseV2 format indicator.
   static bool canDeserialize(const char* input);
+
+  /// Returns true if 'input' contains Presto DenseV2 format indicator and the
+  /// rest of the data matches HLL format:
+  /// 1 byte for version
+  /// 1 byte for index bit length, index bit length must be in [4,16]
+  /// 1 byte for baseline value
+  /// 2^(n-1) bytes for buckets, values in buckets must be in [0,63]
+  /// 2 bytes for # overflow buckets
+  /// 3 * #overflow buckets bytes for overflow buckets/values
+  /// More information here:
+  /// https://engineering.fb.com/2018/12/13/data-infrastructure/hyperloglog/
+  static bool canDeserialize(const char* input, int size);
 
   static int8_t deserializeIndexBitLength(const char* input);
 

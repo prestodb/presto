@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/hyperloglog/DenseHll.h"
+#include <exception>
+#include <sstream>
 #include "velox/functions/prestosql/aggregates/IOUtils.h"
 #include "velox/functions/prestosql/hyperloglog/BiasCorrection.h"
 #include "velox/functions/prestosql/hyperloglog/HllUtils.h"
@@ -395,6 +397,65 @@ int32_t DenseHll::serializedSize() const {
 // static
 bool DenseHll::canDeserialize(const char* input) {
   return *reinterpret_cast<const int8_t*>(input) == kPrestoDenseV2;
+}
+
+// static
+bool DenseHll::canDeserialize(const char* input, int size) {
+  if (size < 5) {
+    // Min serialized sparse HLL size is 5 bytes.
+    return false;
+  }
+
+  InputByteStream stream(input);
+  auto version = stream.read<int8_t>();
+  if (kPrestoDenseV2 != version) {
+    return false;
+  }
+
+  auto indexBitLength = stream.read<int8_t>();
+  if (indexBitLength < 4 || indexBitLength > 16) {
+    return false;
+  }
+
+  auto baseline = stream.read<int8_t>();
+
+  // Min size with no overflow buckets/values.
+  int minSizeNoOverflow = 5 + pow(2, (indexBitLength - 1));
+  if (size < minSizeNoOverflow) {
+    return false;
+  }
+
+  auto numBuckets = 1 << indexBitLength;
+  const int8_t* deltas = stream.read<int8_t>(numBuckets / 2);
+  auto overflows = stream.read<int16_t>();
+
+  int sizeWithOverflow = minSizeNoOverflow + 2 * overflows + overflows;
+  if (size < sizeWithOverflow) {
+    return false;
+  }
+
+  const uint16_t* overflowBuckets =
+      overflows ? stream.read<uint16_t>(overflows) : nullptr;
+  const int8_t* overflowValues =
+      overflows ? stream.read<int8_t>(overflows) : nullptr;
+
+  auto hllView = DenseHllView{
+      indexBitLength,
+      baseline,
+      deltas,
+      overflows,
+      overflowBuckets,
+      overflowValues};
+
+  for (int i = 0; i < numBuckets; i++) {
+    int value = hllView.getValue(i);
+    // Value is used to left shift 1L so value must be in [0,63].
+    if (value < 0 || value > 63) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // static
