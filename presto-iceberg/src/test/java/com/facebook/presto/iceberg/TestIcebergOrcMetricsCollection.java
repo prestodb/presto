@@ -21,6 +21,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.FileContent;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -80,6 +81,9 @@ public class TestIcebergOrcMetricsCollection
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
+        // check content
+        assertEquals(datafile.getContent(), FileContent.DATA.id());
+
         // Check file format
         assertEquals(datafile.getFileFormat(), "ORC");
 
@@ -91,6 +95,10 @@ public class TestIcebergOrcMetricsCollection
 
         // Check per-column null value count
         datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
+
+        // Check NaN value count
+        // TODO: add more checks after NaN info is collected
+        assertNull(datafile.getNanValueCounts());
 
         // Check per-column lower bound
         Map<Integer, String> lowerBounds = datafile.getLowerBounds();
@@ -163,6 +171,28 @@ public class TestIcebergOrcMetricsCollection
     }
 
     @Test
+    public void testWithNaNs()
+    {
+        assertUpdate("CREATE TABLE test_with_nans (_int INTEGER, _real REAL, _double DOUBLE)");
+        assertUpdate("INSERT INTO test_with_nans VALUES (1, 1.1, 1.1), (2, cast(nan() as real), 4.5), (3, 4.6, -nan())", 3);
+        MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nans$files\"");
+        assertEquals(materializedResult.getRowCount(), 1);
+        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+
+        // Check per-column value count
+        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
+
+        // TODO: add more checks after NaN info is collected
+        assertEquals(datafile.getNanValueCounts().size(), 0);
+        assertNull(datafile.getLowerBounds().get(2));
+        assertNull(datafile.getLowerBounds().get(3));
+        assertNull(datafile.getUpperBounds().get(2));
+        assertNull(datafile.getUpperBounds().get(3));
+
+        assertUpdate("DROP TABLE test_with_nans");
+    }
+
+    @Test
     public void testNestedTypes()
     {
         assertUpdate("CREATE TABLE test_nested_types (col1 INTEGER, col2 ROW (f1 INTEGER, f2 ARRAY(INTEGER), f3 DOUBLE)) WITH (format = 'ORC')");
@@ -202,6 +232,7 @@ public class TestIcebergOrcMetricsCollection
 
     public static class DataFileRecord
     {
+        private final int content;
         private final String filePath;
         private final String fileFormat;
         private final long recordCount;
@@ -216,21 +247,23 @@ public class TestIcebergOrcMetricsCollection
 
         public static DataFileRecord toDataFileRecord(MaterializedRow row)
         {
-            assertEquals(row.getFieldCount(), 12);
+            assertEquals(row.getFieldCount(), 14);
             return new DataFileRecord(
-                    (String) row.getField(0),
+                    (int) row.getField(0),
                     (String) row.getField(1),
-                    (long) row.getField(2),
+                    (String) row.getField(2),
                     (long) row.getField(3),
-                    row.getField(4) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(4)) : null,
+                    (long) row.getField(4),
                     row.getField(5) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(5)) : null,
                     row.getField(6) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(6)) : null,
                     row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(7)) : null,
-                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(8)) : null,
-                    row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(9)) : null);
+                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(8)) : null,
+                    row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(9)) : null,
+                    row.getField(10) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(10)) : null);
         }
 
         private DataFileRecord(
+                int content,
                 String filePath,
                 String fileFormat,
                 long recordCount,
@@ -242,6 +275,7 @@ public class TestIcebergOrcMetricsCollection
                 Map<Integer, String> lowerBounds,
                 Map<Integer, String> upperBounds)
         {
+            this.content = content;
             this.filePath = filePath;
             this.fileFormat = fileFormat;
             this.recordCount = recordCount;
@@ -252,6 +286,11 @@ public class TestIcebergOrcMetricsCollection
             this.nanValueCounts = nanValueCounts;
             this.lowerBounds = lowerBounds;
             this.upperBounds = upperBounds;
+        }
+
+        public int getContent()
+        {
+            return content;
         }
 
         public String getFilePath()
