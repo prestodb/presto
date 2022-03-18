@@ -26,7 +26,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.INITIAL_SEGMENTS;
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.SEGMENT_SIZE;
@@ -174,7 +174,7 @@ public class SegmentedSliceBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         throw new UnsupportedOperationException("retainedBytesForEachPart is not supported by SegmentedSliceBlockBuilder");
     }
