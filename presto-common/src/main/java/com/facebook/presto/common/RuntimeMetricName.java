@@ -27,6 +27,8 @@ public class RuntimeMetricName
     public static final String DRIVER_COUNT_PER_TASK = "driverCountPerTask";
     public static final String TASK_ELAPSED_TIME_NANOS = "taskElapsedTimeNanos";
     public static final String OPTIMIZED_WITH_MATERIALIZED_VIEW = "optimizedWithMaterializedView";
+    public static final String MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW = "manyPartitionsMissingInMaterializedView";
+    public static final String SKIP_READING_FROM_MATERIALIZED_VIEW = "skipReadingFromMaterializedView";
     public static final String FRAGMENT_RESULT_CACHE_HIT = "fragmentResultCacheHitCount";
     public static final String FRAGMENT_RESULT_CACHE_MISS = "fragmentResultCacheMissCount";
     public static final String GET_VIEW_TIME_NANOS = "getViewTimeNanos";

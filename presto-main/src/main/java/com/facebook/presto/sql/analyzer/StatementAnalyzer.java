@@ -176,6 +176,7 @@ import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW
 import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_METADATA_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_VIEW_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -331,9 +332,7 @@ class StatementAnalyzer
         {
             Scope returnScope = super.process(node, scope);
             checkState(returnScope.getOuterQueryParent().equals(outerQueryScope), "result scope should have outer query scope equal with parameter outer query scope");
-            if (scope.isPresent()) {
-                checkState(hasScopeAsLocalParent(returnScope, scope.get()), "return scope should have context scope as one of ancestors");
-            }
+            scope.ifPresent(value -> checkState(hasScopeAsLocalParent(returnScope, value), "return scope should have context scope as one of ancestors"));
             return returnScope;
         }
 
@@ -1379,6 +1378,7 @@ class StatementAnalyzer
             String materializedViewCreateSql = connectorMaterializedViewDefinition.getOriginalSql();
 
             if (materializedViewStatus.isNotMaterialized() || materializedViewStatus.isTooManyPartitionsMissing()) {
+                session.getRuntimeStats().addMetricValue(SKIP_READING_FROM_MATERIALIZED_VIEW, 1);
                 return materializedViewCreateSql;
             }
 

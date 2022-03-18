@@ -133,7 +133,7 @@ public class MaterializedViewQueryOptimizer
             return process(node);
         }
         catch (Exception ex) {
-            logger.warn(ex.getMessage());
+            logger.warn("Failed to rewrite query with Materialized view with following exception: %s", ex.getMessage());
             return node;
         }
     }
