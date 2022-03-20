@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
@@ -23,6 +24,7 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -42,15 +44,18 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.TestExpressionInterpreter.assertPrestoExceptionThrownBy;
 import static com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestSimplifyExpressions
 {
@@ -132,6 +137,85 @@ public class TestSimplifyExpressions
                         " OR (A51 AND A52) OR (A53 AND A54) OR (A55 AND A56) OR (A57 AND A58) OR (A59 AND A60)");
     }
 
+    @Test
+    public void testCastBigintToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(12300000000 AS varchar(11))", "'12300000000'");
+        // The last argument "'-12300000000'" is varchar(12). Need varchar(50) to the following test pass.
+        //assertSimplifies("CAST(-12300000000 AS varchar(50))", "CAST('-12300000000' AS varchar(50))", "'-12300000000'");
+
+        // cast from bigint to varchar fails, so the expression is not modified
+        try {
+            assertSimplifies("CAST(12300000000 AS varchar(3))", "CAST(12300000000 AS varchar(3))");
+            fail("Expected to throw an PrestoException exception");
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+                assertEquals(e.getMessage(), "Value 12300000000 cannot be represented as varchar(3)");
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+
+        try {
+            assertSimplifies("CAST(-12300000000 AS varchar(3))", "CAST(-12300000000 AS varchar(3))");
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+                assertEquals(e.getMessage(), "Value -12300000000 cannot be represented as varchar(3)");
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    @Test
+    public void testCastDoubleToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(0e0 AS varchar(3))", "'0E0'");
+        assertSimplifies("CAST(-0e0 AS varchar(4))", "'-0E0'");
+        assertSimplifies("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
+        assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
+        assertSimplifies("CAST(12e2 AS varchar(5))", "'1.2E3'");
+
+        // The last argument "'-1.2E3'" is varchar(6). Need varchar(50) to the following test pass.
+        // assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1.2E3' AS varchar(50))", "'-1.2E3'");
+
+        /// cast from double to varchar fails
+        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
+        assertPrestoExceptionThrownBy("CAST(-12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value -1200.0 (-1.2E3) cannot be represented as varchar(3)");
+        assertPrestoExceptionThrownBy("CAST(DOUBLE 'NaN' AS varchar(2))", INVALID_CAST_ARGUMENT, "Value NaN (NaN) cannot be represented as varchar(2)");
+        assertPrestoExceptionThrownBy("CAST(DOUBLE 'Infinity' AS varchar(7))", INVALID_CAST_ARGUMENT, "Value Infinity (Infinity) cannot be represented as varchar(7)");
+        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3)) = '1200.0'", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
+    }
+
+    @Test
+    public void testCastRealToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0E0'");
+        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0E0'");
+        assertSimplifies("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
+        assertSimplifies("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
+        assertSimplifies("CAST(REAL '12e2' AS varchar(5))", "'1.2E3'");
+        //assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1.2E3' AS varchar(50))");
+
+        // cast from real to varchar fails
+        assertPrestoExceptionThrownBy("CAST(REAL '12e2' AS varchar(3))", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
+        assertPrestoExceptionThrownBy("CAST(REAL '-12e2' AS varchar(3))", INVALID_CAST_ARGUMENT, "Value -1200.0 (-1.2E3) cannot be represented as varchar(3)");
+        assertPrestoExceptionThrownBy("CAST(REAL 'NaN' AS varchar(2))", INVALID_CAST_ARGUMENT, "Value NaN (NaN) cannot be represented as varchar(2)");
+        assertPrestoExceptionThrownBy("CAST(REAL 'Infinity' AS varchar(7))", INVALID_CAST_ARGUMENT, "Value Infinity (Infinity) cannot be represented as varchar(7)");
+        assertPrestoExceptionThrownBy("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
+    }
+
     private static void assertSimplifies(String expression, String expected)
     {
         assertSimplifies(expression, expected, null);
@@ -156,7 +240,7 @@ public class TestSimplifyExpressions
     private static Set<VariableReferenceExpression> booleanVariablesFor(Expression expression)
     {
         return VariablesExtractor.extractAllSymbols(expression).stream()
-                .map(symbol -> new VariableReferenceExpression(symbol.getName(), BOOLEAN))
+                .map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol.getName(), BOOLEAN))
                 .collect(toImmutableSet());
     }
 
@@ -176,6 +260,14 @@ public class TestSimplifyExpressions
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
             return binaryExpression(node.getOperator(), predicates);
+        }
+
+        @Override
+        public Expression rewriteCast(Cast node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            // the `expected` Cast expression comes out of the AstBuilder with the `typeOnly` flag set to false.
+            // always set the `typeOnly` flag to false so that it does not break the comparison.
+            return new Cast(node.getExpression(), node.getType(), node.isSafe(), false);
         }
     }
 }

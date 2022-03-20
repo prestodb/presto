@@ -29,6 +29,7 @@ import com.facebook.presto.parquet.reader.PageReader;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.Preconditions;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
@@ -77,7 +78,7 @@ public abstract class AbstractNestedBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
     {
         Preconditions.checkState(!isInitialized(), "already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");

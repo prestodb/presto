@@ -21,7 +21,6 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -66,7 +65,6 @@ import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -313,7 +311,7 @@ public class RowExpressionInterpreter
                 // context is passed down as null here since lambda argument can only be resolved under the evaluation context.
                 RowExpression rewrittenBody = toRowExpression(processWithExceptionHandling(node.getBody(), null), node.getBody());
                 if (!rewrittenBody.equals(node.getBody())) {
-                    return new LambdaDefinitionExpression(node.getArgumentTypes(), node.getArguments(), rewrittenBody);
+                    return new LambdaDefinitionExpression(node.getSourceLocation(), node.getArgumentTypes(), node.getArguments(), rewrittenBody);
                 }
                 return node;
             }
@@ -341,6 +339,7 @@ public class RowExpressionInterpreter
 
                     if (condition instanceof RowExpression) {
                         return new SpecialFormExpression(
+                                ((RowExpression) condition).getSourceLocation(),
                                 IF,
                                 node.getType(),
                                 toRowExpression(condition, node.getArguments().get(0)),
@@ -367,6 +366,7 @@ public class RowExpressionInterpreter
 
                     if (hasUnresolvedValue(left, right)) {
                         return new SpecialFormExpression(
+                                node.getSourceLocation(),
                                 NULL_IF,
                                 node.getType(),
                                 toRowExpression(left, node.getArguments().get(0)),
@@ -376,8 +376,8 @@ public class RowExpressionInterpreter
                     Type leftType = node.getArguments().get(0).getType();
                     Type rightType = node.getArguments().get(1).getType();
                     Type commonType = metadata.getFunctionAndTypeManager().getCommonSuperType(leftType, rightType).get();
-                    FunctionHandle firstCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, leftType.getTypeSignature(), commonType.getTypeSignature());
-                    FunctionHandle secondCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, rightType.getTypeSignature(), commonType.getTypeSignature());
+                    FunctionHandle firstCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, leftType, commonType);
+                    FunctionHandle secondCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, rightType, commonType);
 
                     // cast(first as <common type>) == cast(second as <common type>)
                     boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -397,6 +397,7 @@ public class RowExpressionInterpreter
                     Object value = processWithExceptionHandling(node.getArguments().get(0), context);
                     if (value instanceof RowExpression) {
                         return new SpecialFormExpression(
+                                node.getSourceLocation(),
                                 IS_NULL,
                                 node.getType(),
                                 toRowExpression(value, node.getArguments().get(0)));
@@ -502,8 +503,9 @@ public class RowExpressionInterpreter
                     }
                     ImmutableList.Builder<RowExpression> operandsBuilder = ImmutableList.builder();
                     Set<RowExpression> visitedExpression = new HashSet<>();
+                    int i = 0;
                     for (Object value : values) {
-                        RowExpression expression = LiteralEncoder.toRowExpression(value, type);
+                        RowExpression expression = LiteralEncoder.toRowExpression(node.getArguments().get(i).getSourceLocation(), value, type);
                         if (!determinismEvaluator.isDeterministic(expression) || visitedExpression.add(expression)) {
                             operandsBuilder.add(expression);
                         }
@@ -520,7 +522,7 @@ public class RowExpressionInterpreter
                     if (expressions.size() == 1) {
                         return getOnlyElement(expressions);
                     }
-                    return new SpecialFormExpression(COALESCE, node.getType(), expressions);
+                    return new SpecialFormExpression(node.getSourceLocation(), COALESCE, node.getType(), expressions);
                 }
                 case IN: {
                     checkArgument(node.getArguments().size() >= 2, "values must not be empty");
@@ -598,6 +600,7 @@ public class RowExpressionInterpreter
 
                     if (hasUnresolvedValue(base)) {
                         return new SpecialFormExpression(
+                                node.getSourceLocation(),
                                 DEREFERENCE,
                                 node.getType(),
                                 toRowExpression(base, node.getArguments().get(0)),
@@ -643,7 +646,7 @@ public class RowExpressionInterpreter
                             // call equals(value, operand)
                             if (operandValue instanceof RowExpression || value instanceof RowExpression) {
                                 // cannot fully evaluate, add updated whenClause
-                                simplifiedWhenClauses.add(new SpecialFormExpression(WHEN, whenClause.getType(), toRowExpression(operandValue, operand), toRowExpression(processWithExceptionHandling(result, context), result)));
+                                simplifiedWhenClauses.add(new SpecialFormExpression(operand.getSourceLocation(), WHEN, whenClause.getType(), toRowExpression(operandValue, operand), toRowExpression(processWithExceptionHandling(result, context), result)));
                             }
                             else if (operandValue != null) {
                                 Boolean isEqual = (Boolean) invokeOperator(
@@ -705,7 +708,7 @@ public class RowExpressionInterpreter
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
             FunctionHandle jsonParse = metadata.getFunctionAndTypeManager().lookupFunction("json_parse", fromTypes(VARCHAR));
             Object json = functionInvoker.invoke(jsonParse, session.getSqlFunctionProperties(), utf8Slice(failureInfo));
-            FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
+            FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, UNKNOWN, type);
             if (exception instanceof PrestoException) {
                 long errorCode = ((PrestoException) exception).getErrorCode().getCode();
                 FunctionHandle failureFunction = metadata.getFunctionAndTypeManager().lookupFunction("fail", fromTypes(INTEGER, JSON));
@@ -753,7 +756,7 @@ public class RowExpressionInterpreter
             if (optimizationLevel.ordinal() < EVALUATED.ordinal() && value instanceof MethodHandle) {
                 return originalRowExpression;
             }
-            return LiteralEncoder.toRowExpression(value, originalRowExpression.getType());
+            return LiteralEncoder.toRowExpression(originalRowExpression.getSourceLocation(), value, originalRowExpression.getType());
         }
 
         private boolean isSerializable(Object value, Type type)
@@ -813,8 +816,8 @@ public class RowExpressionInterpreter
                                     JSON_TO_ARRAY_CAST.name(),
                                     functionAndTypeManager.lookupCast(
                                             JSON_TO_ARRAY_CAST,
-                                            parseTypeSignature(StandardTypes.VARCHAR),
-                                            returnType),
+                                            VARCHAR,
+                                            functionAndTypeManager.getType(returnType)),
                                     callExpression.getType(),
                                     innerCall.getArguments()));
                         }
@@ -823,8 +826,8 @@ public class RowExpressionInterpreter
                                     JSON_TO_MAP_CAST.name(),
                                     functionAndTypeManager.lookupCast(
                                             JSON_TO_MAP_CAST,
-                                            parseTypeSignature(StandardTypes.VARCHAR),
-                                            returnType),
+                                            VARCHAR,
+                                            functionAndTypeManager.getType(returnType)),
                                     callExpression.getType(),
                                     innerCall.getArguments()));
                         }
@@ -833,20 +836,20 @@ public class RowExpressionInterpreter
                                     JSON_TO_ROW_CAST.name(),
                                     functionAndTypeManager.lookupCast(
                                             JSON_TO_ROW_CAST,
-                                            parseTypeSignature(StandardTypes.VARCHAR),
-                                            returnType),
+                                            VARCHAR,
+                                            functionAndTypeManager.getType(returnType)),
                                     callExpression.getType(),
                                     innerCall.getArguments()));
                         }
                     }
                 }
-                return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, source)));
+                return changed(call(callExpression.getSourceLocation(), callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, source)));
             }
 
             // TODO: still there is limitation for RowExpression. Example types could be Regex
             if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSupportedLiteralType(targetType)) {
                 // Otherwise, cast will be evaluated through invoke later and generates unserializable constant expression.
-                return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, source)));
+                return changed(call(callExpression.getSourceLocation(), callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, source)));
             }
 
             if (metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(sourceType, targetType)) {
@@ -923,15 +926,15 @@ public class RowExpressionInterpreter
                 Type patternType = createVarcharType(unescapedPattern.length());
                 Optional<Type> commonSuperType = metadata.getFunctionAndTypeManager().getCommonSuperType(valueType, patternType);
                 checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", callExpression);
-                RowExpression valueExpression = LiteralEncoder.toRowExpression(value, valueType);
-                RowExpression patternExpression = LiteralEncoder.toRowExpression(unescapedPattern, patternType);
+                RowExpression valueExpression = LiteralEncoder.toRowExpression(callExpression.getSourceLocation(), value, valueType);
+                RowExpression patternExpression = LiteralEncoder.toRowExpression(callExpression.getSourceLocation(), unescapedPattern, patternType);
                 Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
-                    FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, valueType.getTypeSignature(), superType.getTypeSignature());
+                    FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, valueType, superType);
                     valueExpression = call(CAST.name(), cast, superType, valueExpression);
                 }
                 if (!patternType.equals(superType)) {
-                    FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, patternType.getTypeSignature(), superType.getTypeSignature());
+                    FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, patternType, superType);
                     patternExpression = call(CAST.name(), cast, superType, patternExpression);
                 }
                 FunctionHandle equal = metadata.getFunctionAndTypeManager().resolveOperator(EQUAL, fromTypes(superType, superType));

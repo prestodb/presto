@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -24,6 +25,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,10 +37,11 @@ public class EnforceSingleRowNode
 
     @JsonCreator
     public EnforceSingleRowNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source)
     {
-        super(id);
+        super(sourceLocation, id);
 
         this.source = requireNonNull(source, "source is null");
     }
@@ -70,6 +73,6 @@ public class EnforceSingleRowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new EnforceSingleRowNode(getId(), Iterables.getOnlyElement(newChildren));
+        return new EnforceSingleRowNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren));
     }
 }

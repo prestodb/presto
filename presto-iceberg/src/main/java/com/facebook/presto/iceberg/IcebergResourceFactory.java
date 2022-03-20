@@ -36,7 +36,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 
 /**
@@ -49,7 +48,6 @@ public class IcebergResourceFactory
     private final String catalogName;
     private final CatalogType catalogType;
     private final String catalogWarehouse;
-    private final String catalogUri;
     private final List<String> hadoopConfigResources;
 
     @Inject
@@ -59,7 +57,6 @@ public class IcebergResourceFactory
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
         this.catalogWarehouse = config.getCatalogWarehouse();
-        this.catalogUri = config.getCatalogUri();
         this.hadoopConfigResources = config.getHadoopConfigResources();
         catalogCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCatalogCacheSize())
@@ -136,9 +133,6 @@ public class IcebergResourceFactory
         Map<String, String> properties = new HashMap<>();
         if (catalogWarehouse != null) {
             properties.put(WAREHOUSE_LOCATION, catalogWarehouse);
-        }
-        if (catalogUri != null) {
-            properties.put(URI, catalogUri);
         }
         return properties;
     }

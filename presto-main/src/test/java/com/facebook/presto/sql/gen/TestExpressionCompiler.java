@@ -805,13 +805,14 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
         }
 
+        DecimalFormat doubleFormat = new DecimalFormat("0.0###################E0");
         for (Double value : doubleLefts) {
             assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0.0 ? true : false));
             if (value == null || (value >= Long.MIN_VALUE && value < Long.MAX_VALUE)) {
                 assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : value.longValue());
             }
             assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value);
-            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
+            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : doubleFormat.format(value));
         }
 
         assertExecute("cast('true' as boolean)", BOOLEAN, true);

@@ -116,7 +116,14 @@ public class RequestErrorTracker
         }
 
         if (reason instanceof RejectedExecutionException) {
-            throw new PrestoException(errorCode, reason);
+            if (reason.getMessage() == null) {
+                throw new PrestoException(errorCode, reason);
+            }
+
+            // We want to do exponential backoff to allow OOT killer to kill queries and not fail immediately.
+            if (!reason.getMessage().contains("Max requests queued per destination")) {
+                throw new PrestoException(errorCode, reason);
+            }
         }
 
         // log failure message

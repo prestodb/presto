@@ -19,11 +19,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -54,7 +54,7 @@ public class OutputMatcher
             boolean found = false;
             while (i < node.getOutputVariables().size()) {
                 VariableReferenceExpression outputVariable = node.getOutputVariables().get(i++);
-                if (expression.equals(new SymbolReference(outputVariable.getName()))) {
+                if (expression.equals(createSymbolReference(outputVariable))) {
                     found = true;
                     break;
                 }

@@ -35,6 +35,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
@@ -90,9 +92,9 @@ public class TestRowExpressionFormatter
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final FunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(FUNCTION_AND_TYPE_MANAGER);
     private static final RowExpressionFormatter FORMATTER = new RowExpressionFormatter(FUNCTION_AND_TYPE_MANAGER);
-    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("c_bigint", BIGINT);
-    private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression("c_bigint_array", new ArrayType(BIGINT));
-    private static final VariableReferenceExpression C_VARCHAR = new VariableReferenceExpression("c_varchar", VARCHAR);
+    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression(Optional.empty(), "c_bigint", BIGINT);
+    private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression(Optional.empty(), "c_bigint_array", new ArrayType(BIGINT));
+    private static final VariableReferenceExpression C_VARCHAR = new VariableReferenceExpression(Optional.empty(), "c_varchar", VARCHAR);
     private static final RowExpressionOptimizer OPTIMIZER = new RowExpressionOptimizer(MetadataManager.createTestMetadataManager());
 
     @Test
@@ -167,7 +169,7 @@ public class TestRowExpressionFormatter
 
         // block
         constantExpression = constant(new LongArrayBlockBuilder(null, 4).writeLong(1L).writeLong(2).build(), new ArrayType(BIGINT));
-        assertEquals(format(constantExpression), "[Block: position count: 2; size: 96 bytes]");
+        assertEquals(format(constantExpression), "[Block: position count: 2; size: 88 bytes]");
     }
 
     @Test
@@ -225,7 +227,7 @@ public class TestRowExpressionFormatter
         // cast
         callExpression = call(
                 CAST.name(),
-                FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, TINYINT.getTypeSignature(), BIGINT.getTypeSignature()),
+                FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, TINYINT, BIGINT),
                 BIGINT,
                 constant(1L, TINYINT));
         assertEquals(format(callExpression), "CAST(TINYINT'1' AS bigint)");
@@ -256,7 +258,7 @@ public class TestRowExpressionFormatter
                 C_VARCHAR,
                 call(
                         CAST.name(),
-                        FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()),
+                        FUNCTION_AND_TYPE_MANAGER.lookupCast(CastType.CAST, VARCHAR, LIKE_PATTERN),
                         LIKE_PATTERN,
                         constant(utf8Slice("prefix%"), VARCHAR)));
         assertEquals(format(callExpression), "c_varchar LIKE VARCHAR'prefix%'");
@@ -287,7 +289,7 @@ public class TestRowExpressionFormatter
     {
         RowExpression specialFormExpression;
 
-        // or and and
+        // or / and
         specialFormExpression = new SpecialFormExpression(OR, BOOLEAN, createCallExpression(NOT_EQUAL), createCallExpression(IS_DISTINCT_FROM));
         assertEquals(format(specialFormExpression), "((c_bigint) <> (BIGINT'5')) OR ((c_bigint) IS DISTINCT FROM (BIGINT'5'))");
         specialFormExpression = new SpecialFormExpression(AND, BOOLEAN, createCallExpression(EQUAL), createCallExpression(GREATER_THAN));

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -36,7 +37,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_E
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RenameTableTask
-        implements DataDefinitionTask<RenameTable>
+        implements DDLDefinitionTask<RenameTable>
 {
     @Override
     public String getName()
@@ -45,9 +46,8 @@ public class RenameTableTask
     }
 
     @Override
-    public ListenableFuture<?> execute(RenameTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(RenameTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {

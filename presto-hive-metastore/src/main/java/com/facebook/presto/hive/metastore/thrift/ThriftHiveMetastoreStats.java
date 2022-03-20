@@ -50,6 +50,8 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats listRoleGrants = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats createRole = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats lock = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats unlock = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -273,5 +275,19 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getDropRole()
     {
         return dropRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getLock()
+    {
+        return lock;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getUnlock()
+    {
+        return unlock;
     }
 }

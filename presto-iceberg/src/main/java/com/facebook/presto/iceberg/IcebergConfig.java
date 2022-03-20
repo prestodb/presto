@@ -26,17 +26,15 @@ import javax.validation.constraints.NotNull;
 import java.util.List;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 
 public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = GZIP;
-    private boolean nativeMode;
-    private CatalogType catalogType = HADOOP;
+    private CatalogType catalogType = HIVE;
     private String catalogWarehouse;
-    private String catalogUri;
     private int catalogCacheSize = 10;
     private List<String> hadoopConfigResources = ImmutableList.of();
 
@@ -66,19 +64,6 @@ public class IcebergConfig
         return this;
     }
 
-    public boolean isNativeMode()
-    {
-        return nativeMode;
-    }
-
-    @Config("iceberg.native-mode")
-    @ConfigDescription("if use Iceberg connector native catalog mode")
-    public IcebergConfig setNativeMode(boolean nativeMode)
-    {
-        this.nativeMode = nativeMode;
-        return this;
-    }
-
     @NotNull
     public CatalogType getCatalogType()
     {
@@ -103,19 +88,6 @@ public class IcebergConfig
     public IcebergConfig setCatalogWarehouse(String catalogWarehouse)
     {
         this.catalogWarehouse = catalogWarehouse;
-        return this;
-    }
-
-    public String getCatalogUri()
-    {
-        return catalogUri;
-    }
-
-    @Config("iceberg.catalog.uri")
-    @ConfigDescription("Iceberg catalog connection URI")
-    public IcebergConfig setCatalogUri(String catalogUri)
-    {
-        this.catalogUri = catalogUri;
         return this;
     }
 

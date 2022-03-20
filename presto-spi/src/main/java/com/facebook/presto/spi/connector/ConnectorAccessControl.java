@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -51,6 +52,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRol
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toList;
 
 public interface ConnectorAccessControl
 {
@@ -189,13 +191,18 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
+     * Check if identity is allowed to select from the specified columns.
+     * For columns with type row, subfields are provided. The column set can be empty.
      *
+     * For example, "SELECT col1.field, col2 from table" will have:
+     * columnOrSubfieldNames = [col1.field, col2]
+     *
+     * Implementations can choose which to use
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+    default void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
     {
-        denySelectColumns(tableName.toString(), columnNames);
+        denySelectColumns(tableName.toString(), columnOrSubfieldNames.stream().map(column -> column.getRootName()).collect(toList()));
     }
 
     /**

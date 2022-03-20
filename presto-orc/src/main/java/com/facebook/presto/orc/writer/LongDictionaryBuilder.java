@@ -56,29 +56,16 @@ public class LongDictionaryBuilder
 
     public int putIfAbsent(long value)
     {
-        int slicePosition;
-        long hashPosition = getHashPositionOfElement(value);
-        if (elementPositionByHash.get(hashPosition) != EMPTY_SLOT) {
-            slicePosition = elementPositionByHash.get(hashPosition);
-        }
-        else {
-            slicePosition = addNewElement(hashPosition, value);
-        }
-        return slicePosition;
-    }
-
-    private long getHashPositionOfElement(long value)
-    {
         long hashPosition = getHash(value);
         hashPosition = getMaskedHash(hashPosition);
         while (true) {
-            int slicePosition = elementPositionByHash.get(hashPosition);
-            if (slicePosition == EMPTY_SLOT) {
+            int elementPosition = elementPositionByHash.get(hashPosition);
+            if (elementPosition == EMPTY_SLOT) {
                 // Doesn't have this element
-                return hashPosition;
+                return addNewElement(hashPosition, value);
             }
-            if (elements.getLong(slicePosition) == value) {
-                return hashPosition;
+            if (elements.getLong(elementPosition) == value) {
+                return elementPosition;
             }
 
             hashPosition = getMaskedHash(hashPosition + 1);

@@ -116,7 +116,7 @@ public class TestDruidPlanOptimizer
         AggregationNode aggregationTwo = simpleAggregationSum(planBuilder, tableScan(planBuilder, druidTableTwo, city, fare), variableAllocator, ImmutableList.of(city), fare);
         VariableReferenceExpression groupByColumn = variableAllocator.newVariable(city.getColumnName(), city.getColumnType());
         VariableReferenceExpression sumColumn = variableAllocator.newVariable(fare.getColumnName(), fare.getColumnType());
-        PlanNode originalPlan = new UnionNode(planBuilder.getIdAllocator().getNextId(),
+        PlanNode originalPlan = new UnionNode(Optional.empty(), planBuilder.getIdAllocator().getNextId(),
                 ImmutableList.of(aggregationOne, aggregationTwo),
                 ImmutableList.of(groupByColumn, sumColumn),
                 ImmutableMap.of(
@@ -150,6 +150,7 @@ public class TestDruidPlanOptimizer
     private AggregationNode simpleAggregationSum(PlanBuilder pb, PlanNode source, PlanVariableAllocator variableAllocator, List<DruidColumnHandle> groupByColumns, DruidColumnHandle sumColumn)
     {
         return new AggregationNode(
+                source.getSourceLocation(),
                 pb.getIdAllocator().getNextId(),
                 source,
                 ImmutableMap.of(variableAllocator.newVariable("sum", sumColumn.getColumnType()), new AggregationNode.Aggregation(

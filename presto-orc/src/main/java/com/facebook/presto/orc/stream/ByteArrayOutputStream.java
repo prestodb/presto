@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
@@ -65,6 +66,12 @@ public class ByteArrayOutputStream
     {
         checkState(!closed);
         buffer.writeBytes(slice, sourceIndex, length);
+    }
+
+    public void writeBlockPosition(Block block, int position, int offset, int length)
+    {
+        checkState(!closed);
+        block.writeBytesTo(position, offset, length, buffer);
     }
 
     @Override

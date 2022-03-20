@@ -58,6 +58,7 @@ public class MergeLimitWithDistinct
 
         return Result.ofPlanNode(
                 new DistinctLimitNode(
+                        parent.getSourceLocation(),
                         parent.getId(),
                         child.getSource(),
                         parent.getCount(),

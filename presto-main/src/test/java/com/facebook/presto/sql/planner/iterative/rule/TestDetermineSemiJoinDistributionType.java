@@ -104,11 +104,11 @@ public class TestDetermineSemiJoinDistributionType
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(bRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p ->
                         p.semiJoin(
@@ -139,11 +139,11 @@ public class TestDetermineSemiJoinDistributionType
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1B")
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(bRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
                         .build())
                 .on(p ->
                         p.semiJoin(
@@ -173,11 +173,11 @@ public class TestDetermineSemiJoinDistributionType
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(bRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
                         .build())
                 .on(p ->
                         p.semiJoin(
@@ -207,11 +207,11 @@ public class TestDetermineSemiJoinDistributionType
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(bRows)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
                         .build())
                 .on(p ->
                         p.semiJoin(
@@ -240,11 +240,11 @@ public class TestDetermineSemiJoinDistributionType
 
         PlanNodeStatsEstimate probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
+                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
         PlanNodeStatsEstimate buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
+                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
         // B table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
@@ -273,11 +273,11 @@ public class TestDetermineSemiJoinDistributionType
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
         buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
         // B table exceeds AUTOMATIC_RESTRICTED limit therefore it is partitioned

@@ -58,7 +58,7 @@ public class TpchRecordSetProvider
         for (ColumnHandle column : columns) {
             String columnName = ((TpchColumnHandle) column).getColumnName();
             if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
-                builder.add(new RowNumberTpchColumn<E>());
+                builder.add(new RowNumberTpchColumn<>());
             }
             else {
                 builder.add(table.getColumn(columnName));

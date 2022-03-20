@@ -13,7 +13,7 @@ Presto welcomes contributions from everyone.
 Contributions to Presto should be made in the form of GitHub pull request submissions and reviews. 
 
 Each pull request submission will be reviewed by a contributor or [committer](https://github.com/prestodb/presto/wiki/committers) 
-in the project. Only committers may merge a pull request. Large contributions should have an associated Github issue.
+in the project. Only committers may merge a pull request. Large contributions should have an associated GitHub issue.
 
 Pull request reviews are encouraged for anyone in the community who would like to contribute to Presto, and are
 expected from contributors and committers in at least equal proportion to their code contributions.

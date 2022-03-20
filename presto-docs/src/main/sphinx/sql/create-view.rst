@@ -16,7 +16,7 @@ Description
 
 Create a new view of a :doc:`select` query. The view is a logical table
 that can be referenced by future queries. Views do not contain any data.
-Instead, the query stored by the view is executed everytime the view is
+Instead, the query stored by the view is executed every time the view is
 referenced by another query.
 
 The optional ``OR REPLACE`` clause causes the view to be replaced if it

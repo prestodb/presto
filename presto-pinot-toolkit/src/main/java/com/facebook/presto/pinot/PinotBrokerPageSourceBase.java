@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
@@ -41,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.pinot.spi.utils.TimestampUtils;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -145,7 +147,7 @@ public abstract class PinotBrokerPageSourceBase
             blockBuilder.appendNull();
             return;
         }
-        if (!(type instanceof FixedWidthType) && !(type instanceof VarcharType)) {
+        if (!(type instanceof FixedWidthType) && !(type instanceof VarcharType) && !(type instanceof JsonType)) {
             throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "type '" + type + "' not supported");
         }
         if (type instanceof FixedWidthType) {
@@ -169,7 +171,7 @@ public abstract class PinotBrokerPageSourceBase
                 type.writeDouble(blockBuilder, parseDouble(value));
             }
             else if (type instanceof TimestampType) {
-                type.writeLong(blockBuilder, parseLong(value));
+                type.writeLong(blockBuilder, parseTimestamp(value));
             }
             else if (type instanceof DateType) {
                 type.writeLong(blockBuilder, parseLong(value));
@@ -182,6 +184,16 @@ public abstract class PinotBrokerPageSourceBase
             Slice slice = Slices.utf8Slice(value);
             blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
             completedBytes += slice.length();
+        }
+    }
+
+    private long parseTimestamp(String value)
+    {
+        try {
+            return parseLong(value);
+        }
+        catch (Exception e) {
+            return TimestampUtils.toMillisSinceEpoch(value);
         }
     }
 
@@ -256,6 +268,7 @@ public abstract class PinotBrokerPageSourceBase
             }
         }
     }
+
     protected static void handleCommonResponse(String pql, JsonNode jsonBody)
     {
         JsonNode numServersResponded = jsonBody.get("numServersResponded");

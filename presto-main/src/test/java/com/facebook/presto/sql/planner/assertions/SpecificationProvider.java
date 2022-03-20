@@ -59,7 +59,7 @@ public class SpecificationProvider
                             .entrySet()
                             .stream()
                             .map(entry -> new Ordering(
-                                    new VariableReferenceExpression(entry.getKey().toSymbol(aliases).getName(), UNKNOWN),
+                                    new VariableReferenceExpression(Optional.empty(), entry.getKey().toSymbol(aliases).getName(), UNKNOWN),
                                     entry.getValue()))
                             .collect(toImmutableList())));
         }
@@ -67,7 +67,7 @@ public class SpecificationProvider
         return new WindowNode.Specification(
                 partitionBy
                         .stream()
-                        .map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), UNKNOWN))
+                        .map(alias -> new VariableReferenceExpression(Optional.empty(), alias.toSymbol(aliases).getName(), UNKNOWN))
                         .collect(toImmutableList()),
                 orderingScheme);
     }

@@ -68,6 +68,7 @@ public class HiveMetadataFactory
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
+    private final ColumnConverterProvider columnConverterProvider;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -93,7 +94,8 @@ public class HiveMetadataFactory
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
-            HiveFileRenamer hiveFileRenamer)
+            HiveFileRenamer hiveFileRenamer,
+            ColumnConverterProvider columnConverterProvider)
     {
         this(
                 metastore,
@@ -125,7 +127,8 @@ public class HiveMetadataFactory
                 partitionObjectBuilder,
                 encryptionInformationProvider,
                 hivePartitionStats,
-                hiveFileRenamer);
+                hiveFileRenamer,
+                columnConverterProvider);
     }
 
     public HiveMetadataFactory(
@@ -158,7 +161,8 @@ public class HiveMetadataFactory
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
-            HiveFileRenamer hiveFileRenamer)
+            HiveFileRenamer hiveFileRenamer,
+            ColumnConverterProvider columnConverterProvider)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -190,6 +194,7 @@ public class HiveMetadataFactory
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
+        this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -208,7 +213,8 @@ public class HiveMetadataFactory
                 fileRenameExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
-                undoMetastoreOperationsEnabled);
+                undoMetastoreOperationsEnabled,
+                columnConverterProvider);
 
         return new HiveMetadata(
                 metastore,

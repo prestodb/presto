@@ -32,13 +32,14 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static com.facebook.presto.metadata.SessionPropertyManager.serializeSessionProperty;
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 
 public class SetSessionTask
-        implements DataDefinitionTask<SetSession>
+        implements SessionTransactionControlTask<SetSession>
 {
     @Override
     public String getName()
@@ -75,7 +76,7 @@ public class SetSessionTask
         Object objectValue;
 
         try {
-            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameters);
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameterExtractor(statement, parameters));
         }
         catch (SemanticException e) {
             throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY,

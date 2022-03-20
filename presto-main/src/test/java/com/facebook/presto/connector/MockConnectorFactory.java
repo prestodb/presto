@@ -260,9 +260,9 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withGetTableStatistics(Supplier<TableStatistics> getTableStatitics)
+        public Builder withGetTableStatistics(Supplier<TableStatistics> getTableStatistics)
         {
-            this.getTableStatistics = requireNonNull(getTableStatitics, "getTableStatistics is null");
+            this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
             return this;
         }
 

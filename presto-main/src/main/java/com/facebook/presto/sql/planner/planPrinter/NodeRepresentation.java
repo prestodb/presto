@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -28,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class NodeRepresentation
 {
+    private final Optional<SourceLocation> sourceLocation;
     private final PlanNodeId id;
     private final String name;
     private final String type;
@@ -42,6 +44,7 @@ public class NodeRepresentation
     private final StringBuilder details = new StringBuilder();
 
     public NodeRepresentation(
+            Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             String name,
             String type,
@@ -53,6 +56,7 @@ public class NodeRepresentation
             List<PlanNodeId> children,
             List<PlanFragmentId> remoteSources)
     {
+        this.sourceLocation = sourceLocation;
         this.id = requireNonNull(id, "id is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
@@ -81,6 +85,11 @@ public class NodeRepresentation
     {
         appendDetails(string, args);
         details.append('\n');
+    }
+
+    public Optional<SourceLocation> getSourceLocation()
+    {
+        return sourceLocation;
     }
 
     public PlanNodeId getId()

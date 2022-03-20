@@ -145,7 +145,7 @@ public class SqlTask
                 taskNotificationExecutor,
                 maxBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
-                // because we haven't created the task context that holds the the memory context yet.
+                // because we haven't created the task context that holds the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
                 spoolingOutputBufferFactory);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
@@ -254,7 +254,7 @@ public class SqlTask
 
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
-        long taskStatusAgeInMilis = System.currentTimeMillis() - creationTimeInMillis;
+        long taskStatusAgeInMillis = System.currentTimeMillis() - creationTimeInMillis;
         // Always return a new TaskInfo with a larger version number;
         // otherwise a client will not accept the update
         long versionNumber = nextTaskInfoVersion.getAndIncrement();
@@ -266,7 +266,9 @@ public class SqlTask
         }
 
         int queuedPartitionedDrivers = 0;
+        long queuedPartitionedSplitsWeight = 0L;
         int runningPartitionedDrivers = 0;
+        long runningPartitionedSplitsWeight = 0L;
         long physicalWrittenDataSizeInBytes = 0L;
         long userMemoryReservationInBytes = 0L;
         long systemMemoryReservationInBytes = 0L;
@@ -278,7 +280,9 @@ public class SqlTask
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
+            queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
+            runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
             physicalWrittenDataSizeInBytes = taskStats.getPhysicalWrittenDataSizeInBytes();
             userMemoryReservationInBytes = taskStats.getUserMemoryReservationInBytes();
             systemMemoryReservationInBytes = taskStats.getSystemMemoryReservationInBytes();
@@ -292,7 +296,9 @@ public class SqlTask
             for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
                 PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
                 queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
+                queuedPartitionedSplitsWeight += pipelineStatus.getQueuedPartitionedSplitsWeight();
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
+                runningPartitionedSplitsWeight += pipelineStatus.getRunningPartitionedSplitsWeight();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
                 totalCpuTimeInNanos += pipelineContext.getPipelineStats().getTotalCpuTimeInNanos();
             }
@@ -323,7 +329,9 @@ public class SqlTask
                 fullGcCount,
                 fullGcTimeInMillis,
                 totalCpuTimeInNanos,
-                taskStatusAgeInMilis);
+                taskStatusAgeInMillis,
+                queuedPartitionedSplitsWeight,
+                runningPartitionedSplitsWeight);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

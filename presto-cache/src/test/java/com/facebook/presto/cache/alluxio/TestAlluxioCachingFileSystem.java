@@ -16,6 +16,7 @@ package com.facebook.presto.cache.alluxio;
 import alluxio.client.file.cache.CacheManager;
 import alluxio.metrics.MetricKey;
 import alluxio.metrics.MetricsSystem;
+import alluxio.shaded.client.org.apache.commons.lang3.NotImplementedException;
 import alluxio.util.io.FileUtils;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.CacheQuota;
@@ -119,6 +120,10 @@ public class TestAlluxioCachingFileSystem
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
         Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
         AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
+        Path p = new Path("/tmp");
+        assertEquals(fileSystem.getDefaultBlockSize(p), 1024L);
+        assertEquals(fileSystem.getDefaultReplication(p), 10);
+
         byte[] buffer = new byte[PAGE_SIZE * 2];
         int pageOffset = PAGE_SIZE;
 
@@ -583,6 +588,30 @@ public class TestAlluxioCachingFileSystem
         public boolean mkdirs(Path path, FsPermission permission)
         {
             return false;
+        }
+
+        @Override
+        public short getDefaultReplication()
+        {
+            throw new NotImplementedException("getDefaultReplication not implemented");
+        }
+
+        @Override
+        public short getDefaultReplication(Path path)
+        {
+            return 10;
+        }
+
+        @Override
+        public long getDefaultBlockSize()
+        {
+            throw new NotImplementedException("getDefaultBlockSize not implemented");
+        }
+
+        @Override
+        public long getDefaultBlockSize(Path path)
+        {
+            return 1024L;
         }
 
         private static class ByteArrayDataInputStream

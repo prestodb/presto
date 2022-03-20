@@ -501,7 +501,7 @@ public class TestArbitraryOutputBuffer
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
         assertFalse(future.isDone());
 
-        // abort that buffer, and verify the future is finishd
+        // abort that buffer, and verify the future is finished
         buffer.abort(FIRST);
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.267-SNAPSHOT</version>
+        <version>0.273-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-parquet</artifactId>
@@ -65,6 +65,11 @@
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-expressions</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->

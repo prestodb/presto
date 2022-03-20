@@ -14,9 +14,12 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -24,17 +27,24 @@ import static java.util.Objects.requireNonNull;
 public class Symbol
         implements Comparable<Symbol>
 {
+    private final Optional<NodeLocation> nodeLocation;
     private final String name;
 
     public static Symbol from(Expression expression)
     {
         checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
-        return new Symbol(((SymbolReference) expression).getName());
+        return new Symbol(expression.getLocation(), ((SymbolReference) expression).getName());
+    }
+
+    public Symbol(String name)
+    {
+        this(Optional.empty(), name);
     }
 
     @JsonCreator
-    public Symbol(String name)
+    public Symbol(Optional<NodeLocation> nodeLocation, String name)
     {
+        this.nodeLocation = nodeLocation;
         requireNonNull(name, "name is null");
         this.name = name;
     }
@@ -47,7 +57,7 @@ public class Symbol
 
     public SymbolReference toSymbolReference()
     {
-        return new SymbolReference(name);
+        return new SymbolReference(nodeLocation, name);
     }
 
     @Override
@@ -85,5 +95,10 @@ public class Symbol
     public int compareTo(Symbol o)
     {
         return name.compareTo(o.name);
+    }
+
+    public Optional<NodeLocation> getNodeLocation()
+    {
+        return nodeLocation;
     }
 }

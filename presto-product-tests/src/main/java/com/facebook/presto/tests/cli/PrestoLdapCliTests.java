@@ -119,11 +119,11 @@ public class PrestoLdapCliTests
     public void shouldRunQueryFromFileWithLdap()
             throws IOException
     {
-        File temporayFile = File.createTempFile("test-sql", null);
-        temporayFile.deleteOnExit();
-        Files.write("select * from hive.default.nation;\n", temporayFile, UTF_8);
+        File temporaryFile = File.createTempFile("test-sql", null);
+        temporaryFile.deleteOnExit();
+        Files.write("select * from hive.default.nation;\n", temporaryFile, UTF_8);
 
-        launchPrestoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
+        launchPrestoCliWithServerArgument("--file", temporaryFile.getAbsolutePath());
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 

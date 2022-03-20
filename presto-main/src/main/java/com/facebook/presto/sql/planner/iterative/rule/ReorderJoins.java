@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -310,6 +311,7 @@ public class ReorderJoins
                     .collect(toImmutableList());
 
             return setJoinNodeProperties(new JoinNode(
+                    left.getSourceLocation(),
                     idAllocator.getNextId(),
                     INNER,
                     left,
@@ -330,7 +332,7 @@ public class ReorderJoins
             // could not be used for equality inference.
             // If they use both the left and right variables, we add them to the list of joinPredicates
             EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
-            StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
+            StreamSupport.stream(builder.nonInferableConjuncts(allFilter).spliterator(), false)
                     .map(conjunct -> allFilterInference.rewriteExpression(
                             conjunct,
                             variable -> leftVariables.contains(variable) || rightVariables.contains(variable)))
@@ -357,13 +359,13 @@ public class ReorderJoins
                 ImmutableList.Builder<RowExpression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains).getScopeEqualities());
                 EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
-                StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
+                StreamSupport.stream(builder.nonInferableConjuncts(allFilter).spliterator(), false)
                         .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputVariables::contains))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
                 RowExpression filter = logicalRowExpressions.combineConjuncts(predicates.build());
                 if (!TRUE_CONSTANT.equals(filter)) {
-                    planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
+                    planNode = new FilterNode(planNode.getSourceLocation(), idAllocator.getNextId(), planNode, filter);
                 }
                 return createJoinEnumerationResult(planNode);
             }
@@ -421,9 +423,7 @@ public class ReorderJoins
                 case AUTOMATIC:
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    if (isBelowMaxBroadcastSize(joinNode, context)) {
-                        result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
-                    }
+                    result.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> isBelowMaxBroadcastSize(node, context)));
                     return result.build();
                 default:
                     throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
@@ -432,9 +432,15 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return ImmutableList.of(
-                    createJoinEnumerationResult(joinNode.withDistributionType(distributionType)),
-                    createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(distributionType)));
+            return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
+        }
+
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        {
+            List<JoinNode> nodes = ImmutableList.of(
+                    joinNode.withDistributionType(distributionType),
+                    joinNode.flipChildren().withDistributionType(distributionType));
+            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)

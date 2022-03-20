@@ -75,7 +75,7 @@ public class TestAccumuloDistributedQueries
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT UUID() AS uuid, orderkey, discount FROM lineitem", 0);
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT cast(uuid() AS uuid) AS uuid, orderkey, discount FROM lineitem", 0);
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
@@ -109,7 +109,7 @@ public class TestAccumuloDistributedQueries
     @Override
     public void testInsert()
     {
-        @Language("SQL") String query = "SELECT UUID() AS uuid, orderdate, orderkey FROM orders";
+        @Language("SQL") String query = "SELECT cast(uuid() AS varchar) AS uuid, orderdate, orderkey FROM orders";
 
         assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
         assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
@@ -134,9 +134,9 @@ public class TestAccumuloDistributedQueries
         // of how they are declared in the table schema
         assertUpdate(
                 "INSERT INTO test_insert (uuid, orderkey, orderdate) " +
-                        "SELECT UUID() AS uuid, orderkey, orderdate FROM orders " +
+                        "SELECT cast(uuid() AS varchar) AS uuid, orderkey, orderdate FROM orders " +
                         "UNION ALL " +
-                        "SELECT UUID() AS uuid, orderkey, orderdate FROM orders",
+                        "SELECT cast(uuid() AS varchar) AS uuid, orderkey, orderdate FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");

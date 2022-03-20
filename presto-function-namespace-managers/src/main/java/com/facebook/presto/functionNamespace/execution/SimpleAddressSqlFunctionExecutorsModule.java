@@ -14,10 +14,8 @@
 package com.facebook.presto.functionNamespace.execution;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.thrift.SimpleAddressThriftSqlFunctionExecutionModule;
-import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutionConfig;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.google.common.collect.ImmutableMap;
@@ -26,32 +24,53 @@ import com.google.inject.TypeLiteral;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.google.inject.Scopes.SINGLETON;
+import static java.util.Objects.requireNonNull;
 
 public class SimpleAddressSqlFunctionExecutorsModule
         extends AbstractConfigurationAwareModule
 {
+    // The ideal case is to have a Map<FunctionImplementationType, SqlFunctionExecutor> to handle multiple executors.
+    // However, It is hard to create this map in Guice given SqlFunctionExecutor modules now are dynamically plugged in.
+    // One way to solve this is to let each module initialize its own SqlFunctionExecutor during binding time and return to the current module.
+    // Then the current module can bind the map to the collected SqlFunctionExecutor instances.
+    // However, to initialize all these SqlFunctionExecutors requires another bunch of injected dependencies.
+    // So we simplified the case to only allow one singleton.
+    // The downside is that if there is a use case with two UDF services reachable by one cluster;
+    // one UDF services is with grpc protocol and the other is thrift;
+    // we need to come back to solve the problem.
+    private final SqlFunctionExecutionModule sqlFunctionExecutorModule;
+
+    public SimpleAddressSqlFunctionExecutorsModule()
+    {
+        // use thrift implementation as the default
+        this(new SimpleAddressThriftSqlFunctionExecutionModule());
+    }
+
+    public SimpleAddressSqlFunctionExecutorsModule(SqlFunctionExecutionModule sqlFunctionExecutorModule)
+    {
+        this.sqlFunctionExecutorModule = requireNonNull(sqlFunctionExecutorModule, "sqlFunctionExecutorModule is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(SqlFunctionExecutors.class).in(SINGLETON);
-
         SqlInvokedFunctionNamespaceManagerConfig config = buildConfigObject(SqlInvokedFunctionNamespaceManagerConfig.class);
-        ImmutableMap.Builder<Language, SimpleAddressSelectorConfig> thriftConfigs = ImmutableMap.builder();
         ImmutableMap.Builder<Language, FunctionImplementationType> languageImplementationTypeMap = ImmutableMap.builder();
-        ImmutableMap.Builder<Language, ThriftSqlFunctionExecutionConfig> thriftExecutionConfigs = ImmutableMap.builder();
+        ImmutableMap.Builder<String, FunctionImplementationType> supportedLanguages = ImmutableMap.builder();
         for (String languageName : config.getSupportedFunctionLanguages()) {
             Language language = new Language(languageName);
             FunctionImplementationType implementationType = buildConfigObject(SqlFunctionLanguageConfig.class, languageName).getFunctionImplementationType();
             languageImplementationTypeMap.put(language, implementationType);
-            if (implementationType.equals(THRIFT)) {
-                thriftConfigs.put(language, buildConfigObject(SimpleAddressSelectorConfig.class, languageName));
-                thriftExecutionConfigs.put(language, buildConfigObject(ThriftSqlFunctionExecutionConfig.class, languageName));
-            }
+            supportedLanguages.put(languageName, implementationType);
         }
+
+        // for SqlFunctionExecutor
+        sqlFunctionExecutorModule.setSupportedLanguages(supportedLanguages.build());
+        install(sqlFunctionExecutorModule);
+
+        // for SqlFunctionExecutors
+        binder.bind(SqlFunctionExecutors.class).in(SINGLETON);
         binder.bind(new TypeLiteral<Map<Language, FunctionImplementationType>>() {}).toInstance(languageImplementationTypeMap.build());
-        binder.install(new SimpleAddressThriftSqlFunctionExecutionModule(thriftConfigs.build()));
-        binder.bind(new TypeLiteral<Map<Language, ThriftSqlFunctionExecutionConfig>>() {}).toInstance(thriftExecutionConfigs.build());
     }
 }

@@ -28,6 +28,7 @@ import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.google.common.collect.AbstractIterator;
@@ -372,7 +373,7 @@ public class SqlTaskExecution
         DriverSplitRunnerFactory partitionedDriverFactory = driverRunnerFactoriesWithSplitLifeCycle.get(planNodeId);
         PendingSplitsForPlanNode pendingSplitsForPlanNode = pendingSplitsByPlanNode.get(planNodeId);
 
-        partitionedDriverFactory.splitsAdded(scheduledSplits.size());
+        partitionedDriverFactory.splitsAdded(scheduledSplits.size(), SplitWeight.rawValueSum(scheduledSplits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
         for (ScheduledSplit scheduledSplit : scheduledSplits) {
             Lifespan lifespan = scheduledSplit.getSplit().getLifespan();
             checkLifespan(partitionedDriverFactory.getPipelineExecutionStrategy(), lifespan);
@@ -934,7 +935,8 @@ public class SqlTaskExecution
             status.incrementPendingCreation(pipelineContext.getPipelineId(), lifespan);
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            DriverContext driverContext = pipelineContext.addDriverContext(lifespan, driverFactory.getFragmentResultCacheContext());
+            long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
+            DriverContext driverContext = pipelineContext.addDriverContext(splitWeight, lifespan, driverFactory.getFragmentResultCacheContext());
             return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
         }
 
@@ -1004,9 +1006,9 @@ public class SqlTaskExecution
             return driverFactory.getDriverInstances();
         }
 
-        public void splitsAdded(int count)
+        public void splitsAdded(int count, long weightSum)
         {
-            pipelineContext.splitsAdded(count);
+            pipelineContext.splitsAdded(count, weightSum);
         }
     }
 
@@ -1268,7 +1270,7 @@ public class SqlTaskExecution
                     break;
                 case GROUPED_EXECUTION:
                     if (!noMoreLifespans) {
-                        // There may still still be new driver groups, which means potentially new splits.
+                        // There may still be new driver groups, which means potentially new splits.
                         return false;
                     }
 

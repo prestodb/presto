@@ -16,6 +16,7 @@ package com.facebook.presto.security;
 import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.metadata.Catalog;
@@ -58,6 +59,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectC
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
@@ -111,7 +113,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, context, "catalog", "property");
                     accessControlManager.checkCanShowSchemas(transactionId, identity, context, "catalog");
                     accessControlManager.checkCanShowTablesMetadata(transactionId, identity, context, new CatalogSchemaName("catalog", "schema"));
-                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of(new Subfield("column")));
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of("column"));
                     Set<String> catalogs = ImmutableSet.of("catalog");
                     assertEquals(accessControlManager.filterCatalogs(identity, context, catalogs), catalogs);
@@ -201,7 +203,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
 
@@ -223,7 +225,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
 
@@ -245,7 +247,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
 
@@ -370,9 +372,9 @@ public class TestAccessControlManager
             implements ConnectorAccessControl
     {
         @Override
-        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
         {
-            denySelectColumns(tableName.toString(), columnNames);
+            denySelectColumns(tableName.toString(), columnOrSubfieldNames.stream().map(subfield -> subfield.getRootName()).collect(toImmutableSet()));
         }
 
         @Override

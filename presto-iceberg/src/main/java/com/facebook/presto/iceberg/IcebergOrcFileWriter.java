@@ -95,7 +95,7 @@ public class IcebergOrcFileWriter
     private static Metrics computeMetrics(Schema icebergSchema, List<OrcType> orcRowTypes, long fileRowCount, List<ColumnStatistics> columnStatistics)
     {
         if (columnStatistics.isEmpty()) {
-            return new Metrics(fileRowCount, null, null, null, null, null);
+            return new Metrics(fileRowCount, null, null, null, null, null, null);
         }
         // Columns that are descendants of LIST or MAP types are excluded because:
         // 1. Their stats are not used by Apache Iceberg to filter out data files
@@ -136,6 +136,7 @@ public class IcebergOrcFileWriter
                 null, // TODO: Add column size accounting to ORC column writers
                 valueCounts.isEmpty() ? null : valueCounts,
                 nullCounts.isEmpty() ? null : nullCounts,
+                null,
                 lowerBounds.isEmpty() ? null : lowerBounds,
                 upperBounds.isEmpty() ? null : upperBounds);
     }

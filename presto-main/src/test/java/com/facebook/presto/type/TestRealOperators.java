@@ -25,6 +25,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.isNaN;
@@ -170,10 +171,21 @@ public class TestRealOperators
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("CAST(REAL'754.1985' as VARCHAR)", VARCHAR, "754.1985");
-        assertFunction("CAST(REAL'-754.2008' as VARCHAR)", VARCHAR, "-754.2008");
+        assertFunction("CAST(REAL '754.1985' as VARCHAR)", VARCHAR, "7.541985E2");
+        assertFunction("CAST(REAL '-754.2008' as VARCHAR)", VARCHAR, "-7.542008E2");
         assertFunction("CAST(REAL'Infinity' as VARCHAR)", VARCHAR, "Infinity");
         assertFunction("CAST(REAL'0.0' / REAL'0.0' as VARCHAR)", VARCHAR, "NaN");
+        assertFunction("cast(REAL '12e2' as varchar(6))", createVarcharType(6), "1.2E3");
+        assertFunction("cast(REAL '12e2' as varchar(50))", createVarcharType(50), "1.2E3");
+        assertFunction("cast(REAL '12345678.9e0' as varchar(50))", createVarcharType(50), "1.234568E7");
+        assertFunction("cast(REAL 'NaN' as varchar(3))", createVarcharType(3), "NaN");
+        assertFunction("cast(REAL 'Infinity' as varchar(50))", createVarcharType(50), "Infinity");
+        assertFunction("cast(REAL '12e2' as varchar(5))", createVarcharType(5), "1.2E3");
+        assertInvalidCast("cast(REAL '12e2' as varchar(4))", "Value 1200.0 (1.2E3) cannot be represented as varchar(4)");
+        assertInvalidCast("cast(REAL '0e0' as varchar(2))", "Value 0.0 (0E0) cannot be represented as varchar(2)");
+        assertInvalidCast("cast(REAL '-0e0' as varchar(3))", "Value -0.0 (-0E0) cannot be represented as varchar(3)");
+        assertInvalidCast("cast(REAL '0e0' / REAL '0e0' as varchar(2))", "Value NaN (NaN) cannot be represented as varchar(2)");
+        assertInvalidCast("cast(REAL 'Infinity' as varchar(7))", "Value Infinity (Infinity) cannot be represented as varchar(7)");
     }
 
     @Test

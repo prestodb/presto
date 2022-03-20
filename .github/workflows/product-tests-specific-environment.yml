@@ -1,0 +1,95 @@
+name: ci
+
+on:
+  pull_request:
+
+env:
+  # An envar that signals to tests we are executing in the CI environment
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+  RETRY: .github/bin/retry
+
+jobs:
+  product-tests-specific-environment1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+      - name: Mave install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+      - name: Product Tests Specific 1.1
+        run: presto-product-tests/bin/run_on_docker.sh singlenode -g hdfs_no_impersonation,avro
+      - name: Product Tests Specific 1.2
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-no-impersonation -g hdfs_no_impersonation
+      - name: Product Tests Specific 1.3
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation
+      - name: Product Tests Specific 1.4
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header
+      - name: Product Tests Specific 1.5
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation-cross-realm -g storage_formats,cli,hdfs_impersonation
+      - name: Product Tests Specific 1.6
+        run: presto-product-tests/bin/run_on_docker.sh multinode-tls-kerberos -g cli,group-by,join,tls
+
+  product-tests-specific-environment2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+      - name: Maven install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+      - name: Product Tests Specific 2.1
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap -x simba_jdbc
+      # SQL server image sporadically hangs during the startup
+      # TODO: Uncomment it once issue is fixed
+      # https://github.com/Microsoft/mssql-docker/issues/76
+      #  - |
+      #    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      #      presto-product-tests/bin/run_on_docker.sh \
+      #        singlenode-sqlserver -g sqlserver
+      #    fi
+      - name: Product Tests Specific 2.2
+        run: presto-product-tests/bin/run_on_docker.sh multinode-tls -g smoke,cli,group-by,join,tls
+      - name: Product Tests Specific 2.3
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-mysql -g mysql_connector,mysql
+      - name: Product Tests Specific 2.4
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-postgresql -g postgresql_connector
+      - name: Product Tests Specific 2.5
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-cassandra -g cassandra
+      - name: Product Tests Specific 2.6
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation-with-wire-encryption -g storage_formats,cli,hdfs_impersonation,authorization
+      - name: Product Tests Specific 2.7
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-kafka -g kafka

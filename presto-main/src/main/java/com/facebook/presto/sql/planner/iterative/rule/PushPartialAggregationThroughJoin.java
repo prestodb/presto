@@ -161,6 +161,7 @@ public class PushPartialAggregationThroughJoin
             List<VariableReferenceExpression> groupingKeys)
     {
         return new AggregationNode(
+                aggregation.getSourceLocation(),
                 aggregation.getId(),
                 source,
                 aggregation.getAggregations(),
@@ -179,6 +180,7 @@ public class PushPartialAggregationThroughJoin
             Context context)
     {
         JoinNode joinNode = new JoinNode(
+                child.getSourceLocation(),
                 child.getId(),
                 child.getType(),
                 leftChild,

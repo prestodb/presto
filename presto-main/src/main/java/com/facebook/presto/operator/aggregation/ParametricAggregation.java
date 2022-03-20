@@ -108,7 +108,7 @@ public class ParametricAggregation
                         stateFactory)),
                 outputType);
 
-        // Create specialized InternalAggregregationFunction for Presto
+        // Create specialized InternalAggregationFunction for Presto
         return new InternalAggregationFunction(getSignature().getNameSuffix(),
                 inputTypes,
                 ImmutableList.of(stateSerializer.getSerializedType()),

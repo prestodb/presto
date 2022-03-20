@@ -211,7 +211,7 @@ public class ParquetWriter
         List<BufferData> bufferDataList = builder.build();
 
         // update stats
-        long stripeStartOffset = outputStream.size();
+        long stripeStartOffset = outputStream.longSize();
         List<ColumnMetaData> metadatas = bufferDataList.stream()
                 .map(BufferData::getMetaData)
                 .collect(toImmutableList());

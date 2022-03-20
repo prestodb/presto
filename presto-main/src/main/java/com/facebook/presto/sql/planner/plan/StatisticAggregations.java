@@ -78,9 +78,10 @@ public class StatisticAggregations
             InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
 
             // create partial aggregation
-            VariableReferenceExpression partialVariable = variableAllocator.newVariable(functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(), function.getIntermediateType());
+            VariableReferenceExpression partialVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(), function.getIntermediateType());
             partialAggregations.put(partialVariable, new Aggregation(
                     new CallExpression(
+                            originalAggregation.getCall().getSourceLocation(),
                             originalAggregation.getCall().getDisplayName(),
                             functionHandle,
                             function.getIntermediateType(),
@@ -94,6 +95,7 @@ public class StatisticAggregations
             finalOrIntermediateAggregations.put(entry.getKey(),
                     new Aggregation(
                             new CallExpression(
+                                    originalAggregation.getCall().getSourceLocation(),
                                     originalAggregation.getCall().getDisplayName(),
                                     functionHandle,
                                     intermediate ? function.getIntermediateType() : function.getFinalType(),

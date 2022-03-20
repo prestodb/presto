@@ -71,7 +71,7 @@ import static java.util.stream.Collectors.toSet;
  * to every node may not achieve this, as bucket sizes may vary dramatically across distributions.
  * </ol>
  * <p> This prioritizes query performance over total cluster storage capacity, and therefore may
- * produce a cluster state that is imbalanced in terms of disk utilization.
+ * produce a cluster state that is uneven in terms of disk utilization.
  */
 public class BucketBalancer
 {

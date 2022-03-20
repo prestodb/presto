@@ -40,7 +40,7 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectN
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionExpression;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class InlineSqlFunctions
@@ -67,7 +67,7 @@ public class InlineSqlFunctions
                         sqlParser,
                         context.getVariableAllocator().getTypes(),
                         expression,
-                        emptyList(),
+                        emptyMap(),
                         context.getWarningCollector()));
     }
 

@@ -327,6 +327,7 @@ public class AddLocalExchanges
             }
 
             AggregationNode result = new AggregationNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     child.getNode(),
                     node.getAggregations(),
@@ -376,6 +377,7 @@ public class AddLocalExchanges
             }
 
             WindowNode result = new WindowNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     child.getNode(),
                     node.getSpecification(),
@@ -399,6 +401,7 @@ public class AddLocalExchanges
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
             MarkDistinctNode result = new MarkDistinctNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     child.getNode(),
                     node.getMarkerVariable(),
@@ -514,6 +517,7 @@ public class AddLocalExchanges
                 if (taskWriterCount == taskConcurrency) {
                     tableWriter = planAndEnforceChildren(
                             new TableWriterNode(
+                                    originalTableWriterNode.getSourceLocation(),
                                     originalTableWriterNode.getId(),
                                     originalTableWriterNode.getSource(),
                                     originalTableWriterNode.getTarget(),
@@ -536,6 +540,7 @@ public class AddLocalExchanges
                             source.getProperties());
                     tableWriter = deriveProperties(
                             new TableWriterNode(
+                                    originalTableWriterNode.getSourceLocation(),
                                     originalTableWriterNode.getId(),
                                     exchange.getNode(),
                                     originalTableWriterNode.getTarget(),
@@ -562,6 +567,7 @@ public class AddLocalExchanges
                         source.getProperties());
                 tableWriter = deriveProperties(
                         new TableWriterNode(
+                                originalTableWriterNode.getSourceLocation(),
                                 originalTableWriterNode.getId(),
                                 exchange.getNode(),
                                 originalTableWriterNode.getTarget(),
@@ -586,6 +592,7 @@ public class AddLocalExchanges
 
             return deriveProperties(
                     new TableWriterMergeNode(
+                            originalTableWriterNode.getSourceLocation(),
                             idAllocator.getNextId(),
                             gatheringExchange.getNode(),
                             originalTableWriterNode.getRowCountVariable(),
@@ -645,6 +652,7 @@ public class AddLocalExchanges
 
             if (preferredProperties.isSingleStreamPreferred()) {
                 ExchangeNode exchangeNode = new ExchangeNode(
+                        node.getSourceLocation(),
                         idAllocator.getNextId(),
                         GATHER,
                         LOCAL,
@@ -659,6 +667,7 @@ public class AddLocalExchanges
             Optional<List<VariableReferenceExpression>> preferredPartitionColumns = preferredProperties.getPartitioningColumns();
             if (preferredPartitionColumns.isPresent()) {
                 ExchangeNode exchangeNode = new ExchangeNode(
+                        node.getSourceLocation(),
                         idAllocator.getNextId(),
                         REPARTITION,
                         LOCAL,
@@ -674,6 +683,7 @@ public class AddLocalExchanges
 
             // multiple streams preferred
             ExchangeNode result = new ExchangeNode(
+                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,

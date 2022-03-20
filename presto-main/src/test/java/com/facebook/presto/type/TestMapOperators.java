@@ -375,7 +375,7 @@ public class TestMapOperators
                 mapType(BIGINT, VARCHAR),
                 asMap(
                         ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
-                        asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null)));
+                        asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null)));
 
         assertFunction("CAST(JSON '{\"k1\": 5, \"k2\": 3.14, \"k3\":[1, 2, 3], \"k4\":\"e\", \"k5\":{\"a\": \"b\"}, \"k6\":null, \"k7\":\"null\", \"k8\":[null]}' AS MAP<VARCHAR, JSON>)",
                 mapType(VARCHAR, JSON),

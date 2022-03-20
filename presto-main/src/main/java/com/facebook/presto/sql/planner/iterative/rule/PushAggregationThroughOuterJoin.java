@@ -139,6 +139,7 @@ public class PushAggregationThroughOuterJoin
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
+                aggregation.getSourceLocation(),
                 aggregation.getId(),
                 getInnerTable(join),
                 aggregation.getAggregations(),
@@ -151,6 +152,7 @@ public class PushAggregationThroughOuterJoin
         JoinNode rewrittenJoin;
         if (join.getType() == JoinNode.Type.LEFT) {
             rewrittenJoin = new JoinNode(
+                    join.getSourceLocation(),
                     join.getId(),
                     join.getType(),
                     join.getLeft(),
@@ -168,6 +170,7 @@ public class PushAggregationThroughOuterJoin
         }
         else {
             rewrittenJoin = new JoinNode(
+                    join.getSourceLocation(),
                     join.getId(),
                     join.getType(),
                     rewrittenAggregation,
@@ -226,7 +229,7 @@ public class PushAggregationThroughOuterJoin
     // When the aggregation is done after the join, there will be a null value that gets aggregated over
     // where rows did not exist in the inner table.  For some aggregate functions, such as count, the result
     // of an aggregation over a single null row is one or zero rather than null. In order to ensure correct results,
-    // we add a coalesce function with the output of the new outer join and the agggregation performed over a single
+    // we add a coalesce function with the output of the new outer join and the aggregation performed over a single
     // null row.
     private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
@@ -248,6 +251,7 @@ public class PushAggregationThroughOuterJoin
 
         // Do a cross join with the aggregation over null
         JoinNode crossJoin = new JoinNode(
+                outerJoin.getSourceLocation(),
                 idAllocator.getNextId(),
                 JoinNode.Type.INNER,
                 outerJoin,
@@ -290,7 +294,7 @@ public class PushAggregationThroughOuterJoin
         ImmutableList.Builder<RowExpression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> sourcesVariableMappingBuilder = ImmutableMap.builder();
         for (VariableReferenceExpression sourceVariable : referenceAggregation.getSource().getOutputVariables()) {
-            RowExpression nullLiteral = constantNull(sourceVariable.getType());
+            RowExpression nullLiteral = constantNull(sourceVariable.getSourceLocation(), sourceVariable.getType());
             nullLiterals.add(nullLiteral);
             VariableReferenceExpression nullVariable = variableAllocator.newVariable(nullLiteral);
             nullVariables.add(nullVariable);
@@ -298,6 +302,7 @@ public class PushAggregationThroughOuterJoin
             sourcesVariableMappingBuilder.put(sourceVariable, nullVariable);
         }
         ValuesNode nullRow = new ValuesNode(
+                referenceAggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 nullVariables.build(),
                 ImmutableList.of(nullLiterals.build()));
@@ -318,6 +323,7 @@ public class PushAggregationThroughOuterJoin
 
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
                     new CallExpression(
+                            aggregation.getCall().getSourceLocation(),
                             aggregation.getCall().getDisplayName(),
                             aggregation.getCall().getFunctionHandle(),
                             aggregation.getCall().getType(),
@@ -328,9 +334,9 @@ public class PushAggregationThroughOuterJoin
                     aggregation.getFilter().map(filter -> inlineVariables(sourcesVariableMapping, filter)),
                     aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
-                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
+                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getSourceLocation(), sourcesVariableMapping.get(x).getName(), x.getType())));
             QualifiedObjectName functionName = functionAndTypeManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
-            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getObjectName(), aggregationVariable.getType());
+            VariableReferenceExpression overNull = variableAllocator.newVariable(aggregation.getCall().getSourceLocation(), functionName.getObjectName(), aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);
         }
@@ -338,6 +344,7 @@ public class PushAggregationThroughOuterJoin
 
         // create an aggregation node whose source is the null row.
         AggregationNode aggregationOverNullRow = new AggregationNode(
+                referenceAggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 nullRow,
                 aggregationsOverNullBuilder.build(),

@@ -34,7 +34,6 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +47,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
@@ -141,8 +141,10 @@ public class InlineProjections
 
         return Result.ofPlanNode(
                 new ProjectNode(
+                        parent.getSourceLocation(),
                         parent.getId(),
                         new ProjectNode(
+                                parent.getSourceLocation(),
                                 child.getId(),
                                 child.getSource(),
                                 childAssignments.build(),
@@ -156,7 +158,7 @@ public class InlineProjections
         if (isExpression(expression)) {
             Function<VariableReferenceExpression, Expression> mapping = variable -> {
                 if (assignments.get(variable) == null) {
-                    return new SymbolReference(variable.getName());
+                    return createSymbolReference(variable);
                 }
                 return castToExpression(assignments.get(variable));
             };

@@ -25,6 +25,7 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcFileTail;
+import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -55,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -84,6 +86,7 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -211,9 +214,15 @@ public abstract class AbstractTestOrcReader
                 .expireAfterAccess(new Duration(10, MINUTES).toMillis(), MILLISECONDS)
                 .recordStats()
                 .build();
-        StripeMetadataSource stripeMetadataSource = new CachingStripeMetadataSource(new StorageStripeMetadataSource(), stripeFootercache, stripeStreamCache);
+        Optional<Cache<StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache = Optional.of(CacheBuilder.newBuilder()
+                .maximumWeight(new DataSize(1, MEGABYTE).toBytes())
+                .weigher((id, rowGroupIndices) -> toIntExact(((List<RowGroupIndex>) rowGroupIndices).stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
+                .expireAfterAccess(new Duration(10, MINUTES).toMillis(), MILLISECONDS)
+                .recordStats()
+                .build());
+        StripeMetadataSource stripeMetadataSource = new CachingStripeMetadataSource(new StorageStripeMetadataSource(), stripeFootercache, stripeStreamCache, rowGroupIndexCache);
 
-        try (TempFile tempFile = createTempFile()) {
+        try (TempFile tempFile = createTempFile(10001)) {
             OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true, ImmutableMap.of(), false);
             assertEquals(orcFileTailCache.stats().missCount(), 1);
             assertEquals(orcFileTailCache.stats().hitCount(), 0);
@@ -231,16 +240,20 @@ public abstract class AbstractTestOrcReader
             assertEquals(stripeFootercache.stats().hitCount(), 0);
             assertEquals(stripeStreamCache.stats().missCount(), 2);
             assertEquals(stripeStreamCache.stats().hitCount(), 0);
+            assertEquals(rowGroupIndexCache.get().stats().missCount(), 1);
+            assertEquals(rowGroupIndexCache.get().stats().hitCount(), 0);
             cacheReader.nextBatch();
             assertEquals(stripeFootercache.stats().missCount(), 1);
             assertEquals(stripeFootercache.stats().hitCount(), 1);
             assertEquals(stripeStreamCache.stats().missCount(), 2);
             assertEquals(stripeStreamCache.stats().hitCount(), 2);
+            assertEquals(rowGroupIndexCache.get().stats().missCount(), 1);
+            assertEquals(rowGroupIndexCache.get().stats().hitCount(), 1);
             assertEquals(storageReader.readBlock(0).getInt(0), cacheReader.readBlock(0).getInt(0));
         }
     }
 
-    private static TempFile createTempFile()
+    private static TempFile createTempFile(int nRecords)
             throws IOException, SerDeException
     {
         TempFile file = new TempFile();
@@ -253,7 +266,9 @@ public abstract class AbstractTestOrcReader
 
         objectInspector.setStructFieldData(row, field, 1L);
         Writable record = serde.serialize(row, objectInspector);
-        writer.write(record);
+        for (int i = 0; i < nRecords; i++) {
+            writer.write(record);
+        }
 
         writer.close(false);
         return file;

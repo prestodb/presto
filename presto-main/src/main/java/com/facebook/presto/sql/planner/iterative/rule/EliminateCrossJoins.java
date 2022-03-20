@@ -175,6 +175,7 @@ public class EliminateCrossJoins
             }
 
             result = new JoinNode(
+                    result.getSourceLocation(),
                     idAllocator.getNextId(),
                     JoinNode.Type.INNER,
                     result,
@@ -195,6 +196,7 @@ public class EliminateCrossJoins
 
         for (RowExpression filter : filters) {
             result = new FilterNode(
+                    result.getSourceLocation(),
                     idAllocator.getNextId(),
                     result,
                     filter);

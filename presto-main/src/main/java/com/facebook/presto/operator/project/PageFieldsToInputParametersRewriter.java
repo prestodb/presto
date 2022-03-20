@@ -69,7 +69,7 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
         {
             int parameter = getParameterForField(reference);
-            return field(parameter, reference.getType());
+            return field(reference.getSourceLocation(), parameter, reference.getType());
         }
 
         private Integer getParameterForField(InputReferenceExpression reference)
@@ -84,6 +84,7 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitCall(CallExpression call, Void context)
         {
             return new CallExpression(
+                    call.getSourceLocation(),
                     call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),
@@ -102,6 +103,7 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
             return new LambdaDefinitionExpression(
+                    lambda.getSourceLocation(),
                     lambda.getArgumentTypes(),
                     lambda.getArguments(),
                     lambda.getBody().accept(this, context));

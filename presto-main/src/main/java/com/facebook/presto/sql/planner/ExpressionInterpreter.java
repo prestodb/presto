@@ -130,6 +130,7 @@ import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
@@ -153,7 +154,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -192,7 +193,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, List<Expression> parameters)
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters)
     {
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
@@ -218,7 +219,7 @@ public class ExpressionInterpreter
             Metadata metadata,
             Session session,
             Set<NodeRef<Expression>> columnReferences,
-            List<Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         requireNonNull(columnReferences, "columnReferences is null");
 
@@ -353,7 +354,7 @@ public class ExpressionInterpreter
             // ExpressionInterpreter should only be invoked after planning.
             // As a result, this method should be unreachable.
             // However, RelationPlanner.visitUnnest and visitValues invokes evaluateConstantExpression.
-            return ((VariableResolver) context).getValue(variable(node.getValue(), type(node)));
+            return ((VariableResolver) context).getValue(variable(getSourceLocation(node), node.getValue(), type(node)));
         }
 
         @Override
@@ -365,7 +366,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSymbolReference(SymbolReference node, Object context)
         {
-            return ((VariableResolver) context).getValue(variable(node.getName(), type(node)));
+            return ((VariableResolver) context).getValue(variable(getSourceLocation(node), node.getName(), type(node)));
         }
 
         @Override
@@ -553,7 +554,7 @@ public class ExpressionInterpreter
                 if (!isDeterministic(expression) || visitedExpression.add(expression)) {
                     operandsBuilder.add(expression);
                 }
-                // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
+                // TODO: Replace this logic with an analyzer which specifies whether it evaluates to null
                 if (expression instanceof Literal && !(expression instanceof NullLiteral)) {
                     break;
                 }
@@ -812,8 +813,8 @@ public class ExpressionInterpreter
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
 
-            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
-            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType, commonType);
+            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -956,7 +957,7 @@ public class ExpressionInterpreter
                         function,
                         metadata,
                         session,
-                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
+                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyMap(), WarningCollector.NOOP),
                         optimize);
                 result = functionInterpreter.visitor.process(function, context);
                 if (result instanceof FunctionCall) {
@@ -1148,7 +1149,7 @@ public class ExpressionInterpreter
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
-            FunctionHandle operator = metadata.getFunctionAndTypeManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
+            FunctionHandle operator = metadata.getFunctionAndTypeManager().lookupCast(CAST, sourceType, targetType);
 
             try {
                 Object castedValue = functionInvoker.invoke(operator, session.getSqlFunctionProperties(), ImmutableList.of(value));

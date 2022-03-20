@@ -1,0 +1,74 @@
+name: test
+
+on:
+  pull_request:
+
+env:
+  # An envar that signals to tests we are executing in the CI environment
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+  RETRY: .github/bin/retry
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        modules:
+          - ":presto-docs"
+          - ":presto-tests -P presto-tests-execution-memory"
+          - ":presto-tests -P presto-tests-general"
+          - ":presto-tests -P ci-only-distributed-non-hash-gen"
+          - ":presto-tests -P ci-only-tpch-distributed-queries"
+          - ":presto-tests -P ci-only-local-queries"
+          - ":presto-tests -P ci-only-distributed-queries"
+          - ":presto-tests -P ci-only-aggregation-queries"
+          - ":presto-tests -P ci-only-plan-determinism"
+          - ":presto-tests -P ci-only-resource-manager"
+          - ":presto-raptor"
+          - ":presto-accumulo"
+          - ":presto-cassandra -P test-cassandra-integration-smoke-test"
+          - ":presto-hive"
+          - ":presto-hive -P test-hive-materialized-queries"
+          - ":presto-hive -P test-hive-materialized-aggregations"
+          - ":presto-hive -P test-hive-recoverable-execution"
+          - ":presto-hive -P test-hive-pushdown-filter-queries-basic"
+          - ":presto-hive -P test-hive-pushdown-filter-queries-advanced"
+          - ":presto-hive -P test-hive-repartitioning"
+          - ":presto-hive -P test-hive-parquet"
+          - ":presto-main"
+          - ":presto-mongodb -P test-mongo-distributed-queries"
+          - ":presto-redis -P test-redis-integration-smoke-test"
+          - ":presto-elasticsearch"
+          - ":presto-orc"
+          - ":presto-thrift-connector"
+          - ":presto-spark-base -P presto-spark-tests-smoke"
+          - ":presto-spark-base -P presto-spark-tests-all-queries"
+          - ":presto-spark-base -P presto-spark-tests-spill-queries"
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+      - name: Maven Tests
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
