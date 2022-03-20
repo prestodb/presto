@@ -64,12 +64,6 @@ public class MongoConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        return true;
-    }
-
-    @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
         MongoMetadata metadata = transactions.get(transaction);
