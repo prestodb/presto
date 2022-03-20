@@ -23,7 +23,7 @@ public class ClickHouseMetadataFactory
     private final boolean allowDropTable;
 
     @Inject
-    public ClickHouseMetadataFactory(ClickHouseClient clickHouseClient, ClickHouseMetadataConfig config)
+    public ClickHouseMetadataFactory(ClickHouseClient clickHouseClient, ClickHouseConfig config)
     {
         this.clickHouseClient = requireNonNull(clickHouseClient, "clickHouseClient is null");
         requireNonNull(config, "config is null");

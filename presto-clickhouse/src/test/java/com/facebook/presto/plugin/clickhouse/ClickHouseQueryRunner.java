@@ -59,8 +59,8 @@ public final class ClickHouseQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("allow-drop-table", String.valueOf(true));
+            connectorProperties.putIfAbsent("clickhouse.connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("clickhouse.allow-drop-table", String.valueOf(true));
             connectorProperties.putIfAbsent("clickhouse.map-string-as-varchar", String.valueOf(true));
 
             queryRunner.installPlugin(new ClickHousePlugin());

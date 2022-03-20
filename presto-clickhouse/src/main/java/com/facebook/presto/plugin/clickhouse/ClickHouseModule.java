@@ -54,9 +54,7 @@ public class ClickHouseModule
         binder.bind(ClickHouseRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ClickHousePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ClickHouseConnector.class).in(Scopes.SINGLETON);
-        //binder.bind(ClickHouseTableProperties.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
-        configBinder(binder).bindConfig(ClickHouseMetadataConfig.class);
         configBinder(binder).bindConfig(ClickHouseConfig.class);
     }
 

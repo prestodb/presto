@@ -34,6 +34,7 @@ public class ClickHouseConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private boolean mapStringAsVarchar;
+    private boolean allowDropTable;
 
     @NotNull
     public String getConnectionUrl()
@@ -41,7 +42,7 @@ public class ClickHouseConfig
         return connectionUrl;
     }
 
-    @Config("connection-url")
+    @Config("clickhouse.connection-url")
     public ClickHouseConfig setConnectionUrl(String connectionUrl)
     {
         this.connectionUrl = connectionUrl;
@@ -54,7 +55,7 @@ public class ClickHouseConfig
         return connectionUser;
     }
 
-    @Config("connection-user")
+    @Config("clickhouse.connection-user")
     public ClickHouseConfig setConnectionUser(String connectionUser)
     {
         this.connectionUser = connectionUser;
@@ -67,7 +68,7 @@ public class ClickHouseConfig
         return connectionPassword;
     }
 
-    @Config("connection-password")
+    @Config("clickhouse.connection-password")
     @ConfigSecuritySensitive
     public ClickHouseConfig setConnectionPassword(String connectionPassword)
     {
@@ -81,7 +82,7 @@ public class ClickHouseConfig
         return userCredentialName;
     }
 
-    @Config("user-credential-name")
+    @Config("clickhouse.user-credential-name")
     public ClickHouseConfig setUserCredentialName(String userCredentialName)
     {
         this.userCredentialName = userCredentialName;
@@ -94,7 +95,7 @@ public class ClickHouseConfig
         return passwordCredentialName;
     }
 
-    @Config("password-credential-name")
+    @Config("clickhouse.password-credential-name")
     public ClickHouseConfig setPasswordCredentialName(String passwordCredentialName)
     {
         this.passwordCredentialName = passwordCredentialName;
@@ -106,7 +107,7 @@ public class ClickHouseConfig
         return caseInsensitiveNameMatching;
     }
 
-    @Config("case-insensitive-name-matching")
+    @Config("clickhouse.case-insensitive-name-matching")
     public ClickHouseConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
@@ -120,7 +121,7 @@ public class ClickHouseConfig
         return caseInsensitiveNameMatchingCacheTtl;
     }
 
-    @Config("case-insensitive-name-matching.cache-ttl")
+    @Config("clickhouse.case-insensitive-name-matching.cache-ttl")
     public ClickHouseConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
@@ -137,6 +138,20 @@ public class ClickHouseConfig
     public ClickHouseConfig setMapStringAsVarchar(boolean mapStringAsVarchar)
     {
         this.mapStringAsVarchar = mapStringAsVarchar;
+        return this;
+    }
+
+    @Nullable
+    public boolean isAllowDropTable()
+    {
+        return allowDropTable;
+    }
+
+    @Config("clickhouse.allow-drop-table")
+    @ConfigDescription("Allow connector to drop tables")
+    public ClickHouseConfig setAllowDropTable(boolean allowDropTable)
+    {
+        this.allowDropTable = allowDropTable;
         return this;
     }
 }

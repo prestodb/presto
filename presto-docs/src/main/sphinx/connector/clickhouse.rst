@@ -30,9 +30,9 @@ appropriate for your setup:
 .. code-block:: none
 
     connector.name=clickhouse
-    connection-url=jdbc:clickhouse://host1:8123/
-    connection-user=default
-    connection-password=secret
+    clickhouse.connection-url=jdbc:clickhouse://host1:8123/
+    clickhouse.connection-user=default
+    clickhouse.connection-password=secret
 
 Multiple ClickHouse servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -56,7 +56,7 @@ Property Name                             Default Value    Description
 ========================================= ================ ==============================================================================================================
 ``clickhouse.map-string-as-varchar``      false             When creating a table, support the clickhouse data type String.
 
-``allow-drop-table``                      false             Allow delete table operation.
+``clickhouse.allow-drop-table``           false             Allow delete table operation.
 
 ========================================= ================ ==============================================================================================================
 

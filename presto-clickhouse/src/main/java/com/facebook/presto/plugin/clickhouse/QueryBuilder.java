@@ -16,19 +16,7 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.BigintType;
-import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
-import com.facebook.presto.common.type.DateType;
-import com.facebook.presto.common.type.DoubleType;
-import com.facebook.presto.common.type.IntegerType;
-import com.facebook.presto.common.type.RealType;
-import com.facebook.presto.common.type.SmallintType;
-import com.facebook.presto.common.type.TimeType;
-import com.facebook.presto.common.type.TimeWithTimeZoneType;
-import com.facebook.presto.common.type.TimestampType;
-import com.facebook.presto.common.type.TimestampWithTimeZoneType;
-import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
@@ -49,7 +37,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -157,41 +157,41 @@ public class QueryBuilder
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
-            if (typeAndValue.getType().equals(BigintType.BIGINT)) {
+            if (typeAndValue.getType().equals(BIGINT)) {
                 statement.setLong(i + 1, (long) typeAndValue.getValue());
             }
-            else if (typeAndValue.getType().equals(IntegerType.INTEGER)) {
+            else if (typeAndValue.getType().equals(INTEGER)) {
                 statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
             }
-            else if (typeAndValue.getType().equals(SmallintType.SMALLINT)) {
+            else if (typeAndValue.getType().equals(SMALLINT)) {
                 statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
             }
-            else if (typeAndValue.getType().equals(TinyintType.TINYINT)) {
+            else if (typeAndValue.getType().equals(TINYINT)) {
                 statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
             }
-            else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
+            else if (typeAndValue.getType().equals(DOUBLE)) {
                 statement.setDouble(i + 1, (double) typeAndValue.getValue());
             }
-            else if (typeAndValue.getType().equals(RealType.REAL)) {
+            else if (typeAndValue.getType().equals(REAL)) {
                 statement.setFloat(i + 1, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
             }
-            else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
+            else if (typeAndValue.getType().equals(BOOLEAN)) {
                 statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
             }
-            else if (typeAndValue.getType().equals(DateType.DATE)) {
+            else if (typeAndValue.getType().equals(DATE)) {
                 long millis = DAYS.toMillis((long) typeAndValue.getValue());
                 statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
             }
-            else if (typeAndValue.getType().equals(TimeType.TIME)) {
+            else if (typeAndValue.getType().equals(TIME)) {
                 statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));
             }
-            else if (typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
+            else if (typeAndValue.getType().equals(TIME_WITH_TIME_ZONE)) {
                 statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
             }
-            else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP)) {
+            else if (typeAndValue.getType().equals(TIMESTAMP)) {
                 statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
             }
-            else if (typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+            else if (typeAndValue.getType().equals(TIMESTAMP_WITH_TIME_ZONE)) {
                 statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
             }
             else if (typeAndValue.getType() instanceof VarcharType) {
@@ -211,18 +211,18 @@ public class QueryBuilder
     private static boolean isAcceptedType(Type type)
     {
         Type validType = requireNonNull(type, "type is null");
-        return validType.equals(BigintType.BIGINT) ||
-                validType.equals(TinyintType.TINYINT) ||
-                validType.equals(SmallintType.SMALLINT) ||
-                validType.equals(IntegerType.INTEGER) ||
-                validType.equals(DoubleType.DOUBLE) ||
-                validType.equals(RealType.REAL) ||
-                validType.equals(BooleanType.BOOLEAN) ||
-                validType.equals(DateType.DATE) ||
-                validType.equals(TimeType.TIME) ||
-                validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE) ||
-                validType.equals(TimestampType.TIMESTAMP) ||
-                validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) ||
+        return validType.equals(BIGINT) ||
+                validType.equals(TINYINT) ||
+                validType.equals(SMALLINT) ||
+                validType.equals(INTEGER) ||
+                validType.equals(DOUBLE) ||
+                validType.equals(REAL) ||
+                validType.equals(BOOLEAN) ||
+                validType.equals(DATE) ||
+                validType.equals(TIME) ||
+                validType.equals(TIME_WITH_TIME_ZONE) ||
+                validType.equals(TIMESTAMP) ||
+                validType.equals(TIMESTAMP_WITH_TIME_ZONE) ||
                 validType instanceof VarcharType ||
                 validType instanceof CharType;
     }

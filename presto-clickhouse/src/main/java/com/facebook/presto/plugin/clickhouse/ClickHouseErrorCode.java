@@ -24,7 +24,7 @@ public enum ClickHouseErrorCode
 {
     JDBC_ERROR(0, EXTERNAL),
     JDBC_NON_TRANSIENT_ERROR(1, EXTERNAL);
-
+    //TODO: Support more clickhouse error code
     private final ErrorCode errorCode;
 
     ClickHouseErrorCode(int code, ErrorType type)

@@ -43,13 +43,13 @@ public class TestClickHouseConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("connection-url", "jdbc:h2:mem:config")
-                .put("connection-user", "user")
-                .put("connection-password", "password")
-                .put("user-credential-name", "foo")
-                .put("password-credential-name", "bar")
-                .put("case-insensitive-name-matching", "true")
-                .put("case-insensitive-name-matching.cache-ttl", "1s")
+                .put("clickhouse.connection-url", "jdbc:h2:mem:config")
+                .put("clickhouse.connection-user", "user")
+                .put("clickhouse.connection-password", "password")
+                .put("clickhouse.user-credential-name", "foo")
+                .put("clickhouse.password-credential-name", "bar")
+                .put("clickhouse.case-insensitive-name-matching", "true")
+                .put("clickhouse.case-insensitive-name-matching.cache-ttl", "1s")
                 .put("clickhouse.map-string-as-varchar", "true")
                 .build();
 

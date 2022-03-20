@@ -26,6 +26,10 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.ORDER_BY_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.PARTITION_BY_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.PRIMARY_KEY_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.SAMPLE_BY_PROPERTY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -35,11 +39,6 @@ public final class ClickHouseTableProperties
         implements TablePropertiesProvider
 {
     public static final String ENGINE_PROPERTY = "engine";
-    // MergeTree engine properties
-    public static final String ORDER_BY_PROPERTY = "order_by"; //required
-    public static final String PARTITION_BY_PROPERTY = "partition_by"; //optional
-    public static final String PRIMARY_KEY_PROPERTY = "primary_key"; //optional
-    public static final String SAMPLE_BY_PROPERTY = "sample_by"; //optional
 
     public static final ClickHouseEngineType DEFAULT_TABLE_ENGINE = ClickHouseEngineType.LOG;
 

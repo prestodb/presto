@@ -49,7 +49,7 @@ public class TestingClickHouseModule
     public static Map<String, String> createProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("connection-url", format("jdbc:clickhouse://localhost:8123/", System.nanoTime()))
+                .put("clickhouse.connection-url", format("jdbc:clickhouse://localhost:8123/", System.nanoTime()))
                 .build();
     }
 }

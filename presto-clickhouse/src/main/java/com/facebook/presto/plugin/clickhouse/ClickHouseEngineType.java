@@ -18,7 +18,20 @@ public enum ClickHouseEngineType
     STRIPELOG("StripeLog"),
     LOG("Log"),
     TINYLOG("TinyLog"),
-    MERGETREE("MergeTree()");
+    MERGETREE("MergeTree()"),
+    VERSIONEDCOLLAPSINGMERGETREE("VersionedCollapsingMergeTree"),
+    GRAPHITEMERGETREE("GraphiteMergeTree"),
+    AGGREGATINGMERGETREE("AggregatingMergeTree"),
+    COLLAPSINGMERGETREE("CollapsingMergeTree"),
+    REPLACINGMERGETREE("ReplacingMergeTree"),
+    SUMMINGMERGETREE("SummingMergeTree"),
+    REPLICATEDMERGETREE("ReplicatedMergeTree"),
+    REPLICATEDVERSIONEDCOLLAPSINGMERGETREE("ReplicatedVersionedCollapsingMergeTree"),
+    REPLICATEDGRAPHITEMERGETREE("ReplicatedGraphiteMergeTree"),
+    REPLICATEDAGGREGATINGMERGETREE("ReplicatedAggregatingMergeTree"),
+    REPLICATEDCOLLAPSINGMERGETREE("ReplicatedCollapsingMergeTree"),
+    REPLICATEDREPLACINGMERGETREE("ReplicatedReplacingMergeTree"),
+    REPLICATEDSUMMINGMERGETREE("ReplicatedSummingMergeTree");
 
     private final String engineType;
 

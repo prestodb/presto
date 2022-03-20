@@ -28,6 +28,6 @@ public class TestClickHousePlugin
     {
         Plugin plugin = new ClickHousePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:clickhouse://test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("clickhouse.connection-url", "jdbc:clickhouse://test"), new TestingConnectorContext());
     }
 }

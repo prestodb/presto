@@ -13,23 +13,14 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
-
-public class ClickHouseMetadataConfig
+public class ClickhouseDXLKeyWords
 {
-    private boolean allowDropTable;
-
-    public boolean isAllowDropTable()
+    private ClickhouseDXLKeyWords()
     {
-        return allowDropTable;
     }
 
-    @Config("allow-drop-table")
-    @ConfigDescription("Allow connector to drop tables")
-    public ClickHouseMetadataConfig setAllowDropTable(boolean allowDropTable)
-    {
-        this.allowDropTable = allowDropTable;
-        return this;
-    }
+    public static final String ORDER_BY_PROPERTY = "order_by"; //required
+    public static final String PARTITION_BY_PROPERTY = "partition_by"; //optional
+    public static final String PRIMARY_KEY_PROPERTY = "primary_key"; //optional
+    public static final String SAMPLE_BY_PROPERTY = "sample_by"; //optional
 }

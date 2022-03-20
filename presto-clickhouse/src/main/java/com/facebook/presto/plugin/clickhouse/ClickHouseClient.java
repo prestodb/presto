@@ -68,7 +68,9 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.plugin.clickhouse.ClickHouseEngineType.MERGETREE;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.ORDER_BY_PROPERTY;
 import static com.facebook.presto.plugin.clickhouse.StandardReadMappings.jdbcTypeToPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -106,26 +108,24 @@ public class ClickHouseClient
             .put(TIMESTAMP, "timestamp")
             .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
             .build();
-
+    private static final String TempTableNamePrefix = "tmp_presto_";
     protected final String connectorId;
     protected final ConnectionFactory connectionFactory;
-    protected final String identifierQuote;
-    protected final boolean caseInsensitiveNameMatching;
+    protected static final String identifierQuote = "\"";
+    protected final boolean caseSensitiveEnabled;
     protected final Cache<ClickHouseIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
 
-    static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
     private final boolean mapStringAsVarchar;
 
     @Inject
     public ClickHouseClient(ClickHouseConnectorId connectorId, ClickHouseConfig config, ConnectionFactory connectionFactory)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is  null").toString();
-        this.identifierQuote = "\"";
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
 
         this.mapStringAsVarchar = config.isMapStringAsVarchar();
-        this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
+        this.caseSensitiveEnabled = config.isCaseInsensitiveNameMatching();
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
@@ -209,9 +209,11 @@ public class ClickHouseClient
                         boolean nullable = columnNullable == resultSet.getInt("NULLABLE");
                         columns.add(new ClickHouseColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType(), nullable));
                     }
+                    else {
+                        System.out.println("The clickHouse datatype: " + typeHandle.getJdbcTypeName() + " unsupported.");
+                    }
                 }
                 if (columns.isEmpty()) {
-                    // In rare cases (e.g. PostgreSQL) a table might have no columns.
                     throw new TableNotFoundException(tableHandle.getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
@@ -276,11 +278,11 @@ public class ClickHouseClient
 
     public String buildInsertSql(ClickHouseOutputTableHandle handle)
     {
-        String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
+        String columns = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
         return new StringBuilder()
                 .append("INSERT INTO ")
                 .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" VALUES (").append(vars).append(")")
+                .append(" VALUES (").append(columns).append(")")
                 .toString();
     }
 
@@ -313,8 +315,7 @@ public class ClickHouseClient
                     tableHandles.add(new ClickHouseTableHandle(
                             connectorId,
                             schemaTableName,
-                            null,
-                            //"datasets",
+                            null, //"datasets",
                             resultSet.getString("TABLE_SCHEM"),
                             resultSet.getString("TABLE_NAME")));
                 }
@@ -378,12 +379,12 @@ public class ClickHouseClient
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
     {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder builder = new StringBuilder();
         if (!isNullOrEmpty(schema)) {
-            sb.append(quoted(schema)).append(".");
+            builder.append(quoted(schema)).append(".");
         }
-        sb.append(quoted(table));
-        return sb.toString();
+        builder.append(quoted(table));
+        return builder.toString();
     }
 
     public void addColumn(ClickHouseIdentity identity, ClickHouseTableHandle handle, ColumnMetadata column)
@@ -499,7 +500,7 @@ public class ClickHouseClient
 
     protected String generateTemporaryTableName()
     {
-        return "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        return TempTableNamePrefix + UUID.randomUUID().toString().replace("-", "");
     }
 
     public void abortReadConnection(Connection connection)
@@ -533,8 +534,7 @@ public class ClickHouseClient
             execute(connection, sql);
         }
         catch (SQLException e) {
-            PrestoException exception = new PrestoException(JDBC_ERROR, e);
-            exception.addSuppressed(new RuntimeException("Query: " + sql));
+            PrestoException exception = new PrestoException(JDBC_ERROR, "Query: " + sql, e);
             throw exception;
         }
     }
@@ -636,7 +636,7 @@ public class ClickHouseClient
         requireNonNull(tableName, "tableName is null");
         verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
 
-        if (caseInsensitiveNameMatching) {
+        if (caseSensitiveEnabled) {
             try {
                 com.facebook.presto.plugin.clickhouse.RemoteTableNameCacheKey cacheKey = new com.facebook.presto.plugin.clickhouse.RemoteTableNameCacheKey(identity, remoteSchema);
                 Map<String, String> mapping = remoteTableNames.getIfPresent(cacheKey);
@@ -775,16 +775,17 @@ public class ClickHouseClient
 
     private String getColumnDefinitionSql(ColumnMetadata column, String columnName)
     {
-        StringBuilder sb = new StringBuilder()
+        StringBuilder builder = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ");
+        String columnTypeMapping = toWriteMapping(column.getType());
         if (column.isNullable()) {
-            sb.append("Nullable(").append(toWriteMapping(column.getType())).append(")");
+            builder.append("Nullable(").append(columnTypeMapping).append(")");
         }
         else {
-            sb.append(toWriteMapping(column.getType()));
+            builder.append(columnTypeMapping);
         }
-        return sb.toString();
+        return builder.toString();
     }
 
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
@@ -793,10 +794,10 @@ public class ClickHouseClient
         Map<String, Object> tableProperties = tableMetadata.getProperties();
         ClickHouseEngineType engine = ClickHouseTableProperties.getEngine(tableProperties);
         tableOptions.add("ENGINE = " + engine.getEngineType());
-        if (engine == ClickHouseEngineType.MERGETREE && formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).equals(Optional.empty())) {
+        if (engine == MERGETREE && formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).equals(Optional.empty())) {
             // order_by property is required
             throw new PrestoException(INVALID_TABLE_PROPERTY,
-                    format("The property of %s is required for table engine %s", ClickHouseTableProperties.ORDER_BY_PROPERTY, engine.getEngineType()));
+                    format("The property of %s is required for table engine %s", ORDER_BY_PROPERTY, engine.getEngineType()));
         }
         formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
@@ -809,21 +810,21 @@ public class ClickHouseClient
     /**
      * format property to match ClickHouse create table statement
      *
-     * @param prop property will be formatted
+     * @param properties property will be formatted
      * @return formatted property
      */
-    private Optional<String> formatProperty(List<String> prop)
+    private Optional<String> formatProperty(List<String> properties)
     {
-        if (prop == null || prop.isEmpty()) {
+        if (properties == null || properties.isEmpty()) {
             return Optional.empty();
         }
-        else if (prop.size() == 1) {
+        else if (properties.size() == 1) {
             // only one column
-            return Optional.of(prop.get(0));
+            return Optional.of(properties.get(0));
         }
         else {
             // include more than one columns
-            return Optional.of("(" + String.join(",", prop) + ")");
+            return Optional.of("(" + String.join(",", properties) + ")");
         }
     }
 
@@ -906,7 +907,7 @@ public class ClickHouseClient
         requireNonNull(schemaName, "schemaName is null");
         verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
 
-        if (caseInsensitiveNameMatching) {
+        if (caseSensitiveEnabled) {
             try {
                 Map<String, String> mapping = remoteSchemaNames.getIfPresent(identity);
                 if (mapping != null && !mapping.containsKey(schemaName)) {
