@@ -176,12 +176,6 @@
         <module>presto-cluster-ttl-providers</module>
         <module>presto-google-sheets</module>
         <module>presto-clickhouse</module>
-        <module>presto-hive-function-namespace</module>
-        <module>presto-delta</module>
-        <module>presto-grpc-api</module>
-        <module>presto-grpc-testing-udf-server</module>
-        <module>presto-lark-sheets</module>
-        <module>presto-test-coverage</module>
     </modules>
 
     <dependencyManagement>
