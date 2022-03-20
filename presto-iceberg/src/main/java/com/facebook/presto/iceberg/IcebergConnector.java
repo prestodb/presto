@@ -96,12 +96,6 @@ public class IcebergConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        return true;
-    }
-
-    @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
         return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);

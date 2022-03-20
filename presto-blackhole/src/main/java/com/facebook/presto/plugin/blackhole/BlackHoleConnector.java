@@ -81,13 +81,6 @@ public class BlackHoleConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        // TODO: support transactional metadata
-        return true;
-    }
-
-    @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
