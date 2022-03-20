@@ -50,6 +50,7 @@ import io.airlift.slice.Slice;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -78,6 +79,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isIgnoreCorruptedSt
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -397,26 +399,14 @@ public class MetastoreHiveStatisticsProvider
         }
 
         checkArgument(!partitions.isEmpty(), "partitions is empty");
-
-        OptionalDouble optionalAverageRowsPerPartition = calculateAverageRowsPerPartition(statistics.values());
-        if (!optionalAverageRowsPerPartition.isPresent()) {
+        Optional<PartitionsRowCount> optionalRowCount = calculatePartitionsRowCount(statistics.values(), partitions.size());
+        if (!optionalRowCount.isPresent()) {
             return TableStatistics.empty();
         }
-        double averageRowsPerPartition = optionalAverageRowsPerPartition.getAsDouble();
-        verify(averageRowsPerPartition >= 0, "averageRowsPerPartition must be greater than or equal to zero");
-        int queriedPartitionsCount = partitions.size();
-        double rowCount = averageRowsPerPartition * queriedPartitionsCount;
+        double rowCount = optionalRowCount.get().getRowCount();
 
         TableStatistics.Builder result = TableStatistics.builder();
         result.setRowCount(Estimate.of(rowCount));
-
-        OptionalDouble optionalAverageSizePerPartition = calculateAverageSizePerPartition(statistics.values());
-        if (optionalAverageSizePerPartition.isPresent()) {
-            double averageSizePerPartition = optionalAverageSizePerPartition.getAsDouble();
-            verify(averageSizePerPartition >= 0, "averageSizePerPartition must be greater than or equal to zero: %s", averageSizePerPartition);
-            double totalSize = averageSizePerPartition * queriedPartitionsCount;
-            result.setTotalSize(Estimate.of(totalSize));
-        }
 
         for (Map.Entry<String, ColumnHandle> column : columns.entrySet()) {
             String columnName = column.getKey();
@@ -424,6 +414,7 @@ public class MetastoreHiveStatisticsProvider
             Type columnType = columnTypes.get(columnName);
             ColumnStatistics columnStatistics;
             if (columnHandle.isPartitionKey()) {
+                double averageRowsPerPartition = optionalRowCount.get().getAverageRowsPerPartition();
                 columnStatistics = createPartitionColumnStatistics(columnHandle, columnType, partitions, statistics, averageRowsPerPartition, rowCount);
             }
             else {
@@ -435,15 +426,98 @@ public class MetastoreHiveStatisticsProvider
     }
 
     @VisibleForTesting
-    static OptionalDouble calculateAverageRowsPerPartition(Collection<PartitionStatistics> statistics)
+    static Optional<PartitionsRowCount> calculatePartitionsRowCount(Collection<PartitionStatistics> statistics, int queriedPartitionsCount)
     {
-        return statistics.stream()
+        long[] rowCounts = statistics.stream()
                 .map(PartitionStatistics::getBasicStatistics)
                 .map(HiveBasicStatistics::getRowCount)
                 .filter(OptionalLong::isPresent)
                 .mapToLong(OptionalLong::getAsLong)
                 .peek(count -> verify(count >= 0, "count must be greater than or equal to zero"))
-                .average();
+                .toArray();
+        int sampleSize = statistics.size();
+        // Sample contains all the queried partitions, estimate avg normally
+        if (rowCounts.length <= 2 || queriedPartitionsCount == sampleSize) {
+            OptionalDouble averageRowsPerPartitionOptional = Arrays.stream(rowCounts).average();
+            if (!averageRowsPerPartitionOptional.isPresent()) {
+                return Optional.empty();
+            }
+            double averageRowsPerPartition = averageRowsPerPartitionOptional.getAsDouble();
+            return Optional.of(new PartitionsRowCount(averageRowsPerPartition, averageRowsPerPartition * queriedPartitionsCount));
+        }
+
+        // Some partitions (e.g. __HIVE_DEFAULT_PARTITION__) may be outliers in terms of row count.
+        // Excluding the min and max rowCount values from averageRowsPerPartition calculation helps to reduce the
+        // possibility of errors in the extrapolated rowCount due to a couple of outliers.
+        int minIndex = 0;
+        int maxIndex = 0;
+        long rowCountSum = rowCounts[0];
+        for (int index = 1; index < rowCounts.length; index++) {
+            if (rowCounts[index] < rowCounts[minIndex]) {
+                minIndex = index;
+            }
+            else if (rowCounts[index] > rowCounts[maxIndex]) {
+                maxIndex = index;
+            }
+            rowCountSum += rowCounts[index];
+        }
+        double averageWithoutOutliers = ((double) (rowCountSum - rowCounts[minIndex] - rowCounts[maxIndex])) / (rowCounts.length - 2);
+        double rowCount = (averageWithoutOutliers * (queriedPartitionsCount - 2)) + rowCounts[minIndex] + rowCounts[maxIndex];
+        return Optional.of(new PartitionsRowCount(averageWithoutOutliers, rowCount));
+    }
+
+    @VisibleForTesting
+    static class PartitionsRowCount
+    {
+        private final double averageRowsPerPartition;
+        private final double rowCount;
+
+        PartitionsRowCount(double averageRowsPerPartition, double rowCount)
+        {
+            verify(averageRowsPerPartition >= 0, "averageRowsPerPartition must be greater than or equal to zero");
+            verify(rowCount >= 0, "rowCount must be greater than or equal to zero");
+            this.averageRowsPerPartition = averageRowsPerPartition;
+            this.rowCount = rowCount;
+        }
+
+        private double getAverageRowsPerPartition()
+        {
+            return averageRowsPerPartition;
+        }
+
+        private double getRowCount()
+        {
+            return rowCount;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            PartitionsRowCount that = (PartitionsRowCount) o;
+            return Double.compare(that.averageRowsPerPartition, averageRowsPerPartition) == 0
+                    && Double.compare(that.rowCount, rowCount) == 0;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(averageRowsPerPartition, rowCount);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("averageRowsPerPartition", averageRowsPerPartition)
+                    .add("rowCount", rowCount)
+                    .toString();
+        }
     }
 
     @VisibleForTesting
