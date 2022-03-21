@@ -17,6 +17,8 @@ set(velox_benchmark_deps
     velox_vector_fuzzer
     velox_expression
     velox_parse_parser
+    velox_parse_utils
+    velox_parse_expression
     velox_serialization
     ${FOLLY}
     ${FOLLY_BENCHMARK}
@@ -31,4 +33,8 @@ target_link_libraries(velox_benchmark_basic_simple_arithmetic
 
 add_executable(velox_benchmark_basic_comparison_conjunct ComparisonConjunct.cpp)
 target_link_libraries(velox_benchmark_basic_comparison_conjunct
+                      ${velox_benchmark_deps})
+
+add_executable(velox_benchmark_basic_decoded_vector DecodedVector.cpp)
+target_link_libraries(velox_benchmark_basic_decoded_vector
                       ${velox_benchmark_deps})

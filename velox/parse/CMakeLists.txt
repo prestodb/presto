@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(velox_parse_expression Expressions.cpp)
-target_link_libraries(velox_parse_expression velox_type velox_parse_utils)
+target_link_libraries(velox_parse_expression velox_type velox_parse_utils
+                      velox_expression)
 
 add_library(velox_parse_parser ExpressionsParser.cpp)
 target_link_libraries(velox_parse_parser velox_parse_expression velox_type
