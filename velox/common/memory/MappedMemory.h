@@ -46,7 +46,7 @@ using MachinePageCount = uint64_t;
 // by. Implementations may use malloc or mmap/madvise. Caches
 // subclass this to provide allocation that is fungible with cached
 // capacity, i.e. a cache can evict data to make space for non-cache
-// memory users. The point if to have all large allocation come from
+// memory users. The point is to have all large allocation come from
 // a single source to have dynamic balancing between different
 // users. Proxy subclasses may provide context specific tracking
 // while delegating the allocation to a root allocator.

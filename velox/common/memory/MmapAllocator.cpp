@@ -41,7 +41,7 @@ bool MmapAllocator::allocate(
     std::function<void(int64_t)> beforeAllocCB,
     MachinePageCount minSizeClass) {
   auto numFreed = freeInternal(out);
-  if (numFreed) {
+  if (numFreed != 0) {
     numAllocated_.fetch_sub(numFreed);
   }
   auto mix = allocationSize(numPages, minSizeClass);
@@ -76,7 +76,7 @@ bool MmapAllocator::allocate(
       return false;
     }
   }
-  if (!newMapsNeeded) {
+  if (newMapsNeeded == 0) {
     // out.setMappedMemory(this);
     return true;
   }
@@ -332,7 +332,7 @@ bool MmapAllocator::SizeClass::allocateLocked(
       if (considerMappedOnly > 0) {
         uint64_t mapped = pageMapped_[cursor];
         uint64_t mappedFree = ~bits & mapped;
-        if (!mappedFree) {
+        if (mappedFree == 0) {
           continue;
         }
         int previousToGo = numPagesToGo;
@@ -342,13 +342,13 @@ bool MmapAllocator::SizeClass::allocateLocked(
         if (!considerMappedOnly && numPagesToGo) {
           // We move from allocating mapped to allocating
           // any. Previously skipped words are again eligible.
-          VELOX_CHECK(numUnmapped, "numUnmapped is not set");
+          VELOX_CHECK_NOT_NULL(numUnmapped, "numUnmapped is not set");
 
           numWordsTried = 0;
         }
       } else {
         int previousToGo = numPagesToGo;
-        assert(numUnmapped);
+        assert(numUnmapped != nullptr);
         allocateAny(cursor, numPagesToGo, *numUnmapped, out);
         numAllocatedUnmapped_ += previousToGo - numPagesToGo;
       }
@@ -488,6 +488,7 @@ void MmapAllocator::SizeClass::allocateMapped(
   for (int i = 0; i < toAlloc; ++i) {
     int bit = __builtin_ctzll(candidates);
     bits::setBit(&pageAllocated_[wordIndex], bit);
+    // Remove the least significant bit that is going to be allocated.
     candidates &= candidates - 1;
     allocation.append(
         address_ + kPageSize * unitSize_ * (bit + wordIndex * 64), unitSize_);
