@@ -61,7 +61,7 @@ class HourFunction : public exec::VectorFunction {
     if (timeZone != nullptr) {
       rows.applyToSelected([&](int row) {
         auto timestamp = timestamps[row];
-        timestamp.toTimezoneUTC(*timeZone);
+        timestamp.toTimezone(*timeZone);
         int64_t seconds = timestamp.getSeconds();
         std::tm dateTime;
         gmtime_r((const time_t*)&seconds, &dateTime);

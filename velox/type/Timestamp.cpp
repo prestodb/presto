@@ -44,7 +44,7 @@ inline int64_t getPrestoTZOffsetInSeconds(int16_t tzID) {
 
 } // namespace
 
-void Timestamp::toTimezone(const date::time_zone& zone) {
+void Timestamp::toGMT(const date::time_zone& zone) {
   // Magic number -2^39 + 24*3600. This number and any number lower than that
   // will cause time_zone::to_sys() to SIGABRT. We don't want that to happen.
   if (seconds_ <= (-1096193779200l + 86400l)) {
@@ -58,29 +58,29 @@ void Timestamp::toTimezone(const date::time_zone& zone) {
   seconds_ = sysTime.time_since_epoch().count();
 }
 
-void Timestamp::toTimezone(int16_t tzID) {
+void Timestamp::toGMT(int16_t tzID) {
   if (tzID == 0) {
     // No conversion required for time zone id 0, as it is '+00:00'.
   } else if (tzID <= 1680) {
     seconds_ -= getPrestoTZOffsetInSeconds(tzID);
   } else {
     // Other ids go this path.
-    toTimezone(*date::locate_zone(util::getTimeZoneName(tzID)));
+    toGMT(*date::locate_zone(util::getTimeZoneName(tzID)));
   }
 }
 
-void Timestamp::toTimezoneUTC(const date::time_zone& zone) {
+void Timestamp::toTimezone(const date::time_zone& zone) {
   seconds_ -= deltaWithTimezone(zone, seconds_);
 }
 
-void Timestamp::toTimezoneUTC(int16_t tzID) {
+void Timestamp::toTimezone(int16_t tzID) {
   if (tzID == 0) {
     // No conversion required for time zone id 0, as it is '+00:00'.
   } else if (tzID <= 1680) {
     seconds_ += getPrestoTZOffsetInSeconds(tzID);
   } else {
     // Other ids go this path.
-    toTimezoneUTC(*date::locate_zone(util::getTimeZoneName(tzID)));
+    toTimezone(*date::locate_zone(util::getTimeZoneName(tzID)));
   }
 }
 

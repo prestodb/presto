@@ -191,7 +191,7 @@ void CastExpr::applyCastWithTry(
         auto rawTimestamps = resultFlatVector->mutableRawValues();
 
         rows.applyToSelected(
-            [&](int row) { rawTimestamps[row].toTimezone(*timeZone); });
+            [&](int row) { rawTimestamps[row].toGMT(*timeZone); });
       }
     }
   }
