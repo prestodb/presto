@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +26,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class BufferInfo
 {
     private final OutputBufferId bufferId;
@@ -33,6 +37,7 @@ public class BufferInfo
     private final PageBufferInfo pageBufferInfo;
 
     @JsonCreator
+    @ThriftConstructor
     public BufferInfo(
             @JsonProperty("bufferId") OutputBufferId bufferId,
             @JsonProperty("finished") boolean finished,
@@ -51,30 +56,35 @@ public class BufferInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public OutputBufferId getBufferId()
     {
         return bufferId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public boolean isFinished()
     {
         return finished;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public int getBufferedPages()
     {
         return bufferedPages;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public long getPagesSent()
     {
         return pagesSent;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public PageBufferInfo getPageBufferInfo()
     {
         return pageBufferInfo;
