@@ -27,14 +27,14 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.ws.rs.core.Response;
 
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.net.URLEncoder;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -125,12 +125,15 @@ public final class QueryResourceUtil
         QueryStats queryStats = queryInfo.getQueryStats();
         StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
 
+        Set<String> globalUniqueNodes = new HashSet<>();
+        StageStats rootStageStats = toStageStats(outputStage, globalUniqueNodes);
+
         return StatementStats.builder()
                 .setState(queryInfo.getState().toString())
                 .setWaitingForPrerequisites(queryInfo.getState() == QueryState.WAITING_FOR_PREREQUISITES)
                 .setQueued(queryInfo.getState() == QueryState.QUEUED)
                 .setScheduled(queryInfo.isScheduled())
-                .setNodes(globalUniqueNodes(outputStage).size())
+                .setNodes(globalUniqueNodes.size())
                 .setTotalSplits(queryStats.getTotalDrivers())
                 .setQueuedSplits(queryStats.getQueuedDrivers())
                 .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
@@ -146,7 +149,7 @@ public final class QueryResourceUtil
                 .setPeakTotalMemoryBytes(queryStats.getPeakTotalMemoryReservation().toBytes())
                 .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
-                .setRootStage(toStageStats(outputStage))
+                .setRootStage(rootStageStats)
                 .setRuntimeStats(queryStats.getRuntimeStats())
                 .build();
     }
@@ -161,25 +164,7 @@ public final class QueryResourceUtil
         }
     }
 
-    public static Set<String> globalUniqueNodes(StageInfo stageInfo)
-    {
-        if (stageInfo == null) {
-            return ImmutableSet.of();
-        }
-        ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-        for (TaskInfo task : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            nodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            nodes.addAll(globalUniqueNodes(subStage));
-        }
-        return nodes.build();
-    }
-
-    private static StageStats toStageStats(StageInfo stageInfo)
+    private static StageStats toStageStats(StageInfo stageInfo, Set<String> globalUniqueNodeIds)
     {
         if (stageInfo == null) {
             return null;
@@ -188,23 +173,11 @@ public final class QueryResourceUtil
         StageExecutionInfo currentStageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
         StageExecutionStats stageExecutionStats = currentStageExecutionInfo.getStats();
 
-        ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            subStages.add(toStageStats(subStage));
-        }
-
-        Set<String> uniqueNodes = new HashSet<>();
-        for (TaskInfo task : currentStageExecutionInfo.getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        return StageStats.builder()
+        // Store current stage details into a builder
+        StageStats.Builder builder = StageStats.builder()
                 .setStageId(String.valueOf(stageInfo.getStageId().getId()))
                 .setState(currentStageExecutionInfo.getState().toString())
                 .setDone(currentStageExecutionInfo.getState().isDone())
-                .setNodes(uniqueNodes.size())
                 .setTotalSplits(stageExecutionStats.getTotalDrivers())
                 .setQueuedSplits(stageExecutionStats.getQueuedDrivers())
                 .setRunningSplits(stageExecutionStats.getRunningDrivers() + stageExecutionStats.getBlockedDrivers())
@@ -213,7 +186,32 @@ public final class QueryResourceUtil
                 .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageExecutionStats.getRawInputPositions())
                 .setProcessedBytes(stageExecutionStats.getRawInputDataSize().toBytes())
-                .setSubStages(subStages.build())
-                .build();
+                .setNodes(countStageAndAddGlobalUniqueNodes(currentStageExecutionInfo.getTasks(), globalUniqueNodeIds));
+
+        // Recurse into child stages to create their StageStats
+        List<StageInfo> subStages = stageInfo.getSubStages();
+        if (subStages.isEmpty()) {
+            builder.setSubStages(ImmutableList.of());
+        }
+        else {
+            ImmutableList.Builder<StageStats> subStagesBuilder = ImmutableList.builderWithExpectedSize(subStages.size());
+            for (StageInfo subStage : subStages) {
+                subStagesBuilder.add(toStageStats(subStage, globalUniqueNodeIds));
+            }
+            builder.setSubStages(subStagesBuilder.build());
+        }
+
+        return builder.build();
+    }
+
+    private static int countStageAndAddGlobalUniqueNodes(List<TaskInfo> tasks, Set<String> globalUniqueNodes)
+    {
+        Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
+        for (TaskInfo task : tasks) {
+            String nodeId = task.getNodeId();
+            stageUniqueNodes.add(nodeId);
+            globalUniqueNodes.add(nodeId);
+        }
+        return stageUniqueNodes.size();
     }
 }
