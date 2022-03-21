@@ -57,7 +57,7 @@ class StreamingAggregation : public Operator {
 
   // Populate output_ vector using specified number of groups from the beginning
   // of the groups_ vector.
-  void createOutput(size_t numGroups);
+  RowVectorPtr createOutput(size_t numGroups);
 
   // Assign input rows to groups based on values of the grouping keys. Store the
   // assignments in inputGroups_.

@@ -149,25 +149,27 @@ void StreamingAggregation::storeKeys(char* group, vector_size_t index) {
   }
 }
 
-void StreamingAggregation::createOutput(size_t numGroups) {
-  output_ = std::dynamic_pointer_cast<RowVector>(
+RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
+  auto output = std::dynamic_pointer_cast<RowVector>(
       BaseVector::create(outputType_, numGroups, pool()));
 
   for (auto i = 0; i < groupingKeys_.size(); ++i) {
     rows_->extractColumn(
-        groups_.data(), numGroups, groupingKeys_[i], output_->childAt(i));
+        groups_.data(), numGroups, groupingKeys_[i], output->childAt(i));
   }
 
   auto numKeys = groupingKeys_.size();
   for (auto i = 0; i < aggregates_.size(); ++i) {
     auto& aggregate = aggregates_[i];
-    auto& result = output_->childAt(numKeys + i);
+    auto& result = output->childAt(numKeys + i);
     if (isPartialOutput(step_)) {
       aggregate->extractAccumulators(groups_.data(), numGroups, &result);
     } else {
       aggregate->extractValues(groups_.data(), numGroups, &result);
     }
   }
+
+  return output;
 }
 
 void StreamingAggregation::assignGroups() {
@@ -247,9 +249,9 @@ bool StreamingAggregation::isFinished() {
 RowVectorPtr StreamingAggregation::getOutput() {
   if (!input_) {
     if (noMoreInput_ && numGroups_ > 0) {
-      createOutput(numGroups_);
+      auto output = createOutput(numGroups_);
       numGroups_ = 0;
-      return std::move(output_);
+      return output;
     }
     return nullptr;
   }
@@ -278,8 +280,9 @@ RowVectorPtr StreamingAggregation::getOutput() {
 
   evaluateAggregates();
 
+  RowVectorPtr output;
   if (numGroups_ > outputBatchSize_) {
-    createOutput(outputBatchSize_);
+    output = createOutput(outputBatchSize_);
 
     // Rotate the entries in the groups_ vector to move the remaining groups to
     // the beginning and place re-usable groups at the end.
@@ -296,7 +299,7 @@ RowVectorPtr StreamingAggregation::getOutput() {
   prevInput_ = input_;
   input_ = nullptr;
 
-  return std::move(output_);
+  return output;
 }
 
 } // namespace facebook::velox::exec
