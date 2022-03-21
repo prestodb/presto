@@ -47,7 +47,7 @@ struct PlusFunction {
 
 class ComparisonBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
-  ComparisonBenchmark() : FunctionBenchmarkBase() {
+  explicit ComparisonBenchmark(size_t vectorSize) : FunctionBenchmarkBase() {
     registerBinaryScalar<EqFunction, bool>({"eq"});
     registerBinaryScalar<NeqFunction, bool>({"neq"});
     registerBinaryScalar<LtFunction, bool>({"lt"});
@@ -58,11 +58,40 @@ class ComparisonBenchmark : public functions::test::FunctionBenchmarkBase {
 
     // Use it as a baseline.
     registerFunction<PlusFunction, double, double, double>({"plus"});
-  }
 
-  void setInput(const TypePtr& inputType, const RowVectorPtr& rowVector) {
-    inputType_ = inputType;
-    rowVector_ = rowVector;
+    // Set input schema.
+    inputType_ = ROW({
+        {"a", DOUBLE()},
+        {"b", DOUBLE()},
+        {"c", DOUBLE()},
+        {"d", BOOLEAN()},
+        {"e", BOOLEAN()},
+        {"constant", DOUBLE()},
+        {"half_null", DOUBLE()},
+        {"bool_half_null", BOOLEAN()},
+    });
+
+    // Generate input data.
+    VectorFuzzer::Options opts;
+    opts.vectorSize = vectorSize;
+    opts.nullChance = 0;
+    VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
+
+    std::vector<VectorPtr> children;
+    children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // A
+    children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // B
+    children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // C
+    children.emplace_back(fuzzer.fuzzFlat(BOOLEAN())); // D
+    children.emplace_back(fuzzer.fuzzFlat(BOOLEAN())); // E
+    children.emplace_back(fuzzer.fuzzConstant(DOUBLE())); // Constant
+
+    opts.nullChance = 2; // 50%
+    fuzzer.setOptions(opts);
+    children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // HalfNull
+    children.emplace_back(fuzzer.fuzzFlat(BOOLEAN())); // BoolHalfNull
+
+    rowVector_ = std::make_shared<RowVector>(
+        pool(), inputType_, nullptr, vectorSize, std::move(children));
   }
 
   // Runs `expression` `times` times.
@@ -89,7 +118,7 @@ BENCHMARK_MULTI(plus, n) {
   return benchmark->run("plus(a, b)", n);
 }
 
-BENCHMARK_RELATIVE_MULTI(eq, n) {
+BENCHMARK_MULTI(eq, n) {
   return benchmark->run("eq(a, b)", n);
 }
 
@@ -111,7 +140,7 @@ BENCHMARK_MULTI(between, n) {
 
 BENCHMARK_DRAW_LINE();
 
-BENCHMARK_RELATIVE_MULTI(eqToConstant, n) {
+BENCHMARK_MULTI(eqToConstant, n) {
   return benchmark->run("eq(a, constant)", n);
 }
 
@@ -147,50 +176,7 @@ BENCHMARK_MULTI(conjunctsNested, n) {
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  // Set input schema.
-  auto inputType = ROW({
-      {"a", DOUBLE()},
-      {"b", DOUBLE()},
-      {"c", DOUBLE()},
-      {"d", BOOLEAN()},
-      {"e", BOOLEAN()},
-      {"constant", DOUBLE()},
-      {"half_null", DOUBLE()},
-      {"bool_half_null", BOOLEAN()},
-  });
-  const size_t size = 100'000;
-
-  // Generate input data.
-  benchmark = std::make_unique<ComparisonBenchmark>();
-  auto* pool = benchmark->pool();
-  VectorFuzzer::Options opts;
-  opts.vectorSize = size;
-  opts.nullChance = 0;
-
-  std::vector<VectorPtr> children;
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(DOUBLE())); // A
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(DOUBLE())); // B
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(DOUBLE())); // C
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(BOOLEAN())); // D
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(BOOLEAN())); // E
-  children.emplace_back(VectorFuzzer(opts, pool, FLAGS_fuzzer_seed)
-                            .fuzzConstant(DOUBLE())); // Constant
-  opts.nullChance = 2; // 50%
-  children.emplace_back(VectorFuzzer(opts, pool, FLAGS_fuzzer_seed)
-                            .fuzzFlat(DOUBLE())); // HalfNull
-  children.emplace_back(VectorFuzzer(opts, pool, FLAGS_fuzzer_seed)
-                            .fuzzFlat(BOOLEAN())); // BoolHalfNull
-
-  auto rowVector = std::make_shared<RowVector>(
-      pool, inputType, nullptr, size, std::move(children));
-
-  // Set them into the benchmark object and start the tests.
-  benchmark->setInput(inputType, rowVector);
+  benchmark = std::make_unique<ComparisonBenchmark>(100'000);
   folly::runBenchmarks();
   benchmark.reset();
   return 0;
