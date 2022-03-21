@@ -40,8 +40,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -76,7 +76,7 @@ public class QueryInfo
     private final List<PrestoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
-    private final boolean completeInfo;
+    private final boolean finalQueryInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
     // failedTasks is only available for final query info because the construction is expensive.
@@ -115,7 +115,7 @@ public class QueryInfo
             @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
-            @JsonProperty("completeInfo") boolean completeInfo,
+            @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("failedTasks") Optional<List<TaskId>> failedTasks,
@@ -178,7 +178,10 @@ public class QueryInfo
         this.warnings = ImmutableList.copyOf(warnings);
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
-        this.completeInfo = completeInfo;
+        this.finalQueryInfo = finalQueryInfo;
+        if (finalQueryInfo) {
+            checkArgument(state.isDone(), "finalQueryInfo without a terminal query state: %s", state);
+        }
         this.resourceGroupId = resourceGroupId;
         this.queryType = queryType;
         this.failedTasks = failedTasks;
@@ -350,7 +353,7 @@ public class QueryInfo
     @JsonProperty
     public boolean isFinalQueryInfo()
     {
-        return state.isDone() && getAllStages(outputStage).stream().allMatch(StageInfo::isFinalStageInfo);
+        return finalQueryInfo;
     }
 
     @JsonProperty
@@ -409,10 +412,5 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
-    }
-
-    public boolean isCompleteInfo()
-    {
-        return completeInfo;
     }
 }

@@ -700,7 +700,7 @@ public class PrestoSparkQueryExecutionFactory
                 warningCollector.getWarnings(),
                 planAndMore.map(PlanAndMore::getInputs).orElse(ImmutableSet.of()),
                 planAndMore.flatMap(PlanAndMore::getOutput),
-                true,
+                queryState.isDone(),
                 sparkQueueName.map(ResourceGroupId::new),
                 planAndMore.flatMap(PlanAndMore::getQueryType),
                 Optional.empty(),

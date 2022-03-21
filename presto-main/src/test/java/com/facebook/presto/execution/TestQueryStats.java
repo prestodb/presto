@@ -166,7 +166,7 @@ public class TestQueryStats
                     null,
                     new RuntimeStats()));
 
-    private static final QueryStats EXPECTED = new QueryStats(
+    static final QueryStats EXPECTED = new QueryStats(
             new DateTime(1),
             new DateTime(2),
             new DateTime(3),
@@ -254,7 +254,7 @@ public class TestQueryStats
         assertExpectedQueryStats(actual);
     }
 
-    private static void assertExpectedQueryStats(QueryStats actual)
+    static void assertExpectedQueryStats(QueryStats actual)
     {
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getExecutionStartTime(), new DateTime(2, UTC));
