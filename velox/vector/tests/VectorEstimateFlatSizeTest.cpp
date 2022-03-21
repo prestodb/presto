@@ -256,12 +256,12 @@ TEST_F(VectorEstimateFlatSizeTest, flatStrings) {
     return StringView(longStrings_[row % 3]);
   };
   flat = makeFlatVector<StringView>(1'000, longStringAt);
-  EXPECT_EQ(40672, flat->retainedSize());
-  EXPECT_EQ(40672, flat->estimateFlatSize());
+  EXPECT_EQ(65344, flat->retainedSize());
+  EXPECT_EQ(65343, flat->estimateFlatSize());
 
   flat = makeFlatVector<StringView>(1'000, longStringAt, nullEvery(5));
-  EXPECT_EQ(40832, flat->retainedSize());
-  EXPECT_EQ(40832, flat->estimateFlatSize());
+  EXPECT_EQ(65504, flat->retainedSize());
+  EXPECT_EQ(65504, flat->estimateFlatSize());
 }
 
 TEST_F(VectorEstimateFlatSizeTest, dictionaryShortStrings) {
@@ -298,24 +298,24 @@ TEST_F(VectorEstimateFlatSizeTest, dictionaryLongStrings) {
   };
 
   auto dict = makeDict(makeFlatVector<StringView>(1'000, longStringAt));
-  EXPECT_EQ(41088, dict->retainedSize());
-  EXPECT_EQ(4067, dict->estimateFlatSize());
+  EXPECT_EQ(65760, dict->retainedSize());
+  EXPECT_EQ(6534, dict->estimateFlatSize());
   // Flatten() method uses BaseVector::copy() which doesn't copy the strings,
   // but rather copies the shared pointer to the string buffers of the source
   // vector. Hence, the size of the "flattened" vector includes the size of the
   // original string buffers.
-  EXPECT_EQ(26336, flatten(dict)->retainedSize());
+  EXPECT_EQ(51008, flatten(dict)->retainedSize());
 
   // Non-inlined strings with nulls.
   dict =
       makeDict(makeFlatVector<StringView>(1'000, longStringAt, nullEvery(5)));
-  EXPECT_EQ(41248, dict->retainedSize());
-  EXPECT_EQ(4083, dict->estimateFlatSize());
+  EXPECT_EQ(65920, dict->retainedSize());
+  EXPECT_EQ(6550, dict->estimateFlatSize());
   // Flatten() method uses BaseVector::copy() which doesn't copy the strings,
   // but rather copies the shared pointer to the string buffers of the source
   // vector. Hence, the size of the "flattened" vector includes the size of the
   // original string buffers.
-  EXPECT_EQ(26368, flatten(dict)->retainedSize());
+  EXPECT_EQ(51040, flatten(dict)->retainedSize());
 }
 
 TEST_F(VectorEstimateFlatSizeTest, arrayOfInts) {
@@ -398,9 +398,9 @@ TEST_F(VectorEstimateFlatSizeTest, arrayOfLongStrings) {
 
   auto elements = array->elements();
 
-  EXPECT_EQ(40672, elements->retainedSize());
-  EXPECT_EQ(48672, array->retainedSize());
-  EXPECT_EQ(48672, array->estimateFlatSize());
+  EXPECT_EQ(65344, elements->retainedSize());
+  EXPECT_EQ(73344, array->retainedSize());
+  EXPECT_EQ(73343, array->estimateFlatSize());
 
   // Dictionary-encoded array.
   auto indices = makeIndices(100, [](auto row) { return row * 2; });
@@ -409,10 +409,10 @@ TEST_F(VectorEstimateFlatSizeTest, arrayOfLongStrings) {
     return wrapInDictionary(indices, 100, base);
   };
 
-  EXPECT_EQ(49088, makeDict(array)->retainedSize());
-  EXPECT_EQ(4867, makeDict(array)->estimateFlatSize());
+  EXPECT_EQ(73760, makeDict(array)->retainedSize());
+  EXPECT_EQ(7334, makeDict(array)->estimateFlatSize());
   // Flattened vector includes the original string buffers.
-  EXPECT_EQ(27168, flatten(makeDict(array))->estimateFlatSize());
+  EXPECT_EQ(51840, flatten(makeDict(array))->estimateFlatSize());
 
   // Flat array with dictionary encoded elements.
   auto offsets = makeIndices(100, [](auto row) { return row; });
@@ -420,10 +420,10 @@ TEST_F(VectorEstimateFlatSizeTest, arrayOfLongStrings) {
 
   array = makeArrayVector(
       ARRAY(VARCHAR()), 100, offsets, lengths, makeDict(elements));
-  EXPECT_EQ(41920, array->retainedSize());
-  EXPECT_EQ(4899, array->estimateFlatSize());
+  EXPECT_EQ(66592, array->retainedSize());
+  EXPECT_EQ(7366, array->estimateFlatSize());
   // Flattened vector includes the original string buffers.
-  EXPECT_EQ(27168, flatten(array)->estimateFlatSize());
+  EXPECT_EQ(51840, flatten(array)->estimateFlatSize());
 }
 
 TEST_F(VectorEstimateFlatSizeTest, mapOfInts) {

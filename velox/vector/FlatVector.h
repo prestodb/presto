@@ -40,8 +40,11 @@ class FlatVector final : public SimpleVector<T> {
        std::is_same<T, int16_t>::value || std::is_same<T, int8_t>::value ||
        std::is_same<T, bool>::value || std::is_same<T, size_t>::value);
 
+  // Minimum size of a string buffer. 32 KB value is chosen to ensure that a
+  // single buffer is sufficient for a "typical" vector: 1K rows, medium size
+  // strings.
   static constexpr vector_size_t kInitialStringSize =
-      (8 * 1024) - sizeof(AlignedBuffer);
+      (32 * 1024) - sizeof(AlignedBuffer);
 
   FlatVector(
       velox::memory::MemoryPool* pool,

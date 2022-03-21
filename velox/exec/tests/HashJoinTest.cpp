@@ -1313,5 +1313,5 @@ TEST_F(HashJoinTest, memoryUsage) {
 
   auto planStats = toPlanStats(task->taskStats());
   auto outputBytes = planStats.at(joinNodeId).outputBytes;
-  ASSERT_LT(outputBytes, 512 * 1024);
+  ASSERT_LT(outputBytes, 700 * 1024);
 }
