@@ -423,7 +423,7 @@ public class QueryStateMachine
             }
         }
 
-        boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
+        boolean finalInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
         Optional<List<TaskId>> failedTasks;
         // Traversing all tasks is expensive, thus only construct failedTasks list when query finished.
         if (state.isDone()) {
@@ -468,7 +468,7 @@ public class QueryStateMachine
                 warningCollector.getWarnings(),
                 inputs.get(),
                 output.get(),
-                completeInfo,
+                finalInfo,
                 Optional.of(resourceGroup),
                 queryType,
                 failedTasks,
@@ -986,7 +986,7 @@ public class QueryStateMachine
                 queryInfo.getWarnings(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
-                queryInfo.isCompleteInfo(),
+                queryInfo.isFinalQueryInfo(),
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
                 queryInfo.getFailedTasks(),
