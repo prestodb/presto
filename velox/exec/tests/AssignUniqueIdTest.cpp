@@ -55,6 +55,15 @@ class AssignUniqueIdTest : public OperatorTestBase {
         0,
         [](vector_size_t sum, RowVectorPtr row) { return sum + row->size(); });
     ASSERT_EQ(totalInputSize * numThreads, ids.size());
+
+    auto task = result.first->task();
+
+    // Verify number of memory allocations. There should be exactly one
+    // allocation (per thread of execution) for the values buffer of the unique
+    // ID vector. Memory should be allocated when producing first batch of
+    // output and re-used for subsequent batches.
+    ASSERT_EQ(
+        numThreads, task->pool()->getMemoryUsageTracker()->getNumAllocs());
   }
 };
 

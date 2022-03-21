@@ -585,10 +585,32 @@ class BaseVector {
   // and nulls and values are uniquely referenced.
   static bool isReusableFlatVector(const std::shared_ptr<BaseVector>& vector);
 
+  /// To safely reuse a vector one needs to (1) ensure that the vector as well
+  /// as all its buffers and child vectors are singly-referenced and mutable
+  /// (for buffers); (2) clear append-only string buffers and child vectors
+  /// (elements of arrays, keys and values of maps, fields of structs).
+  ///
+  /// This method takes a non-const reference to a 'vector' and updates it to
+  /// possibly a new flat vector of the specified size that is safe to reuse. If
+  /// input 'vector' is not singly-referenced or not flat, replaces 'vector'
+  /// with a new vector of the same type and specified size. If some of the
+  /// buffers cannot be reused, these buffers are reset. Child vectors are
+  /// updated by calling this method recursively with size zero.
+  static void prepareForReuse(
+      std::shared_ptr<BaseVector>& vector,
+      vector_size_t size);
+
+  /// Resets non-reusable buffers and updates child vectors by calling
+  /// BaseVector::prepareForReuse.
+  /// Base implementation checks and resets nulls buffer if needed. Keeps the
+  /// nulls buffer if singly-referenced, mutable and has at least one null bit
+  /// set.
+  virtual void prepareForReuse();
+
   // True if left and right are the same or if right is
   // TypeKind::UNKNOWN.  ArrayVector copying may come across unknown
   // type data for null-only content. Nulls can be transferred between
-  // two unknows but values cannot be assigned into an unknown 'left'
+  // two unknowns but values cannot be assigned into an unknown 'left'
   // from a not-unknown 'right'.
   static bool compatibleKind(TypeKind left, TypeKind right) {
     return left == right || right == TypeKind::UNKNOWN;

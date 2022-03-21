@@ -629,7 +629,7 @@ bool BaseVector::isReusableFlatVector(const VectorPtr& vector) {
   // are mutable.
   auto checkNullsAndValueBuffers = [&]() {
     const auto& nulls = vector->nulls();
-    if (!nulls || (vector->nulls()->unique() && vector->nulls()->isMutable())) {
+    if (!nulls || (nulls->unique() && nulls->isMutable())) {
       const auto& values = vector->values();
       if (!values || (values->unique() && values->isMutable())) {
         return true;
@@ -666,6 +666,44 @@ uint64_t BaseVector::estimateFlatSize() const {
   VELOX_DCHECK_GT(leaf->size(), 0);
   auto avgRowSize = 1.0 * leaf->retainedSize() / leaf->size();
   return length_ * avgRowSize;
+}
+
+namespace {
+bool isFlatEncoding(VectorEncoding::Simple encoding) {
+  return encoding == VectorEncoding::Simple::FLAT ||
+      encoding == VectorEncoding::Simple::ARRAY ||
+      encoding == VectorEncoding::Simple::MAP ||
+      encoding == VectorEncoding::Simple::ROW;
+}
+} // namespace
+
+// static
+void BaseVector::prepareForReuse(
+    std::shared_ptr<BaseVector>& vector,
+    vector_size_t size) {
+  if (!vector.unique() || !isFlatEncoding(vector->encoding())) {
+    vector = BaseVector::create(vector->type(), size, vector->pool());
+    return;
+  }
+
+  vector->prepareForReuse();
+  vector->resize(size);
+}
+
+void BaseVector::prepareForReuse() {
+  // Check nulls buffer. Keep the buffer if singly-referenced and mutable and
+  // there is at least one null bit set. Reset otherwise.
+  if (nulls_) {
+    if (nulls_->unique() && nulls_->isMutable()) {
+      if (0 == BaseVector::countNulls(nulls_, length_)) {
+        nulls_ = nullptr;
+        rawNulls_ = nullptr;
+      }
+    } else {
+      nulls_ = nullptr;
+      rawNulls_ = nullptr;
+    }
+  }
 }
 
 } // namespace velox

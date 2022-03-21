@@ -20,6 +20,7 @@ add_executable(
   VectorMakerTest.cpp
   VectorTest.cpp
   VectorEstimateFlatSizeTest.cpp
+  VectorPrepareForReuseTest.cpp
   DecodedVectorTest.cpp
   SelectivityVectorTest.cpp
   EnsureWritableVectorTest.cpp

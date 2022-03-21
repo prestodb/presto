@@ -1314,4 +1314,8 @@ TEST_F(HashJoinTest, memoryUsage) {
   auto planStats = toPlanStats(task->taskStats());
   auto outputBytes = planStats.at(joinNodeId).outputBytes;
   ASSERT_LT(outputBytes, 700 * 1024);
+
+  // Verify number of memory allocations. Should not be too high if hash join is
+  // able to re-use output vectors that contain build-side data.
+  ASSERT_GT(30, task->pool()->getMemoryUsageTracker()->getNumAllocs());
 }

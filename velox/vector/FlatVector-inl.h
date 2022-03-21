@@ -335,5 +335,34 @@ void FlatVector<T>::ensureWritable(const SelectivityVector& rows) {
 
   BaseVector::ensureWritable(rows);
 }
+
+template <typename T>
+void FlatVector<T>::prepareForReuse() {
+  BaseVector::prepareForReuse();
+
+  // Check values buffer. Keep the buffer if singly-referenced and mutable.
+  // Reset otherwise.
+  if (values_ && !(values_->unique() && values_->isMutable())) {
+    values_ = nullptr;
+  }
+
+  // Check string buffers. Keep at most one singly-referenced buffer if it is
+  // not too large.
+  if (!stringBuffers_.empty()) {
+    auto& firstBuffer = stringBuffers_.front();
+    if (firstBuffer->unique() && firstBuffer->isMutable() &&
+        firstBuffer->capacity() <= kMaxStringSizeForReuse) {
+      firstBuffer->setSize(0);
+      stringBuffers_.resize(1);
+    } else {
+      stringBuffers_.clear();
+    }
+  }
+
+  // Clear ASCII-ness.
+  if constexpr (std::is_same_v<T, StringView>) {
+    SimpleVector<StringView>::invalidateIsAscii();
+  }
+}
 } // namespace velox
 } // namespace facebook

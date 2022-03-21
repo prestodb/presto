@@ -66,6 +66,7 @@ void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
       size;
 
   ++usage(numAllocs_, type);
+  ++usage(numAllocs_, UsageType::kTotalMem);
   usage(cumulativeBytes_, type) += size;
 
   // We track the peak usage of total memory independent of user and

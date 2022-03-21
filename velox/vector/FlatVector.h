@@ -45,6 +45,10 @@ class FlatVector final : public SimpleVector<T> {
   // strings.
   static constexpr vector_size_t kInitialStringSize =
       (32 * 1024) - sizeof(AlignedBuffer);
+  /// Maximum size of a string buffer to re-use (see
+  /// BaseVector::prepareForReuse): 1MB.
+  static constexpr vector_size_t kMaxStringSizeForReuse =
+      (1 << 20) - sizeof(AlignedBuffer);
 
   FlatVector(
       velox::memory::MemoryPool* pool,
@@ -294,6 +298,12 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   void ensureWritable(const SelectivityVector& rows) override;
+
+  /// Calls BaseVector::prapareForReuse() to check and reset nulls buffer if
+  /// needed, checks and resets values buffer. Resets all strings buffers except
+  /// the first one. Keeps the first string buffer if singly-referenced and
+  /// mutable. Resizes the buffer to zero to allow for reuse instead of append.
+  void prepareForReuse() override;
 
  private:
   void copyValuesAndNulls(

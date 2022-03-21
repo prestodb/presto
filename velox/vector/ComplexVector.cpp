@@ -311,6 +311,15 @@ uint64_t RowVector::estimateFlatSize() const {
   return total;
 }
 
+void RowVector::prepareForReuse() {
+  BaseVector::prepareForReuse();
+  for (auto& child : children_) {
+    if (child) {
+      BaseVector::prepareForReuse(child, 0);
+    }
+  }
+}
+
 bool ArrayVector::equalValueAt(
     const BaseVector* other,
     vector_size_t index,
@@ -592,6 +601,30 @@ void ArrayVector::ensureWritable(const SelectivityVector& rows) {
 uint64_t ArrayVector::estimateFlatSize() const {
   return BaseVector::retainedSize() + offsets_->capacity() +
       sizes_->capacity() + elements_->estimateFlatSize();
+}
+
+namespace {
+void zeroOutBuffer(BufferPtr buffer) {
+  memset(buffer->asMutable<char>(), 0, buffer->size());
+}
+} // namespace
+
+void ArrayVector::prepareForReuse() {
+  BaseVector::prepareForReuse();
+
+  if (!(offsets_->unique() && offsets_->isMutable())) {
+    offsets_ = nullptr;
+  } else {
+    zeroOutBuffer(offsets_);
+  }
+
+  if (!(sizes_->unique() && sizes_->isMutable())) {
+    sizes_ = nullptr;
+  } else {
+    zeroOutBuffer(sizes_);
+  }
+
+  BaseVector::prepareForReuse(elements_, 0);
 }
 
 bool MapVector::equalValueAt(
@@ -935,6 +968,25 @@ uint64_t MapVector::estimateFlatSize() const {
   return BaseVector::retainedSize() + offsets_->capacity() +
       sizes_->capacity() + keys_->estimateFlatSize() +
       values_->estimateFlatSize();
+}
+
+void MapVector::prepareForReuse() {
+  BaseVector::prepareForReuse();
+
+  if (!(offsets_->unique() && offsets_->isMutable())) {
+    offsets_ = nullptr;
+  } else {
+    zeroOutBuffer(offsets_);
+  }
+
+  if (!(sizes_->unique() && sizes_->isMutable())) {
+    sizes_ = nullptr;
+  } else {
+    zeroOutBuffer(sizes_);
+  }
+
+  BaseVector::prepareForReuse(keys_, 0);
+  BaseVector::prepareForReuse(values_, 0);
 }
 
 } // namespace velox
