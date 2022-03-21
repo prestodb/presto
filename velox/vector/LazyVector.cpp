@@ -129,7 +129,7 @@ void LazyVector::ensureLoadedRows(
     }
   } else {
     baseRows.resize(0);
-    baseRows.resize(lazyVector->size()), false;
+    baseRows.resize(lazyVector->size(), false);
     rows.applyToSelected([&](auto row) {
       if (!decoded.isNullAt(row)) {
         baseRows.setValid(decoded.index(row), true);
