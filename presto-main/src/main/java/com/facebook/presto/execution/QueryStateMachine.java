@@ -423,11 +423,12 @@ public class QueryStateMachine
             }
         }
 
-        boolean finalInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
+        List<StageInfo> allStages = getAllStages(rootStage);
+        boolean finalInfo = state.isDone() && allStages.stream().allMatch(StageInfo::isFinalStageInfo);
         Optional<List<TaskId>> failedTasks;
         // Traversing all tasks is expensive, thus only construct failedTasks list when query finished.
         if (state.isDone()) {
-            failedTasks = Optional.of(getAllStages(rootStage).stream()
+            failedTasks = Optional.of(allStages.stream()
                     .flatMap(stageInfo -> Streams.concat(ImmutableList.of(stageInfo.getLatestAttemptExecutionInfo()).stream(), stageInfo.getPreviousAttemptsExecutionInfos().stream()))
                     .flatMap(execution -> execution.getTasks().stream())
                     .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
@@ -438,8 +439,8 @@ public class QueryStateMachine
             failedTasks = Optional.empty();
         }
 
-        List<StageId> runtimeOptimizedStages = getAllStages(rootStage).stream().filter(StageInfo::isRuntimeOptimized).map(StageInfo::getStageId).collect(toImmutableList());
-        QueryStats queryStats = getQueryStats(rootStage);
+        List<StageId> runtimeOptimizedStages = allStages.stream().filter(StageInfo::isRuntimeOptimized).map(StageInfo::getStageId).collect(toImmutableList());
+        QueryStats queryStats = getQueryStats(rootStage, allStages);
         return new QueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
@@ -477,11 +478,12 @@ public class QueryStateMachine
                 removedSessionFunctions);
     }
 
-    private QueryStats getQueryStats(Optional<StageInfo> rootStage)
+    private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
     {
         return QueryStats.create(
                 queryStateTimer,
                 rootStage,
+                allStages,
                 getPeakRunningTaskCount(),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
