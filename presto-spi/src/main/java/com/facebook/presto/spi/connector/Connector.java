@@ -177,10 +177,11 @@ public interface Connector
 
     /**
      * True if the connector only supports write statements in independent transactions.
+     * The engine will enforce this for the connector by requiring auto-commit mode for writes.
      */
     default boolean isSingleStatementWritesOnly()
     {
-        return false;
+        return true;
     }
 
     /**
