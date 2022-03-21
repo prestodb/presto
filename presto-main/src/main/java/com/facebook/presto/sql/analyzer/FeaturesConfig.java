@@ -115,6 +115,7 @@ public class FeaturesConfig
     private boolean logFormattedQueryEnabled;
 
     private boolean dictionaryAggregation;
+    private boolean mergeJoinEnabled;
 
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
@@ -889,6 +890,18 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    public boolean isMergeJoinEnabled()
+    {
+        return mergeJoinEnabled;
+    }
+
+    @Config("optimizer.merge-join-enabled")
+    public FeaturesConfig setMergeJoinEnabled(boolean mergeJoinEnabled)
+    {
+        this.mergeJoinEnabled = mergeJoinEnabled;
         return this;
     }
 

@@ -107,6 +107,7 @@ public final class SystemSessionProperties
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
+    public static final String MERGE_JOIN_ENABLED = "merge_join_enabled";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String SPATIAL_JOIN = "spatial_join";
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
@@ -509,6 +510,11 @@ public final class SystemSessionProperties
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
                         featuresConfig.isDictionaryAggregation(),
+                        false),
+                booleanProperty(
+                        MERGE_JOIN_ENABLED,
+                        "Force enable merge join",
+                        featuresConfig.isMergeJoinEnabled(),
                         false),
                 integerProperty(
                         INITIAL_SPLITS_PER_NODE,
@@ -1431,6 +1437,11 @@ public final class SystemSessionProperties
     public static boolean isDictionaryAggregationEnabled(Session session)
     {
         return session.getSystemProperty(DICTIONARY_AGGREGATION, Boolean.class);
+    }
+
+    public static boolean isMergeJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(MERGE_JOIN_ENABLED, Boolean.class);
     }
 
     public static boolean isOptimizeMetadataQueries(Session session)

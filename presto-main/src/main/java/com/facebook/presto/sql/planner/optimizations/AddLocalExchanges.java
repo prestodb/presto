@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
@@ -71,6 +70,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMergeJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -737,8 +737,7 @@ public class AddLocalExchanges
                     .collect(toImmutableList());
             // !isPresent() indicates the property was satisfied completely
             // TODO: Consider bucket property. The two sides must be bucketed on the join columns.
-            if (!LocalProperties.match(build.getProperties().getLocalProperties(), LocalProperties.sorted(buildHashVariables, SortOrder.ASC_NULLS_FIRST)).get(0).isPresent() &&
-                    !LocalProperties.match(probe.getProperties().getLocalProperties(), LocalProperties.sorted(leftJoinColumns, SortOrder.ASC_NULLS_FIRST)).get(0).isPresent()) {
+            if (isMergeJoinEnabled(session)) {
                 node = new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),
