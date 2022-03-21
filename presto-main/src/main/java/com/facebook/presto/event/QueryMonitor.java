@@ -328,7 +328,7 @@ public class QueryMonitor
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getCumulativeTotalMemory(),
                 queryStats.getCompletedDrivers(),
-                queryInfo.isCompleteInfo(),
+                queryInfo.isFinalQueryInfo(),
                 queryStats.getRuntimeStats());
     }
 
