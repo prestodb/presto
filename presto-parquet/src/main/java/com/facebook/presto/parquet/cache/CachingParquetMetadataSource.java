@@ -38,14 +38,26 @@ public class CachingParquetMetadataSource
     }
 
     @Override
-    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable)
+    public ParquetFileMetadata getParquetMetadata(
+            ParquetDataSource parquetDataSource,
+            long fileSize,
+            boolean cacheable,
+            long modificationTime)
             throws IOException
     {
         try {
             if (cacheable) {
-                return cache.get(parquetDataSource.getId(), () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable));
+                ParquetFileMetadata fileMetadataCache = cache.get(
+                        parquetDataSource.getId(),
+                        () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, modificationTime));
+                if (fileMetadataCache.getModificationTime() == modificationTime) {
+                    return fileMetadataCache;
+                }
+                else {
+                    cache.invalidate(parquetDataSource.getId());
+                }
             }
-            return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable);
+            return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, modificationTime);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), IOException.class);

@@ -19,6 +19,10 @@ import java.io.IOException;
 
 public interface ParquetMetadataSource
 {
-    ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable)
+    ParquetFileMetadata getParquetMetadata(
+            ParquetDataSource parquetDataSource,
+            long fileSize,
+            boolean cacheable,
+            long modificationTime)
             throws IOException;
 }
