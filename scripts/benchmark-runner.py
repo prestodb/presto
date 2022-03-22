@@ -22,10 +22,10 @@ import sys
 
 _FIND_BINARIES_CMD = "find %s -maxdepth 1 -type f -executable"
 _FIND_JSON_CMD = "find %s -maxdepth 1 -name '*.json' -type f"
-_BENCHMARK_CMD = "%s --bm_max_secs 10 --bm_max_trials 100000"
+_BENCHMARK_CMD = "%s --bm_max_secs 15 --bm_max_trials 1000000"
 _BENCHMARK_WITH_DUMP_CMD = _BENCHMARK_CMD + " --bm_json_verbose %s"
 
-_OUTPUT_NUM_COLS = 80
+_OUTPUT_NUM_COLS = 100
 
 
 # Cosmetic helper functions.
@@ -94,6 +94,8 @@ def run(args):
 
 
 def get_benchmark_handle(file_path, name):
+    if name[0] == "%":
+        name = name[1:]
     return "{}/{}".format(os.path.basename(file_path), name)
 
 
@@ -107,14 +109,21 @@ def compare_file(args, target_data, baseline_data):
     failures = []
 
     for row in target_data:
+        # Folly benchmark exports line separators by mistake as an entry on
+        # the json file.
+        if row[1] == "-":
+            continue
+
         benchmark_handle = get_benchmark_handle(row[0], row[1])
         baseline_result = baseline_map[benchmark_handle]
         target_result = row[2]
 
-        if baseline_result == 0:
-            delta = target_result
-        else:
+        if baseline_result == 0 or target_result == 0:
+            delta = 0
+        elif baseline_result > target_result:
             delta = 1 - (target_result / baseline_result)
+        else:
+            delta = (1 - (baseline_result / target_result)) * -1
 
         if abs(delta) > args.threshold:
             if delta > 0:
@@ -122,13 +131,15 @@ def compare_file(args, target_data, baseline_data):
                 passes.append(benchmark_handle)
                 faster.append(benchmark_handle)
             else:
-                status = bold(color_red("✗ Fail"))
+                status = color_red("✗ Fail")
                 failures.append(benchmark_handle)
         else:
             status = color_green("✓ Pass")
             passes.append(benchmark_handle)
 
-        suffix = "{:+.3f}%".format(delta * 100)
+        suffix = "({:.2f}ns vs {:.2f}ns) {:+.2f}%".format(
+            baseline_result, target_result, delta * 100
+        )
 
         # Prefix length is 12 bytes (considering utf8 and invisible chars).
         spacing = " " * (_OUTPUT_NUM_COLS - (12 + len(benchmark_handle) + len(suffix)))
@@ -137,20 +148,13 @@ def compare_file(args, target_data, baseline_data):
     return passes, faster, failures
 
 
-def print_list(names):
-    for n in names:
-        print("    %s" % n)
-
-
 def compare(args):
     print(
         "=> Starting comparison using {} ({}%) as threshold.".format(
             args.threshold, args.threshold * 100
         )
     )
-    print(
-        "=> Values are reported as percentage normalized to baseline: (1 - (tgt / baseline)) * 100"
-    )
+    print("=> Values are reported as percentage normalized to the largest values:")
     print("=>    (positive means speedup; negative means regression).")
 
     # Read file lists from both directories.
@@ -185,6 +189,10 @@ def compare(args):
         all_passes += passes
         all_faster += faster
         all_failures += failures
+
+    def print_list(names):
+        for n in names:
+            print("    %s" % n)
 
     # Print a nice summary of the results:
     print("Summary:")
@@ -237,10 +245,10 @@ def parse_args():
         "-t",
         "--threshold",
         type=float,
-        default=0.1,
+        default=0.2,
         help="Comparison threshold. "
         "Variations larger than this threshold will be reported as failures. "
-        "Default 0.1 (10%%).",
+        "Default 0.2 (20%%).",
     )
     return parser.parse_args()
 
