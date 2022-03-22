@@ -875,25 +875,43 @@ void HashTable<ignoreNullKeys>::enableRangeWhereCan(
     const std::vector<uint64_t>& rangeSizes,
     const std::vector<uint64_t>& distinctSizes,
     std::vector<bool>& useRange) {
-  uint64_t product = 1;
-  for (auto i = 0; i < rangeSizes.size(); ++i) {
-    auto kind = hashers_[i]->typeKind();
-    // NOLINT
-    product = safeMul(
-        product,
-        addReserve(useRange[i] ? rangeSizes[i] : distinctSizes[i], kind));
+  // Sort non-range keys by the cardinality increase going from distinct to
+  // range.
+  std::vector<size_t> indices(rangeSizes.size());
+  std::vector<uint64_t> rangeMultipliers(
+      rangeSizes.size(), std::numeric_limits<uint64_t>::max());
+  for (auto i = 0; i < rangeSizes.size(); i++) {
+    indices[i] = i;
+    if (!useRange[i]) {
+      rangeMultipliers[i] = rangeSizes[i] / distinctSizes[i];
+    }
   }
-  // Now switch distinct to range if the cardinality increase does not overflow
+
+  std::sort(indices.begin(), indices.end(), [&](auto i, auto j) {
+    return rangeMultipliers[i] < rangeMultipliers[j];
+  });
+
+  auto calculateNewMultipler = [&]() {
+    uint64_t multipler = 1;
+    for (auto i = 0; i < rangeSizes.size(); ++i) {
+      auto kind = hashers_[i]->typeKind();
+      // NOLINT
+      multipler = safeMul(
+          multipler,
+          addReserve(useRange[i] ? rangeSizes[i] : distinctSizes[i], kind));
+    }
+    return multipler;
+  };
+
+  // Switch distinct to range if the cardinality increase does not overflow
   // 64 bits.
   for (auto i = 0; i < rangeSizes.size(); ++i) {
-    assert(!useRange.empty());
-    if (!useRange[i]) { // NOLINT
-      // addReserve simplifies away, since it multiplies both the
-      // multiplier and divisor by the same quantity.
-      uint64_t newProduct = safeMul(rangeSizes[i], product / distinctSizes[i]);
-      if (newProduct != VectorHasher::kRangeTooLarge) {
-        useRange[i] = true;
-        product = newProduct;
+    if (!useRange[indices[i]]) {
+      useRange[indices[i]] = true;
+      auto newProduct = calculateNewMultipler();
+      if (newProduct == VectorHasher::kRangeTooLarge) {
+        useRange[indices[i]] = false;
+        return;
       }
     }
   }
@@ -931,7 +949,7 @@ uint64_t HashTable<ignoreNullKeys>::setHasherMode(
     const std::vector<bool>& useRange,
     const std::vector<uint64_t>& rangeSizes,
     const std::vector<uint64_t>& distinctSizes) {
-  int64_t multiplier = 1;
+  uint64_t multiplier = 1;
   for (int i = 0; i < hashers.size(); ++i) {
     auto kind = hashers[i]->typeKind();
     multiplier = useRange.size() > i && useRange[i]

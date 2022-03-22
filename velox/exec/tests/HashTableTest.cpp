@@ -496,3 +496,45 @@ TEST_F(HashTableTest, clear) {
       std::move(keyHashers), aggregates, mappedMemory_);
   table->clear();
 }
+
+/// Test edge case that used to trigger a rounding error in
+/// HashTable::enableRangeWhereCan.
+TEST_F(HashTableTest, enableRangeWhereCan) {
+  auto rowType = ROW({"a", "b", "c"}, {BIGINT(), VARCHAR(), VARCHAR()});
+  auto table = createHashTableForAggregation(rowType, 3);
+  auto lookup = std::make_unique<HashLookup>(table->hashers());
+
+  // Generate 3 keys with the following ranges and number of distinct values
+  // (ndv):
+  //  0: range=4409503440398, ndv=25
+  //  1: range=18446744073709551615, ndv=748
+  //  2: range=18446744073709551615, ndv=1678
+
+  std::vector<int64_t> a;
+  for (int i = 1; i < 25; i++) {
+    a.push_back(i);
+  }
+  a.back() = 4409503440398;
+
+  std::vector<std::string> b;
+  for (int i = 1; i < 748; i++) {
+    b.push_back(std::string(15, '.') + std::to_string(i));
+  }
+
+  std::vector<std::string> c;
+  for (int i = 1; i < 1678; i++) {
+    c.push_back(std::string(15, '.') + std::to_string(i));
+  }
+
+  auto data = vectorMaker_->rowVector({
+      vectorMaker_->flatVector<int64_t>(
+          2'000, [&](auto row) { return a[row % a.size()]; }),
+      vectorMaker_->flatVector<StringView>(
+          2'000, [&](auto row) { return StringView(b[row % b.size()]); }),
+      vectorMaker_->flatVector<StringView>(
+          2'000, [&](auto row) { return StringView(c[row % c.size()]); }),
+  });
+
+  lookup->reset(data->size());
+  insertGroups(*data, *lookup, *table);
+}
