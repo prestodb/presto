@@ -858,7 +858,8 @@ public class ParquetTester
             List<String> columnNames,
             List<Type> columnTypes,
             ParquetMetadataSource parquetMetadataSource,
-            File dataFile)
+            File dataFile,
+            long modificationTime)
     {
         HiveClientConfig config = new HiveClientConfig()
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
@@ -871,7 +872,7 @@ public class ParquetTester
                 new CacheConfig()).getSessionProperties());
 
         HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), parquetMetadataSource);
-        ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
+        ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET, modificationTime);
 
         Iterator<?>[] expectedValues = stream(readValues).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
         if (connectorPageSource instanceof RecordPageSource) {
