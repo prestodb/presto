@@ -30,7 +30,7 @@ class Merge : public SourceOperator {
   Merge(
       int32_t operatorId,
       DriverCtx* ctx,
-      std::shared_ptr<const RowType> outputType,
+      RowTypePtr outputType,
       const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
           sortingKeys,
       const std::vector<core::SortOrder>& sortingOrders,
@@ -43,7 +43,7 @@ class Merge : public SourceOperator {
 
   RowVectorPtr getOutput() override;
 
-  const std::shared_ptr<const RowType> outputType() const {
+  const RowTypePtr& outputType() const {
     return outputType_;
   }
 
@@ -53,8 +53,8 @@ class Merge : public SourceOperator {
 
  protected:
   virtual BlockingReason addMergeSources(ContinueFuture* future) = 0;
+
   std::vector<std::shared_ptr<MergeSource>> sources_;
-  const core::PlanNodeId planNodeId_;
 
  private:
   static const size_t kBatchSizeInBytes{2 * 1024 * 1024};
@@ -63,7 +63,7 @@ class Merge : public SourceOperator {
   class Comparator {
    public:
     Comparator(
-        std::shared_ptr<const RowType> outputType,
+        const RowTypePtr& outputType,
         const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
             sortingKeys,
         const std::vector<core::SortOrder>& sortingOrders,
@@ -89,25 +89,23 @@ class Merge : public SourceOperator {
   };
 
   BlockingReason pushSource(ContinueFuture* future, size_t sourceId);
+
   BlockingReason ensureSourcesReady(ContinueFuture* future);
 
   std::vector<char*> rows_;
   std::unique_ptr<RowContainer> rowContainer_;
   std::priority_queue<SourceRow, std::vector<SourceRow>, Comparator>
       candidates_;
-
   RowVectorPtr extractedCols_;
-
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;
-
   size_t numSourcesAdded_ = 0;
   size_t currentSourcePos_ = 0;
 };
 
-// LocalMerge merges its sources' output into a single stream of
-// sorted rows. It runs single threaded. The sources may run multi-threaded
-// and run in the merge's task itself.
+// LocalMerge merges its source's output into a single stream of
+// sorted rows. It runs single threaded. The sources may run multi-threaded and
+// in the same task.
 class LocalMerge : public Merge {
  public:
   LocalMerge(

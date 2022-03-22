@@ -268,7 +268,7 @@ std::vector<ChannelIndex> toChannels(
   return channels;
 }
 
-ChannelIndex exprToChannel(const core::ITypedExpr* expr, TypePtr type) {
+ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type) {
   if (auto field = dynamic_cast<const core::FieldAccessTypedExpr*>(expr)) {
     return type->as<TypeKind::ROW>().getChildIdx(field->name());
   }

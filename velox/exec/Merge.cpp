@@ -25,14 +25,18 @@ namespace facebook::velox::exec {
 Merge::Merge(
     int32_t operatorId,
     DriverCtx* ctx,
-    std::shared_ptr<const RowType> outputType,
+    RowTypePtr outputType,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         sortingKeys,
     const std::vector<core::SortOrder>& sortingOrders,
     const std::string& planNodeId,
     const std::string& operatorType)
-    : SourceOperator(ctx, outputType, operatorId, planNodeId, operatorType),
-      planNodeId_(planNodeId),
+    : SourceOperator(
+          ctx,
+          std::move(outputType),
+          operatorId,
+          planNodeId,
+          operatorType),
       rowContainer_(std::make_unique<RowContainer>(
           outputType_->children(),
           operatorCtx_->mappedMemory())),
@@ -143,7 +147,7 @@ RowVectorPtr Merge::getOutput() {
 }
 
 Merge::Comparator::Comparator(
-    std::shared_ptr<const RowType> type,
+    const RowTypePtr& type,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         sortingKeys,
     const std::vector<core::SortOrder>& sortingOrders,
@@ -208,7 +212,7 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
   for (;;) {
     exec::Split split;
     auto reason = operatorCtx_->task()->getSplitOrFuture(
-        operatorCtx_->driverCtx()->splitGroupId, planNodeId_, split, *future);
+        operatorCtx_->driverCtx()->splitGroupId, planNodeId(), split, *future);
     if (reason == BlockingReason::kNotBlocked) {
       if (split.hasConnectorSplit()) {
         auto remoteSplit = std::dynamic_pointer_cast<RemoteConnectorSplit>(

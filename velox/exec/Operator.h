@@ -427,7 +427,7 @@ std::vector<ChannelIndex> toChannels(
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         fields);
 
-ChannelIndex exprToChannel(const core::ITypedExpr* expr, TypePtr type);
+ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type);
 
 /// Given an input type and output type that contains a subset of the input type
 /// columns possibly in different order returns the indices of the output
