@@ -580,9 +580,9 @@ void HashProbe::ensureLoadedIfNotAtEnd(ChannelIndex channel) {
       passingInputRows_.setAll();
     } else {
       passingInputRows_.clearAll();
-      auto numInput = input_->size();
+      auto hitsSize = lookup_->hits.size();
       auto hits = lookup_->hits.data();
-      for (auto i = 0; i < numInput; ++i) {
+      for (auto i = 0; i < hitsSize; ++i) {
         if (hits[i]) {
           passingInputRows_.setValid(i, true);
         }
