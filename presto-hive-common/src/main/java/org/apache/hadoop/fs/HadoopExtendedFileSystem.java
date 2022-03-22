@@ -66,6 +66,12 @@ public class HadoopExtendedFileSystem
     }
 
     @Override
+    public String getScheme()
+    {
+        return fs.getScheme();
+    }
+
+    @Override
     public URI getUri()
     {
         return fs.getUri();

@@ -142,7 +142,7 @@ public class TDigest
         this.compression = 2 * this.publicCompression;
 
         // having a big buffer is good for speed
-        this.maxBufferSize = 5 * (int) ceil(this.publicCompression + sizeFudge);
+        this.maxBufferSize = 5 * (int) ceil(this.compression + sizeFudge);
         this.maxCentroidCount = (int) ceil(this.compression + sizeFudge);
 
         this.weight = new double[1];

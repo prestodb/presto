@@ -194,6 +194,7 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
+    public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
@@ -219,6 +220,7 @@ public final class SystemSessionProperties
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     public static final String STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED = "streaming_for_partial_aggregation_enabled";
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
+    public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1059,6 +1061,11 @@ public final class SystemSessionProperties
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
                         false),
                 booleanProperty(
+                        CHECK_ACCESS_CONTROL_WITH_SUBFIELDS,
+                        "Apply access control rules with subfield information from columns containing row types",
+                        featuresConfig.isCheckAccessControlWithSubfields(),
+                        false),
+                booleanProperty(
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
                         "Allow ORDER BY literals in window functions",
                         featuresConfig.isAllowWindowOrderByLiterals(),
@@ -1235,6 +1242,11 @@ public final class SystemSessionProperties
                         MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING,
                         "Maximum stage count to use eager scheduling when using the adaptive scheduling policy",
                         featuresConfig.getMaxStageCountForEagerScheduling(),
+                        false),
+                doubleProperty(
+                        HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD,
+                        "Threshold for obtaining precise results from aggregation functions",
+                        featuresConfig.getHyperloglogStandardErrorWarningThreshold(),
                         false));
     }
 
@@ -1976,6 +1988,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
     }
 
+    public static boolean isCheckAccessControlWithSubfields(Session session)
+    {
+        return session.getSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, Boolean.class);
+    }
+
     public static boolean isEnforceFixedDistributionForOutputOperator(Session session)
     {
         return session.getSystemProperty(ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR, Boolean.class);
@@ -2074,5 +2091,10 @@ public final class SystemSessionProperties
     public static int getMaxStageCountForEagerScheduling(Session session)
     {
         return session.getSystemProperty(MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING, Integer.class);
+    }
+
+    public static double getHyperloglogStandardErrorWarningThreshold(Session session)
+    {
+        return session.getSystemProperty(HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD, Double.class);
     }
 }

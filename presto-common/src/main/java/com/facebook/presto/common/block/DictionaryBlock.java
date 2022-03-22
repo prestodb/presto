@@ -22,7 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidPosition;
@@ -377,11 +377,11 @@ public class DictionaryBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
         consumer.accept(ids, sizeOf(ids));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

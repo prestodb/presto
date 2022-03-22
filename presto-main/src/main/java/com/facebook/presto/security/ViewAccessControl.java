@@ -14,12 +14,14 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class ViewAccessControl
@@ -33,9 +35,9 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames)
     {
-        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnNames);
+        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnOrSubfieldNames.stream().map(subfield -> subfield.getRootName()).collect(toImmutableSet()));
     }
 
     @Override

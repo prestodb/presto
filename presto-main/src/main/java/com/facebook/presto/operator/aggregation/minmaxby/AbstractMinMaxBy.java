@@ -129,9 +129,8 @@ public abstract class AbstractMinMaxBy
             stateSerializer = getStateSerializer(keyType, valueType);
         }
 
-        Type intermediateType = stateSerializer.getSerializedType();
-
         List<Type> inputTypes = ImmutableList.of(valueType, keyType);
+        Type intermediateType = overrideIntermediateType(inputTypes, stateSerializer.getSerializedType());
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
@@ -162,6 +161,11 @@ public abstract class AbstractMinMaxBy
                 valueType);
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType), valueType, true, false, factory);
+    }
+
+    protected Type overrideIntermediateType(List<Type> inputTypes, Type defaultIntermediateType)
+    {
+        return defaultIntermediateType;
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)

@@ -165,6 +165,7 @@ public class TestIcebergSystemTables
                         "('column_sizes', 'map(integer, bigint)', '', '')," +
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
                         "('lower_bounds', 'map(integer, varchar)', '', '')," +
                         "('upper_bounds', 'map(integer, varchar)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +

@@ -115,6 +115,7 @@ import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
 import com.facebook.presto.operator.scalar.ArraySortComparatorFunction;
 import com.facebook.presto.operator.scalar.ArraySortFunction;
+import com.facebook.presto.operator.scalar.ArrayTrimFunction;
 import com.facebook.presto.operator.scalar.ArrayUnionFunction;
 import com.facebook.presto.operator.scalar.ArraysOverlapFunction;
 import com.facebook.presto.operator.scalar.BitwiseFunctions;
@@ -310,6 +311,8 @@ import static com.facebook.presto.operator.aggregation.TDigestAggregationFunctio
 import static com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent.APPROXIMATE_MOST_FREQUENT;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetAggregationFunction.SET_AGG;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetUnionFunction.SET_UNION;
+import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMaxByAggregationFunction.ALTERNATIVE_MAX_BY;
+import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMinByAggregationFunction.ALTERNATIVE_MIN_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
@@ -769,6 +772,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayUnionFunction.class)
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
+                .scalar(ArrayTrimFunction.class)
                 .scalar(ArrayIndeterminateOperator.class)
                 .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
@@ -889,6 +893,13 @@ public class BuiltInTypeAndFunctionNamespaceManager
         if (featuresConfig.isLegacyLogFunction()) {
             builder.scalar(LegacyLogFunction.class);
         }
+
+        // Replace some aggregations for Velox to override intermediate aggregation type.
+        if (featuresConfig.isUseAlternativeFunctionSignatures()) {
+            builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
+            builder.override(MIN_BY, ALTERNATIVE_MIN_BY);
+        }
+
         return builder.getFunctions();
     }
 

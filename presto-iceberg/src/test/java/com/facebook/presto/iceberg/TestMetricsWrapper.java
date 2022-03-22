@@ -43,10 +43,11 @@ public class TestMetricsWrapper
         Map<Integer, Long> columnSizes = ImmutableMap.of(3, 321L, 5, 543L);
         Map<Integer, Long> valueCounts = ImmutableMap.of(7, 765L, 9, 987L);
         Map<Integer, Long> nullValueCounts = ImmutableMap.of(2, 234L, 4, 456L);
+        Map<Integer, Long> nanValueCounts = ImmutableMap.of(2, 234L, 4, 456L);
         Map<Integer, ByteBuffer> lowerBounds = ImmutableMap.of(13, ByteBuffer.wrap(new byte[] {0, 8, 9}));
         Map<Integer, ByteBuffer> upperBounds = ImmutableMap.of(17, ByteBuffer.wrap(new byte[] {5, 4, 0}));
 
-        Metrics expected = new Metrics(recordCount, columnSizes, valueCounts, nullValueCounts, lowerBounds, upperBounds);
+        Metrics expected = new Metrics(recordCount, columnSizes, valueCounts, nullValueCounts, nanValueCounts, lowerBounds, upperBounds);
 
         Metrics actual = CODEC.fromJson(CODEC.toJson(new MetricsWrapper(expected))).metrics();
 
@@ -54,6 +55,7 @@ public class TestMetricsWrapper
         assertEquals(actual.columnSizes(), columnSizes);
         assertEquals(actual.valueCounts(), valueCounts);
         assertEquals(actual.nullValueCounts(), nullValueCounts);
+        assertEquals(actual.nanValueCounts(), nanValueCounts);
         assertEquals(actual.lowerBounds(), lowerBounds);
         assertEquals(actual.upperBounds(), upperBounds);
     }

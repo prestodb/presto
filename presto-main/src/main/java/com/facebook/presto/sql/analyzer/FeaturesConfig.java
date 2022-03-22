@@ -101,6 +101,7 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
+    private boolean useAlternativeFunctionSignatures;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
@@ -187,6 +188,7 @@ public class FeaturesConfig
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
+    private boolean checkAccessControlWithSubfields;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
@@ -217,6 +219,8 @@ public class FeaturesConfig
     private boolean streamingForPartialAggregationEnabled;
 
     private int maxStageCountForEagerScheduling = 25;
+
+    private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -407,6 +411,19 @@ public class FeaturesConfig
     public boolean isLegacyLogFunction()
     {
         return legacyLogFunction;
+    }
+
+    @Config("use-alternative-function-signatures")
+    @ConfigDescription("Override intermediate aggregation type of some aggregation functions to be compatible with Velox")
+    public FeaturesConfig setUseAlternativeFunctionSignatures(boolean value)
+    {
+        this.useAlternativeFunctionSignatures = value;
+        return this;
+    }
+
+    public boolean isUseAlternativeFunctionSignatures()
+    {
+        return useAlternativeFunctionSignatures;
     }
 
     @Config("deprecated.group-by-uses-equal")
@@ -1721,6 +1738,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isCheckAccessControlWithSubfields()
+    {
+        return checkAccessControlWithSubfields;
+    }
+
+    @Config("check-access-control-with-subfields")
+    public FeaturesConfig setCheckAccessControlWithSubfields(boolean checkAccessControlWithSubfields)
+    {
+        this.checkAccessControlWithSubfields = checkAccessControlWithSubfields;
+        return this;
+    }
+
     public boolean isSkipRedundantSort()
     {
         return skipRedundantSort;
@@ -1983,6 +2012,19 @@ public class FeaturesConfig
     public FeaturesConfig setMaxStageCountForEagerScheduling(int maxStageCountForEagerScheduling)
     {
         this.maxStageCountForEagerScheduling = maxStageCountForEagerScheduling;
+        return this;
+    }
+
+    public double getHyperloglogStandardErrorWarningThreshold()
+    {
+        return hyperloglogStandardErrorWarningThreshold;
+    }
+
+    @Config("hyperloglog-standard-error-warning-threshold")
+    @ConfigDescription("aggregation functions can produce low-precision results when the max standard error lower than this value.")
+    public FeaturesConfig setHyperloglogStandardErrorWarningThreshold(double hyperloglogStandardErrorWarningThreshold)
+    {
+        this.hyperloglogStandardErrorWarningThreshold = hyperloglogStandardErrorWarningThreshold;
         return this;
     }
 }

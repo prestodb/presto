@@ -101,7 +101,7 @@ public class Analyzer
      */
     public void checkColumnAccessPermissions(Analysis analysis)
     {
-        analysis.getTableColumnReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
+        analysis.getTableColumnAndSubfieldReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
                                 session.getRequiredTransactionId(),
