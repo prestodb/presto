@@ -56,8 +56,10 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -78,6 +80,7 @@ public class TestTypeValidator
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
     private static final FunctionAndTypeManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionAndTypeManager();
     private static final FunctionHandle SUM = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
+    private static final FunctionHandle APPROX_PERCENTILE = FUNCTION_MANAGER.lookupFunction("approx_percentile", fromTypes(DOUBLE, DOUBLE));
 
     private PlanVariableAllocator variableAllocator;
     private TableScanNode baseTableScan;
@@ -86,6 +89,7 @@ public class TestTypeValidator
     private VariableReferenceExpression variableC;
     private VariableReferenceExpression variableD;
     private VariableReferenceExpression variableE;
+    private VariableReferenceExpression variableC5;
 
     @BeforeClass
     public void setUp()
@@ -96,6 +100,7 @@ public class TestTypeValidator
         variableC = variableAllocator.newVariable("c", DOUBLE);
         variableD = variableAllocator.newVariable("d", DATE);
         variableE = variableAllocator.newVariable("e", VarcharType.createVarcharType(3));  // varchar(3), to test type only coercion
+        variableC5 = variableAllocator.newVariable("c_5", VARBINARY);
 
         Map<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
                 .put(variableA, new TestingColumnHandle("a"))
@@ -207,6 +212,33 @@ public class TestTypeValidator
     }
 
     @Test
+    public void testValidIntermediateAggregation()
+    {
+        VariableReferenceExpression aggregationVariable = variableAllocator.newVariable("approx_percentile", VARBINARY);
+
+        PlanNode node = new AggregationNode(
+                Optional.empty(),
+                newId(),
+                baseTableScan,
+                ImmutableMap.of(aggregationVariable, new Aggregation(
+                        new CallExpression("approx_percentile",
+                                APPROX_PERCENTILE,
+                                VARBINARY,
+                                ImmutableList.of(variableC5)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty())),
+                singleGroupingSet(ImmutableList.of()),
+                ImmutableList.of(),
+                INTERMEDIATE,
+                Optional.empty(),
+                Optional.empty());
+
+        assertTypesValid(node);
+    }
+
+    @Test
     public void testValidTypeOnlyCoercion()
     {
         Expression expression = new Cast(new SymbolReference(variableB.getName()), StandardTypes.BIGINT);
@@ -232,6 +264,33 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 assignments);
+
+        assertTypesValid(node);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Return type for intermediate aggregation must be the same as the type of its single argument: expected 'varbinary', got 'double'")
+    public void testInvalidIntermediateAggregationReturnType()
+    {
+        VariableReferenceExpression aggregationVariable = variableAllocator.newVariable("approx_percentile", VARBINARY);
+
+        PlanNode node = new AggregationNode(
+                Optional.empty(),
+                newId(),
+                baseTableScan,
+                ImmutableMap.of(aggregationVariable, new Aggregation(
+                        new CallExpression("approx_percentile",
+                                APPROX_PERCENTILE,
+                                DOUBLE, // Should be VARBINARY
+                                ImmutableList.of(variableC5)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty())),
+                singleGroupingSet(ImmutableList.of()),
+                ImmutableList.of(),
+                INTERMEDIATE,
+                Optional.empty(),
+                Optional.empty());
 
         assertTypesValid(node);
     }
