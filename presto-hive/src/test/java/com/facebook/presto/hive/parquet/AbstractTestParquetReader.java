@@ -1615,12 +1615,14 @@ public abstract class AbstractTestParquetReader
                     readValues,
                     10,
                     CompressionCodecName.GZIP);
+            long tempFileCreationTime = System.currentTimeMillis();
 
             testSingleRead(new Iterable<?>[] {values},
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 1);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 0);
 
@@ -1628,7 +1630,8 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 1);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 1);
 
@@ -1636,7 +1639,8 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 1);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 2);
 
@@ -1646,7 +1650,8 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 2);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 2);
 
@@ -1654,9 +1659,33 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 2);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 3);
+
+            // change the modification time, and set it into a new HiveFileContext to invalidate this cache
+            // the cache will hit the first time(with its last modification time), but will be invalidated and not returned
+            // the real metadata result will be gotten from the delegate i.e. MetadataReader
+            long tempFileModificationTime = System.currentTimeMillis();
+            testSingleRead(new Iterable<?>[] {values},
+                    columnNames,
+                    columnTypes,
+                    parquetMetadataSource,
+                    tempFile.getFile(),
+                    tempFileModificationTime);
+            assertEquals(parquetFileMetadataCache.stats().missCount(), 2);
+            assertEquals(parquetFileMetadataCache.stats().hitCount(), 4);
+
+            //because the cache is invalidated above, the miss count will be incremented
+            testSingleRead(new Iterable<?>[] {values},
+                    columnNames,
+                    columnTypes,
+                    parquetMetadataSource,
+                    tempFile.getFile(),
+                    tempFileModificationTime);
+            assertEquals(parquetFileMetadataCache.stats().missCount(), 3);
+            assertEquals(parquetFileMetadataCache.stats().hitCount(), 4);
         }
     }
 
