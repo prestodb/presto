@@ -303,7 +303,8 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 "test",
                 ImmutableMap.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config, metastoreClientConfig);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
