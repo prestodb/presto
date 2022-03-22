@@ -38,6 +38,10 @@ struct TpchPlan {
 
 /// Contains type information, data files, and column aliases for a table.
 /// This information is inferred from the input data files.
+/// The type names are mapped to the standard names.
+/// Example: If the file has a 'returnflag' column, the corresponding type name
+/// will be 'l_returnflag'. columnAliases store the mapping between standard
+/// names and the corresponding name in the file.
 struct TpchTableMetadata {
   RowTypePtr type;
   std::vector<std::string> dataFiles;
@@ -89,39 +93,17 @@ class TpchQueryBuilder {
     return tableMetadata_.at(tableName).dataFiles;
   }
 
-  const std::string& getColumnAlias(
-      const std::string& tableName,
-      const std::string& columnName) const {
-    return tableMetadata_.at(tableName).columnAliases.at(columnName);
-  }
-
-  std::vector<std::string> getColumnAliases(
-      const std::string& tableName,
-      const std::vector<std::string>& columnNames) const {
-    std::vector<std::string> aliases;
-    for (const auto& name : columnNames) {
-      aliases.push_back(getColumnAlias(tableName, name));
-    }
-    return aliases;
-  }
-
   std::shared_ptr<const RowType> getRowType(
       const std::string& tableName,
       const std::vector<std::string>& columnNames) const {
-    const auto aliases = getColumnAliases(tableName, columnNames);
     auto columnSelector = std::make_shared<dwio::common::ColumnSelector>(
-        tableMetadata_.at(tableName).type, aliases);
+        tableMetadata_.at(tableName).type, columnNames);
     return columnSelector->buildSelectedReordered();
   }
 
-  std::vector<std::string> getProjectColumnAliases(
-      const std::string& tableName,
-      const std::vector<std::string>& columnNames) const {
-    std::vector<std::string> aliases;
-    for (const auto& name : columnNames) {
-      aliases.push_back(getColumnAlias(tableName, name) + " AS " + name);
-    }
-    return aliases;
+  const std::unordered_map<std::string, std::string>& getColumnAliases(
+      const std::string& tableName) const {
+    return tableMetadata_.at(tableName).columnAliases;
   }
 
   std::unordered_map<std::string, TpchTableMetadata> tableMetadata_;
