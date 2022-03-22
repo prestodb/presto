@@ -39,19 +39,13 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(Block.class);
+        super(new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature())), Block.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
     public Type getElementType()
     {
         return elementType;
-    }
-
-    @Override
-    public TypeSignature getTypeSignature()
-    {
-        return new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature()));
     }
 
     @Override

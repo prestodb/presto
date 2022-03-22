@@ -177,7 +177,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new AggregationNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getAggregations(),
@@ -222,7 +221,7 @@ public class HashGenerationOptimizer
             // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
             // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
-                    new DistinctLimitNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable)),
+                    new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable)),
                     ImmutableMap.of(hashComputation.get(), hashVariable));
         }
 
@@ -243,7 +242,7 @@ public class HashGenerationOptimizer
             VariableReferenceExpression hashVariable = child.getRequiredHashVariable(hashComputation.get());
 
             return new PlanWithProperties(
-                    new MarkDistinctNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getMarkerVariable(), node.getDistinctVariables(), Optional.of(hashVariable)),
+                    new MarkDistinctNode(node.getId(), child.getNode(), node.getMarkerVariable(), node.getDistinctVariables(), Optional.of(hashVariable)),
                     child.getHashVariables());
         }
 
@@ -264,7 +263,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new RowNumberNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getPartitionBy(),
@@ -291,7 +289,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new TopNRowNumberNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getSpecification(),
@@ -364,7 +361,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new JoinNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             node.getType(),
                             left.getNode(),
@@ -397,7 +393,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new SemiJoinNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             source.getNode(),
                             filteringSource.getNode(),
@@ -452,7 +447,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new IndexJoinNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             node.getType(),
                             probe.getNode(),
@@ -481,7 +475,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new WindowNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getSpecification(),
@@ -562,7 +555,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new ExchangeNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             node.getType(),
                             node.getScope(),
@@ -612,7 +604,6 @@ public class HashGenerationOptimizer
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = newVariableMapping.build();
             return new PlanWithProperties(
                     new UnionNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             newSources.build(),
                             ImmutableList.copyOf(outputsToInputs.keySet()),
@@ -653,15 +644,15 @@ public class HashGenerationOptimizer
                 Assignments.Builder localProjectionAssignments = Assignments.builder();
                 child.getNode().getOutputVariables().forEach(variable -> localProjectionAssignments.put(variable, variable));
                 localProjectionAssignments.putAll(hashAssignments);
-                ProjectNode localProjectNode = new ProjectNode(child.getNode().getSourceLocation(), idAllocator.getNextId(), child.getNode(), localProjectionAssignments.build(), LOCAL);
+                ProjectNode localProjectNode = new ProjectNode(idAllocator.getNextId(), child.getNode(), localProjectionAssignments.build(), LOCAL);
 
                 // add identity projection for hash variable to remote projection
                 hashAssignments.keySet().forEach(variable -> newAssignments.put(variable, variable));
-                return new PlanWithProperties(new ProjectNode(localProjectNode.getSourceLocation(), idAllocator.getNextId(), localProjectNode, newAssignments.build(), REMOTE), allHashVariables);
+                return new PlanWithProperties(new ProjectNode(idAllocator.getNextId(), localProjectNode, newAssignments.build(), REMOTE), allHashVariables);
             }
 
             newAssignments.putAll(hashAssignments);
-            return new PlanWithProperties(new ProjectNode(node.getSourceLocation(), node.getId(), child.getNode(), newAssignments.build(), node.getLocality()), allHashVariables);
+            return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build(), node.getLocality()), allHashVariables);
         }
 
         @Override
@@ -675,7 +666,6 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnnestNode(
-                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             ImmutableList.<VariableReferenceExpression>builder()
@@ -773,7 +763,7 @@ public class HashGenerationOptimizer
                 }
             }
 
-            ProjectNode projectNode = new ProjectNode(planWithProperties.node.getSourceLocation(), idAllocator.getNextId(), planWithProperties.getNode(), assignments.build(), LOCAL);
+            ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), planWithProperties.getNode(), assignments.build(), LOCAL);
             return new PlanWithProperties(projectNode, outputHashVariables);
         }
 
@@ -883,7 +873,7 @@ public class HashGenerationOptimizer
     private static RowExpression orNullHashCode(RowExpression expression)
     {
         checkArgument(BIGINT.equals(expression.getType()), "expression should be BIGINT type");
-        return new SpecialFormExpression(expression.getSourceLocation(), SpecialFormExpression.Form.COALESCE, BIGINT, expression, constant(NULL_HASH_CODE, BIGINT));
+        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, BIGINT, expression, constant(NULL_HASH_CODE, BIGINT));
     }
 
     private static class HashComputation

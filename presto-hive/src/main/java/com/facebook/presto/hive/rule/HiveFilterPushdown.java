@@ -84,10 +84,8 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
-import static com.facebook.presto.hive.HiveSessionProperties.isParquetPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -265,7 +263,7 @@ public class HiveFilterPushdown
         RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session)), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(
@@ -370,12 +368,12 @@ public class HiveFilterPushdown
             BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = tableScan.getAssignments().entrySet().stream()
                     .collect(toImmutableBiMap(
                             Map.Entry::getKey,
-                            entry -> new VariableReferenceExpression(Optional.empty(), getColumnName(session, hiveMetadata, handle.getConnectorHandle(), entry.getValue()), entry.getKey().getType())));
+                            entry -> new VariableReferenceExpression(getColumnName(session, hiveMetadata, handle.getConnectorHandle(), entry.getValue()), entry.getKey().getType())));
 
             RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
             // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node
             if (FALSE_CONSTANT.equals(replacedExpression)) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                return new ValuesNode(idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
             }
             ConnectorPushdownFilterResult pushdownFilterResult = pushdownFilter(
                     session,
@@ -386,11 +384,10 @@ public class HiveFilterPushdown
 
             ConnectorTableLayout layout = pushdownFilterResult.getLayout();
             if (layout.getPredicate().isNone()) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                return new ValuesNode(idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
             }
 
             TableScanNode node = new TableScanNode(
-                    tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),
@@ -400,7 +397,7 @@ public class HiveFilterPushdown
 
             RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedConstraint();
             if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
-                return new FilterNode(tableScan.getSourceLocation(), idAllocator.getNextId(), node, replaceExpression(unenforcedFilter, symbolToColumnMapping.inverse()));
+                return new FilterNode(idAllocator.getNextId(), node, replaceExpression(unenforcedFilter, symbolToColumnMapping.inverse()));
             }
 
             return node;
@@ -421,11 +418,10 @@ public class HiveFilterPushdown
                     TRUE_CONSTANT,
                     handle.getLayout());
             if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                return new ValuesNode(idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
             }
 
             return new TableScanNode(
-                    tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),
@@ -525,7 +521,7 @@ public class HiveFilterPushdown
         boolean pushdownFilterEnabled = HiveSessionProperties.isPushdownFilterEnabled(session);
         if (pushdownFilterEnabled) {
             HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getMetadata(tableHandle).getTableMetadata(session, tableHandle.getConnectorHandle()).getProperties());
-            if (hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.DWRF || hiveStorageFormat == HiveStorageFormat.PARQUET && isParquetPushdownFilterEnabled(session)) {
+            if (hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.DWRF) {
                 return true;
             }
         }
@@ -555,7 +551,7 @@ public class HiveFilterPushdown
     private static List<Column> pruneColumnComments(List<Column> columns)
     {
         return columns.stream()
-                .map(column -> new Column(column.getName(), column.getType(), Optional.empty(), column.getTypeMetadata()))
+                .map(column -> new Column(column.getName(), column.getType(), Optional.empty()))
                 .collect(toImmutableList());
     }
 

@@ -90,12 +90,10 @@ public class TestTranslateExpressions
                                 variable("input", INTEGER),
                                 constant(0L, INTEGER),
                                 new LambdaDefinitionExpression(
-                                        Optional.empty(),
                                         ImmutableList.of(INTEGER, INTEGER),
                                         ImmutableList.of("x", "y"),
                                         multiply(variable("x", INTEGER), variable("y", INTEGER))),
                                 new LambdaDefinitionExpression(
-                                        Optional.empty(),
                                         ImmutableList.of(INTEGER, INTEGER),
                                         ImmutableList.of("a", "b"),
                                         multiply(variable("a", INTEGER), variable("b", INTEGER))))),
@@ -135,12 +133,10 @@ public class TestTranslateExpressions
                         ImmutableList.of(
                                 variable("input", INTEGER),
                                 new LambdaDefinitionExpression(
-                                        Optional.empty(),
                                         ImmutableList.of(INTEGER, INTEGER),
                                         ImmutableList.of("x", "y"),
                                         multiply(variable("x", INTEGER), variable("y", INTEGER))),
                                 new LambdaDefinitionExpression(
-                                        Optional.empty(),
                                         ImmutableList.of(INTEGER, INTEGER),
                                         ImmutableList.of("a", "b"),
                                         multiply(variable("a", INTEGER), variable("b", INTEGER))))),

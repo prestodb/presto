@@ -177,7 +177,7 @@ public class TestStringFunctions
 
         // Test for invalid utf-8 characters
         assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
-        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
 
         // Test for maximum length
         assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("e", 100_000)), BIGINT, 99999L);
@@ -725,7 +725,7 @@ public class TestStringFunctions
         assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
         assertInvalidFunction("LTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
-        assertInvalidFunction("LTRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+        assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
     }
 
     @Test

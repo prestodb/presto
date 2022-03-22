@@ -22,8 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static com.facebook.presto.common.block.MapBlockBuilder.computePosition;
@@ -63,12 +62,6 @@ public class SingleMapBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty();
-    }
-
-    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
@@ -78,12 +71,12 @@ public class SingleMapBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(mapBlock.getRawKeyBlock(), mapBlock.getRawKeyBlock().getRetainedSizeInBytes());
         consumer.accept(mapBlock.getRawValueBlock(), mapBlock.getRawValueBlock().getRetainedSizeInBytes());
         consumer.accept(mapBlock.getHashTables(), mapBlock.getHashTables().getRetainedSizeInBytes());
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

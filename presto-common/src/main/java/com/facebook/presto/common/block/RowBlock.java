@@ -18,7 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.ensureBlocksAreLoaded;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -34,7 +34,6 @@ public class RowBlock
     private final int startOffset;
     private final int positionCount;
 
-    @Nullable
     private final boolean[] rowIsNull;
     private final int[] fieldBlockOffsets;
     private final Block[] fieldBlocks;
@@ -235,16 +234,14 @@ public class RowBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         for (int i = 0; i < numFields; i++) {
             consumer.accept(fieldBlocks[i], fieldBlocks[i].getRetainedSizeInBytes());
         }
         consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
-        if (rowIsNull != null) {
-            consumer.accept(rowIsNull, sizeOf(rowIsNull));
-        }
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(rowIsNull, sizeOf(rowIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

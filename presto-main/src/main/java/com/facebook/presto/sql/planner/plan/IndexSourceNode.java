@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -29,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -47,7 +45,6 @@ public class IndexSourceNode
 
     @JsonCreator
     public IndexSourceNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("indexHandle") IndexHandle indexHandle,
             @JsonProperty("tableHandle") TableHandle tableHandle,
@@ -56,7 +53,7 @@ public class IndexSourceNode
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
     {
-        super(sourceLocation, id);
+        super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.lookupVariables = ImmutableSet.copyOf(requireNonNull(lookupVariables, "lookupVariables is null"));

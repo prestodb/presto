@@ -281,7 +281,7 @@ public class PartitionTable
             return value.toString();
         }
         if (type instanceof Types.BinaryType) {
-            // TODO the client sees the bytearray's tostring output instead of seeing actual bytes, needs to be fixed.
+            // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
             return ((ByteBuffer) value).array();
         }
         if (type instanceof Types.FloatType) {

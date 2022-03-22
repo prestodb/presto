@@ -69,9 +69,9 @@ public final class ArrayPositionLinks
         }
 
         @Override
-        public boolean isEmpty()
+        public int size()
         {
-            return size == 0;
+            return size;
         }
     }
 

@@ -14,10 +14,10 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.predicate.TupleDomainFilter;
-import com.facebook.presto.common.predicate.TupleDomainFilter.NullsFilter;
-import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.TupleDomainFilter;
+import com.facebook.presto.orc.TupleDomainFilter.NullsFilter;
+import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -26,8 +26,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.reader.HierarchicalFilter.createHierarchicalFilter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;

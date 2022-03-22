@@ -13,13 +13,8 @@
  */
 package com.facebook.presto.parquet;
 
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.internal.column.columnindex.ColumnIndex;
-import org.apache.parquet.internal.column.columnindex.OffsetIndex;
-
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Optional;
 
 public interface ParquetDataSource
         extends Closeable
@@ -33,10 +28,6 @@ public interface ParquetDataSource
     void readFully(long position, byte[] buffer);
 
     void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength);
-
-    Optional<ColumnIndex> readColumnIndex(ColumnChunkMetaData column) throws IOException;
-
-    Optional<OffsetIndex> readOffsetIndex(ColumnChunkMetaData column) throws IOException;
 
     @Override
     default void close()

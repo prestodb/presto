@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -77,14 +76,14 @@ public class TestPinotColumnMetadata
                 .put("singleValueFloatDimension", DOUBLE)
                 .put("singleValueDoubleDimension", DOUBLE)
                 .put("singleValueBytesDimension", VARBINARY)
-                .put("singleValueBooleanDimension", BOOLEAN)
+                .put("singleValueBooleanDimension", VARCHAR)
                 .put("singleValueStringDimension", VARCHAR)
                 .put("multiValueIntDimension", new ArrayType(INTEGER))
                 .put("multiValueLongDimension", new ArrayType(BIGINT))
                 .put("multiValueFloatDimension", new ArrayType(DOUBLE))
                 .put("multiValueDoubleDimension", new ArrayType(DOUBLE))
                 .put("multiValueBytesDimension", new ArrayType(VARBINARY))
-                .put("multiValueBooleanDimension", new ArrayType(BOOLEAN))
+                .put("multiValueBooleanDimension", new ArrayType(VARCHAR))
                 .put("multiValueStringDimension", new ArrayType(VARCHAR))
                 .put("intMetric", INTEGER)
                 .put("longMetric", BIGINT)

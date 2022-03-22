@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -84,7 +83,6 @@ public class SpatialJoinNode
 
     @JsonCreator
     public SpatialJoinNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
@@ -95,7 +93,7 @@ public class SpatialJoinNode
             @JsonProperty("rightPartitionVariable") Optional<VariableReferenceExpression> rightPartitionVariable,
             @JsonProperty("kdbTree") Optional<String> kdbTree)
     {
-        super(sourceLocation, id);
+        super(id);
 
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
@@ -197,6 +195,6 @@ public class SpatialJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SpatialJoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
     }
 }

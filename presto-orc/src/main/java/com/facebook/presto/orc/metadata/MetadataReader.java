@@ -47,7 +47,7 @@ public interface MetadataReader
             InputStream inputStream)
             throws IOException;
 
-    List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream, List<HiveBloomFilter> bloomFilters)
+    List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
     List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)

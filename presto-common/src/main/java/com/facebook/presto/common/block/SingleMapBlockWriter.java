@@ -17,8 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
 
@@ -31,6 +30,7 @@ public class SingleMapBlockWriter
     private final int offset;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
+    private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     private boolean writeToValueNext;
@@ -40,6 +40,7 @@ public class SingleMapBlockWriter
         this.offset = start;
         this.keyBlockBuilder = keyBlockBuilder;
         this.valueBlockBuilder = valueBlockBuilder;
+        this.initialBlockBuilderSize = keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes();
     }
 
     @Override
@@ -63,19 +64,7 @@ public class SingleMapBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        long size = keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes();
-        if (offset == 0) {
-            return size;
-        }
-
-        int numPositions = offset / 2;
-        return size - (keyBlockBuilder.getRegionSizeInBytes(0, numPositions) + valueBlockBuilder.getRegionSizeInBytes(0, numPositions));
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty();
+        return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() - initialBlockBuilderSize;
     }
 
     @Override
@@ -85,11 +74,11 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(keyBlockBuilder, keyBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

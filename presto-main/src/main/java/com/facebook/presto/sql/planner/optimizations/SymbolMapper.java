@@ -55,7 +55,6 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -108,7 +107,7 @@ public class SymbolMapper
         if (canonical.equals(variable.getName())) {
             return variable;
         }
-        return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
+        return new VariableReferenceExpression(canonical, types.get(new SymbolReference(canonical)));
     }
 
     public Expression map(Expression value)
@@ -143,7 +142,7 @@ public class SymbolMapper
     {
         // SymbolMapper inlines symbol with multiple level reference (SymbolInliner only inline single level).
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
-        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<>();
+        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<VariableReferenceExpression, SortOrder>();
         for (VariableReferenceExpression variable : orderingScheme.getOrderByVariables()) {
             VariableReferenceExpression translated = map(variable);
             // Some variables may become duplicates after canonicalization, so we put them only once.
@@ -179,7 +178,6 @@ public class SymbolMapper
         }
 
         return new AggregationNode(
-                source.getSourceLocation(),
                 newNodeId,
                 source,
                 aggregations.build(),
@@ -187,7 +185,7 @@ public class SymbolMapper
                         mapAndDistinctVariable(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
                         node.getGlobalGroupingSets()),
-                mapAndDistinctVariable(node.getPreGroupedVariables()),
+                ImmutableList.of(),
                 node.getStep(),
                 node.getHashVariable().map(this::map),
                 node.getGroupIdVariable().map(this::map));
@@ -197,7 +195,6 @@ public class SymbolMapper
     {
         return new Aggregation(
                 new CallExpression(
-                        aggregation.getCall().getSourceLocation(),
                         aggregation.getCall().getDisplayName(),
                         aggregation.getCall().getFunctionHandle(),
                         aggregation.getCall().getType(),
@@ -224,7 +221,6 @@ public class SymbolMapper
 
         ImmutableMap<VariableReferenceExpression, SortOrder> orderingMap = orderings.build();
         return new TopNNode(
-                node.getSourceLocation(),
                 newNodeId,
                 source,
                 node.getCount(),
@@ -245,7 +241,6 @@ public class SymbolMapper
                 .collect(toImmutableList());
 
         return new TableWriterNode(
-                source.getSourceLocation(),
                 newNodeId,
                 source,
                 node.getTarget(),
@@ -263,7 +258,6 @@ public class SymbolMapper
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
     {
         return new StatisticsWriterNode(
-                node.getSourceLocation(),
                 node.getId(),
                 source,
                 node.getTableHandle(),
@@ -275,7 +269,6 @@ public class SymbolMapper
     public TableFinishNode map(TableFinishNode node, PlanNode source)
     {
         return new TableFinishNode(
-                node.getSourceLocation(),
                 node.getId(),
                 source,
                 node.getTarget(),
@@ -287,7 +280,6 @@ public class SymbolMapper
     public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)
     {
         return new TableWriterMergeNode(
-                node.getSourceLocation(),
                 node.getId(),
                 source,
                 map(node.getRowCountVariable()),

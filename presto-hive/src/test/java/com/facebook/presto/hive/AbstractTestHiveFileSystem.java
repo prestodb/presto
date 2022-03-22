@@ -182,7 +182,6 @@ public abstract class AbstractTestHiveFileSystem
         HdfsConfiguration hdfsConfiguration = hdfsConfigurationProvider.apply(config, metastoreClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
         metastoreClient = new TestingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig), new HivePartitionMutator()),
                 executor,
@@ -212,8 +211,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer(),
-                columnConverterProvider);
+                new HiveFileRenamer());
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,
@@ -227,6 +225,7 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxOutstandingSplitsSize(),
                 config.getMinPartitionBatchSize(),
                 config.getMaxPartitionBatchSize(),
+                config.getMaxInitialSplits(),
                 config.getSplitLoaderConcurrency(),
                 config.getRecursiveDirWalkerEnabled(),
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
@@ -247,8 +246,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()),
                 new HiveWriterStats(),
-                getDefaultOrcFileWriterFactory(config, metastoreClientConfig),
-                columnConverterProvider);
+                getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
         pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
     }
 

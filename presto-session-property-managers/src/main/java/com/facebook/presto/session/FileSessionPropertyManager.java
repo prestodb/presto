@@ -85,7 +85,7 @@ public class FileSessionPropertyManager
     {
         // later properties override earlier properties
         Map<String, String> defaultProperties = new HashMap<>();
-        Set<String> overridePropertyNames = new HashSet<>();
+        Set<String> overridePropertyNames = new HashSet<String>();
         for (SessionMatchSpec sessionMatchSpec : sessionMatchSpecs) {
             Map<String, String> newProperties = sessionMatchSpec.match(context);
             defaultProperties.putAll(newProperties);

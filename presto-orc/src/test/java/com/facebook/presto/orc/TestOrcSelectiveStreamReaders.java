@@ -105,8 +105,7 @@ public class TestOrcSelectiveStreamReaders
                         includedColumns,
                         outputColumns,
                         false,
-                        systemMemoryUsage,
-                        false)) {
+                        systemMemoryUsage)) {
                     assertEquals(recordReader.getReaderPosition(), 0);
                     assertEquals(recordReader.getFilePosition(), 0);
 

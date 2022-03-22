@@ -1680,22 +1680,6 @@ public class TestPrestoDriver
         assertTrue(isValidSessionValue);
     }
 
-    @Test
-    public void testTimeZoneIdParameter()
-            throws Exception
-    {
-        String sql = "SELECT current_timezone() zone, TIMESTAMP '2001-02-03 3:04:05' ts";
-
-        try (Connection connection = createConnectionWithParameter("timeZoneId=UTC")) {
-            try (Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                assertTrue(rs.next());
-                assertEquals(rs.getString("zone"), "UTC");
-                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, DateTimeZone.UTC).getMillis()));
-            }
-        }
-    }
-
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
@@ -1742,13 +1726,6 @@ public class TestPrestoDriver
             throws SQLException
     {
         String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
-        return DriverManager.getConnection(url, "test", null);
-    }
-
-    private Connection createConnectionWithParameter(String parameter)
-            throws SQLException
-    {
-        String url = format("jdbc:presto://%s?%s", server.getAddress(), parameter);
         return DriverManager.getConnection(url, "test", null);
     }
 

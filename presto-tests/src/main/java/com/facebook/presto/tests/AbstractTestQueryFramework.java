@@ -333,33 +333,33 @@ public abstract class AbstractTestQueryFramework
     }
 
     //TODO: should WarningCollector be added?
-    public String getExplainPlan(String explainCommandText, String query, ExplainType.Type planType)
+    public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), false, WarningCollector.NOOP);
+                    return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), false, WarningCollector.NOOP);
                 });
     }
 
-    public String getGraphvizExplainPlan(String explainCommandText, String query, ExplainType.Type planType)
+    public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
 
-    public String getJsonExplainPlan(String explainCommandText, String query, ExplainType.Type planType)
+    public String getJsonExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getJsonPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getJsonPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
 

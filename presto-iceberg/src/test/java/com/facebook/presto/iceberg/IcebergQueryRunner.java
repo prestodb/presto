@@ -37,16 +37,16 @@ public final class IcebergQueryRunner
 
     private IcebergQueryRunner() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
-            throws Exception
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties) throws Exception
     {
         return createIcebergQueryRunner(extraProperties, ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType)
-            throws Exception
+    public static DistributedQueryRunner createNativeIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType) throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, ImmutableMap.of("iceberg.catalog.type", catalogType.name()));
+        return createIcebergQueryRunner(extraProperties, ImmutableMap.of(
+                "iceberg.native-mode", "true",
+                "iceberg.catalog.type", catalogType.name()));
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties)

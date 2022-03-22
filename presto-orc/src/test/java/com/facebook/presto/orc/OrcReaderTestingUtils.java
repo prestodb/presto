@@ -28,12 +28,10 @@ public class OrcReaderTestingUtils
 
     public static OrcReaderOptions createTestingReaderOptions(boolean zstdJniDecompressionEnabled)
     {
-        DataSize dataSize = new DataSize(1, MEGABYTE);
-        return OrcReaderOptions.builder()
-                .withMaxMergeDistance(dataSize)
-                .withTinyStripeThreshold(dataSize)
-                .withMaxBlockSize(dataSize)
-                .withZstdJniDecompressionEnabled(zstdJniDecompressionEnabled)
-                .build();
+        return new OrcReaderOptions(
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                zstdJniDecompressionEnabled);
     }
 }

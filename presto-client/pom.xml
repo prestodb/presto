@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.273-SNAPSHOT</version>
+        <version>0.267-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-client</artifactId>
@@ -96,24 +96,6 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-protocol</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-codec</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-codec-utils</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

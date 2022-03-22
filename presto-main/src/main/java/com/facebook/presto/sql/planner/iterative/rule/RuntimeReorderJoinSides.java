@@ -164,7 +164,6 @@ public class RuntimeReorderJoinSides
         }
 
         JoinNode newJoinNode = new JoinNode(
-                swapped.getSourceLocation(),
                 swapped.getId(),
                 swapped.getType(),
                 newLeft,

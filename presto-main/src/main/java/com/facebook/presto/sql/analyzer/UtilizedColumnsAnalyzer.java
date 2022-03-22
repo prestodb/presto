@@ -408,7 +408,6 @@ public class UtilizedColumnsAnalyzer
         protected Void visitDereferenceExpression(DereferenceExpression dereferenceExpression, Context context)
         {
             handleExpression(dereferenceExpression, context);
-            process(dereferenceExpression.getBase(), context);
 
             return null;
         }

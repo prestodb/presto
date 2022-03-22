@@ -72,7 +72,6 @@ public class PushTopNThroughUnion
         }
 
         return Result.ofPlanNode(new UnionNode(
-                unionNode.getSourceLocation(),
                 unionNode.getId(),
                 sources.build(),
                 unionNode.getOutputVariables(),

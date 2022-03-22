@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.function.BiFunction;
 
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -79,7 +80,10 @@ public class HiveCachingHdfsConfiguration
             catch (IOException e) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching file system", e);
             }
-        }, hiveHdfsConfiguration.getConfiguration(context, uri));
+        });
+        Configuration defaultConfig = hiveHdfsConfiguration.getConfiguration(context, uri);
+
+        copy(defaultConfig, config);
         return config;
     }
 
@@ -89,9 +93,9 @@ public class HiveCachingHdfsConfiguration
     {
         private final BiFunction<Configuration, URI, FileSystem> factory;
 
-        private CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory, Configuration conf)
+        private CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory)
         {
-            super(conf);
+            super(false);
             this.factory = requireNonNull(factory, "factory is null");
         }
 

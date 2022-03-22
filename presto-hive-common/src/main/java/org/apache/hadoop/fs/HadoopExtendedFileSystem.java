@@ -66,12 +66,6 @@ public class HadoopExtendedFileSystem
     }
 
     @Override
-    public String getScheme()
-    {
-        return fs.getScheme();
-    }
-
-    @Override
     public URI getUri()
     {
         return fs.getUri();
@@ -155,7 +149,8 @@ public class HadoopExtendedFileSystem
             Progressable progress)
             throws IOException
     {
-        return fs.create(f, permission, overwrite, bufferSize, replication, blockSize, progress);
+        return fs.create(f, permission,
+                overwrite, bufferSize, replication, blockSize, progress);
     }
 
     @Override
@@ -169,7 +164,8 @@ public class HadoopExtendedFileSystem
             Options.ChecksumOpt checksumOpt)
             throws IOException
     {
-        return fs.create(f, permission, flags, bufferSize, replication, blockSize, progress, checksumOpt);
+        return fs.create(f, permission,
+                flags, bufferSize, replication, blockSize, progress, checksumOpt);
     }
 
     @Override
@@ -499,10 +495,10 @@ public class HadoopExtendedFileSystem
 
     @Override
     @SuppressWarnings("deprecation")
-    protected boolean primitiveMkdir(Path f, FsPermission absolutePermission)
+    protected boolean primitiveMkdir(Path f, FsPermission abdolutePermission)
             throws IOException
     {
-        return fs.primitiveMkdir(f, absolutePermission);
+        return fs.primitiveMkdir(f, abdolutePermission);
     }
 
     @Override // FileSystem

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -24,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,14 +34,12 @@ public class SortNode
     private final boolean isPartial;
 
     @JsonCreator
-    public SortNode(
-            Optional<SourceLocation> sourceLocation,
-            @JsonProperty("id") PlanNodeId id,
+    public SortNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("isPartial") boolean isPartial)
     {
-        super(sourceLocation, id);
+        super(id);
 
         requireNonNull(source, "source is null");
         requireNonNull(orderingScheme, "orderingScheme is null");
@@ -92,6 +88,6 @@ public class SortNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new SortNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), orderingScheme, isPartial);
+        return new SortNode(getId(), Iterables.getOnlyElement(newChildren), orderingScheme, isPartial);
     }
 }

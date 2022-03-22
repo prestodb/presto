@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Table;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 
 import java.util.Iterator;
 
@@ -26,5 +27,6 @@ public interface DirectoryLister
             Table table,
             Path path,
             NamenodeStats namenodeStats,
+            PathFilter pathFilter,
             HiveDirectoryContext hiveDirectoryContext);
 }

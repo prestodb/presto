@@ -15,10 +15,7 @@
 import React from "react";
 
 import {
-    formatCount,
-    formatDataSize,
     formatDataSizeBytes,
-    formatDuration,
     formatShortTime,
     getHumanReadableState,
     getProgressBarPercentage,
@@ -26,24 +23,13 @@ import {
     getQueryStateColor,
     GLYPHICON_DEFAULT,
     GLYPHICON_HIGHLIGHT,
+    parseDataSize,
+    parseDuration,
     truncateString
 } from "../utils";
 
-function getHumanReadableStateFromInfo(query) {
-    const progress = query.progress;
-    return getHumanReadableState(
-        query.queryState,
-        query.queryState === "RUNNING" && (progress.queuedDrivers + progress.runningDrivers + progress.completedDrivers) > 0 && progress.runningDrivers >= 0,
-        progress.blocked,
-        progress.blockedReasons,
-        null,
-        query.errorCode ? query.errorCode.type : null,
-        query.errorCode ? query.errorCode.name : null
-    );
-}
-
 export class QueryListItem extends React.Component {
-    static stripQueryTextWhitespace(queryText, isTruncated) {
+    static stripQueryTextWhitespace(queryText) {
         const lines = queryText.split("\n");
         let minLeadingWhitespace = -1;
         for (let i = 0; i < lines.length; i++) {
@@ -76,44 +62,40 @@ export class QueryListItem extends React.Component {
             }
         }
 
-        return isTruncated ? formattedQueryText + "..." : truncateString(formattedQueryText, 300);
+        return truncateString(formattedQueryText, 300);
     }
 
     renderWarning() {
         const query = this.props.query;
-        if (query.warningCodes && query.warningCodes.length) {
+        if (query.warnings && query.warnings.length) {
+            let warningCodes = [];
+            query.warnings.forEach(function(warning) {
+               warningCodes.push(warning.warningCode.name)
+            });
+
             return (
-                <span className="glyphicon glyphicon-warning-sign query-warning" data-toggle="tooltip" title={query.warningCodes.join(', ')}/>
+                <span className="glyphicon glyphicon-warning-sign query-warning" data-toggle="tooltip" title={warningCodes.join(', ')}/>
             );
         }
     }
 
     render() {
         const query = this.props.query;
-        const queryStateColor = getQueryStateColor(
-            query.queryState,
-            query.progress && query.progress.blocked,
-            query.errorCode ? query.errorCode.type : null,
-            query.errorCode ? query.errorCode.name : null
-        );
-        const progressPercentage = getProgressBarPercentage(query.progress.progressPercentage, query.queryState);
-        const progressBarStyle = {width: progressPercentage + "%", backgroundColor: queryStateColor};
-        const humanReadableState = getHumanReadableStateFromInfo(query);
-        const progressBarTitle = getProgressBarTitle(query.progress.progressPercentage, query.queryState, humanReadableState);
+        const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
         const splitDetails = (
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Completed splits">
                     <span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatCount(query.progress.completedDrivers)}
+                    {query.queryStats.completedDrivers}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Running splits">
                     <span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.runningDrivers}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Queued splits">
                     <span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.queuedDrivers}
                     </span>
             </div>);
 
@@ -121,15 +103,15 @@ export class QueryListItem extends React.Component {
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Wall time spent executing the query (not including queued time)">
                     <span className="glyphicon glyphicon-hourglass" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDuration(query.progress.executionTimeMillis)}
+                    {query.queryStats.executionTime}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Total query wall time">
                     <span className="glyphicon glyphicon-time" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDuration(query.progress.elapsedTimeMillis)}
+                    {query.queryStats.elapsedTime}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="CPU time spent by this query">
                     <span className="glyphicon glyphicon-dashboard" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDuration(query.progress.cpuTimeMillis)}
+                    {query.queryStats.totalCpuTime}
                 </span>
             </div>);
 
@@ -137,22 +119,22 @@ export class QueryListItem extends React.Component {
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current reserved memory">
                     <span className="glyphicon glyphicon-scale" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSize(query.progress.currentMemoryBytes)}
+                    {query.queryStats.userMemoryReservation}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak memory">
                     <span className="glyphicon glyphicon-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSize(query.progress.peakMemoryBytes)}
+                    {query.queryStats.peakUserMemoryReservation}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative user memory">
                     <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSizeBytes(query.progress.cumulativeUserMemory / 1000.0)}
+                    {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0)}
                 </span>
             </div>);
 
-        let user = (<span>{query.user}</span>);
-        if (query.authenticated) {
+        let user = (<span>{query.session.user}</span>);
+        if (query.session.principal) {
             user = (
-                <span>{query.user}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
+                <span>{query.session.user}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
             );
         }
 
@@ -166,7 +148,7 @@ export class QueryListItem extends React.Component {
                                 {this.renderWarning()}
                             </div>
                             <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
-                                <span>{formatShortTime(new Date(Date.parse(query.createTime)))}</span>
+                                <span>{formatShortTime(new Date(Date.parse(query.queryStats.createTime)))}</span>
                             </div>
                         </div>
                         <div className="row stat-row">
@@ -181,7 +163,7 @@ export class QueryListItem extends React.Component {
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Source">
                                     <span className="glyphicon glyphicon-log-in" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>{truncateString(query.source, 35)}</span>
+                                    <span>{truncateString(query.session.source, 35)}</span>
                                 </span>
                             </div>
                         </div>
@@ -207,16 +189,16 @@ export class QueryListItem extends React.Component {
                         <div className="row query-header">
                             <div className="col-xs-12 query-progress-container">
                                 <div className="progress">
-                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin="0"
+                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0"
                                          aria-valuemax="100" style={progressBarStyle}>
-                                        {progressBarTitle}
+                                        {getProgressBarTitle(query)}
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div className="row query-row-bottom">
                             <div className="col-xs-12">
-                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.query, query.queryTruncated)}</code></pre>
+                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.query)}</code></pre>
                             </div>
                         </div>
                     </div>
@@ -243,26 +225,26 @@ class DisplayedQueriesList extends React.Component {
 
 const FILTER_TYPE = {
     RUNNING: function (query) {
-        return !(query.queryState === "QUEUED" || query.queryState === "FINISHED" || query.queryState === "FAILED");
+        return !(query.state === "QUEUED" || query.state === "FINISHED" || query.state === "FAILED");
     },
-    QUEUED: function (query) { return query.queryState === "QUEUED"},
-    FINISHED: function (query) { return query.queryState === "FINISHED"},
+    QUEUED: function (query) { return query.state === "QUEUED"},
+    FINISHED: function (query) { return query.state === "FINISHED"},
 };
 
 const SORT_TYPE = {
-    CREATED: function (query) {return Date.parse(query.createTime);},
-    ELAPSED: function (query) {return query.progress.elapsedTimeMillis;},
-    EXECUTION: function (query) {return query.progress.executionTimeMillis;},
-    CPU: function (query) {return query.progress.cpuTimeMillis;},
-    CUMULATIVE_MEMORY: function (query) {return query.progress.cumulativeUserMemory;},
-    CURRENT_MEMORY: function (query) {return query.progress.currentMemoryBytes;},
+    CREATED: function (query) {return Date.parse(query.queryStats.createTime)},
+    ELAPSED: function (query) {return parseDuration(query.queryStats.elapsedTime)},
+    EXECUTION: function (query) {return parseDuration(query.queryStats.executionTime)},
+    CPU: function (query) {return parseDuration(query.queryStats.totalCpuTime)},
+    CUMULATIVE_MEMORY: function (query) {return query.queryStats.cumulativeUserMemory},
+    CURRENT_MEMORY: function (query) {return parseDataSize(query.queryStats.userMemoryReservation)},
 };
 
 const ERROR_TYPE = {
-    USER_ERROR: function (query) {return query.queryState === "FAILED" && query.errorCode.type === "USER_ERROR"},
-    INTERNAL_ERROR: function (query) {return query.queryState === "FAILED" && query.errorCode.type === "INTERNAL_ERROR"},
-    INSUFFICIENT_RESOURCES: function (query) {return query.queryState === "FAILED" && query.errorCode.type === "INSUFFICIENT_RESOURCES"},
-    EXTERNAL: function (query) {return query.queryState === "FAILED" && query.errorCode.type === "EXTERNAL"},
+    USER_ERROR: function (query) {return query.state === "FAILED" && query.errorType === "USER_ERROR"},
+    INTERNAL_ERROR: function (query) {return query.state === "FAILED" && query.errorType === "INTERNAL_ERROR"},
+    INSUFFICIENT_RESOURCES: function (query) {return query.state === "FAILED" && query.errorType === "INSUFFICIENT_RESOURCES"},
+    EXTERNAL: function (query) {return query.state === "FAILED" && query.errorType === "EXTERNAL"},
 };
 
 const SORT_ORDER = {
@@ -325,18 +307,17 @@ export class QueryList extends React.Component {
         else {
             return stateFilteredQueries.filter(function (query) {
                 const term = searchString.toLowerCase();
-                const humanReadableState = getHumanReadableStateFromInfo(query);
                 if (query.queryId.toLowerCase().indexOf(term) !== -1 ||
-                    humanReadableState.toLowerCase().indexOf(term) !== -1 ||
+                    getHumanReadableState(query).toLowerCase().indexOf(term) !== -1 ||
                     query.query.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
-                if (query.user && query.user.toLowerCase().indexOf(term) !== -1) {
+                if (query.session.user && query.session.user.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
-                if (query.source && query.source.toLowerCase().indexOf(term) !== -1) {
+                if (query.session.source && query.session.source.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
@@ -344,8 +325,8 @@ export class QueryList extends React.Component {
                     return true;
                 }
 
-                return query.warningCodes.some(function (warning) {
-                    if ("warning".indexOf(term) !== -1 || warning.indexOf(term) !== -1) {
+                return query.warnings.some(function (warning) {
+                    if ("warning".indexOf(term) !== -1 || warning.warningCode.name.toLowerCase().indexOf(term) !== -1 || warning.message.toLowerCase().indexOf(term) !== -1) {
                         return true;
                     }
                 });
@@ -366,7 +347,7 @@ export class QueryList extends React.Component {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         clearTimeout(this.searchTimeoutId);
 
-        $.get('/v1/queryState?includeAllQueries=true&includeAllQueryProgressStats=true&excludeResourceGroupPathInfo=true', function (queryList) {
+        $.get('/v1/query', function (queryList) {
             const queryMap = queryList.reduce(function (map, query) {
                 map[query.queryId] = query;
                 return map;

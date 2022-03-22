@@ -20,7 +20,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 /**
- * A tree structure to represent a decoded block. Dictionary/RLE blocks will be kept as a
+ * A tree structure to represent a decoded block. Dictionary/Rle blocks will be kept as a
  * separate node because we need the position mappings. For example, a block of map<int, bigint> where the key
  * is dictionary encoded will result in the following tree structure:
  *
@@ -34,7 +34,7 @@ class DecodedBlockNode
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecodedBlockNode.class).instanceSize();
 
-    // The decodedBlock could be primitive block, Dictionary/RLE block, or ColumnarArray/Map/Row object
+    // The decodedBlock could be primitive block, Dictionary/Rle block, or ColumnarArray/Map/Row object
     private final Object decodedBlock;
     private final List<DecodedBlockNode> children;
     private final long retainedSizeInBytes;

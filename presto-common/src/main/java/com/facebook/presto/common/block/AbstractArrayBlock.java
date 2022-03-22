@@ -17,8 +17,6 @@ import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nullable;
 
-import java.util.OptionalInt;
-
 import static com.facebook.presto.common.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToOffsetsArray;
@@ -27,8 +25,6 @@ import static com.facebook.presto.common.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
-import static com.facebook.presto.common.block.BlockUtil.countAndMarkSelectedPositionsFromOffsets;
-import static com.facebook.presto.common.block.BlockUtil.countSelectedPositionsFromOffsets;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.MapBlockBuilder.verify;
 
@@ -116,12 +112,6 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size per position is variable based on the number of entries in each array
-    }
-
-    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
@@ -154,40 +144,26 @@ public abstract class AbstractArrayBlock
         int valueStart = getOffset(position);
         int valueEnd = getOffset(position + length);
 
-        return getRawElementBlock().getApproximateRegionLogicalSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
+        return getRawElementBlock().getApproximateRegionLogicalSizeInBytes(valueStart, valueEnd - valueStart) + (Integer.BYTES + Byte.BYTES) * length;
     }
 
     @Override
-    public final long getPositionsSizeInBytes(boolean[] positions, int selectedArrayPositions)
+    public long getPositionsSizeInBytes(boolean[] positions)
     {
-        int positionCount = getPositionCount();
-        checkValidPositions(positions, positionCount);
-        if (selectedArrayPositions == 0) {
-            return 0;
+        checkValidPositions(positions, getPositionCount());
+        boolean[] used = new boolean[getRawElementBlock().getPositionCount()];
+        int usedPositionCount = 0;
+        for (int i = 0; i < positions.length; ++i) {
+            if (positions[i]) {
+                usedPositionCount++;
+                int valueStart = getOffsets()[getOffsetBase() + i];
+                int valueEnd = getOffsets()[getOffsetBase() + i + 1];
+                for (int j = valueStart; j < valueEnd; ++j) {
+                    used[j] = true;
+                }
+            }
         }
-        if (selectedArrayPositions == positionCount) {
-            return getSizeInBytes();
-        }
-
-        Block rawElementBlock = getRawElementBlock();
-        OptionalInt fixedPerElementSizeInBytes = rawElementBlock.fixedSizeInBytesPerPosition();
-        int[] offsets = getOffsets();
-        int offsetBase = getOffsetBase();
-        long elementsSizeInBytes;
-
-        if (fixedPerElementSizeInBytes.isPresent()) {
-            elementsSizeInBytes = fixedPerElementSizeInBytes.getAsInt() * (long) countSelectedPositionsFromOffsets(positions, offsets, offsetBase);
-        }
-        else if (rawElementBlock instanceof RunLengthEncodedBlock) {
-            // RLE blocks don't have fixed size per position, but accept null for the positions array
-            elementsSizeInBytes = rawElementBlock.getPositionsSizeInBytes(null, countSelectedPositionsFromOffsets(positions, offsets, offsetBase));
-        }
-        else {
-            boolean[] selectedElements = new boolean[rawElementBlock.getPositionCount()];
-            int selectedElementCount = countAndMarkSelectedPositionsFromOffsets(positions, offsets, offsetBase, selectedElements);
-            elementsSizeInBytes = rawElementBlock.getPositionsSizeInBytes(selectedElements, selectedElementCount);
-        }
-        return elementsSizeInBytes + ((Integer.BYTES + Byte.BYTES) * (long) selectedArrayPositions);
+        return getRawElementBlock().getPositionsSizeInBytes(used) + ((Integer.BYTES + Byte.BYTES) * (long) usedPositionCount);
     }
 
     @Override

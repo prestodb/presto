@@ -22,12 +22,10 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionImplementationType;
-import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
-import com.facebook.presto.spi.function.SqlFunctionExecutor;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
 import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
@@ -50,7 +48,6 @@ import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.presto.common.Page.wrapBlocksWithoutCopy;
 import static com.facebook.presto.functionNamespace.execution.ExceptionUtils.toPrestoException;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.prestoPage;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,7 +59,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class ThriftSqlFunctionExecutor
-        implements SqlFunctionExecutor
 {
     private static final int DEFAULT_RETRY_ATTEMPTS = 3;
     private final DriftClient<ThriftUdfService> thriftUdfClient;
@@ -76,13 +72,6 @@ public class ThriftSqlFunctionExecutor
         this.executionConfigs = requireNonNull(executionConfigs, "executionConfigs is null");
     }
 
-    @Override
-    public FunctionImplementationType getImplementationType()
-    {
-        return THRIFT;
-    }
-
-    @Override
     public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
     {
         checkState(this.blockEncodingSerde == null, "blockEncodingSerde already set");
@@ -90,10 +79,9 @@ public class ThriftSqlFunctionExecutor
         this.blockEncodingSerde = blockEncodingSerde;
     }
 
-    @Override
     public CompletableFuture<SqlFunctionResult> executeFunction(
             String source,
-            RemoteScalarFunctionImplementation functionImplementation,
+            ThriftScalarFunctionImplementation functionImplementation,
             Page input,
             List<Integer> channels,
             List<Type> argumentTypes,
@@ -154,7 +142,7 @@ public class ThriftSqlFunctionExecutor
         return resultFuture;
     }
 
-    private ThriftUdfPage buildThriftPage(RemoteScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes)
+    private ThriftUdfPage buildThriftPage(ThriftScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes)
     {
         ThriftUdfPageFormat pageFormat = executionConfigs.get(functionImplementation.getLanguage()).getThriftPageFormat();
         Block[] blocks = new Block[channels.size()];

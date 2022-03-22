@@ -14,17 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.concurrent.ThreadLocalCache;
-import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
-import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.type.TimestampOperators;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -49,7 +46,6 @@ import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
@@ -119,15 +115,7 @@ public final class DateTimeFunctions
             // of TIME WITH TIME ZONE
             millis -= valueToSessionTimeZoneOffsetDiff(properties.getSessionStartTime(), getDateTimeZone(properties.getTimeZoneKey()));
         }
-        try {
-            return packDateTimeWithZone(millis, properties.getTimeZoneKey());
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(millis, properties.getTimeZoneKey());
     }
 
     @Description("current time without time zone")
@@ -155,15 +143,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long currentTimestamp(SqlFunctionProperties properties)
     {
-        try {
-            return packDateTimeWithZone(properties.getSessionStartTime(), properties.getTimeZoneKey());
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(properties.getSessionStartTime(), properties.getTimeZoneKey());
     }
 
     @Description("current timestamp without time zone")
@@ -193,22 +173,10 @@ public final class DateTimeFunctions
         try {
             timeZoneKey = getTimeZoneKeyForOffset(toIntExact(hoursOffset * 60 + minutesOffset));
         }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-
-        try {
-            return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
     }
 
     @ScalarFunction("from_unixtime")
@@ -216,15 +184,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
     {
-        try {
-            return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
     }
 
     @ScalarFunction("to_unixtime")
@@ -293,15 +253,7 @@ public final class DateTimeFunctions
         DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
                 .withChronology(getChronology(properties.getTimeZoneKey()))
                 .withOffsetParsed();
-        try {
-            return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
     }
 
     @ScalarFunction("from_iso8601_date")
@@ -337,15 +289,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
     {
-        try {
-            return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
     }
 
     @ScalarFunction(value = "at_timezone", visibility = HIDDEN)
@@ -354,15 +298,7 @@ public final class DateTimeFunctions
     {
         checkCondition((zoneOffset % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
         long zoneOffsetMinutes = zoneOffset / 60_000L;
-        try {
-            return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
     @Description("truncate to the specified precision in the session timezone")
@@ -629,9 +565,6 @@ public final class DateTimeFunctions
                             .withOffsetParsed()
                             .withLocale(properties.getSessionLocale()),
                     datetime.toStringUtf8()));
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -1031,42 +964,6 @@ public final class DateTimeFunctions
         return milliseconds / MILLISECONDS_IN_DAY;
     }
 
-    @Description("last day of the month of the given timestamp")
-    @ScalarFunction("last_day_of_month")
-    @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
-    {
-        ISOChronology isoChronology = unpackChronology(timestampWithTimeZone);
-        long millis = unpackMillisUtc(timestampWithTimeZone);
-        // Calculate point in time corresponding to midnight (00:00) of first day of next month in the given zone.
-        millis = isoChronology.monthOfYear().roundCeiling(millis + 1);
-        // Convert to UTC and take the previous day
-        millis = isoChronology.getZone().convertUTCToLocal(millis) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
-    }
-
-    @Description("last day of the month of the given timestamp")
-    @ScalarFunction("last_day_of_month")
-    @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonthFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        if (properties.isLegacyTimestamp()) {
-            long date = TimestampOperators.castToDate(properties, timestamp);
-            return lastDayOfMonthFromDate(date);
-        }
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp + 1) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
-    }
-
-    @Description("last day of the month of the given date")
-    @ScalarFunction("last_day_of_month")
-    @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
-    {
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
-    }
-
     @Description("day of the year of the given timestamp")
     @ScalarFunction(value = "day_of_year", alias = "doy")
     @SqlType(StandardTypes.BIGINT)
@@ -1436,15 +1333,7 @@ public final class DateTimeFunctions
             localMillis += TimeUnit.DAYS.toMillis(1);
         }
 
-        try {
-            return packDateTimeWithZone(millis, timeZoneKey);
-        }
-        catch (NotSupportedException | TimeZoneNotSupportedException e) {
-            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return packDateTimeWithZone(millis, timeZoneKey);
     }
 
     // HACK WARNING!

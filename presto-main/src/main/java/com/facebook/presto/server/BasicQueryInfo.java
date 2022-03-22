@@ -67,7 +67,6 @@ public class BasicQueryInfo
     private final ExecutionFailureInfo failureInfo;
     private final Optional<QueryType> queryType;
     private final List<PrestoWarning> warnings;
-    private final Optional<String> preparedQuery;
 
     @ThriftConstructor
     @JsonCreator
@@ -85,8 +84,7 @@ public class BasicQueryInfo
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("queryType") Optional<QueryType> queryType,
-            @JsonProperty("warnings") List<PrestoWarning> warnings,
-            @JsonProperty("preparedQuery") Optional<String> preparedQuery)
+            @JsonProperty("warnings") List<PrestoWarning> warnings)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
@@ -102,7 +100,6 @@ public class BasicQueryInfo
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
-        this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
     }
 
     public BasicQueryInfo(
@@ -117,8 +114,7 @@ public class BasicQueryInfo
             BasicQueryStats queryStats,
             ExecutionFailureInfo failureInfo,
             Optional<QueryType> queryType,
-            List<PrestoWarning> warnings,
-            Optional<String> preparedQuery)
+            List<PrestoWarning> warnings)
     {
         this(
                 queryId,
@@ -133,9 +129,7 @@ public class BasicQueryInfo
                 (failureInfo != null && failureInfo.getErrorCode() != null) ? failureInfo.getErrorCode().getType() : null,
                 failureInfo != null ? failureInfo.getErrorCode() : null,
                 failureInfo,
-                queryType,
-                warnings,
-                preparedQuery);
+                queryType, warnings);
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -153,8 +147,7 @@ public class BasicQueryInfo
                 queryInfo.getErrorCode(),
                 queryInfo.getFailureInfo(),
                 queryInfo.getQueryType(),
-                queryInfo.getWarnings(),
-                queryInfo.getPreparedQuery());
+                queryInfo.getWarnings());
     }
 
     public static BasicQueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ExecutionFailureInfo failure)
@@ -171,8 +164,7 @@ public class BasicQueryInfo
                 immediateFailureQueryStats(),
                 failure,
                 Optional.empty(),
-                ImmutableList.of(),
-                Optional.empty());
+                ImmutableList.of());
     }
 
     @ThriftField(1)
@@ -274,13 +266,6 @@ public class BasicQueryInfo
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
-    }
-
-    @ThriftField(15)
-    @JsonProperty
-    public Optional<String> getPreparedQuery()
-    {
-        return preparedQuery;
     }
 
     @Override

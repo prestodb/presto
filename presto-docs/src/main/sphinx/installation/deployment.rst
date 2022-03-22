@@ -26,11 +26,8 @@ This will hold the following configuration:
 
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
-* Config Properties: configuration for the Presto server. See the
-  :doc:`/admin/properties` for available configuration properties.
-* Catalog Properties: configuration for :doc:`/connector` (data sources).
-  The available catalog configuration properties for a connector are described
-  in the respective connector documentation.
+* Config Properties: configuration for the Presto server
+* Catalog Properties: configuration for :doc:`/connector` (data sources)
 
 .. _presto_node_properties:
 
@@ -421,7 +418,7 @@ The files are:
 
 The four files directly under ``etc`` are documented above (using the single-node Coordinator configuration for ``config.properties``).
 The file called ``etc/catalog/tpch.properties`` is used to defined the ``tpch`` catalog.  Each connector has their own set
-of configuration properties that are specific to the connector.
+of configuration properites that are specific to the connector.
 You can find a connector's configuration properties documented along with the connector.  The TPCH connector has no special
 configuration, so we just specify the name of the connector for the catalog, also ``tpch``.
 

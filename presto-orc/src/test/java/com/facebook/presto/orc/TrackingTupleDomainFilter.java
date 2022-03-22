@@ -14,8 +14,6 @@
 
 package com.facebook.presto.orc;
 
-import com.facebook.presto.common.predicate.TupleDomainFilter;
-
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -31,7 +29,7 @@ public interface TrackingTupleDomainFilter
 
         public static TestBigintRange of(BigintRange range, Consumer<TupleDomainFilter> onTestCallback)
         {
-            return new TestBigintRange(range.getLower(), range.getUpper(), range.testNull(), onTestCallback);
+            return new TestBigintRange(range.getLower(), range.getUpper(), range.nullAllowed, onTestCallback);
         }
 
         private TestBigintRange(long lower, long upper, boolean nullAllowed, Consumer<TupleDomainFilter> onTestCallback)
@@ -56,7 +54,7 @@ public interface TrackingTupleDomainFilter
 
         public static TestDoubleRange of(DoubleRange range, Consumer<TupleDomainFilter> onTestCallback)
         {
-            return new TestDoubleRange(range.getLower(), range.getLowerUnbounded(), range.getLowerExclusive(), range.getUpper(), range.getUpperUnbounded(), range.getUpperExclusive(), range.testNull(), onTestCallback);
+            return new TestDoubleRange(range.getLower(), range.lowerUnbounded, range.lowerExclusive, range.getUpper(), range.upperUnbounded, range.upperExclusive, range.nullAllowed, onTestCallback);
         }
 
         private TestDoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed, Consumer<TupleDomainFilter> onTestCallback)

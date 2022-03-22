@@ -55,8 +55,7 @@ public class TestingOperatorContext
                 scheduledExecutor,
                 pipelineMemoryContext,
                 Lifespan.taskWide(),
-                Optional.empty(),
-                0L);
+                Optional.empty());
 
         OperatorContext operatorContext = driverContext.addOperatorContext(
                 1,

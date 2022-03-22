@@ -159,9 +159,9 @@ public class AlluxioHiveMetastore
         List<String> dataColumns = table.getDataColumns().stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-        Map<String, List<ColumnStatisticsInfo>> rawPartitionColumnStatistics;
+        Map<String, List<ColumnStatisticsInfo>> columnStatisticss;
         try {
-            rawPartitionColumnStatistics = client.getPartitionColumnStatistics(
+            columnStatisticss = client.getPartitionColumnStatistics(
                     table.getDatabaseName(),
                     table.getTableName(),
                     partitionBasicStatistics.keySet().stream().collect(toImmutableList()),
@@ -171,7 +171,7 @@ public class AlluxioHiveMetastore
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
 
-        Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = rawPartitionColumnStatistics.entrySet().stream()
+        Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = columnStatisticss.entrySet().stream()
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,

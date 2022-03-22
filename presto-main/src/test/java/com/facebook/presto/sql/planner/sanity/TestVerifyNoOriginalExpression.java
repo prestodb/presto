@@ -64,7 +64,7 @@ public class TestVerifyNoOriginalExpression
         extends BasePlanTest
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final VariableReferenceExpression VARIABLE_REFERENCE_EXPRESSION = new VariableReferenceExpression(Optional.empty(), "expr", BIGINT);
+    private static final VariableReferenceExpression VARIABLE_REFERENCE_EXPRESSION = new VariableReferenceExpression("expr", BIGINT);
     private static final ComparisonExpression COMPARISON_EXPRESSION = new ComparisonExpression(
             ComparisonExpression.Operator.EQUAL,
             new SymbolReference("count"),
@@ -171,14 +171,13 @@ public class TestVerifyNoOriginalExpression
                         Optional.of(comparisonCallExpression),
                         Optional.of(orderingScheme),
                         false,
-                        Optional.of(new VariableReferenceExpression(Optional.empty(), "orderkey", BIGINT))));
+                        Optional.of(new VariableReferenceExpression("orderkey", BIGINT))));
         ImmutableSet<Integer> globalGroupingSets = ImmutableSet.of(1);
         AggregationNode.GroupingSetDescriptor groupingSets = new AggregationNode.GroupingSetDescriptor(groupingKeys, groupingSetCount, globalGroupingSets);
         ImmutableList<VariableReferenceExpression> preGroupedVariables = ImmutableList.of();
         Optional<VariableReferenceExpression> hashVariable = Optional.of(VARIABLE_REFERENCE_EXPRESSION);
         Optional<VariableReferenceExpression> groupIdVariable = Optional.of(VARIABLE_REFERENCE_EXPRESSION);
         AggregationNode aggregationNode = new AggregationNode(
-                Optional.empty(),
                 new PlanNodeId("1"),
                 valuesNode,
                 aggregations,
@@ -208,7 +207,6 @@ public class TestVerifyNoOriginalExpression
     public void testTableFinish()
     {
         TableFinishNode tableFinishNode = new TableFinishNode(
-                Optional.empty(),
                 new PlanNodeId("1"),
                 valuesNode,
                 Optional.of(new TestingWriterTarget()),
@@ -264,7 +262,6 @@ public class TestVerifyNoOriginalExpression
                 VARIABLE_REFERENCE_EXPRESSION);
         ProjectNode projectNode = builder.project(new Assignments(map), valuesNode);
         SpatialJoinNode spatialJoinNode = new SpatialJoinNode(
-                Optional.empty(),
                 new PlanNodeId("1"),
                 SpatialJoinNode.Type.INNER,
                 projectNode,

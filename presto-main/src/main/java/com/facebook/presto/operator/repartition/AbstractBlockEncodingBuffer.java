@@ -143,8 +143,8 @@ public abstract class AbstractBlockEncodingBuffer
         // decodedBlock could be a block or ColumnarArray/Map/Row
         Object decodedBlock = decodedBlockNode.getDecodedBlock();
 
-        // Skip the Dictionary/RLE block node. The mapping info is not needed when creating buffers.
-        // This is because the AbstractBlockEncodingBuffer is only created once, while position mapping for Dictionary/RLE blocks
+        // Skip the Dictionary/Rle block node. The mapping info is not needed when creating buffers.
+        // This is because the AbstractBlockEncodingBuffer is only created once, while position mapping for Dictionar/Rle blocks
         // need to be done for every incoming block.
         if (decodedBlock instanceof DictionaryBlock) {
             decodedBlockNode = decodedBlockNode.getChildren().get(0);

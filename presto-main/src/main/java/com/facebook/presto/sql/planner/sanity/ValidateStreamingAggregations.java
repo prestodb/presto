@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
-import static com.facebook.presto.util.Failures.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Verifies that input of streaming aggregations is grouped on the grouping keys
@@ -52,15 +52,15 @@ public class ValidateStreamingAggregations
     private static final class Visitor
             extends InternalPlanVisitor<Void, Void>
     {
-        private final Session session;
+        private final Session sesstion;
         private final Metadata metadata;
         private final SqlParser sqlParser;
         private final TypeProvider types;
         private final WarningCollector warningCollector;
 
-        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        private Visitor(Session sesstion, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
         {
-            this.session = session;
+            this.sesstion = sesstion;
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.types = types;
@@ -81,7 +81,7 @@ public class ValidateStreamingAggregations
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, session, types, sqlParser);
+            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, sesstion, types, sqlParser);
 
             List<LocalProperty<VariableReferenceExpression>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedVariables()));
             Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();

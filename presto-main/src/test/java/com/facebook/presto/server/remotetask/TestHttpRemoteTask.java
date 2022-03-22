@@ -570,9 +570,7 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getFullGcCount(),
                     initialTaskStatus.getFullGcTimeInMillis(),
                     initialTaskStatus.getTotalCpuTimeInNanos(),
-                    initialTaskStatus.getTaskAgeInMillis(),
-                    initialTaskStatus.getQueuedPartitionedSplitsWeight(),
-                    initialTaskStatus.getRunningPartitionedSplitsWeight());
+                    initialTaskStatus.getTaskAgeInMillis());
         }
     }
 }

@@ -151,12 +151,6 @@ public class TestPrestoQueries
     }
 
     @Override
-    public void testExecuteUsingWithWithClause()
-    {
-        // prepared statement is not supported by Presto on Spark
-    }
-
-    @Override
     public void testExplainExecute()
     {
         // prepared statement is not supported by Presto on Spark

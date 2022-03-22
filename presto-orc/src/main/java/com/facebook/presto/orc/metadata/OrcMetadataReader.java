@@ -222,15 +222,15 @@ public class OrcMetadataReader
     }
 
     @Override
-    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream, List<HiveBloomFilter> bloomFilters)
+    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
         runtimeStats.addMetricValue("OrcReadRowIndexesTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
-        return IntStream.range(0, rowIndex.getEntryCount())
-                .mapToObj(i -> toRowGroupIndex(hiveWriterVersion, rowIndex.getEntry(i), bloomFilters == null || bloomFilters.isEmpty() ? null : bloomFilters.get(i)))
+        return rowIndex.getEntryList().stream()
+                .map(rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry))
                 .collect(toImmutableList());
     }
 
@@ -248,7 +248,7 @@ public class OrcMetadataReader
         return builder.build();
     }
 
-    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
+    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
@@ -260,10 +260,10 @@ public class OrcMetadataReader
 
             positions.add(intPosition);
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
+        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true));
     }
 
-    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
+    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return createColumnStatistics(
                 statistics.getNumberOfValues(),
@@ -274,7 +274,7 @@ public class OrcMetadataReader
                 statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
                 statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics()) : null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
-                bloomFilter);
+                null);
     }
 
     private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
@@ -283,7 +283,7 @@ public class OrcMetadataReader
             return ImmutableList.of();
         }
         return columnStatistics.stream()
-                .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null))
+                .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup))
                 .collect(toImmutableList());
     }
 

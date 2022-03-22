@@ -15,7 +15,6 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -60,7 +59,7 @@ public class JmxSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

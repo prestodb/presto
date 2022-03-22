@@ -181,7 +181,7 @@ public class StatisticAggregationsDescriptor<T>
             extends KeyDeserializer
     {
         @Override
-        public ColumnStatisticMetadata deserializeKey(String key, DeserializationContext ctx)
+        public ColumnStatisticMetadata deserializeKey(String key, DeserializationContext ctxt)
         {
             return deserialize(requireNonNull(key, "key is null"));
         }

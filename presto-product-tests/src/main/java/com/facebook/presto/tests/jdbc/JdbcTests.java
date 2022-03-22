@@ -236,7 +236,7 @@ public class JdbcTests
             // These functions, which are defined in the ODBC standard, are implemented within
             // the Simba JDBC and ODBC drivers.  The drivers translate them into equivalent Presto syntax.
             // The translated SQL is executed by Presto.  These tests do not make use of edge-case values or null
-            // values because those code paths are covered by other (non-Simba specific) tests.
+            // values because those code paths are covered by other (non-Simba specifc) tests.
 
             assertThat(query("select {fn char(40)}")).containsExactly(row("("));
             assertThat(query("select {fn convert('2016-10-10', SQL_DATE)}")).containsExactly(row(Date.valueOf("2016-10-10")));

@@ -23,7 +23,7 @@ import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static java.util.Collections.unmodifiableList;
 
 public abstract class DecimalType
-        extends AbstractPrimitiveType
+        extends AbstractType
         implements FixedWidthType
 {
     public static final int DEFAULT_SCALE = 0;

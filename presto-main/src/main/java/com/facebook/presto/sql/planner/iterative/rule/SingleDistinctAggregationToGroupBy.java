@@ -126,10 +126,8 @@ public class SingleDistinctAggregationToGroupBy
 
         return Result.ofPlanNode(
                 new AggregationNode(
-                        aggregation.getSourceLocation(),
                         aggregation.getId(),
                         new AggregationNode(
-                                aggregation.getSourceLocation(),
                                 context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
                                 ImmutableMap.of(),

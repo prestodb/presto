@@ -18,10 +18,8 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
-import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
@@ -46,20 +44,10 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.slice.Slices.wrappedLongArray;
-import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
 {
     private UuidOperators() {}
-
-    @Description("Generates a random UUID")
-    @ScalarFunction(deterministic = false)
-    @SqlType(StandardTypes.UUID)
-    public static Slice uuid()
-    {
-        java.util.UUID uuid = randomUUID();
-        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
-    }
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)

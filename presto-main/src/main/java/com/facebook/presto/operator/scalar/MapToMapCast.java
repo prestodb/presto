@@ -107,7 +107,7 @@ public final class MapToMapCast
         MethodHandle getter = nativeValueGetter(fromType);
 
         // Adapt cast that takes ([SqlFunctionProperties,] ?) to one that takes (?, SqlFunctionProperties), where ? is the return type of getter.
-        JavaScalarFunctionImplementation castImplementation = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.lookupCast(CastType.CAST, fromType, toType));
+        JavaScalarFunctionImplementation castImplementation = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
         MethodHandle cast = castImplementation.getMethodHandle();
         if (cast.type().parameterArray()[0] != SqlFunctionProperties.class) {
             cast = MethodHandles.dropArguments(cast, 0, SqlFunctionProperties.class);

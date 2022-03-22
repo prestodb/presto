@@ -754,7 +754,7 @@ where :math:`f(x)` is the partial density function of :math:`x`.
     or string type.
 
     The function uses the stream summary data structure proposed in the paper
-    `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwally, D.Agrawal and A.Abbadi.
+    `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwalley, D.Agrawl and A.Abbadi.
 
 
 ---------------------------

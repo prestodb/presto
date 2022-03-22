@@ -659,9 +659,9 @@ public final class StreamPropertyDerivations
         private StreamProperties unordered(boolean unordered)
         {
             if (unordered) {
-                ActualProperties updatedProperties = null;
+                ActualProperties updatedProperies = null;
                 if (otherActualProperties != null) {
-                    updatedProperties = ActualProperties.builderFrom(otherActualProperties)
+                    updatedProperies = ActualProperties.builderFrom(otherActualProperties)
                             .unordered(true)
                             .build();
                 }
@@ -669,7 +669,7 @@ public final class StreamPropertyDerivations
                         distribution,
                         partitioningColumns,
                         false,
-                        updatedProperties);
+                        updatedProperies);
             }
             return this;
         }

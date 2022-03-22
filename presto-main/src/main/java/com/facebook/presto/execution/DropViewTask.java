@@ -18,7 +18,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Expression;
@@ -33,7 +32,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropViewTask
-        implements DDLDefinitionTask<DropView>
+        implements DataDefinitionTask<DropView>
 {
     @Override
     public String getName()
@@ -42,8 +41,9 @@ public class DropViewTask
     }
 
     @Override
-    public ListenableFuture<?> execute(DropView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(DropView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
+        Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
         Optional<ViewDefinition> view = metadata.getView(session, name);

@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
@@ -33,26 +34,29 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class LongDictionaryColumnWriter
         extends DictionaryColumnWriter
 {
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongDictionaryColumnWriter.class).instanceSize();
-    private static final int EXPECTED_ENTRIES = 10_000;
+    private static final int NULL_INDEX = -1;
 
-    private final FixedWidthType type;
-    private final long typeSize;
+    private final LongOutputStream dictionaryDataStream;
+    private final int typeSize;
 
-    private LongOutputStream dictionaryDataStream;
     private LongDictionaryBuilder dictionary;
     private IntegerStatisticsBuilder statisticsBuilder;
     private ColumnEncoding columnEncoding;
     private LongColumnWriter directColumnWriter;
+    private long[] directValues;
+    private boolean[] directNulls;
 
     public LongDictionaryColumnWriter(
             int column,
@@ -65,11 +69,9 @@ public class LongDictionaryColumnWriter
         super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         checkArgument(orcEncoding == DWRF, "Long dictionary encoding is only supported in DWRF");
         checkArgument(type instanceof FixedWidthType, "Not a fixed width type");
-        this.type = (FixedWidthType) type;
-        this.typeSize = this.type.getFixedSize();
-
         this.dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
-        this.dictionary = new LongDictionaryBuilder(EXPECTED_ENTRIES);
+        this.dictionary = new LongDictionaryBuilder(10_000);
+        this.typeSize = ((FixedWidthType) type).getFixedSize();
         this.statisticsBuilder = new IntegerStatisticsBuilder();
     }
 
@@ -108,36 +110,23 @@ public class LongDictionaryColumnWriter
     @Override
     protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
-        for (int i = 0; i < dictionaryIndexCount; i++) {
-            writeIndex(dictionaryIndexes[i]);
+        if (dictionaryIndexCount > 0) {
+            directValues = ensureCapacity(directValues, dictionaryIndexCount);
+            directNulls = ensureCapacity(directNulls, dictionaryIndexCount);
+            for (int i = 0; i < dictionaryIndexCount; i++) {
+                if (dictionaryIndexes[i] != NULL_INDEX) {
+                    directValues[i] = dictionary.getValue(dictionaryIndexes[i]);
+                    directNulls[i] = false;
+                }
+                else {
+                    directNulls[i] = true;
+                }
+            }
+
+            LongArrayBlock longArrayBlock = new LongArrayBlock(dictionaryIndexCount, Optional.of(directNulls), directValues);
+            directColumnWriter.writeBlock(longArrayBlock);
         }
-
         return directColumnWriter.getBufferedBytes() <= maxDirectBytes;
-    }
-
-    @Override
-    protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, short[] dictionaryIndexes, int maxDirectBytes)
-    {
-        for (int i = 0; i < dictionaryIndexCount; i++) {
-            writeIndex(dictionaryIndexes[i]);
-        }
-
-        return directColumnWriter.getBufferedBytes() <= maxDirectBytes;
-    }
-
-    @Override
-    protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, byte[] dictionaryIndexes, int maxDirectBytes)
-    {
-        for (int i = 0; i < dictionaryIndexCount; i++) {
-            writeIndex(dictionaryIndexes[i]);
-        }
-
-        return directColumnWriter.getBufferedBytes() <= maxDirectBytes;
-    }
-
-    void writeIndex(int index)
-    {
-        directColumnWriter.writeValue(dictionary.getValue(index));
     }
 
     @Override
@@ -148,39 +137,27 @@ public class LongDictionaryColumnWriter
     }
 
     @Override
-    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupOffset, int[] rowGroupIndexes)
+    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes)
     {
         int nonNullValueCount = 0;
+        long rawBytes = 0;
+        int index;
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (!block.isNull(position)) {
+            if (block.isNull(position)) {
+                index = NULL_INDEX;
+            }
+            else {
                 long value = type.getLong(block, position);
+                index = dictionary.putIfAbsent(value);
                 statisticsBuilder.addValue(value);
-                rowGroupIndexes[rowGroupOffset++] = dictionary.putIfAbsent(value);
+                rawBytes += typeSize;
                 nonNullValueCount++;
             }
+            rowGroupIndexes[rowGroupValueCount] = index;
+            rowGroupValueCount++;
         }
-        long rawBytesIncludingNulls = (nonNullValueCount * typeSize) +
-                (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
-
-        long rawBytesEstimate = 0;
-        if (nonNullValueCount > 0) {
-            // For Long Dictionary encoding is useful when the values are large integers.
-            // Say if all values are less than 256 there is no space savings. Instead, it makes
-            // the reader worse by encoding data and dictionary streams separately. The raw bytes
-            // estimate is a way to understand how many bytes would be required, if it was encoded
-            // using direct encoding. The estimate currently takes max for a row group and assumes
-            // it is a representative number to calculate the bytes required to encode each value.
-            // This is a heuristic, so it is possible to craft test cases to make wrong assumptions.
-            // This heuristic worked well for all the cases where there were problems.
-            // Couple of other alternatives considered are min and average.
-            // In Warehouse most of the columns examined has min of 0, so min alone is not a good
-            // value by itself. Sum can overflow and sum could be missing. Doing for each value
-            // is CPU intensive, but max seems to be good measure to start with.
-            int perValueBits = 64 - Long.numberOfLeadingZeros(statisticsBuilder.getMaximum());
-            long perValueBytes = perValueBits / 8 + 1;
-            rawBytesEstimate = perValueBytes * nonNullValueCount;
-        }
-        return new BlockStatistics(nonNullValueCount, rawBytesEstimate, rawBytesIncludingNulls);
+        long rawBytesIncludingNulls = rawBytes + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        return new BlockStatistics(nonNullValueCount, rawBytes, rawBytesIncludingNulls);
     }
 
     @Override
@@ -189,19 +166,9 @@ public class LongDictionaryColumnWriter
         return INSTANCE_SIZE +
                 dictionary.getRetainedBytes() +
                 dictionaryDataStream.getRetainedBytes() +
+                sizeOf(directValues) +
+                sizeOf(directNulls) +
                 (directColumnWriter == null ? 0 : directColumnWriter.getRetainedBytes());
-    }
-
-    @Override
-    protected void beginDataRowGroup()
-    {
-        directColumnWriter.beginDataRowGroup();
-    }
-
-    @Override
-    protected void movePresentStreamToDirectWriter(PresentOutputStream presentStream)
-    {
-        directColumnWriter.updatePresentStream(presentStream);
     }
 
     @Override
@@ -217,44 +184,22 @@ public class LongDictionaryColumnWriter
     }
 
     @Override
-    protected void writeDataStreams(
+    protected void writePresentAndDataStreams(
             int rowGroupValueCount,
             int[] rowGroupIndexes,
             Optional<int[]> originalDictionaryToSortedIndex,
+            PresentOutputStream presentStream,
             LongOutputStream dataStream)
     {
         checkArgument(!originalDictionaryToSortedIndex.isPresent(), "Unsupported originalDictionaryToSortedIndex");
         for (int position = 0; position < rowGroupValueCount; position++) {
-            int index = rowGroupIndexes[position];
-            dataStream.writeLong(index);
+            presentStream.writeBoolean(rowGroupIndexes[position] != NULL_INDEX);
         }
-    }
-
-    @Override
-    protected void writeDataStreams(
-            int rowGroupValueCount,
-            short[] rowGroupIndexes,
-            Optional<int[]> originalDictionaryToSortedIndex,
-            LongOutputStream dataStream)
-    {
-        checkArgument(!originalDictionaryToSortedIndex.isPresent(), "Unsupported originalDictionaryToSortedIndex");
         for (int position = 0; position < rowGroupValueCount; position++) {
             int index = rowGroupIndexes[position];
-            dataStream.writeLong(index);
-        }
-    }
-
-    @Override
-    protected void writeDataStreams(
-            int rowGroupValueCount,
-            byte[] rowGroupIndexes,
-            Optional<int[]> originalDictionaryToSortedIndex,
-            LongOutputStream dataStream)
-    {
-        checkArgument(!originalDictionaryToSortedIndex.isPresent(), "Unsupported originalDictionaryToSortedIndex");
-        for (int position = 0; position < rowGroupValueCount; position++) {
-            int index = rowGroupIndexes[position];
-            dataStream.writeLong(index);
+            if (index != NULL_INDEX) {
+                dataStream.writeLong(index);
+            }
         }
     }
 
@@ -283,8 +228,10 @@ public class LongDictionaryColumnWriter
     protected void resetDictionary()
     {
         columnEncoding = null;
-        dictionary = new LongDictionaryBuilder(EXPECTED_ENTRIES);
-        dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
+        dictionary = new LongDictionaryBuilder(10_000);
+        dictionaryDataStream.reset();
         statisticsBuilder = new IntegerStatisticsBuilder();
+        directValues = null;
+        directNulls = null;
     }
 }

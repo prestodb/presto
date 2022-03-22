@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
@@ -109,12 +109,12 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(values, values.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -207,24 +207,13 @@ public class ArrayBlockBuilder
         return this;
     }
 
-    public BlockBuilder getElementBlockBuilder()
-    {
-        return values;
-    }
-
     @Override
-    public void beginDirectEntry()
+    public SingleArrayBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
-    }
-
-    @Override
-    public SingleArrayBlockWriter beginBlockEntry()
-    {
-        beginDirectEntry();
         return new SingleArrayBlockWriter(values, values.getPositionCount());
     }
 

@@ -15,7 +15,6 @@ package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -52,13 +50,12 @@ public final class LimitNode
 
     @JsonCreator
     public LimitNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
             @JsonProperty("step") Step step)
     {
-        super(sourceLocation, id);
+        super(id);
         checkCondition(count >= 0, INVALID_FUNCTION_ARGUMENT, "count must be greater than or equal to zero");
 
         this.source = requireNonNull(source, "source is null");
@@ -117,7 +114,7 @@ public final class LimitNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkCondition(newChildren != null && newChildren.size() == 1, GENERIC_INTERNAL_ERROR, "Expect exactly 1 child PlanNode");
-        return new LimitNode(getSourceLocation(), getId(), newChildren.get(0), count, getStep());
+        return new LimitNode(getId(), newChildren.get(0), count, getStep());
     }
 
     private static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String message)

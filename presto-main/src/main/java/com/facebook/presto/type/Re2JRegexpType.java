@@ -17,14 +17,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractPrimitiveType;
+import com.facebook.presto.common.type.AbstractType;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public class Re2JRegexpType
-        extends AbstractPrimitiveType
+        extends AbstractType
 {
     public static final Re2JRegexpType RE2J_REGEXP = new Re2JRegexpType();
     public static final String NAME = "Re2JRegExp";

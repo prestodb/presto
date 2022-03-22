@@ -75,7 +75,7 @@ public class TestFileBasedSystemAccessControl
 
         try {
             accessControlManager.checkCanSetUser(alice, context, Optional.empty(), alice.getUser());
-            throw new AssertionError("expected AccessDeniedException");
+            throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
@@ -84,7 +84,7 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser, context, kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
         try {
             accessControlManager.checkCanSetUser(kerberosInvalidAlice, context, kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
-            throw new AssertionError("expected AccessDeniedException");
+            throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
@@ -92,7 +92,7 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanSetUser(kerberosValidShare, context, kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
         try {
             accessControlManager.checkCanSetUser(kerberosInValidShare, context, kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
-            throw new AssertionError("expected AccessDeniedException");
+            throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
@@ -101,7 +101,7 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanSetUser(validSpecialRegexEndQuote, context, validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
         try {
             accessControlManager.checkCanSetUser(invalidSpecialRegex, context, invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
-            throw new AssertionError("expected AccessDeniedException");
+            throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }

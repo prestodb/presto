@@ -624,14 +624,14 @@ public class TestOptimizedPartitionedOutputOperator
     {
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, false);
 
-        // Test plain blocks: no block views, no Dictionary/RLE blocks
+        // Test plain blocks: no block views, no Dicrtionary/RLE blocks
         Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, 0.2f, 0.2f, false, ImmutableList.of());
 
         // First test for the cases where the buffer can hold the whole page, then force flushing for every a few rows.
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
         testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
 
-        // Test block views and Dictionary/RLE blocks
+        // Test block views and Dicrtionary/RLE blocks
         page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY, RUN_LENGTH, DICTIONARY, RUN_LENGTH));
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
         testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
@@ -757,13 +757,13 @@ public class TestOptimizedPartitionedOutputOperator
         }
         operator.finish();
 
-        Map<Integer, List<Page>> actualPageLists = outputBuffer.getPages();
+        Map<Integer, List<Page>> acutualPageLists = outputBuffer.getPages();
 
-        assertEquals(actualPageLists.size(), PARTITION_COUNT);
+        assertEquals(acutualPageLists.size(), PARTITION_COUNT);
 
         Page expectedPage = mergePages(types, pages);
 
-        actualPageLists.values().forEach(pageList -> assertPageEquals(types, mergePages(types, pageList), expectedPage));
+        acutualPageLists.values().forEach(pageList -> assertPageEquals(types, mergePages(types, pageList), expectedPage));
     }
 
     @Test

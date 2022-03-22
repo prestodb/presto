@@ -47,7 +47,6 @@ public class MergeLimitWithSort
 
         return Result.ofPlanNode(
                 new TopNNode(
-                        parent.getSourceLocation(),
                         parent.getId(),
                         child.getSource(),
                         parent.getCount(),

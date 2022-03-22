@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
-import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.DwrfEncryptionInfo;
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
@@ -305,7 +304,7 @@ public class TestWriterBlockRawSize
 
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                 .withRowGroupMaxRowCount(block.getPositionCount() * numBlocksPerRowGroup)
-                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(block.getPositionCount() * numBlocksPerStripe).build())
+                .withStripeMaxRowCount(block.getPositionCount() * numBlocksPerStripe)
                 .build();
 
         for (OrcEncoding encoding : OrcEncoding.values()) {

@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
@@ -173,7 +172,7 @@ public final class VariablesExtractor
         @Override
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<VariableReferenceExpression> builder)
         {
-            builder.add(new VariableReferenceExpression(getSourceLocation(node), node.getName(), types.get(node)));
+            builder.add(new VariableReferenceExpression(node.getName(), types.get(node)));
             return null;
         }
     }

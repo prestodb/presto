@@ -76,7 +76,7 @@ Resource Group Properties
     * ``totalMemoryLimit`` (optional): Specify an absolute value (i.e. ``1GB``)
        for the maximum distributed memory a query may consume.
 
-    * ``cpuTimeLimit`` (optional): Specify an absolute value (i.e. ``1h``)
+    * ``cpuTimeLimit`` (optional): Specify Specify an absolute value (i.e. ``1h``)
        for the maximum CPU time a query may use.
 
 * ``subGroups`` (optional): list of sub-groups.

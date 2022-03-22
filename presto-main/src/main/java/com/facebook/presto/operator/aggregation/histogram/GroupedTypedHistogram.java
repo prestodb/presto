@@ -267,10 +267,10 @@ public class GroupedTypedHistogram
      *
      * @param nodeReader - will be passed every non-null nodePointer
      */
-    private void iterateGroupNodes(long groupId, NodeReader nodeReader)
+    private void iterateGroupNodes(long groupdId, NodeReader nodeReader)
     {
         // while the index can be a long, the value is always an int
-        int currentPointer = (int) headPointers.get(groupId);
+        int currentPointer = (int) headPointers.get(groupdId);
         checkArgument(currentPointer != NULL, "valid group must have non-null head pointer");
 
         while (currentPointer != NULL) {

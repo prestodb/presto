@@ -16,7 +16,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -72,7 +71,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion variableStatsUnknown(String symbolName)
     {
-        return variableStatsUnknown(new VariableReferenceExpression(Optional.empty(), symbolName, BIGINT));
+        return variableStatsUnknown(new VariableReferenceExpression(symbolName, BIGINT));
     }
 
     public PlanNodeStatsAssertion variableStatsUnknown(VariableReferenceExpression variable)

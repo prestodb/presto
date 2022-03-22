@@ -20,6 +20,7 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -72,8 +73,8 @@ public class NullIfCodeGenerator
                 EQUAL.name(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, firstValue, firstType, functionAndTypeManager.getType(equalFunctionMetadata.getArgumentTypes().get(0))),
-                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, functionAndTypeManager.getType(equalFunctionMetadata.getArgumentTypes().get(1)))));
+                        cast(generatorContext, firstValue, firstType, equalFunctionMetadata.getArgumentTypes().get(0)),
+                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalFunctionMetadata.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)
@@ -99,7 +100,7 @@ public class NullIfCodeGenerator
             BytecodeGeneratorContext generatorContext,
             BytecodeNode argument,
             Type actualType,
-            Type requiredType)
+            TypeSignature requiredType)
     {
         if (actualType.getTypeSignature().equals(requiredType)) {
             return argument;
@@ -107,7 +108,7 @@ public class NullIfCodeGenerator
 
         FunctionHandle functionHandle = generatorContext
                 .getFunctionManager()
-                .lookupCast(CastType.CAST, actualType, requiredType);
+                .lookupCast(CastType.CAST, actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
         return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getJavaScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));

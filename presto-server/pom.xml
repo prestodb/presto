@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.273-SNAPSHOT</version>
+        <version>0.267-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server</artifactId>
@@ -50,7 +50,7 @@
             <type>tar.gz</type>
             <scope>provided</scope>
         </dependency>
-
+        
         <!-- plugins -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -347,23 +347,6 @@
             <type>zip</type>
             <scope>provided</scope>
         </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-hive-function-namespace</artifactId>
-            <version>${project.version}</version>
-            <type>zip</type>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-delta</artifactId>
-            <version>${project.version}</version>
-            <type>zip</type>
-            <scope>provided</scope>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -400,7 +383,7 @@
                     </execution>
                 </executions>
             </plugin>
-
+            
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>

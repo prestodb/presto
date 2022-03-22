@@ -18,8 +18,6 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.predicate.FilterFunction;
-import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
@@ -49,9 +47,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
-import static com.facebook.presto.common.predicate.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -68,6 +63,9 @@ import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedV
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.NONE;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.SOME;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;

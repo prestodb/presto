@@ -71,7 +71,7 @@ public class AndCodeGenerator
             block.comment("do { eval arg; if (wasNull) { hasNull = true; wasNull = false; } else if (false) goto ret_false; }")
                     .append(generator.generate(expression, Optional.empty()));
 
-            IfStatement ifOperandIsNull = new IfStatement("if left wasNull...").condition(wasNull);
+            IfStatement ifOperandIsNull = new IfStatement("if left wasNulll...").condition(wasNull);
             ifOperandIsNull.ifTrue()
                     .comment("clear the null flag and remember there was a null")
                     .putVariable(hasNulls, true)

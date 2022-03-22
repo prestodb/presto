@@ -74,10 +74,7 @@ public class PrestoSparkRemoteSourceOperator
             return null;
         }
 
-        Page page = pageInput.getNextPage(() -> {
-            updateMemoryContext();
-            return true;
-        });
+        Page page = pageInput.getNextPage();
         updateMemoryContext();
         if (page == null) {
             finished = true;
@@ -124,17 +121,10 @@ public class PrestoSparkRemoteSourceOperator
 
     private void updateMemoryContext()
     {
-        if (pageInput instanceof PrestoSparkDiskPageInput) {
-            long memorySize = 0;
+        // Since the cache is shared, only the first PrestoSparkRemoteSourceOperator should report the cache memory
+        if (isFirstOperator && pageInput instanceof PrestoSparkDiskPageInput) {
             PrestoSparkDiskPageInput diskPageInput = (PrestoSparkDiskPageInput) pageInput;
-            memorySize += diskPageInput.getStagingBroadcastTableSizeInBytes();
-
-            // Since the cache is shared, only the first PrestoSparkRemoteSourceOperator should report the cache memory
-            if (isFirstOperator) {
-                memorySize += diskPageInput.getRetainedSizeInBytes();
-            }
-
-            systemMemoryContext.setBytes(memorySize);
+            systemMemoryContext.setBytes(diskPageInput.getRetainedSizeInBytes());
         }
     }
 

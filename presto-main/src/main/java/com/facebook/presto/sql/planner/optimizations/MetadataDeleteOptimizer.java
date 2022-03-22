@@ -94,7 +94,6 @@ public class MetadataDeleteOptimizer
             }
 
             return new MetadataDeleteNode(
-                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     tableScanNode.getTable(),
                     Iterables.getOnlyElement(node.getOutputVariables()));

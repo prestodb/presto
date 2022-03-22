@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -22,7 +23,6 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
-import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.ORC;
@@ -36,8 +36,10 @@ public class TestIcebergConfig
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(GZIP)
-                .setCatalogType(HIVE)
+                .setNativeMode(false)
+                .setCatalogType(HADOOP)
                 .setCatalogWarehouse(null)
+                .setCatalogUri(null)
                 .setCatalogCacheSize(10)
                 .setHadoopConfigResources(null));
     }
@@ -48,17 +50,21 @@ public class TestIcebergConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("iceberg.file-format", "ORC")
                 .put("iceberg.compression-codec", "NONE")
-                .put("iceberg.catalog.type", "HADOOP")
+                .put("iceberg.native-mode", "true")
+                .put("iceberg.catalog.type", "HIVE")
                 .put("iceberg.catalog.warehouse", "path")
+                .put("iceberg.catalog.uri", "uri")
                 .put("iceberg.catalog.cached-catalog-num", "6")
                 .put("iceberg.hadoop.config.resources", "/etc/hadoop/conf/core-site.xml")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(ORC)
-                .setCompressionCodec(NONE)
-                .setCatalogType(HADOOP)
+                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setNativeMode(true)
+                .setCatalogType(HIVE)
                 .setCatalogWarehouse("path")
+                .setCatalogUri("uri")
                 .setCatalogCacheSize(6)
                 .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml");
 

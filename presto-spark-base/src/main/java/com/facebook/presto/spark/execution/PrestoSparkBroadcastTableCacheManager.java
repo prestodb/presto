@@ -60,7 +60,7 @@ public class PrestoSparkBroadcastTableCacheManager
 
     public synchronized long getBroadcastTableSizeInBytes(StageId stageId, PlanNodeId planNodeId)
     {
-        return broadcastTableToSizeMap.getOrDefault(new BroadcastTableCacheKey(stageId, planNodeId), 0L);
+        return broadcastTableToSizeMap.get(new BroadcastTableCacheKey(stageId, planNodeId));
     }
 
     private static class BroadcastTableCacheKey

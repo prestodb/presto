@@ -475,7 +475,6 @@ public final class Session
                 .setSessionStartTime(getStartTime())
                 .setSessionLocale(getLocale())
                 .setSessionUser(getUser())
-                .setExtraCredentials(identity.getExtraCredentials())
                 .build();
     }
 
@@ -575,7 +574,6 @@ public final class Session
         private Optional<Tracer> tracer = Optional.empty();
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
-        private final Map<ConnectorId, Map<String, String>> connectorProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
@@ -726,12 +724,6 @@ public final class Session
             return this;
         }
 
-        public SessionBuilder setConnectionProperty(ConnectorId connectorId, String propertyName, String propertyValue)
-        {
-            connectorProperties.computeIfAbsent(connectorId, id -> new HashMap<>()).put(propertyName, propertyValue);
-            return this;
-        }
-
         /**
          * Sets a catalog property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
@@ -775,7 +767,7 @@ public final class Session
                     Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
                     startTime,
                     systemProperties,
-                    connectorProperties,
+                    ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,

@@ -62,20 +62,6 @@ public final class Failures
         return toFailure(failure, newIdentityHashSet());
     }
 
-    public static void checkArgument(boolean expression, String errorMessage)
-    {
-        if (!expression) {
-            throw new PrestoException(StandardErrorCode.INVALID_ARGUMENTS, errorMessage);
-        }
-    }
-
-    public static void checkArgument(boolean expression, String errorMessageTemplate, Object... errorMessageArgs)
-    {
-        if (!expression) {
-            throw new PrestoException(StandardErrorCode.INVALID_ARGUMENTS, String.format(errorMessageTemplate, errorMessageArgs));
-        }
-    }
-
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
         if (!condition) {

@@ -320,7 +320,7 @@ public class SqlQueryScheduler
                 sectionExecutions.forEach(sectionExecution -> scheduledStageExecutions.addAll(sectionExecution.getSectionStages()));
                 sectionExecutions.stream()
                         .map(SectionExecution::getSectionStages)
-                        .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
+                        .map(executionPolicy::createExecutionSchedule)
                         .forEach(executionSchedules::add);
 
                 while (!executionSchedules.isEmpty() && executionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {

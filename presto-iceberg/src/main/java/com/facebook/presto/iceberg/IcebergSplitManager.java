@@ -27,10 +27,9 @@ import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
-import static com.facebook.presto.iceberg.IcebergUtil.getHadoopIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -39,7 +38,7 @@ public class IcebergSplitManager
     private final IcebergTransactionManager transactionManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final IcebergResourceFactory resourceFactory;
-    private final CatalogType catalogType;
+    private final boolean nativeCatalogMode;
 
     @Inject
     public IcebergSplitManager(
@@ -52,7 +51,7 @@ public class IcebergSplitManager
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         requireNonNull(config, "config is null");
-        this.catalogType = config.getCatalogType();
+        this.nativeCatalogMode = config.isNativeMode();
     }
 
     @Override
@@ -70,12 +69,12 @@ public class IcebergSplitManager
         }
 
         Table icebergTable;
-        if (catalogType == HADOOP) {
-            icebergTable = getHadoopIcebergTable(resourceFactory, session, table.getSchemaTableName());
+        if (nativeCatalogMode) {
+            icebergTable = resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table.getSchemaTableName()));
         }
         else {
-            ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) transactionManager.get(transaction)).getMetastore();
-            icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+            ExtendedHiveMetastore metastore = ((IcebergMetadata) transactionManager.get(transaction)).getMetastore();
+            icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
         }
 
         TableScan tableScan = icebergTable.newScan()

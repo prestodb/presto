@@ -13,19 +13,12 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.StripeReader.StripeId;
-import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.metadata.RowGroupIndex;
-import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
-import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 public class StorageStripeMetadataSource
@@ -58,19 +51,5 @@ public class StorageStripeMetadataSource
 
         // read ranges
         return orcDataSource.readFully(diskRanges);
-    }
-
-    @Override
-    public List<RowGroupIndex> getRowIndexes(
-            MetadataReader metadataReader,
-            HiveWriterVersion hiveWriterVersion,
-            StripeId stripeId,
-            StreamId streamId,
-            OrcInputStream inputStream,
-            List<HiveBloomFilter> bloomFilters,
-            RuntimeStats runtimeStats)
-            throws IOException
-    {
-        return metadataReader.readRowIndexes(hiveWriterVersion, inputStream, bloomFilters);
     }
 }

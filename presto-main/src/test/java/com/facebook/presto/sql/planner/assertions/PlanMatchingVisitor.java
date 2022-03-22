@@ -121,7 +121,7 @@ final class PlanMatchingVisitor
                 continue;
             }
 
-            // Try upMatching this node with the aliases gathered from the source nodes.
+            // Try upMatching this node with the the aliases gathered from the source nodes.
             SymbolAliases allSourceAliases = sourcesMatch.getAliases();
             MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, allSourceAliases);
             if (matchResult.isMatch()) {

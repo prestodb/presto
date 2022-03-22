@@ -17,12 +17,10 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
@@ -32,7 +30,7 @@ public class IcebergMetadataFactory
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final IcebergResourceFactory resourceFactory;
-    private final CatalogType catalogType;
+    private final boolean nativeCatalogMode;
 
     @Inject
     public IcebergMetadataFactory(
@@ -48,18 +46,14 @@ public class IcebergMetadataFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
-        requireNonNull(config, "config is null");
-        this.catalogType = config.getCatalogType();
+        this.nativeCatalogMode = requireNonNull(config, "config is null").isNativeMode();
     }
 
     public ConnectorMetadata create()
     {
-        switch (catalogType) {
-            case HADOOP:
-                return new IcebergHadoopMetadata(resourceFactory, typeManager, commitTaskCodec);
-            case HIVE:
-                return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+        if (nativeCatalogMode) {
+            return new IcebergNativeMetadata(resourceFactory, typeManager, commitTaskCodec);
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
+        return new IcebergMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
     }
 }

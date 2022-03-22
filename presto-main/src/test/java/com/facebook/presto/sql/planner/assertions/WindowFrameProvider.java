@@ -59,9 +59,9 @@ public class WindowFrameProvider
         return new WindowNode.Frame(
                 type,
                 startType,
-                startValue.map(alias -> new VariableReferenceExpression(Optional.empty(), alias.toSymbol(aliases).getName(), BIGINT)),
+                startValue.map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), BIGINT)),
                 endType,
-                endValue.map(alias -> new VariableReferenceExpression(Optional.empty(), alias.toSymbol(aliases).getName(), BIGINT)),
+                endValue.map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), BIGINT)),
                 originalStartValue.map(Expression::toString),
                 originalEndValue.map(Expression::toString));
     }

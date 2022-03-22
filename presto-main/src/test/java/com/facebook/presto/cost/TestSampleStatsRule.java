@@ -18,8 +18,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 
 public class TestSampleStatsRule
@@ -33,13 +31,13 @@ public class TestSampleStatsRule
                         pb.variable("i1", BIGINT), pb.variable("i2", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "i1", BIGINT), VariableStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i1", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(100)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "i2", BIGINT), VariableStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i2", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(20)
                                 .setDistinctValuesCount(20)
@@ -48,12 +46,12 @@ public class TestSampleStatsRule
                         .build())
                 .check(check ->
                         check.outputRowsCount(50)
-                                .variableStats(new VariableReferenceExpression(Optional.empty(), "i1", BIGINT), assertion -> assertion
+                                .variableStats(new VariableReferenceExpression("i1", BIGINT), assertion -> assertion
                                         .lowValue(1)
                                         .highValue(100)
                                         .distinctValuesCount(5)
                                         .nullsFraction(0))
-                                .variableStats(new VariableReferenceExpression(Optional.empty(), "i2", BIGINT), assertion -> assertion
+                                .variableStats(new VariableReferenceExpression("i2", BIGINT), assertion -> assertion
                                         .lowValue(1)
                                         .highValue(20)
                                         .distinctValuesCount(20)
@@ -64,13 +62,13 @@ public class TestSampleStatsRule
                         pb.variable("i1", BIGINT), pb.variable("i2", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "i1", BIGINT), VariableStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i1", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(100)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "i2", BIGINT), VariableStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i2", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(20)
                                 .setDistinctValuesCount(20)
@@ -79,12 +77,12 @@ public class TestSampleStatsRule
                         .build())
                 .check(check ->
                         check.outputRowsCount(20)
-                                .variableStats(new VariableReferenceExpression(Optional.empty(), "i1", BIGINT), assertion -> assertion
+                                .variableStats(new VariableReferenceExpression("i1", BIGINT), assertion -> assertion
                                         .lowValue(1)
                                         .highValue(100)
                                         .distinctValuesCount(5)
                                         .nullsFraction(0))
-                                .variableStats(new VariableReferenceExpression(Optional.empty(), "i2", BIGINT), assertion -> assertion
+                                .variableStats(new VariableReferenceExpression("i2", BIGINT), assertion -> assertion
                                         .lowValue(1)
                                         .highValue(20)
                                         .distinctValuesCount(20)

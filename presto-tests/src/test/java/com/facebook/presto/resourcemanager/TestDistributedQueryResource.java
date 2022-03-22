@@ -172,43 +172,4 @@ public class TestDistributedQueryResource
             finishedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FINISHED).count();
         }
     }
-
-    // Flaky test.
-    @Test(timeOut = 60_000, enabled = false)
-    public void testGetAllQueryInfoForLimits()
-            throws InterruptedException
-    {
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf102.orders");
-
-        waitForGlobalViewInRM(3, 3, 0, 0);
-
-        List<BasicQueryInfo> infos = getQueryInfos(client, coordinator1, "/v1/query?limit=4");
-        assertEquals(infos.size(), 4);
-        assertEquals(infos.get(0).getState(), QueryState.RUNNING);
-        assertEquals(infos.get(1).getState(), QueryState.RUNNING);
-        assertEquals(infos.get(2).getState(), QueryState.RUNNING);
-        assertEquals(infos.get(3).getState(), QueryState.QUEUED);
-    }
-
-    @Test
-    public void testGetAllQueryInfoReturnsAllQueriesWithNoLimitSpecified()
-            throws InterruptedException
-    {
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf102.orders");
-
-        waitForGlobalViewInRM(3, 3, 0, 0);
-
-        List<BasicQueryInfo> infos = getQueryInfos(client, coordinator1, "/v1/query");
-        assertEquals(infos.size(), 6);
-    }
 }

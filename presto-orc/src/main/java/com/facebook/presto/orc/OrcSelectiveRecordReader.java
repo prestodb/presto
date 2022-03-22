@@ -20,17 +20,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockLease;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
-import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.predicate.FilterFunction;
-import com.facebook.presto.common.predicate.TupleDomainFilter;
-import com.facebook.presto.common.predicate.TupleDomainFilter.BigintMultiRange;
-import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
-import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingBitmask;
-import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
+import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -149,9 +146,6 @@ public class OrcSelectiveRecordReader
 
     private int readPositions;
 
-    // true if row number needs to be added, false otherwise
-    private final boolean appendRowNumber;
-
     public OrcSelectiveRecordReader(
             Map<Integer, Type> includedColumns,                 // key: hiveColumnIndex
             List<Integer> outputColumns,                        // elements are hive column indices
@@ -264,7 +258,6 @@ public class OrcSelectiveRecordReader
 
         requireNonNull(constantValues, "constantValues is null");
         this.constantValues = new Object[this.hiveColumnIndices.length];
-        this.appendRowNumber = options.appendRowNumber();
         for (int columnIndex : includedColumns.keySet()) {
             if (!isColumnPresent(columnIndex)) {
                 // Any filter not true of null on a missing column
@@ -636,6 +629,7 @@ public class OrcSelectiveRecordReader
         if (batchSize < 0) {
             return null;
         }
+
         readPositions += batchSize;
         initializePositions(batchSize);
 
@@ -720,7 +714,7 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        Block[] blocks = new Block[ appendRowNumber ? outputColumns.size() + 1 : outputColumns.size()];
+        Block[] blocks = new Block[outputColumns.size()];
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
@@ -741,11 +735,10 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        if (appendRowNumber) {
-            blocks[outputColumns.size()] = createRowNumbersBlock(positionsToRead, positionCount, this.getFilePosition());
-        }
         Page page = new Page(positionCount, blocks);
+
         validateWritePageChecksum(page);
+
         return page;
     }
 
@@ -885,15 +878,6 @@ public class OrcSelectiveRecordReader
         for (int i = 0; i < positionCount; i++) {
             outputPositions[i] = i;
         }
-    }
-
-    private static Block createRowNumbersBlock(int[] positionsToRead, int positionCount, long startRowNumber)
-    {
-        long[] rowNumbers = new long[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            rowNumbers[i] = positionsToRead[i] + startRowNumber;
-        }
-        return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
     }
 
     @Override

@@ -25,10 +25,8 @@ public class QueryMetadata
 {
     private final String queryId;
     private final Optional<String> transactionId;
-    private final Optional<String> tracingId;
 
     private final String query;
-    private final Optional<String> preparedQuery;
     private final String queryState;
 
     private final URI uri;
@@ -45,26 +43,22 @@ public class QueryMetadata
             String queryId,
             Optional<String> transactionId,
             String query,
-            Optional<String> preparedQuery,
             String queryState,
             URI uri,
             Optional<String> plan,
             Optional<String> jsonPlan,
             Optional<String> payload,
-            List<String> runtimeOptimizedStages,
-            Optional<String> tracingId)
+            List<String> runtimeOptimizedStages)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.query = requireNonNull(query, "query is null");
-        this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryState = requireNonNull(queryState, "queryState is null");
         this.uri = requireNonNull(uri, "uri is null");
         this.plan = requireNonNull(plan, "plan is null");
         this.jsonPlan = requireNonNull(jsonPlan, "jsonPlan is null");
         this.payload = requireNonNull(payload, "payload is null");
         this.runtimeOptimizedStages = requireNonNull(runtimeOptimizedStages, "runtimeOptimizedStages is null");
-        this.tracingId = requireNonNull(tracingId, "tracingId is null");
     }
 
     @JsonProperty
@@ -83,12 +77,6 @@ public class QueryMetadata
     public String getQuery()
     {
         return query;
-    }
-
-    @JsonProperty
-    public Optional<String> getPreparedQuery()
-    {
-        return preparedQuery;
     }
 
     @JsonProperty
@@ -125,11 +113,5 @@ public class QueryMetadata
     public List<String> getRuntimeOptimizedStages()
     {
         return runtimeOptimizedStages;
-    }
-
-    @JsonProperty
-    public Optional<String> getTracingId()
-    {
-        return tracingId;
     }
 }

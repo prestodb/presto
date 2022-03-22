@@ -16,11 +16,8 @@ package com.facebook.presto.common.function;
 import com.facebook.presto.common.type.TimeZoneKey;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class SqlFunctionProperties
@@ -34,7 +31,6 @@ public class SqlFunctionProperties
     private final long sessionStartTime;
     private final Locale sessionLocale;
     private final String sessionUser;
-    private final Map<String, String> extraCredentials;
 
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
@@ -45,8 +41,7 @@ public class SqlFunctionProperties
             boolean legacyMapSubscript,
             long sessionStartTime,
             Locale sessionLocale,
-            String sessionUser,
-            Map<String, String> extraCredentials)
+            String sessionUser)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
@@ -57,7 +52,6 @@ public class SqlFunctionProperties
         this.sessionStartTime = sessionStartTime;
         this.sessionLocale = requireNonNull(sessionLocale, "sessionLocale is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
-        this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
     }
 
     public boolean isParseDecimalLiteralAsDouble()
@@ -106,11 +100,6 @@ public class SqlFunctionProperties
         return sessionUser;
     }
 
-    public Map<String, String> getExtraCredentials()
-    {
-        return extraCredentials;
-    }
-
     @Override
     public boolean equals(Object o)
     {
@@ -125,17 +114,13 @@ public class SqlFunctionProperties
                 Objects.equals(legacyRowFieldOrdinalAccessEnabled, that.legacyRowFieldOrdinalAccessEnabled) &&
                 Objects.equals(timeZoneKey, that.timeZoneKey) &&
                 Objects.equals(legacyTimestamp, that.legacyTimestamp) &&
-                Objects.equals(legacyMapSubscript, that.legacyMapSubscript) &&
-                Objects.equals(sessionStartTime, that.sessionStartTime) &&
-                Objects.equals(sessionLocale, that.sessionLocale) &&
-                Objects.equals(sessionUser, that.sessionUser) &&
-                Objects.equals(extraCredentials, that.extraCredentials);
+                Objects.equals(legacyMapSubscript, that.legacyMapSubscript);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
+        return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript);
     }
 
     public static Builder builder()
@@ -154,7 +139,6 @@ public class SqlFunctionProperties
         private long sessionStartTime;
         private Locale sessionLocale;
         private String sessionUser;
-        private Map<String, String> extraCredentials = emptyMap();
 
         private Builder() {}
 
@@ -212,15 +196,9 @@ public class SqlFunctionProperties
             return this;
         }
 
-        public Builder setExtraCredentials(Map<String, String> extraCredentials)
-        {
-            this.extraCredentials = unmodifiableMap(extraCredentials);
-            return this;
-        }
-
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, legacyTypeCoercionWarningEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
+            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, legacyTypeCoercionWarningEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser);
         }
     }
 }

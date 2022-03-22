@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.base.security;
 
-import com.facebook.presto.common.Subfield;
 import com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -164,7 +163,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // TODO: Implement column level permissions
         if (!checkTablePermission(identity, tableName, SELECT)) {

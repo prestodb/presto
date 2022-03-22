@@ -29,12 +29,9 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
@@ -55,8 +52,7 @@ final class ExplainRewrite
             SqlParser parser,
             Optional<QueryExplainer> queryExplainer,
             Statement node,
-            List<Expression> parameter,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            List<Expression> parameters,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {

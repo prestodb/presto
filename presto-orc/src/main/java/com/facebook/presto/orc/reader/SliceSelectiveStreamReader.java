@@ -15,13 +15,13 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockLease;
-import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.Chars;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.Varchars;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
+import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.annotations.VisibleForTesting;

@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -37,7 +36,7 @@ public class TestLambdaCaptureDesugaringRewriter
     @Test
     public void testRewriteBasicLambda()
     {
-        final List<VariableReferenceExpression> variables = ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), new VariableReferenceExpression(Optional.empty(), "x", BIGINT));
+        final List<VariableReferenceExpression> variables = ImmutableList.of(new VariableReferenceExpression("a", BIGINT), new VariableReferenceExpression("x", BIGINT));
         final PlanVariableAllocator allocator = new PlanVariableAllocator(variables);
 
         assertEquals(rewrite(expression("x -> a + x"), allocator),

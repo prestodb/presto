@@ -334,7 +334,7 @@ public abstract class BaseNCodec
      * Encodes a byte[] containing binary data, into a byte[] containing characters in the alphabet.
      *
      * @param pArray a byte array containing binary data
-     * @return A byte array containing only the base-n alphabetic character data
+     * @return A byte array containing only the basen alphabetic character data
      */
     public byte[] encode(final byte[] pArray)
     {

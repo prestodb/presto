@@ -84,7 +84,6 @@ public class DriverContext
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final Lifespan lifespan;
     private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
-    private final long splitWeight;
 
     public DriverContext(
             PipelineContext pipelineContext,
@@ -92,8 +91,7 @@ public class DriverContext
             ScheduledExecutorService yieldExecutor,
             MemoryTrackingContext driverMemoryContext,
             Lifespan lifespan,
-            Optional<FragmentResultCacheContext> fragmentResultCacheContext,
-            long splitWeight)
+            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -102,18 +100,11 @@ public class DriverContext
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
         this.fragmentResultCacheContext = requireNonNull(fragmentResultCacheContext, "fragmentResultCacheContext is null");
         this.yieldSignal = new DriverYieldSignal();
-        this.splitWeight = splitWeight;
-        checkArgument(splitWeight >= 0, "splitWeight must be >= 0, found: %s", splitWeight);
     }
 
     public TaskId getTaskId()
     {
         return pipelineContext.getTaskId();
-    }
-
-    public long getSplitWeight()
-    {
-        return splitWeight;
     }
 
     public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType)
@@ -305,7 +296,7 @@ public class DriverContext
         }
     }
 
-    public long getPhysicalWrittenDataSize()
+    public long getPphysicalWrittenDataSize()
     {
         return operatorContexts.stream()
                 .mapToLong(OperatorContext::getPhysicalWrittenDataSize)

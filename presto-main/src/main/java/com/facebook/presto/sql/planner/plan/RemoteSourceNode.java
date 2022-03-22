@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -42,7 +41,6 @@ public class RemoteSourceNode
 
     @JsonCreator
     public RemoteSourceNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
@@ -50,7 +48,7 @@ public class RemoteSourceNode
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
             @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
     {
-        super(sourceLocation, id);
+        super(id);
 
         this.sourceFragmentIds = sourceFragmentIds;
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
@@ -60,7 +58,6 @@ public class RemoteSourceNode
     }
 
     public RemoteSourceNode(
-            Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             PlanFragmentId sourceFragmentId,
             List<VariableReferenceExpression> outputVariables,
@@ -68,7 +65,7 @@ public class RemoteSourceNode
             Optional<OrderingScheme> orderingScheme,
             ExchangeNode.Type exchangeType)
     {
-        this(sourceLocation, id, ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType);
+        this(id, ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType);
     }
 
     @Override

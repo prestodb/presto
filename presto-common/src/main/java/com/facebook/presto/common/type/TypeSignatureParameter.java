@@ -57,11 +57,6 @@ public class TypeSignatureParameter
         return new TypeSignatureParameter(ParameterKind.VARCHAR_ENUM, enumMap);
     }
 
-    public static TypeSignatureParameter of(DistinctTypeInfo distinctTypeInfo)
-    {
-        return new TypeSignatureParameter(ParameterKind.DISTINCT_TYPE, distinctTypeInfo);
-    }
-
     private TypeSignatureParameter(ParameterKind kind, Object value)
     {
         this.kind = requireNonNull(kind, "kind is null");
@@ -109,11 +104,6 @@ public class TypeSignatureParameter
         return kind == ParameterKind.VARCHAR_ENUM;
     }
 
-    public boolean isDistinctType()
-    {
-        return kind == ParameterKind.DISTINCT_TYPE;
-    }
-
     private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
     {
         if (kind != expectedParameterKind) {
@@ -152,11 +142,6 @@ public class TypeSignatureParameter
         return getValue(ParameterKind.VARCHAR_ENUM, VarcharEnumMap.class);
     }
 
-    public DistinctTypeInfo getDistinctTypeInfo()
-    {
-        return getValue(ParameterKind.DISTINCT_TYPE, DistinctTypeInfo.class);
-    }
-
     public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
     {
         switch (kind) {
@@ -179,7 +164,6 @@ public class TypeSignatureParameter
             case LONG:
             case LONG_ENUM:
             case VARCHAR_ENUM:
-            case DISTINCT_TYPE:
                 return false;
             case VARIABLE:
                 return true;

@@ -18,11 +18,8 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
-import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,21 +31,15 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
+import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestQueryStateInfo
 {
@@ -72,11 +63,10 @@ public class TestQueryStateInfo
         rootAX.setHardConcurrencyLimit(0);
 
         // Verify QueryStateInfo for query queued on resource group root.a.y
-        QueryStateInfo query = createQueryStateInfo(
-                new BasicQueryInfo(createQueryInfo("query_root_a_x", rootAX.getId(), QUEUED, "SELECT 1")),
-                Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())),
-                false,
-                OptionalInt.empty());
+        QueryStateInfo query = createQueuedQueryStateInfo(
+                new BasicQueryInfo(createQueryInfo("query_root_a_x", QUEUED, "SELECT 1")),
+                Optional.of(rootAX.getId()),
+                Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
 
         assertEquals(query.getQuery(), "SELECT 1");
         assertEquals(query.getQueryId().toString(), "query_root_a_x");
@@ -102,106 +92,7 @@ public class TestQueryStateInfo
         assertEquals(actualRootInfo.getNumQueuedQueries(), expectedRootInfo.getNumQueuedQueries());
     }
 
-    @Test
-    public void testQueryTextTruncation()
-    {
-        QueryInfo queryInfo = createQueryInfo("query_id_test", RUNNING, "SELECT * FROM foo");
-
-        QueryStateInfo queryStateInfoNoLimit = createQueryStateInfo(new BasicQueryInfo(queryInfo), Optional.empty(), false, OptionalInt.empty());
-
-        assertFalse(queryStateInfoNoLimit.isQueryTruncated());
-        assertEquals(queryStateInfoNoLimit.getQuery(), queryInfo.getQuery());
-
-        QueryStateInfo queryStateInfoLimitLower = createQueryStateInfo(new BasicQueryInfo(queryInfo), Optional.empty(), false, OptionalInt.of(5));
-
-        assertTrue(queryStateInfoLimitLower.isQueryTruncated());
-        assertEquals(queryStateInfoLimitLower.getQuery(), queryInfo.getQuery().substring(0, 5));
-        assertEquals(queryStateInfoLimitLower.getQuery().length(), 5);
-
-        QueryStateInfo queryStateInfoLimitHigher = createQueryStateInfo(new BasicQueryInfo(queryInfo), Optional.empty(), false, OptionalInt.of(500));
-
-        assertFalse(queryStateInfoLimitHigher.isQueryTruncated());
-        assertEquals(queryStateInfoLimitHigher.getQuery(), queryInfo.getQuery());
-    }
-
-    @Test
-    public void testIncludeQueryProgress()
-    {
-        QueryInfo queuedQueryInfo = createQueryInfo("query_id_test", QUEUED, "SELECT * FROM foo");
-
-        QueryStateInfo queuedStateInfoWithoutProgress = createQueryStateInfo(new BasicQueryInfo(queuedQueryInfo), Optional.empty(), false, OptionalInt.empty());
-        assertFalse(queuedStateInfoWithoutProgress.getProgress().isPresent());
-
-        QueryStateInfo queuedStateInfoWithProgress = createQueryStateInfo(new BasicQueryInfo(queuedQueryInfo), Optional.empty(), true, OptionalInt.empty());
-        assertTrue(queuedStateInfoWithProgress.getProgress().isPresent());
-
-        QueryInfo runningQueryInfo = createQueryInfo("query_id_test", RUNNING, "SELECT * FROM foo");
-
-        QueryStateInfo runningStateInfoWithoutProgress = createQueryStateInfo(new BasicQueryInfo(runningQueryInfo), Optional.empty(), false, OptionalInt.empty());
-        assertTrue(runningStateInfoWithoutProgress.getProgress().isPresent());
-
-        QueryStateInfo runningStateInfoWithProgress = createQueryStateInfo(new BasicQueryInfo(runningQueryInfo), Optional.empty(), true, OptionalInt.empty());
-        assertTrue(runningStateInfoWithProgress.getProgress().isPresent());
-
-        QueryInfo finishedQueryInfo = createQueryInfo("query_id_test", FINISHED, "SELECT * FROM foo");
-
-        QueryStateInfo finishedStateInfoWithoutProgress = createQueryStateInfo(new BasicQueryInfo(finishedQueryInfo), Optional.empty(), false, OptionalInt.empty());
-        assertFalse(finishedStateInfoWithoutProgress.getProgress().isPresent());
-
-        QueryStateInfo finishedStateInfoWithProgress = createQueryStateInfo(new BasicQueryInfo(finishedQueryInfo), Optional.empty(), true, OptionalInt.empty());
-        assertTrue(finishedStateInfoWithProgress.getProgress().isPresent());
-    }
-
-    @Test
-    public void testQueryStateInfoCreation()
-    {
-        QueryInfo queryInfo = createQueryInfo("query_id_test", RUNNING, "SELECT * FROM foo");
-        QueryStateInfo queryStateInfo = createQueryStateInfo(new BasicQueryInfo(queryInfo));
-
-        assertEquals(queryStateInfo.getQueryId(), queryInfo.getQueryId());
-        assertEquals(queryStateInfo.getQueryState(), queryInfo.getState());
-        assertEquals(queryStateInfo.getResourceGroupId(), queryInfo.getResourceGroupId());
-        assertEquals(queryStateInfo.getQuery(), queryInfo.getQuery());
-        assertEquals(queryStateInfo.getCreateTime(), queryInfo.getQueryStats().getCreateTime());
-        assertEquals(queryStateInfo.getUser(), queryInfo.getSession().getUser());
-        assertEquals(queryStateInfo.isAuthenticated(), queryInfo.getSession().getPrincipal().isPresent());
-        assertEquals(queryStateInfo.getSource(), queryInfo.getSession().getSource());
-        assertEquals(queryStateInfo.getClientInfo(), queryInfo.getSession().getClientInfo());
-        assertEquals(queryStateInfo.getCatalog(), queryInfo.getSession().getCatalog());
-        assertEquals(queryStateInfo.getSchema(), queryInfo.getSession().getSchema());
-        assertEquals(queryStateInfo.getWarningCodes(), ImmutableList.of("WARNING_123"));
-        assertTrue(queryStateInfo.getProgress().isPresent());
-        assertEquals(queryStateInfo.getErrorCode(), Optional.ofNullable(queryInfo.getErrorCode()));
-
-        QueryProgressStats progress = queryStateInfo.getProgress().get();
-        QueryStats stats = queryInfo.getQueryStats();
-
-        assertEquals(progress.getElapsedTimeMillis(), stats.getElapsedTime().toMillis());
-        assertEquals(progress.getQueuedTimeMillis(), stats.getQueuedTime().toMillis());
-        assertEquals(progress.getExecutionTimeMillis(), stats.getExecutionTime().toMillis());
-        assertEquals(progress.getCpuTimeMillis(), stats.getTotalCpuTime().toMillis());
-        assertEquals(progress.getScheduledTimeMillis(), stats.getTotalScheduledTime().toMillis());
-        assertEquals(progress.getCurrentMemoryBytes(), stats.getUserMemoryReservation().toBytes());
-        assertEquals(progress.getPeakMemoryBytes(), stats.getPeakUserMemoryReservation().toBytes());
-        assertEquals(progress.getPeakTotalMemoryBytes(), stats.getPeakTotalMemoryReservation().toBytes());
-        assertEquals(progress.getCumulativeUserMemory(), stats.getCumulativeUserMemory());
-        assertEquals(progress.getCumulativeTotalMemory(), stats.getCumulativeTotalMemory());
-        assertEquals(progress.getInputRows(), stats.getRawInputPositions());
-        assertEquals(progress.getInputBytes(), stats.getRawInputDataSize().toBytes());
-        assertEquals(progress.isBlocked(), stats.isFullyBlocked());
-        assertEquals(progress.getBlockedReasons(), Optional.of(stats.getBlockedReasons()));
-        assertEquals(progress.getProgressPercentage(), stats.getProgressPercentage());
-        assertEquals(progress.getQueuedDrivers(), stats.getQueuedDrivers());
-        assertEquals(progress.getRunningDrivers(), stats.getRunningDrivers());
-        assertEquals(progress.getCompletedDrivers(), stats.getCompletedDrivers());
-    }
-
     private QueryInfo createQueryInfo(String queryId, QueryState state, String query)
-    {
-        return createQueryInfo(queryId, new ResourceGroupId("global"), state, query);
-    }
-
-    private QueryInfo createQueryInfo(String queryId, ResourceGroupId resourceGroupId, QueryState state, String query)
     {
         return new QueryInfo(
                 new QueryId(queryId),
@@ -212,7 +103,6 @@ public class TestQueryStateInfo
                 URI.create("1"),
                 ImmutableList.of("2", "3"),
                 query,
-                Optional.empty(),
                 Optional.empty(),
                 new QueryStats(
                         DateTime.parse("1991-09-06T05:00-05:30"),
@@ -281,15 +171,12 @@ public class TestQueryStateInfo
                 "33",
                 Optional.empty(),
                 null,
-                EXCEEDED_GLOBAL_MEMORY_LIMIT.toErrorCode(),
-                ImmutableList.of(
-                        new PrestoWarning(
-                                new WarningCode(123, "WARNING_123"),
-                                "warning message")),
+                null,
+                ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 false,
-                Optional.of(resourceGroupId),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

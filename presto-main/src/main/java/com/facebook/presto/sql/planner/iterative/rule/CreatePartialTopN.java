@@ -40,7 +40,6 @@ public class CreatePartialTopN
     public Result apply(TopNNode single, Captures captures, Context context)
     {
         TopNNode partial = new TopNNode(
-                single.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 single.getSource(),
                 single.getCount(),
@@ -48,7 +47,6 @@ public class CreatePartialTopN
                 PARTIAL);
 
         return Result.ofPlanNode(new TopNNode(
-                single.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 partial,
                 single.getCount(),

@@ -27,7 +27,7 @@ import static java.lang.Long.rotateLeft;
 import static java.lang.String.format;
 
 public final class TinyintType
-        extends AbstractPrimitiveType
+        extends AbstractType
         implements FixedWidthType
 {
     public static final TinyintType TINYINT = new TinyintType();

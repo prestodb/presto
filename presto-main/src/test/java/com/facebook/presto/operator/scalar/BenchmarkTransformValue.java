@@ -144,13 +144,12 @@ public class BenchmarkTransformValue
             projectionsBuilder.add(call(name, functionHandle, returnType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
-                            Optional.empty(),
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
                             call(
                                     GREATER_THAN.name(),
                                     greaterThan, BOOLEAN, ImmutableList.of(
-                                    new VariableReferenceExpression(Optional.empty(), "y", elementType),
+                                    new VariableReferenceExpression("y", elementType),
                                     constant(compareValue, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 

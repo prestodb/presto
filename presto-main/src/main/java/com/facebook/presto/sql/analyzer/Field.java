@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.QualifiedName;
 
 import java.util.Optional;
@@ -24,7 +23,6 @@ import static java.util.Objects.requireNonNull;
 
 public class Field
 {
-    private final Optional<NodeLocation> nodeLocation;
     private final Optional<QualifiedObjectName> originTable;
     private final Optional<String> originColumnName;
     private final Optional<QualifiedName> relationAlias;
@@ -33,44 +31,43 @@ public class Field
     private final boolean hidden;
     private final boolean aliased;
 
-    public static Field newUnqualified(Optional<NodeLocation> nodeLocation, String name, Type type)
+    public static Field newUnqualified(String name, Type type)
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
 
-        return new Field(nodeLocation, Optional.empty(), Optional.of(name), type, false, Optional.empty(), Optional.empty(), false);
+        return new Field(Optional.empty(), Optional.of(name), type, false, Optional.empty(), Optional.empty(), false);
     }
 
-    public static Field newUnqualified(Optional<NodeLocation> nodeLocation, Optional<String> name, Type type)
+    public static Field newUnqualified(Optional<String> name, Type type)
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
 
-        return new Field(nodeLocation, Optional.empty(), name, type, false, Optional.empty(), Optional.empty(), false);
+        return new Field(Optional.empty(), name, type, false, Optional.empty(), Optional.empty(), false);
     }
 
-    public static Field newUnqualified(Optional<NodeLocation> nodeLocation, Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
 
-        return new Field(nodeLocation, Optional.empty(), name, type, false, originTable, originColumn, aliased);
+        return new Field(Optional.empty(), name, type, false, originTable, originColumn, aliased);
     }
 
-    public static Field newQualified(Optional<NodeLocation> nodeLocation, QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
+    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
 
-        return new Field(nodeLocation, Optional.of(relationAlias), name, type, hidden, originTable, originColumn, aliased);
+        return new Field(Optional.of(relationAlias), name, type, hidden, originTable, originColumn, aliased);
     }
 
-    public Field(Optional<NodeLocation> nodeLocation, Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumnName, boolean aliased)
+    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumnName, boolean aliased)
     {
-        this.nodeLocation = nodeLocation;
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
@@ -84,11 +81,6 @@ public class Field
         this.originTable = originTable;
         this.originColumnName = originColumnName;
         this.aliased = aliased;
-    }
-
-    public Optional<NodeLocation> getNodeLocation()
-    {
-        return nodeLocation;
     }
 
     public Optional<QualifiedObjectName> getOriginTable()

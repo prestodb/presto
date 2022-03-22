@@ -38,8 +38,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -125,7 +123,7 @@ class TranslationMap
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 if (expressionToVariables.containsKey(node)) {
-                    return new SymbolReference(expression.getLocation(), expressionToVariables.get(node).getName());
+                    return new SymbolReference(expressionToVariables.get(node).getName());
                 }
 
                 Expression translated = expressionToExpressions.getOrDefault(node, node);
@@ -139,7 +137,7 @@ class TranslationMap
         if (expression instanceof FieldReference) {
             int fieldIndex = ((FieldReference) expression).getFieldIndex();
             fieldVariables[fieldIndex] = variable;
-            expressionToVariables.put(new SymbolReference(expression.getLocation(), rewriteBase.getVariable(fieldIndex).getName()), variable);
+            expressionToVariables.put(new SymbolReference(rewriteBase.getVariable(fieldIndex).getName()), variable);
             return;
         }
 
@@ -201,7 +199,7 @@ class TranslationMap
             {
                 VariableReferenceExpression variable = rewriteBase.getVariable(node.getFieldIndex());
                 checkState(variable != null, "No variable mapping for node '%s' (%s)", node, node.getFieldIndex());
-                return new SymbolReference(getNodeLocation(variable.getSourceLocation()), variable.getName());
+                return new SymbolReference(variable.getName());
             }
 
             @Override
@@ -210,7 +208,7 @@ class TranslationMap
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
                     VariableReferenceExpression variable = lambdaDeclarationToVariableMap.get(NodeRef.of(referencedLambdaArgumentDeclaration));
-                    return coerceIfNecessary(node, createSymbolReference(variable));
+                    return coerceIfNecessary(node, new SymbolReference(variable.getName()));
                 }
                 else {
                     return rewriteExpressionWithResolvedName(node);
@@ -220,7 +218,7 @@ class TranslationMap
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
                 return getVariable(rewriteBase, node)
-                        .map(variable -> coerceIfNecessary(node, createSymbolReference(variable)))
+                        .map(variable -> coerceIfNecessary(node, new SymbolReference(variable.getName())))
                         .orElse(coerceIfNecessary(node, node));
             }
 
@@ -232,7 +230,7 @@ class TranslationMap
                     if (resolvedField.isPresent()) {
                         if (resolvedField.get().isLocal()) {
                             return getVariable(rewriteBase, node)
-                                    .map(variable -> coerceIfNecessary(node, createSymbolReference(variable)))
+                                    .map(variable -> coerceIfNecessary(node, new SymbolReference(variable.getName())))
                                     .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
                         }
                     }
@@ -243,7 +241,7 @@ class TranslationMap
                 Type nodeType = analysis.getType(node);
                 Type baseType = analysis.getType(node.getBase());
                 if (isEnumType(baseType) && isEnumType(nodeType)) {
-                    return new EnumLiteral(node.getLocation(), nodeType.getTypeSignature().toString(), resolveEnumLiteral(node, nodeType));
+                    return new EnumLiteral(nodeType.getTypeSignature().toString(), resolveEnumLiteral(node, nodeType));
                 }
                 return rewriteExpression(node, context, treeRewriter);
             }
@@ -256,17 +254,17 @@ class TranslationMap
                 ImmutableList.Builder<LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
                 for (LambdaArgumentDeclaration argument : node.getArguments()) {
                     VariableReferenceExpression variable = lambdaDeclarationToVariableMap.get(NodeRef.of(argument));
-                    newArguments.add(new LambdaArgumentDeclaration(new Identifier(argument.getLocation(), variable.getName())));
+                    newArguments.add(new LambdaArgumentDeclaration(new Identifier(variable.getName())));
                 }
                 Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
-                return new LambdaExpression(node.getLocation(), newArguments.build(), rewrittenBody);
+                return new LambdaExpression(newArguments.build(), rewrittenBody);
             }
 
             @Override
             public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
-                return coerceIfNecessary(node, analysis.getParameters().get(NodeRef.of(node)));
+                return coerceIfNecessary(node, analysis.getParameters().get(node.getPosition()));
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
@@ -274,7 +272,6 @@ class TranslationMap
                 Type coercion = analysis.getCoercion(original);
                 if (coercion != null) {
                     rewritten = new Cast(
-                            original.getLocation(),
                             rewritten,
                             coercion.getTypeSignature().toString(),
                             false,

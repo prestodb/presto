@@ -217,11 +217,10 @@ public class PickTableLayout
                             .collect(toImmutableSet())));
 
             if (layout.getLayout().getPredicate().isNone()) {
-                return Result.ofPlanNode(new ValuesNode(tableScanNode.getSourceLocation(), context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
+                return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
             }
 
             return Result.ofPlanNode(new TableScanNode(
-                    tableScanNode.getSourceLocation(),
                     tableScanNode.getId(),
                     layout.getLayout().getNewTableHandle(),
                     tableScanNode.getOutputVariables(),
@@ -299,7 +298,7 @@ public class PickTableLayout
             constraint = new Constraint<>(newDomain);
         }
         if (constraint.getSummary().isNone()) {
-            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
         }
 
         // Layouts will be returned in order of the connector's preference
@@ -312,11 +311,10 @@ public class PickTableLayout
                         .collect(toImmutableSet())));
 
         if (layout.getLayout().getPredicate().isNone()) {
-            return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
         }
 
         TableScanNode tableScan = new TableScanNode(
-                node.getSourceLocation(),
                 node.getId(),
                 layout.getLayout().getNewTableHandle(),
                 node.getOutputVariables(),
@@ -338,7 +336,7 @@ public class PickTableLayout
                 decomposedPredicate.getRemainingExpression());
 
         if (!TRUE_CONSTANT.equals(resultingPredicate)) {
-            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), tableScan, resultingPredicate);
+            return new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate);
         }
         return tableScan;
     }

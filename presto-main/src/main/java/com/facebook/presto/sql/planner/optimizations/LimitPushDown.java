@@ -105,7 +105,7 @@ public class LimitPushDown
             LimitContext limit = context.get();
             if (limit != null) {
                 // Drop in a LimitNode b/c we cannot push our limit down any further
-                rewrittenNode = new LimitNode(rewrittenNode.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.getStep());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.getStep());
             }
             return rewrittenNode;
         }
@@ -120,9 +120,7 @@ public class LimitPushDown
 
             // return empty ValuesNode in case of limit 0
             if (count == 0) {
-                return new ValuesNode(
-                        node.getSourceLocation(),
-                        idAllocator.getNextId(),
+                return new ValuesNode(idAllocator.getNextId(),
                         node.getOutputVariables(),
                         ImmutableList.of());
             }
@@ -142,12 +140,12 @@ public class LimitPushDown
                     node.getOutputVariables().size() == node.getGroupingKeys().size() &&
                     node.getOutputVariables().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputVariables(), Optional.empty());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputVariables(), Optional.empty());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {
                 // Drop in a LimitNode b/c limits cannot be pushed through aggregations
-                rewrittenNode = new LimitNode(rewrittenNode.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.getStep());
+                rewrittenNode = new LimitNode(idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.getStep());
             }
             return rewrittenNode;
         }
@@ -182,7 +180,7 @@ public class LimitPushDown
             if (limit != null) {
                 count = Math.min(count, limit.getCount());
             }
-            return new TopNNode(node.getSourceLocation(), node.getId(), rewrittenSource, count, node.getOrderingScheme(), node.getStep());
+            return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderingScheme(), node.getStep());
         }
 
         @Override
@@ -193,10 +191,10 @@ public class LimitPushDown
 
             PlanNode rewrittenSource = context.rewrite(node.getSource());
             if (limit != null) {
-                return new TopNNode(node.getSourceLocation(), node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
+                return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
             }
             else if (rewrittenSource != node.getSource()) {
-                return new SortNode(node.getSourceLocation(), node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
+                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
             }
             return node;
         }
@@ -216,9 +214,9 @@ public class LimitPushDown
                 sources.add(context.rewrite(node.getSources().get(i), childLimit));
             }
 
-            PlanNode output = new UnionNode(node.getSourceLocation(), node.getId(), sources, node.getOutputVariables(), node.getVariableMapping());
+            PlanNode output = new UnionNode(node.getId(), sources, node.getOutputVariables(), node.getVariableMapping());
             if (limit != null) {
-                output = new LimitNode(output.getSourceLocation(), idAllocator.getNextId(), output, limit.getCount(), limit.getStep());
+                output = new LimitNode(idAllocator.getNextId(), output, limit.getCount(), limit.getStep());
             }
             return output;
         }
@@ -229,7 +227,6 @@ public class LimitPushDown
             PlanNode source = context.rewrite(node.getSource(), context.get());
             if (source != node.getSource()) {
                 return new SemiJoinNode(
-                        node.getSourceLocation(),
                         node.getId(),
                         source,
                         node.getFilteringSource(),

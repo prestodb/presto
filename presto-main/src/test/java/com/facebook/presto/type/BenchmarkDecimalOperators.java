@@ -74,7 +74,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
@@ -568,7 +568,7 @@ public class BenchmarkDecimalOperators
         protected void addSymbol(String name, Type type)
         {
             symbolTypes.put(name, type);
-            sourceLayout.put(new VariableReferenceExpression(Optional.empty(), name, type), types.size());
+            sourceLayout.put(new VariableReferenceExpression(name, type), types.size());
             types.add(type);
         }
 
@@ -608,7 +608,7 @@ public class BenchmarkDecimalOperators
         {
             Expression expression = createExpression(value, metadata, TypeProvider.copyOf(symbolTypes));
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyMap(), WarningCollector.NOOP);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
             RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, metadata.getFunctionAndTypeManager(), TEST_SESSION);
             RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
             return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());

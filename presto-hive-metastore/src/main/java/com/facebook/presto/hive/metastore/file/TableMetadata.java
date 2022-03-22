@@ -22,17 +22,15 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveStorageFormat.getHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -47,7 +45,7 @@ public class TableMetadata
     private final List<Column> partitionColumns;
     private final Map<String, String> parameters;
 
-    private final StorageFormat storageFormat;
+    private final Optional<HiveStorageFormat> storageFormat;
     private final Optional<HiveBucketProperty> bucketProperty;
     private final Map<String, String> storageParameters;
     private final Map<String, String> serdeParameters;
@@ -66,8 +64,7 @@ public class TableMetadata
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
             @JsonProperty("parameters") Map<String, String> parameters,
-            @JsonDeserialize(using = StorageFormatCompatDeserializer.class)
-            @JsonProperty("storageFormat") StorageFormat storageFormat,
+            @JsonProperty("storageFormat") Optional<HiveStorageFormat> storageFormat,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("storageParameters") Map<String, String> storageParameters,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
@@ -82,7 +79,7 @@ public class TableMetadata
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.storageParameters = ImmutableMap.copyOf(firstNonNull(storageParameters, ImmutableMap.of()));
-        this.storageFormat = storageFormat == null ? VIEW_STORAGE_FORMAT : storageFormat;
+        this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
@@ -99,38 +96,6 @@ public class TableMetadata
         checkArgument(partitionColumns.isEmpty() || columnStatistics.isEmpty(), "column statistics cannot be set for partitioned table");
     }
 
-    @Deprecated
-    public TableMetadata(
-            String owner,
-            PrestoTableType tableType,
-            List<Column> dataColumns,
-            List<Column> partitionColumns,
-            Map<String, String> parameters,
-            Optional<HiveStorageFormat> storageFormat,
-            Optional<HiveBucketProperty> bucketProperty,
-            Map<String, String> storageParameters,
-            Map<String, String> serdeParameters,
-            Optional<String> externalLocation,
-            Optional<String> viewOriginalText,
-            Optional<String> viewExpandedText,
-            Map<String, HiveColumnStatistics> columnStatistics)
-    {
-        this(
-                owner,
-                tableType,
-                dataColumns,
-                partitionColumns,
-                parameters,
-                storageFormat.map(StorageFormat::fromHiveStorageFormat).orElse(VIEW_STORAGE_FORMAT),
-                bucketProperty,
-                storageParameters,
-                serdeParameters,
-                externalLocation,
-                viewOriginalText,
-                viewExpandedText,
-                columnStatistics);
-    }
-
     public TableMetadata(Table table)
     {
         this(table, ImmutableMap.of());
@@ -144,7 +109,10 @@ public class TableMetadata
         partitionColumns = table.getPartitionColumns();
         parameters = table.getParameters();
 
-        storageFormat = table.getStorage().getStorageFormat();
+        StorageFormat tableFormat = table.getStorage().getStorageFormat();
+        storageFormat = Arrays.stream(HiveStorageFormat.values())
+                .filter(format -> tableFormat.equals(StorageFormat.fromHiveStorageFormat(format)))
+                .findFirst();
         bucketProperty = table.getStorage().getBucketProperty();
         storageParameters = table.getStorage().getParameters();
         serdeParameters = table.getStorage().getSerdeParameters();
@@ -206,15 +174,8 @@ public class TableMetadata
         return parameters;
     }
 
-    @Deprecated
-    @JsonIgnore
+    @JsonProperty
     public Optional<HiveStorageFormat> getStorageFormat()
-    {
-        return getHiveStorageFormat(storageFormat);
-    }
-
-    @JsonProperty("storageFormat")
-    public StorageFormat getTableStorageFormat()
     {
         return storageFormat;
     }
@@ -324,7 +285,7 @@ public class TableMetadata
                 tableType,
                 Storage.builder()
                         .setLocation(externalLocation.orElse(location))
-                        .setStorageFormat(storageFormat)
+                        .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat).orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)
                         .setParameters(storageParameters)
                         .setSerdeParameters(serdeParameters)

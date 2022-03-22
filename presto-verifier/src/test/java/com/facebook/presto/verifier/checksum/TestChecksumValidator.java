@@ -163,7 +163,7 @@ public class TestChecksumValidator
                         ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE (\"row\".\"r\"[1] = -\"infinity\"())) \"row.r._col1$neg_inf_count\"\n" +
                         ", \"checksum\"(\"row\".\"r\".\"b\") \"row.r.b$checksum\"\n" +
                         "FROM\n" +
-                        "  test:di\n",
+                        "  \"test:di\"\n",
                 PARSING_OPTIONS);
         assertEquals(formatSql(checksumQuery, Optional.empty()), formatSql(expectedChecksumQuery, Optional.empty()));
     }

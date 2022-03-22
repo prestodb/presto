@@ -125,7 +125,7 @@ public final class GeometryUtils
     /**
      * Get the bounding box for an OGCGeometry.
      * <p>
-     * If the geometry is empty, return a Rectangle with NaN coordinates.
+     * If the geometry is empty, return a Retangle with NaN coordinates.
      *
      * @param ogcGeometry
      * @return Rectangle bounding box
@@ -138,7 +138,7 @@ public final class GeometryUtils
     /**
      * Get the bounding box for an OGCGeometry, inflated by radius.
      * <p>
-     * If the geometry is empty, return a Rectangle with NaN coordinates.
+     * If the geometry is empty, return a Retangle with NaN coordinates.
      *
      * @param ogcGeometry
      * @return Rectangle bounding box

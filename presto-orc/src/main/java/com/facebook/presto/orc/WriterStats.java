@@ -17,6 +17,11 @@ import com.facebook.presto.orc.metadata.StripeInformation;
 
 public interface WriterStats
 {
+    enum FlushReason
+    {
+        MAX_ROWS, MAX_BYTES, DICTIONARY_FULL, CLOSED
+    }
+
     void recordStripeWritten(
             int stripeMinBytes,
             int stripeMaxBytes,

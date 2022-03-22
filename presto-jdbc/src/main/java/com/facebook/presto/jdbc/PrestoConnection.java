@@ -50,6 +50,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -117,7 +118,7 @@ public class PrestoConnection
         this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
-        timeZoneId.set(uri.getTimeZoneId());
+        timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
 
         this.queryInterceptorInstances = ImmutableList.copyOf(uri.getQueryInterceptors());
@@ -769,10 +770,10 @@ public class PrestoConnection
 
     void updateSession(StatementClient client)
     {
-        sessionProperties.putAll(client.getSetSessionProperties());
+        client.getSetSessionProperties().forEach(sessionProperties::put);
         client.getResetSessionProperties().forEach(sessionProperties::remove);
 
-        preparedStatements.putAll(client.getAddedPreparedStatements());
+        client.getAddedPreparedStatements().forEach(preparedStatements::put);
         client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
 
         client.getSetCatalog().ifPresent(catalog::set);

@@ -68,7 +68,7 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
@@ -107,7 +107,7 @@ public class CommonSubExpressionBenchmark
     {
         Type type = TYPE_MAP.get(this.functionType);
 
-        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), type.getDisplayName().toLowerCase(ENGLISH) + "0", type);
+        VariableReferenceExpression variable = new VariableReferenceExpression(type.getDisplayName().toLowerCase(ENGLISH) + "0", type);
         symbolTypes = ImmutableMap.of(variable.getName(), type);
         sourceLayout = ImmutableMap.of(variable, 0);
         inputPage = createPage(functionType, dictionaryBlocks);
@@ -183,7 +183,7 @@ public class CommonSubExpressionBenchmark
     {
         Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyMap(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, METADATA.getFunctionAndTypeManager(), TEST_SESSION);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(METADATA);
         return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());

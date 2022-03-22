@@ -4,12 +4,13 @@ local exchange (GATHER, SINGLE, [])
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, [d_year, i_category, i_category_id])
                     partial aggregation over (d_year, i_category, i_category_id)
-                        join (INNER, REPLICATED):
-                            join (INNER, REPLICATED):
-                                scan store_sales
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
-                                        scan item
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, [ss_sold_date_sk])
+                                join (INNER, REPLICATED):
+                                    scan store_sales
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan item
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
+                                remote exchange (REPARTITION, HASH, [d_date_sk])
                                     scan date_dim

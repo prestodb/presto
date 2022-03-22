@@ -41,7 +41,6 @@ import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -198,9 +197,9 @@ public class SimpleFilterProjectSemiJoinStatsRule
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, VariableReferenceExpression semiJoinOutput)
     {
-        SymbolReference semiJoinOutputSymbolReference = createSymbolReference(semiJoinOutput);
-        return conjunct.equals(semiJoinOutputSymbolReference) ||
-                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOutputSymbolReference));
+        SymbolReference semiJoinOuputSymbolReference = new SymbolReference(semiJoinOutput.getName());
+        return conjunct.equals(semiJoinOuputSymbolReference) ||
+                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOuputSymbolReference));
     }
 
     private boolean isNotFunction(RowExpression expression)

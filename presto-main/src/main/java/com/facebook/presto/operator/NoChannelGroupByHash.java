@@ -97,7 +97,7 @@ public class NoChannelGroupByHash
     }
 
     @Override
-    public long getRawHash(int groupId)
+    public long getRawHash(int groupyId)
     {
         throw new UnsupportedOperationException("NoChannelGroupByHash does not support getHashCollisions");
     }

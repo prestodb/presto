@@ -59,9 +59,9 @@ public class ValidateStreamingJoins
         private final TypeProvider types;
         private final WarningCollector warningCollector;
 
-        private Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        private Visitor(Session sesstion, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
         {
-            this.session = session;
+            this.session = sesstion;
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.types = types;

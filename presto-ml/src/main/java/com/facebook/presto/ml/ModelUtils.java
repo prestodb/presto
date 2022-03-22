@@ -136,7 +136,7 @@ public final class ModelUtils
 
         int id = slice.getInt(ALGORITHM_OFFSET);
         Class<? extends Model> algorithm = MODEL_SERIALIZATION_IDS.inverse().get(id);
-        requireNonNull(algorithm, format("Unsupported algorithm %d", id));
+        requireNonNull(algorithm, format("Unsupported algorith %d", id));
 
         int hyperparameterLength = slice.getInt(HYPERPARAMETER_LENGTH_OFFSET);
 

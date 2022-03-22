@@ -15,7 +15,6 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -23,9 +22,6 @@ import static java.util.Objects.requireNonNull;
 
 public class RowGroupIndex
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupIndex.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
-
     private final List<Integer> positions;
     private final ColumnStatistics statistics;
 
@@ -43,10 +39,5 @@ public class RowGroupIndex
     public ColumnStatistics getColumnStatistics()
     {
         return statistics;
-    }
-
-    public long getRetainedSizeInBytes()
-    {
-        return INSTANCE_SIZE + positions.size() * INTEGER_INSTANCE_SIZE + statistics.getRetainedSizeInBytes();
     }
 }

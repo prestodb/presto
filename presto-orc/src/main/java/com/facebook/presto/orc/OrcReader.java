@@ -16,8 +16,6 @@ package com.facebook.presto.orc;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.predicate.FilterFunction;
-import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;

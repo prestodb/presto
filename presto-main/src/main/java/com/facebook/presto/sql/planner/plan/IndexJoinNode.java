@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -42,7 +41,6 @@ public class IndexJoinNode
 
     @JsonCreator
     public IndexJoinNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("probeSource") PlanNode probeSource,
@@ -51,7 +49,7 @@ public class IndexJoinNode
             @JsonProperty("probeHashVariable") Optional<VariableReferenceExpression> probeHashVariable,
             @JsonProperty("indexHashVariable") Optional<VariableReferenceExpression> indexHashVariable)
     {
-        super(sourceLocation, id);
+        super(id);
         this.type = requireNonNull(type, "type is null");
         this.probeSource = requireNonNull(probeSource, "probeSource is null");
         this.indexSource = requireNonNull(indexSource, "indexSource is null");
@@ -139,7 +137,7 @@ public class IndexJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new IndexJoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashVariable, indexHashVariable);
+        return new IndexJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashVariable, indexHashVariable);
     }
 
     public static class EquiJoinClause

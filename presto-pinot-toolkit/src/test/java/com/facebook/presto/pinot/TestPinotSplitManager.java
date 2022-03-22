@@ -16,7 +16,6 @@ package com.facebook.presto.pinot;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -112,44 +111,6 @@ public class TestPinotSplitManager
     }
 
     @Test
-    public void testBrokerTopNLarge()
-    {
-        testBrokerTopNLarge(realtimeOnlyTable, 1000, 5000, true);
-        testBrokerTopNLarge(realtimeOnlyTable, 1000, 5000, false);
-    }
-
-    private void testBrokerTopNLarge(PinotTableHandle table, int sessionTopNLarge, int configTopNLarge, boolean useSql)
-    {
-        String topNLimitKeyword = useSql ? "LIMIT " : "TOP ";
-        PinotConfig pinotConfig = new PinotConfig().setUsePinotSqlForBrokerQueries(useSql).setTopNLarge(configTopNLarge);
-        SessionHolder sessionHolder = new SessionHolder(pinotConfig);
-        ConnectorSession session = createSessionWithTopNLarge(sessionTopNLarge, pinotConfig);
-        PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
-        PlanNode tableScanNode =
-                tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch);
-        AggregationNode aggregationNode = planBuilder.aggregation(
-                aggregationNodeBuilder -> aggregationNodeBuilder
-                        .source(tableScanNode)
-                        .singleGroupingSet(variable("city"), variable("regionid"))
-                        .addAggregation(planBuilder.variable("sum_fare"), getRowExpression("sum(fare)", sessionHolder))
-                        .addAggregation(planBuilder.variable("count_regionid"), getRowExpression("count(regionid)", sessionHolder)));
-
-        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(aggregationNode, session).get();
-        String[] limits = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery().split(topNLimitKeyword);
-        assertEquals(Integer.parseInt(limits[1]), sessionTopNLarge);
-
-        aggregationNode = planBuilder.aggregation(
-                aggregationNodeBuilder -> aggregationNodeBuilder
-                        .source(tableScanNode)
-                        .singleGroupingSet(variable("city"), variable("regionid"))
-                        .addAggregation(planBuilder.variable("sum_fare"), getRowExpression("sum(fare)", sessionHolder))
-                        .addAggregation(planBuilder.variable("count_regionid"), getRowExpression("count(regionid)", sessionHolder)));
-        pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(aggregationNode, sessionHolder.getConnectorSession()).get();
-        limits = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery().split(topNLimitKeyword);
-        assertEquals(Integer.parseInt(limits[1]), configTopNLarge);
-    }
-
-    @Test
     public void testSplitsBroker()
     {
         PinotQueryGenerator.GeneratedPinotQuery generatedPql = new PinotQueryGenerator.GeneratedPinotQuery(realtimeOnlyTable.getTableName(), String.format("SELECT %s, COUNT(1) FROM %s GROUP BY %s TOP %d", city.getColumnName(), realtimeOnlyTable.getTableName(), city.getColumnName(), pinotConfig.getTopNLarge()), PinotQueryGenerator.PinotQueryFormat.PQL, ImmutableList.of(0, 1), 1, false, true);
@@ -237,28 +198,8 @@ public class TestPinotSplitManager
                 System.currentTimeMillis(),
                 new PinotSessionProperties(pinotConfig).getSessionProperties(),
                 ImmutableMap.of(
-                        PinotSessionProperties.LIMIT_LARGE_FOR_SEGMENT,
+                        PinotSessionProperties.LIMIT_LARGER_FOR_SEGMENT,
                         limitLarge),
-                new FeaturesConfig().isLegacyTimestamp(),
-                Optional.empty(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                ImmutableMap.of());
-    }
-
-    public static ConnectorSession createSessionWithTopNLarge(int topNLarge, PinotConfig pinotConfig)
-    {
-        return new TestingConnectorSession(
-                "user",
-                Optional.of("test"),
-                Optional.empty(),
-                UTC_KEY,
-                ENGLISH,
-                System.currentTimeMillis(),
-                new PinotSessionProperties(pinotConfig).getSessionProperties(),
-                ImmutableMap.of(
-                        PinotSessionProperties.TOPN_LARGE,
-                        topNLarge),
                 new FeaturesConfig().isLegacyTimestamp(),
                 Optional.empty(),
                 ImmutableSet.of(),

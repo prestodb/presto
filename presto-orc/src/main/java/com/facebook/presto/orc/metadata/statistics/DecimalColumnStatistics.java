@@ -44,9 +44,9 @@ public class DecimalColumnStatistics
     }
 
     @Override
-    public long getTotalValueSizeInBytes()
+    public long getMinAverageValueSizeInBytes()
     {
-        return getNumberOfValues() * decimalStatistics.getMinAverageValueSizeInBytes();
+        return decimalStatistics.getMinAverageValueSizeInBytes();
     }
 
     @Override

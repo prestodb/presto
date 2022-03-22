@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateFunction;
@@ -54,10 +53,8 @@ public class TestCreateFunctionTask
         CreateFunction statement = (CreateFunction) parser.createStatement(sqlString, ParsingOptions.builder().build());
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executorService, metadataManager);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
-        CreateFunctionTask createFunctionTask = new CreateFunctionTask(parser);
-        createFunctionTask.execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), TEST_SESSION, emptyList(), warningCollector);
-        assertEquals(createFunctionTask.getAddedSessionFunctions().size(), 1);
+        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
+        assertEquals(stateMachine.getAddedSessionFunctions().size(), 1);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Session function .* has already been defined")
@@ -68,9 +65,7 @@ public class TestCreateFunctionTask
         CreateFunction statement = (CreateFunction) parser.createStatement(sqlString, ParsingOptions.builder().build());
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executorService, metadataManager);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
-        CreateFunctionTask createFunctionTask = new CreateFunctionTask(parser);
-        createFunctionTask.execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), TEST_SESSION, emptyList(), warningCollector);
-        createFunctionTask.execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), TEST_SESSION, emptyList(), warningCollector);
+        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
+        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
     }
 }

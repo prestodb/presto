@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -65,9 +64,7 @@ public class JoinNode
     private final Map<String, VariableReferenceExpression> dynamicFilters;
 
     @JsonCreator
-    public JoinNode(
-            Optional<SourceLocation> sourceLocation,
-            @JsonProperty("id") PlanNodeId id,
+    public JoinNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
@@ -79,7 +76,7 @@ public class JoinNode
             @JsonProperty("distributionType") Optional<DistributionType> distributionType,
             @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters)
     {
-        super(sourceLocation, id);
+        super(id);
         requireNonNull(type, "type is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
@@ -139,7 +136,6 @@ public class JoinNode
     public JoinNode flipChildren()
     {
         return new JoinNode(
-                getSourceLocation(),
                 getId(),
                 flipType(type),
                 right,
@@ -324,12 +320,12 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getSourceLocation(), getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType), dynamicFilters);
+        return new JoinNode(getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType), dynamicFilters);
     }
 
     public boolean isCrossJoin()

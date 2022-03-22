@@ -69,7 +69,7 @@ public class TestPrometheusConnectorConfig
             throws Exception
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
-        config.setPrometheusURI(new URI("http://doesnotmatter.example.com:"));
+        config.setPrometheusURI(new URI("http://doesnotmatter.com"));
         config.setQueryChunkSizeDuration(Duration.valueOf("21d"));
         config.setMaxQueryRangeDuration(Duration.valueOf("1d"));
         config.setCacheDuration(Duration.valueOf("30s"));

@@ -18,7 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
@@ -31,7 +31,6 @@ public class ArrayBlock
 
     private final int arrayOffset;
     private final int positionCount;
-    @Nullable
     private final boolean[] valueIsNull;
     private final Block values;
     private final int[] offsets;
@@ -156,14 +155,12 @@ public class ArrayBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(values, values.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
-        if (valueIsNull != null) {
-            consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        }
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

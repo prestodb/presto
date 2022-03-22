@@ -14,14 +14,12 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,11 +33,9 @@ public final class VariableReferenceExpression
 
     @JsonCreator
     public VariableReferenceExpression(
-            @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type)
     {
-        super(sourceLocation);
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
     }

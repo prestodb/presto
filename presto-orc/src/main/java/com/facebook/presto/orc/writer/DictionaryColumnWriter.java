@@ -29,15 +29,19 @@ import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.LongOutputStream;
+import com.facebook.presto.orc.stream.LongOutputStreamV1;
+import com.facebook.presto.orc.stream.LongOutputStreamV2;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,8 +51,9 @@ import static com.facebook.presto.common.array.Arrays.ExpansionFactor.MEDIUM;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.orc.stream.LongOutputStream.createDataOutputStream;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -59,27 +64,22 @@ import static java.util.stream.Collectors.toList;
 public abstract class DictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
-    // In theory, nulls are stored using bit fields with 1 bit per entry
-    // In code, though they use Byte RLE, using 8 is a good heuristic and close to worst case.
-    public static final int NUMBER_OF_NULLS_PER_BYTE = 8;
-    private static final int EXPECTED_ROW_GROUP_SEGMENT_SIZE = 10_000;
-
     protected final int column;
+    protected final Type type;
     protected final ColumnWriterOptions columnWriterOptions;
     protected final Optional<DwrfDataEncryptor> dwrfEncryptor;
     protected final OrcEncoding orcEncoding;
     protected final MetadataWriter metadataWriter;
 
+    private final LongOutputStream dataStream;
+    private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter compressedMetadataWriter;
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
-    private final DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();
     private final int preserveDirectEncodingStripeCount;
 
-    private PresentOutputStream presentStream;
-    private LongOutputStream dataStream;
     private int[] rowGroupIndexes;
-    private int rowGroupOffset;
-    private long rawBytesEstimate;
+    private int rowGroupValueCount;
+    private long rawBytes;
     private long totalValueCount;
     private long totalNonNullValueCount;
     private boolean closed;
@@ -98,16 +98,23 @@ public abstract class DictionaryColumnWriter
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
+        this.type = requireNonNull(type, "type is null");
         this.columnWriterOptions = requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
-        this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
-        this.preserveDirectEncodingStripeCount = columnWriterOptions.getPreserveDirectEncodingStripeCount();
-
-        this.dataStream = createDataOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
+        LongOutputStream result;
+        if (orcEncoding == DWRF) {
+            result = new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, false, DATA);
+        }
+        else {
+            result = new LongOutputStreamV2(columnWriterOptions, false, DATA);
+        }
+        this.dataStream = result;
         this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
-        this.rowGroupIndexes = new int[EXPECTED_ROW_GROUP_SEGMENT_SIZE];
+        this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
+        this.rowGroupIndexes = new int[10_000];
+        this.preserveDirectEncodingStripeCount = columnWriterOptions.getPreserveDirectEncodingStripeCount();
     }
 
     protected abstract ColumnWriter createDirectColumnWriter();
@@ -116,13 +123,9 @@ public abstract class DictionaryColumnWriter
 
     protected abstract boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes);
 
-    protected abstract boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, short[] dictionaryIndexes, int maxDirectBytes);
-
-    protected abstract boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, byte[] dictionaryIndexes, int maxDirectBytes);
-
     protected abstract ColumnEncoding getDictionaryColumnEncoding();
 
-    protected abstract BlockStatistics addBlockToDictionary(Block block, int rowGroupOffset, int[] rowGroupIndexes);
+    protected abstract BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes);
 
     protected abstract long getRetainedDictionaryBytes();
 
@@ -130,31 +133,15 @@ public abstract class DictionaryColumnWriter
      * writeDictionary to the Streams and optionally return new mappings to be used.
      * The mapping is used for sorting the indexes. ORC dictionary needs to be sorted,
      * but DWRF sorting is optional.
-     *
      * @return new mappings to be used for indexes, if no new mappings, Optional.empty.
      */
     protected abstract Optional<int[]> writeDictionary();
 
-    protected abstract void beginDataRowGroup();
-
-    protected abstract void movePresentStreamToDirectWriter(PresentOutputStream presentStream);
-
-    protected abstract void writeDataStreams(
-            int rowGroupValueCount,
-            byte[] rowGroupIndexes,
-            Optional<int[]> originalDictionaryToSortedIndex,
-            LongOutputStream dataStream);
-
-    protected abstract void writeDataStreams(
-            int rowGroupValueCount,
-            short[] rowGroupIndexes,
-            Optional<int[]> originalDictionaryToSortedIndex,
-            LongOutputStream dataStream);
-
-    protected abstract void writeDataStreams(
+    protected abstract void writePresentAndDataStreams(
             int rowGroupValueCount,
             int[] rowGroupIndexes,
             Optional<int[]> originalDictionaryToSortedIndex,
+            PresentOutputStream presentStream,
             LongOutputStream dataStream);
 
     protected abstract void resetDictionary();
@@ -166,10 +153,10 @@ public abstract class DictionaryColumnWriter
     protected abstract ColumnStatistics createColumnStatistics();
 
     @Override
-    public long getRawBytesEstimate()
+    public long getRawBytes()
     {
         checkState(!directEncoded);
-        return rawBytesEstimate;
+        return rawBytes;
     }
 
     @Override
@@ -200,104 +187,52 @@ public abstract class DictionaryColumnWriter
     }
 
     @Override
-    public long getNullValueCount()
-    {
-        checkState(!directEncoded);
-        return totalValueCount - totalNonNullValueCount;
-    }
-
-    private boolean tryConvertRowGroupToDirect(byte[][] byteSegments, short[][] shortSegments, int[][] intSegments, int maxDirectBytes)
-    {
-        // The row group indexes may be split between byte, short and int segments. They need to be processed in
-        // byte, short and int order. If they are processed in different order, it will result in data corruption.
-        if (byteSegments != null) {
-            for (byte[] byteIndexes : byteSegments) {
-                if (!tryConvertRowGroupToDirect(byteIndexes.length, byteIndexes, maxDirectBytes)) {
-                    return false;
-                }
-            }
-        }
-
-        if (shortSegments != null) {
-            for (short[] shortIndexes : shortSegments) {
-                if (!tryConvertRowGroupToDirect(shortIndexes.length, shortIndexes, maxDirectBytes)) {
-                    return false;
-                }
-            }
-        }
-
-        if (intSegments != null) {
-            for (int[] intIndexes : intSegments) {
-                if (!tryConvertRowGroupToDirect(intIndexes.length, intIndexes, maxDirectBytes)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    @Override
     public OptionalInt tryConvertToDirect(int maxDirectBytes)
     {
         checkState(!closed);
         checkState(!directEncoded);
         ColumnWriter directWriter = createDirectColumnWriter();
-        checkState(directWriter.getBufferedBytes() == 0, "direct writer should have no data");
+        checkState(directWriter.getBufferedBytes() == 0);
 
         for (DictionaryRowGroup rowGroup : rowGroups) {
-            beginDataRowGroup();
+            directWriter.beginRowGroup();
             // todo we should be able to pass the stats down to avoid recalculating min and max
-            boolean success = tryConvertRowGroupToDirect(rowGroup.getByteSegments(), rowGroup.getShortSegments(), rowGroup.getIntSegments(), maxDirectBytes);
+            boolean success = tryConvertRowGroupToDirect(rowGroup.getValueCount(), rowGroup.getDictionaryIndexes(), maxDirectBytes);
+            directWriter.finishRowGroup();
 
             if (!success) {
-                return resetDirectWriter(directWriter);
+                directWriter.close();
+                directWriter.reset();
+                return OptionalInt.empty();
             }
-            directWriter.finishRowGroup();
         }
 
         if (inRowGroup) {
-            beginDataRowGroup();
-            boolean success = tryConvertRowGroupToDirect(
-                    rowGroupBuilder.getByteSegments(),
-                    rowGroupBuilder.getShortSegments(),
-                    rowGroupBuilder.getIntegerSegments(),
-                    maxDirectBytes);
-
-            if (!success) {
-                return resetDirectWriter(directWriter);
-            }
-
-            if (!tryConvertRowGroupToDirect(rowGroupOffset, rowGroupIndexes, maxDirectBytes)) {
-                return resetDirectWriter(directWriter);
+            directWriter.beginRowGroup();
+            if (!tryConvertRowGroupToDirect(rowGroupValueCount, rowGroupIndexes, maxDirectBytes)) {
+                directWriter.close();
+                directWriter.reset();
+                return OptionalInt.empty();
             }
         }
         else {
-            checkState(rowGroupOffset == 0);
+            checkState(rowGroupValueCount == 0);
         }
 
-        // Conversion to DirectStream succeeded, Transfer the present stream to direct writer and assign
-        // this a new PresentStream, so one writer is responsible for one present stream.
-        movePresentStreamToDirectWriter(presentStream);
-        presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
+        rowGroups.clear();
 
         // free the dictionary
-        rawBytesEstimate = 0;
+
+        rawBytes = 0;
         totalValueCount = 0;
         totalNonNullValueCount = 0;
 
-        resetRowGroups();
+        rowGroupValueCount = 0;
         closeDictionary();
         resetDictionary();
         directEncoded = true;
 
         return OptionalInt.of(toIntExact(directWriter.getBufferedBytes()));
-    }
-
-    private OptionalInt resetDirectWriter(ColumnWriter directWriter)
-    {
-        directWriter.close();
-        directWriter.reset();
-        return OptionalInt.empty();
     }
 
     @Override
@@ -319,9 +254,6 @@ public abstract class DictionaryColumnWriter
         if (directEncoded) {
             getDirectColumnWriter().beginRowGroup();
         }
-        else {
-            presentStream.recordCheckpoint();
-        }
     }
 
     @Override
@@ -334,20 +266,12 @@ public abstract class DictionaryColumnWriter
             return getDirectColumnWriter().writeBlock(block);
         }
 
-        rowGroupIndexes = ensureCapacity(rowGroupIndexes, rowGroupOffset + block.getPositionCount(), MEDIUM, PRESERVE);
-
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            presentStream.writeBoolean(!block.isNull(position));
-        }
-        BlockStatistics blockStatistics = addBlockToDictionary(block, rowGroupOffset, rowGroupIndexes);
+        rowGroupIndexes = ensureCapacity(rowGroupIndexes, rowGroupValueCount + block.getPositionCount(), MEDIUM, PRESERVE);
+        BlockStatistics blockStatistics = addBlockToDictionary(block, rowGroupValueCount, rowGroupIndexes);
         totalNonNullValueCount += blockStatistics.getNonNullValueCount();
-        rawBytesEstimate += blockStatistics.getRawBytesEstimate();
-        rowGroupOffset += blockStatistics.getNonNullValueCount();
+        rawBytes += blockStatistics.getRawBytes();
+        rowGroupValueCount += block.getPositionCount();
         totalValueCount += block.getPositionCount();
-        if (rowGroupOffset >= EXPECTED_ROW_GROUP_SEGMENT_SIZE) {
-            rowGroupBuilder.addIndexes(getDictionaryEntries() - 1, rowGroupIndexes, rowGroupOffset);
-            rowGroupOffset = 0;
-        }
         return blockStatistics.getRawBytesIncludingNulls();
     }
 
@@ -363,18 +287,15 @@ public abstract class DictionaryColumnWriter
         }
 
         ColumnStatistics statistics = createColumnStatistics();
-        rowGroupBuilder.addIndexes(getDictionaryEntries() - 1, rowGroupIndexes, rowGroupOffset);
-        DictionaryRowGroup rowGroup = rowGroupBuilder.build(statistics);
+        DictionaryRowGroup rowGroup = new DictionaryRowGroup(rowGroupIndexes, rowGroupValueCount, statistics);
         rowGroups.add(rowGroup);
         if (columnWriterOptions.isIgnoreDictionaryRowGroupSizes()) {
             rowGroupRetainedSizeInBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
         }
         else {
-            rowGroupRetainedSizeInBytes += rowGroup.getShallowRetainedSizeInBytes();
-            rowGroupRetainedSizeInBytes += rowGroupBuilder.getIndexRetainedBytes();
+            rowGroupRetainedSizeInBytes += rowGroup.getRetainedSizeInBytes();
         }
-        rowGroupOffset = 0;
-        rowGroupBuilder.reset();
+        rowGroupValueCount = 0;
         return ImmutableMap.of(column, statistics);
     }
 
@@ -412,44 +333,17 @@ public abstract class DictionaryColumnWriter
 
         Optional<int[]> originalDictionaryToSortedIndex = writeDictionary();
         if (!rowGroups.isEmpty()) {
+            presentStream.recordCheckpoint();
             dataStream.recordCheckpoint();
         }
         for (DictionaryRowGroup rowGroup : rowGroups) {
-            // The row group indexes may be split between byte, short and int segments. They need to be processed in
-            // byte, short and int order. If they are processed in different order, it will result in data corruption.
-            byte[][] byteSegments = rowGroup.getByteSegments();
-            if (byteSegments != null) {
-                for (byte[] byteIndexes : byteSegments) {
-                    writeDataStreams(
-                            byteIndexes.length,
-                            byteIndexes,
-                            originalDictionaryToSortedIndex,
-                            dataStream);
-                }
-            }
-
-            short[][] shortSegments = rowGroup.getShortSegments();
-            if (shortSegments != null) {
-                for (short[] shortIndexes : shortSegments) {
-                    writeDataStreams(
-                            shortIndexes.length,
-                            shortIndexes,
-                            originalDictionaryToSortedIndex,
-                            dataStream);
-                }
-            }
-
-            int[][] intSegments = rowGroup.getIntSegments();
-            if (intSegments != null) {
-                for (int[] integerIndexes : intSegments) {
-                    writeDataStreams(
-                            integerIndexes.length,
-                            integerIndexes,
-                            originalDictionaryToSortedIndex,
-                            dataStream);
-                }
-            }
-
+            writePresentAndDataStreams(
+                    rowGroup.getValueCount(),
+                    rowGroup.getDictionaryIndexes(),
+                    originalDictionaryToSortedIndex,
+                    presentStream,
+                    dataStream);
+            presentStream.recordCheckpoint();
             dataStream.recordCheckpoint();
         }
 
@@ -520,8 +414,7 @@ public abstract class DictionaryColumnWriter
             return getDirectColumnWriter().getBufferedBytes();
         }
         // for dictionary columns we report the data we expect to write to the output stream
-        long numberOfNullBytes = getNullValueCount() / NUMBER_OF_NULLS_PER_BYTE;
-        return getIndexBytes() + getDictionaryBytes() + numberOfNullBytes;
+        return getIndexBytes() + getDictionaryBytes();
     }
 
     @VisibleForTesting
@@ -534,19 +427,10 @@ public abstract class DictionaryColumnWriter
     public long getRetainedBytes()
     {
         return sizeOf(rowGroupIndexes) +
-                rowGroupBuilder.getRetainedSizeInBytes() +
                 dataStream.getRetainedBytes() +
                 presentStream.getRetainedBytes() +
                 getRetainedDictionaryBytes() +
                 rowGroupRetainedSizeInBytes;
-    }
-
-    private void resetRowGroups()
-    {
-        rowGroups.clear();
-        rowGroupBuilder.reset();
-        rowGroupRetainedSizeInBytes = 0;
-        rowGroupOffset = 0;
     }
 
     @Override
@@ -554,16 +438,14 @@ public abstract class DictionaryColumnWriter
     {
         checkState(closed);
         closed = false;
+        dataStream.reset();
         presentStream.reset();
-        // Dictionary data is held in memory, until the Stripe is flushed. OrcOutputStream maintains the
-        // allocated buffer and reuses the buffer for writing data. For Direct writer, OrcOutputStream
-        // behavior avoids the reallocation of the buffers by maintaining the pool. For Dictionary writer,
-        // OrcOutputStream doubles the memory requirement in most cases (one for dictionary and one for
-        // OrcOutputBuffer). To avoid this, the streams are reallocated for every stripe.
-        dataStream = createDataOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
+        rowGroups.clear();
+        rowGroupRetainedSizeInBytes = 0;
+        rowGroupValueCount = 0;
         resetDictionary();
-        resetRowGroups();
-        rawBytesEstimate = 0;
+
+        rawBytes = 0;
         totalValueCount = 0;
         totalNonNullValueCount = 0;
 
@@ -579,16 +461,56 @@ public abstract class DictionaryColumnWriter
         }
     }
 
+    private static class DictionaryRowGroup
+    {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryRowGroup.class).instanceSize();
+
+        private final int[] dictionaryIndexes;
+        private final ColumnStatistics columnStatistics;
+
+        public DictionaryRowGroup(int[] dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
+        {
+            requireNonNull(dictionaryIndexes, "dictionaryIndexes is null");
+            checkArgument(valueCount >= 0, "valueCount is negative");
+            requireNonNull(columnStatistics, "columnStatistics is null");
+
+            this.dictionaryIndexes = Arrays.copyOf(dictionaryIndexes, valueCount);
+            this.columnStatistics = columnStatistics;
+        }
+
+        public int[] getDictionaryIndexes()
+        {
+            return dictionaryIndexes;
+        }
+
+        public int getValueCount()
+        {
+            return dictionaryIndexes.length;
+        }
+
+        public ColumnStatistics getColumnStatistics()
+        {
+            return columnStatistics;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(dictionaryIndexes) +
+                    columnStatistics.getRetainedSizeInBytes();
+        }
+    }
+
     static class BlockStatistics
     {
         private final int nonNullValueCount;
-        private final long rawBytesEstimate;
+        private final long rawBytes;
         private final long rawBytesIncludingNulls;
 
-        public BlockStatistics(int nonNullValueCount, long rawBytesEstimate, long rawBytesIncludingNulls)
+        public BlockStatistics(int nonNullValueCount, long rawBytes, long rawBytesIncludingNulls)
         {
             this.nonNullValueCount = nonNullValueCount;
-            this.rawBytesEstimate = rawBytesEstimate;
+            this.rawBytes = rawBytes;
             this.rawBytesIncludingNulls = rawBytesIncludingNulls;
         }
 
@@ -597,9 +519,9 @@ public abstract class DictionaryColumnWriter
             return nonNullValueCount;
         }
 
-        public long getRawBytesEstimate()
+        public long getRawBytes()
         {
-            return rawBytesEstimate;
+            return rawBytes;
         }
 
         public long getRawBytesIncludingNulls()

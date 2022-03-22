@@ -925,10 +925,6 @@ export class QueryDetail extends React.Component {
                 $('#query').each((i, block) => {
                     hljs.highlightBlock(block);
                 });
-
-                $('#prepared-query').each((i, block) => {
-                    hljs.highlightBlock(block);
-                });
             }
 
             this.setState({
@@ -968,29 +964,6 @@ export class QueryDetail extends React.Component {
                         <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
                     </div>
                 </div>
-            </div>
-        );
-    }
-
-    renderPreparedQuery() {
-        const query = this.state.query;
-        if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
-            return;
-        }
-
-        return (
-            <div className="col-xs-12">
-                <h3>
-                    Prepared Query
-                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                        </a>
-                </h3>
-                <pre id="prepared-query">
-                    <code className="lang-sql" id="prepared-query-text">
-                        {query.preparedQuery}
-                    </code>
-                </pre>
             </div>
         );
     }
@@ -1080,7 +1053,6 @@ export class QueryDetail extends React.Component {
 
     renderRuntimeStats() {
         const query = this.state.query;
-        if (query.queryStats.runtimeStats === undefined) return null;
         if (Object.values(query.queryStats.runtimeStats).length == 0) return null;
         return (
             <div className="row">
@@ -1611,7 +1583,6 @@ export class QueryDetail extends React.Component {
                             </code>
                         </pre>
                     </div>
-                    {this.renderPreparedQuery()}
                 </div>
                 {this.renderStages()}
             </div>

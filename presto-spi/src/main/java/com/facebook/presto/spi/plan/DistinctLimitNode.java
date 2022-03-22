@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -40,7 +39,6 @@ public final class DistinctLimitNode
 
     @JsonCreator
     public DistinctLimitNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("limit") long limit,
@@ -48,7 +46,7 @@ public final class DistinctLimitNode
             @JsonProperty("distinctVariables") List<VariableReferenceExpression> distinctVariables,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
-        super(sourceLocation, id);
+        super(id);
         this.source = requireNonNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
@@ -112,7 +110,7 @@ public final class DistinctLimitNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new DistinctLimitNode(getSourceLocation(), getId(), newChildren.get(0), limit, partial, distinctVariables, hashVariable);
+        return new DistinctLimitNode(getId(), newChildren.get(0), limit, partial, distinctVariables, hashVariable);
     }
 
     private static void checkArgument(boolean condition, String message)

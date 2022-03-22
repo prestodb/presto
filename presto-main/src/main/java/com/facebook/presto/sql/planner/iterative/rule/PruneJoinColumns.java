@@ -42,7 +42,6 @@ public class PruneJoinColumns
     {
         return Optional.of(
                 new JoinNode(
-                        joinNode.getSourceLocation(),
                         joinNode.getId(),
                         joinNode.getType(),
                         joinNode.getLeft(),

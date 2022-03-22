@@ -27,14 +27,14 @@ public class RowGroup
     private final long minAverageRowBytes;
     private final InputStreamSources streamSources;
 
-    public RowGroup(int groupId, long rowOffset, long rowCount, long totalBytes, InputStreamSources streamSources)
+    public RowGroup(int groupId, long rowOffset, long rowCount, long minAverageRowBytes, InputStreamSources streamSources)
     {
         checkArgument(rowOffset >= 0, "Invalid row offset %s for group id %s", rowOffset, groupId);
         checkArgument(rowCount >= 0, "Invalid row count %s for group id %s", rowCount, groupId);
         this.groupId = groupId;
         this.rowOffset = rowOffset;
         this.rowCount = rowCount;
-        this.minAverageRowBytes = rowCount > 0 ? totalBytes / rowCount : totalBytes;
+        this.minAverageRowBytes = minAverageRowBytes;
         this.streamSources = requireNonNull(streamSources, "streamSources is null");
     }
 

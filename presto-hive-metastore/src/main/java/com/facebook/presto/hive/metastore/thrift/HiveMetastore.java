@@ -114,16 +114,6 @@ public interface HiveMetastore
 
     Set<HivePrivilegeInfo> listTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal principal);
 
-    default long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default void unlock(MetastoreContext metastoreContext, long lockId)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     default void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         throw new UnsupportedOperationException();

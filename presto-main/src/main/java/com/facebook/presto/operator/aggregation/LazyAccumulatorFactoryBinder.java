@@ -18,7 +18,6 @@ import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
@@ -55,8 +54,7 @@ public class LazyAccumulatorFactoryBinder
             JoinCompiler joinCompiler,
             List<LambdaProvider> lambdaProviders,
             boolean spillEnabled,
-            Session session,
-            StandaloneSpillerFactory standaloneSpillerFactory)
+            Session session)
     {
         return binder.get().bind(
                 argumentChannels,
@@ -69,7 +67,6 @@ public class LazyAccumulatorFactoryBinder
                 joinCompiler,
                 lambdaProviders,
                 spillEnabled,
-                session,
-                standaloneSpillerFactory);
+                session);
     }
 }

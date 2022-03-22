@@ -29,7 +29,6 @@ import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
@@ -68,7 +67,7 @@ public class Int32FlatBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
+    public void init(PageReader pageReader, Field field)
     {
         checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");

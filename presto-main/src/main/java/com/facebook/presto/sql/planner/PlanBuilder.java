@@ -20,11 +20,11 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.util.Objects.requireNonNull;
 
@@ -102,7 +102,7 @@ class PlanBuilder
 
         // add an identity projection for underlying plan
         for (VariableReferenceExpression variable : getRoot().getOutputVariables()) {
-            projections.put(variable, castToRowExpression(createSymbolReference(variable)));
+            projections.put(variable, castToRowExpression(new SymbolReference(variable.getName())));
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();

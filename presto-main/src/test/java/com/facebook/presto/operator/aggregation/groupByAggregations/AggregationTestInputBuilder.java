@@ -23,7 +23,7 @@ public class AggregationTestInputBuilder
     private final InternalAggregationFunction function;
 
     private int offset = -1;
-    private boolean isReversed;
+    private boolean isRerversed;
     private Page[] pages;
 
     public AggregationTestInputBuilder(Block[] blocks, InternalAggregationFunction function)
@@ -46,15 +46,15 @@ public class AggregationTestInputBuilder
         return this;
     }
 
-    public AggregationTestInputBuilder setReversed(boolean reversed)
+    public AggregationTestInputBuilder setRerversed(boolean rerversed)
     {
-        isReversed = reversed;
+        isRerversed = rerversed;
 
         return this;
     }
 
     public AggregationTestInput build()
     {
-        return new AggregationTestInput(function, pages, offset, isReversed);
+        return new AggregationTestInput(function, pages, offset, isRerversed);
     }
 }

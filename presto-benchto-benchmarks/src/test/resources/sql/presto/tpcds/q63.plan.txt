@@ -7,15 +7,16 @@ local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [d_moy, i_manager_id])
                             partial aggregation over (d_moy, i_manager_id)
                                 join (INNER, REPLICATED):
-                                    join (INNER, REPLICATED):
-                                        join (INNER, REPLICATED):
-                                            scan store_sales
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, [ss_item_sk])
+                                            join (INNER, REPLICATED):
+                                                scan store_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan date_dim
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
+                                            remote exchange (REPARTITION, HASH, [i_item_sk])
+                                                scan item
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan store

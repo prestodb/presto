@@ -129,14 +129,12 @@ public class QueryMonitor
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
                                 queryInfo.getQuery(),
-                                queryInfo.getPreparedQuery(),
                                 QUEUED.toString(),
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
-                                queryInfo.getSession().getTraceToken())));
+                                ImmutableList.of())));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
@@ -146,14 +144,12 @@ public class QueryMonitor
                         queryInfo.getQueryId().toString(),
                         queryInfo.getSession().getTransactionId().map(TransactionId::toString),
                         queryInfo.getQuery(),
-                        queryInfo.getPreparedQuery(),
                         queryInfo.getState().toString(),
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of(),
-                        queryInfo.getSession().getTraceToken()),
+                        ImmutableList.of()),
                 new QueryStatistics(
                         ofMillis(0),
                         ofMillis(0),
@@ -238,7 +234,6 @@ public class QueryMonitor
                 queryInfo.getQueryId().toString(),
                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
                 queryInfo.getQuery(),
-                queryInfo.getPreparedQuery(),
                 queryInfo.getState().toString(),
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
@@ -246,8 +241,7 @@ public class QueryMonitor
                 queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)),
                 queryInfo.getRuntimeOptimizedStages().orElse(ImmutableList.of()).stream()
                         .map(stageId -> String.valueOf(stageId.getId()))
-                        .collect(toImmutableList()),
-                queryInfo.getSession().getTraceToken());
+                        .collect(toImmutableList()));
     }
 
     private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)

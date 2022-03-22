@@ -42,7 +42,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestBrutalShutdown
 {
-    private static final long SHUTDOWN_TIMEOUT_MILLIS = 600_000;
+    private static final long SHUTDOWN_TIMEOUT_MILLIS = 240_000;
     private static final Session TINY_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("tiny")

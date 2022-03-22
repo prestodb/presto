@@ -27,8 +27,6 @@ import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.TimeType;
-import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -49,7 +47,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.expressions.Expressions.and;
@@ -180,10 +177,6 @@ public final class ExpressionConverter
         // TODO: Remove this conversion once we move to next iceberg version
         if (type instanceof DateType) {
             return toIntExact(((Long) marker.getValue()));
-        }
-
-        if (type instanceof TimestampType || type instanceof TimeType) {
-            return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 
         if (type instanceof VarcharType) {

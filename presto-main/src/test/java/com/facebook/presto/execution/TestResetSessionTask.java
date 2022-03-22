@@ -88,8 +88,8 @@ public class TestResetSessionTask
                 .setCatalogSessionProperty(CATALOG_NAME, "baz", "blah")
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("reset foo", session, false, transactionManager, executor, metadata);
-        ResetSessionTask resetSessionTask = new ResetSessionTask();
-        getFutureValue(resetSessionTask.execute(
+
+        getFutureValue(new ResetSessionTask().execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
                 transactionManager,
                 metadata,

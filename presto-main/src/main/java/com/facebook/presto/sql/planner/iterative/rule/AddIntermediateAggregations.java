@@ -120,7 +120,6 @@ public class AddIntermediateAggregations
 
             source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source);
             source = new AggregationNode(
-                    aggregation.getSourceLocation(),
                     idAllocator.getNextId(),
                     source,
                     variableToAggregations,
@@ -164,7 +163,6 @@ public class AddIntermediateAggregations
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
         ExchangeNode gatheringExchange = gatheringExchange(idAllocator.getNextId(), LOCAL, aggregation);
         return new AggregationNode(
-                aggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 gatheringExchange,
                 outputsAsInputs(aggregation.getAggregations()),
@@ -193,7 +191,6 @@ public class AddIntermediateAggregations
                     output,
                     new Aggregation(
                             new CallExpression(
-                                    aggregation.getCall().getSourceLocation(),
                                     aggregation.getCall().getDisplayName(),
                                     aggregation.getCall().getFunctionHandle(),
                                     aggregation.getCall().getType(),

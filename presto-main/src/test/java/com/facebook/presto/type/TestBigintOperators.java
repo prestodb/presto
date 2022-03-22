@@ -22,7 +22,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 
 public class TestBigintOperators
@@ -189,34 +188,31 @@ public class TestBigintOperators
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(BIGINT '37' as varchar)", VARCHAR, "37");
+        assertFunction("cast(37 as varchar)", VARCHAR, "37");
         assertFunction("cast(100000000017 as varchar)", VARCHAR, "100000000017");
-        assertFunction("cast(100000000017 as varchar(13))", createVarcharType(13), "100000000017");
-        assertFunction("cast(100000000017 as varchar(50))", createVarcharType(50), "100000000017");
-        assertInvalidCast("cast(100000000017 as varchar(2))", "Value 100000000017 cannot be represented as varchar(2)");
     }
 
     @Test
     public void testCastToDouble()
     {
-        assertFunction("cast(BIGINT '37' as double)", DOUBLE, 37.0);
+        assertFunction("cast(37 as double)", DOUBLE, 37.0);
         assertFunction("cast(100000000017 as double)", DOUBLE, 100000000017.0);
     }
 
     @Test
     public void testCastToFloat()
     {
-        assertFunction("cast(BIGINT '37' as real)", REAL, 37.0f);
+        assertFunction("cast(37 as real)", REAL, 37.0f);
         assertFunction("cast(-100000000017 as real)", REAL, -100000000017.0f);
-        assertFunction("cast(BIGINT '0' as real)", REAL, 0.0f);
+        assertFunction("cast(0 as real)", REAL, 0.0f);
     }
 
     @Test
     public void testCastToBoolean()
     {
-        assertFunction("cast(BIGINT '37' as boolean)", BOOLEAN, true);
+        assertFunction("cast(37 as boolean)", BOOLEAN, true);
         assertFunction("cast(100000000017 as boolean)", BOOLEAN, true);
-        assertFunction("cast(BIGINT '0' as boolean)", BOOLEAN, false);
+        assertFunction("cast(0 as boolean)", BOOLEAN, false);
     }
 
     @Test

@@ -35,7 +35,6 @@ public final class ConnectorMaterializedViewDefinition
     private final List<SchemaTableName> baseTables;
     private final Optional<String> owner;
     private final List<ColumnMapping> columnMappings;
-    private final List<SchemaTableName> baseTablesOnOuterJoinSide;
     private final Optional<List<String>> validRefreshColumns;
 
     @JsonCreator
@@ -46,7 +45,6 @@ public final class ConnectorMaterializedViewDefinition
             @JsonProperty("baseTables") List<SchemaTableName> baseTables,
             @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("columnMapping") List<ColumnMapping> columnMappings,
-            @JsonProperty("baseTablesOnOuterJoinSide") List<SchemaTableName> baseTablesOnOuterJoinSide,
             @JsonProperty("validRefreshColumns") Optional<List<String>> validRefreshColumns)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
@@ -55,7 +53,6 @@ public final class ConnectorMaterializedViewDefinition
         this.baseTables = unmodifiableList(new ArrayList<>(requireNonNull(baseTables, "baseTables is null")));
         this.owner = requireNonNull(owner, "owner is null");
         this.columnMappings = unmodifiableList(new ArrayList<>(requireNonNull(columnMappings, "columnMappings is null")));
-        this.baseTablesOnOuterJoinSide = unmodifiableList(new ArrayList<>(requireNonNull(baseTablesOnOuterJoinSide, "baseTablesOnOuterJoinSide is null")));
         this.validRefreshColumns = requireNonNull(validRefreshColumns, "validRefreshColumns is null").map(columns -> unmodifiableList(new ArrayList<>(columns)));
     }
 
@@ -67,8 +64,6 @@ public final class ConnectorMaterializedViewDefinition
             List<SchemaTableName> baseTables,
             Optional<String> owner,
             Map<String, Map<SchemaTableName, String>> originalColumnMapping,
-            Map<String, Map<SchemaTableName, String>> nonNullColumnMappings,
-            List<SchemaTableName> baseTablesOnOuterJoinSide,
             Optional<List<String>> validRefreshColumns)
     {
         this(
@@ -77,11 +72,7 @@ public final class ConnectorMaterializedViewDefinition
                 table,
                 baseTables,
                 owner,
-                convertFromMapToColumnMappings(
-                        requireNonNull(originalColumnMapping, "originalColumnMapping is null"),
-                        requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
-                        new SchemaTableName(schema, table)),
-                baseTablesOnOuterJoinSide,
+                convertFromMapToColumnMappings(requireNonNull(originalColumnMapping, "originalColumnMapping is null"), new SchemaTableName(schema, table)),
                 validRefreshColumns);
     }
 
@@ -122,12 +113,6 @@ public final class ConnectorMaterializedViewDefinition
     }
 
     @JsonProperty
-    public List<SchemaTableName> getBaseTablesOnOuterJoinSide()
-    {
-        return baseTablesOnOuterJoinSide;
-    }
-
-    @JsonProperty
     public Optional<List<String>> getValidRefreshColumns()
     {
         return validRefreshColumns;
@@ -143,7 +128,6 @@ public final class ConnectorMaterializedViewDefinition
         sb.append(",baseTables=").append(baseTables);
         sb.append(",owner=").append(owner.orElse(null));
         sb.append(",columnMappings=").append(columnMappings);
-        sb.append(",baseTablesOnOuterJoinSide=").append(baseTablesOnOuterJoinSide);
         sb.append(",validRefreshColumns=").append(validRefreshColumns.orElse(null));
         sb.append("}");
         return sb.toString();
@@ -159,28 +143,16 @@ public final class ConnectorMaterializedViewDefinition
     }
 
     @JsonIgnore
-    public Map<String, Map<SchemaTableName, String>> getDirectColumnMappingsAsMap()
-    {
-        return columnMappings.stream()
-                .collect(toMap(
-                        mapping -> mapping.getViewColumn().getColumnName(),
-                        mapping -> mapping.getBaseTableColumns().stream().filter(col -> col.isDirectMapped().orElse(true)).collect(toMap(TableColumn::getTableName, TableColumn::getColumnName))));
-    }
-
-    @JsonIgnore
-    private static List<ColumnMapping> convertFromMapToColumnMappings(Map<String, Map<SchemaTableName, String>> originalColumnMappings, Map<String, Map<SchemaTableName, String>> directColumnMappings, SchemaTableName sourceTable)
+    private static List<ColumnMapping> convertFromMapToColumnMappings(Map<String, Map<SchemaTableName, String>> originalColumnMappings, SchemaTableName sourceTable)
     {
         List<ColumnMapping> columnMappingList = new ArrayList<>();
 
         for (String sourceColumn : originalColumnMappings.keySet()) {
-            TableColumn viewColumn = new TableColumn(sourceTable, sourceColumn, true);
-            Map<SchemaTableName, String> directMappings = directColumnMappings.get(sourceColumn);
+            TableColumn viewColumn = new TableColumn(sourceTable, sourceColumn);
 
             List<TableColumn> baseTableColumns = new ArrayList<>();
             for (SchemaTableName baseTable : originalColumnMappings.get(sourceColumn).keySet()) {
-                String column = originalColumnMappings.get(sourceColumn).get(baseTable);
-                boolean isDirectMapped = directMappings != null && (directMappings.containsKey(baseTable) && directMappings.get(baseTable) == column);
-                baseTableColumns.add(new TableColumn(baseTable, column, isDirectMapped));
+                baseTableColumns.add(new TableColumn(baseTable, originalColumnMappings.get(sourceColumn).get(baseTable)));
             }
 
             columnMappingList.add(new ColumnMapping(viewColumn, unmodifiableList(baseTableColumns)));
@@ -230,32 +202,14 @@ public final class ConnectorMaterializedViewDefinition
     {
         private final SchemaTableName tableName;
         private final String columnName;
-        // This signifies whether the mapping is direct or not.
-        // Mapping is always direct in inner join case. In the outer join case, only the mapping from a column to its source column in the join input table is direct.
-        // For e.g. in case of SELECT t1_a as t1.a, t2_a as t2.a FROM t1 LEFT JOIN t2 ON t1.a = t2.a
-        // t1_a -> t1.a is direct mapped
-        // t1_a -> t2.a is NOT direct mapped(as t1,t2 are in outer join)
-        // t2_a -> t2.a is direct mapped(value can become null but column mapping is not altered)
-        // t2_a -> t1.a is NOT direct mapped(as t1,t2 are in outer join)
-        private final Optional<Boolean> isDirectMapped;
 
         @JsonCreator
         public TableColumn(
                 @JsonProperty("tableName") SchemaTableName tableName,
-                @JsonProperty("columnName") String columnName,
-                @JsonProperty("isDirectMapped") Optional<Boolean> isDirectMapped)
+                @JsonProperty("columnName") String columnName)
         {
             this.tableName = requireNonNull(tableName, "tableName is null");
             this.columnName = requireNonNull(columnName, "columnName is null");
-            this.isDirectMapped = requireNonNull(isDirectMapped, "isDirectMapped is null");
-        }
-
-        public TableColumn(
-                SchemaTableName tableName,
-                String columnName,
-                boolean isDirectMapped)
-        {
-            this(tableName, columnName, Optional.of(isDirectMapped));
         }
 
         @JsonProperty
@@ -268,12 +222,6 @@ public final class ConnectorMaterializedViewDefinition
         public String getColumnName()
         {
             return columnName;
-        }
-
-        @JsonProperty
-        public Optional<Boolean> isDirectMapped()
-        {
-            return isDirectMapped;
         }
 
         @Override
@@ -294,14 +242,13 @@ public final class ConnectorMaterializedViewDefinition
 
             TableColumn that = (TableColumn) o;
             return Objects.equals(this.columnName, that.columnName) &&
-                    Objects.equals(this.tableName, that.tableName) &&
-                    Objects.equals(this.isDirectMapped, that.isDirectMapped);
+                    Objects.equals(this.tableName, that.tableName);
         }
 
         @Override
         public String toString()
         {
-            return tableName + ":" + columnName + (isDirectMapped.orElse(true) ? "" : "isDirectMapped:false");
+            return tableName + ":" + columnName;
         }
     }
 }

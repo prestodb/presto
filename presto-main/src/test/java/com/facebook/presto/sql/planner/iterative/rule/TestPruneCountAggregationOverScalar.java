@@ -137,7 +137,7 @@ public class TestPruneCountAggregationOverScalar
     {
         tester().assertThat(new PruneCountAggregationOverScalar(getFunctionManager()))
                 .on(p -> {
-                    VariableReferenceExpression totalPriceVariable = new VariableReferenceExpression(Optional.empty(), "total_price", DOUBLE);
+                    VariableReferenceExpression totalPriceVariable = new VariableReferenceExpression("total_price", DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a
                             .addAggregation(totalPriceVariable,
                                     new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(new SymbolReference("totalprice"))),

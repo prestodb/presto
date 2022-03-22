@@ -18,10 +18,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
-import com.facebook.presto.common.type.IntegerType;
-import com.facebook.presto.common.type.RealType;
-import com.facebook.presto.common.type.SmallintType;
-import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -29,25 +25,21 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.avro.generic.GenericEnumSymbol;
-import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.util.Utf8;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
-import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -56,22 +48,11 @@ import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NO
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AvroColumnDecoder
 {
-    private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
-            BooleanType.BOOLEAN,
-            TinyintType.TINYINT,
-            SmallintType.SMALLINT,
-            IntegerType.INTEGER,
-            BigintType.BIGINT,
-            RealType.REAL,
-            DoubleType.DOUBLE,
-            VarbinaryType.VARBINARY);
-
     private final Type columnType;
     private final String columnMapping;
     private final String columnName;
@@ -118,7 +99,12 @@ public class AvroColumnDecoder
 
     private boolean isSupportedPrimitive(Type type)
     {
-        return isVarcharType(type) || SUPPORTED_PRIMITIVE_TYPES.contains(type);
+        return isVarcharType(type) ||
+                ImmutableList.of(
+                        BigintType.BIGINT,
+                        BooleanType.BOOLEAN,
+                        DoubleType.DOUBLE,
+                        VarbinaryType.VARBINARY).contains(type);
     }
 
     public FieldValueProvider decodeField(GenericRecord avroRecord)
@@ -203,15 +189,12 @@ public class AvroColumnDecoder
     {
         switch (type.getTypeSignature().getBase()) {
             case VARCHAR:
-                if (type instanceof VarcharType && (value instanceof CharSequence || value instanceof GenericEnumSymbol)) {
+                if (value instanceof Utf8) {
                     return truncateToLength(utf8Slice(value.toString()), type);
                 }
             case VARBINARY:
                 if (value instanceof ByteBuffer) {
                     return Slices.wrappedBuffer((ByteBuffer) value);
-                }
-                else if (value instanceof GenericFixed) {
-                    return Slices.wrappedBuffer(((GenericFixed) value).bytes());
                 }
             default:
                 throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
@@ -226,7 +209,7 @@ public class AvroColumnDecoder
             case MAP:
                 return serializeMap(builder, value, type, columnName);
             default:
-                serializePrimitive(builder, value, type, columnName);
+                serializeGeneric(builder, value, type, columnName);
         }
         return null;
     }
@@ -261,7 +244,7 @@ public class AvroColumnDecoder
         return currentBlockBuilder.build();
     }
 
-    private static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    private static void serializeGeneric(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
         requireNonNull(blockBuilder, "parent blockBuilder is null");
 
@@ -274,15 +257,11 @@ public class AvroColumnDecoder
             case BOOLEAN:
                 type.writeBoolean(blockBuilder, (Boolean) value);
                 break;
-            case INTEGER:
             case BIGINT:
-                type.writeLong(blockBuilder, ((Number) value).longValue());
+                type.writeLong(blockBuilder, (Long) value);
                 break;
             case DOUBLE:
                 type.writeDouble(blockBuilder, (Double) value);
-                break;
-            case REAL:
-                type.writeLong(blockBuilder, floatToIntBits((Float) value));
                 break;
             case VARCHAR:
             case VARBINARY:

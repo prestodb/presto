@@ -338,7 +338,7 @@ public class LegacySqlQueryScheduler
         ImmutableList.Builder<StageExecutionAndScheduler> stages = ImmutableList.builder();
 
         for (StreamingPlanSection childSection : section.getChildren()) {
-            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
+            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExhchangeLocations) -> {};
             stages.addAll(createStageExecutions(
                     sectionExecutionFactory,
                     childLocationsConsumer,
@@ -413,7 +413,7 @@ public class LegacySqlQueryScheduler
                 sectionStageExecutions.stream()
                         .map(executionInfos -> executionInfos.stream()
                                 .collect(toImmutableList()))
-                        .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
+                        .map(executionPolicy::createExecutionSchedule)
                         .forEach(sectionExecutionSchedules::add);
 
                 while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {

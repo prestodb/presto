@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -96,6 +97,7 @@ public class SplitManager
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }
+        session.getRuntimeStats().addMetricValue(GET_SPLITS_TIME_NANOS, System.nanoTime() - startTime);
         return splitSource;
     }
 

@@ -19,6 +19,10 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.decoder.DecoderColumnHandle;
@@ -29,10 +33,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaBuilder;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -53,10 +55,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -194,25 +192,6 @@ public class TestAvroDecoder
     }
 
     @Test
-    public void testEnumDecodedAsVarchar()
-    {
-        Schema schema = SchemaBuilder.record("record")
-                .fields()
-                .name("enum_field")
-                .type()
-                .enumeration("Weekday")
-                .symbols("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-                .noDefault()
-                .endRecord();
-        Schema enumType = schema.getField("enum_field").schema();
-        GenericData.EnumSymbol enumValue = new GenericData.EnumSymbol(enumType, "Wednesday");
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR, "enum_field", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "enum_field", enumType.toString(), enumValue);
-
-        checkValue(decodedRow, row, "Wednesday");
-    }
-
-    @Test
     public void testSchemaEvolutionRenamingColumn()
             throws Exception
     {
@@ -331,46 +310,10 @@ public class TestAvroDecoder
     }
 
     @Test
-    public void testIntDecodedAsInteger()
-    {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", INTEGER, "id", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"int\"", 100_000);
-
-        checkValue(decodedRow, row, 100_000);
-    }
-
-    @Test
-    public void testIntDecodedAsSmallInt()
-    {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", SMALLINT, "id", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"int\"", 1000);
-
-        checkValue(decodedRow, row, 1000);
-    }
-
-    @Test
-    public void testIntDecodedAsTinyInt()
-    {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TINYINT, "id", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"int\"", 100);
-
-        checkValue(decodedRow, row, 100);
-    }
-
-    @Test
     public void testFloatDecodedAsDouble()
             throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DOUBLE, "float_field", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
-
-        checkValue(decodedRow, row, 10.2);
-    }
-
-    @Test
-    public void testFloatDecodedAsReal()
-    {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", REAL, "float_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
 
         checkValue(decodedRow, row, 10.2);
@@ -384,26 +327,6 @@ public class TestAvroDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "encoded", "\"bytes\"", ByteBuffer.wrap("mytext".getBytes(UTF_8)));
 
         checkValue(decodedRow, row, "mytext");
-    }
-
-    @Test
-    public void testFixedDecodedAsVarbinary()
-    {
-        Schema schema = SchemaBuilder.record("record")
-                .fields().name("fixed_field")
-                .type()
-                .fixed("fixed5")
-                .size(5)
-                .noDefault()
-                .endRecord();
-        Schema fixedType = schema.getField("fixed_field").schema();
-        GenericData.Fixed fixedValue = new GenericData.Fixed(schema.getField("fixed_field").schema());
-        byte[] bytes = {5, 4, 3, 2, 1};
-        fixedValue.bytes(bytes);
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARBINARY, "fixed_field", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "fixed_field", fixedType.toString(), fixedValue);
-
-        checkValue(decodedRow, row, Slices.wrappedBuffer(bytes));
     }
 
     @Test
@@ -622,7 +545,13 @@ public class TestAvroDecoder
         singleColumnDecoder(DOUBLE_MAP_TYPE);
 
         // some unsupported types
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(RealType.REAL));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(IntegerType.INTEGER));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(SmallintType.SMALLINT));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TinyintType.TINYINT));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4)));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(new ArrayType(RealType.REAL)));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL_MAP_TYPE));
     }
 
     private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)

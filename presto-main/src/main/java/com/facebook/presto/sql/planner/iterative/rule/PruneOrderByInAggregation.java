@@ -79,7 +79,6 @@ public class PruneOrderByInAggregation
             return Result.empty();
         }
         return Result.ofPlanNode(new AggregationNode(
-                node.getSourceLocation(),
                 node.getId(),
                 node.getSource(),
                 aggregations.build(),

@@ -15,8 +15,6 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.hive.HiveTransactionHandle;
-import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
-import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -26,7 +24,6 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
@@ -61,7 +58,6 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final ConnectorAccessControl accessControl;
     private final Set<Procedure> procedures;
-    private final ConnectorPlanOptimizer planOptimizer;
 
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
@@ -76,8 +72,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             ConnectorAccessControl accessControl,
-            Set<Procedure> procedures,
-            ConnectorPlanOptimizer planOptimizer)
+            Set<Procedure> procedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -92,7 +87,6 @@ public class IcebergConnector
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
-        this.planOptimizer = requireNonNull(planOptimizer, "planOptimizer is null");
     }
 
     @Override
@@ -201,11 +195,5 @@ public class IcebergConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
-    }
-
-    @Override
-    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
-    {
-        return new IcebergPlanOptimizerProvider(planOptimizer);
     }
 }

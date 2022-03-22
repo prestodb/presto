@@ -32,17 +32,17 @@ Configuration Properties
 
 The following configuration properties are available:
 
-===================================================  ============================================================
+=================================================== ============================================================
 Property Name                                        Description
-===================================================  ============================================================
+=================================================== ============================================================
 ``druid.coordinator-url``                            Druid coordinator url.
 ``druid.broker-url``                                 Druid broker url.
 ``druid.schema-name``                                Druid schema name.
 ``druid.compute-pushdown-enabled``                   Whether to pushdown all query processing to Druid.
-``druid.case-insensitive-name-matching``             Match dataset and table names case-insensitively.
+``druid.case-insensitive-name-matching``             Match dataset and table names case-insensitively
 ``druid.case-insensitive-name-matching.cache-ttl``   Duration for which remote dataset and table names will be
                                                      cached. Set to ``0ms`` to disable the cache
-===================================================  ============================================================
+==================================================== ============================================================
 
 ``druid.coordinator-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,14 +69,14 @@ Whether to pushdown all query processing to Druid.
 the default is ``false``.
 
 ``druid.case-insensitive-name-matching``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Match dataset and table names case-insensitively.
 
 The default is ``false``.
 
 ``druid.case-insensitive-name-matching.cache-ttl``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Duration for which remote dataset and table names will be cached. Set to ``0ms`` to disable the cache.
 

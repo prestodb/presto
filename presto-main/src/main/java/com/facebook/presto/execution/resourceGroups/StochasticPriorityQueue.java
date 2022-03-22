@@ -215,16 +215,16 @@ final class StochasticPriorityQueue<E>
 
         public Node<E> findLeaf()
         {
-            int leftDescendants = left.map(node -> node.descendants).orElse(0);
-            int rightDescendants = right.map(node -> node.descendants).orElse(0);
+            int leftDecendants = left.map(node -> node.descendants).orElse(0);
+            int rightDecendants = right.map(node -> node.descendants).orElse(0);
 
-            if (leftDescendants == 0 && rightDescendants == 0) {
+            if (leftDecendants == 0 && rightDecendants == 0) {
                 return left.orElse(right.orElse(this));
             }
-            if (leftDescendants > rightDescendants) {
+            if (leftDecendants > rightDecendants) {
                 return left.get().findLeaf();
             }
-            if (rightDescendants > leftDescendants) {
+            if (rightDecendants > leftDecendants) {
                 return right.get().findLeaf();
             }
             // For ties just go left

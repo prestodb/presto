@@ -264,7 +264,7 @@ public class TestConnectorOptimization
 
     private static VariableReferenceExpression newBigintVariable(String name)
     {
-        return new VariableReferenceExpression(Optional.empty(), name, BIGINT);
+        return new VariableReferenceExpression(name, BIGINT);
     }
 
     private static void assertPlanMatch(PlanNode actual, PlanMatchPattern expected)
@@ -327,7 +327,6 @@ public class TestConnectorOptimization
                 TableScanNode tableScanNode = (TableScanNode) node.getSource();
                 TableHandle handle = tableScanNode.getTable();
                 return new TableScanNode(
-                        Optional.empty(),
                         tableScanNode.getId(),
                         new TableHandle(
                                 handle.getConnectorId(),
@@ -396,7 +395,7 @@ public class TestConnectorOptimization
         public PlanNode visitFilter(FilterNode node, Void context)
         {
             if (node.getSource() instanceof TableScanNode) {
-                return new FilterNode(Optional.empty(), node.getId(), node.getSource(), and(node.getPredicate(), filter));
+                return new FilterNode(node.getId(), node.getSource(), and(node.getPredicate(), filter));
             }
             return node;
         }
@@ -404,7 +403,7 @@ public class TestConnectorOptimization
         @Override
         public PlanNode visitTableScan(TableScanNode node, Void context)
         {
-            return new FilterNode(Optional.empty(), idAllocator.getNextId(), node, filter);
+            return new FilterNode(idAllocator.getNextId(), node, filter);
         }
     }
 

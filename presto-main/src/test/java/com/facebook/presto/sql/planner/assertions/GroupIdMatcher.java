@@ -19,11 +19,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -54,9 +54,9 @@ public class GroupIdMatcher
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
-        GroupIdNode groupIdNode = (GroupIdNode) node;
-        List<List<VariableReferenceExpression>> actualGroups = groupIdNode.getGroupingSets();
-        List<VariableReferenceExpression> actualAggregationArguments = groupIdNode.getAggregationArguments();
+        GroupIdNode groudIdNode = (GroupIdNode) node;
+        List<List<VariableReferenceExpression>> actualGroups = groudIdNode.getGroupingSets();
+        List<VariableReferenceExpression> actualAggregationArguments = groudIdNode.getAggregationArguments();
 
         if (actualGroups.size() != groups.size()) {
             return NO_MATCH;
@@ -72,7 +72,7 @@ public class GroupIdMatcher
             return NO_MATCH;
         }
 
-        return match(groupIdAlias, createSymbolReference(groupIdNode.getGroupIdVariable()));
+        return match(groupIdAlias, new SymbolReference(groudIdNode.getGroupIdVariable().getName()));
     }
 
     @Override

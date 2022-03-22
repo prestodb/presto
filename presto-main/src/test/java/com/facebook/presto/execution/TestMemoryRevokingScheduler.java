@@ -93,7 +93,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMemoryRevokingScheduler
 {
     public static final OutputBuffers.OutputBufferId OUT = new OutputBuffers.OutputBufferId(0);
-    private final AtomicInteger idGenerator = new AtomicInteger();
+    private final AtomicInteger idGeneator = new AtomicInteger();
     private final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(10, GIGABYTE));
 
     private final Map<QueryId, QueryContext> queryContexts = new HashMap<>();
@@ -784,7 +784,7 @@ public class TestMemoryRevokingScheduler
     {
         QueryContext queryContext = getOrCreateQueryContext(queryId, memoryPool);
 
-        TaskId taskId = new TaskId(queryId.getId(), 0, 0, idGenerator.incrementAndGet());
+        TaskId taskId = new TaskId(queryId.getId(), 0, 0, idGeneator.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
 
         return createSqlTask(

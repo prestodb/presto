@@ -57,10 +57,6 @@ Date and Time Functions
 
     This is an alias for ``CAST(x AS date)``.
 
-.. function:: last_day_of_month(x) -> date
-
-    Returns the last day of the month.
-
 .. function:: from_iso8601_timestamp(string) -> timestamp with time zone
 
     Parses the ISO 8601 formatted ``string`` into a ``timestamp with time zone``.

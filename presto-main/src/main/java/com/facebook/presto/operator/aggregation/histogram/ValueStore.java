@@ -151,7 +151,7 @@ public class ValueStore
         }
 
         buckets = newBuckets;
-        // worst case is every bucket has a unique value, so preemptively keep this large enough to have a value for ever bucket
+        // worst case is every bucket has a unique value, so pre-emptively keep this large enough to have a value for ever bucket
         // TODO: could optimize the growth algorithm to be resize this only when necessary; this wastes memory but guarantees that if every value has a distinct hash, we have space
         valueHashes.ensureCapacity(newBucketCount);
         bucketCount = newBucketCount;

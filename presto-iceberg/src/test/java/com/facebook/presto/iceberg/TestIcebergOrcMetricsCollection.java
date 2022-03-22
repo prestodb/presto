@@ -209,14 +209,12 @@ public class TestIcebergOrcMetricsCollection
         private final Map<Integer, Long> columnSizes;
         private final Map<Integer, Long> valueCounts;
         private final Map<Integer, Long> nullValueCounts;
-        private final Map<Integer, Long> nanValueCounts;
-
         private final Map<Integer, String> lowerBounds;
         private final Map<Integer, String> upperBounds;
 
         public static DataFileRecord toDataFileRecord(MaterializedRow row)
         {
-            assertEquals(row.getFieldCount(), 12);
+            assertEquals(row.getFieldCount(), 11);
             return new DataFileRecord(
                     (String) row.getField(0),
                     (String) row.getField(1),
@@ -225,9 +223,8 @@ public class TestIcebergOrcMetricsCollection
                     row.getField(4) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(4)) : null,
                     row.getField(5) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(5)) : null,
                     row.getField(6) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(6)) : null,
-                    row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(7)) : null,
-                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(8)) : null,
-                    row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(9)) : null);
+                    row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(7)) : null,
+                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(8)) : null);
         }
 
         private DataFileRecord(
@@ -238,7 +235,6 @@ public class TestIcebergOrcMetricsCollection
                 Map<Integer, Long> columnSizes,
                 Map<Integer, Long> valueCounts,
                 Map<Integer, Long> nullValueCounts,
-                Map<Integer, Long> nanValueCounts,
                 Map<Integer, String> lowerBounds,
                 Map<Integer, String> upperBounds)
         {
@@ -249,7 +245,6 @@ public class TestIcebergOrcMetricsCollection
             this.columnSizes = columnSizes;
             this.valueCounts = valueCounts;
             this.nullValueCounts = nullValueCounts;
-            this.nanValueCounts = nanValueCounts;
             this.lowerBounds = lowerBounds;
             this.upperBounds = upperBounds;
         }
@@ -287,11 +282,6 @@ public class TestIcebergOrcMetricsCollection
         public Map<Integer, Long> getNullValueCounts()
         {
             return nullValueCounts;
-        }
-
-        public Map<Integer, Long> getNanValueCounts()
-        {
-            return nanValueCounts;
         }
 
         public Map<Integer, String> getLowerBounds()

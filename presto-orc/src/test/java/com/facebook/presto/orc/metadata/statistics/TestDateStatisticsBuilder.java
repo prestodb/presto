@@ -73,11 +73,11 @@ public class TestDateStatisticsBuilder
     }
 
     @Test
-    public void testTotalValueBytes()
+    public void testMinAverageValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
-        assertTotalValueBytes(DATE_VALUE_BYTES, ImmutableList.of(42));
-        assertTotalValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0));
-        assertTotalValueBytes(4 * DATE_VALUE_BYTES, ImmutableList.of(0, 42, 42, 43));
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(42));
+        assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0));
+        assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0, 42, 42, 43));
     }
 }

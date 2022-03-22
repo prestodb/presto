@@ -107,13 +107,11 @@ public class ScalarAggregationToJoinRewriter
             VariableReferenceExpression nonNull)
     {
         AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
-                lateralJoinNode.getSourceLocation(),
                 idAllocator.getNextId(),
                 lateralJoinNode.getInput(),
-                variableAllocator.newVariable(nonNull.getSourceLocation(), "unique", BIGINT));
+                variableAllocator.newVariable("unique", BIGINT));
 
         JoinNode leftOuterJoin = new JoinNode(
-                scalarAggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 JoinNode.Type.LEFT,
                 inputWithUniqueColumns,
@@ -184,7 +182,6 @@ public class ScalarAggregationToJoinRewriter
                 Type scalarAggregationSourceType = nonNull.getType();
                 aggregations.put(variable, new Aggregation(
                         new CallExpression(
-                                variable.getSourceLocation(),
                                 "count",
                                 functionResolution.countFunction(scalarAggregationSourceType),
                                 BIGINT,
@@ -200,7 +197,6 @@ public class ScalarAggregationToJoinRewriter
         }
 
         return Optional.of(new AggregationNode(
-                scalarAggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 aggregations.build(),

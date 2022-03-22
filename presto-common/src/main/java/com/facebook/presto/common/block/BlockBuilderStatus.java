@@ -74,8 +74,7 @@ public class BlockBuilderStatus
 
         int size = ClassLayout.parseClass(clazz).instanceSize();
         for (Field field : clazz.getDeclaredFields()) {
-            // The !field.isSynthetic() condition is specifically for jacoco which adds synthetic members $jacocoData and $jacocoInit() to classes.
-            if (!field.getType().isPrimitive() && !field.isSynthetic()) {
+            if (!field.getType().isPrimitive()) {
                 size += deepInstanceSize(field.getType());
             }
         }

@@ -49,7 +49,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
@@ -61,7 +61,6 @@ import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
 import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.facebook.presto.util.MoreMath.max;
@@ -72,7 +71,7 @@ import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -343,7 +342,7 @@ public class ScalarStatsCalculator
         @Override
         protected VariableStatsEstimate visitSymbolReference(SymbolReference node, Void context)
         {
-            return input.getVariableStatistics(new VariableReferenceExpression(getSourceLocation(node), node.getName(), types.get(node)));
+            return input.getVariableStatistics(new VariableReferenceExpression(node.getName(), types.get(node)));
         }
 
         @Override
@@ -356,7 +355,7 @@ public class ScalarStatsCalculator
         protected VariableStatsEstimate visitLiteral(Literal node, Void context)
         {
             Object value = evaluate(metadata, session.toConnectorSession(), node);
-            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableMap.of(), WarningCollector.NOOP).analyze(node, Scope.create());
+            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of(), WarningCollector.NOOP).analyze(node, Scope.create());
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
@@ -398,7 +397,7 @@ public class ScalarStatsCalculator
                     metadata.getFunctionAndTypeManager(),
                     session,
                     types,
-                    emptyMap(),
+                    emptyList(),
                     node -> new IllegalStateException("Unexpected node: %s" + node),
                     WarningCollector.NOOP,
                     false);

@@ -48,7 +48,6 @@ import java.util.Set;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
@@ -78,7 +77,6 @@ public class HivePageSinkProvider
     private final OrcFileWriterFactory orcFileWriterFactory;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final boolean metastoreImpersonationEnabled;
-    private final ColumnConverterProvider columnConverterProvider;
 
     @Inject
     public HivePageSinkProvider(
@@ -97,8 +95,7 @@ public class HivePageSinkProvider
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
             HiveWriterStats hiveWriterStats,
-            OrcFileWriterFactory orcFileWriterFactory,
-            ColumnConverterProvider columnConverterProvider)
+            OrcFileWriterFactory orcFileWriterFactory)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -121,7 +118,6 @@ public class HivePageSinkProvider
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
-        this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.perTransactionMetastoreCacheMaximumSize = metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize();
         this.metastoreImpersonationEnabled = metastoreClientConfig.isMetastoreImpersonationEnabled();
     }
@@ -174,7 +170,7 @@ public class HivePageSinkProvider
                 session.getQueryId(),
                 // The scope of metastore cache is within a single HivePageSink object
                 // TODO: Extend metastore cache scope to the entire transaction
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionMetastoreCacheMaximumSize), new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider)),
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionMetastoreCacheMaximumSize), new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session))),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,

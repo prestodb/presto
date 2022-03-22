@@ -14,7 +14,6 @@
 
 package com.facebook.presto.hive.security;
 
-import com.facebook.presto.common.Subfield;
 import com.facebook.presto.plugin.base.security.ForwardingConnectorAccessControl;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -126,12 +125,12 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
         if (sourceTableName.isPresent()) {
             try {
-                checkCanSelectFromColumns(transactionHandle, identity, context, sourceTableName.get(), columnOrSubfieldNames);
+                checkCanSelectFromColumns(transactionHandle, identity, context, sourceTableName.get(), columnNames);
                 return;
             }
             catch (AccessDeniedException e) {
@@ -139,7 +138,7 @@ public class SystemTableAwareAccessControl
             }
         }
 
-        delegate.checkCanSelectFromColumns(transactionHandle, identity, context, tableName, columnOrSubfieldNames);
+        delegate.checkCanSelectFromColumns(transactionHandle, identity, context, tableName, columnNames);
     }
 
     @Override

@@ -49,7 +49,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "hive.max-global-split-iterator-threads",
         "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
-        "hive.parquet.fail-on-corrupted-statistics",
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
@@ -102,6 +101,7 @@ public class HiveClientConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
+    private boolean failOnCorruptedParquetStatistics = true;
     private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean assumeCanonicalPartitionKeys;
@@ -155,7 +155,6 @@ public class HiveClientConfig
 
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
-    private boolean streamingAggregationEnabled;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
@@ -167,7 +166,6 @@ public class HiveClientConfig
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
-    private boolean parquetPushdownFilterEnabled;
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
@@ -199,18 +197,7 @@ public class HiveClientConfig
     private int materializedViewMissingPartitionsThreshold = 100;
 
     private boolean verboseRuntimeStatsEnabled;
-    private boolean useRecordPageSourceForCustomSplit = true;
-    private boolean hudiMetadataEnabled;
 
-    private boolean sizeBasedSplitWeightsEnabled = true;
-    private double minimumAssignedSplitWeight = 0.05;
-
-    private boolean userDefinedTypeEncodingEnabled;
-
-    private boolean columnIndexFilterEnabled;
-    private boolean fileSplittable = true;
-
-    @Min(0)
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -326,18 +313,6 @@ public class HiveClientConfig
     public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
     {
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
-        return this;
-    }
-
-    public boolean isUserDefinedTypeEncodingEnabled()
-    {
-        return userDefinedTypeEncodingEnabled;
-    }
-
-    @Config("hive.user-defined-type-encoding-enabled")
-    public HiveClientConfig setUserDefinedTypeEncodingEnabled(boolean userDefinedTypeEncodingEnabled)
-    {
-        this.userDefinedTypeEncodingEnabled = userDefinedTypeEncodingEnabled;
         return this;
     }
 
@@ -941,6 +916,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isFailOnCorruptedParquetStatistics()
+    {
+        return failOnCorruptedParquetStatistics;
+    }
+
+    @Config("hive.parquet.fail-on-corrupted-statistics")
+    @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
+    public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
+    {
+        this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
+        return this;
+    }
+
     @NotNull
     public DataSize getParquetMaxReadBlockSize()
     {
@@ -1358,19 +1346,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isStreamingAggregationEnabled()
-    {
-        return streamingAggregationEnabled;
-    }
-
-    @Config("hive.streaming-aggregation-enabled")
-    @ConfigDescription("Enable streaming aggregation execution")
-    public HiveClientConfig setStreamingAggregationEnabled(boolean streamingAggregationEnabled)
-    {
-        this.streamingAggregationEnabled = streamingAggregationEnabled;
-        return this;
-    }
-
     public boolean isTemporaryStagingDirectoryEnabled()
     {
         return isTemporaryStagingDirectoryEnabled;
@@ -1472,20 +1447,6 @@ public class HiveClientConfig
     public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
     {
         this.pushdownFilterEnabled = pushdownFilterEnabled;
-        return this;
-    }
-
-    @NotNull
-    public boolean isParquetPushdownFilterEnabled()
-    {
-        return parquetPushdownFilterEnabled;
-    }
-
-    @Config("hive.parquet.pushdown-filter-enabled")
-    @ConfigDescription("Experimental: enable complex filter pushdown for Parquet")
-    public HiveClientConfig setParquetPushdownFilterEnabled(boolean parquetPushdownFilterEnabled)
-    {
-        this.parquetPushdownFilterEnabled = parquetPushdownFilterEnabled;
         return this;
     }
 
@@ -1720,84 +1681,5 @@ public class HiveClientConfig
     public int getMaterializedViewMissingPartitionsThreshold()
     {
         return this.materializedViewMissingPartitionsThreshold;
-    }
-
-    @Config("hive.parquet-column-index-filter-enabled")
-    @ConfigDescription("enable using parquet column index filter")
-    public HiveClientConfig setReadColumnIndexFilter(boolean columnIndexFilterEnabled)
-    {
-        this.columnIndexFilterEnabled = columnIndexFilterEnabled;
-        return this;
-    }
-
-    public boolean getReadColumnIndexFilter()
-    {
-        return this.columnIndexFilterEnabled;
-    }
-
-    @Config("hive.size-based-split-weights-enabled")
-    public HiveClientConfig setSizeBasedSplitWeightsEnabled(boolean sizeBasedSplitWeightsEnabled)
-    {
-        this.sizeBasedSplitWeightsEnabled = sizeBasedSplitWeightsEnabled;
-        return this;
-    }
-
-    public boolean isSizeBasedSplitWeightsEnabled()
-    {
-        return sizeBasedSplitWeightsEnabled;
-    }
-
-    @Config("hive.minimum-assigned-split-weight")
-    @ConfigDescription("Minimum weight that a split can be assigned when size based split weights are enabled")
-    public HiveClientConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
-    {
-        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
-        return this;
-    }
-
-    @DecimalMax("1.0") // standard split weight
-    @DecimalMin(value = "0", inclusive = false)
-    public double getMinimumAssignedSplitWeight()
-    {
-        return minimumAssignedSplitWeight;
-    }
-
-    public boolean isUseRecordPageSourceForCustomSplit()
-    {
-        return this.useRecordPageSourceForCustomSplit;
-    }
-
-    @Config("hive.use-record-page-source-for-custom-split")
-    @ConfigDescription("Use record page source for custom split. By default, true. Used to query MOR tables in Hudi.")
-    public HiveClientConfig setUseRecordPageSourceForCustomSplit(boolean useRecordPageSourceForCustomSplit)
-    {
-        this.useRecordPageSourceForCustomSplit = useRecordPageSourceForCustomSplit;
-        return this;
-    }
-
-    public boolean isFileSplittable()
-    {
-        return fileSplittable;
-    }
-
-    @Config("hive.file-splittable")
-    @ConfigDescription("By default, this value is true. Set to false to make a hive file un-splittable when coordinator schedules splits.")
-    public HiveClientConfig setFileSplittable(boolean fileSplittable)
-    {
-        this.fileSplittable = fileSplittable;
-        return this;
-    }
-
-    @Config("hive.hudi-metadata-enabled")
-    @ConfigDescription("For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage")
-    public HiveClientConfig setHudiMetadataEnabled(boolean hudiMetadataEnabled)
-    {
-        this.hudiMetadataEnabled = hudiMetadataEnabled;
-        return this;
-    }
-
-    public boolean isHudiMetadataEnabled()
-    {
-        return this.hudiMetadataEnabled;
     }
 }

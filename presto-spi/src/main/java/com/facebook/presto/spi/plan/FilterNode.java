@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -23,7 +22,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
@@ -36,13 +34,11 @@ public final class FilterNode
     private final RowExpression predicate;
 
     @JsonCreator
-    public FilterNode(
-            Optional<SourceLocation> sourceLocation,
-            @JsonProperty("id") PlanNodeId id,
+    public FilterNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("predicate") RowExpression predicate)
     {
-        super(sourceLocation, id);
+        super(id);
 
         this.source = source;
         this.predicate = predicate;
@@ -92,7 +88,7 @@ public final class FilterNode
         if (newChildren == null || newChildren.size() != 1) {
             throw new IllegalArgumentException("Expect exactly one child to replace");
         }
-        return new FilterNode(getSourceLocation(), getId(), newChildren.get(0), predicate);
+        return new FilterNode(getId(), newChildren.get(0), predicate);
     }
 
     @Override

@@ -67,7 +67,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
-import static java.math.RoundingMode.HALF_UP;
+import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -237,7 +237,7 @@ public class PrestoResultSet
     {
         BigDecimal bigDecimal = getBigDecimal(columnIndex);
         if (bigDecimal != null) {
-            bigDecimal = bigDecimal.setScale(scale, HALF_UP);
+            bigDecimal = bigDecimal.setScale(scale, ROUND_HALF_UP);
         }
         return bigDecimal;
     }

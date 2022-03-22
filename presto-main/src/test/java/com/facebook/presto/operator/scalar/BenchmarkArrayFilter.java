@@ -139,10 +139,9 @@ public class BenchmarkArrayFilter
                 projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
-                                Optional.empty(),
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), constant(0L, BIGINT)))))));
+                                new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 

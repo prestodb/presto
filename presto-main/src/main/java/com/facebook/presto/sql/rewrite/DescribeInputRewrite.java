@@ -28,7 +28,6 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Row;
@@ -37,7 +36,6 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -64,11 +62,10 @@ final class DescribeInputRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl, warningCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -79,7 +76,6 @@ final class DescribeInputRewrite
         private final Metadata metadata;
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
-        private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
 
@@ -89,7 +85,6 @@ final class DescribeInputRewrite
                 Metadata metadata,
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
-                Map<NodeRef<Parameter>, Expression> parameterLookup,
                 AccessControl accessControl,
                 WarningCollector warningCollector)
         {
@@ -99,7 +94,6 @@ final class DescribeInputRewrite
             this.queryExplainer = queryExplainer;
             this.accessControl = accessControl;
             this.parameters = parameters;
-            this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
@@ -111,7 +105,7 @@ final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session, warningCollector));
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
             // get all parameters in query

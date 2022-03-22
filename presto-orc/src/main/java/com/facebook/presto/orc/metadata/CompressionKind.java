@@ -15,24 +15,5 @@ package com.facebook.presto.orc.metadata;
 
 public enum CompressionKind
 {
-    NONE(0),
-    ZLIB(9),
-    SNAPPY(17),
-    LZ4(14),
-    ZSTD(21);
-
-    /**
-     * Minimum size of the input data that would benefit from compression.
-     */
-    private final int minCompressibleSize;
-
-    CompressionKind(int minCompressibleSize)
-    {
-        this.minCompressibleSize = minCompressibleSize;
-    }
-
-    public int getMinCompressibleSize()
-    {
-        return minCompressibleSize;
-    }
+    NONE, ZLIB, SNAPPY, LZ4, ZSTD
 }

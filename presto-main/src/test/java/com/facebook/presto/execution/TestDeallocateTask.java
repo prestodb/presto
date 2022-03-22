@@ -78,8 +78,7 @@ public class TestDeallocateTask
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, transactionManager, executor, metadata);
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
-        DeallocateTask deallocateTask = new DeallocateTask();
-        deallocateTask.execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
+        new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getDeallocatedPreparedStatements();
     }
 }

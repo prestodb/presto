@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -25,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,7 +69,6 @@ public class ApplyNode
 
     @JsonCreator
     public ApplyNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
@@ -79,7 +76,7 @@ public class ApplyNode
             @JsonProperty("correlation") List<VariableReferenceExpression> correlation,
             @JsonProperty("originSubqueryError") String originSubqueryError)
     {
-        super(sourceLocation, id);
+        super(id);
         checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
         verifySubquerySupported(subqueryAssignments);
 
@@ -145,6 +142,6 @@ public class ApplyNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new ApplyNode(getSourceLocation(), getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubqueryError);
+        return new ApplyNode(getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubqueryError);
     }
 }

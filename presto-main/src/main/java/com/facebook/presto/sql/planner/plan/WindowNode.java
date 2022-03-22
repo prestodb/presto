@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -52,7 +51,6 @@ public class WindowNode
 
     @JsonCreator
     public WindowNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
@@ -61,7 +59,7 @@ public class WindowNode
             @JsonProperty("prePartitionedInputs") Set<VariableReferenceExpression> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
     {
-        super(sourceLocation, id);
+        super(id);
 
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
@@ -162,7 +160,7 @@ public class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
+        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Immutable

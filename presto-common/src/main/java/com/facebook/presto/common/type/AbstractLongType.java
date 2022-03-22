@@ -24,7 +24,7 @@ import io.airlift.slice.Slice;
 import static java.lang.Long.rotateLeft;
 
 public abstract class AbstractLongType
-        extends AbstractPrimitiveType
+        extends AbstractType
         implements FixedWidthType
 {
     public AbstractLongType(TypeSignature signature)

@@ -53,12 +53,9 @@ public final class StandardTypes
     public static final String BING_TILE = "BingTile";
     public static final String BIGINT_ENUM = "BigintEnum";
     public static final String VARCHAR_ENUM = "VarcharEnum";
-    public static final String DISTINCT_TYPE = "DistinctType";
     public static final String UUID = "uuid";
 
     private StandardTypes() {}
-
-    public static final Set<String> USER_DEFINED_TYPES = unmodifiableSet(new HashSet<>(asList(BIGINT_ENUM, VARCHAR_ENUM, DISTINCT_TYPE)));
 
     public static final Set<String> PARAMETRIC_TYPES = unmodifiableSet(new HashSet<>(asList(
             VARCHAR,
@@ -70,6 +67,5 @@ public final class StandardTypes
             QDIGEST,
             TDIGEST,
             BIGINT_ENUM,
-            VARCHAR_ENUM,
-            DISTINCT_TYPE)));
+            VARCHAR_ENUM)));
 }

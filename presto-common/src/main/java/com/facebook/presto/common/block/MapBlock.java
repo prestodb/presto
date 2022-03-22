@@ -20,7 +20,7 @@ import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
@@ -35,7 +35,6 @@ public class MapBlock
     private final int startOffset;
     private final int positionCount;
 
-    @Nullable
     private final boolean[] mapIsNull;
     private final int[] offsets;
     private final Block keyBlock;
@@ -249,16 +248,14 @@ public class MapBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
         consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
-        if (mapIsNull != null) {
-            consumer.accept(mapIsNull, sizeOf(mapIsNull));
-        }
+        consumer.accept(mapIsNull, sizeOf(mapIsNull));
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

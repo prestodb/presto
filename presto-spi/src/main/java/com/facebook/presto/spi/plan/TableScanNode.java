@@ -15,7 +15,6 @@ package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,7 +26,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
@@ -54,13 +52,12 @@ public final class TableScanNode
      */
     @JsonCreator
     public TableScanNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
-        super(sourceLocation, id);
+        super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
@@ -70,7 +67,6 @@ public final class TableScanNode
     }
 
     public TableScanNode(
-            Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             TableHandle table,
             List<VariableReferenceExpression> outputVariables,
@@ -78,7 +74,7 @@ public final class TableScanNode
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        super(sourceLocation, id);
+        super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));

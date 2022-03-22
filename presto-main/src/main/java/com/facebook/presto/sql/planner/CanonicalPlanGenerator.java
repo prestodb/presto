@@ -95,7 +95,6 @@ public class CanonicalPlanGenerator
         }
 
         return Optional.of(new AggregationNode(
-                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 aggregations.build(),
@@ -185,7 +184,6 @@ public class CanonicalPlanGenerator
         context.put(node.getGroupIdVariable(), groupId);
 
         return Optional.of(new GroupIdNode(
-                source.get().getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 groupingSets.build(),
@@ -210,7 +208,7 @@ public class CanonicalPlanGenerator
             VariableReferenceExpression input = (VariableReferenceExpression) inlineVariables(context, unnestVariable.getKey());
             ImmutableList.Builder<VariableReferenceExpression> newVariables = ImmutableList.builder();
             for (VariableReferenceExpression variable : unnestVariable.getValue()) {
-                VariableReferenceExpression newVariable = variableAllocator.newVariable(variable.getSourceLocation(), "unnest_field", variable.getType());
+                VariableReferenceExpression newVariable = variableAllocator.newVariable("unnest_field", variable.getType());
                 context.put(variable, newVariable);
                 newVariables.add(newVariable);
             }
@@ -220,13 +218,12 @@ public class CanonicalPlanGenerator
         // Generate canonical ordinality variable
         Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable()
                 .map(variable -> {
-                    VariableReferenceExpression newVariable = variableAllocator.newVariable(variable.getSourceLocation(), "unnest_ordinality", variable.getType());
+                    VariableReferenceExpression newVariable = variableAllocator.newVariable("unnest_ordinality", variable.getType());
                     context.put(variable, newVariable);
                     return newVariable;
                 });
 
         return Optional.of(new UnnestNode(
-                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 node.getReplicateVariables().stream()
@@ -256,7 +253,6 @@ public class CanonicalPlanGenerator
         }
 
         return Optional.of(new ProjectNode(
-                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 new Assignments(assignments.build()),
@@ -290,7 +286,6 @@ public class CanonicalPlanGenerator
     {
         Optional<PlanNode> source = node.getSource().accept(this, context);
         return source.map(planNode -> new FilterNode(
-                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 planNode,
                 inlineVariables(context, node.getPredicate())));
@@ -306,14 +301,13 @@ public class CanonicalPlanGenerator
         ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
         for (ColumnReference columnReference : columnReferences) {
-            VariableReferenceExpression reference = variableAllocator.newVariable(columnReference.getVariableReferenceExpression().getSourceLocation(), columnReference.getColumnHandle().toString(), columnReference.getVariableReferenceExpression().getType());
+            VariableReferenceExpression reference = variableAllocator.newVariable(columnReference.getColumnHandle().toString(), columnReference.getVariableReferenceExpression().getType());
             context.put(columnReference.getVariableReferenceExpression(), reference);
             outputVariables.add(reference);
             assignments.put(reference, columnReference.getColumnHandle());
         }
 
         return Optional.of(new CanonicalTableScanNode(
-                node.getSourceLocation(),
                 planNodeidAllocator.getNextId(),
                 getCanonicalTableHandle(node.getTable()),
                 outputVariables.build(),

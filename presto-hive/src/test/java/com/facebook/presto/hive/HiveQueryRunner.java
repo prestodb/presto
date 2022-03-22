@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -25,21 +26,20 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.tpcds.TpcdsTableName;
-import com.facebook.presto.tpcds.TpcdsPlugin;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchTable;
+import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -53,9 +53,12 @@ import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTables;
+import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.airlift.units.Duration.nanosSince;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public final class HiveQueryRunner
@@ -70,9 +73,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    public static final String TPCDS_SCHEMA = "tpcds";
-    public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty());
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -89,41 +90,34 @@ public final class HiveQueryRunner
     }
 
     public static DistributedQueryRunner createQueryRunner(
-            Iterable<TpchTable<?>> tpchTables,
+            Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
             Map<String, String> extraCoordinatorProperties,
             Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
+        return createQueryRunner(tables, extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
-    }
-
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, List<String> tpcdsTableNames, Map<String, String> extraProperties, Optional<Path> baseDataDir)
-            throws Exception
-    {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
-            Iterable<TpchTable<?>> tpchTables,
+            Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
             String security,
             Map<String, String> extraHiveProperties,
             Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), baseDataDir, Optional.empty());
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), baseDataDir, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
-            Iterable<TpchTable<?>> tpchTables,
-            Iterable<String> tpcdsTableNames,
+            Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
             Map<String, String> extraCoordinatorProperties,
             String security,
@@ -139,8 +133,6 @@ public final class HiveQueryRunner
         Map<String, String> systemProperties = ImmutableMap.<String, String>builder()
                 .put("task.writer-count", "2")
                 .put("task.partitioned-writer-count", "4")
-                .put("tracing.tracer-type", "simple")
-                .put("tracing.enable-distributed-tracing", "simple")
                 .putAll(extraProperties)
                 .build();
 
@@ -154,10 +146,8 @@ public final class HiveQueryRunner
                         .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.installPlugin(new TpcdsPlugin());
             queryRunner.installPlugin(new TestingHiveEventListenerPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            queryRunner.createCatalog("tpcds", "tpcds");
 
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
@@ -195,29 +185,18 @@ public final class HiveQueryRunner
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
-            List<String> tpchTableNames = getTpchTableNames(tpchTables);
             if (!metastore.getDatabase(METASTORE_CONTEXT, TPCH_SCHEMA).isPresent()) {
                 metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TPCH_SCHEMA));
-                copyTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tpchTableNames, true, false);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
             }
 
             if (!metastore.getDatabase(METASTORE_CONTEXT, TPCH_BUCKETED_SCHEMA).isPresent()) {
                 metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-                copyTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tpchTableNames, true, true);
+                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
             }
 
             if (!metastore.getDatabase(METASTORE_CONTEXT, TEMPORARY_TABLE_SCHEMA).isPresent()) {
                 metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TEMPORARY_TABLE_SCHEMA));
-            }
-
-            if (!metastore.getDatabase(METASTORE_CONTEXT, TPCDS_SCHEMA).isPresent()) {
-                metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TPCDS_SCHEMA));
-                copyTables(queryRunner, "tpcds", TINY_SCHEMA_NAME, createSession(Optional.empty(), TPCDS_SCHEMA), tpcdsTableNames, true, false);
-            }
-
-            if (!metastore.getDatabase(METASTORE_CONTEXT, TPCDS_BUCKETED_SCHEMA).isPresent()) {
-                metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TPCDS_BUCKETED_SCHEMA));
-                copyTables(queryRunner, "tpcds", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty(), TPCDS_BUCKETED_SCHEMA), tpcdsTableNames, true, true);
             }
 
             return queryRunner;
@@ -226,22 +205,6 @@ public final class HiveQueryRunner
             queryRunner.close();
             throw e;
         }
-    }
-
-    private static List<String> getTpchTableNames(Iterable<TpchTable<?>> tables)
-    {
-        ImmutableList.Builder<String> tableNames = ImmutableList.builder();
-        tables.forEach(table -> tableNames.add(table.getTableName().toLowerCase(ENGLISH)));
-        return tableNames.build();
-    }
-
-    public static List<String> getAllTpcdsTableNames()
-    {
-        ImmutableList.Builder<String> tables = ImmutableList.builder();
-        for (TpcdsTableName tpcdsTable : TpcdsTableName.getBaseTables()) {
-            tables.add(tpcdsTable.getTableName().toLowerCase(ENGLISH));
-        }
-        return tables.build();
     }
 
     public static DistributedQueryRunner createMaterializingQueryRunner(Iterable<TpchTable<?>> tables)
@@ -305,11 +268,6 @@ public final class HiveQueryRunner
 
     public static Session createSession(Optional<SelectedRole> role)
     {
-        return createSession(role, TPCH_SCHEMA);
-    }
-
-    public static Session createSession(Optional<SelectedRole> role, String schema)
-    {
         return testSessionBuilder()
                 .setIdentity(new Identity(
                         "hive",
@@ -319,16 +277,11 @@ public final class HiveQueryRunner
                         ImmutableMap.of(),
                         ImmutableMap.of()))
                 .setCatalog(HIVE_CATALOG)
-                .setSchema(schema)
+                .setSchema(TPCH_SCHEMA)
                 .build();
     }
 
     public static Session createBucketedSession(Optional<SelectedRole> role)
-    {
-        return createBucketedSession(role, TPCH_BUCKETED_SCHEMA);
-    }
-
-    public static Session createBucketedSession(Optional<SelectedRole> role, String schema)
     {
         return testSessionBuilder()
                 .setIdentity(new Identity(
@@ -339,7 +292,7 @@ public final class HiveQueryRunner
                         ImmutableMap.of(),
                         ImmutableMap.of()))
                 .setCatalog(HIVE_BUCKETED_CATALOG)
-                .setSchema(schema)
+                .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
     }
 
@@ -354,13 +307,57 @@ public final class HiveQueryRunner
                         ImmutableMap.of(),
                         ImmutableMap.of()))
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, HIVE_CATALOG)
-                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.name())
+                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.toString())
                 .setSystemProperty(HASH_PARTITION_COUNT, "13")
                 .setSystemProperty(COLOCATED_JOIN, "true")
                 .setSystemProperty(GROUPED_EXECUTION, "true")
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static void copyTpchTablesBucketed(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            Iterable<TpchTable<?>> tables)
+    {
+        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
+        long startTime = System.nanoTime();
+        for (TpchTable<?> table : tables) {
+            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), session);
+        }
+        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
+    }
+
+    private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+    {
+        long start = System.nanoTime();
+        log.info("Running import for %s", table.getObjectName());
+        @Language("SQL") String sql;
+        switch (table.getObjectName()) {
+            case "part":
+            case "partsupp":
+            case "supplier":
+            case "nation":
+            case "region":
+                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "lineitem":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "customer":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            case "orders":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
+        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public static void main(String[] args)
@@ -403,7 +400,7 @@ public final class HiveQueryRunner
             baseDataDir = Optional.of(baseDataDirFile.toPath());
         }
 
-        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), baseDataDir);
+        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), ImmutableMap.of("http-server.http.port", "8080"), baseDataDir);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");

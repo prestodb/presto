@@ -34,7 +34,7 @@ public class MaterializedViewNotFoundException
 
     public MaterializedViewNotFoundException(SchemaTableName viewName, Throwable cause)
     {
-        this(viewName, format("Materialized view '%s' not found", viewName), cause);
+        this(viewName, format("Materialzied view '%s' not found", viewName), cause);
     }
 
     public MaterializedViewNotFoundException(SchemaTableName viewName, String message, Throwable cause)

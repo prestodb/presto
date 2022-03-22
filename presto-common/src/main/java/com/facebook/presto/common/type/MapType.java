@@ -52,7 +52,10 @@ public class MapType
             MethodHandle keyBlockEquals,
             MethodHandle keyBlockHashCode)
     {
-        super(Block.class);
+        super(new TypeSignature(StandardTypes.MAP,
+                        TypeSignatureParameter.of(keyType.getTypeSignature()),
+                        TypeSignatureParameter.of(valueType.getTypeSignature())),
+                Block.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
         }
@@ -61,15 +64,6 @@ public class MapType
         requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.keyBlockHashCode = keyBlockHashCode;
         this.keyBlockEquals = keyBlockEquals;
-    }
-
-    @Override
-    public TypeSignature getTypeSignature()
-    {
-        return new TypeSignature(
-                StandardTypes.MAP,
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature()));
     }
 
     @Override
@@ -104,16 +98,6 @@ public class MapType
     public boolean isComparable()
     {
         return valueType.isComparable();
-    }
-
-    public MethodHandle getKeyBlockEquals()
-    {
-        return keyBlockEquals;
-    }
-
-    public MethodHandle getKeyBlockHashCode()
-    {
-        return keyBlockHashCode;
     }
 
     @Override

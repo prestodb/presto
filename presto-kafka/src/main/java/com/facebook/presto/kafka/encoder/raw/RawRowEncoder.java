@@ -206,7 +206,7 @@ public class RawRowEncoder
         private static void checkFieldTypeOneOf(FieldType declaredFieldType, String columnName, Type columnType, FieldType... allowedFieldTypes)
         {
             checkArgument(Arrays.asList(allowedFieldTypes).contains(declaredFieldType),
-                    format("Wrong data format '%s' specified for column '%s'; %s type implies use of %s",
+                    format("Wrong dataformat '%s' specified for column '%s'; %s type implies use of %s",
                             declaredFieldType.name(),
                             columnName,
                             columnType,

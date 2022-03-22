@@ -2,18 +2,6 @@
 Quantile Digest Functions
 =========================
 
-Presto implements two algorithms for estimating rank-based metrics, `quantile
-digest <http://dx.doi.org/10.1145/347090.347195>`_ and `T-digest 
-<https://doi.org/10.1016/j.simpa.2020.100049>`_.  T-digest has `better
-performance <https://arxiv.org/abs/1902.04023>`_ in general while the Presto
-implementation of quantile digests supports more numeric types. T-digest has
-better accuracy at the tails, often dramatically better, but may have worse
-accuracy at the median, depending on the compression factor used. In
-comparison, quantile digests supports a maximum rank error, which guarantees
-relative uniformity of precision along the quantiles.  Quantile digests are
-also formally proven to support lossless merges, while T-digest is not (but
-does empirically demonstrate lossless merges).
-
 Presto implements the ``approx_percentile``  function with the quantile digest
 data structure.  The underlying data structure, :ref:`qdigest <qdigest_type>`,
 is exposed as a data type in Presto, and can be created, queried and stored

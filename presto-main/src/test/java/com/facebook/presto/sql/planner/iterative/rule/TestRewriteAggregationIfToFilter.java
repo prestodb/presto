@@ -17,18 +17,15 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -110,201 +107,184 @@ public class TestRewriteAggregationIfToFilter
     @Test
     public void testFireCount()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr"), p.rowExpression("count(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("IF(ds > '2021-07-01', 1)")),
-                                        p.values(ds))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(Optional.of("expr"), functionCall("count", ImmutableList.of("expr_0"))),
-                                    ImmutableMap.of(new Symbol("expr"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(ImmutableMap.of(
-                                                            "a", expression("IF(ds > '2021-07-01', 1)"),
-                                                            "greater_than", expression("ds > '2021-07-01'"),
-                                                            "expr_0", expression("1")),
-                                                    values("ds")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr"), p.rowExpression("count(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-07-01', 1)")),
+                                    p.values(ds))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr"), functionCall("count", ImmutableList.of("a"))),
+                                ImmutableMap.of(new Symbol("expr"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(ImmutableMap.of(
+                                                "a", expression("IF(ds > '2021-07-01', 1)"),
+                                                "greater_than", expression("ds > '2021-07-01'")),
+                                                values("ds")))));
     }
 
     @Test
     public void testUnwrapIf()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr"), p.rowExpression("count(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("IF(ds > '2021-07-01', 1)")),
-                                        p.values(ds))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(Optional.of("expr"), functionCall("count", ImmutableList.of("expr0"))),
-                                    ImmutableMap.of(new Symbol("expr"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(ImmutableMap.of(
-                                                            "a", expression("IF(ds > '2021-07-01', 1)"),
-                                                            "greater_than", expression("ds > '2021-07-01'"),
-                                                            "expr0", expression("1")),
-                                                    values("ds")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "unwrap_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr"), p.rowExpression("count(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-07-01', 1)")),
+                                    p.values(ds))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr"), functionCall("count", ImmutableList.of("expr0"))),
+                                ImmutableMap.of(new Symbol("expr"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(ImmutableMap.of(
+                                                "a", expression("IF(ds > '2021-07-01', 1)"),
+                                                "greater_than", expression("ds > '2021-07-01'"),
+                                                "expr0", expression("1")),
+                                                values("ds")))));
     }
 
     @Test
     public void testFireMin()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("MIN(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
-                                        p.values(ds, column0))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(Optional.of("expr0"), functionCall("min", ImmutableList.of("column0_0"))),
-                                    ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("IF(ds > '2021-06-01', column0)"))
-                                                            .put("greater_than", expression("ds > '2021-06-01'"))
-                                                            .put("column0_0", expression("column0"))
-                                                            .build(),
-                                                    values("ds", "column0")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression column0 = p.variable("column0", BIGINT);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("MIN(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
+                                    p.values(ds, column0))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr0"), functionCall("min", ImmutableList.of("a"))),
+                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("IF(ds > '2021-06-01', column0)"))
+                                                        .put("greater_than", expression("ds > '2021-06-01'"))
+                                                        .build(),
+                                                values("ds", "column0")))));
     }
 
     @Test
     public void testFireMax()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("MAX(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
-                                        p.values(ds, column0))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(Optional.of("expr0"), functionCall("max", ImmutableList.of("column0_0"))),
-                                    ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("IF(ds > '2021-06-01', column0)"))
-                                                            .put("greater_than", expression("ds > '2021-06-01'"))
-                                                            .put("column0_0", expression("column0"))
-                                                            .build(),
-                                                    values("ds", "column0")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression column0 = p.variable("column0", BIGINT);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("MAX(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
+                                    p.values(ds, column0))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr0"), functionCall("max", ImmutableList.of("a"))),
+                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("IF(ds > '2021-06-01', column0)"))
+                                                        .put("greater_than", expression("ds > '2021-06-01'"))
+                                                        .build(),
+                                                values("ds", "column0")))));
     }
 
     @Test
     public void testFireArbitrary()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("ARBITRARY(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
-                                        p.values(ds, column0))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(Optional.of("expr0"), functionCall("arbitrary", ImmutableList.of("column0_0"))),
-                                    ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("IF(ds > '2021-06-01', column0)"))
-                                                            .put("greater_than", expression("ds > '2021-06-01'"))
-                                                            .put("column0_0", expression("column0"))
-                                                            .build(),
-                                                    values("ds", "column0")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression column0 = p.variable("column0", BIGINT);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("ARBITRARY(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
+                                    p.values(ds, column0))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr0"), functionCall("arbitrary", ImmutableList.of("a"))),
+                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("IF(ds > '2021-06-01', column0)"))
+                                                        .put("greater_than", expression("ds > '2021-06-01'"))
+                                                        .build(),
+                                                values("ds", "column0")))));
     }
 
     @Test
     public void testFireSum()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("SUM(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
-                                        p.values(ds, column0))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("column0_0"))),
-                                    ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("IF(ds > '2021-06-01', column0)"))
-                                                            .put("greater_than", expression("ds > '2021-06-01'"))
-                                                            .put("column0_0", expression("column0"))
-                                                            .build(),
-                                                    values("ds", "column0")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression column0 = p.variable("column0", BIGINT);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("SUM(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
+                                    p.values(ds, column0))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("a"))),
+                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("IF(ds > '2021-06-01', column0)"))
+                                                        .put("greater_than", expression("ds > '2021-06-01'"))
+                                                        .build(),
+                                                values("ds", "column0")))));
     }
 
     @Test
@@ -344,130 +324,120 @@ public class TestRewriteAggregationIfToFilter
     @Test
     public void testFireTwoAggregations()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression b = p.variable("b");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("count(a)"))
-                                .addAggregation(p.variable("expr1"), p.rowExpression("count(b)"))
-                                .source(p.project(
-                                        assignment(
-                                                a, p.rowExpression("IF(ds > '2021-07-01', 1)"),
-                                                b, p.rowExpression("IF(ds > '2021-06-01', 2)")),
-                                        p.values(ds))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(
-                                            Optional.of("expr0"), functionCall("count", ImmutableList.of("expr")),
-                                            Optional.of("expr1"), functionCall("count", ImmutableList.of("expr_1"))),
-                                    ImmutableMap.of(
-                                            new Symbol("expr0"), new Symbol("greater_than"),
-                                            new Symbol("expr1"), new Symbol("greater_than_0")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than or greater_than_0",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("IF(ds > '2021-07-01', 1)"))
-                                                            .put("b", expression("IF(ds > '2021-06-01', 2)"))
-                                                            .put("greater_than", expression("ds > '2021-07-01'"))
-                                                            .put("expr", expression("1"))
-                                                            .put("greater_than_0", expression("ds > '2021-06-01'"))
-                                                            .put("expr_1", expression("2"))
-                                                            .build(),
-                                                    values("ds")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("count(a)"))
+                            .addAggregation(p.variable("expr1"), p.rowExpression("count(b)"))
+                            .source(p.project(
+                                    assignment(
+                                            a, p.rowExpression("IF(ds > '2021-07-01', 1)"),
+                                            b, p.rowExpression("IF(ds > '2021-06-01', 2)")),
+                                    p.values(ds))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(
+                                        Optional.of("expr0"), functionCall("count", ImmutableList.of("a")),
+                                        Optional.of("expr1"), functionCall("count", ImmutableList.of("b"))),
+                                ImmutableMap.of(
+                                        new Symbol("expr0"), new Symbol("greater_than"),
+                                        new Symbol("expr1"), new Symbol("greater_than_0")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than or greater_than_0",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("IF(ds > '2021-07-01', 1)"))
+                                                        .put("b", expression("IF(ds > '2021-06-01', 2)"))
+                                                        .put("greater_than", expression("ds > '2021-07-01'"))
+                                                        .put("greater_than_0", expression("ds > '2021-06-01'"))
+                                                        .build(),
+                                                values("ds")))));
     }
 
     @Test
     public void testFireTwoAggregationsWithSharedInput()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("MIN(a)"))
-                                .addAggregation(p.variable("expr1"), p.rowExpression("MAX(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
-                                        p.values(ds, column0))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(
-                                            Optional.of("expr0"), functionCall("min", ImmutableList.of("column0_0")),
-                                            Optional.of("expr1"), functionCall("max", ImmutableList.of("column0_0"))),
-                                    ImmutableMap.of(
-                                            new Symbol("expr0"), new Symbol("greater_than"),
-                                            new Symbol("expr1"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("IF(ds > '2021-06-01', column0)"))
-                                                            .put("greater_than", expression("ds > '2021-06-01'"))
-                                                            .put("column0_0", expression("column0"))
-                                                            .build(),
-                                                    values("ds", "column0")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression column0 = p.variable("column0", BIGINT);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("MIN(a)"))
+                            .addAggregation(p.variable("expr1"), p.rowExpression("MAX(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-06-01', column0)")),
+                                    p.values(ds, column0))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(
+                                        Optional.of("expr0"), functionCall("min", ImmutableList.of("a")),
+                                        Optional.of("expr1"), functionCall("max", ImmutableList.of("a"))),
+                                ImmutableMap.of(
+                                        new Symbol("expr0"), new Symbol("greater_than"),
+                                        new Symbol("expr1"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("IF(ds > '2021-06-01', column0)"))
+                                                        .put("greater_than", expression("ds > '2021-06-01'"))
+                                                        .build(),
+                                                values("ds", "column0")))));
     }
 
     @Test
     public void testFireForOneOfTwoAggregations()
     {
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression b = p.variable("b");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("count(a)"))
-                                .addAggregation(p.variable("expr1"), p.rowExpression("count(b)"))
-                                .source(p.project(
-                                        assignment(
-                                                a, p.rowExpression("IF(ds > '2021-07-01', 1)"),
-                                                b, p.rowExpression("ds")),
-                                        p.values(ds))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(
-                                            Optional.of("expr0"), functionCall("count", ImmutableList.of("expr")),
-                                            Optional.of("expr1"), functionCall("count", ImmutableList.of("b"))),
-                                    ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "true",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("IF(ds > '2021-07-01', 1)"))
-                                                            .put("b", expression("ds"))
-                                                            .put("greater_than", expression("ds > '2021-07-01'"))
-                                                            .put("expr", expression("1"))
-                                                            .build(),
-                                                    values("ds")))));
-        }
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("count(a)"))
+                            .addAggregation(p.variable("expr1"), p.rowExpression("count(b)"))
+                            .source(p.project(
+                                    assignment(
+                                            a, p.rowExpression("IF(ds > '2021-07-01', 1)"),
+                                            b, p.rowExpression("ds")),
+                                    p.values(ds))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(
+                                        Optional.of("expr0"), functionCall("count", ImmutableList.of("a")),
+                                        Optional.of("expr1"), functionCall("count", ImmutableList.of("b"))),
+                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "true",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("a", expression("IF(ds > '2021-07-01', 1)"))
+                                                        .put("b", expression("ds"))
+                                                        .put("greater_than", expression("ds > '2021-07-01'"))
+                                                        .build(),
+                                                values("ds")))));
     }
 
     @Test
     public void testArrayOffset()
     {
-        for (String strategy : new String[] {"filter_with_if", "unwrap_if_safe", "unwrap_if"}) {
+        for (String strategy : new String[] {"filter_with_if", "unwrap_if"}) {
             tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                     .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
                     .on(p -> {
@@ -499,7 +469,7 @@ public class TestRewriteAggregationIfToFilter
     @Test
     public void testDivide()
     {
-        for (String strategy : new String[] {"filter_with_if", "unwrap_if_safe", "unwrap_if"}) {
+        for (String strategy : new String[] {"filter_with_if", "unwrap_if"}) {
             tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                     .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
                     .on(p -> {
@@ -597,140 +567,5 @@ public class TestRewriteAggregationIfToFilter
                                                         .put("greater_than", expression("b > 0"))
                                                         .build(),
                                                 values("a", "b")))));
-    }
-
-    @Test
-    public void testRewriteStrategies()
-    {
-        Function<PlanBuilder, PlanNode> planProvider = p -> {
-            VariableReferenceExpression a = p.variable("a");
-            VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-            return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                    .addAggregation(p.variable("expr0"), p.rowExpression("SUM(a)"))
-                    .source(p.project(
-                            assignment(a, p.rowExpression("IF(column0 > 1, column0)")),
-                            p.values(column0))));
-        };
-
-        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "disabled")
-                .on(planProvider)
-                .doesNotFire();
-
-        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
-                .on(planProvider)
-                .matches(
-                        aggregation(
-                                globalAggregation(),
-                                ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("a"))),
-                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                Optional.empty(),
-                                AggregationNode.Step.FINAL,
-                                filter(
-                                        "greater_than",
-                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                        .put("a", expression("IF(column0 > 1, column0)"))
-                                                        .put("greater_than", expression("column0 > 1"))
-                                                        .build(),
-                                                values("column0")))));
-
-        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "unwrap_if_safe")
-                .on(planProvider)
-                .matches(
-                        aggregation(
-                                globalAggregation(),
-                                ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("a"))),
-                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                Optional.empty(),
-                                AggregationNode.Step.FINAL,
-                                filter(
-                                        "greater_than",
-                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                        .put("a", expression("IF(column0 > 1, column0)"))
-                                                        .put("greater_than", expression("column0 > 1"))
-                                                        .build(),
-                                                values("column0")))));
-
-        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "unwrap_if")
-                .on(planProvider)
-                .matches(
-                        aggregation(
-                                globalAggregation(),
-                                ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("column0_0"))),
-                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                Optional.empty(),
-                                AggregationNode.Step.FINAL,
-                                filter(
-                                        "greater_than",
-                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                        .put("a", expression("IF(column0 > 1, column0)"))
-                                                        .put("greater_than", expression("column0 > 1"))
-                                                        .put("column0_0", expression("column0"))
-                                                        .build(),
-                                                values("column0")))));
-    }
-
-    @Test
-    public void testCast()
-    {
-        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if")
-                .on(p -> {
-                    VariableReferenceExpression a = p.variable("a");
-                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                    VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.variable("expr0"), p.rowExpression("SUM(a)"))
-                            .source(p.project(
-                                    assignment(a, p.rowExpression("CAST(IF(ds > '2021-06-01', column0) AS bigint)")),
-                                    p.values(ds, column0))));
-                })
-                .matches(
-                        aggregation(
-                                globalAggregation(),
-                                ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("a"))),
-                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                Optional.empty(),
-                                AggregationNode.Step.FINAL,
-                                filter(
-                                        "greater_than",
-                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                        .put("a", expression("CAST(IF(ds > '2021-06-01', column0) as bigint)"))
-                                                        .put("greater_than", expression("ds > '2021-06-01'"))
-                                                        .build(),
-                                                values("ds", "column0")))));
-
-        for (String strategy : new String[] {"unwrap_if_safe", "unwrap_if"}) {
-            tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
-                    .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, strategy)
-                    .on(p -> {
-                        VariableReferenceExpression a = p.variable("a");
-                        VariableReferenceExpression ds = p.variable("ds", VARCHAR);
-                        VariableReferenceExpression column0 = p.variable("column0", BIGINT);
-                        return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable("expr0"), p.rowExpression("SUM(a)"))
-                                .source(p.project(
-                                        assignment(a, p.rowExpression("CAST(IF(ds > '2021-06-01', column0) AS bigint)")),
-                                        p.values(ds, column0))));
-                    })
-                    .matches(
-                            aggregation(
-                                    globalAggregation(),
-                                    ImmutableMap.of(Optional.of("expr0"), functionCall("sum", ImmutableList.of("cast"))),
-                                    ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
-                                    Optional.empty(),
-                                    AggregationNode.Step.FINAL,
-                                    filter(
-                                            "greater_than",
-                                            project(new ImmutableMap.Builder<String, ExpressionMatcher>()
-                                                            .put("a", expression("CAST(IF(ds > '2021-06-01', column0) as bigint)"))
-                                                            .put("greater_than", expression("ds > '2021-06-01'"))
-                                                            .put("cast", expression("CAST(column0 AS bigint)"))
-                                                            .build(),
-                                                    values("ds", "column0")))));
-        }
     }
 }

@@ -105,7 +105,7 @@ public final class TaskTestUtils
 
     public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
 
-    public static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression(Optional.empty(), "column", BIGINT);
+    public static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression("column", BIGINT);
 
     public static final PlanFragment PLAN_FRAGMENT = createPlanFragment();
 
@@ -114,7 +114,6 @@ public final class TaskTestUtils
         return new PlanFragment(
                 new PlanFragmentId(0),
                 new TableScanNode(
-                        Optional.empty(),
                         TABLE_SCAN_NODE_ID,
                         new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.empty()),
                         ImmutableList.of(VARIABLE),
@@ -186,10 +185,7 @@ public final class TaskTestUtils
                 jsonCodec(TableCommitContext.class),
                 new RowExpressionDeterminismEvaluator(metadata),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper(),
-                (session) -> {
-                    throw new UnsupportedOperationException();
-                });
+                new ObjectMapper());
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
@@ -214,7 +210,6 @@ public final class TaskTestUtils
     {
         return QueryStateMachine.begin(
                 sqlString,
-                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
-import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -129,10 +128,6 @@ public class PinotColumnUtils
                 return VarcharType.VARCHAR;
             case BYTES:
                 return VarbinaryType.VARBINARY;
-            case TIMESTAMP:
-                return TimestampType.TIMESTAMP;
-            case JSON:
-                return JsonType.JSON;
             default:
                 break;
         }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.block.AbstractVariableWidthBlockBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -145,16 +144,6 @@ public class AbstractVarcharType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
-    }
-
-    /**
-     * writeBytes directly to blockBuilder, without creating a short-lived Slice wrapper.
-     * This is used by external systems to interface with Presto. It is currently used
-     * by DWRF file writer, from converting row representation to columnar String representation.
-     */
-    public void writeBytes(AbstractVariableWidthBlockBuilder blockBuilder, byte[] bytes, int offset, int length)
-    {
-        blockBuilder.writeBytes(bytes, offset, length).closeEntry();
     }
 
     @Override

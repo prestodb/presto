@@ -16,8 +16,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
@@ -30,7 +28,7 @@ import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestPlanNodeStatsEstimateMath
 {
-    private static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression(Optional.empty(), "variable", BIGINT);
+    private static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression("variable", BIGINT);
     private static final StatisticRange NON_EMPTY_RANGE = openRange(1);
 
     @Test

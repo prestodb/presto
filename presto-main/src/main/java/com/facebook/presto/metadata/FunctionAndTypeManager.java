@@ -21,8 +21,6 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionResult;
-import com.facebook.presto.common.type.DistinctType;
-import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -104,7 +102,6 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionAndTypeManager
@@ -141,7 +138,6 @@ public class FunctionAndTypeManager
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
@@ -201,10 +197,6 @@ public class FunctionAndTypeManager
     public Type getType(TypeSignature signature)
     {
         if (signature.getTypeSignatureBase().hasStandardType()) {
-            // Some info about Type has been materialized in the signature itself, so directly use it instead of fetching it
-            if (signature.isDistinctType()) {
-                return getDistinctType(signature.getParameters().get(0).getDistinctTypeInfo());
-            }
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
@@ -214,7 +206,14 @@ public class FunctionAndTypeManager
             }
         }
 
-        return getUserDefinedType(signature);
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
+        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getTypeName());
+        if (!userDefinedType.isPresent()) {
+            throw new IllegalArgumentException("Unknown type " + signature);
+        }
+        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
+        return getType(new TypeSignature(userDefinedType.get()));
     }
 
     @Override
@@ -502,52 +501,20 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.get());
     }
 
-    public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
+    public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
     {
-        // For casts, specialize() can load more info about types, that we might not be able to get back due to
-        // several layers of conversion between type and type signatures.
-        // So, we manually load this info here and store it in signature which will be sent to worker.
-        getCommonSuperType(fromType, toType);
-        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType.getTypeSignature(), singletonList(fromType.getTypeSignature()), false);
+        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
 
         try {
             builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(signature);
         }
         catch (PrestoException e) {
             if (castType.isOperatorType() && e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType.getTypeSignature()), toType.getTypeSignature());
+                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType), toType);
             }
             throw e;
         }
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
-    }
-
-    protected Type getType(UserDefinedType userDefinedType)
-    {
-        // Distinct type
-        if (userDefinedType.isDistinctType()) {
-            return getDistinctType(userDefinedType.getPhysicalTypeSignature().getParameters().get(0).getDistinctTypeInfo());
-        }
-        // Enum type
-        return getType(new TypeSignature(userDefinedType));
-    }
-
-    private DistinctType getDistinctType(DistinctTypeInfo distinctTypeInfo)
-    {
-        return new DistinctType(distinctTypeInfo,
-                getType(distinctTypeInfo.getBaseType()),
-                name -> (DistinctType) getType(new TypeSignature(name)));
-    }
-
-    private Type getUserDefinedType(TypeSignature signature)
-    {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        UserDefinedType userDefinedType = functionNamespaceManager.get()
-                .getUserDefinedType(signature.getTypeSignatureBase().getTypeName())
-                .orElseThrow(() -> new IllegalArgumentException("Unknown type " + signature));
-        checkArgument(userDefinedType.getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "A UserDefinedType must be based on static types.");
-        return getType(userDefinedType);
     }
 
     private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)

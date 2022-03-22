@@ -113,7 +113,7 @@ public class IntBigArrays
         if (len > SMALL) {
             long l = from;
             long n = to - 1;
-            if (len > MEDIUM) { // Big arrays, pseudo-median of 9
+            if (len > MEDIUM) { // Big arrays, pseudomedian of 9
                 long s = len / 8;
                 l = med3(x, l, l + s, l + 2 * s, comp);
                 m = med3(x, m - s, m, m + s, comp);

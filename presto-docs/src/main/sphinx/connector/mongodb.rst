@@ -138,7 +138,7 @@ This property is optional; the default is ``PRIMARY``.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The write concern to use. The available values are
-``ACKNOWLEDGED``, ``FSYNC_SAFE``, ``FSYNCED``, ``JOURNAL_SAFE``, ``JOURNALED``, ``MAJORITY``,
+``ACKNOWLEDGED``, ``FSYNC_SAFE``, ``FSYNCED``, ``JOURNAL_SAFEY``, ``JOURNALED``, ``MAJORITY``,
 ``NORMAL``, ``REPLICA_ACKNOWLEDGED``, ``REPLICAS_SAFE`` and ``UNACKNOWLEDGED``.
 
 This property is optional; the default is ``ACKNOWLEDGED``.

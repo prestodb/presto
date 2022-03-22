@@ -45,14 +45,14 @@ public class TestRowNumberStatsRule
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), yStats)
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), assertion -> assertion.isEqualTo(xStats))
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), assertion -> assertion.isEqualTo(yStats))
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("x", BIGINT), assertion -> assertion.isEqualTo(xStats))
+                        .variableStats(new VariableReferenceExpression("y", BIGINT), assertion -> assertion.isEqualTo(yStats))
+                        .variableStats(new VariableReferenceExpression("z", BIGINT), assertion -> assertion
                                 .lowValue(1)
                                 .distinctValuesCount(2)
                                 .nullsFraction(0)
@@ -67,12 +67,12 @@ public class TestRowNumberStatsRule
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), yStats)
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(5)
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("z", BIGINT), assertion -> assertion
                                 .lowValue(1)
                                 .distinctValuesCount(1)
                                 .nullsFraction(0)
@@ -87,12 +87,12 @@ public class TestRowNumberStatsRule
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), yStats)
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(60)
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("z", BIGINT), assertion -> assertion
                                 .lowValue(1)
                                 .distinctValuesCount(10)
                                 .nullsFraction(0)
@@ -106,8 +106,8 @@ public class TestRowNumberStatsRule
                         pb.variable("z", BIGINT),
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), yStats)
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), yStats)
                         .build())
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }
@@ -124,12 +124,12 @@ public class TestRowNumberStatsRule
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), yStats)
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(60)
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("z", BIGINT), assertion -> assertion
                                 .lowValue(1)
                                 .distinctValuesCount(2)
                                 .nullsFraction(0)
@@ -144,12 +144,12 @@ public class TestRowNumberStatsRule
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), yStats)
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(20)
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("z", BIGINT), assertion -> assertion
                                 .lowValue(1)
                                 .distinctValuesCount(1)
                                 .nullsFraction(0)
@@ -164,8 +164,8 @@ public class TestRowNumberStatsRule
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.unknown())
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.unknown())
                         .build())
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }

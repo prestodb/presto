@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.predicate;
 
-import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;

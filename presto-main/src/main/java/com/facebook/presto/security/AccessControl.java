@@ -15,7 +15,6 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
@@ -211,16 +210,11 @@ public interface AccessControl
     void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName, String propertyName);
 
     /**
-     * Check if identity is allowed to select from the specified columns.
-     * For columns with type row, subfields are provided. The column set can be empty.
+     * Check if identity is allowed to select from the specified columns.  The column set can be empty.
      *
-     * For example, "SELECT col1.field, col2 from table" will have:
-     * columnOrSubfieldNames = [col1.field, col2]
-     *
-     * Implementations can choose which to use
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames);
+    void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames);
 
     /**
      * Check if identity is allowed to create the specified role.

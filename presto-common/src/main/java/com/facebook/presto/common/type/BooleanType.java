@@ -27,7 +27,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public final class BooleanType
-        extends AbstractPrimitiveType
+        extends AbstractType
         implements FixedWidthType
 {
     public static final BooleanType BOOLEAN = new BooleanType();

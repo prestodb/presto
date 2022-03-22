@@ -39,7 +39,6 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.arePartitionHandlesCompatibleForCoalesce;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -375,7 +374,7 @@ public final class Partitioning
                             }
 
                             if (coalesceOperands.stream()
-                                    .map(operand -> new VariableReferenceExpression(getSourceLocation(operand), ((SymbolReference) operand).getName(), types.get(operand)))
+                                    .map(operand -> new VariableReferenceExpression(((SymbolReference) operand).getName(), types.get(operand)))
                                     .collect(toImmutableSet())
                                     .equals(coalesceArguments)) {
                                 translated = entry.getKey();
@@ -407,9 +406,9 @@ public final class Partitioning
         return Optional.of(new Partitioning(handle, newArguments.build()));
     }
 
-    public Partitioning withAlternativePartitioningHandle(PartitioningHandle partitioningHandle)
+    public Partitioning withAlternativePartitiongingHandle(PartitioningHandle partitiongingHandle)
     {
-        return new Partitioning(partitioningHandle, this.arguments);
+        return new Partitioning(partitiongingHandle, this.arguments);
     }
 
     @Override

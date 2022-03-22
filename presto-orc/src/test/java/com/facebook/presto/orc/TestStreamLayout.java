@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.StreamLayout.ByColumnSize;
+import com.facebook.presto.orc.StreamLayout.ByStreamSize;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.orc.writer.StreamLayout.ByColumnSize;
-import com.facebook.presto.orc.writer.StreamLayout.ByStreamSize;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 

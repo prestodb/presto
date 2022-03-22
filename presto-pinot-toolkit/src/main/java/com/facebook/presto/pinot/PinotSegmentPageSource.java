@@ -18,6 +18,7 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.pinot.PinotScatterGatherQueryClient.ErrorCode;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -26,10 +27,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
-import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
-import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient.ErrorCode;
-import org.apache.pinot.core.transport.ServerInstance;
-import org.apache.pinot.spi.data.FieldSpec;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,7 +39,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
@@ -288,12 +284,7 @@ public class PinotSegmentPageSource
             writeBooleanBlock(blockBuilder, columnType, columnIndex);
         }
         else if (javaType.equals(long.class)) {
-            if (pinotColumnType.toDataType().equals(FieldSpec.DataType.TIMESTAMP)) {
-                writeTimestampBlock(blockBuilder, columnType, columnIndex);
-            }
-            else {
-                writeLongBlock(blockBuilder, columnType, columnIndex);
-            }
+            writeLongBlock(blockBuilder, columnType, columnIndex);
         }
         else if (javaType.equals(double.class)) {
             writeDoubleBlock(blockBuilder, columnType, columnIndex);
@@ -319,15 +310,6 @@ public class PinotSegmentPageSource
             Type columnPrestoType = ((ArrayType) columnType).getElementType();
             BlockBuilder childBuilder = blockBuilder.beginBlockEntry();
             switch (columnPinotType) {
-                case BOOLEAN_ARRAY:
-                    int[] booleanArray = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
-                    for (int i = 0; i < booleanArray.length; i++) {
-                        // Both the numeric types implement a writeLong method which write if the bounds for
-                        // the type allows else throw exception.
-                        columnPrestoType.writeBoolean(childBuilder, Boolean.valueOf(booleanArray[i] > 0));
-                        completedBytes += 1;
-                    }
-                    break;
                 case INT_ARRAY:
                     int[] intArray = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
                     for (int i = 0; i < intArray.length; i++) {
@@ -338,7 +320,6 @@ public class PinotSegmentPageSource
                     }
                     break;
                 case LONG_ARRAY:
-                case TIMESTAMP_ARRAY:
                     long[] longArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
                     for (int i = 0; i < longArray.length; i++) {
                         columnPrestoType.writeLong(childBuilder, longArray[i]);
@@ -376,7 +357,6 @@ public class PinotSegmentPageSource
                     }
                     break;
                 case STRING_ARRAY:
-                case BYTES_ARRAY:
                     String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIndex, columnIndex);
                     for (int i = 0; i < stringArray.length; i++) {
                         Slice slice = Slices.utf8Slice(stringArray[i]);
@@ -413,14 +393,6 @@ public class PinotSegmentPageSource
         }
     }
 
-    private void writeTimestampBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
-    {
-        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
-            columnType.writeLong(blockBuilder, getLong(i, columnIndex));
-            completedBytes += Long.BYTES;
-        }
-    }
-
     private void writeDoubleBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
         for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
@@ -440,7 +412,7 @@ public class PinotSegmentPageSource
 
     private boolean getBoolean(int rowIndex, int columnIndex)
     {
-        return currentDataTable.getDataTable().getInt(rowIndex, columnIndex) > 0;
+        return Boolean.getBoolean(currentDataTable.getDataTable().getString(rowIndex, columnIndex));
     }
 
     private long getLong(int rowIndex, int columnIndex)
@@ -473,9 +445,7 @@ public class PinotSegmentPageSource
 
     private Slice getSlice(int rowIndex, int columnIndex)
     {
-        checkColumnType(columnIndex, new Type[] {
-                VARCHAR, JSON
-        });
+        checkColumnType(columnIndex, VARCHAR);
         DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         switch (columnType) {
             case INT_ARRAY:
@@ -494,7 +464,6 @@ public class PinotSegmentPageSource
                 String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(stringArray));
             case STRING:
-            case JSON:
                 String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
                 if (field == null || field.isEmpty()) {
                     return Slices.EMPTY_SLICE;
@@ -529,17 +498,11 @@ public class PinotSegmentPageSource
         return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
-    private void checkColumnType(int columnIndex, Type[] expectedTypes)
+    private void checkColumnType(int columnIndex, Type expected)
     {
         checkArgument(columnIndex < split.getExpectedColumnHandles().size(), "Invalid field index");
         Type actual = split.getExpectedColumnHandles().get(columnIndex).getDataType();
-        boolean matches = false;
-        for (Type expectedType : expectedTypes) {
-            if (actual.equals(expectedType)) {
-                matches = true;
-            }
-        }
-        checkArgument(matches, "Expected column %s to be type %s but is %s", columnIndex, expectedTypes, actual);
+        checkArgument(actual.equals(expected), "Expected column %s to be type %s but is %s", columnIndex, expected, actual);
     }
 
     protected static Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)

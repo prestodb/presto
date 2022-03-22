@@ -50,7 +50,6 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
-import static com.facebook.presto.SystemSessionProperties.HASH_BASED_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
@@ -800,8 +799,6 @@ public abstract class AbstractTestQueries
                         "FROM (VALUES (1, ARRAY['a']), (1, ARRAY['b']), (1, ARRAY['c']), (2, ARRAY['d']), (2, ARRAY['e']), (3, ARRAY['f'])) AS t(x, y) " +
                         "GROUP BY x",
                 "VALUES (1, 'abcx'), (2, 'dex'), (3, 'fx')");
-
-        assertQuery("SELECT REDUCE_AGG((x,y), (0,0), (x, y)->(x[1],y[1]), (x,y)->(x[1],y[1]))[1] from (select 1 x, 2 y)", "select 0");
     }
 
     @Test
@@ -846,7 +843,7 @@ public abstract class AbstractTestQueries
                         "SELECT * FROM a",
                 "VALUES (1.1, 2), (sin(3.3), 2+2)");
 
-        // implicit coercions
+        // implicit coersions
         assertQuery("VALUES 1, 2.2, 3, 4.4");
         assertQuery("VALUES (1, 2), (3.3, 4.4)");
         assertQuery("VALUES true, 1.0 in (1, 2, 3)");
@@ -965,34 +962,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testDistinctLimitWithHashBasedDistinctLimitEnabled()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(HASH_BASED_DISTINCT_LIMIT_ENABLED, "true")
-                .build();
-        testDistinctLimitInternal(session);
-    }
-
-    @Test
     public void testDistinctLimit()
     {
-        testDistinctLimitInternal(getSession());
-    }
-
-    public void testDistinctLimitInternal(Session session)
-    {
-        assertQuery(session,
+        assertQuery("" +
                 "SELECT DISTINCT orderstatus, custkey " +
                 "FROM (SELECT orderstatus, custkey FROM orders ORDER BY orderkey LIMIT 10) " +
                 "LIMIT 10");
-        assertQuery(session, "SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
-        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
-        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 10000");
-        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 15000");
-        assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 2");
-        assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
+        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
+        assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
 
-        assertQuery(session, "" +
+        assertQuery("" +
                         "SELECT DISTINCT x " +
                         "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
                         "LIMIT 100",
@@ -2367,7 +2346,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2375,7 +2354,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (FORMAT GRAPHVIZ) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan("EXPLAIN (FORMAT GRAPHVIZ) ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2383,7 +2362,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE LOGICAL) ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2391,7 +2370,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE IO) ", query, IO));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, IO));
     }
 
     @Test
@@ -2399,7 +2378,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2407,7 +2386,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2415,7 +2394,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT JSON) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getJsonExplainPlan("EXPLAIN (TYPE LOGICAL, FORMAT JSON) ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getJsonExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2423,7 +2402,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE DISTRIBUTED) ", query, DISTRIBUTED));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -2431,7 +2410,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) ", query, DISTRIBUTED));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -2439,7 +2418,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) ", query, DISTRIBUTED));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -2447,7 +2426,7 @@ public abstract class AbstractTestQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getJsonExplainPlan("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) ", query, DISTRIBUTED));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getJsonExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -2468,7 +2447,7 @@ public abstract class AbstractTestQueries
     {
         String query = "EXPLAIN SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2476,7 +2455,7 @@ public abstract class AbstractTestQueries
     {
         String query = "EXPLAIN ANALYZE SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
     @Test
@@ -2518,7 +2497,7 @@ public abstract class AbstractTestQueries
                 .addPreparedStatement("my_query", "SELECT * FROM orders")
                 .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query");
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("", "SELECT * FROM orders", LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders", LOGICAL));
     }
 
     @Test
@@ -2528,7 +2507,7 @@ public abstract class AbstractTestQueries
                 .addPreparedStatement("my_query", "SELECT * FROM orders WHERE orderkey < ?")
                 .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("", "SELECT * FROM orders WHERE orderkey < 7", LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders WHERE orderkey < 7", LOGICAL));
     }
 
     @Test
@@ -2670,7 +2649,7 @@ public abstract class AbstractTestQueries
 
         // Until we migrate all connectors to parametrized varchar we check two options
         assertTrue(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar),
-                format("%s matches neither %s nor %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
+                format("%s does not matche neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
     }
 
     @Test
@@ -3983,7 +3962,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testTwoCorrelatedExistsSubqueries()
     {
-        // This is simplified TPC-H q21
+        // This is simpliefied TPC-H q21
         assertQuery("SELECT\n" +
                         "  count(*) AS numwait\n" +
                         "FROM\n" +
@@ -5028,20 +5007,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testExecuteUsingWithWithClause()
-    {
-        String query = "WITH src AS (SELECT * FROM (VALUES (1, 4),(2, 5), (3, 6)) AS t(id1, id2) WHERE id2 = ?)" +
-                " SELECT * from src WHERE id1 between ? and ?";
-
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", query)
-                .build();
-        assertQuery(session,
-                "EXECUTE my_query USING 6, 0, 10",
-                "VALUES (3, 6)");
-    }
-
-    @Test
     public void testExecuteNoSuchQuery()
     {
         assertQueryFails("EXECUTE my_query", "Prepared statement not found: my_query");
@@ -5875,9 +5840,9 @@ public abstract class AbstractTestQueries
                 "select count(1) from (select distinct orderkey, custkey from orders)",
         };
 
-        int[] unsampledResults = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
+        int[] unsampledResuts = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(queries[i], "select " + unsampledResults[i]);
+            assertQuery(queries[i], "select " + unsampledResuts[i]);
         }
 
         Session sessionWithKeyBasedSampling = Session.builder(getSession())
@@ -5885,9 +5850,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.2")
                 .build();
 
-        int[] sampled20PercentResults = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
+        int[] sampled20PercentResuts = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResults[i]);
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResuts[i]);
         }
 
         sessionWithKeyBasedSampling = Session.builder(getSession())
@@ -5895,9 +5860,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.1")
                 .build();
 
-        int[] sampled10PercentResults = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
+        int[] sampled10PercentResuts = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResults[i]);
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResuts[i]);
         }
     }
 
@@ -5933,15 +5898,5 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT reduce(a, 0, (s, x) -> x, s->s), count(*) FROM (VALUES (array[1]), (array[1, 2, 3]), (array[3])) t(a) GROUP BY 1",
                 "VALUES (3, 2), (1, 1)");
-    }
-
-    public void testSourceLocationInPlan()
-    {
-        MaterializedResult result = computeActual("explain(type distributed) select max(orderkey + 1) over(partition by custkey) m from orders");
-        assertEquals(result.getRowCount(), 1);
-        String plan = (String) result.getMaterializedRows().get(0).getField(0);
-        assertTrue(plan.contains("expr := (orderkey) + (BIGINT'1') (1:88)"));
-        assertTrue(plan.contains("m := max (1:34)"));
-        assertTrue(plan.contains("max := max(expr) RANGE UNBOUNDED_PRECEDING CURRENT_ROW (1:34)"));
     }
 }

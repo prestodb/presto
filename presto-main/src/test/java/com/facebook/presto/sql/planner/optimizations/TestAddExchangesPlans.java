@@ -33,15 +33,11 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_PARTITIONING_MERGING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
@@ -103,13 +99,7 @@ public class TestAddExchangesPlans
     @Test
     public void testRepartitionForUnionAllBeforeHashJoin()
     {
-        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
-                .build();
-        assertPlanWithSession("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select nationkey from nation) n join region r on n.nationkey = r.regionkey",
-                session,
-                false,
+        assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select nationkey from nation) n join region r on n.nationkey = r.regionkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
@@ -124,9 +114,7 @@ public class TestAddExchangesPlans
                                                 anyTree(
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
-        assertPlanWithSession("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
-                session,
-                false,
+        assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
@@ -481,8 +469,6 @@ public class TestAddExchangesPlans
                 TestingSession.testSessionBuilder()
                         .setCatalog("local")
                         .setSchema("tiny")
-                        .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.toString())
-                        .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.toString())
                         .setSystemProperty(PARTITIONING_PRECISION_STRATEGY, PREFER_EXACT_PARTITIONING.toString())
                         .build(),
                 pattern);

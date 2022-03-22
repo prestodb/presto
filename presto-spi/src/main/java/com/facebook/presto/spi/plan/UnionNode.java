@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,7 +21,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Immutable
 public final class UnionNode
@@ -30,13 +28,12 @@ public final class UnionNode
 {
     @JsonCreator
     public UnionNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
     {
-        super(sourceLocation, id, sources, outputVariables, outputToInputs);
+        super(id, sources, outputVariables, outputToInputs);
     }
 
     @Override
@@ -48,6 +45,6 @@ public final class UnionNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnionNode(getSourceLocation(), getId(), newChildren, getOutputVariables(), getVariableMapping());
+        return new UnionNode(getId(), newChildren, getOutputVariables(), getVariableMapping());
     }
 }

@@ -362,7 +362,7 @@ public class DynamicFilterSourceOperator
         ImmutableMap.Builder<String, Domain> domainsBuilder = ImmutableMap.builder();
         if (valueSets == null) {
             if (minValues == null) {
-                // there were too many rows to collect min/max range
+                // there were too many rows to collect collect min/max range
                 // dynamicPredicateConsumer was notified with 'all' in handleTooLargePredicate if there are no orderable types,
                 // else it was notified with 'all' in handleMinMaxCollectionLimitExceeded
                 return;

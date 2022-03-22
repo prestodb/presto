@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -24,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +37,6 @@ public class StatisticsWriterNode
 
     @JsonCreator
     public StatisticsWriterNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("tableHandle") TableHandle tableHandle,
@@ -47,7 +44,7 @@ public class StatisticsWriterNode
             @JsonProperty("rowCountEnabled") boolean rowCountEnabled,
             @JsonProperty("descriptor") StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
     {
-        super(sourceLocation, id);
+        super(id);
         this.source = requireNonNull(source, "source is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
@@ -101,7 +98,6 @@ public class StatisticsWriterNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new StatisticsWriterNode(
-                getSourceLocation(),
                 getId(),
                 Iterables.getOnlyElement(newChildren),
                 tableHandle,

@@ -223,7 +223,7 @@ public class TestPrometheusSplit
                 config.getQueryChunkSizeDuration().toMillis() -
                 OFFSET_MILLIS * 20);
         assertEquals(queryInSplit,
-                new URI("http://doesnotmatter.example:9090/api/v1/query?query=up+now[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
+                new URI("http://doesnotmatter:9090/api/v1/query?query=up+now[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
                         timeShouldBe).getQuery());
     }
 
@@ -254,7 +254,7 @@ public class TestPrometheusSplit
                 config.getQueryChunkSizeDuration().toMillis() -
                 OFFSET_MILLIS * 20);
         assertEquals(queryInSplit,
-                new URI("http://doesnotmatter.example:9090/api/v1/query?query=up[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
+                new URI("http://doesnotmatter:9090/api/v1/query?query=up[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
                         timeShouldBe).getQuery());
     }
 
@@ -283,7 +283,7 @@ public class TestPrometheusSplit
         PrometheusSplit lastSplit = (PrometheusSplit) splits.get(lastSplitIndex);
         String queryInSplit = lastSplit.getUri().getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli());
-        URI uriAsFormed = new URI("http://doesnotmatter.example:9090/api/v1/query?query=up[" +
+        URI uriAsFormed = new URI("http://doesnotmatter:9090/api/v1/query?query=up[" +
                 getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" +
                 "&time=" + timeShouldBe);
         assertEquals(queryInSplit, uriAsFormed.getQuery());

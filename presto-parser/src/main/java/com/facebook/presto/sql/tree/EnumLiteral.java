@@ -29,7 +29,7 @@ public class EnumLiteral
         this(Optional.empty(), type, value);
     }
 
-    public EnumLiteral(Optional<NodeLocation> location, String type, Object value)
+    private EnumLiteral(Optional<NodeLocation> location, String type, Object value)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");

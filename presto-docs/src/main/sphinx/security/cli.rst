@@ -74,7 +74,7 @@ Option                          Description
                                 connections on.
 ``--krb5-config-path``          Kerberos configuration file.
 ``--krb5-principal``            The principal to use when authenticating to the coordinator.
-``--krb5-keytab-path``          The location of the keytab that can be used to
+``--krb5-keytab-path``          The location of the the keytab that can be used to
                                 authenticate the principal specified by ``--krb5-principal``
 ``--krb5-remote-service-name``  Presto coordinator Kerberos service name.
 ``--keystore-path``             The location of the Java Keystore file that will be used

@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.pinot.PinotPushdownUtils.PINOT_DISTINCT_COUNT_FUNCTION_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -46,7 +45,6 @@ public class PinotConfig
     // There is a perf penalty of having a large topN since the structures are allocated to this size
     // So size this judiciously
     public static final int DEFAULT_TOPN_LARGE = 10_000;
-    public static final int DEFAULT_PROXY_GRPC_PORT = 8124;
 
     private static final Duration DEFAULT_IDLE_TIMEOUT = new Duration(5, TimeUnit.MINUTES);
     private static final Duration DEFAULT_CONNECTION_TIMEOUT = new Duration(1, TimeUnit.MINUTES);
@@ -101,15 +99,6 @@ public class PinotConfig
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
     private boolean pushdownTopNBrokerQueries;
-    private boolean useProxyGrpcEndpoint;
-    private String proxyGrpcHost;
-    private int proxyGrpcPort = DEFAULT_PROXY_GRPC_PORT;
-    private boolean useProxyForBrokerRequest;
-    private boolean useHttpsForController;
-    private boolean useHttpsForBroker;
-    private boolean useHttpsForProxy;
-    private Map<String, String> extraGrpcMetadata = ImmutableMap.of();
-    private String overrideDistinctCountFunction = PINOT_DISTINCT_COUNT_FUNCTION_NAME;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -121,19 +110,6 @@ public class PinotConfig
     public PinotConfig setExtraHttpHeaders(String headers)
     {
         extraHttpHeaders = ImmutableMap.copyOf(MAP_SPLITTER.split(headers));
-        return this;
-    }
-
-    @NotNull
-    public Map<String, String> getExtraGrpcMetadata()
-    {
-        return extraGrpcMetadata;
-    }
-
-    @Config("pinot.extra-grpc-metadata")
-    public PinotConfig setExtraGrpcMetadata(String metadata)
-    {
-        extraGrpcMetadata = ImmutableMap.copyOf(MAP_SPLITTER.split(metadata));
         return this;
     }
 
@@ -542,102 +518,6 @@ public class PinotConfig
     public PinotConfig setStreamingServerGrpcMaxInboundMessageBytes(int streamingServerGrpcMaxInboundMessageBytes)
     {
         this.streamingServerGrpcMaxInboundMessageBytes = streamingServerGrpcMaxInboundMessageBytes;
-        return this;
-    }
-
-    public boolean isUseProxyForBrokerRequest()
-    {
-        return this.useProxyForBrokerRequest;
-    }
-
-    @Config("pinot.use-proxy-for-broker-request")
-    public PinotConfig setUseProxyForBrokerRequest(boolean useProxyForBrokerRequest)
-    {
-        this.useProxyForBrokerRequest = useProxyForBrokerRequest;
-        return this;
-    }
-
-    public boolean isUseProxyGrpcEndpoint()
-    {
-        return this.useProxyGrpcEndpoint;
-    }
-
-    @Config("pinot.use-proxy-grpc-endpoint")
-    public PinotConfig setUseProxyGrpcEndpoint(boolean useProxyGrpcEndpoint)
-    {
-        this.useProxyGrpcEndpoint = useProxyGrpcEndpoint;
-        return this;
-    }
-
-    public String getProxyGrpcHost()
-    {
-        return proxyGrpcHost;
-    }
-
-    @Config("pinot.proxy-grpc-host")
-    public PinotConfig setProxyGrpcHost(String proxyGrpcHost)
-    {
-        this.proxyGrpcHost = proxyGrpcHost;
-        return this;
-    }
-
-    public int getProxyGrpcPort()
-    {
-        return proxyGrpcPort;
-    }
-
-    @Config("pinot.proxy-grpc-port")
-    public PinotConfig setProxyGrpcPort(int proxyGrpcPort)
-    {
-        this.proxyGrpcPort = proxyGrpcPort;
-        return this;
-    }
-
-    public boolean isUseHttpsForController()
-    {
-        return this.useHttpsForController;
-    }
-
-    @Config("pinot.use-https-for-controller")
-    public PinotConfig setUseHttpsForController(boolean useHttpsForController)
-    {
-        this.useHttpsForController = useHttpsForController;
-        return this;
-    }
-
-    public boolean isUseHttpsForBroker()
-    {
-        return this.useHttpsForBroker;
-    }
-
-    @Config("pinot.use-https-for-broker")
-    public PinotConfig setUseHttpsForBroker(boolean useHttpsForBroker)
-    {
-        this.useHttpsForBroker = useHttpsForBroker;
-        return this;
-    }
-
-    public boolean isUseHttpsForProxy()
-    {
-        return this.useHttpsForProxy;
-    }
-
-    @Config("pinot.use-https-for-proxy")
-    public PinotConfig setUseHttpsForProxy(boolean useHttpsForProxy)
-    {
-        this.useHttpsForProxy = useHttpsForProxy;
-        return this;
-    }
-
-    public String getOverrideDistinctCountFunction()
-    {
-        return this.overrideDistinctCountFunction;
-    }
-
-    @Config("pinot.override-distinct-count-function")
-    public PinotConfig setOverrideDistinctCountFunction(String overrideDistinctCountFunction)
-    {
-        this.overrideDistinctCountFunction = overrideDistinctCountFunction;
         return this;
     }
 }

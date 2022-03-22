@@ -140,15 +140,15 @@ public class IndexJoinOptimizer
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(leftRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), Optional.empty(), Optional.empty());
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(rightRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), Optional.empty(), Optional.empty());
                         }
 
                         if (indexJoinNode != null) {
                             if (node.getFilter().isPresent()) {
-                                indexJoinNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
+                                indexJoinNode = new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
                             }
 
                             if (!indexJoinNode.getOutputVariables().equals(node.getOutputVariables())) {
@@ -186,7 +186,6 @@ public class IndexJoinOptimizer
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
                 return new JoinNode(
-                        node.getSourceLocation(),
                         node.getId(),
                         node.getType(),
                         leftRewritten,
@@ -210,7 +209,7 @@ public class IndexJoinOptimizer
                 List<IndexJoinNode.EquiJoinClause> equiJoinClause,
                 PlanNodeIdAllocator idAllocator)
         {
-            PlanNode result = new IndexJoinNode(index.getSourceLocation(), idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
+            PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
             if (!result.getOutputVariables().equals(expectedOutputs)) {
                 result = new ProjectNode(
                         idAllocator.getNextId(),
@@ -311,7 +310,6 @@ public class IndexJoinOptimizer
                     .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
 
             PlanNode source = new IndexSourceNode(
-                    node.getSourceLocation(),
                     idAllocator.getNextId(),
                     resolvedIndex.getIndexHandle(),
                     node.getTable(),
@@ -326,7 +324,7 @@ public class IndexJoinOptimizer
 
             if (!resultingPredicate.equals(TRUE_CONSTANT)) {
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
-                source = new FilterNode(source.getSourceLocation(), idAllocator.getNextId(), source, resultingPredicate);
+                source = new FilterNode(idAllocator.getNextId(), source, resultingPredicate);
             }
             context.markSuccess();
             return source;
@@ -416,7 +414,7 @@ public class IndexJoinOptimizer
 
             PlanNode source = node;
             if (rewrittenProbeSource != node.getProbeSource()) {
-                source = new IndexJoinNode(rewrittenProbeSource.getSourceLocation(), node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria(), node.getProbeHashVariable(), node.getIndexHashVariable());
+                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria(), node.getProbeHashVariable(), node.getIndexHashVariable());
             }
 
             return source;

@@ -18,7 +18,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.StandardTypes.DISTINCT_TYPE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -47,11 +46,6 @@ public class TypeSignatureBase
     public static TypeSignatureBase of(UserDefinedType userDefinedType)
     {
         return new TypeSignatureBase(userDefinedType.getUserDefinedTypeName(), userDefinedType.getPhysicalTypeSignature().getTypeSignatureBase().getStandardTypeBase());
-    }
-
-    public static TypeSignatureBase of(DistinctTypeInfo distinctTypeInfo)
-    {
-        return new TypeSignatureBase(distinctTypeInfo.getName(), DISTINCT_TYPE);
     }
 
     private TypeSignatureBase(String standardTypeBase)

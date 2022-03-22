@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
-import com.facebook.presto.common.block.AbstractVariableWidthBlockBuilder;
+import com.facebook.presto.common.block.AbstractVariableWidthBlock;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
@@ -25,8 +25,7 @@ import io.airlift.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.INITIAL_SEGMENTS;
 import static com.facebook.presto.orc.writer.SegmentedSliceBlockBuilder.Segments.SEGMENT_SIZE;
@@ -67,36 +66,32 @@ import static java.lang.String.format;
  * created for further appends.
  */
 public class SegmentedSliceBlockBuilder
-        extends AbstractVariableWidthBlockBuilder
+        extends AbstractVariableWidthBlock
+        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SegmentedSliceBlockBuilder.class).instanceSize();
 
-    private final int expectedBytes;
+    private final DynamicSliceOutput openSliceOutput;
 
-    private DynamicSliceOutput openSliceOutput;
+    private int openSegmentIndex;
+    private int openSegmentOffset;
     private int[][] offsets;
     private Slice[] closedSlices;
     private long closedSlicesRetainedSize;
     private long closedSlicesSizeInBytes;
-    private int openSegmentIndex;
-    private int openSegmentOffset;
 
     public SegmentedSliceBlockBuilder(int expectedEntries, int expectedBytes)
     {
-        this.expectedBytes = expectedBytes;
-
-        openSliceOutput = new DynamicSliceOutput(expectedBytes);
         int initialSize = Math.max(INITIAL_SEGMENTS, segment(expectedEntries) + 1);
         offsets = new int[initialSize][];
         closedSlices = new Slice[initialSize];
         offsets[0] = new int[SEGMENT_SIZE + 1];
+        openSliceOutput = new DynamicSliceOutput(expectedBytes);
     }
 
     public void reset()
     {
-        // DynamicSliceOutput.reset() does not shrink memory, when dictionary is converted
-        // to direct, DynamicSliceOutput needs to give up memory to reduce the memory pressure.
-        openSliceOutput = new DynamicSliceOutput(expectedBytes);
+        openSliceOutput.reset();
 
         Arrays.fill(closedSlices, null);
         closedSlicesRetainedSize = 0;
@@ -148,19 +143,13 @@ public class SegmentedSliceBlockBuilder
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size is variable based on the per element length
-    }
-
-    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         throw new UnsupportedOperationException("getRegionSizeInBytes is not supported by SegmentedSliceBlockBuilder");
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
+    public long getPositionsSizeInBytes(boolean[] positions)
     {
         throw new UnsupportedOperationException("getPositionsSizeInBytes is not supported by SegmentedSliceBlockBuilder");
     }
@@ -174,7 +163,7 @@ public class SegmentedSliceBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         throw new UnsupportedOperationException("retainedBytesForEachPart is not supported by SegmentedSliceBlockBuilder");
     }
@@ -212,13 +201,6 @@ public class SegmentedSliceBlockBuilder
     @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
-        initializeNewSegmentIfRequired();
-        openSliceOutput.writeBytes(source, sourceIndex, length);
-        return this;
-    }
-
-    private void initializeNewSegmentIfRequired()
-    {
         if (openSegmentOffset == 0) {
             // Expand Segments if necessary.
             if (openSegmentIndex >= offsets.length) {
@@ -231,12 +213,6 @@ public class SegmentedSliceBlockBuilder
                 offsets[openSegmentIndex] = new int[SEGMENT_SIZE + 1];
             }
         }
-    }
-
-    @Override
-    public AbstractVariableWidthBlockBuilder writeBytes(byte[] source, int sourceIndex, int length)
-    {
-        initializeNewSegmentIfRequired();
         openSliceOutput.writeBytes(source, sourceIndex, length);
         return this;
     }
@@ -399,14 +375,9 @@ public class SegmentedSliceBlockBuilder
     // Sizes and Initial Segments are tuned for the SliceDictionaryBuilder use case.
     static class Segments
     {
-        // DictionaryBuilder allocates first offsets array upfront and grows further offsets array lazily.
-        // so 4KB (i.e 2^SEGMENT_SHIFT * INT_SIZE) is allocated upfront per builder. For tables with
-        // 100+ String columns, this is 4 MB allocation upfront, which is manageable.
-        // The INITIAL_SEGMENTS value does not have that much significance and 32 is guess based on
-        // most ORC dictionaries will have less than 32K elements.
-        public static final int INITIAL_SEGMENTS = 32;
+        public static final int INITIAL_SEGMENTS = 64;
 
-        public static final int SEGMENT_SHIFT = 10;
+        public static final int SEGMENT_SHIFT = 14;
 
         /**
          * Size of a single segment of a BigArray

@@ -95,14 +95,6 @@ public final class SortedRangeSet
         return copyOf(first.getType(), rangeList);
     }
 
-    static SortedRangeSet of(List<Range> rangeList)
-    {
-        if (rangeList.isEmpty()) {
-            throw new IllegalArgumentException("cannot use empty rangeList");
-        }
-        return copyOf(rangeList.get(0).getType(), rangeList);
-    }
-
     /**
      * Provided Ranges are unioned together to form the SortedRangeSet
      */

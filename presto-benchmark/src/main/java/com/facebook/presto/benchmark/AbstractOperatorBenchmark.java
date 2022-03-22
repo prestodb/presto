@@ -216,7 +216,7 @@ public abstract class AbstractOperatorBenchmark
         ImmutableMap.Builder<VariableReferenceExpression, Integer> variableToInputMapping = ImmutableMap.builder();
         ImmutableList.Builder<PageProjectionWithOutputs> projections = ImmutableList.builder();
         for (int channel = 0; channel < types.size(); channel++) {
-            VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "h" + channel, types.get(channel));
+            VariableReferenceExpression variable = new VariableReferenceExpression("h" + channel, types.get(channel));
             variables.add(variable);
             variableToInputMapping.put(variable, channel);
             projections.add(new PageProjectionWithOutputs(new InputPageProjection(channel), new int[] {channel}));

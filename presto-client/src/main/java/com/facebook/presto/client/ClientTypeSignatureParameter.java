@@ -15,7 +15,6 @@ package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
-import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -61,9 +60,6 @@ public class ClientTypeSignatureParameter
                 break;
             case VARCHAR_ENUM:
                 value = typeParameterSignature.getVarcharEnumMap();
-                break;
-            case DISTINCT_TYPE:
-                value = typeParameterSignature.getDistinctTypeInfo();
                 break;
             default:
                 throw new UnsupportedOperationException(format("Unknown kind [%s]", kind));
@@ -148,7 +144,7 @@ public class ClientTypeSignatureParameter
         private static final ObjectMapper MAPPER = new JsonObjectMapperProvider().get();
 
         @Override
-        public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctx)
+        public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)
                 throws IOException
         {
             JsonNode node = jp.getCodec().readTree(jp);
@@ -170,9 +166,6 @@ public class ClientTypeSignatureParameter
                     break;
                 case VARCHAR_ENUM:
                     value = MAPPER.readValue(jsonValue, VarcharEnumMap.class);
-                    break;
-                case DISTINCT_TYPE:
-                    value = MAPPER.readValue(jsonValue, DistinctTypeInfo.class);
                     break;
                 default:
                     throw new UnsupportedOperationException(format("Unsupported kind [%s]", kind));

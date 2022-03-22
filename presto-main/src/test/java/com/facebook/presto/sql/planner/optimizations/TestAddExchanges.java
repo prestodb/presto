@@ -774,7 +774,7 @@ public class TestAddExchanges
 
     private static GroupingProperty<VariableReferenceExpression> grouped(String... columns)
     {
-        return new GroupingProperty<>(Lists.transform(Arrays.asList(columns), column -> new VariableReferenceExpression(Optional.empty(), column, BIGINT)));
+        return new GroupingProperty<>(Lists.transform(Arrays.asList(columns), column -> new VariableReferenceExpression(column, BIGINT)));
     }
 
     private static SortingProperty<VariableReferenceExpression> sorted(String column, SortOrder order)
@@ -784,13 +784,13 @@ public class TestAddExchanges
 
     private static VariableReferenceExpression variable(String name)
     {
-        return new VariableReferenceExpression(Optional.empty(), name, BIGINT);
+        return new VariableReferenceExpression(name, BIGINT);
     }
 
     private static List<VariableReferenceExpression> arguments(String[] columnNames)
     {
         return Arrays.asList(columnNames).stream()
-                .map(column -> new VariableReferenceExpression(Optional.empty(), column, BIGINT))
+                .map(column -> new VariableReferenceExpression(column, BIGINT))
                 .collect(toImmutableList());
     }
 }

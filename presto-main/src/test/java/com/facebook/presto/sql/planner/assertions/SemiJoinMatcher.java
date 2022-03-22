@@ -18,10 +18,10 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -56,8 +56,8 @@ final class SemiJoinMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-        if (!(symbolAliases.get(sourceSymbolAlias).equals(createSymbolReference(semiJoinNode.getSourceJoinVariable())) &&
-                symbolAliases.get(filteringSymbolAlias).equals(createSymbolReference(semiJoinNode.getFilteringSourceJoinVariable())))) {
+        if (!(symbolAliases.get(sourceSymbolAlias).equals(new SymbolReference(semiJoinNode.getSourceJoinVariable().getName())) &&
+                symbolAliases.get(filteringSymbolAlias).equals(new SymbolReference(semiJoinNode.getFilteringSourceJoinVariable().getName())))) {
             return NO_MATCH;
         }
 
@@ -65,7 +65,7 @@ final class SemiJoinMatcher
             return NO_MATCH;
         }
 
-        return match(outputAlias, createSymbolReference(semiJoinNode.getSemiJoinOutput()));
+        return match(outputAlias, new SymbolReference(semiJoinNode.getSemiJoinOutput().getName()));
     }
 
     @Override

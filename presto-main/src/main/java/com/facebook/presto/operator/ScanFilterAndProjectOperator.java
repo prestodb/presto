@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
@@ -54,8 +53,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
-import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_DATA_BYTES;
-import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_TIME_NANOS;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -347,16 +344,10 @@ public class ScanFilterAndProjectOperator
         long endCompletedPositions = pageSource.getCompletedPositions();
         long endReadTimeNanos = pageSource.getReadTimeNanos();
         long inputBytes = endCompletedBytes - completedBytes;
-        long inputBytesReadTime = endReadTimeNanos - readTimeNanos;
         long positionCount = endCompletedPositions - completedPositions;
         operatorContext.recordProcessedInput(inputBytes, positionCount);
-        operatorContext.recordRawInputWithTiming(inputBytes, positionCount, inputBytesReadTime);
-        RuntimeStats runtimeStats = pageSource.getRuntimeStats();
-        if (runtimeStats != null) {
-            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_TIME_NANOS, inputBytesReadTime);
-            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_DATA_BYTES, inputBytes);
-            operatorContext.updateStats(runtimeStats);
-        }
+        operatorContext.recordRawInputWithTiming(inputBytes, positionCount, endReadTimeNanos - readTimeNanos);
+        operatorContext.updateStats(pageSource.getRuntimeStats());
         completedBytes = endCompletedBytes;
         completedPositions = endCompletedPositions;
         readTimeNanos = endReadTimeNanos;

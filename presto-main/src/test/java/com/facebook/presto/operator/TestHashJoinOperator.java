@@ -133,7 +133,7 @@ public class TestHashJoinOperator
                 Integer.MAX_VALUE,
                 60L,
                 SECONDS,
-                new SynchronousQueue<>(),
+                new SynchronousQueue<Runnable>(),
                 daemonThreadsNamed("test-executor-%s"),
                 new ThreadPoolExecutor.DiscardPolicy());
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));

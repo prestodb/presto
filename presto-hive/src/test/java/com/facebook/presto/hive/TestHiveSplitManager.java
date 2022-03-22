@@ -50,6 +50,7 @@ import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -122,15 +123,15 @@ public class TestHiveSplitManager
     private static final HiveType LONT_DECIMAL = HiveType.valueOf("decimal(38,10)");
     private static final HiveType SHORT_DECIMAL = HiveType.valueOf("decimal(10,0)");
     private static final List<Column> COLUMNS = ImmutableList.of(
-            new Column("t_tinyint", HIVE_BYTE, Optional.empty(), Optional.empty()),
-            new Column("t_smallint", HIVE_SHORT, Optional.empty(), Optional.empty()),
-            new Column("t_int", HIVE_INT, Optional.empty(), Optional.empty()),
-            new Column("t_bigint", HIVE_LONG, Optional.empty(), Optional.empty()),
-            new Column("t_float", HIVE_FLOAT, Optional.empty(), Optional.empty()),
-            new Column("t_double", HIVE_DOUBLE, Optional.empty(), Optional.empty()),
-            new Column("t_short_decimal", SHORT_DECIMAL, Optional.empty(), Optional.empty()),
-            new Column("t_long_decimal", LONT_DECIMAL, Optional.empty(), Optional.empty()),
-            new Column("t_date", HIVE_DATE, Optional.empty(), Optional.empty()));
+            new Column("t_tinyint", HIVE_BYTE, Optional.empty()),
+            new Column("t_smallint", HIVE_SHORT, Optional.empty()),
+            new Column("t_int", HIVE_INT, Optional.empty()),
+            new Column("t_bigint", HIVE_LONG, Optional.empty()),
+            new Column("t_float", HIVE_FLOAT, Optional.empty()),
+            new Column("t_double", HIVE_DOUBLE, Optional.empty()),
+            new Column("t_short_decimal", SHORT_DECIMAL, Optional.empty()),
+            new Column("t_long_decimal", LONT_DECIMAL, Optional.empty()),
+            new Column("t_date", HIVE_DATE, Optional.empty()));
     private static final String PARTITION_VALUE = "2020-01-01";
     private static final String PARTITION_NAME = "ds=2020-01-01";
     private static final Table TEST_TABLE = new Table(
@@ -146,7 +147,7 @@ public class TestHiveSplitManager
                     ImmutableMap.of(),
                     ImmutableMap.of()),
             COLUMNS,
-            ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())),
+            ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty())),
             ImmutableMap.of(),
             Optional.empty(),
             Optional.empty());
@@ -510,8 +511,7 @@ public class TestHiveSplitManager
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                new HiveFileRenamer());
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -525,6 +525,7 @@ public class TestHiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
@@ -629,7 +630,7 @@ public class TestHiveSplitManager
             implements DirectoryLister
     {
         @Override
-        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, NamenodeStats namenodeStats, HiveDirectoryContext hiveDirectoryContext)
+        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, NamenodeStats namenodeStats, PathFilter pathFilter, HiveDirectoryContext hiveDirectoryContext)
         {
             try {
                 return ImmutableList.of(

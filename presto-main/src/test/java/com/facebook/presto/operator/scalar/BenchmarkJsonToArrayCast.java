@@ -114,7 +114,7 @@ public class BenchmarkJsonToArrayCast
 
             MetadataManager metadata = createTestMetadataManager();
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, JSON, new ArrayType(elementType));
+            FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, JSON.getTypeSignature(), (new ArrayType(elementType)).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(CAST.name(), functionHandle, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));

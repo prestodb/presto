@@ -83,12 +83,6 @@ public class SimpleTracer
         pointList.add(new SimpleTracerPoint(annotation));
     }
 
-    @Override
-    public String getTracerId()
-    {
-        return "simple_dummy_id";
-    }
-
     public String toString()
     {
         return toStringHelper(this)

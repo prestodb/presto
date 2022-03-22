@@ -256,7 +256,7 @@ public class TestEliminateCrossJoins
 
     private VariableReferenceExpression variable(String name)
     {
-        return new VariableReferenceExpression(Optional.empty(), name, BIGINT);
+        return new VariableReferenceExpression(name, BIGINT);
     }
 
     private JoinNode joinNode(PlanNode left, PlanNode right, VariableReferenceExpression... variables)
@@ -269,7 +269,6 @@ public class TestEliminateCrossJoins
         }
 
         return new JoinNode(
-                Optional.empty(),
                 idAllocator.getNextId(),
                 JoinNode.Type.INNER,
                 left,
@@ -289,7 +288,6 @@ public class TestEliminateCrossJoins
     private ValuesNode values(VariableReferenceExpression... variables)
     {
         return new ValuesNode(
-                Optional.empty(),
                 idAllocator.getNextId(),
                 Arrays.asList(variables),
                 ImmutableList.of());

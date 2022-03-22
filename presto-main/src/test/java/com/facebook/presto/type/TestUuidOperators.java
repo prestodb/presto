@@ -34,12 +34,6 @@ public class TestUuidOperators
         extends AbstractTestFunctions
 {
     @Test
-    public void testRandomUuid()
-    {
-        tryEvaluateWithAll("uuid()", UUID);
-    }
-
-    @Test
     public void testVarcharToUUIDCast()
     {
         assertFunction("CAST('00000000-0000-0000-0000-000000000000' AS UUID)", UUID, "00000000-0000-0000-0000-000000000000");

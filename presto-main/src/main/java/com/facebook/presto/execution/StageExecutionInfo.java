@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
@@ -109,7 +108,6 @@ public class StageExecutionInfo
 
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
         RuntimeStats mergedRuntimeStats = new RuntimeStats();
-        mergedRuntimeStats.addMetricValueIgnoreZero(GET_SPLITS_TIME_NANOS, (long) getSplitDistribution.getTotal());
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -177,9 +175,6 @@ public class StageExecutionInfo
             mergedRuntimeStats.mergeWith(taskStats.getRuntimeStats());
             mergedRuntimeStats.addMetricValue(RuntimeMetricName.DRIVER_COUNT_PER_TASK, taskStats.getTotalDrivers());
             mergedRuntimeStats.addMetricValue(RuntimeMetricName.TASK_ELAPSED_TIME_NANOS, taskStats.getElapsedTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(RuntimeMetricName.TASK_QUEUED_TIME_NANOS, taskStats.getQueuedTimeInNanos());
-            mergedRuntimeStats.addMetricValue(RuntimeMetricName.TASK_SCHEDULED_TIME_NANOS, taskStats.getTotalScheduledTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(RuntimeMetricName.TASK_BLOCKED_TIME_NANOS, taskStats.getTotalBlockedTimeInNanos());
         }
 
         StageExecutionStats stageExecutionStats = new StageExecutionStats(

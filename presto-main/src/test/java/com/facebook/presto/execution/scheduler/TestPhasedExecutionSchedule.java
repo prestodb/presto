@@ -155,7 +155,6 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createExchangePlanFragment(String name, PlanFragment... fragments)
     {
         PlanNode planNode = new RemoteSourceNode(
-                Optional.empty(),
                 new PlanNodeId(name + "_id"),
                 Stream.of(fragments)
                         .map(PlanFragment::getId)
@@ -171,11 +170,9 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createUnionPlanFragment(String name, PlanFragment... fragments)
     {
         PlanNode planNode = new UnionNode(
-                Optional.empty(),
                 new PlanNodeId(name + "_id"),
                 Stream.of(fragments)
                         .map(fragment -> new RemoteSourceNode(
-                                Optional.empty(),
                                 new PlanNodeId(fragment.getId().toString()),
                                 fragment.getId(),
                                 fragment.getPartitioningScheme().getOutputLayout(),
@@ -191,9 +188,8 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
-        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "column", BIGINT);
+        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
         PlanNode tableScan = new TableScanNode(
-                Optional.empty(),
                 new PlanNodeId(name),
                 new TableHandle(
                         new ConnectorId("test"),
@@ -205,9 +201,8 @@ public class TestPhasedExecutionSchedule
                 TupleDomain.all(),
                 TupleDomain.all());
 
-        RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPLICATE);
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
-                Optional.empty(),
                 new PlanNodeId(name + "_id"),
                 INNER,
                 tableScan,
@@ -228,10 +223,9 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
-        RemoteSourceNode probe = new RemoteSourceNode(Optional.empty(), new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
-        RemoteSourceNode build = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
+        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
+        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
         PlanNode planNode = new JoinNode(
-                Optional.empty(),
                 new PlanNodeId(name + "_id"),
                 joinType,
                 probe,
@@ -251,9 +245,8 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createTableScanPlanFragment(String name)
     {
-        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "column", BIGINT);
+        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
         PlanNode planNode = new TableScanNode(
-                Optional.empty(),
                 new PlanNodeId(name),
                 new TableHandle(
                         new ConnectorId("test"),

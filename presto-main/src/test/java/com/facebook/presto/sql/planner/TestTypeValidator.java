@@ -106,7 +106,6 @@ public class TestTypeValidator
                 .build();
 
         baseTableScan = new TableScanNode(
-                Optional.empty(),
                 newId(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -138,7 +137,6 @@ public class TestTypeValidator
         VariableReferenceExpression output = variableAllocator.newVariable("output", DATE);
 
         PlanNode node = new UnionNode(
-                Optional.empty(),
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
                 ImmutableList.of(output),
@@ -167,7 +165,6 @@ public class TestTypeValidator
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
-                Optional.empty(),
                 newId(),
                 baseTableScan,
                 specification,
@@ -185,7 +182,6 @@ public class TestTypeValidator
         VariableReferenceExpression aggregationVariable = variableAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
-                Optional.empty(),
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationVariable, new Aggregation(
@@ -242,7 +238,6 @@ public class TestTypeValidator
         VariableReferenceExpression aggregationVariable = variableAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
-                Optional.empty(),
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationVariable, new Aggregation(
@@ -270,7 +265,6 @@ public class TestTypeValidator
         VariableReferenceExpression aggregationVariable = variableAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
-                Optional.empty(),
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationVariable, new Aggregation(
@@ -312,7 +306,6 @@ public class TestTypeValidator
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
-                Optional.empty(),
                 newId(),
                 baseTableScan,
                 specification,
@@ -344,7 +337,6 @@ public class TestTypeValidator
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
-                Optional.empty(),
                 newId(),
                 baseTableScan,
                 specification,
@@ -362,7 +354,6 @@ public class TestTypeValidator
         VariableReferenceExpression output = variableAllocator.newVariable("output", DATE);
 
         PlanNode node = new UnionNode(
-                Optional.empty(),
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
                 ImmutableList.of(output),

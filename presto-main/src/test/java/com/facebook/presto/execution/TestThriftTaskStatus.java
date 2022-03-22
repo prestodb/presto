@@ -26,7 +26,6 @@ import com.facebook.drift.protocol.TTransport;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
-import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.util.Failures;
@@ -67,9 +66,7 @@ public class TestThriftTaskStatus
     public static final URI SELF_URI = java.net.URI.create("fake://task/" + "1");
     public static final Set<Lifespan> LIFESPANS = ImmutableSet.of(Lifespan.taskWide(), Lifespan.driverGroup(100));
     public static final int QUEUED_PARTITIONED_DRIVERS = 100;
-    public static final long QUEUED_PARTITIONED_WEIGHT = SplitWeight.rawValueForStandardSplitCount(QUEUED_PARTITIONED_DRIVERS);
     public static final int RUNNING_PARTITIONED_DRIVERS = 200;
-    public static final long RUNNING_PARTITIONED_WEIGHT = SplitWeight.rawValueForStandardSplitCount(RUNNING_PARTITIONED_DRIVERS);
     public static final double OUTPUT_BUFFER_UTILIZATION = 99.9;
     public static final boolean OUTPUT_BUFFER_OVERUTILIZED = true;
     public static final int PHYSICAL_WRITTEN_DATA_SIZE_IN_BYTES = 1024 * 1024;
@@ -133,9 +130,7 @@ public class TestThriftTaskStatus
         assertEquals(taskStatus.getSelf(), SELF_URI);
         assertEquals(taskStatus.getCompletedDriverGroups(), LIFESPANS);
         assertEquals(taskStatus.getQueuedPartitionedDrivers(), QUEUED_PARTITIONED_DRIVERS);
-        assertEquals(taskStatus.getQueuedPartitionedSplitsWeight(), QUEUED_PARTITIONED_WEIGHT);
         assertEquals(taskStatus.getRunningPartitionedDrivers(), RUNNING_PARTITIONED_DRIVERS);
-        assertEquals(taskStatus.getRunningPartitionedSplitsWeight(), RUNNING_PARTITIONED_WEIGHT);
         assertEquals(taskStatus.getOutputBufferUtilization(), OUTPUT_BUFFER_UTILIZATION);
         assertEquals(taskStatus.isOutputBufferOverutilized(), OUTPUT_BUFFER_OVERUTILIZED);
         assertEquals(taskStatus.getPhysicalWrittenDataSizeInBytes(), PHYSICAL_WRITTEN_DATA_SIZE_IN_BYTES);
@@ -207,9 +202,7 @@ public class TestThriftTaskStatus
                 FULL_GC_COUNT,
                 FULL_GC_TIME_IN_MILLIS,
                 TOTAL_CPU_TIME_IN_NANOS,
-                TASK_AGE,
-                QUEUED_PARTITIONED_WEIGHT,
-                RUNNING_PARTITIONED_WEIGHT);
+                TASK_AGE);
     }
 
     private List<ExecutionFailureInfo> getExecutionFailureInfos()

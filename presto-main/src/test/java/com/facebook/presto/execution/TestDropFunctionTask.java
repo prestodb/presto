@@ -18,7 +18,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -86,9 +85,7 @@ public class TestDropFunctionTask
         DropFunction statement = (DropFunction) parser.createStatement(sqlString, ParsingOptions.builder().build());
         TransactionManager tm = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, tm, executorService, metadataManager);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
-        DropFunctionTask dropFunctionTask = new DropFunctionTask(parser);
-        dropFunctionTask.execute(statement, tm, metadataManager, new AllowAllAccessControl(), session, emptyList(), warningCollector);
-        return dropFunctionTask.getRemovedSessionFunctions();
+        new DropFunctionTask(parser).execute(statement, tm, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
+        return stateMachine.getRemovedSessionFunctions();
     }
 }

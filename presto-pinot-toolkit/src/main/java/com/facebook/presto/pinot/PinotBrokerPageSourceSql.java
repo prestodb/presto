@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class PinotBrokerPageSourceSql
@@ -119,6 +120,7 @@ public class PinotBrokerPageSourceSql
             }
 
             JsonNode rows = resultTable.get("rows");
+            checkState(rows.size() >= 1, "Expected at least one row to be present");
             setRows(sql, blockBuilders, types, rows);
             return rows.size();
         }

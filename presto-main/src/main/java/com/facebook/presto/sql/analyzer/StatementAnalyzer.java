@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DoubleType;
@@ -60,7 +59,6 @@ import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -411,7 +409,7 @@ class StatementAnalyzer
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
-            return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
+            return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
         }
 
         private void checkTypesMatchForInsert(Insert insert, Scope queryScope, List<ColumnMetadata> expectedColumns)
@@ -552,7 +550,7 @@ class StatementAnalyzer
 
             accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
         @Override
@@ -581,11 +579,11 @@ class StatementAnalyzer
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
 
             // user must have read and insert permission in order to analyze stats of a table
-            analysis.addTableColumnAndSubfieldReferences(
+            analysis.addTableColumnReferences(
                     accessControl,
                     session.getIdentity(),
-                    ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(Subfield::new).collect(toImmutableSet()))
+                    ImmutableMultimap.<QualifiedObjectName, String>builder()
+                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
                             .build());
             try {
                 accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
@@ -595,7 +593,7 @@ class StatementAnalyzer
             }
 
             analysis.setAnalyzeTarget(tableHandle);
-            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
         @Override
@@ -611,7 +609,7 @@ class StatementAnalyzer
             if (targetTableHandle.isPresent()) {
                 if (node.isNotExists()) {
                     analysis.setCreateTableAsSelectNoOp(true);
-                    return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
+                    return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
@@ -632,7 +630,7 @@ class StatementAnalyzer
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
 
-                // analyze only column types in subquery if column alias exists
+                // analzie only column types in subquery if column alias exists
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
@@ -643,7 +641,7 @@ class StatementAnalyzer
                 validateColumns(node, queryScope.getRelationType());
             }
 
-            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
         @Override
@@ -746,7 +744,7 @@ class StatementAnalyzer
                     targetColumnHandles,
                     refreshQuery));
 
-            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
         private Optional<RelationType> analyzeBaseTableForRefreshMaterializedView(Table baseTable, Optional<Scope> scope)
@@ -817,7 +815,7 @@ class StatementAnalyzer
             // Check return type
             Type returnType = metadata.getType(parseTypeSignature(node.getReturnType()));
             List<Field> fields = node.getParameters().stream()
-                    .map(parameter -> Field.newUnqualified(parameter.getName().getLocation(), parameter.getName().getValue(), metadata.getType(parseTypeSignature(parameter.getType()))))
+                    .map(parameter -> Field.newUnqualified(parameter.getName().getValue(), metadata.getType(parseTypeSignature(parameter.getType()))))
                     .collect(toImmutableList());
             Scope functionScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
@@ -1072,7 +1070,7 @@ class StatementAnalyzer
             }
             process(node.getStatement(), scope);
             analysis.setUpdateType(null);
-            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "Query Plan", VARCHAR));
+            return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
         }
 
         @Override
@@ -1112,34 +1110,28 @@ class StatementAnalyzer
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
-                if (!expressionAnalysis.getScalarSubqueries().isEmpty()) {
-                    throw new SemanticException(
-                            NOT_SUPPORTED,
-                            node,
-                            "Scalar subqueries in UNNEST are not supported");
-                }
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();
                     if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
                         ((RowType) elementType).getFields().stream()
-                                .map(field -> Field.newUnqualified(expression.getLocation(), field.getName(), field.getType()))
+                                .map(field -> Field.newUnqualified(field.getName(), field.getType()))
                                 .forEach(outputFields::add);
                     }
                     else {
-                        outputFields.add(Field.newUnqualified(expression.getLocation(), Optional.empty(), elementType));
+                        outputFields.add(Field.newUnqualified(Optional.empty(), elementType));
                     }
                 }
                 else if (expressionType instanceof MapType) {
-                    outputFields.add(Field.newUnqualified(expression.getLocation(), Optional.empty(), ((MapType) expressionType).getKeyType()));
-                    outputFields.add(Field.newUnqualified(expression.getLocation(), Optional.empty(), ((MapType) expressionType).getValueType()));
+                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getKeyType()));
+                    outputFields.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
                 }
                 else {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
             }
             if (node.isWithOrdinality()) {
-                outputFields.add(Field.newUnqualified(node.getLocation(), Optional.empty(), BIGINT));
+                outputFields.add(Field.newUnqualified(Optional.empty(), BIGINT));
             }
             return createAndAssignScope(node, scope, outputFields.build());
         }
@@ -1177,7 +1169,6 @@ class StatementAnalyzer
                         for (Identifier columnName : columnNames.get()) {
                             Field inputField = visibleFieldsIterator.next();
                             fieldBuilder.add(Field.newQualified(
-                                    columnName.getLocation(),
                                     QualifiedName.of(name),
                                     Optional.of(columnName.getValue()),
                                     inputField.getType(),
@@ -1192,7 +1183,6 @@ class StatementAnalyzer
                     else {
                         fields = queryDescriptor.getAllFields().stream()
                                 .map(field -> Field.newQualified(
-                                        field.getNodeLocation(),
                                         QualifiedName.of(name),
                                         field.getName(),
                                         field.getType(),
@@ -1270,7 +1260,6 @@ class StatementAnalyzer
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 Field field = Field.newQualified(
-                        Optional.empty(),
                         table.getName(),
                         Optional.of(column.getName()),
                         column.getType(),
@@ -1333,7 +1322,6 @@ class StatementAnalyzer
             // are implicitly coercible to the declared view types.
             List<Field> outputFields = view.getColumns().stream()
                     .map(column -> Field.newQualified(
-                            table.getLocation(),
                             table.getName(),
                             Optional.of(column.getName()),
                             column.getType(),
@@ -1615,7 +1603,6 @@ class StatementAnalyzer
             for (int i = 0; i < outputFieldTypes.length; i++) {
                 Field oldField = firstDescriptor.getFieldByIndex(i);
                 outputDescriptorFields[i] = new Field(
-                        oldField.getNodeLocation(),
                         oldField.getRelationAlias(),
                         oldField.getName(),
                         outputFieldTypes[i],
@@ -1687,34 +1674,6 @@ class StatementAnalyzer
             return visitSetOperation(node, scope);
         }
 
-        private boolean isJoinOnConditionReferencesRelatedFields(Expression expression, Scope scope)
-        {
-            if (expression instanceof LogicalBinaryExpression) {
-                LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
-                switch (logicalBinaryExpression.getOperator()) {
-                    case AND:
-                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), scope)
-                                || isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), scope);
-                    case OR:
-                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), scope)
-                                && isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), scope);
-                }
-            }
-            if (expression instanceof ComparisonExpression) {
-                ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-                if (comparisonExpression.getLeft() instanceof Literal || comparisonExpression.getRight() instanceof Literal) {
-                    return false;
-                }
-                return isJoinOnConditionReferencesRelatedFields(comparisonExpression.getLeft(), scope)
-                        != isJoinOnConditionReferencesRelatedFields(comparisonExpression.getRight(), scope);
-            }
-            if (expression instanceof DereferenceExpression || expression instanceof Identifier) {
-                Optional<ResolvedField> resolvedField = scope.tryResolveField(expression);
-                return resolvedField.isPresent();
-            }
-            return false;
-        }
-
         @Override
         protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
@@ -1756,7 +1715,6 @@ class StatementAnalyzer
                     }
                 }
 
-                verifyJoinOnConditionReferencesRelatedFields(right, expression, node.getRight());
                 verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
@@ -1767,39 +1725,6 @@ class StatementAnalyzer
             }
 
             return output;
-        }
-
-        private void verifyJoinOnConditionReferencesRelatedFields(Scope rightScope, Expression expression, Relation rightRelation)
-        {
-            if (!isJoinOnConditionReferencesRelatedFields(expression, rightScope)) {
-                Optional<String> tableName = tryGetTableName(rightRelation);
-                String warningMessage = tableName.isPresent() ?
-                        createWarningMessage(
-                                expression,
-                                format(
-                                        "JOIN ON condition(s) do not reference the joined table '%s' and other tables in the same " +
-                                                "expression that can cause performance issues as it may lead to a cross join with filter",
-                                        tableName.get())) :
-                        createWarningMessage(
-                                expression,
-                                "JOIN ON condition(s) do not reference the joined relation and other relation in the same " +
-                                        "expression that can cause performance issues as it may lead to a cross join with filter");
-                warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
-            }
-        }
-
-        private Optional<String> tryGetTableName(Relation relation)
-        {
-            if (relation instanceof Table) {
-                return Optional.of(((Table) relation).getName().toString());
-            }
-            else if (relation instanceof AliasedRelation) {
-                AliasedRelation aliasedRelation = (AliasedRelation) relation;
-                if (aliasedRelation.getRelation() instanceof Table) {
-                    return Optional.of(((Table) aliasedRelation.getRelation()).getName().toString());
-                }
-            }
-            return Optional.empty();
         }
 
         private String createWarningMessage(Node node, String description)
@@ -1843,7 +1768,7 @@ class StatementAnalyzer
                 Optional<Type> type = metadata.getFunctionAndTypeManager().getCommonSuperType(leftField.get().getType(), rightField.get().getType());
                 analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.get()));
 
-                joinFields.add(Field.newUnqualified(column.getLocation(), column.getValue(), type.get()));
+                joinFields.add(Field.newUnqualified(column.getValue(), type.get()));
 
                 leftJoinFields.add(leftField.get().getRelationFieldIndex());
                 rightJoinFields.add(rightField.get().getRelationFieldIndex());
@@ -1851,16 +1776,16 @@ class StatementAnalyzer
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(leftField.get()));
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
                 if (leftField.get().getField().getOriginTable().isPresent() && leftField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnAndSubfieldReferences(
+                    analysis.addTableColumnReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get())));
+                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), leftField.get().getField().getOriginColumnName().get()));
                 }
                 if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnAndSubfieldReferences(
+                    analysis.addTableColumnReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get())));
+                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), rightField.get().getField().getOriginColumnName().get()));
                 }
             }
 
@@ -1962,7 +1887,7 @@ class StatementAnalyzer
             }
 
             List<Field> fields = fieldTypes.stream()
-                    .map(valueType -> Field.newUnqualified(node.getLocation(), Optional.empty(), valueType))
+                    .map(valueType -> Field.newUnqualified(Optional.empty(), valueType))
                     .collect(toImmutableList());
 
             return createAndAssignScope(node, scope, fields);
@@ -2321,7 +2246,7 @@ class StatementAnalyzer
                     Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                     for (Field field : sourceScope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
-                        outputFields.add(Field.newUnqualified(node.getSelect().getLocation(), field.getName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
+                        outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
                     }
                 }
                 else if (item instanceof SingleColumn) {
@@ -2355,7 +2280,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    outputFields.add(Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -2404,7 +2329,7 @@ class StatementAnalyzer
                                 .filter(resolvedField -> seen.add(resolvedField.getField()))
                                 .map(ResolvedField::getField);
                         return sourceField
-                                .orElse(Field.newUnqualified(expression.getLocation(), Optional.empty(), analysis.getType(expression)));
+                                .orElse(Field.newUnqualified(Optional.empty(), analysis.getType(expression)));
                     })
                     .collect(toImmutableList());
 
@@ -2444,7 +2369,7 @@ class StatementAnalyzer
 
                     for (Field field : fields) {
                         int fieldIndex = relationType.indexOf(field);
-                        FieldReference expression = new FieldReference(field.getNodeLocation(), fieldIndex);
+                        FieldReference expression = new FieldReference(fieldIndex);
                         outputExpressionBuilder.add(expression);
                         ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
 
@@ -2551,11 +2476,11 @@ class StatementAnalyzer
                         .collect(toImmutableList());
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, warningCollector, session);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, warningCollector);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, warningCollector, session);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, warningCollector);
                 }
             }
         }
@@ -2575,7 +2500,7 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
+                Session viewSession = Session.builder(metadata.getSessionPropertyManager())
                         .setQueryId(session.getQueryId())
                         .setTransactionId(session.getTransactionId().orElse(null))
                         .setIdentity(identity)
@@ -2587,9 +2512,9 @@ class StatementAnalyzer
                         .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                         .setUserAgent(session.getUserAgent().orElse(null))
                         .setClientInfo(session.getClientInfo().orElse(null))
-                        .setStartTime(session.getStartTime());
-                session.getConnectorProperties().forEach((connectorId, properties) -> properties.forEach((k, v) -> viewSessionBuilder.setConnectionProperty(connectorId, k, v)));
-                Session viewSession = viewSessionBuilder.build();
+                        .setStartTime(session.getStartTime())
+                        .build();
+
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
@@ -2646,7 +2571,7 @@ class StatementAnalyzer
         {
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             for (int fieldIndex = 0; fieldIndex < scope.getRelationType().getAllFieldCount(); fieldIndex++) {
-                FieldReference expression = new FieldReference(scope.getRelationType().getFieldByIndex(fieldIndex).getNodeLocation(), fieldIndex);
+                FieldReference expression = new FieldReference(fieldIndex);
                 builder.add(expression);
                 analyzeExpression(expression, scope);
             }
@@ -2742,7 +2667,7 @@ class StatementAnalyzer
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
-                    expression = new FieldReference(expression.getLocation(), toIntExact(ordinal - 1));
+                    expression = new FieldReference(toIntExact(ordinal - 1));
                 }
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, orderByScope);

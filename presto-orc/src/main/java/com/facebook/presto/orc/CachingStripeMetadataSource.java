@@ -13,15 +13,9 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.StripeReader.StripeStreamId;
-import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
-import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
-import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -30,10 +24,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER;
@@ -48,14 +40,12 @@ public class CachingStripeMetadataSource
     private final StripeMetadataSource delegate;
     private final Cache<StripeId, Slice> footerSliceCache;
     private final Cache<StripeStreamId, Slice> stripeStreamCache;
-    private final Optional<Cache<StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache;
 
-    public CachingStripeMetadataSource(StripeMetadataSource delegate, Cache<StripeId, Slice> footerSliceCache, Cache<StripeStreamId, Slice> stripeStreamCache, Optional<Cache<StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache)
+    public CachingStripeMetadataSource(StripeMetadataSource delegate, Cache<StripeId, Slice> footerSliceCache, Cache<StripeStreamId, Slice> stripeStreamCache)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.footerSliceCache = requireNonNull(footerSliceCache, "footerSliceCache is null");
         this.stripeStreamCache = requireNonNull(stripeStreamCache, "rowIndexSliceCache is null");
-        this.rowGroupIndexCache = requireNonNull(rowGroupIndexCache, "rowGroupIndexCache is null");
     }
 
     @Override
@@ -114,36 +104,6 @@ public class CachingStripeMetadataSource
             }
         }
         return inputsBuilder.build();
-    }
-
-    @Override
-    public List<RowGroupIndex> getRowIndexes(
-            MetadataReader metadataReader,
-            HiveWriterVersion hiveWriterVersion,
-            StripeId stripId,
-            StreamId streamId,
-            OrcInputStream inputStream,
-            List<HiveBloomFilter> bloomFilters,
-            RuntimeStats runtimeStats)
-            throws IOException
-    {
-        if (rowGroupIndexCache.isPresent()) {
-            List<RowGroupIndex> rowGroupIndices = rowGroupIndexCache.get().getIfPresent(new StripeStreamId(stripId, streamId));
-            if (rowGroupIndices != null) {
-                runtimeStats.addMetricValue("OrcRowGroupIndexCacheHit", 1);
-                runtimeStats.addMetricValue("OrcRowGroupIndexInMemoryBytesRead", rowGroupIndices.stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum());
-                return rowGroupIndices;
-            }
-            else {
-                runtimeStats.addMetricValue("OrcRowGroupIndexCacheHit", 0);
-                runtimeStats.addMetricValue("OrcRowGroupIndexStorageBytesRead", inputStream.getRetainedSizeInBytes());
-            }
-        }
-        List<RowGroupIndex> rowGroupIndices = delegate.getRowIndexes(metadataReader, hiveWriterVersion, stripId, streamId, inputStream, bloomFilters, runtimeStats);
-        if (rowGroupIndexCache.isPresent()) {
-            rowGroupIndexCache.get().put(new StripeStreamId(stripId, streamId), rowGroupIndices);
-        }
-        return rowGroupIndices;
     }
 
     private static boolean isCachedStream(StreamKind streamKind)

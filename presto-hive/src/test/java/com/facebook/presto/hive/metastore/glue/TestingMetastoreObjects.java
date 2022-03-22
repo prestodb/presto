@@ -136,7 +136,7 @@ public final class TestingMetastoreObjects
 
     public static com.facebook.presto.hive.metastore.Column getPrestoTestColumn()
     {
-        return new com.facebook.presto.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"), Optional.empty());
+        return new com.facebook.presto.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->

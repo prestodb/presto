@@ -217,7 +217,7 @@ public class TestLocalDispatchQuery
     {
         QueryStateMachine stateMachine = createStateMachine();
         CountingEventListener eventListener = new CountingEventListener();
-        CompletableFuture<?> prerequisitesFuture = new CompletableFuture<>();
+        CompletableFuture<?> prequisitesFuture = new CompletableFuture<>();
         AtomicBoolean queryFinishedCalled = new AtomicBoolean();
 
         LocalDispatchQuery query = new LocalDispatchQuery(
@@ -233,7 +233,7 @@ public class TestLocalDispatchQuery
                     @Override
                     public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector)
                     {
-                        return prerequisitesFuture;
+                        return prequisitesFuture;
                     }
 
                     @Override
@@ -247,7 +247,7 @@ public class TestLocalDispatchQuery
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
 
         query.startWaitingForPrerequisites();
-        prerequisitesFuture.complete(null);
+        prequisitesFuture.complete(null);
         query.fail(new PrestoException(ABANDONED_QUERY, "foo"));
 
         assertTrue(queryFinishedCalled.get());
@@ -258,7 +258,7 @@ public class TestLocalDispatchQuery
     {
         QueryStateMachine stateMachine = createStateMachine();
         CountingEventListener eventListener = new CountingEventListener();
-        CompletableFuture<?> prerequisitesFuture = new CompletableFuture<>();
+        CompletableFuture<?> prequisitesFuture = new CompletableFuture<>();
 
         LocalDispatchQuery query = new LocalDispatchQuery(
                 stateMachine,
@@ -269,7 +269,7 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                (queryId, context, warningCollector) -> prerequisitesFuture);
+                (queryId, context, warningCollector) -> prequisitesFuture);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -277,7 +277,7 @@ public class TestLocalDispatchQuery
         query.startWaitingForPrerequisites();
         query.fail(new PrestoException(ABANDONED_QUERY, "foo"));
 
-        assertTrue(prerequisitesFuture.isCancelled());
+        assertTrue(prequisitesFuture.isCancelled());
     }
 
     @Test

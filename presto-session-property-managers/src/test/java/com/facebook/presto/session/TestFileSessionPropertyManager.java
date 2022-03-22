@@ -170,7 +170,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 defaultProperties);
 
-        // PROPERTY1 should be an override property with the value from the default (non-override, higher precedence)
+        // PROPERTY1 should be an override property with the value from the default (non-override, higher precendence)
         // spec.
         // PROPERTY2 should be a default property
         assertProperties(defaultProperties, ImmutableMap.of("PROPERTY1", "VALUE2"), specOverride, specDefault);

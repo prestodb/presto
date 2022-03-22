@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.ColumnConverter;
-import com.facebook.presto.hive.ColumnConverterProvider;
-import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
@@ -32,49 +29,25 @@ public class MetastoreContext
     private final Optional<String> source;
     private final boolean impersonationEnabled;
     private final Optional<String> metastoreHeaders;
-    private final boolean userDefinedTypeEncodingEnabled;
-    private final ColumnConverter columnConverter;
-    // provider is kept around and exposed via the getter when constructing
-    // a new MetastoreContext from either an existing MetastoreContext or callers
-    // that only have a handle to the provider (e.g. SemiTransactionalHiveMetastore)
-    private final ColumnConverterProvider columnConverterProvider;
 
-    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders)
     {
-        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
+        this(username, queryId, clientInfo, source, false, metastoreHeaders);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled, Optional<String> metastoreHeaders)
     {
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
-        this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.impersonationEnabled = impersonationEnabled;
         this.metastoreHeaders = requireNonNull(metastoreHeaders, "metastoreHeaders is null");
-        this.userDefinedTypeEncodingEnabled = userDefinedTypeEncodingEnabled;
-        if (this.userDefinedTypeEncodingEnabled) {
-            this.columnConverter = requireNonNull(columnConverterProvider.getColumnConverter(), "columnConverter is null");
-        }
-        else {
-            this.columnConverter = requireNonNull(HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER, "columnConverter is null");
-        }
-    }
-
-    public ColumnConverterProvider getColumnConverterProvider()
-    {
-        return columnConverterProvider;
-    }
-
-    public ColumnConverter getColumnConverter()
-    {
-        return columnConverter;
     }
 
     public String getUsername()
@@ -102,11 +75,6 @@ public class MetastoreContext
         return impersonationEnabled;
     }
 
-    public boolean isUserDefinedTypeEncodingEnabled()
-    {
-        return userDefinedTypeEncodingEnabled;
-    }
-
     public Optional<String> getMetastoreHeaders()
     {
         return metastoreHeaders;
@@ -121,7 +89,6 @@ public class MetastoreContext
                 .add("clientInfo", clientInfo.orElse(""))
                 .add("source", source.orElse(""))
                 .add("impersonationEnabled", Boolean.toString(impersonationEnabled))
-                .add("userDefinedTypeEncodingEnabled", Boolean.toString(userDefinedTypeEncodingEnabled))
                 .toString();
     }
 
@@ -140,13 +107,12 @@ public class MetastoreContext
                 Objects.equals(queryId, other.queryId) &&
                 Objects.equals(clientInfo, other.clientInfo) &&
                 Objects.equals(source, other.source) &&
-                impersonationEnabled == other.impersonationEnabled &&
-                userDefinedTypeEncodingEnabled == other.userDefinedTypeEncodingEnabled;
+                impersonationEnabled == other.impersonationEnabled;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(username, queryId, clientInfo, source, impersonationEnabled, userDefinedTypeEncodingEnabled);
+        return Objects.hash(username, queryId, clientInfo, source, impersonationEnabled);
     }
 }

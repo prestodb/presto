@@ -104,7 +104,6 @@ public class CanonicalPlanFragment
             Optional<Object> newLayoutIdentifier = originalTableHandle.getLayoutHandle().map(handle -> handle.getIdentifier(Optional.of(split)));
 
             return new CanonicalTableScanNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     new CanonicalTableHandle(
                             originalTableHandle.getConnectorId(),

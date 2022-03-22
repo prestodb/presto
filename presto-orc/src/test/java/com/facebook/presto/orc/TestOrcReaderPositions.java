@@ -13,18 +13,12 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.predicate.FilterFunction;
-import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -49,10 +43,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.LongStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -65,7 +56,6 @@ import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.MAX_BLOCK_SIZE;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
-import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
 import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -73,7 +63,6 @@ import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestOrcReaderPositions
@@ -148,157 +137,11 @@ public class TestOrcReaderPositions
     }
 
     @Test
-    public void testCompleteFileWithAppendRowNumber()
-            throws Exception
-    {
-        try (TempFile tempFile = new TempFile()) {
-            // create single stripe file with multiple row groups
-            int rowCount = 142_000;
-            createSequentialFile(tempFile.getFile(), rowCount);
-            List<Long> expectedValues = new ArrayList<>();
-            expectedValues.addAll(LongStream.range(0, 142_000).collect(ArrayList::new, List::add, List::addAll));
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, false, true);
-            verifyAppendNumber(expectedValues, reader);
-        }
-    }
-
-    @Test
-    public void testCompleteFileWithAppendRowNumberWithValidation()
-            throws Exception
-    {
-        try (TempFile tempFile = new TempFile()) {
-            // create single stripe file with multiple row groups
-            int rowCount = 142_000;
-            createSequentialFile(tempFile.getFile(), rowCount);
-            List<Long> expectedValues = new ArrayList<>();
-            expectedValues.addAll(LongStream.range(0, 142_000).collect(ArrayList::new, List::add, List::addAll));
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, false, true);
-            verifyAppendNumber(expectedValues, reader);
-        }
-    }
-
-    @Test
-    public void testFilterFunctionWithAppendRowNumber()
-            throws Exception
-    {
-        try (TempFile tempFile = new TempFile()) {
-            int rowCount = 100;
-            createSequentialFile(tempFile.getFile(), rowCount);
-            List<Long> expectedValues = LongStream.range(0, 100).boxed().filter(input -> input % 2 != 0)
-                    .collect(ArrayList::new, List::add, List::addAll);
-
-            ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
-            FilterFunction filter = new FilterFunction(session.getSqlFunctionProperties(), true, new IsOddPredicate());
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile.getFile(),
-                    ORC,
-                    OrcPredicate.TRUE,
-                    ImmutableList.of(BIGINT),
-                    MAX_BATCH_SIZE,
-                    ImmutableMap.of(),
-                    ImmutableList.of(filter),
-                    ImmutableMap.of(0, 0),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(0, BIGINT),
-                    ImmutableList.of(0),
-                    false,
-                    new TestingHiveOrcAggregatedMemoryContext(),
-                    true);
-            verifyAppendNumber(expectedValues, reader);
-        }
-    }
-
-    @Test
-    public void testRowGroupSkippingWithAppendRowNumber()
-            throws Exception
-    {
-        try (TempFile tempFile = new TempFile()) {
-            // create single stripe file with multiple row groups
-            int rowCount = 142_000;
-            createSequentialFile(tempFile.getFile(), rowCount);
-            // test reading two row groups from middle of file
-            OrcPredicate predicate = (numberOfRows, statisticsByColumnIndex) -> {
-                if (numberOfRows == rowCount) {
-                    return true;
-                }
-                IntegerStatistics stats = statisticsByColumnIndex.get(0).getIntegerStatistics();
-                return (stats.getMin() == 50_000) || (stats.getMin() == 70_000);
-            };
-            List<Long> expectedValues = new ArrayList<>();
-            expectedValues.addAll(LongStream.range(50_000, 60_000).collect(ArrayList::new, List::add, List::addAll));
-            expectedValues.addAll(LongStream.range(70_000, 80_000).collect(ArrayList::new, List::add, List::addAll));
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, false, true);
-            verifyAppendNumber(expectedValues, reader);
-        }
-    }
-
-    @Test
-    public void testStripeSkippingWithAppendNumber()
-            throws Exception
-    {
-        try (TempFile tempFile = new TempFile()) {
-            createMultiStripeFile(tempFile.getFile());
-            // EVery stripe has 20 rows and there are total of 5 stripes
-            // test reading second and fourth stripes
-            OrcPredicate predicate = (numberOfRows, statisticsByColumnIndex) -> {
-                if (numberOfRows == 100) {
-                    return true;
-                }
-                IntegerStatistics stats = statisticsByColumnIndex.get(0).getIntegerStatistics();
-                return ((stats.getMin() == 60) && (stats.getMax() == 117)) ||
-                        ((stats.getMin() == 180) && (stats.getMax() == 237));
-            };
-
-            List<Long> expectedValues = new ArrayList<>();
-            expectedValues.addAll(LongStream.range(20, 40).collect(ArrayList::new, List::add, List::addAll));
-            expectedValues.addAll(LongStream.range(60, 80).collect(ArrayList::new, List::add, List::addAll));
-
-            List<Long> actualValues = new ArrayList<>();
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, false, true);
-            assertNotNull(reader);
-            Page returnPage;
-            while (true) {
-                returnPage = reader.getNextPage();
-                if (returnPage == null) {
-                    break;
-                }
-                Block rowNumberBlock = returnPage.getBlock(1);
-                for (int i = 0; i < returnPage.getPositionCount(); i++) {
-                    actualValues.add(rowNumberBlock.getLong(i));
-                }
-            }
-            assertEquals(actualValues, expectedValues);
-        }
-    }
-
-    private void verifyAppendNumber(List<Long> expectedValues, OrcSelectiveRecordReader reader)
-            throws IOException
-    {
-        assertNotNull(reader);
-        assertNotNull(expectedValues);
-        List<Long> actualValues = new ArrayList<>();
-        while (true) {
-            Page returnPage = reader.getNextPage();
-            if (returnPage == null) {
-                break;
-            }
-            Block dataBlock = returnPage.getBlock(0);
-            Block rowNumberBlock = returnPage.getBlock(1);
-            for (int i = 0; i < returnPage.getPositionCount(); i++) {
-                actualValues.add(dataBlock.getLong(i));
-                assertEquals(dataBlock.getLong(i), rowNumberBlock.getLong(i));
-            }
-        }
-        assertEquals(actualValues, expectedValues);
-    }
-
-    @Test
     public void testRowGroupSkipping()
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            // create single stripe file with multiple row groups
+            // create single strip file with multiple row groups
             int rowCount = 142_000;
             createSequentialFile(tempFile.getFile(), rowCount);
 
@@ -674,22 +517,5 @@ public class TestOrcReaderPositions
         }
 
         writer.close(false);
-    }
-
-    private static class IsOddPredicate
-            implements Predicate
-    {
-        @Override
-        public int[] getInputChannels()
-        {
-            return new int[] {0};
-        }
-
-        @Override
-        public boolean evaluate(SqlFunctionProperties properties, Page page, int position)
-        {
-            long number = page.getBlock(0).getLong(position);
-            return (number & 1) == 1;
-        }
     }
 }

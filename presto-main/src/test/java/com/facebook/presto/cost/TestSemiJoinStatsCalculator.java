@@ -18,8 +18,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
@@ -42,17 +40,17 @@ public class TestSemiJoinStatsCalculator
     private VariableStatsEstimate emptyRangeStats;
     private VariableStatsEstimate fractionalNdvStats;
 
-    private VariableReferenceExpression u = new VariableReferenceExpression(Optional.empty(), "u", BIGINT);
-    private VariableReferenceExpression w = new VariableReferenceExpression(Optional.empty(), "w", BIGINT);
-    private VariableReferenceExpression x = new VariableReferenceExpression(Optional.empty(), "x", BIGINT);
-    private VariableReferenceExpression y = new VariableReferenceExpression(Optional.empty(), "y", BIGINT);
-    private VariableReferenceExpression z = new VariableReferenceExpression(Optional.empty(), "z", BIGINT);
-    private VariableReferenceExpression leftOpen = new VariableReferenceExpression(Optional.empty(), "leftOpen", BIGINT);
-    private VariableReferenceExpression rightOpen = new VariableReferenceExpression(Optional.empty(), "rightOpen", BIGINT);
-    private VariableReferenceExpression unknownRange = new VariableReferenceExpression(Optional.empty(), "unknownRange", BIGINT);
-    private VariableReferenceExpression emptyRange = new VariableReferenceExpression(Optional.empty(), "emptyRange", BIGINT);
-    private VariableReferenceExpression unknown = new VariableReferenceExpression(Optional.empty(), "unknown", BIGINT);
-    private VariableReferenceExpression fractionalNdv = new VariableReferenceExpression(Optional.empty(), "fractionalNdv", BIGINT);
+    private VariableReferenceExpression u = new VariableReferenceExpression("u", BIGINT);
+    private VariableReferenceExpression w = new VariableReferenceExpression("w", BIGINT);
+    private VariableReferenceExpression x = new VariableReferenceExpression("x", BIGINT);
+    private VariableReferenceExpression y = new VariableReferenceExpression("y", BIGINT);
+    private VariableReferenceExpression z = new VariableReferenceExpression("z", BIGINT);
+    private VariableReferenceExpression leftOpen = new VariableReferenceExpression("leftOpen", BIGINT);
+    private VariableReferenceExpression rightOpen = new VariableReferenceExpression("rightOpen", BIGINT);
+    private VariableReferenceExpression unknownRange = new VariableReferenceExpression("unknownRange", BIGINT);
+    private VariableReferenceExpression emptyRange = new VariableReferenceExpression("emptyRange", BIGINT);
+    private VariableReferenceExpression unknown = new VariableReferenceExpression("unknown", BIGINT);
+    private VariableReferenceExpression fractionalNdv = new VariableReferenceExpression("fractionalNdv", BIGINT);
 
     @BeforeClass
     public void setUp()
@@ -214,7 +212,7 @@ public class TestSemiJoinStatsCalculator
                 .variableStats(z, stats -> stats.isEqualTo(zStats))
                 .outputRowsCount(inputStatistics.getOutputRowCount() * uStats.getValuesFraction() * (1 - xStats.getDistinctValuesCount() / uStats.getDistinctValuesCount()));
 
-        // overlapping ranges, everything filtered out (but we leave 0.5 due to safety coefficient)
+        // overlapping ranges, everything filtered out (but we leave 0.5 due to safety coeeficient)
         assertThat(computeAntiJoin(inputStatistics, inputStatistics, x, u))
                 .variableStats(x, stats -> stats
                         .lowValue(xStats.getLowValue())

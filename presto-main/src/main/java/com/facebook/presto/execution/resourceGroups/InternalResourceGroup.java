@@ -278,7 +278,7 @@ public class InternalResourceGroup
             if (subGroups.isEmpty()) {
                 return runningQueries.stream()
                         .map(ManagedQueryExecution::getBasicQueryInfo)
-                        .map(queryInfo -> createQueryStateInfo(queryInfo))
+                        .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id)))
                         .collect(toImmutableList());
             }
 

@@ -13,21 +13,18 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanVisitor;
-
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 public abstract class InternalPlanNode
         extends PlanNode
 {
-    protected InternalPlanNode(Optional<SourceLocation> sourceLocation, PlanNodeId planNodeId)
+    protected InternalPlanNode(PlanNodeId planNodeId)
     {
-        super(sourceLocation, planNodeId);
+        super(planNodeId);
     }
 
     public final <R, C> R accept(PlanVisitor<R, C> visitor, C context)

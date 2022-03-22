@@ -85,10 +85,10 @@ public class TestUnion
         assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
         assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
 
-        int numberOfPartialTopN = searchFrom(plan.getRoot())
+        int numberOfpartialTopN = searchFrom(plan.getRoot())
                 .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep().equals(TopNNode.Step.PARTIAL))
                 .count();
-        assertEquals(numberOfPartialTopN, 2, "There should be exactly two partial TopN nodes");
+        assertEquals(numberOfpartialTopN, 2, "There should be exactly two partial TopN nodes");
         assertPlanIsFullyDistributed(plan);
     }
 

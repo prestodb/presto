@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
@@ -34,27 +32,21 @@ import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.RoutineBody;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
-import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -62,10 +54,9 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CreateFunctionTask
-        implements DDLDefinitionTask<CreateFunction>
+        implements DataDefinitionTask<CreateFunction>
 {
     private final SqlParser sqlParser;
-    private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
 
     @Inject
     public CreateFunctionTask(SqlParser sqlParser)
@@ -86,10 +77,9 @@ public class CreateFunctionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(CreateFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        Map<NodeRef<com.facebook.presto.sql.tree.Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector);
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.empty(), parameters, stateMachine.getWarningCollector());
         Analysis analysis = analyzer.analyze(statement);
         if (analysis.getFunctionHandles().values().stream()
                 .anyMatch(SqlFunctionHandle.class::isInstance)) {
@@ -98,7 +88,7 @@ public class CreateFunctionTask
 
         SqlInvokedFunction function = createSqlInvokedFunction(statement, metadata, analysis);
         if (statement.isTemporary()) {
-            addSessionFunction(session, new SqlFunctionId(function.getSignature().getName(), function.getSignature().getArgumentTypes()), function);
+            stateMachine.addSessionFunction(new SqlFunctionId(function.getSignature().getName(), function.getSignature().getArgumentTypes()), function);
         }
         else {
             metadata.getFunctionAndTypeManager().createFunction(function, statement.isReplace());
@@ -164,21 +154,5 @@ public class CreateFunctionTask
                 routineCharacteristics,
                 formatSql(body, Optional.empty()),
                 notVersioned());
-    }
-
-    private void addSessionFunction(Session session, SqlFunctionId signature, SqlInvokedFunction function)
-    {
-        requireNonNull(signature, "signature is null");
-        requireNonNull(function, "function is null");
-
-        if (session.getSessionFunctions().containsKey(signature) || addedSessionFunctions.putIfAbsent(signature, function) != null) {
-            throw new PrestoException(ALREADY_EXISTS, format("Session function %s has already been defined", signature));
-        }
-    }
-
-    @VisibleForTesting
-    public Map<SqlFunctionId, SqlInvokedFunction> getAddedSessionFunctions()
-    {
-        return addedSessionFunctions;
     }
 }

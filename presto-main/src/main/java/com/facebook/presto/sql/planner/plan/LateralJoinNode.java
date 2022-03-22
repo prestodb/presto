@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -24,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -74,7 +72,6 @@ public class LateralJoinNode
 
     @JsonCreator
     public LateralJoinNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
@@ -82,7 +79,7 @@ public class LateralJoinNode
             @JsonProperty("type") Type type,
             @JsonProperty("originSubqueryError") String originSubqueryError)
     {
-        super(sourceLocation, id);
+        super(id);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
         requireNonNull(correlation, "correlation is null");
@@ -146,7 +143,7 @@ public class LateralJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new LateralJoinNode(getSourceLocation(), getId(), newChildren.get(0), newChildren.get(1), correlation, type, originSubqueryError);
+        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, originSubqueryError);
     }
 
     @Override

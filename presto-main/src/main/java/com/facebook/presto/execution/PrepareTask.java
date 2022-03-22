@@ -37,7 +37,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PrepareTask
-        implements SessionTransactionControlTask<Prepare>
+        implements DataDefinitionTask<Prepare>
 {
     private final SqlParser sqlParser;
 
@@ -60,7 +60,7 @@ public class PrepareTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine queryStateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Statement statement = prepare.getStatement();
         if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {
@@ -69,7 +69,7 @@ public class PrepareTask
         }
 
         String sql = getFormattedSql(statement, sqlParser, Optional.empty());
-        queryStateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
+        stateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
         return immediateFuture(null);
     }
 }

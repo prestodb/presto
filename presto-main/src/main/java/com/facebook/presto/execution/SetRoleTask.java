@@ -33,7 +33,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class SetRoleTask
-        implements SessionTransactionControlTask<SetRole>
+        implements DataDefinitionTask<SetRole>
 {
     @Override
     public String getName()

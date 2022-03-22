@@ -213,10 +213,10 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testCustomSchemaArrayOfStructs()
+    public void testCustomSchemaArrayOfStucts()
             throws Exception
     {
-        MessageType customSchemaArrayOfStructs = parseMessageType("message ParquetSchema { " +
+        MessageType customSchemaArrayOfStucts = parseMessageType("message ParquetSchema { " +
                 "  optional group self (LIST) { " +
                 "    repeated group self_tuple { " +
                 "      optional int64 a; " +
@@ -235,11 +235,11 @@ public abstract class AbstractTestParquetReader
         Type structType = RowType.from(asList(field("a", BIGINT), field("b", BOOLEAN), field("c", VARCHAR)));
         tester.testSingleLevelArrayRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaLongObjectInspector, javaBooleanObjectInspector, javaStringObjectInspector))),
-                values, values, "self", new ArrayType(structType), Optional.of(customSchemaArrayOfStructs));
+                values, values, "self", new ArrayType(structType), Optional.of(customSchemaArrayOfStucts));
     }
 
     @Test
-    public void testSingleLevelSchemaArrayOfStructs()
+    public void testSingleLevelSchemaArrayOfStucts()
             throws Exception
     {
         Iterable<Long> aValues = limit(cycle(asList(1L, null, 3L, 5L, null, null, null, 7L, 11L, null, 13L, 17L)), 30_000);

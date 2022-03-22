@@ -14,13 +14,12 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.pinot.query.PinotProxyGrpcRequestBuilder;
+import com.facebook.presto.pinot.grpc.Constants;
+import com.facebook.presto.pinot.grpc.GrpcRequestBuilder;
+import com.facebook.presto.pinot.grpc.PinotStreamingQueryClient;
+import com.facebook.presto.pinot.grpc.ServerResponse;
 import com.facebook.presto.spi.ConnectorSession;
-import org.apache.pinot.common.proto.Server.ServerResponse;
 import org.apache.pinot.common.utils.DataTable;
-import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
-import org.apache.pinot.core.common.datatable.DataTableFactory;
-import org.apache.pinot.spi.utils.CommonConstants;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -83,14 +82,13 @@ public class PinotSegmentStreamingPageSource
                 long startTimeNanos = System.nanoTime();
                 ServerResponse serverResponse = serverResponseIterator.next();
                 readTimeNanos += System.nanoTime() - startTimeNanos;
-                final String responseType = serverResponse.getMetadataOrThrow("responseType");
-                switch (responseType) {
-                    case CommonConstants.Query.Response.ResponseType.DATA:
+                switch (serverResponse.getResponseType()) {
+                    case Constants.Response.ResponseType.DATA:
                         estimatedMemoryUsageInBytes = serverResponse.getSerializedSize();
                         // Store each dataTable which will later be constructed into Pages.
                         try {
-                            byteBuffer = serverResponse.getPayload().asReadOnlyByteBuffer();
-                            DataTable dataTable = DataTableFactory.getDataTable(byteBuffer);
+                            byteBuffer = serverResponse.getPayloadReadOnlyByteBuffer();
+                            DataTable dataTable = serverResponse.getDataTable(byteBuffer);
                             checkExceptions(dataTable, split, PinotSessionProperties.isMarkDataFetchExceptionsAsRetriable(session));
                             currentDataTable = new PinotSegmentPageSource.PinotDataTableWithSize(dataTable, serverResponse.getSerializedSize());
                         }
@@ -102,7 +100,7 @@ public class PinotSegmentStreamingPageSource
                                     e);
                         }
                         break;
-                    case CommonConstants.Query.Response.ResponseType.METADATA:
+                    case Constants.Response.ResponseType.METADATA:
                         // The last part of the response is Metadata
                         currentDataTable = null;
                         serverResponseIterator = null;
@@ -112,7 +110,7 @@ public class PinotSegmentStreamingPageSource
                         throw new PinotException(
                                 PINOT_UNEXPECTED_RESPONSE,
                                 split.getSegmentPinotQuery(),
-                                String.format("Encountered Pinot exceptions, unknown response type - %s", responseType));
+                                String.format("Encountered Pinot exceptions, unknown response type - %s", serverResponse.getResponseType()));
                 }
             }
             Page page = fillNextPage();
@@ -137,20 +135,11 @@ public class PinotSegmentStreamingPageSource
                     Optional.empty(),
                     "Expected the grpc port > 0 always");
         }
-        final PinotProxyGrpcRequestBuilder grpcRequestBuilder = new PinotProxyGrpcRequestBuilder()
+        return pinotStreamingQueryClient.submit(grpcHost, grpcPort, new GrpcRequestBuilder()
                 .setSegments(split.getSegments())
                 .setEnableStreaming(true)
                 .setBrokerId("presto-coordinator-grpc")
-                .addExtraMetadata(pinotConfig.getExtraGrpcMetadata())
-                .setSql(sql);
-        if (pinotConfig.isUseProxyGrpcEndpoint()) {
-            grpcRequestBuilder.setHostName(grpcHost).setPort(grpcPort);
-            return pinotStreamingQueryClient.submit(
-                pinotConfig.getProxyGrpcHost(),
-                pinotConfig.getProxyGrpcPort(),
-                grpcRequestBuilder);
-        }
-        return pinotStreamingQueryClient.submit(grpcHost, grpcPort, grpcRequestBuilder);
+                .setSql(sql));
     }
 
     @Override

@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.spi.relation;
 
-import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Primitives;
+import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,22 +33,14 @@ public final class ConstantExpression
     private final Object value;
     private final Type type;
 
-    public ConstantExpression(
-            Optional<SourceLocation> sourceLocation,
-            Object value, Type type)
+    public ConstantExpression(Object value, Type type)
     {
-        super(sourceLocation);
         requireNonNull(type, "type is null");
         if (value != null && !Primitives.wrap(type.getJavaType()).isInstance(value)) {
             throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", value, type.getJavaType()));
         }
         this.value = value;
         this.type = type;
-    }
-
-    public ConstantExpression(Object value, Type type)
-    {
-        this(Optional.empty(), value, type);
     }
 
     @JsonCreator

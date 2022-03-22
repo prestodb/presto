@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -38,7 +37,6 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
-import static com.facebook.presto.common.type.DistinctType.getLowestCommonSuperType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -350,16 +348,6 @@ public class TypeCoercer
     {
         Type standardFromType = toStandardType(fromType);
         Type standardToType = toStandardType(toType);
-
-        // For distinct types, we only allow implicit coercion among themselves if they have a common supertype.
-        // We don't allow any implicit coercion to/from its base type.
-        if (standardFromType instanceof DistinctType && standardToType instanceof DistinctType) {
-            DistinctType fromDistinctType = (DistinctType) standardFromType;
-            DistinctType toDistinctType = (DistinctType) standardToType;
-            Optional<DistinctType> commonSuperType = getLowestCommonSuperType(fromDistinctType, toDistinctType);
-            return commonSuperType.map(distinctType -> TypeCompatibility.compatible(distinctType, distinctType.equals(standardToType)))
-                    .orElseGet(TypeCompatibility::incompatible);
-        }
 
         if (standardFromType.equals(standardToType)) {
             return TypeCompatibility.compatible(toSemanticType(toType, standardToType), true);

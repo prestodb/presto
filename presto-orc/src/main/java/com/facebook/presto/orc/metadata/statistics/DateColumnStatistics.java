@@ -45,9 +45,9 @@ public class DateColumnStatistics
     }
 
     @Override
-    public long getTotalValueSizeInBytes()
+    public long getMinAverageValueSizeInBytes()
     {
-        return getNumberOfValues() * DATE_VALUE_BYTES;
+        return DATE_VALUE_BYTES;
     }
 
     @Override

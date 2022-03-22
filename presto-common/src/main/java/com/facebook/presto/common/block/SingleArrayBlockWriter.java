@@ -17,8 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
 
@@ -29,12 +28,14 @@ public class SingleArrayBlockWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayBlockWriter.class).instanceSize();
 
     private final BlockBuilder blockBuilder;
+    private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     public SingleArrayBlockWriter(BlockBuilder blockBuilder, int start)
     {
         super(start);
         this.blockBuilder = blockBuilder;
+        this.initialBlockBuilderSize = blockBuilder.getSizeInBytes();
     }
 
     @Override
@@ -46,17 +47,7 @@ public class SingleArrayBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        long size = blockBuilder.getSizeInBytes();
-        if (start == 0) {
-            return size;
-        }
-        return size - blockBuilder.getRegionSizeInBytes(0, start);
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty();
+        return blockBuilder.getSizeInBytes() - initialBlockBuilderSize;
     }
 
     @Override
@@ -66,10 +57,10 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(blockBuilder, blockBuilder.getRetainedSizeInBytes());
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

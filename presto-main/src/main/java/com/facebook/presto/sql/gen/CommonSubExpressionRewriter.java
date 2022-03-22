@@ -280,7 +280,6 @@ public class CommonSubExpressionRewriter
         public RowExpression visitCall(CallExpression call, Void context)
         {
             RowExpression rewritten = new CallExpression(
-                    call.getSourceLocation(),
                     call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),
@@ -338,10 +337,10 @@ public class CommonSubExpressionRewriter
 
         private int addAtLevel(int level, RowExpression expression)
         {
-            Set<RowExpression> rowExpressions = getExpressionsAtLevel(level, expressionsByLevel);
+            Set<RowExpression> rowExpressions = getExpresssionsAtLevel(level, expressionsByLevel);
             expressionCount.putIfAbsent(expression, 1);
             if (rowExpressions.contains(expression)) {
-                getExpressionsAtLevel(level, cseByLevel).add(expression);
+                getExpresssionsAtLevel(level, cseByLevel).add(expression);
                 int count = expressionCount.get(expression) + 1;
                 expressionCount.put(expression, count);
             }
@@ -349,7 +348,7 @@ public class CommonSubExpressionRewriter
             return level;
         }
 
-        private static Set<RowExpression> getExpressionsAtLevel(int level, Map<Integer, Set<RowExpression>> expressionsByLevel)
+        private static Set<RowExpression> getExpresssionsAtLevel(int level, Map<Integer, Set<RowExpression>> expressionsByLevel)
         {
             expressionsByLevel.putIfAbsent(level, new HashSet<>());
             return expressionsByLevel.get(level);

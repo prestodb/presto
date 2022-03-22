@@ -25,8 +25,7 @@ public enum ParameterKind
     LONG(Optional.of("LONG_LITERAL")),
     VARIABLE(Optional.empty()),
     LONG_ENUM(Optional.of("LONG_ENUM")),
-    VARCHAR_ENUM(Optional.of("VARCHAR_ENUM")),
-    DISTINCT_TYPE(Optional.of("DISTINCT_TYPE"));
+    VARCHAR_ENUM(Optional.of("VARCHAR_ENUM"));
 
     // TODO: drop special serialization code as soon as all clients
     //       migrate to version which can deserialize new format.

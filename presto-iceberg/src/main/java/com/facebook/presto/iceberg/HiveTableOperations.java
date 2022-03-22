@@ -29,9 +29,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMultimap;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -56,9 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
@@ -108,8 +103,6 @@ public class HiveTableOperations
     private String currentMetadataLocation;
     private boolean shouldRefresh = true;
     private int version = -1;
-
-    private static LoadingCache<String, ReentrantLock> commitLockCache;
 
     public HiveTableOperations(
             ExtendedHiveMetastore metastore,
@@ -163,24 +156,6 @@ public class HiveTableOperations
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.location = requireNonNull(location, "location is null");
-        //TODO: duration from config
-        initTableLevelLockCache(TimeUnit.MINUTES.toMillis(10));
-    }
-
-    private static synchronized void initTableLevelLockCache(long evictionTimeout)
-    {
-        if (commitLockCache == null) {
-            commitLockCache = CacheBuilder.newBuilder()
-                .expireAfterAccess(evictionTimeout, TimeUnit.MILLISECONDS)
-                .build(
-                    new CacheLoader<String, ReentrantLock>() {
-                        @Override
-                        public ReentrantLock load(String fullName)
-                        {
-                            return new ReentrantLock();
-                        }
-                    });
-        }
     }
 
     @Override
@@ -233,88 +208,72 @@ public class HiveTableOperations
 
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
 
-        Table table;
-        // getting a process-level lock per table to avoid concurrent commit attempts to the same table from the same
-        // JVM process, which would result in unnecessary and costly HMS lock acquisition requests
-        Optional<Long> lockId = Optional.empty();
-        ReentrantLock tableLevelMutex = commitLockCache.getUnchecked(database + "." + tableName);
-        tableLevelMutex.lock();
-        try {
-            try {
-                lockId = Optional.of(metastore.lock(metastoreContext, database, tableName));
-                if (base == null) {
-                    String tableComment = metadata.properties().get(TABLE_COMMENT);
-                    Map<String, String> parameters = new HashMap<>();
-                    parameters.put("EXTERNAL", "TRUE");
-                    parameters.put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE);
-                    parameters.put(METADATA_LOCATION, newMetadataLocation);
-                    if (tableComment != null) {
-                        parameters.put(TABLE_COMMENT, tableComment);
-                    }
-                    Table.Builder builder = Table.builder()
-                            .setDatabaseName(database)
-                            .setTableName(tableName)
-                            .setOwner(owner.orElseThrow(() -> new IllegalStateException("Owner not set")))
-                            .setTableType(PrestoTableType.EXTERNAL_TABLE)
-                            .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                            .withStorage(storage -> storage.setLocation(metadata.location()))
-                            .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
-                            .setParameters(parameters);
-                    table = builder.build();
-                }
-                else {
-                    Table currentTable = getTable();
-                    checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-                    String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
-                    if (!currentMetadataLocation.equals(metadataLocation)) {
-                        throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s", currentMetadataLocation, metadataLocation, getSchemaTableName());
-                    }
-                    table = Table.builder(currentTable)
-                            .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                            .withStorage(storage -> storage.setLocation(metadata.location()))
-                            .setParameter(METADATA_LOCATION, newMetadataLocation)
-                            .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
-                            .build();
-                }
-            }
-            catch (RuntimeException e) {
-                try {
-                    io().deleteFile(newMetadataLocation);
-                }
-                catch (RuntimeException exception) {
-                    e.addSuppressed(exception);
-                }
-                throw e;
-            }
+        // TODO: use metastore locking
 
-            PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());
-            PrincipalPrivileges privileges = new PrincipalPrivileges(
-                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+        Table table;
+        try {
+            if (base == null) {
+                String tableComment = metadata.properties().get(TABLE_COMMENT);
+                Map<String, String> parameters = new HashMap<>();
+                parameters.put("EXTERNAL", "TRUE");
+                parameters.put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE);
+                parameters.put(METADATA_LOCATION, newMetadataLocation);
+                if (tableComment != null) {
+                    parameters.put(TABLE_COMMENT, tableComment);
+                }
+                Table.Builder builder = Table.builder()
+                        .setDatabaseName(database)
+                        .setTableName(tableName)
+                        .setOwner(owner.orElseThrow(() -> new IllegalStateException("Owner not set")))
+                        .setTableType(PrestoTableType.EXTERNAL_TABLE)
+                        .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                        .withStorage(storage -> storage.setLocation(metadata.location()))
+                        .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
+                        .setParameters(parameters);
+                table = builder.build();
+            }
+            else {
+                Table currentTable = getTable();
+                checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
+                if (!currentMetadataLocation.equals(metadataLocation)) {
+                    throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s", currentMetadataLocation, metadataLocation, getSchemaTableName());
+                }
+                table = Table.builder(currentTable)
+                        .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                        .withStorage(storage -> storage.setLocation(metadata.location()))
+                        .setParameter(METADATA_LOCATION, newMetadataLocation)
+                        .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
+                        .build();
+            }
+        }
+        catch (RuntimeException e) {
+            try {
+                io().deleteFile(newMetadataLocation);
+            }
+            catch (RuntimeException exception) {
+                e.addSuppressed(exception);
+            }
+            throw e;
+        }
+
+        PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());
+        PrincipalPrivileges privileges = new PrincipalPrivileges(
+                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
                         .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
                         .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
                         .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
                         .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
                         .build(),
-                    ImmutableMultimap.of());
-            if (base == null) {
-                metastore.createTable(metastoreContext, table, privileges);
-            }
-            else {
-                metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
-            }
+                ImmutableMultimap.of());
+        if (base == null) {
+            metastore.createTable(metastoreContext, table, privileges);
         }
-        finally {
-            shouldRefresh = true;
-            try {
-                lockId.ifPresent(id -> metastore.unlock(metastoreContext, id));
-            }
-            catch (Exception e) {
-                log.error(e, "Failed to unlock: %s", lockId.orElse(null));
-            }
-            finally {
-                tableLevelMutex.unlock();
-            }
+        else {
+            metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
         }
+
+        shouldRefresh = true;
     }
 
     @Override
@@ -436,7 +395,6 @@ public class HiveTableOperations
                 .map(column -> new Column(
                         column.name(),
                         HiveType.toHiveType(HiveSchemaUtil.convert(column.type())),
-                        Optional.empty(),
                         Optional.empty()))
                 .collect(toImmutableList());
     }

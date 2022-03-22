@@ -52,7 +52,6 @@ public class TestGraphvizPrinter
     private static final PlanNodeId TEST_TABLE_SCAN_NODE_ID = new PlanNodeId("plan_id");
     private static final ConnectorTableHandle TEST_CONNECTOR_TABLE_HANDLE = new TestingTableHandle();
     private static final PlanNode TEST_TABLE_SCAN_NODE = new TableScanNode(
-            Optional.empty(),
             TEST_TABLE_SCAN_NODE_ID,
             new TableHandle(TEST_CONNECTOR_ID, TEST_CONNECTOR_TABLE_HANDLE, TestingTransactionHandle.create(), Optional.empty()),
             ImmutableList.of(),

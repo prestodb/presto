@@ -62,11 +62,6 @@ public class BenchmarkBlocks
         return copyPositions(data.dataBlock, data.positions, data.positionCount);
     }
 
-    private Block copyPositions(Block block, int[] positions, int positionCount)
-    {
-        return block.copyPositions(positions, 0, positionCount);
-    }
-
     @Test
     public static void verifyCopyPositions()
             throws Exception
@@ -78,32 +73,9 @@ public class BenchmarkBlocks
         benchmarkSelectiveStreamReaders.copyPositions(data.dataBlock, data.positions, data.positionCount);
     }
 
-    @Benchmark
-    public long benchmarkGetPositionsSizeInBytes(BenchmarkData data)
+    private Block copyPositions(Block block, int[] positions, int positionCount)
     {
-        return data.dataBlock.getPositionsSizeInBytes(data.usedPositions, data.positionCount);
-    }
-
-    @Test
-    public static void verifyGetPositionsSizeInBytes()
-    {
-        BenchmarkData data = new BenchmarkData();
-        data.setup();
-        new BenchmarkBlocks().benchmarkGetPositionsSizeInBytes(data);
-    }
-
-    @Benchmark
-    public long benchmarkGetPositionsThenGetSizeInBytes(BenchmarkData data)
-    {
-        return data.dataBlock.getPositions(data.positions, 0, data.positionCount).getSizeInBytes();
-    }
-
-    @Test
-    public static void verifyGetPositionsThenGetSizeInBytes()
-    {
-        BenchmarkData data = new BenchmarkData();
-        data.setup();
-        new BenchmarkBlocks().benchmarkGetPositionsThenGetSizeInBytes(data);
+        return block.copyPositions(positions, 0, positionCount);
     }
 
     @State(Scope.Thread)
@@ -161,7 +133,6 @@ public class BenchmarkBlocks
         private Type type;
         private Block dataBlock;
         private int[] positions;
-        private boolean[] usedPositions;
 
         @Setup
         public void setup()
@@ -180,10 +151,6 @@ public class BenchmarkBlocks
             }
             positions = Ints.toArray(set);
             Arrays.sort(positions);
-            usedPositions = new boolean[dataBlock.getPositionCount()];
-            for (int position : positions) {
-                usedPositions[position] = true;
-            }
         }
 
         private List<Encoding> createWrappings()

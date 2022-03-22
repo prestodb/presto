@@ -46,11 +46,6 @@ public class IntegerStatisticsBuilder
         }
     }
 
-    public long getMaximum()
-    {
-        return maximum;
-    }
-
     private void addIntegerStatistics(long valueCount, IntegerStatistics value)
     {
         requireNonNull(value, "value is null");

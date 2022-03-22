@@ -17,7 +17,6 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
-import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -54,7 +53,7 @@ import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallCl
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjections.ProjectionContext;
+import static com.facebook.presto.sql.planner.iterative.rule.PlanRemotePojections.ProjectionContext;
 import static org.testng.Assert.assertEquals;
 
 public class TestPlanRemoteProjections
@@ -113,7 +112,7 @@ public class TestPlanRemoteProjections
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                new NoopSqlFunctionExecutor()),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
@@ -128,7 +127,7 @@ public class TestPlanRemoteProjections
         planBuilder.variable("x", INTEGER);
         planBuilder.variable("y", INTEGER);
 
-        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("abs(x) + abs(y)"))
                 .put(planBuilder.variable("b", BOOLEAN), planBuilder.rowExpression("x is null and y is null"))
@@ -142,7 +141,7 @@ public class TestPlanRemoteProjections
     {
         PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
 
-        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo()"))
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("unittest.memory.remote_foo(unittest.memory.remote_foo())"))
@@ -158,7 +157,7 @@ public class TestPlanRemoteProjections
         planBuilder.variable("x", INTEGER);
         planBuilder.variable("y", INTEGER);
 
-        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo(x, y + unittest.memory.remote_foo(x))"))
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("abs(x)"))
@@ -176,7 +175,7 @@ public class TestPlanRemoteProjections
         planBuilder.variable("x", INTEGER);
         planBuilder.variable("y", INTEGER);
 
-        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo(x, y + unittest.memory.remote_foo(x))"))
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("x IS NULL OR y IS NULL"))
@@ -191,7 +190,7 @@ public class TestPlanRemoteProjections
     @Test
     void testRemoteFunctionRewrite()
     {
-        tester.assertThat(new PlanRemoteProjections(getFunctionAndTypeManager()))
+        tester.assertThat(new PlanRemotePojections(getFunctionAndTypeManager()))
                 .on(p -> {
                     p.variable("x", INTEGER);
                     p.variable("y", INTEGER);
@@ -219,7 +218,7 @@ public class TestPlanRemoteProjections
     @Test
     void testMixedExpressionRewrite()
     {
-        tester.assertThat(new PlanRemoteProjections(getFunctionAndTypeManager()))
+        tester.assertThat(new PlanRemotePojections(getFunctionAndTypeManager()))
                 .on(p -> {
                     p.variable("x", INTEGER);
                     p.variable("y", INTEGER);
@@ -280,10 +279,10 @@ public class TestPlanRemoteProjections
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                new NoopSqlFunctionExecutor()),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
-        tester.assertThat(new PlanRemoteProjections(functionAndTypeManager))
+        tester.assertThat(new PlanRemotePojections(functionAndTypeManager))
                 .on(p -> {
                     p.variable("x", INTEGER);
                     return p.project(

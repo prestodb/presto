@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.ByteArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
@@ -26,13 +25,9 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spiller.NodeSpillConfig;
-import com.facebook.presto.spiller.SpillerStats;
-import com.facebook.presto.spiller.TempStorageStandaloneSpillerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.TestingTempStorageManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -144,8 +139,7 @@ public class TestAggregationOperator
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
                 ImmutableList.of(),
                 false,
-                TEST_SESSION,
-                new TempStorageStandaloneSpillerFactory(new TestingTempStorageManager(), new BlockEncodingManager(), new NodeSpillConfig(), new FeaturesConfig(), new SpillerStats()));
+                TEST_SESSION);
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,

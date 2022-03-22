@@ -24,13 +24,13 @@ import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isOffsetClauseEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.offset;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -75,7 +75,6 @@ public class ImplementOffset
         VariableReferenceExpression rowNumberSymbol = context.getVariableAllocator().newVariable("row_number", BIGINT);
 
         RowNumberNode rowNumberNode = new RowNumberNode(
-                parent.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 parent.getSource(),
                 ImmutableList.of(),
@@ -84,12 +83,11 @@ public class ImplementOffset
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(
-                parent.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 rowNumberNode,
                 castToRowExpression(new ComparisonExpression(
                         ComparisonExpression.Operator.GREATER_THAN,
-                        createSymbolReference(rowNumberSymbol),
+                        new SymbolReference(rowNumberSymbol.getName()),
                         new GenericLiteral("BIGINT", Long.toString(parent.getCount())))));
 
         ProjectNode projectNode = new ProjectNode(

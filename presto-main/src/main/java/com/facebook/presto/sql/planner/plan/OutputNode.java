@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -26,7 +25,6 @@ import com.google.common.collect.Iterables;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,14 +37,12 @@ public class OutputNode
     private final List<VariableReferenceExpression> outputVariables; // column name = variable.name
 
     @JsonCreator
-    public OutputNode(
-            Optional<SourceLocation> sourceLocation,
-            @JsonProperty("id") PlanNodeId id,
+    public OutputNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
-        super(sourceLocation, id);
+        super(id);
 
         requireNonNull(source, "source is null");
         requireNonNull(columnNames, "columnNames is null");
@@ -91,6 +87,6 @@ public class OutputNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OutputNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), columnNames, outputVariables);
+        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnNames, outputVariables);
     }
 }

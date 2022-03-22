@@ -213,7 +213,6 @@ public class Memo
         return node.replaceChildren(
                 node.getSources().stream()
                         .map(child -> new GroupReference(
-                                node.getSourceLocation(),
                                 idAllocator.getNextId(),
                                 insertRecursive(child),
                                 child.getOutputVariables()))

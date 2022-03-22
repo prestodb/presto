@@ -178,13 +178,13 @@ public class TestTpcdsMetadataStatistics
 
         Entry<ColumnHandle, ColumnStatistics> entry = tableStatistics.getColumnStatistics().entrySet().iterator().next();
 
-        TableStatistics expectedTableStatistics = tableStatistics.builder()
+        TableStatistics expectedTableStatictics = tableStatistics.builder()
                 .setRowCount(tableStatistics.getRowCount())
                 .setColumnStatistics(entry.getKey(), entry.getValue())
                 .build();
 
         JsonCodec<TableStatistics> codec = JsonCodec.jsonCodec(TableStatistics.class);
-        String json = codec.toJson(expectedTableStatistics);
+        String json = codec.toJson(expectedTableStatictics);
         assertEquals(json, "{\n" +
                 "  \"rowCount\" : {\n" +
                 "    \"value\" : 30.0\n" +

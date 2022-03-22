@@ -69,16 +69,6 @@ public interface BlockBuilder
     }
 
     /**
-     * Start a nested entry on the builder. beginBlockEntry returns an instance of block builder to write the nested entry. beginBlockEntry returns
-     * a blockBuilder instance and delegates the call to the nested entry block builder. beginDirectEntry does not allocate the blockBuilder,
-     * and it is the caller's responsibility to get the nested block builder and populate the nested block builder.
-     */
-    default void beginDirectEntry()
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Create a new block from the current materialized block by keeping the same elements
      * only with respect to {@code visiblePositions}.
      */

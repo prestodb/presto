@@ -27,9 +27,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
-import static com.facebook.presto.orc.DictionaryCompressionOptimizer.NUMBER_OF_NULLS_FOR_DICTIONARY_BYTE;
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
-import static com.facebook.presto.orc.writer.DictionaryColumnWriter.NUMBER_OF_NULLS_PER_BYTE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -528,31 +526,6 @@ public class TestDictionaryCompressionOptimizer
         }
     }
 
-    @Test
-    public void testAllNullsColumnConvertToDirect()
-    {
-        double nullsRate = 1.0;
-        TestDictionaryColumn column = new TestDictionaryColumn(10, 1, OptionalInt.empty(), 1, nullsRate);
-
-        int stripeMaxBytes = megabytes(100);
-        int dictionaryMaxMemoryBytes = megabytes(16);
-        int dictionaryAlmostFullMemoryBytes = dictionaryMaxMemoryBytes - DICTIONARY_ALMOST_FULL_MEMORY_RANGE;
-        DataSimulator simulator = new DataSimulator(stripeMaxBytes / 2, stripeMaxBytes, Integer.MAX_VALUE, dictionaryMaxMemoryBytes, 0, column);
-
-        assertFalse(simulator.isDictionaryMemoryFull());
-        assertFalse(column.isDirectEncoded());
-        assertEquals(simulator.getRowCount(), 0);
-        assertEquals(simulator.getBufferedBytes(), 0);
-
-        simulator.advanceToNextStateChange();
-        int minDictionaryConversionRow = dictionaryAlmostFullMemoryBytes * NUMBER_OF_NULLS_FOR_DICTIONARY_BYTE;
-        int maxDictionaryConversationRow = minDictionaryConversionRow + 1024 + 1;
-
-        assertLessThan(simulator.getRowCount(), maxDictionaryConversationRow);
-        assertGreaterThanOrEqual(simulator.getRowCount(), minDictionaryConversionRow);
-        assertTrue(column.isDirectEncoded());
-    }
-
     private static int megabytes(int size)
     {
         return toIntExact(new DataSize(size, Unit.MEGABYTE).toBytes());
@@ -728,7 +701,7 @@ public class TestDictionaryCompressionOptimizer
 
         public void advanceTo(int rowCount)
         {
-            assertTrue(rowCount >= this.rowCount, "rowCount: " + rowCount);
+            assertTrue(rowCount >= this.rowCount);
             this.rowCount = rowCount;
         }
 
@@ -739,8 +712,7 @@ public class TestDictionaryCompressionOptimizer
             }
             int dictionaryEntries = getDictionaryEntries();
             int bytesPerValue = estimateIndexBytesPerValue(dictionaryEntries);
-            return (dictionaryEntries * bytesPerEntry) + (getNonNullValueCount() * bytesPerValue)
-                    + (getNullValueCount() / NUMBER_OF_NULLS_PER_BYTE);
+            return (dictionaryEntries * bytesPerEntry) + (getNonNullValueCount() * bytesPerValue);
         }
 
         @Override
@@ -756,13 +728,7 @@ public class TestDictionaryCompressionOptimizer
         }
 
         @Override
-        public long getNullValueCount()
-        {
-            return (long) (getValueCount() * nullRate);
-        }
-
-        @Override
-        public long getRawBytesEstimate()
+        public long getRawBytes()
         {
             return (long) bytesPerEntry * getNonNullValueCount();
         }
@@ -790,9 +756,7 @@ public class TestDictionaryCompressionOptimizer
         public OptionalInt tryConvertToDirect(int maxDirectBytes)
         {
             assertFalse(direct);
-            long nonNullBytes = getNonNullValueCount() * bytesPerEntry;
-            long nullBytes = getNullValueCount() / NUMBER_OF_NULLS_PER_BYTE;
-            long directBytes = nonNullBytes + nullBytes;
+            long directBytes = (long) (rowCount * valuesPerRow * bytesPerEntry);
             if (directBytes <= maxDirectBytes) {
                 direct = true;
                 return OptionalInt.of(toIntExact(directBytes));

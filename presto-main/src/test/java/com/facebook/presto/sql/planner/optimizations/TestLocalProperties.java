@@ -151,7 +151,7 @@ public class TestLocalProperties
     }
 
     @Test
-    public void testNormalizeSingleSymbolGroup()
+    public void testNormalizeSingleSmbolGroup()
     {
         List<LocalProperty<String>> localProperties = builder().grouped("a").build();
         assertNormalize(localProperties, Optional.of(grouped("a")));

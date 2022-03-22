@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -67,14 +68,14 @@ public class TestPredicatePushdown
     {
         assertPlan("SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                any(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
                                         filter("cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
-                                                        "LINEITEM_LINENUMBER", "linenumber")))),
-                                anyTree(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+                                                        "LINEITEM_LINENUMBER", "linenumber")))))));
     }
 
     @Test

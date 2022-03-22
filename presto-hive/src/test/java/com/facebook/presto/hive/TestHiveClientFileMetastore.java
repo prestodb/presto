@@ -73,8 +73,8 @@ public class TestHiveClientFileMetastore
         File baseDir = new File(tempDir, "metastore");
         HiveClientConfig hiveConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
-        HdfsConfigurationInitializer updater = new HdfsConfigurationInitializer(hiveConfig, metastoreClientConfig);
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updater, ImmutableSet.of());
+        HdfsConfigurationInitializer updator = new HdfsConfigurationInitializer(hiveConfig, metastoreClientConfig);
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator, ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
     }

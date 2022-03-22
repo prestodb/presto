@@ -53,7 +53,7 @@ final class StatsUtil
 
         if (convertibleToDoubleWithCast(type)) {
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionAndTypeManager);
-            FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type, DoubleType.DOUBLE);
+            FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
 
             return OptionalDouble.of((double) functionInvoker.invoke(cast, session.getSqlFunctionProperties(), singletonList(value)));
         }

@@ -7,7 +7,7 @@ Plugin Implementation
 
 The function framework is used to implement SQL functions. Presto includes a
 number of built-in functions. In order to implement new functions, you can
-write a plugin that returns one more functions from ``getFunctions()``:
+write a plugin that returns one more more functions from ``getFunctions()``:
 
 .. code-block:: java
 

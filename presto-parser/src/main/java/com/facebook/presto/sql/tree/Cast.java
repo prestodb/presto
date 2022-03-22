@@ -60,7 +60,7 @@ public final class Cast
         this(Optional.of(location), expression, type, safe, typeOnly);
     }
 
-    public Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
+    private Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
     {
         super(location);
         requireNonNull(expression, "expression is null");

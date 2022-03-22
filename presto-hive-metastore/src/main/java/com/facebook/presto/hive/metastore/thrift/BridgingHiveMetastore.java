@@ -92,9 +92,9 @@ public class BridgingHiveMetastore
     {
         return delegate.getTable(metastoreContext, databaseName, tableName).map(table -> {
             if (isAvroTableWithSchemaSet(table) || isCsvTable(table)) {
-                return fromMetastoreApiTable(table, delegate.getFields(metastoreContext, databaseName, tableName).get(), metastoreContext.getColumnConverter());
+                return fromMetastoreApiTable(table, delegate.getFields(metastoreContext, databaseName, tableName).get());
             }
-            return fromMetastoreApiTable(table, metastoreContext.getColumnConverter());
+            return fromMetastoreApiTable(table);
         });
     }
 
@@ -171,7 +171,7 @@ public class BridgingHiveMetastore
     public void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!table.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
-        delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges, metastoreContext.getColumnConverter()));
+        delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges));
     }
 
     @Override
@@ -184,7 +184,7 @@ public class BridgingHiveMetastore
     public void replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
-        alterTable(metastoreContext, databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges, metastoreContext.getColumnConverter()));
+        alterTable(metastoreContext, databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
     }
 
     @Override
@@ -208,8 +208,8 @@ public class BridgingHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
-        Column column = new Column(columnName, columnType, Optional.ofNullable(columnComment), Optional.empty());
-        table.getSd().getCols().add(metastoreContext.getColumnConverter().fromColumn(column));
+        table.getSd().getCols().add(
+                new FieldSchema(columnName, columnType.getHiveTypeName().toString(), columnComment));
         alterTable(metastoreContext, databaseName, tableName, table);
     }
 
@@ -252,7 +252,7 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
     {
-        return delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues).map(partition -> fromMetastoreApiPartition(partition, partitionMutator, metastoreContext.getColumnConverter()));
+        return delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues).map(partition -> fromMetastoreApiPartition(partition, partitionMutator));
     }
 
     @Override
@@ -291,7 +291,7 @@ public class BridgingHiveMetastore
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), MetastoreUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).stream()
-                .map(partition -> fromMetastoreApiPartition(partition, partitionMutator, metastoreContext.getColumnConverter()))
+                .map(partition -> fromMetastoreApiPartition(partition, partitionMutator))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
@@ -377,17 +377,5 @@ public class BridgingHiveMetastore
     public void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
-    }
-
-    @Override
-    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
-    {
-        return delegate.lock(metastoreContext, databaseName, tableName);
-    }
-
-    @Override
-    public void unlock(MetastoreContext metastoreContext, long lockId)
-    {
-        delegate.unlock(metastoreContext, lockId);
     }
 }

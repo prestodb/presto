@@ -14,17 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.OrcWriterOptions;
+import com.facebook.presto.orc.StreamLayout;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
-import com.facebook.presto.orc.writer.StreamLayoutFactory;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
-import java.util.OptionalInt;
-
-import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_COLUMN_SIZE;
+import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_STREAM_SIZE;
 
 @SuppressWarnings("unused")
 public class OrcFileWriterConfig
@@ -35,46 +32,33 @@ public class OrcFileWriterConfig
         BY_COLUMN_SIZE,
     }
 
-    public static final int DEFAULT_COMPRESSION_LEVEL = Integer.MIN_VALUE;
-
-    private DataSize stripeMinSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MIN_SIZE;
-    private DataSize stripeMaxSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_SIZE;
-    private int stripeMaxRowCount = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_ROW_COUNT;
+    private DataSize stripeMinSize = OrcWriterOptions.DEFAULT_STRIPE_MIN_SIZE;
+    private DataSize stripeMaxSize = OrcWriterOptions.DEFAULT_STRIPE_MAX_SIZE;
+    private int stripeMaxRowCount = OrcWriterOptions.DEFAULT_STRIPE_MAX_ROW_COUNT;
     private int rowGroupMaxRowCount = OrcWriterOptions.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
     private DataSize dictionaryMaxMemory = OrcWriterOptions.DEFAULT_DICTIONARY_MAX_MEMORY;
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
     private DataSize maxCompressionBufferSize = OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
-    private StreamLayoutType streamLayoutType = BY_COLUMN_SIZE;
+    private StreamLayoutType streamLayoutType = BY_STREAM_SIZE;
     private boolean isDwrfStripeCacheEnabled;
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
-    private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
-        DefaultOrcWriterFlushPolicy flushPolicy = DefaultOrcWriterFlushPolicy.builder()
+        // Give separate copy to callers for isolation.
+        return OrcWriterOptions.builder()
                 .withStripeMinSize(stripeMinSize)
                 .withStripeMaxSize(stripeMaxSize)
                 .withStripeMaxRowCount(stripeMaxRowCount)
-                .build();
-
-        OptionalInt resolvedCompressionLevel = OptionalInt.empty();
-        if (compressionLevel != DEFAULT_COMPRESSION_LEVEL) {
-            resolvedCompressionLevel = OptionalInt.of(compressionLevel);
-        }
-
-        // Give separate copy to callers for isolation.
-        return OrcWriterOptions.builder()
-                .withFlushPolicy(flushPolicy)
                 .withRowGroupMaxRowCount(rowGroupMaxRowCount)
                 .withDictionaryMaxMemory(dictionaryMaxMemory)
                 .withMaxStringStatisticsLimit(stringStatisticsLimit)
                 .withMaxCompressionBufferSize(maxCompressionBufferSize)
-                .withStreamLayoutFactory(getStreamLayoutFactory(streamLayoutType))
+                .withStreamLayout(getStreamLayout(streamLayoutType))
                 .withDwrfStripeCacheEnabled(isDwrfStripeCacheEnabled)
                 .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
-                .withDwrfStripeCacheMode(dwrfStripeCacheMode)
-                .withCompressionLevel(resolvedCompressionLevel);
+                .withDwrfStripeCacheMode(dwrfStripeCacheMode);
     }
 
     @NotNull
@@ -137,18 +121,6 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
         this.dictionaryMaxMemory = dictionaryMaxMemory;
-        return this;
-    }
-
-    public int getCompressionLevel()
-    {
-        return compressionLevel;
-    }
-
-    @Config("hive.orc.writer.compression-level")
-    public OrcFileWriterConfig setCompressionLevel(int compressionLevel)
-    {
-        this.compressionLevel = compressionLevel;
         return this;
     }
 
@@ -229,13 +201,13 @@ public class OrcFileWriterConfig
         return this;
     }
 
-    private static StreamLayoutFactory getStreamLayoutFactory(StreamLayoutType type)
+    private static StreamLayout getStreamLayout(StreamLayoutType type)
     {
         switch (type) {
             case BY_COLUMN_SIZE:
-                return new StreamLayoutFactory.ColumnSizeLayoutFactory();
+                return new StreamLayout.ByColumnSize();
             case BY_STREAM_SIZE:
-                return new StreamLayoutFactory.StreamSizeLayoutFactory();
+                return new StreamLayout.ByStreamSize();
             default:
                 throw new RuntimeException("Unrecognized type " + type);
         }

@@ -30,10 +30,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
  */
 public class CustomSplitConversionUtils
 {
-    private static final List<CustomSplitConverter> converters = ImmutableList.of(
-            new HudiRealtimeSplitConverter(),
-            new HudiRealtimeBootstrapBaseFileSplitConverter(),
-            new HudiBootstrapBaseFileSplitConverter());
+    private static final List<CustomSplitConverter> converters = ImmutableList.of(new HudiRealtimeSplitConverter());
 
     private CustomSplitConversionUtils()
     {

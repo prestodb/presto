@@ -83,7 +83,6 @@ public class PushTableWriteThroughUnion
 
         return Result.ofPlanNode(
                 new UnionNode(
-                        writerNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         rewrittenSources.build(),
                         ImmutableList.copyOf(mappings.keySet()),

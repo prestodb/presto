@@ -1434,7 +1434,7 @@ public final class UnscaledDecimal128Arithmetic
         }
         // wordShifts = shifts / 32
         int wordShifts = shifts >>> 5;
-        // we don't want to lose any leading bits
+        // we don't wan't to loose any leading bits
         for (int i = 0; i < wordShifts; i++) {
             checkState(number[length - i - 1] == 0);
         }
@@ -1445,7 +1445,7 @@ public final class UnscaledDecimal128Arithmetic
         // bitShifts = shifts % 32
         int bitShifts = shifts & 0b11111;
         if (bitShifts > 0) {
-            // we don't want to lose any leading bits
+            // we don't wan't to loose any leading bits
             checkState(number[length - 1] >>> (Integer.SIZE - bitShifts) == 0);
             for (int position = length - 1; position > 0; position--) {
                 number[position] = (number[position] << bitShifts) | (number[position - 1] >>> (Integer.SIZE - bitShifts));
@@ -1463,7 +1463,7 @@ public final class UnscaledDecimal128Arithmetic
         }
         // wordShifts = shifts / 32
         int wordShifts = shifts >>> 5;
-        // we don't want to lose any trailing bits
+        // we don't wan't to loose any trailing bits
         for (int i = 0; i < wordShifts; i++) {
             checkState(number[i] == 0);
         }
@@ -1474,7 +1474,7 @@ public final class UnscaledDecimal128Arithmetic
         // bitShifts = shifts % 32
         int bitShifts = shifts & 0b11111;
         if (bitShifts > 0) {
-            // we don't want to lose any trailing bits
+            // we don't wan't to loose any trailing bits
             checkState(number[0] << (Integer.SIZE - bitShifts) == 0);
             for (int position = 0; position < length - 1; position++) {
                 number[position] = (number[position] >>> bitShifts) | (number[position + 1] << (Integer.SIZE - bitShifts));

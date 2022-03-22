@@ -39,13 +39,4 @@ public class TestPinotSessionProperties
         ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
         assertEquals(PinotSessionProperties.getConnectionTimeout(session), new Duration(0.25, TimeUnit.MINUTES));
     }
-
-    @Test
-    public void testDistinctCountFunctionNameParsedProperly()
-    {
-        PinotConfig pinotConfig = new PinotConfig().setOverrideDistinctCountFunction("distinctCountBitmap");
-        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
-        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
-        assertEquals(PinotSessionProperties.getOverrideDistinctCountFunction(session), "distinctCountBitmap");
-    }
 }

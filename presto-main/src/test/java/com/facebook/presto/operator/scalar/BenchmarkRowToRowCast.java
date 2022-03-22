@@ -93,7 +93,7 @@ public class BenchmarkRowToRowCast
         public void setup()
         {
             MetadataManager metadata = createTestMetadataManager();
-            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, RowType.anonymous(fromFieldTypes), RowType.anonymous(toFieldTypes));
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, RowType.anonymous(fromFieldTypes).getTypeSignature(), RowType.anonymous(toFieldTypes).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(CAST.name(), functionHandle, RowType.anonymous(fromFieldTypes), ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));

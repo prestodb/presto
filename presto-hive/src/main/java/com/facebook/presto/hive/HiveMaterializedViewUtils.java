@@ -34,7 +34,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -61,8 +60,8 @@ public class HiveMaterializedViewUtils
     }
 
     /**
-     * Validate the partition columns of a materialized view to ensure 1) a materialized view is partitioned; 2) it has at least one partition
-     * directly mapped to all base tables and 3) Outer join conditions have common partitions that are partitions in the view as well
+     * Validate the partition columns of a materialized view to ensure 1) a materialized view is partitioned; and 2) it has at least one partition
+     * directly mapped to all base tables.
      * <p>
      * A column is directly mapped to a base table column if it is derived directly or transitively from the base table column,
      * by only selecting a column or an aliased column without any function or operator applied.
@@ -79,8 +78,8 @@ public class HiveMaterializedViewUtils
     {
         SchemaTableName viewName = new SchemaTableName(viewTable.getDatabaseName(), viewTable.getTableName());
 
-        Map<String, Map<SchemaTableName, String>> viewToBaseDirectColumnMap = viewDefinition.getDirectColumnMappingsAsMap();
-        if (viewToBaseDirectColumnMap.isEmpty()) {
+        Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap = viewDefinition.getColumnMappingsAsMap();
+        if (viewToBaseColumnMap.isEmpty()) {
             throw new PrestoException(
                     NOT_SUPPORTED,
                     format("Materialized view %s must have at least one column directly defined by a base table column.", viewName));
@@ -91,45 +90,30 @@ public class HiveMaterializedViewUtils
             throw new PrestoException(NOT_SUPPORTED, "Unpartitioned materialized view is not supported.");
         }
 
-        List<Table> baseTables = viewDefinition.getBaseTables().stream()
+        viewDefinition.getBaseTables().stream()
                 .map(baseTableName -> metastore.getTable(metastoreContext, baseTableName.getSchemaName(), baseTableName.getTableName())
                         .orElseThrow(() -> new TableNotFoundException(baseTableName)))
-                .collect(toImmutableList());
-
-        Map<Table, List<Column>> baseTablePartitions = baseTables.stream()
-                .collect(toImmutableMap(
-                        table -> table,
-                        Table::getPartitionColumns));
-
-        for (Table baseTable : baseTablePartitions.keySet()) {
-            SchemaTableName schemaBaseTable = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
-            if (!isCommonPartitionFound(schemaBaseTable, baseTablePartitions.get(baseTable), viewPartitions, viewToBaseDirectColumnMap)) {
-                throw new PrestoException(
-                        NOT_SUPPORTED,
-                        format("Materialized view %s must have at least one partition column that exists in %s as well", viewName, baseTable.getTableName()));
-            }
-            if (viewDefinition.getBaseTablesOnOuterJoinSide().contains(schemaBaseTable) && viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).get().isEmpty()) {
-                throw new PrestoException(
-                        NOT_SUPPORTED,
-                        format("Outer join conditions in Materialized view %s must have at least one common partition equality constraint", viewName));
-            }
-        }
+                .forEach(table -> {
+                    if (!isCommonPartitionFound(table, viewPartitions, viewToBaseColumnMap)) {
+                        throw new PrestoException(
+                                NOT_SUPPORTED,
+                                format("Materialized view %s must have at least partition to base table partition mapping for all base tables.", viewName));
+                    }
+                });
     }
 
     private static boolean isCommonPartitionFound(
-            SchemaTableName baseTable,
-            List<Column> baseTablePartitions,
+            Table baseTable,
             List<Column> viewPartitions,
             Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap)
     {
+        SchemaTableName baseTableName = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
         for (Column viewPartition : viewPartitions) {
-            for (Column basePartition : baseTablePartitions) {
-                if (viewToBaseColumnMap
-                        .getOrDefault(viewPartition.getName(), emptyMap())
-                        .getOrDefault(baseTable, "")
-                        .equals(basePartition.getName())) {
-                    return true;
-                }
+            String viewPartitionMapToBaseTablePartition = viewToBaseColumnMap
+                    .getOrDefault(viewPartition.getName(), emptyMap())
+                    .getOrDefault(baseTableName, "");
+            if (baseTable.getPartitionColumns().stream().anyMatch(baseTablePartition -> baseTablePartition.getName().equals(viewPartitionMapToBaseTablePartition))) {
+                return true;
             }
         }
         return false;
@@ -186,142 +170,66 @@ public class HiveMaterializedViewUtils
                 .collect(toImmutableList()));
     }
 
-    // Every table on outer join side, must have a partition which is in EQ clause and present in Materialized View as well.
-    // For a given base table, this function computes partition columns of Materialized View which are not directly mapped to base table,
-    // and are directly mapped to some other base table which is not on outer join side.
-    // For example:
-    // Materialized View: SELECT t1_a as t1.a, t2_a as t2.a FROM t1 LEFT JOIN t2 ON t1.a = t2.a, partitioned by [t1_a, t2_a]
-    // baseTable: t2, partitioned by [a]
-    // Output: t1_a -> t2.a
-    public static Optional<Map<String, String>> viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(
-            ConnectorMaterializedViewDefinition viewDefinition,
-            Table baseTable)
-    {
-        SchemaTableName schemaBaseTable = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
-        if (!viewDefinition.getBaseTablesOnOuterJoinSide().contains(schemaBaseTable)) {
-            return Optional.empty();
-        }
-        Map<String, String> viewToBaseIndirectMappedColumns = new HashMap<>();
-
-        Map<String, Map<SchemaTableName, String>> columnMappings = viewDefinition.getColumnMappingsAsMap();
-        Map<String, Map<SchemaTableName, String>> directColumnMappings = viewDefinition.getDirectColumnMappingsAsMap();
-
-        for (String viewPartition : viewDefinition.getValidRefreshColumns().orElse(ImmutableList.of())) {
-            String baseTablePartition = columnMappings.get(viewPartition).get(schemaBaseTable);
-            // Check if it is a base table partition column
-            if (baseTable.getPartitionColumns().stream().noneMatch(col -> col.getName().equals(baseTablePartition))) {
-                continue;
-            }
-            // Check if view partition column directly maps to some partition column of other base table which is not on outer join side
-            // For e.g. in case of left outer join, we want to find partition which maps to left table
-            if (directColumnMappings.get(viewPartition).keySet().stream().allMatch(e -> !e.equals(schemaBaseTable)) &&
-                    directColumnMappings.get(viewPartition).keySet().stream().allMatch(t -> !viewDefinition.getBaseTablesOnOuterJoinSide().contains(t))) {
-                viewToBaseIndirectMappedColumns.put(viewPartition, baseTablePartition);
-            }
-        }
-        return Optional.of(viewToBaseIndirectMappedColumns);
-    }
-
     public static MaterializedDataPredicates differenceDataPredicates(
-            MaterializedDataPredicates baseTablePredicatesInfo,
-            MaterializedDataPredicates viewPredicatesInfo,
-            Map<String, String> viewToBaseTablePredicatesKeyMap)
+            MaterializedDataPredicates leftPredicatesInfo,
+            MaterializedDataPredicates rightPredicatesInfo,
+            Map<String, String> rightToLeftPredicatesKeyMap)
     {
-        return differenceDataPredicates(baseTablePredicatesInfo, viewPredicatesInfo, viewToBaseTablePredicatesKeyMap, ImmutableMap.of());
-    }
-
-  /**
-   * From given base table partitions, removes all partitions that are already used to compute
-   * related view partitions, only returning partitions that are not reflected in Materialized View.
-   * We assume that given materialized view partitions are still fresh,
-   * and in sync with base table partitions, i.e. related Materialized View partitions are already invalidated
-   * when new base table partitions land.
-   * @param baseTablePredicatesInfo Partitions info for base table
-   * @param viewPredicatesInfo Partitions info for view
-   * @param viewToBaseTablePredicatesKeyMap Partitions mapping from view to base table. Only includes direct mapping, i.e. excludes mapping from outer joins EQ clauses.
-   * @param viewToBaseTableIndirectMap Extra partitions mapping from view to base table, computed from viewToBaseTableOnOuterJoinSideIndirectMappedPartitions()
-   * @return Base Table partitions that have not been used to refresh view.
-   */
-    public static MaterializedDataPredicates differenceDataPredicates(
-            MaterializedDataPredicates baseTablePredicatesInfo,
-            MaterializedDataPredicates viewPredicatesInfo,
-            Map<String, String> viewToBaseTablePredicatesKeyMap,
-            Map<String, String> viewToBaseTableIndirectMap)
-    {
-        if (viewToBaseTablePredicatesKeyMap.isEmpty()) {
+        if (rightToLeftPredicatesKeyMap.isEmpty()) {
             return EMPTY_MATERIALIZED_VIEW_DATA_PREDICATES;
         }
-        if (viewPredicatesInfo.isEmpty()) {
-            return baseTablePredicatesInfo;
+        if (rightPredicatesInfo.isEmpty()) {
+            return leftPredicatesInfo;
         }
 
-        Set<String> baseTableMappedCommonKeys = new HashSet<>();
-        Set<String> viewMappedCommonKeys = new HashSet<>();
-        for (String rightKey : viewPredicatesInfo.getColumnNames()) {
-            String leftKey = viewToBaseTablePredicatesKeyMap.get(rightKey);
-            if (leftKey != null && baseTablePredicatesInfo.getColumnNames().contains(leftKey)) {
-                baseTableMappedCommonKeys.add(leftKey);
-                viewMappedCommonKeys.add(rightKey);
+        Set<String> leftMappedCommonKeys = new HashSet<>();
+        Set<String> rightMappedCommonKeys = new HashSet<>();
+        for (String rightKey : rightPredicatesInfo.getColumnNames()) {
+            String leftKey = rightToLeftPredicatesKeyMap.get(rightKey);
+            if (leftKey != null && leftPredicatesInfo.getColumnNames().contains(leftKey)) {
+                leftMappedCommonKeys.add(leftKey);
+                rightMappedCommonKeys.add(rightKey);
             }
         }
-
-        if (baseTableMappedCommonKeys.isEmpty()) {
+        if (leftMappedCommonKeys.isEmpty()) {
             return EMPTY_MATERIALIZED_VIEW_DATA_PREDICATES;
         }
 
         // Intentionally used linkedHashMap so that equal guarantees are kept even if underlying implementation is changed.
-        Set<LinkedHashMap<String, NullableValue>> viewPredicatesMappedToBaseTableCommonKeys = new HashSet<>();
-        for (TupleDomain<String> rightPredicate : viewPredicatesInfo.getPredicateDisjuncts()) {
-            LinkedHashMap<String, NullableValue> viewPredicateKeyValue = getLinkedHashMap(
+        Set<LinkedHashMap<String, NullableValue>> rightPredicatesMappedToLeftCommonKeys = new HashSet<>();
+        for (TupleDomain<String> rightPredicate : rightPredicatesInfo.getPredicateDisjuncts()) {
+            LinkedHashMap<String, NullableValue> rightPredicateKeyValue = getLinkedHashMap(
                     extractFixedValues(rightPredicate).orElseThrow(() -> new IllegalStateException("rightPredicateKeyValue is not present!")));
 
-            LinkedHashMap<String, NullableValue> viewPredicateMappedToBaseTableCommonKeys = getLinkedHashMap(
-                    viewPredicateKeyValue.keySet().stream()
-                            .filter(viewMappedCommonKeys::contains)
+            LinkedHashMap<String, NullableValue> rightPredicateMappedToLeftCommonKeys = getLinkedHashMap(
+                    rightPredicateKeyValue.keySet().stream()
+                            .filter(rightMappedCommonKeys::contains)
                             .collect(toLinkedMap(
-                                    viewToBaseTablePredicatesKeyMap::get,
-                                    viewPredicateKeyValue::get)));
+                                    rightToLeftPredicatesKeyMap::get,
+                                    rightPredicateKeyValue::get)));
 
-            viewToBaseTableIndirectMap.entrySet().forEach(
-                    e -> viewPredicateMappedToBaseTableCommonKeys.put(e.getValue(), viewPredicateKeyValue.get(e.getKey())));
-
-            viewPredicatesMappedToBaseTableCommonKeys.add(viewPredicateMappedToBaseTableCommonKeys);
+            rightPredicatesMappedToLeftCommonKeys.add(rightPredicateMappedToLeftCommonKeys);
         }
 
-        ImmutableList.Builder<TupleDomain<String>> difference = ImmutableList.builder();
+        ImmutableList.Builder<TupleDomain<String>> leftMinusRight = ImmutableList.builder();
 
-        for (TupleDomain<String> leftPredicate : baseTablePredicatesInfo.getPredicateDisjuncts()) {
-            LinkedHashMap<String, NullableValue> baseTablePredicateKeyValue = getLinkedHashMap(
+        for (TupleDomain<String> leftPredicate : leftPredicatesInfo.getPredicateDisjuncts()) {
+            LinkedHashMap<String, NullableValue> leftPredicateKeyValue = getLinkedHashMap(
                     extractFixedValues(leftPredicate).orElseThrow(() -> new IllegalStateException("leftPredicateKeyValue is not present!")));
 
-            LinkedHashMap<String, NullableValue> baseTablePredicateMappedToBaseTableCommonKeys = getLinkedHashMap(
-                    baseTablePredicateKeyValue.keySet().stream()
-                            .filter(baseTableMappedCommonKeys::contains)
+            LinkedHashMap<String, NullableValue> leftPredicateMappedToLeftCommonKeys = getLinkedHashMap(
+                    leftPredicateKeyValue.keySet().stream()
+                            .filter(leftMappedCommonKeys::contains)
                             .collect(Collectors.toMap(
                                     columnName -> columnName,
-                                    baseTablePredicateKeyValue::get)));
+                                    leftPredicateKeyValue::get)));
 
-            if (!viewPredicatesMappedToBaseTableCommonKeys.contains(baseTablePredicateMappedToBaseTableCommonKeys)) {
-                difference.add(leftPredicate);
-            }
-            else if (!viewToBaseTableIndirectMap.isEmpty()) {
-                // If base table is part of an outer join, its columns can be null. So check if an equivalent partition exists for view with null values
-                LinkedHashMap<String, NullableValue> baseTablePredicateMappedToBaseTableAllKeys = getLinkedHashMap(
-                        baseTablePredicateKeyValue.keySet().stream()
-                                .filter(baseTableMappedCommonKeys::contains)
-                                .collect(Collectors.toMap(
-                                        columnName -> columnName,
-                                        columnName -> NullableValue.asNull(baseTablePredicateKeyValue.get(columnName).getType()))));
-
-                viewToBaseTableIndirectMap.entrySet().forEach(e -> baseTablePredicateMappedToBaseTableAllKeys.put(e.getValue(), baseTablePredicateKeyValue.get(e.getValue())));
-
-                if (!viewPredicatesMappedToBaseTableCommonKeys.contains(baseTablePredicateMappedToBaseTableCommonKeys)) {
-                    difference.add(leftPredicate);
-                }
+            if (!rightPredicatesMappedToLeftCommonKeys.contains(leftPredicateMappedToLeftCommonKeys)) {
+                leftMinusRight.add(leftPredicate);
             }
         }
 
-        return new MaterializedDataPredicates(difference.build(), baseTablePredicatesInfo.getColumnNames());
+        return new MaterializedDataPredicates(leftMinusRight.build(), leftPredicatesInfo.getColumnNames());
     }
 
     public static MaterializedDataPredicates getEmptyMaterializedViewDataPredicates()

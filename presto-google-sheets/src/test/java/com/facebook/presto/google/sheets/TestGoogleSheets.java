@@ -58,7 +58,7 @@ public class TestGoogleSheets
         return queryRunner;
     }
 
-    @Test(enabled = false)
+    @Test
     public void testListTable()
     {
         assertQuery("show tables", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
@@ -68,7 +68,7 @@ public class TestGoogleSheets
         assertEquals(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount(), 0);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDescTable()
     {
         assertQuery("desc number_text", "SELECT * FROM (VALUES('number','varchar','',''), ('text','varchar','',''))");
@@ -76,7 +76,7 @@ public class TestGoogleSheets
                 + "('owner','varchar','',''), ('notes','varchar','',''))");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromTable()
     {
         assertQuery("SELECT count(*) FROM number_text", "SELECT 5");
@@ -85,21 +85,21 @@ public class TestGoogleSheets
         assertQuery("SELECT * FROM number_text", "SELECT * FROM (VALUES ('1','one'), ('2','two'), ('3','three'), ('4','four'), ('5','five'))");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromTableIgnoreCase()
     {
         assertQuery("SELECT count(*) FROM NUMBER_TEXT", "SELECT 5");
         assertQuery("SELECT number FROM Number_Text", "SELECT * FROM (VALUES '1','2','3','4','5')");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testQueryingUnknownSchemaAndTable()
     {
         assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema foo does not exist");
         assertQueryFails("select * from gsheets.default.foo_bar_table", "Sheet expression not found for table foo_bar_table");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTableWithRepeatedAndMissingColumnNames()
     {
         assertQuery("desc table_with_duplicate_and_missing_column_names", "SELECT * FROM (VALUES('a','varchar','','')," +

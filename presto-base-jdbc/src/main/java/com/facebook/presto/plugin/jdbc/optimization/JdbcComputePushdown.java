@@ -151,7 +151,6 @@ public class JdbcComputePushdown
                     Optional.of(newTableLayoutHandle));
 
             TableScanNode newTableScanNode = new TableScanNode(
-                    oldTableScanNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     tableHandle,
                     oldTableScanNode.getOutputVariables(),
@@ -159,7 +158,7 @@ public class JdbcComputePushdown
                     oldTableScanNode.getCurrentConstraint(),
                     oldTableScanNode.getEnforcedConstraint());
 
-            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, node.getPredicate());
+            return new FilterNode(idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }
     }
 }

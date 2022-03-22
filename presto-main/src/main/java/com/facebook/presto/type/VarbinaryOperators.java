@@ -98,7 +98,7 @@ public final class VarbinaryOperators
     public static long hashCode(@SqlType(StandardTypes.VARBINARY) Slice value)
     {
         // This needs to match the hash function for VARBINARY blocks
-        // (i.e. AbstractVariableWidthBlock.hash(...))
+        // (i.e. AstractVariableWidthBlock.hash(...))
         // TODO: we need to get rid of hash from Block and rely on HASH_CODE operators only
         return xxHash64(value);
     }

@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -46,7 +47,6 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;
@@ -122,16 +122,15 @@ public class TransformExistsApplyToLateralNode
         checkState(applyNode.getSubquery().getOutputVariables().isEmpty(), "Expected subquery output variables to be pruned");
 
         VariableReferenceExpression exists = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
-        VariableReferenceExpression subqueryTrue = context.getVariableAllocator().newVariable(exists.getSourceLocation(), "subqueryTrue", BOOLEAN);
+        VariableReferenceExpression subqueryTrue = context.getVariableAllocator().newVariable("subqueryTrue", BOOLEAN);
 
         Assignments.Builder assignments = Assignments.builder();
         assignments.putAll(identitiesAsSymbolReferences(applyNode.getInput().getOutputVariables()));
-        assignments.put(exists, castToRowExpression(new CoalesceExpression(ImmutableList.of(createSymbolReference(subqueryTrue), BooleanLiteral.FALSE_LITERAL))));
+        assignments.put(exists, castToRowExpression(new CoalesceExpression(ImmutableList.of(new SymbolReference(subqueryTrue.getName()), BooleanLiteral.FALSE_LITERAL))));
 
         PlanNode subquery = new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 new LimitNode(
-                        applyNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         applyNode.getSubquery(),
                         1L,
@@ -145,7 +144,6 @@ public class TransformExistsApplyToLateralNode
 
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
                 new LateralJoinNode(
-                        applyNode.getSourceLocation(),
                         applyNode.getId(),
                         applyNode.getInput(),
                         subquery,
@@ -161,18 +159,15 @@ public class TransformExistsApplyToLateralNode
         VariableReferenceExpression exists = getOnlyElement(parent.getSubqueryAssignments().getVariables());
 
         return new LateralJoinNode(
-                parent.getSourceLocation(),
                 parent.getId(),
                 parent.getInput(),
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new AggregationNode(
-                                parent.getSourceLocation(),
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(
                                         new CallExpression(
-                                                exists.getSourceLocation(),
                                                 "count",
                                                 functionResolution.countFunction(),
                                                 BIGINT,

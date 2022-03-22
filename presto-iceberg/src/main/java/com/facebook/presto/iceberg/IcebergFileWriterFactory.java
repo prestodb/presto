@@ -25,7 +25,6 @@ import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
-import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -216,11 +215,9 @@ public class IcebergFileWriterFactory
                     getCompressionCodec(session).getOrcCompressionKind(),
                     orcFileWriterConfig
                             .toOrcWriterOptionsBuilder()
-                            .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
-                                    .withStripeMinSize(HiveSessionProperties.getOrcOptimizedWriterMinStripeSize(session))
-                                    .withStripeMaxSize(HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize(session))
-                                    .withStripeMaxRowCount(HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows(session))
-                                    .build())
+                            .withStripeMinSize(HiveSessionProperties.getOrcOptimizedWriterMinStripeSize(session))
+                            .withStripeMaxSize(HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize(session))
+                            .withStripeMaxRowCount(HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(HiveSessionProperties.getOrcStringStatisticsLimit(session))
                             .build(),

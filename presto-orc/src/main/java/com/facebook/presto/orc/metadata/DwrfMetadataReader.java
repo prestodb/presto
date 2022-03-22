@@ -58,7 +58,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.SortedMap;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
@@ -238,7 +237,7 @@ public class DwrfMetadataReader
                     // FileStatistics contains ColumnStatistics for the node and all its child nodes (subtree)
                     for (int statsIdx = 0; statsIdx < nodeStats.getStatisticsCount(); statsIdx++) {
                         decryptedFileStats[nodeId + statsIdx] =
-                                toColumnStatistics(hiveWriterVersion, nodeStats.getStatistics(statsIdx), false, null);
+                                toColumnStatistics(hiveWriterVersion, nodeStats.getStatistics(statsIdx), false);
                     }
                 }
                 catch (IOException e) {
@@ -419,16 +418,14 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream, List<HiveBloomFilter> bloomFilters)
+    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.RowIndex rowIndex = DwrfProto.RowIndex.parseFrom(input);
         runtimeStats.addMetricValue("DwrfReadRowIndexesTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
-        return IntStream.range(0, rowIndex.getEntryCount())
-                .mapToObj(i -> toRowGroupIndex(hiveWriterVersion, rowIndex.getEntry(i), bloomFilters == null || bloomFilters.isEmpty() ? null : bloomFilters.get(i)))
-                .collect(toImmutableList());
+        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry)));
     }
 
     @Override
@@ -438,7 +435,7 @@ public class DwrfMetadataReader
         return ImmutableList.of();
     }
 
-    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
+    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
@@ -450,7 +447,7 @@ public class DwrfMetadataReader
 
             positions.add(intPosition);
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
+        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true));
     }
 
     private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
@@ -458,7 +455,7 @@ public class DwrfMetadataReader
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null)));
+        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup)));
     }
 
     private Map<String, Slice> toUserMetadata(List<DwrfProto.UserMetadataItem> metadataList)
@@ -473,7 +470,7 @@ public class DwrfMetadataReader
         return mapBuilder.build();
     }
 
-    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
+    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return createColumnStatistics(
                 statistics.getNumberOfValues(),
@@ -484,7 +481,7 @@ public class DwrfMetadataReader
                 null,
                 null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
-                bloomFilter);
+                null);
     }
 
     private static BooleanStatistics toBooleanStatistics(DwrfProto.BucketStatistics bucketStatistics)

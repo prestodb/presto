@@ -31,7 +31,6 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
@@ -102,7 +101,7 @@ public class TestHiveSplit
                 OptionalInt.empty(),
                 NO_PREFERENCE,
                 10,
-                TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty(), Optional.empty()))),
+                TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty()))),
                 Optional.of(new HiveSplit.BucketConversion(
                         32,
                         16,
@@ -116,8 +115,7 @@ public class TestHiveSplit
                         "test_algo",
                         "test_provider"))),
                 customSplitInfo,
-                redundantColumnDomains,
-                SplitWeight.fromProportion(2.0)); // some non-standard value
+                redundantColumnDomains);
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -142,7 +140,6 @@ public class TestHiveSplit
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
         assertEquals(actual.getCustomSplitInfo(), expected.getCustomSplitInfo());
-        assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()

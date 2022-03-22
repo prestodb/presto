@@ -56,7 +56,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
-import static com.facebook.presto.common.type.AbstractVarcharType.UNBOUNDED_LENGTH;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -296,7 +295,7 @@ public final class JsonUtil
                         return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
                     }
                     else {
-                        return new LongDecimalJsonGeneratorWriter((DecimalType) type);
+                        return new LongDeicmalJsonGeneratorWriter((DecimalType) type);
                     }
                 case StandardTypes.VARCHAR:
                     return new VarcharJsonGeneratorWriter(type);
@@ -440,12 +439,12 @@ public final class JsonUtil
         }
     }
 
-    private static class LongDecimalJsonGeneratorWriter
+    private static class LongDeicmalJsonGeneratorWriter
             implements JsonGeneratorWriter
     {
         private final DecimalType type;
 
-        public LongDecimalJsonGeneratorWriter(DecimalType type)
+        public LongDeicmalJsonGeneratorWriter(DecimalType type)
         {
             this.type = type;
         }
@@ -652,7 +651,7 @@ public final class JsonUtil
                 return Slices.utf8Slice(parser.getText());
             case VALUE_NUMBER_FLOAT:
                 // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-                return DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
+                return DoubleOperators.castToVarchar(parser.getDoubleValue());
             case VALUE_NUMBER_INT:
                 // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
                 // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.

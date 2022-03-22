@@ -22,11 +22,11 @@ import com.facebook.presto.common.block.ColumnarMap;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RowBlock;
-import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -38,8 +38,6 @@ import java.util.function.Function;
 import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
-import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -57,6 +55,8 @@ import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -242,7 +242,7 @@ public interface HiveCoercer
                 maxValue = Long.MAX_VALUE;
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format("Could not create Coercer from varchar to %s", toType));
+                throw new PrestoException(NOT_SUPPORTED, format("Could not create Coercer from from varchar to %s", toType));
             }
         }
 

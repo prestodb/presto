@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -115,26 +113,26 @@ public class TestFilterStatsCalculator
                 .setNullsFraction(0.34)
                 .build();
         standardInputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), xStats)
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), yStats)
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), zStats)
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "leftOpen", DOUBLE), leftOpenStats)
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "rightOpen", DOUBLE), rightOpenStats)
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE), unknownRangeStats)
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE), emptyRangeStats)
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "mediumVarchar", MEDIUM_VARCHAR_TYPE), mediumVarcharStats)
+                .addVariableStatistics(new VariableReferenceExpression("x", DOUBLE), xStats)
+                .addVariableStatistics(new VariableReferenceExpression("y", DOUBLE), yStats)
+                .addVariableStatistics(new VariableReferenceExpression("z", DOUBLE), zStats)
+                .addVariableStatistics(new VariableReferenceExpression("leftOpen", DOUBLE), leftOpenStats)
+                .addVariableStatistics(new VariableReferenceExpression("rightOpen", DOUBLE), rightOpenStats)
+                .addVariableStatistics(new VariableReferenceExpression("unknownRange", DOUBLE), unknownRangeStats)
+                .addVariableStatistics(new VariableReferenceExpression("emptyRange", DOUBLE), emptyRangeStats)
+                .addVariableStatistics(new VariableReferenceExpression("mediumVarchar", MEDIUM_VARCHAR_TYPE), mediumVarcharStats)
                 .setOutputRowCount(1000.0)
                 .build();
 
         standardTypes = TypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
-                .add(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE))
-                .add(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE))
-                .add(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE))
-                .add(new VariableReferenceExpression(Optional.empty(), "leftOpen", DOUBLE))
-                .add(new VariableReferenceExpression(Optional.empty(), "rightOpen", DOUBLE))
-                .add(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE))
-                .add(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE))
-                .add(new VariableReferenceExpression(Optional.empty(), "mediumVarchar", MEDIUM_VARCHAR_TYPE))
+                .add(new VariableReferenceExpression("x", DOUBLE))
+                .add(new VariableReferenceExpression("y", DOUBLE))
+                .add(new VariableReferenceExpression("z", DOUBLE))
+                .add(new VariableReferenceExpression("leftOpen", DOUBLE))
+                .add(new VariableReferenceExpression("rightOpen", DOUBLE))
+                .add(new VariableReferenceExpression("unknownRange", DOUBLE))
+                .add(new VariableReferenceExpression("emptyRange", DOUBLE))
+                .add(new VariableReferenceExpression("mediumVarchar", MEDIUM_VARCHAR_TYPE))
                 .build());
 
         session = testSessionBuilder().build();
@@ -151,24 +149,24 @@ public class TestFilterStatsCalculator
 
         assertExpression("false")
                 .outputRowsCount(0.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "leftOpen", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "rightOpen", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE), VariableStatsAssertion::empty);
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("z", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("leftOpen", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("rightOpen", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("emptyRange", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("unknownRange", DOUBLE), VariableStatsAssertion::empty);
 
         // `null AND null` is interpreted as null
         assertExpression("cast(null as boolean) AND cast(null as boolean)")
                 .outputRowsCount(0.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "leftOpen", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "rightOpen", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE), VariableStatsAssertion::empty)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE), VariableStatsAssertion::empty);
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("z", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("leftOpen", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("rightOpen", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("emptyRange", DOUBLE), VariableStatsAssertion::empty)
+                .variableStats(new VariableReferenceExpression("unknownRange", DOUBLE), VariableStatsAssertion::empty);
 
         // more complicated expressions with null
         assertExpression("cast(null as boolean) OR sin(x) > x").outputRowsCount(NaN);
@@ -187,7 +185,7 @@ public class TestFilterStatsCalculator
         double lessThan3Rows = 487.5;
         assertExpression("x < 3e0")
                 .outputRowsCount(lessThan3Rows)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(-10)
                                 .highValue(3)
@@ -201,7 +199,7 @@ public class TestFilterStatsCalculator
             for (String xEquals : ImmutableList.of("x = %s", "%s = x", "COALESCE(x * CAST(NULL AS BIGINT), x) = %s", "%s = CAST(x AS DOUBLE)")) {
                 assertExpression(format(xEquals, minusThree))
                         .outputRowsCount(18.75)
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                        .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                                 variableAssert.averageRowSize(4.0)
                                         .lowValue(-3)
                                         .highValue(-3)
@@ -212,7 +210,7 @@ public class TestFilterStatsCalculator
             for (String xLessThan : ImmutableList.of("x < %s", "%s > x", "%s > CAST(x AS DOUBLE)")) {
                 assertExpression(format(xLessThan, minusThree))
                         .outputRowsCount(262.5)
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                        .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                                 variableAssert.averageRowSize(4.0)
                                         .lowValue(-10)
                                         .highValue(-3)
@@ -227,7 +225,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x < 0e0 OR x < DOUBLE '-7.5'")
                 .outputRowsCount(375)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(-10.0)
                                 .highValue(0.0)
@@ -236,7 +234,7 @@ public class TestFilterStatsCalculator
 
         assertExpression("x = 0e0 OR x = DOUBLE '-7.5'")
                 .outputRowsCount(37.5)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(-7.5)
                                 .highValue(0.0)
@@ -245,7 +243,7 @@ public class TestFilterStatsCalculator
 
         assertExpression("x = 1e0 OR x = 3e0")
                 .outputRowsCount(37.5)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(1)
                                 .highValue(3)
@@ -254,7 +252,7 @@ public class TestFilterStatsCalculator
 
         assertExpression("x = 1e0 OR 'a' = 'b' OR x = 3e0")
                 .outputRowsCount(37.5)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(1)
                                 .highValue(3)
@@ -279,7 +277,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x < 0e0 AND x > DOUBLE '-7.5'")
                 .outputRowsCount(281.25)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(-7.5)
                                 .highValue(0.0)
@@ -289,13 +287,13 @@ public class TestFilterStatsCalculator
         // Impossible, with symbol-to-expression comparisons
         assertExpression("x = (0e0 + 1e0) AND x = (0e0 + 3e0)")
                 .outputRowsCount(0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), VariableStatsAssertion::emptyRange)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), VariableStatsAssertion::emptyRange);
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), VariableStatsAssertion::emptyRange)
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), VariableStatsAssertion::emptyRange);
 
         // first argument unknown
         assertExpression("json_array_contains(JSON '[]', x) AND x < 0e0")
                 .outputRowsCount(337.5)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.lowValue(-10)
                                 .highValue(0)
                                 .distinctValuesCount(20)
@@ -304,7 +302,7 @@ public class TestFilterStatsCalculator
         // second argument unknown
         assertExpression("x < 0e0 AND json_array_contains(JSON '[]', x)")
                 .outputRowsCount(337.5)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.lowValue(-10)
                                 .highValue(0)
                                 .distinctValuesCount(20)
@@ -323,23 +321,23 @@ public class TestFilterStatsCalculator
     {
         assertExpression("NOT(x < 0e0)")
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)) // FIXME - nulls shouldn't be restored
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), variableAssert -> variableAssert.isEqualTo(yStats));
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), variableAssert -> variableAssert.isEqualTo(yStats));
 
         assertExpression("NOT(x IS NULL)")
                 .outputRowsCount(750)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableAssert ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableAssert ->
                         variableAssert.averageRowSize(4.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(40.0)
                                 .nullsFraction(0))
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), variableAssert -> variableAssert.isEqualTo(yStats));
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), variableAssert -> variableAssert.isEqualTo(yStats));
 
         assertExpression("NOT(json_array_contains(JSON '[]', x))")
                 .outputRowsCountUnknown();
@@ -350,14 +348,14 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x IS NULL")
                 .outputRowsCount(250.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(0)
                                 .emptyRange()
                                 .nullsFraction(1.0));
 
         assertExpression("emptyRange IS NULL")
                 .outputRowsCount(1000.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE), VariableStatsAssertion::empty);
+                .variableStats(new VariableReferenceExpression("emptyRange", DOUBLE), VariableStatsAssertion::empty);
     }
 
     @Test
@@ -365,7 +363,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x IS NOT NULL")
                 .outputRowsCount(750.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(40.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
@@ -373,7 +371,7 @@ public class TestFilterStatsCalculator
 
         assertExpression("emptyRange IS NOT NULL")
                 .outputRowsCount(0.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE), VariableStatsAssertion::empty);
+                .variableStats(new VariableReferenceExpression("emptyRange", DOUBLE), VariableStatsAssertion::empty);
     }
 
     @Test
@@ -382,7 +380,7 @@ public class TestFilterStatsCalculator
         // Only right side cut
         assertExpression("x BETWEEN 7.5e0 AND 12e0")
                 .outputRowsCount(93.75)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
                                 .lowValue(7.5)
                                 .highValue(10.0)
@@ -391,14 +389,14 @@ public class TestFilterStatsCalculator
         // Only left side cut
         assertExpression("x BETWEEN DOUBLE '-12' AND DOUBLE '-7.5'")
                 .outputRowsCount(93.75)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
                                 .lowValue(-10)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
         assertExpression("x BETWEEN -12e0 AND -7.5e0")
                 .outputRowsCount(93.75)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
                                 .lowValue(-10)
                                 .highValue(-7.5)
@@ -407,7 +405,7 @@ public class TestFilterStatsCalculator
         // Both sides cut
         assertExpression("x BETWEEN DOUBLE '-2.5' AND 2.5e0")
                 .outputRowsCount(187.5)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(10.0)
                                 .lowValue(-2.5)
                                 .highValue(2.5)
@@ -416,7 +414,7 @@ public class TestFilterStatsCalculator
         // Both sides cut unknownRange
         assertExpression("unknownRange BETWEEN 2.72e0 AND 3.14e0")
                 .outputRowsCount(112.5)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("unknownRange", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(6.25)
                                 .lowValue(2.72)
                                 .highValue(3.14)
@@ -425,7 +423,7 @@ public class TestFilterStatsCalculator
         // Left side open, cut on open side
         assertExpression("leftOpen BETWEEN DOUBLE '-10' AND 10e0")
                 .outputRowsCount(180.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "leftOpen", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("leftOpen", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(10.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
@@ -434,7 +432,7 @@ public class TestFilterStatsCalculator
         // Right side open, cut on open side
         assertExpression("rightOpen BETWEEN DOUBLE '-10' AND 10e0")
                 .outputRowsCount(180.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "rightOpen", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("rightOpen", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(10.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
@@ -443,12 +441,12 @@ public class TestFilterStatsCalculator
         // Filter all
         assertExpression("y BETWEEN 27.5e0 AND 107e0")
                 .outputRowsCount(0.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), VariableStatsAssertion::empty);
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), VariableStatsAssertion::empty);
 
         // Filter nothing
         assertExpression("y BETWEEN DOUBLE '-100' AND 100e0")
                 .outputRowsCount(500.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(20.0)
                                 .lowValue(0.0)
                                 .highValue(5.0)
@@ -457,7 +455,7 @@ public class TestFilterStatsCalculator
         // Filter non exact match
         assertExpression("z BETWEEN DOUBLE '-100' AND 100e0")
                 .outputRowsCount(900.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("z", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
                                 .lowValue(-100.0)
                                 .highValue(100.0)
@@ -474,7 +472,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression("x = x")
                 .outputRowsCount(750)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         VariableStatsEstimate.builder()
                                 .setAverageRowSize(4.0)
                                 .setDistinctValuesCount(40.0)
@@ -491,28 +489,28 @@ public class TestFilterStatsCalculator
         // One value in range
         assertExpression("x IN (7.5e0)")
                 .outputRowsCount(18.75)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
         assertExpression("x IN (DOUBLE '-7.5')")
                 .outputRowsCount(18.75)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
         assertExpression("x IN (BIGINT '2' + 5.5e0)")
                 .outputRowsCount(18.75)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
         assertExpression("x IN (-7.5e0)")
                 .outputRowsCount(18.75)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
@@ -521,12 +519,12 @@ public class TestFilterStatsCalculator
         // Multiple values in range
         assertExpression("x IN (1.5e0, 2.5e0, 7.5e0)")
                 .outputRowsCount(56.25)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(3.0)
                                 .lowValue(1.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0))
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), variableStats ->
                         // Symbol not involved in the comparison should have stats basically unchanged
                         variableStats.distinctValuesCount(20.0)
                                 .lowValue(0.0)
@@ -536,7 +534,7 @@ public class TestFilterStatsCalculator
         // Multiple values some in some out of range
         assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
                 .outputRowsCount(56.25)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("x", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(3.0)
                                 .lowValue(1.5)
                                 .highValue(7.5)
@@ -545,7 +543,7 @@ public class TestFilterStatsCalculator
         // Multiple values in unknown range
         assertExpression("unknownRange IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
                 .outputRowsCount(90.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("unknownRange", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
                                 .lowValue(-42.0)
                                 .highValue(314.0)
@@ -554,25 +552,25 @@ public class TestFilterStatsCalculator
         // Casted literals as value
         assertExpression(format("mediumVarchar IN (CAST('abc' AS %s))", MEDIUM_VARCHAR_TYPE.toString()))
                 .outputRowsCount(4)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "mediumVarchar", MEDIUM_VARCHAR_TYPE), variableStats ->
+                .variableStats(new VariableReferenceExpression("mediumVarchar", MEDIUM_VARCHAR_TYPE), variableStats ->
                         variableStats.distinctValuesCount(1)
                                 .nullsFraction(0.0));
 
         assertExpression(format("mediumVarchar IN (CAST('abc' AS %1$s), CAST('def' AS %1$s))", MEDIUM_VARCHAR_TYPE.toString()))
                 .outputRowsCount(8)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "mediumVarchar", MEDIUM_VARCHAR_TYPE), variableStats ->
+                .variableStats(new VariableReferenceExpression("mediumVarchar", MEDIUM_VARCHAR_TYPE), variableStats ->
                         variableStats.distinctValuesCount(2)
                                 .nullsFraction(0.0));
 
         // No value in range
         assertExpression("y IN (DOUBLE '-42', 6e0, 31.1341e0, DOUBLE '-0.000000002', 314e0)")
                 .outputRowsCount(0.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), VariableStatsAssertion::empty);
+                .variableStats(new VariableReferenceExpression("y", DOUBLE), VariableStatsAssertion::empty);
 
         // More values in range than distinct values
         assertExpression("z IN (DOUBLE '-1', 3.14e0, 0e0, 1e0, 2e0, 3e0, 4e0, 5e0, 6e0, 7e0, 8e0, DOUBLE '-2')")
                 .outputRowsCount(900.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("z", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
                                 .lowValue(-2.0)
                                 .highValue(8.0)
@@ -581,7 +579,7 @@ public class TestFilterStatsCalculator
         // Values in weird order
         assertExpression("z IN (DOUBLE '-1', 1e0, 0e0)")
                 .outputRowsCount(540.0)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), variableStats ->
+                .variableStats(new VariableReferenceExpression("z", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(3.0)
                                 .lowValue(-1.0)
                                 .highValue(1.0)

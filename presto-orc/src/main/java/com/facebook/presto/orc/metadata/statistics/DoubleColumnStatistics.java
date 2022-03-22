@@ -45,9 +45,9 @@ public class DoubleColumnStatistics
     }
 
     @Override
-    public long getTotalValueSizeInBytes()
+    public long getMinAverageValueSizeInBytes()
     {
-        return getNumberOfValues() * DOUBLE_VALUE_BYTES;
+        return DOUBLE_VALUE_BYTES;
     }
 
     @Override

@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -527,12 +526,12 @@ public class TestLogicalRowExpressions
 
     private static RowExpression name(String name)
     {
-        return new VariableReferenceExpression(Optional.empty(), name, BOOLEAN);
+        return new VariableReferenceExpression(name, BOOLEAN);
     }
 
     private static VariableReferenceExpression variable(String name)
     {
-        return new VariableReferenceExpression(Optional.empty(), name, BOOLEAN);
+        return new VariableReferenceExpression(name, BOOLEAN);
     }
 
     private RowExpression compare(RowExpression left, OperatorType operator, RowExpression right)

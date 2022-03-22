@@ -184,10 +184,9 @@ Property Name                                      Description                  
 
 ``hive.s3select-pushdown.enabled``                 Enable query pushdown to AWS S3 Select service.              ``false``
 
-``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for    500
+``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    S3SelectPushdown.
-
-``hive.metastore.load-balancing-enabled``          Enable load balancing between multiple Metastore instances
+``hive.metastore.load-balancing-enabled``       Enable load balancing between multiple Metastore instances
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
@@ -733,7 +732,7 @@ Procedures
     not conforming to this convention are ignored, unless the argument is set to ``false``.
 
 Extra Hidden Columns
---------------------
+----------
 
 The Hive connector exposes extra hidden metadata columns in Hive tables. You can query these
 columns as a part of SQL query like any other columns of the table.

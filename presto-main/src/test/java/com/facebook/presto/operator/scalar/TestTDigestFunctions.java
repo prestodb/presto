@@ -206,7 +206,7 @@ public class TestTDigestFunctions
     public void testNormalDistributionHighVarianceQuantileArray()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<>();
+        List<Double> list = new ArrayList<Double>();
         NormalDistribution normal = new NormalDistribution(0, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -241,7 +241,7 @@ public class TestTDigestFunctions
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<>();
+        List<Integer> list = new ArrayList<Integer>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -263,7 +263,7 @@ public class TestTDigestFunctions
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<>();
+        List<Integer> list = new ArrayList<Integer>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -284,7 +284,7 @@ public class TestTDigestFunctions
     public void testAddElementsRandomized()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<>();
+        List<Double> list = new ArrayList<Double>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
             double value = Math.random() * NUMBER_OF_ENTRIES;
@@ -303,7 +303,7 @@ public class TestTDigestFunctions
     public void testNormalDistributionLowVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<>();
+        List<Double> list = new ArrayList<Double>();
         NormalDistribution normal = new NormalDistribution(1000, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -323,7 +323,7 @@ public class TestTDigestFunctions
     public void testNormalDistributionHighVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<>();
+        List<Double> list = new ArrayList<Double>();
         NormalDistribution normal = new NormalDistribution(0, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -511,7 +511,7 @@ public class TestTDigestFunctions
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             GeometricDistribution geometric = new GeometricDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<>();
+            List<Integer> list = new ArrayList<Integer>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = geometric.sample();
@@ -534,7 +534,7 @@ public class TestTDigestFunctions
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             PoissonDistribution poisson = new PoissonDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<>();
+            List<Integer> list = new ArrayList<Integer>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = poisson.sample();
@@ -583,7 +583,7 @@ public class TestTDigestFunctions
 
         TDigest scaledTdigest = createTDigest(wrappedBuffer(sqlVarbinary.getBytes()));
         List<Double> scaledDigestFrequencies = getFrequencies(scaledTdigest, asList(2.0d, 4.0d, 6.0d, 8.0d));
-        List<Double> scaledUpFrequencies = new ArrayList<>();
+        List<Double> scaledUpFrequencies = new ArrayList<Double>();
         unscaledFrequencies.forEach(frequency -> scaledUpFrequencies.add(frequency * 2));
         assertEquals(scaledDigestFrequencies, scaledUpFrequencies);
 
@@ -597,7 +597,7 @@ public class TestTDigestFunctions
 
         scaledTdigest = createTDigest(wrappedBuffer(sqlVarbinary.getBytes()));
         scaledDigestFrequencies = getFrequencies(scaledTdigest, asList(2.0d, 4.0d, 6.0d, 8.0d));
-        List<Double> scaledDownFrequencies = new ArrayList<>();
+        List<Double> scaledDownFrequencies = new ArrayList<Double>();
         unscaledFrequencies.forEach(frequency -> scaledDownFrequencies.add(frequency * 0.5));
         assertEquals(scaledDigestFrequencies, scaledDownFrequencies);
     }
@@ -672,7 +672,7 @@ public class TestTDigestFunctions
 
     private List<Double> getFrequencies(TDigest tdigest, List<Double> buckets)
     {
-        List<Double> histogram = new ArrayList<>();
+        List<Double> histogram = new ArrayList<Double>();
         for (Double bin : buckets) {
             histogram.add(tdigest.getCdf(bin) * tdigest.getSize());
         }

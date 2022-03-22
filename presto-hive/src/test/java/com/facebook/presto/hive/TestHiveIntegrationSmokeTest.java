@@ -83,7 +83,6 @@ import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_P
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
@@ -124,8 +123,6 @@ import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
@@ -3324,7 +3321,7 @@ public class TestHiveIntegrationSmokeTest
                     "  test_mismatch_bucketingN\n" +
                     "ON key16=keyN";
 
-            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(3));
+            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
             assertQuery(withoutMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
             assertUpdate(withoutMismatchOptimization, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
 
@@ -3343,19 +3340,11 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    private Session noReorderJoins(Session session)
-    {
-        return Session.builder(session)
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
-                .build();
-    }
-
     @Test
     public void testPartialMergePushdown()
     {
-        testPartialMergePushdown(noReorderJoins(getSession()));
-        testPartialMergePushdown(noReorderJoins(materializeExchangesSession));
+        testPartialMergePushdown(getSession());
+        testPartialMergePushdown(materializeExchangesSession);
     }
 
     public void testPartialMergePushdown(Session session)
@@ -5435,37 +5424,6 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(getQueryRunner().tableExists(session, "test_parquet_table"));
     }
 
-    @Test
-    public void testParquetSelectivePageSourceFails()
-    {
-        assertUpdate("CREATE TABLE test_parquet_filter_pushdoown (a BIGINT, b BOOLEAN) WITH (format = 'parquet')");
-        assertUpdate(getSession(), "INSERT INTO test_parquet_filter_pushdoown VALUES (1, true)", 1);
-
-        Session noPushdownSession = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "false")
-                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "false")
-                .build();
-        assertQuery(noPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown", "select 1");
-        assertQuery(noPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = true", "select 1");
-        assertQueryReturnsEmptyResult(noPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false");
-
-        Session filterPushdownSession = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
-                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "false")
-                .build();
-        assertQuery(filterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown", "select 1");
-        assertQuery(filterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = true", "select 1");
-        assertQueryReturnsEmptyResult(filterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false");
-
-        Session parquetFilterPushdownSession = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
-                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "true")
-                .build();
-        assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown", "Parquet reader doesn't support filter pushdown yet");
-        assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = true", "Parquet reader doesn't support filter pushdown yet");
-        assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false", "Parquet reader doesn't support filter pushdown yet");
-    }
-
     private void testPageFileCompression(String compression)
     {
         Session testSession = Session.builder(getQueryRunner().getDefaultSession())
@@ -5529,8 +5487,6 @@ public class TestHiveIntegrationSmokeTest
     {
         computeActual("CREATE TABLE test_customer_base WITH (partitioned_by = ARRAY['nationkey']) " +
                 "AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
-        computeActual("CREATE TABLE test_customer_base_copy WITH (partitioned_by = ARRAY['nationkey']) " +
-                "AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
         computeActual("CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) " +
                 "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
 
@@ -5556,7 +5512,7 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_customer_view_no_direct_partition_mapped WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
                         "AS SELECT name, CAST(nationkey AS BIGINT) AS nationkey FROM test_customer_base",
-                format(".*Materialized view %s.test_customer_view_no_direct_partition_mapped must have at least one partition column that exists in.*",
+                format(".*Materialized view %s.test_customer_view_no_direct_partition_mapped must have at least partition to base table partition mapping for all base tables.",
                         getSession().getSchema().get()));
 
         // Test nested
@@ -5571,7 +5527,7 @@ public class TestHiveIntegrationSmokeTest
                 "AS SELECT COUNT(DISTINCT name) AS num, nationkey FROM (SELECT name, nationkey FROM test_customer_base GROUP BY 1, 2) a GROUP BY nationkey");
         assertUpdate("CREATE MATERIALIZED VIEW test_customer_union_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
                 "AS SELECT name, nationkey FROM ( SELECT name, nationkey FROM test_customer_base WHERE nationkey = 1 UNION ALL " +
-                "SELECT name, nationkey FROM test_customer_base_copy WHERE nationkey = 2)");
+                "SELECT name, nationkey FROM test_customer_base WHERE nationkey = 2)");
         assertUpdate("CREATE MATERIALIZED VIEW test_customer_order_join_view WITH (partitioned_by = ARRAY['orderstatus', 'nationkey']" + retentionDays(30) + ") " +
                 "AS SELECT orders.totalprice, orders.orderstatus, customer.nationkey FROM test_customer_base customer JOIN " +
                 "test_orders_base orders ON orders.custkey = customer.custkey");
@@ -5579,12 +5535,14 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['custkey']" + retentionDays(30) + ") " +
                         "AS SELECT orders.totalprice, customer.nationkey, customer.custkey FROM test_customer_base customer JOIN " +
                         "test_orders_base orders ON orders.custkey = customer.custkey",
-                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least one partition column that exists in.*", getSession().getSchema().get()));
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least partition to base table partition " +
+                        "mapping for all base tables.", getSession().getSchema().get()));
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['nation_order']" + retentionDays(30) + ") " +
                         "AS SELECT orders.totalprice, CONCAT(CAST(customer.nationkey AS VARCHAR), orders.orderstatus) AS nation_order " +
                         "FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
-                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least one partition column that exists in.*", getSession().getSchema().get()));
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least partition to base table partition " +
+                        "mapping for all base tables.", getSession().getSchema().get()));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base");

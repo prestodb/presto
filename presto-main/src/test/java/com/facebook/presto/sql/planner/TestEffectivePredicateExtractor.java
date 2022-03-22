@@ -80,7 +80,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.EqualityInference.Builder.nonInferableConjuncts;
+import static com.facebook.presto.sql.planner.EqualityInference.Builder.nonInferrableConjuncts;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -102,13 +102,13 @@ public class TestEffectivePredicateExtractor
             TestingTransactionHandle.create(),
             Optional.of(TestingHandle.INSTANCE));
 
-    private static final VariableReferenceExpression AV = new VariableReferenceExpression(Optional.empty(), "a", BIGINT);
-    private static final VariableReferenceExpression BV = new VariableReferenceExpression(Optional.empty(), "b", BIGINT);
-    private static final VariableReferenceExpression CV = new VariableReferenceExpression(Optional.empty(), "c", BIGINT);
-    private static final VariableReferenceExpression DV = new VariableReferenceExpression(Optional.empty(), "d", BIGINT);
-    private static final VariableReferenceExpression EV = new VariableReferenceExpression(Optional.empty(), "e", BIGINT);
-    private static final VariableReferenceExpression FV = new VariableReferenceExpression(Optional.empty(), "f", BIGINT);
-    private static final VariableReferenceExpression GV = new VariableReferenceExpression(Optional.empty(), "g", BIGINT);
+    private static final VariableReferenceExpression AV = new VariableReferenceExpression("a", BIGINT);
+    private static final VariableReferenceExpression BV = new VariableReferenceExpression("b", BIGINT);
+    private static final VariableReferenceExpression CV = new VariableReferenceExpression("c", BIGINT);
+    private static final VariableReferenceExpression DV = new VariableReferenceExpression("d", BIGINT);
+    private static final VariableReferenceExpression EV = new VariableReferenceExpression("e", BIGINT);
+    private static final VariableReferenceExpression FV = new VariableReferenceExpression("f", BIGINT);
+    private static final VariableReferenceExpression GV = new VariableReferenceExpression("g", BIGINT);
 
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
@@ -136,7 +136,6 @@ public class TestEffectivePredicateExtractor
 
         Map<VariableReferenceExpression, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(AV, BV, CV, DV, EV, FV)));
         baseTableScan = new TableScanNode(
-                Optional.empty(),
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -148,9 +147,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testAggregation()
     {
-        PlanNode node = new AggregationNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(
                                 equals(AV, DV),
@@ -184,7 +181,6 @@ public class TestEffectivePredicateExtractor
     public void testGroupByEmpty()
     {
         PlanNode node = new AggregationNode(
-                Optional.empty(),
                 newId(),
                 filter(baseTableScan, FALSE_CONSTANT),
                 ImmutableMap.of(),
@@ -237,10 +233,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testTopN()
     {
-        PlanNode node = new TopNNode(
-
-                Optional.empty(),
-                newId(),
+        PlanNode node = new TopNNode(newId(),
                 filter(baseTableScan,
                         and(
                                 equals(AV, BV),
@@ -261,9 +254,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testLimit()
     {
-        PlanNode node = new LimitNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new LimitNode(newId(),
                 filter(baseTableScan,
                         and(
                                 equals(AV, BV),
@@ -285,9 +276,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testSort()
     {
-        PlanNode node = new SortNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new SortNode(newId(),
                 filter(baseTableScan,
                         and(
                                 equals(AV, BV),
@@ -309,9 +298,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testWindow()
     {
-        PlanNode node = new WindowNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new WindowNode(newId(),
                 filter(baseTableScan,
                         and(
                                 equals(AV, BV),
@@ -342,7 +329,6 @@ public class TestEffectivePredicateExtractor
         // Effective predicate is True if there is no effective predicate
         Map<VariableReferenceExpression, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(AV, BV, CV, DV)));
         PlanNode node = new TableScanNode(
-                Optional.empty(),
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -353,7 +339,6 @@ public class TestEffectivePredicateExtractor
         assertEquals(effectivePredicate, TRUE_CONSTANT);
 
         node = new TableScanNode(
-                Optional.empty(),
                 newId(),
                 DUAL_TABLE_HANDLE_WITH_LAYOUT,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -364,7 +349,6 @@ public class TestEffectivePredicateExtractor
         assertEquals(effectivePredicate, FALSE_CONSTANT);
 
         node = new TableScanNode(
-                Optional.empty(),
                 newId(),
                 DUAL_TABLE_HANDLE_WITH_LAYOUT,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -375,7 +359,6 @@ public class TestEffectivePredicateExtractor
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AV)));
 
         node = new TableScanNode(
-                Optional.empty(),
                 newId(),
                 DUAL_TABLE_HANDLE_WITH_LAYOUT,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -388,7 +371,6 @@ public class TestEffectivePredicateExtractor
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BV), equals(bigintLiteral(1L), AV)));
 
         node = new TableScanNode(
-                Optional.empty(),
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -402,9 +384,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testUnion()
     {
-        PlanNode node = new UnionNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new UnionNode(newId(),
                 ImmutableList.of(
                         filter(baseTableScan, greaterThan(AV, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100)))),
@@ -443,9 +423,7 @@ public class TestEffectivePredicateExtractor
                         equals(DV, EV),
                         lessThan(FV, bigintLiteral(100))));
 
-        PlanNode node = new JoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.INNER,
                 left,
                 right,
@@ -485,9 +463,7 @@ public class TestEffectivePredicateExtractor
         FilterNode left = filter(leftScan, equals(AV, bigintLiteral(10)));
 
         // predicates on "a" column should be propagated to output symbols via join equi conditions
-        PlanNode node = new JoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.INNER,
                 left,
                 rightScan,
@@ -517,9 +493,7 @@ public class TestEffectivePredicateExtractor
         Map<VariableReferenceExpression, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(DV, EV, FV)));
         TableScanNode rightScan = tableScanNode(rightAssignments);
 
-        PlanNode node = new JoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.INNER,
                 leftScan,
                 rightScan,
@@ -562,9 +536,7 @@ public class TestEffectivePredicateExtractor
                 and(
                         equals(DV, EV),
                         lessThan(FV, bigintLiteral(100))));
-        PlanNode node = new JoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.LEFT,
                 left,
                 right,
@@ -608,9 +580,7 @@ public class TestEffectivePredicateExtractor
                         lessThan(CV, bigintLiteral(10)),
                         equals(GV, bigintLiteral(10))));
         FilterNode right = filter(rightScan, FALSE_CONSTANT);
-        PlanNode node = new JoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.LEFT,
                 left,
                 right,
@@ -657,9 +627,7 @@ public class TestEffectivePredicateExtractor
                 and(
                         equals(DV, EV),
                         lessThan(FV, bigintLiteral(100))));
-        PlanNode node = new JoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.RIGHT,
                 left,
                 right,
@@ -702,9 +670,7 @@ public class TestEffectivePredicateExtractor
                 and(
                         equals(DV, EV),
                         lessThan(FV, bigintLiteral(100))));
-        PlanNode node = new JoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.RIGHT,
                 left,
                 right,
@@ -731,9 +697,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testSemiJoin()
     {
-        PlanNode node = new SemiJoinNode(
-                Optional.empty(),
-                newId(),
+        PlanNode node = new SemiJoinNode(newId(),
                 filter(baseTableScan, and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100)))),
                 filter(baseTableScan, greaterThan(AV, bigintLiteral(5))),
                 AV, BV, CV,
@@ -752,7 +716,6 @@ public class TestEffectivePredicateExtractor
     private static TableScanNode tableScanNode(Map<VariableReferenceExpression, ColumnHandle> scanAssignments)
     {
         return new TableScanNode(
-                Optional.empty(),
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(scanAssignments.keySet()),
@@ -768,7 +731,7 @@ public class TestEffectivePredicateExtractor
 
     private static FilterNode filter(PlanNode source, RowExpression predicate)
     {
-        return new FilterNode(Optional.empty(), newId(), source, predicate);
+        return new FilterNode(newId(), source, predicate);
     }
 
     private static RowExpression bigintLiteral(long number)
@@ -830,7 +793,7 @@ public class TestEffectivePredicateExtractor
         EqualityInference inference = EqualityInference.createEqualityInference(metadata, predicate);
 
         Set<RowExpression> rewrittenSet = new HashSet<>();
-        for (RowExpression expression : nonInferableConjuncts(metadata, predicate)) {
+        for (RowExpression expression : nonInferrableConjuncts(metadata, predicate)) {
             RowExpression rewritten = inference.rewriteExpression(expression, Predicates.alwaysTrue());
             Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
             rewrittenSet.add(rewritten);

@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -140,7 +140,7 @@ public class TestBlockRetainedSizeBreakdown
         AtomicLong objectSize = new AtomicLong();
         Object2LongOpenCustomHashMap<Object> trackedObjects = new Object2LongOpenCustomHashMap<>(new ObjectStrategy());
 
-        ObjLongConsumer<Object> consumer = (object, size) -> {
+        BiConsumer<Object, Long> consumer = (object, size) -> {
             objectSize.addAndGet(size);
             trackedObjects.addTo(object, 1);
         };

@@ -15,7 +15,6 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
@@ -40,7 +39,7 @@ public class IndexSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         throw new UnsupportedOperationException();
     }

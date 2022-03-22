@@ -57,9 +57,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -166,7 +164,6 @@ final class ShowQueriesRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
@@ -613,7 +610,7 @@ final class ShowQueriesRewrite
                 String propertyName = propertyEntry.getKey();
                 Object value = propertyEntry.getValue();
                 if (value == null) {
-                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
+                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifedName(objectName, columnName)));
                 }
 
                 PropertyMetadata<?> property = allProperties.get(propertyName);
@@ -621,7 +618,7 @@ final class ShowQueriesRewrite
                     throw new PrestoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",
                             propertyName,
-                            toQualifiedName(objectName, columnName),
+                            toQualifedName(objectName, columnName),
                             property.getJavaType().getName(),
                             value.getClass().getName()));
                 }
@@ -635,7 +632,7 @@ final class ShowQueriesRewrite
                     .collect(toImmutableList());
         }
 
-        private static String toQualifiedName(Object objectName, Optional<String> columnName)
+        private static String toQualifedName(Object objectName, Optional<String> columnName)
         {
             return columnName.map(s -> format("column %s of table %s", s, objectName))
                     .orElseGet(() -> "table " + objectName);

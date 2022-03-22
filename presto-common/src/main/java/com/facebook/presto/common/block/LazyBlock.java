@@ -17,8 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -127,13 +126,6 @@ public class LazyBlock
     }
 
     @Override
-    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
-    {
-        assureLoaded();
-        block.writeBytesTo(position, offset, length, sliceOutput);
-    }
-
-    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         assureLoaded();
@@ -194,13 +186,6 @@ public class LazyBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        assureLoaded();
-        return block.fixedSizeInBytesPerPosition();
-    }
-
-    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         assureLoaded();
@@ -208,10 +193,10 @@ public class LazyBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
+    public long getPositionsSizeInBytes(boolean[] positions)
     {
         assureLoaded();
-        return block.getPositionsSizeInBytes(positions, usedPositionCount);
+        return block.getPositionsSizeInBytes(positions);
     }
 
     @Override
@@ -229,11 +214,11 @@ public class LazyBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         assureLoaded();
         block.retainedBytesForEachPart(consumer);
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

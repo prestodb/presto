@@ -40,7 +40,6 @@ public class PrestoSparkConfig
     private boolean smileSerializationEnabled = true;
     private int splitAssignmentBatchSize = 1_000_000;
     private double memoryRevokingThreshold;
-    private double memoryRevokingTarget;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -208,21 +207,6 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMemoryRevokingThreshold(double memoryRevokingThreshold)
     {
         this.memoryRevokingThreshold = memoryRevokingThreshold;
-        return this;
-    }
-
-    @DecimalMin("0.0")
-    @DecimalMax("1.0")
-    public double getMemoryRevokingTarget()
-    {
-        return memoryRevokingTarget;
-    }
-
-    @Config("spark.memory-revoking-target")
-    @ConfigDescription("When revoking memory, try to revoke so much that memory pool is filled below target at the end")
-    public PrestoSparkConfig setMemoryRevokingTarget(double memoryRevokingTarget)
-    {
-        this.memoryRevokingTarget = memoryRevokingTarget;
         return this;
     }
 }

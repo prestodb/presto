@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.drift.annotations.ThriftConstructor;
-import com.facebook.drift.annotations.ThriftField;
-import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
@@ -33,7 +30,6 @@ import static java.util.Objects.requireNonNull;
  * This class is exposed to external systems via ResourceGroupStateInfoResource and QueryStateInfoResource.
  * Be careful while changing it.
  */
-@ThriftStruct
 public class ResourceGroupInfo
 {
     private final ResourceGroupId id;
@@ -56,7 +52,6 @@ public class ResourceGroupInfo
     private final List<ResourceGroupInfo> subGroups;
     private final List<QueryStateInfo> runningQueries;
 
-    @ThriftConstructor
     @JsonCreator
     public ResourceGroupInfo(
             @JsonProperty("id") ResourceGroupId id,
@@ -97,77 +92,66 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
-    @ThriftField(1)
     public ResourceGroupId getId()
     {
         return id;
     }
 
     @JsonProperty
-    @ThriftField(2)
     public ResourceGroupState getState()
     {
         return state;
     }
 
     @JsonProperty
-    @ThriftField(3)
     public SchedulingPolicy getSchedulingPolicy()
     {
         return schedulingPolicy;
     }
 
     @JsonProperty
-    @ThriftField(4)
     public int getSchedulingWeight()
     {
         return schedulingWeight;
     }
 
     @JsonProperty
-    @ThriftField(5)
     public DataSize getSoftMemoryLimit()
     {
         return softMemoryLimit;
     }
 
     @JsonProperty
-    @ThriftField(6)
     public DataSize getMemoryUsage()
     {
         return memoryUsage;
     }
 
     @JsonProperty
-    @ThriftField(7)
     public int getSoftConcurrencyLimit()
     {
         return softConcurrencyLimit;
     }
 
     @JsonProperty
-    @ThriftField(8)
     public int getHardConcurrencyLimit()
     {
         return hardConcurrencyLimit;
     }
 
     @JsonProperty
-    @ThriftField(9)
     public int getMaxQueuedQueries()
     {
         return maxQueuedQueries;
     }
 
     @JsonProperty
-    @ThriftField(10)
     public int getNumQueuedQueries()
     {
         return numQueuedQueries;
     }
 
     @JsonProperty
-    @ThriftField(11)
     public int getNumRunningQueries()
     {
         return numRunningQueries;
@@ -175,7 +159,6 @@ public class ResourceGroupInfo
 
     @JsonProperty
     @Deprecated
-    @ThriftField(12)
     public int numAggregatedQueuedQueries()
     {
         return numQueuedQueries;
@@ -183,7 +166,6 @@ public class ResourceGroupInfo
 
     @JsonProperty
     @Deprecated
-    @ThriftField(13)
     public int numAggregatedRunningQueries()
     {
         return numRunningQueries;
@@ -196,7 +178,6 @@ public class ResourceGroupInfo
      */
     @Deprecated
     @JsonProperty
-    @ThriftField(14)
     public int getNumEligibleSubGroups()
     {
         return numEligibleSubGroups;
@@ -204,7 +185,6 @@ public class ResourceGroupInfo
 
     @JsonProperty
     @Nullable
-    @ThriftField(15)
     public List<QueryStateInfo> getRunningQueries()
     {
         return runningQueries;
@@ -212,7 +192,6 @@ public class ResourceGroupInfo
 
     @JsonProperty
     @Nullable
-    @ThriftField(16)
     public List<ResourceGroupInfo> getSubGroups()
     {
         return subGroups;

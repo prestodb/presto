@@ -55,11 +55,11 @@ public class TestOrcLz4
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                OrcReaderOptions.builder()
-                        .withMaxMergeDistance(SIZE)
-                        .withTinyStripeThreshold(SIZE)
-                        .withMaxBlockSize(SIZE)
-                        .build(),
+                new OrcReaderOptions(
+                        SIZE,
+                        SIZE,
+                        SIZE,
+                        false),
                 false,
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,

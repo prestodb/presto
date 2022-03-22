@@ -399,7 +399,6 @@ public class EffectivePredicateExtractor
         private static CallExpression buildEqualsExpression(FunctionAndTypeManager functionAndTypeManager, RowExpression left, RowExpression right)
         {
             return call(
-                    left.getSourceLocation(),
                     EQUAL.getFunctionName().getObjectName(),
                     functionAndTypeManager.resolveOperator(EQUAL, fromTypes(left.getType(), right.getType())),
                     BOOLEAN,
@@ -414,7 +413,7 @@ public class EffectivePredicateExtractor
                     .build();
 
             ImmutableList.Builder<RowExpression> effectiveConjuncts = ImmutableList.builder();
-            for (RowExpression conjunct : new EqualityInference.Builder(functionManger).nonInferableConjuncts(expression)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionManger).nonInferrableConjuncts(expression)) {
                 if (determinismEvaluator.isDeterministic(conjunct)) {
                     RowExpression rewritten = equalityInference.rewriteExpression(conjunct, in(variables));
                     if (rewritten != null) {

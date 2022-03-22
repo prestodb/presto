@@ -19,10 +19,9 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 
-import java.util.Map;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -30,20 +29,19 @@ import static java.util.Objects.requireNonNull;
 public class ParameterRewriter
         extends ExpressionRewriter<Void>
 {
-    private final Map<NodeRef<Parameter>, Expression> parameters;
+    private final List<Expression> parameterValues;
     private final Analysis analysis;
 
-    public ParameterRewriter(Map<NodeRef<Parameter>, Expression> parameters)
+    public ParameterRewriter(List<Expression> parameterValues)
     {
-        requireNonNull(parameters, "parameterMap is null");
-        this.parameters = parameters;
-        this.analysis = null;
+        this(parameterValues, null);
     }
 
-    public ParameterRewriter(Analysis analysis)
+    public ParameterRewriter(List<Expression> parameterValues, Analysis analysis)
     {
+        requireNonNull(parameterValues, "parameterValues is null");
+        this.parameterValues = parameterValues;
         this.analysis = analysis;
-        this.parameters = analysis.getParameters();
     }
 
     @Override
@@ -55,8 +53,8 @@ public class ParameterRewriter
     @Override
     public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
-        checkState(parameters.size() > node.getPosition(), "Too few parameter values");
-        return coerceIfNecessary(node, parameters.get(NodeRef.of(node)));
+        checkState(parameterValues.size() > node.getPosition(), "Too few parameter values");
+        return coerceIfNecessary(node, parameterValues.get(node.getPosition()));
     }
 
     private Expression coerceIfNecessary(Expression original, Expression rewritten)

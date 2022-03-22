@@ -104,7 +104,7 @@ public class SwitchCodeGenerator
         Variable wasNull = generatorContext.wasNull();
         block.putVariable(wasNull, false);
 
-        Map<RowExpression, LabelNode> resultLabels = new HashMap<>();
+        Map<RowExpression, LabelNode> resultLabels = new HashMap<RowExpression, LabelNode>();
         // We already know the P1 .. Pn are all boolean just call them and search for true (false/null don't matter).
         for (RowExpression clause : whenClauses) {
             checkArgument(clause instanceof SpecialFormExpression && ((SpecialFormExpression) clause).getForm().equals(WHEN));

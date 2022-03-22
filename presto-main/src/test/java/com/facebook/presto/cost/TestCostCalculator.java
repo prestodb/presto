@@ -190,7 +190,7 @@ public class TestCostCalculator
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
-        PlanNode project = project("project", tableScan, new VariableReferenceExpression(Optional.empty(), "string", VARCHAR), new Cast(new SymbolReference("orderkey"), "VARCHAR"));
+        PlanNode project = project("project", tableScan, new VariableReferenceExpression("string", VARCHAR), new Cast(new SymbolReference("orderkey"), "VARCHAR"));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
@@ -437,19 +437,19 @@ public class TestCostCalculator
                 new PlanNodeId("re1"),
                 REMOTE_STREAMING,
                 p1,
-                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey_1", BIGINT)),
+                ImmutableList.of(new VariableReferenceExpression("orderkey_1", BIGINT)),
                 Optional.empty());
         ExchangeNode remoteExchange2 = systemPartitionedExchange(
                 new PlanNodeId("re2"),
                 REMOTE_STREAMING,
                 ts2,
-                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey_0", BIGINT)),
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
                 Optional.empty());
         ExchangeNode localExchange = systemPartitionedExchange(
                 new PlanNodeId("le"),
                 LOCAL,
                 remoteExchange2,
-                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey_0", BIGINT)),
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
                 Optional.empty());
 
         JoinNode join = join("join",
@@ -479,14 +479,14 @@ public class TestCostCalculator
     @Test
     public void testReplicatedJoinWithExchange()
     {
-        TableScanNode ts1 = tableScan("ts1", ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey", BIGINT)));
-        TableScanNode ts2 = tableScan("ts2", ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey_0", BIGINT)));
+        TableScanNode ts1 = tableScan("ts1", ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)));
+        TableScanNode ts2 = tableScan("ts2", ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)));
         ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2);
         ExchangeNode localExchange = systemPartitionedExchange(
                 new PlanNodeId("le"),
                 LOCAL,
                 remoteExchange2,
-                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey_0", BIGINT)),
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
                 Optional.empty());
 
         JoinNode join = join("join",
@@ -516,13 +516,12 @@ public class TestCostCalculator
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
         UnionNode union = new UnionNode(
-                Optional.empty(),
                 new PlanNodeId("union"),
                 ImmutableList.of(ts1, ts2),
-                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey_1", BIGINT)),
+                ImmutableList.of(new VariableReferenceExpression("orderkey_1", BIGINT)),
                 ImmutableMap.of(
-                        new VariableReferenceExpression(Optional.empty(), "orderkey_1", BIGINT),
-                        ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "orderkey", BIGINT), new VariableReferenceExpression(Optional.empty(), "orderkey_0", BIGINT))));
+                        new VariableReferenceExpression("orderkey_1", BIGINT),
+                        ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT), new VariableReferenceExpression("orderkey_0", BIGINT))));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts1", statsEstimate(ts1, 4000),
                 "ts2", statsEstimate(ts2, 1000),
@@ -768,7 +767,7 @@ public class TestCostCalculator
     private TableScanNode tableScan(String id, String... symbols)
     {
         List<VariableReferenceExpression> variables = Arrays.stream(symbols)
-                .map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol, BIGINT))
+                .map(symbol -> new VariableReferenceExpression(symbol, BIGINT))
                 .collect(toImmutableList());
         return tableScan(id, variables);
     }
@@ -783,7 +782,6 @@ public class TestCostCalculator
 
         TpchTableHandle tableHandle = new TpchTableHandle("orders", 1.0);
         return new TableScanNode(
-                Optional.empty(),
                 new PlanNodeId(id),
                 new TableHandle(
                         new ConnectorId("tpch"),
@@ -809,10 +807,9 @@ public class TestCostCalculator
         AggregationNode.Aggregation aggregation = count(metadata.getFunctionAndTypeManager());
 
         return new AggregationNode(
-                Optional.empty(),
                 new PlanNodeId(id),
                 source,
-                ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "count", BIGINT), aggregation),
+                ImmutableMap.of(new VariableReferenceExpression("count", BIGINT), aggregation),
                 singleGroupingSet(source.getOutputVariables()),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
@@ -830,11 +827,10 @@ public class TestCostCalculator
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new VariableReferenceExpression(Optional.empty(), symbols[i], BIGINT), new VariableReferenceExpression(Optional.empty(), symbols[i + 1], BIGINT)));
+            criteria.add(new JoinNode.EquiJoinClause(new VariableReferenceExpression(symbols[i], BIGINT), new VariableReferenceExpression(symbols[i + 1], BIGINT)));
         }
 
         return new JoinNode(
-                Optional.empty(),
                 new PlanNodeId(planNodeId),
                 JoinNode.Type.INNER,
                 left,

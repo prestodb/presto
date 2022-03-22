@@ -16,13 +16,13 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
-import com.facebook.presto.spi.function.SqlFunctionVisibility;
 
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.StatisticalDigestFactory.createStatisticalTDigest;
 import static com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory.createTDigestFactory;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Failures.checkCondition;
 
@@ -40,7 +40,7 @@ public class TDigestAggregationFunction
 
     private TDigestAggregationFunction(TypeSignature... typeSignatures)
     {
-        super(NAME, TDIGEST, createTDigestFactory(), SqlFunctionVisibility.PUBLIC, typeSignatures);
+        super(NAME, TDIGEST, createTDigestFactory(), EXPERIMENTAL, typeSignatures);
     }
 
     @Override

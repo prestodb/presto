@@ -22,19 +22,15 @@ public final class PipelineStatus
     private final int runningDrivers;
     private final int blockedDrivers;
     private final int queuedPartitionedDrivers;
-    private final long queuedPartitionedSplitsWeight;
     private final int runningPartitionedDrivers;
-    private final long runningPartitionedSplitsWeight;
 
-    public PipelineStatus(int queuedDrivers, int runningDrivers, int blockedDrivers, int queuedPartitionedDrivers, long queuedPartitionedSplitsWeight, int runningPartitionedDrivers, long runningPartitionedSplitsWeight)
+    public PipelineStatus(int queuedDrivers, int runningDrivers, int blockedDrivers, int queuedPartitionedDrivers, int runningPartitionedDrivers)
     {
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.blockedDrivers = blockedDrivers;
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
-        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
         this.runningPartitionedDrivers = runningPartitionedDrivers;
-        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
     }
 
     public int getQueuedDrivers()
@@ -57,18 +53,8 @@ public final class PipelineStatus
         return queuedPartitionedDrivers;
     }
 
-    public long getQueuedPartitionedSplitsWeight()
-    {
-        return queuedPartitionedSplitsWeight;
-    }
-
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
-    }
-
-    public long getRunningPartitionedSplitsWeight()
-    {
-        return runningPartitionedSplitsWeight;
     }
 }

@@ -347,7 +347,7 @@ public class BasicQueryStats
 
     @ThriftField(value = 19, name = "peakNodeTotalMemoryReservation")
     @JsonProperty
-    public DataSize getPeakNodeTotalMemoryReservation()
+    public DataSize getPeakNodeTotalMemorReservation()
     {
         return peakNodeTotalMemoryReservation;
     }

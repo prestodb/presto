@@ -69,7 +69,7 @@ was queued and analyzed.
 ^^^^^^^^^^^^^^^^^
 
 The tasks table contains information about the tasks involved in a
-Presto query including where they were executed and how many rows
+Presto query including where they were executed and and how many rows
 and bytes each task processed.
 
 ``runtime.transactions``

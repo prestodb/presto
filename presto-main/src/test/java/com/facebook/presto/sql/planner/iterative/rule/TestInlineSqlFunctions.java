@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
-import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -48,7 +47,6 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -132,7 +130,7 @@ public class TestInlineSqlFunctions
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                new NoopSqlFunctionExecutor()),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(SQL_FUNCTION_SQUARE, true);
         functionAndTypeManager.createFunction(THRIFT_FUNCTION_FOO, true);
@@ -223,14 +221,14 @@ public class TestInlineSqlFunctions
                 tester.getSqlParser(),
                 viewOf(variableTypes),
                 inputSqlExpression,
-                ImmutableMap.of(),
+                ImmutableList.of(),
                 WarningCollector.NOOP);
         Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(
                 inputSqlExpression,
                 session,
                 metadata,
                 new PlanVariableAllocator(variableTypes.entrySet().stream()
-                        .map(entry -> new VariableReferenceExpression(Optional.empty(), entry.getKey(), entry.getValue()))
+                        .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
                         .collect(toImmutableList())),
                 expressionTypes);
         inlinedExpression = ExpressionUtils.rewriteIdentifiersToSymbolReferences(inlinedExpression);

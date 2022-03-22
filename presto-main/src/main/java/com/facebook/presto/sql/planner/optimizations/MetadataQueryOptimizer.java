@@ -116,7 +116,6 @@ public class MetadataQueryOptimizer
         private final Metadata metadata;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final boolean ignoreMetadataStats;
-        private final int metastoreCallNumThreshold;
 
         private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
@@ -125,7 +124,6 @@ public class MetadataQueryOptimizer
             this.idAllocator = idAllocator;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.ignoreMetadataStats = SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session);
-            this.metastoreCallNumThreshold = SystemSessionProperties.getOptimizeMetadataQueriesCallThreshold(session);
         }
 
         @Override
@@ -199,13 +197,6 @@ public class MetadataQueryOptimizer
                 // Fold min/max aggregations to a constant value
                 return reduce(node, inputs, columns, context, discretePredicates, tableScan.getTable());
             }
-            /*
-            In some cases, when predicates numbers are high, all the calls to metastore will be expensive.
-            This logic will give us the option to configure the threshold to fall back to defaultRewrite
-            */
-            if (!ignoreMetadataStats && Iterables.size(discretePredicates.getPredicates()) > metastoreCallNumThreshold) {
-                return context.defaultRewrite(node);
-            }
 
             // Partition Stats stored in metastore may be incomplete or missing, if stats collection timeout. So even if the metastore has a stats indicating that the partition is
             // empty, it may not be empty on disk. We need to disable this rewrite for this case as it could change the behavior.
@@ -243,7 +234,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
-            return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), inputs, rowsBuilder.build())), node);
+            return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build())), node);
         }
 
         private boolean isReducible(AggregationNode node, List<VariableReferenceExpression> inputs)
@@ -323,8 +314,8 @@ public class MetadataQueryOptimizer
                 }
             }
             Assignments assignments = assignmentsBuilder.build();
-            ValuesNode valuesNode = new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())));
-            return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), valuesNode, assignments, LOCAL);
+            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())));
+            return new ProjectNode(idAllocator.getNextId(), valuesNode, assignments, LOCAL);
         }
 
         /**

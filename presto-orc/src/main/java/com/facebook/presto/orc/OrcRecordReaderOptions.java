@@ -24,11 +24,10 @@ public class OrcRecordReaderOptions
     private final DataSize maxBlockSize;
     private final boolean mapNullKeysEnabled;
     private final boolean enableTimestampMicroPrecision;
-    private final boolean appendRowNumber;
 
     public OrcRecordReaderOptions(OrcReaderOptions options)
     {
-        this(options.getMaxMergeDistance(), options.getTinyStripeThreshold(), options.getMaxBlockSize(), options.mapNullKeysEnabled(), options.enableTimestampMicroPrecision(), options.appendRowNumber());
+        this(options.getMaxMergeDistance(), options.getTinyStripeThreshold(), options.getMaxBlockSize(), options.mapNullKeysEnabled(), options.enableTimestampMicroPrecision());
     }
 
     public OrcRecordReaderOptions(
@@ -36,15 +35,13 @@ public class OrcRecordReaderOptions
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             boolean mapNullKeysEnabled,
-            boolean enableTimestampMicroPrecision,
-            boolean appendRowNumber)
+            boolean enableTimestampMicroPrecision)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
         this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
         this.mapNullKeysEnabled = mapNullKeysEnabled;
         this.enableTimestampMicroPrecision = enableTimestampMicroPrecision;
-        this.appendRowNumber = appendRowNumber;
     }
 
     public DataSize getMaxMergeDistance()
@@ -70,10 +67,5 @@ public class OrcRecordReaderOptions
     public boolean enableTimestampMicroPrecision()
     {
         return enableTimestampMicroPrecision;
-    }
-
-    public boolean appendRowNumber()
-    {
-        return appendRowNumber;
     }
 }

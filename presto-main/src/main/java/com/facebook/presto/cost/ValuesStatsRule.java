@@ -22,7 +22,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
@@ -87,7 +87,7 @@ public class ValuesStatsRule
                 .map(row -> row.get(symbolId))
                 .map(rowExpression -> {
                     if (isExpression(rowExpression)) {
-                        return evaluateConstantExpression(castToExpression(rowExpression), type, metadata, session, ImmutableMap.of());
+                        return evaluateConstantExpression(castToExpression(rowExpression), type, metadata, session, ImmutableList.of());
                     }
                     return evaluateConstantRowExpression(rowExpression, metadata, session.toConnectorSession());
                 })

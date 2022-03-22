@@ -28,7 +28,6 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -36,6 +35,7 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -69,7 +69,6 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private final String catalogName;
     private final SqlFunctionExecutors sqlFunctionExecutors;
     private final LoadingCache<QualifiedObjectName, Collection<SqlInvokedFunction>> functions;
-    // TODO: Cache user defined types at query level as well.
     private final LoadingCache<QualifiedObjectName, UserDefinedType> userDefinedTypes;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
@@ -295,9 +294,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
             case SQL:
                 return new SqlInvokedScalarFunctionImplementation(function.getBody());
             case THRIFT:
-            case GRPC:
                 checkArgument(function.getFunctionHandle().isPresent(), "Need functionHandle to get function implementation");
-                return new RemoteScalarFunctionImplementation(function.getFunctionHandle().get(), function.getRoutineCharacteristics().getLanguage(), implementationType);
+                return new ThriftScalarFunctionImplementation(function.getFunctionHandle().get(), function.getRoutineCharacteristics().getLanguage());
             case JAVA:
                 throw new IllegalStateException(
                         format("SqlInvokedFunction %s has BUILTIN implementation type but %s cannot manage BUILTIN functions", function.getSignature().getName(), this.getClass()));

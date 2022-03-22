@@ -90,19 +90,19 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         public static void input(@AggregationState NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
         public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
         public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -142,19 +142,19 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         public static void input(@SqlType(DOUBLE) double value, @AggregationState NullableDoubleState state)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
         public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
         public static void output(BlockBuilder out, @AggregationState NullableDoubleState state)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -183,19 +183,19 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         public static void input(NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
         public static void combine(NullableDoubleState combine1, NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
         public static void output(NullableDoubleState state, BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -228,7 +228,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -236,13 +236,13 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
         public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -275,7 +275,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -283,7 +283,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
@@ -291,7 +291,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -331,7 +331,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("T") double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @InputFunction
@@ -340,7 +340,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @SqlType("T") long value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -348,7 +348,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @AggregationState NullableLongState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -356,7 +356,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("T")
@@ -364,7 +364,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("T")
@@ -372,7 +372,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -431,7 +431,7 @@ public class TestAnnotationEngineForAggregates
                 @BlockPosition @SqlType(DOUBLE) Block value,
                 @BlockIndex int id)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -439,7 +439,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
@@ -447,7 +447,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -490,7 +490,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("array(T)") Block arrayBlock, @SqlType("T") double additionalValue)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @InputFunction
@@ -499,7 +499,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @SqlType("array(T)") Block arrayBlock, @SqlType("T") long additionalValue)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -507,7 +507,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @AggregationState NullableLongState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -515,7 +515,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("T")
@@ -523,7 +523,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("T")
@@ -531,7 +531,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -582,7 +582,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("array(T)") Block arrayBlock)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @InputFunction
@@ -591,7 +591,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @SqlType("array(T)") Block arrayBlock)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -599,7 +599,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @AggregationState NullableLongState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -607,7 +607,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("T")
@@ -615,7 +615,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("T")
@@ -623,7 +623,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -671,7 +671,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -679,7 +679,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @AggregationFunction("multi_output_aggregate_1")
@@ -689,7 +689,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @AggregationFunction("multi_output_aggregate_2")
@@ -698,7 +698,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -759,7 +759,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -768,7 +768,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction(DOUBLE)
@@ -777,7 +777,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -837,7 +837,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("T") double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -846,7 +846,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("T")
@@ -855,7 +855,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -919,7 +919,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState state,
                 @SqlType("varchar(x)") Slice slice)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -928,7 +928,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState combine1,
                 @AggregationState SliceState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("varchar(x)")
@@ -937,7 +937,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @AggregationStateSerializerFactory(SliceState.class)
@@ -999,7 +999,7 @@ public class TestAnnotationEngineForAggregates
                 @SqlType("varchar(x)") Slice slice1,
                 @SqlType("varchar(y)") Slice slice2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -1007,7 +1007,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState combine1,
                 @AggregationState SliceState combine2)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("varchar(z)")
@@ -1015,7 +1015,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -1072,7 +1072,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("double") double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -1081,7 +1081,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("double")
@@ -1090,7 +1090,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 
@@ -1134,7 +1134,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("double") double value)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @CombineFunction
@@ -1145,7 +1145,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("double")
@@ -1156,7 +1156,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing purposes
+            // noop this is only for annotation testing puproses
         }
     }
 

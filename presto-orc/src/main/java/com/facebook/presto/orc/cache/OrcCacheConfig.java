@@ -36,10 +36,6 @@ public class OrcCacheConfig
     private DataSize stripeStreamCacheSize = new DataSize(0, BYTE);
     private Duration stripeStreamCacheTtlSinceLastAccess = new Duration(0, SECONDS);
 
-    private boolean rowGroupIndexCacheEnabled;
-    private DataSize rowGroupIndexCacheSize = new DataSize(0, BYTE);
-    private Duration rowGroupIndexCacheTtlSinceLastAccess = new Duration(0, SECONDS);
-
     private boolean dwrfStripeCacheEnabled;
     private DataSize expectedFileTailSize = new DataSize(EXPECTED_FOOTER_SIZE_IN_BYTES, BYTE);
 
@@ -150,46 +146,6 @@ public class OrcCacheConfig
     public OrcCacheConfig setStripeStreamCacheTtlSinceLastAccess(Duration stripeStreamCacheTtlSinceLastAccess)
     {
         this.stripeStreamCacheTtlSinceLastAccess = stripeStreamCacheTtlSinceLastAccess;
-        return this;
-    }
-
-    public boolean isRowGroupIndexCacheEnabled()
-    {
-        return rowGroupIndexCacheEnabled;
-    }
-
-    @Config("orc.row-group-index-cache-enabled")
-    public OrcCacheConfig setRowGroupIndexCacheEnabled(boolean rowGroupIndexCacheEnabled)
-    {
-        this.rowGroupIndexCacheEnabled = rowGroupIndexCacheEnabled;
-        return this;
-    }
-
-    @MinDataSize("0B")
-    public DataSize getRowGroupIndexCacheSize()
-    {
-        return rowGroupIndexCacheSize;
-    }
-
-    @Config("orc.row-group-index-cache-size")
-    @ConfigDescription("Size of the stripe row group index stream cache")
-    public OrcCacheConfig setRowGroupIndexCacheSize(DataSize rowGroupIndexCacheSize)
-    {
-        this.rowGroupIndexCacheSize = rowGroupIndexCacheSize;
-        return this;
-    }
-
-    @MinDuration("0s")
-    public Duration getRowGroupIndexCacheTtlSinceLastAccess()
-    {
-        return rowGroupIndexCacheTtlSinceLastAccess;
-    }
-
-    @Config("orc.row-group-index-cache-ttl-since-last-access")
-    @ConfigDescription("Time-to-live for stripe stream row group index cache entry after last access")
-    public OrcCacheConfig setRowGroupIndexCacheTtlSinceLastAccess(Duration rowGroupIndexCacheTtlSinceLastAccess)
-    {
-        this.rowGroupIndexCacheTtlSinceLastAccess = rowGroupIndexCacheTtlSinceLastAccess;
         return this;
     }
 

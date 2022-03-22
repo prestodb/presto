@@ -24,8 +24,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractAll;
@@ -38,9 +36,9 @@ public class TestVariableExtractor
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.fromVariables(ImmutableList.of(
-            new VariableReferenceExpression(Optional.empty(), "a", BIGINT),
-            new VariableReferenceExpression(Optional.empty(), "b", BIGINT),
-            new VariableReferenceExpression(Optional.empty(), "c", BIGINT)));
+            new VariableReferenceExpression("a", BIGINT),
+            new VariableReferenceExpression("b", BIGINT),
+            new VariableReferenceExpression("c", BIGINT)));
 
     @Test
     public void testSimple()

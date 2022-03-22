@@ -69,7 +69,7 @@ public class DriverFactory
                 .map(SourceOperatorFactory.class::cast)
                 .map(SourceOperatorFactory::getSourceId)
                 .collect(toImmutableList());
-        checkArgument(sourceIds.size() <= 1, "Expected at most one source operator in driver factory, but found %s", sourceIds);
+        checkArgument(sourceIds.size() <= 1, "Expected at most one source operator in driver facotry, but found %s", sourceIds);
         this.sourceId = sourceIds.isEmpty() ? Optional.empty() : Optional.of(sourceIds.get(0));
     }
 
@@ -122,7 +122,7 @@ public class DriverFactory
     {
         checkState(!closed, "DriverFactory is already closed");
         requireNonNull(driverContext, "driverContext is null");
-        checkState(!closedLifespans.contains(driverContext.getLifespan()), "DriverFactory is already closed for driver group %s", driverContext.getLifespan());
+        checkState(!closedLifespans.contains(driverContext.getLifespan()), "DriverFatory is already closed for driver group %s", driverContext.getLifespan());
         encounteredLifespans.add(driverContext.getLifespan());
         ImmutableList.Builder<Operator> operators = ImmutableList.builder();
         for (OperatorFactory operatorFactory : operatorFactories) {

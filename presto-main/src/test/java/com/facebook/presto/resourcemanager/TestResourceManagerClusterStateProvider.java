@@ -483,7 +483,7 @@ public class TestResourceManagerClusterStateProvider
                 "environment",
                 false,
                 new Duration(1, SECONDS),
-                "http://externalAddress",
+                "http://exernalAddress",
                 "http://internalAddress",
                 new MemoryInfo(new DataSize(1, MEGABYTE), ImmutableMap.of(memoryPoolId, memoryPoolInfo)),
                 1,
@@ -642,7 +642,6 @@ public class TestResourceManagerClusterStateProvider
                         OptionalDouble.of(20)),
                 null,
                 Optional.empty(),
-                ImmutableList.of(),
-                Optional.empty());
+                ImmutableList.of());
     }
 }

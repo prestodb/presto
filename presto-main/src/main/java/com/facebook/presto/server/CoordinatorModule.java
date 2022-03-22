@@ -31,11 +31,34 @@ import com.facebook.presto.dispatcher.FailedDispatchQueryFactory;
 import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
+import com.facebook.presto.execution.AddColumnTask;
+import com.facebook.presto.execution.AlterFunctionTask;
+import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.ClusterSizeMonitor;
+import com.facebook.presto.execution.CommitTask;
+import com.facebook.presto.execution.CreateFunctionTask;
+import com.facebook.presto.execution.CreateMaterializedViewTask;
+import com.facebook.presto.execution.CreateRoleTask;
+import com.facebook.presto.execution.CreateSchemaTask;
+import com.facebook.presto.execution.CreateTableTask;
+import com.facebook.presto.execution.CreateTypeTask;
+import com.facebook.presto.execution.CreateViewTask;
+import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.DeallocateTask;
+import com.facebook.presto.execution.DropColumnTask;
+import com.facebook.presto.execution.DropFunctionTask;
+import com.facebook.presto.execution.DropMaterializedViewTask;
+import com.facebook.presto.execution.DropRoleTask;
+import com.facebook.presto.execution.DropSchemaTask;
+import com.facebook.presto.execution.DropTableTask;
+import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.ForQueryExecution;
+import com.facebook.presto.execution.GrantRolesTask;
+import com.facebook.presto.execution.GrantTask;
 import com.facebook.presto.execution.NodeResourceStatusConfig;
 import com.facebook.presto.execution.PartialResultQueryManager;
+import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -44,13 +67,23 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.RenameColumnTask;
+import com.facebook.presto.execution.RenameSchemaTask;
+import com.facebook.presto.execution.RenameTableTask;
+import com.facebook.presto.execution.ResetSessionTask;
+import com.facebook.presto.execution.RevokeRolesTask;
+import com.facebook.presto.execution.RevokeTask;
+import com.facebook.presto.execution.RollbackTask;
+import com.facebook.presto.execution.SetRoleTask;
+import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
+import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.UseTask;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.execution.scheduler.AdaptivePhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
@@ -82,12 +115,44 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AlterFunction;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.CreateRole;
+import com.facebook.presto.sql.tree.CreateSchema;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateType;
+import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Deallocate;
+import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
+import com.facebook.presto.sql.tree.DropRole;
+import com.facebook.presto.sql.tree.DropSchema;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GrantRoles;
+import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.RevokeRoles;
+import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.SetRole;
+import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
-import com.facebook.presto.util.PrestoDataDefBindingHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -101,8 +166,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -115,12 +178,11 @@ import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static com.facebook.presto.execution.DDLDefinitionExecution.DDLDefinitionExecutionFactory;
+import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
-import static com.facebook.presto.execution.SessionDefinitionExecution.SessionDefinitionExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
-import static com.facebook.presto.util.StatementUtils.isSessionTransactionControlStatement;
+import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -194,7 +256,6 @@ public class CoordinatorModule
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(DispatchExecutor.class).withGeneratedName();
 
         // local dispatcher
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
@@ -262,38 +323,55 @@ public class CoordinatorModule
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecution.QueryExecutionFactory<?>>() {});
+                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
-
-        Set<Map.Entry<Class<? extends Statement>, QueryType>> queryTypes = getAllQueryTypes().entrySet();
-
-        // bind sql query statements to SqlQueryExecutionFactory
-        queryTypes.stream().filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
+        getAllQueryTypes().entrySet().stream()
+                .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
                 .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(PartialResultQueryManager.class).in(Scopes.SINGLETON);
 
-        // bind data definition statements to DataDefinitionExecutionFactory
-        queryTypes.stream().filter(entry -> entry.getValue() == QueryType.DATA_DEFINITION && !isSessionTransactionControlStatement(entry.getKey()))
-                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
-        binder.bind(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
-
-        // bind session Control statements to SessionTransactionExecutionFactory
-        queryTypes.stream().filter(entry -> (entry.getValue() == QueryType.DATA_DEFINITION && isSessionTransactionControlStatement(entry.getKey())))
-                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
-        binder.bind(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
-
-        // helper class binding data definition tasks and statements
-        PrestoDataDefBindingHelper.bindDDLDefinitionTasks(binder);
-        PrestoDataDefBindingHelper.bindTransactionControlDefinitionTasks(binder);
+        binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+        bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
+        bindDataDefinitionTask(binder, executionBinder, RenameSchema.class, RenameSchemaTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateType.class, CreateTypeTask.class);
+        bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
+        bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);
+        bindDataDefinitionTask(binder, executionBinder, RenameColumn.class, RenameColumnTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropColumn.class, DropColumnTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateMaterializedView.class, CreateMaterializedViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropMaterializedView.class, DropMaterializedViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateFunction.class, CreateFunctionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, AlterFunction.class, AlterFunctionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropFunction.class, DropFunctionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
+        bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Commit.class, CommitTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Rollback.class, RollbackTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Call.class, CallTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateRole.class, CreateRoleTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropRole.class, DropRoleTask.class);
+        bindDataDefinitionTask(binder, executionBinder, GrantRoles.class, GrantRolesTask.class);
+        bindDataDefinitionTask(binder, executionBinder, RevokeRoles.class, RevokeRolesTask.class);
+        bindDataDefinitionTask(binder, executionBinder, SetRole.class, SetRoleTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Prepare.class, PrepareTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Deallocate.class, DeallocateTask.class);
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
         executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
-        executionPolicyBinder.addBinding("adaptive").to(AdaptivePhasedExecutionPolicy.class);
 
         configBinder(binder).bindConfig(NodeResourceStatusConfig.class);
         binder.bind(NodeResourceStatusProvider.class).to(NodeResourceStatus.class).in(Scopes.SINGLETON);
@@ -374,6 +452,20 @@ public class CoordinatorModule
             @ForTransactionManager ExecutorService finishingExecutor)
     {
         return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+    }
+
+    private static <T extends Statement> void bindDataDefinitionTask(
+            Binder binder,
+            MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder,
+            Class<T> statement,
+            Class<? extends DataDefinitionTask<T>> task)
+    {
+        verify(getAllQueryTypes().get(statement) == QueryType.DATA_DEFINITION);
+        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(binder,
+                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
+
+        taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
+        executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
     }
 
     private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)

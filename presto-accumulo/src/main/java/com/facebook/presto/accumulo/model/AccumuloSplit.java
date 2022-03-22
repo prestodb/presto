@@ -16,7 +16,6 @@ package com.facebook.presto.accumulo.model;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -169,7 +168,7 @@ public class AccumuloSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

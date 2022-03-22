@@ -120,7 +120,7 @@ public class KeyBasedSampler
             if (!Varchars.isVarcharType(type)) {
                 arg = call(
                         "CAST",
-                        functionAndTypeManager.lookupCast(CAST, rowExpression.getType(), VARCHAR),
+                        functionAndTypeManager.lookupCast(CAST, rowExpression.getType().getTypeSignature(), VARCHAR.getTypeSignature()),
                         VARCHAR,
                         rowExpression);
             }
@@ -145,10 +145,9 @@ public class KeyBasedSampler
                     functionAndTypeManager.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                     BOOLEAN,
                     sampledArg,
-                    new ConstantExpression(arg.getSourceLocation(), getKeyBasedSamplingPercentage(session), DOUBLE));
+                    new ConstantExpression(getKeyBasedSamplingPercentage(session), DOUBLE));
 
             FilterNode filterNode = new FilterNode(
-                    tableScanNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     tableScanNode,
                     predicate);
@@ -204,7 +203,7 @@ public class KeyBasedSampler
             PlanNode rewrittenLeft = rewriteWith(this, left);
             PlanNode rewrittenRight = rewriteWith(this, right);
 
-            // If at least one of them is unchanged means it had no join. So one side has a table scan.
+            // If at leasst one of them is unchanged means it had no join. So one side has a table scan.
             // So we apply filter on both sides.
             if (left == rewrittenLeft || right == rewrittenRight) {
                 // Sample both sides if at least one side is not already sampled

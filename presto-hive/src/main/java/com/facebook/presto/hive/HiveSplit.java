@@ -17,8 +17,7 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
-import com.facebook.presto.spi.SplitWeight;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,6 +33,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,7 +65,6 @@ public class HiveSplit
     private final Optional<EncryptionInformation> encryptionInformation;
     private final Map<String, String> customSplitInfo;
     private final Set<ColumnHandle> redundantColumnDomains;
-    private final SplitWeight splitWeight;
 
     @JsonCreator
     public HiveSplit(
@@ -91,8 +90,7 @@ public class HiveSplit
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
             @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
             @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo,
-            @JsonProperty("redundantColumnDomains") Set<ColumnHandle> redundantColumnDomains,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+            @JsonProperty("redundantColumnDomains") Set<ColumnHandle> redundantColumnDomains)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -138,7 +136,6 @@ public class HiveSplit
         this.encryptionInformation = encryptionInformation;
         this.customSplitInfo = ImmutableMap.copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
         this.redundantColumnDomains = ImmutableSet.copyOf(redundantColumnDomains);
-        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @JsonProperty
@@ -208,10 +205,20 @@ public class HiveSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
+        if (sortedCandidates == null || sortedCandidates.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for HiveSplit");
+        }
+
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            return nodeProvider.get(path, 2);
+            // Use + 1 as secondary hash for now, would always get a different position from the first hash.
+            int size = sortedCandidates.size();
+            int mod = path.hashCode() % size;
+            int position = mod < 0 ? mod + size : mod;
+            return ImmutableList.of(
+                    sortedCandidates.get(position),
+                    sortedCandidates.get((position + 1) % size));
         }
         return addresses;
     }
@@ -287,13 +294,6 @@ public class HiveSplit
     public Set<ColumnHandle> getRedundantColumnDomains()
     {
         return redundantColumnDomains;
-    }
-
-    @JsonProperty
-    @Override
-    public SplitWeight getSplitWeight()
-    {
-        return splitWeight;
     }
 
     @Override

@@ -15,7 +15,6 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.thrift.api.connector.PrestoThriftId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -51,7 +50,7 @@ public class ThriftConnectorSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

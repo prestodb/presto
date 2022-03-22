@@ -66,7 +66,7 @@ public class HashUtil
      * uses HashCommon.arraySize() which does this calculation. this is just a wrapper to name the use of this case
      *
      * @param expectedSize - expected number of elements to store in the hash
-     * @param fillRatio - expected fill ratio of buckets by elements
+     * @param fillRatio - expected fill ratio of buckets by elemements
      * @return nextPowerOfTwo(expectedSize / fillRatio)
      */
     public static int computeBucketCount(int expectedSize, float fillRatio)

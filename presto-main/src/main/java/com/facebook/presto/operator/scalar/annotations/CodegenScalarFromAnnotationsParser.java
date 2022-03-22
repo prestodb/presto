@@ -95,7 +95,7 @@ public class CodegenScalarFromAnnotationsParser
     {
         return Arrays.stream(method.getParameters())
                 .map(p -> {
-                    checkCondition(p.getType() == Type.class, FUNCTION_IMPLEMENTATION_ERROR, "Codegen scalar function %s must have parameter [%s] of type Type", method, p.getName());
+                    checkCondition(p.getType() == Type.class, FUNCTION_IMPLEMENTATION_ERROR, "Codegen scalar function %s must have paramter [%s] of type Type", method, p.getName());
                     checkCondition(p.getAnnotationsByType(BlockPosition.class).length == 0, FUNCTION_IMPLEMENTATION_ERROR, "Block and Position format is not supported for codegen function %s", method);
                     checkCondition(p.getAnnotationsByType(IsNull.class).length == 0, FUNCTION_IMPLEMENTATION_ERROR, "Null flag format is not supported for codegen function %s", method);
                     TypeSignature signature = parseTypeSignature(p.getAnnotation(SqlType.class).value());

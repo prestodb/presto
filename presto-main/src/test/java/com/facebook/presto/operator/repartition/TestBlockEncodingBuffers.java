@@ -702,7 +702,7 @@ public class TestBlockEncodingBuffers
     private BlockStatus buildRleBlockStatus(BlockStatus blockStatus, int positionCount)
     {
         int[] expectedRowSizes = new int[positionCount];
-        // When we constructed the Rle block, we chose the row at the middle.
+        // When we contructed the Rle block, we chose the row at the middle.
         Arrays.setAll(expectedRowSizes, i -> blockStatus.expectedRowSizes[blockStatus.block.getPositionCount() / 2]);
         return new BlockStatus(
                 createRleBlockWithRandomValue(blockStatus.block, positionCount),

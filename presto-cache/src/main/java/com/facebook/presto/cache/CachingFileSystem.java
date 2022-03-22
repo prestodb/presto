@@ -109,21 +109,9 @@ public abstract class CachingFileSystem
     }
 
     @Override
-    public long getDefaultBlockSize(Path path)
-    {
-        return dataTier.getDefaultBlockSize(path);
-    }
-
-    @Override
     public short getDefaultReplication()
     {
         return dataTier.getDefaultReplication();
-    }
-
-    @Override
-    public short getDefaultReplication(Path path)
-    {
-        return dataTier.getDefaultReplication(path);
     }
 
     @Override

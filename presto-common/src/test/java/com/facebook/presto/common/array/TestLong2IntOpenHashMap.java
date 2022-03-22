@@ -57,7 +57,7 @@ public class TestLong2IntOpenHashMap
 
     private void testAddAndGet(int entries)
     {
-        Map<Long, Integer> map = new HashMap<>();
+        Map<Long, Integer> map = new HashMap<Long, Integer>();
         Long2IntOpenHashMap long2IntOpenHashMap = new Long2IntOpenHashMap();
 
         assertEquals(long2IntOpenHashMap.size(), 0);

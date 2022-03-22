@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Presto module to do all kinds of run Guice injection stuff!
  * <p>
- * WARNING: Contains black magic
+ * WARNING: Contains black magick
  */
 public class AccumuloModule
         implements Module

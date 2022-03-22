@@ -256,7 +256,7 @@ public final class LiteralInterpreter
             }
 
             try {
-                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, VARCHAR, type);
+                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

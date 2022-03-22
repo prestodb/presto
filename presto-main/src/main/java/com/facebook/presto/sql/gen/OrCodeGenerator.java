@@ -40,7 +40,7 @@ public class OrCodeGenerator
         Preconditions.checkArgument(arguments.size() == 2);
 
         // We flatten the AND here.
-        Deque<RowExpression> stack = new ArrayDeque<>();
+        Deque<RowExpression> stack = new ArrayDeque<RowExpression>();
         stack.push(arguments.get(1));
         stack.push(arguments.get(0));
 
@@ -70,7 +70,7 @@ public class OrCodeGenerator
         for (RowExpression expression : flattenedArgs.build()) {
             block.comment("do { eval arg; if (wasNull) { hasNull = true; wasNull = false; } else if (true) goto ret_true; }")
                     .append(generator.generate(expression, Optional.empty()));
-            IfStatement ifOperandIsNull = new IfStatement("if left wasNull...").condition(wasNull);
+            IfStatement ifOperandIsNull = new IfStatement("if left wasNulll...").condition(wasNull);
             ifOperandIsNull.ifTrue()
                     .comment("clear the null flag and remember there was a null")
                     .putVariable(hasNulls, true)

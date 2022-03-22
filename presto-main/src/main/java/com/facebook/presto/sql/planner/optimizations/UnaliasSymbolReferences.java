@@ -93,7 +93,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -179,21 +178,21 @@ public class UnaliasSymbolReferences
                 newGroupingSets.add(newGroupingSet.build());
             }
 
-            return new GroupIdNode(node.getSourceLocation(), node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinct(node.getAggregationArguments()), canonicalize(node.getGroupIdVariable()));
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinct(node.getAggregationArguments()), canonicalize(node.getGroupIdVariable()));
         }
 
         @Override
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ExplainAnalyzeNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getOutputVariable()), node.isVerbose());
+            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputVariable()), node.isVerbose());
         }
 
         @Override
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new MarkDistinctNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getMarkerVariable()), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -204,7 +203,7 @@ public class UnaliasSymbolReferences
             for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getUnnestVariables().entrySet()) {
                 builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
-            return new UnnestNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getReplicateVariables()), builder.build(), node.getOrdinalityVariable());
+            return new UnnestNode(node.getId(), source, canonicalizeAndDistinct(node.getReplicateVariables()), builder.build(), node.getOrdinalityVariable());
         }
 
         @Override
@@ -234,7 +233,6 @@ public class UnaliasSymbolReferences
             }
 
             return new WindowNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     source,
                     canonicalizeAndDistinct(node.getSpecification()),
@@ -306,7 +304,7 @@ public class UnaliasSymbolReferences
 
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme().map(this::canonicalizeAndDistinct);
 
-            return new ExchangeNode(node.getSourceLocation(), node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs, node.isEnsureSourceOrdering(), orderingScheme);
+            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs, node.isEnsureSourceOrdering(), orderingScheme);
         }
 
         private void mapExchangeNodeSymbols(ExchangeNode node)
@@ -359,7 +357,6 @@ public class UnaliasSymbolReferences
         public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<Void> context)
         {
             return new RemoteSourceNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     node.getSourceFragmentIds(),
                     canonicalizeAndDistinct(node.getOutputVariables()),
@@ -383,13 +380,13 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
         }
 
         @Override
         public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
         {
-            return new SampleNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType());
+            return new SampleNode(node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType());
         }
 
         @Override
@@ -403,7 +400,6 @@ public class UnaliasSymbolReferences
             List<VariableReferenceExpression> canonicalizedOutputVariables = canonicalizeAndDistinct(node.getOutputVariables());
             checkState(node.getOutputVariables().size() == canonicalizedOutputVariables.size(), "Values output symbols were pruned");
             return new ValuesNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     canonicalizedOutputVariables,
                     canonicalizedRows);
@@ -412,7 +408,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
         {
-            return new DeleteNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalize(node.getRowId()), node.getOutputVariables());
+            return new DeleteNode(node.getId(), context.rewrite(node.getSource()), canonicalize(node.getRowId()), node.getOutputVariables());
         }
 
         @Override
@@ -434,14 +430,13 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            return new RowNumberNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
+            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
         }
 
         @Override
         public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
         {
             return new TopNRowNumberNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     context.rewrite(node.getSource()),
                     canonicalizeAndDistinct(node.getSpecification()),
@@ -456,14 +451,14 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new FilterNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getPredicate()));
+            return new FilterNode(node.getId(), source, canonicalize(node.getPredicate()));
         }
 
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ProjectNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getAssignments()), node.getLocality());
+            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()), node.getLocality());
         }
 
         @Override
@@ -472,7 +467,7 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             List<VariableReferenceExpression> canonical = Lists.transform(node.getOutputVariables(), this::canonicalize);
-            return new OutputNode(node.getSourceLocation(), node.getId(), source, node.getColumnNames(), canonical);
+            return new OutputNode(node.getId(), source, node.getColumnNames(), canonical);
         }
 
         @Override
@@ -480,7 +475,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new EnforceSingleRowNode(node.getSourceLocation(), node.getId(), source);
+            return new EnforceSingleRowNode(node.getId(), source);
         }
 
         @Override
@@ -488,7 +483,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new AssignUniqueId(node.getSourceLocation(), node.getId(), source, node.getIdVariable());
+            return new AssignUniqueId(node.getId(), source, node.getIdVariable());
         }
 
         @Override
@@ -500,7 +495,7 @@ public class UnaliasSymbolReferences
 
             Assignments assignments = canonicalize(node.getSubqueryAssignments());
             verifySubquerySupported(assignments);
-            return new ApplyNode(node.getSourceLocation(), node.getId(), source, subquery, assignments, canonicalCorrelation, node.getOriginSubqueryError());
+            return new ApplyNode(node.getId(), source, subquery, assignments, canonicalCorrelation, node.getOriginSubqueryError());
         }
 
         @Override
@@ -510,7 +505,7 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<VariableReferenceExpression> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
 
-            return new LateralJoinNode(node.getSourceLocation(), node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubqueryError());
+            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubqueryError());
         }
 
         @Override
@@ -527,7 +522,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new SortNode(node.getSourceLocation(), node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial());
+            return new SortNode(node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial());
         }
 
         @Override
@@ -551,7 +546,6 @@ public class UnaliasSymbolReferences
             }
 
             return new JoinNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     node.getType(),
                     left,
@@ -572,7 +566,6 @@ public class UnaliasSymbolReferences
             PlanNode filteringSource = context.rewrite(node.getFilteringSource());
 
             return new SemiJoinNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     source,
                     filteringSource,
@@ -591,13 +584,13 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            return new SpatialJoinNode(node.getSourceLocation(), node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputVariables()), canonicalize(node.getFilter()), canonicalize(node.getLeftPartitionVariable()), canonicalize(node.getRightPartitionVariable()), node.getKdbTree());
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputVariables()), canonicalize(node.getFilter()), canonicalize(node.getLeftPartitionVariable()), canonicalize(node.getRightPartitionVariable()), node.getKdbTree());
         }
 
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
         {
-            return new IndexSourceNode(node.getSourceLocation(), node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupVariables()), node.getOutputVariables(), node.getAssignments(), node.getCurrentConstraint());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupVariables()), node.getOutputVariables(), node.getAssignments(), node.getCurrentConstraint());
         }
 
         @Override
@@ -606,25 +599,25 @@ public class UnaliasSymbolReferences
             PlanNode probeSource = context.rewrite(node.getProbeSource());
             PlanNode indexSource = context.rewrite(node.getIndexSource());
 
-            return new IndexJoinNode(node.getSourceLocation(), node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), canonicalize(node.getProbeHashVariable()), canonicalize(node.getIndexHashVariable()));
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), canonicalize(node.getProbeHashVariable()), canonicalize(node.getIndexHashVariable()));
         }
 
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Void> context)
         {
-            return new UnionNode(node.getSourceLocation(), node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new UnionNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Void> context)
         {
-            return new IntersectNode(node.getSourceLocation(), node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Void> context)
         {
-            return new ExceptNode(node.getSourceLocation(), node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         private static ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)
@@ -679,7 +672,7 @@ public class UnaliasSymbolReferences
                 }
                 else if (isExpression(expression) && castToExpression(expression) instanceof SymbolReference) {
                     // Always map a trivial symbol projection
-                    VariableReferenceExpression variable = new VariableReferenceExpression(expression.getSourceLocation(), Symbol.from(castToExpression(expression)).getName(), types.get(castToExpression(expression)));
+                    VariableReferenceExpression variable = new VariableReferenceExpression(Symbol.from(castToExpression(expression)).getName(), types.get(castToExpression(expression)));
                     if (!variable.getName().equals(entry.getKey().getName())) {
                         map(entry.getKey(), variable);
                     }
@@ -727,7 +720,7 @@ public class UnaliasSymbolReferences
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
             }
-            return new Symbol(symbol.getNodeLocation(), canonical);
+            return new Symbol(canonical);
         }
 
         private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
@@ -736,7 +729,7 @@ public class UnaliasSymbolReferences
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
             }
-            return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
+            return new VariableReferenceExpression(canonical, types.get(new SymbolReference(canonical)));
         }
 
         private Optional<VariableReferenceExpression> canonicalize(Optional<VariableReferenceExpression> variable)

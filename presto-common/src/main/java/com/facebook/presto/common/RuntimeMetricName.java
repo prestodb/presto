@@ -37,15 +37,4 @@ public class RuntimeMetricName
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String FRAGMENT_PLAN_TIME_NANOS = "fragmentPlanTimeNanos";
     public static final String GET_LAYOUT_TIME_NANOS = "getLayoutTimeNanos";
-    public static final String REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED = "rewriteAggregationIfToFilterApplied";
-    // Time between task creation and start.
-    public static final String TASK_QUEUED_TIME_NANOS = "taskQueuedTimeNanos";
-    // Total operation time of a task on a worker. TASK_ELAPSED_TIME_NANOS - TASK_SCHEDULED_TIME_NANOS is the time when the task is doing nothing, e.g. it might be waiting for splits/inputs.
-    public static final String TASK_SCHEDULED_TIME_NANOS = "taskScheduledTimeNanos";
-    // Blocked time for the operators due to waiting for inputs.
-    public static final String TASK_BLOCKED_TIME_NANOS = "taskBlockedTimeNanos";
-    // Time taken for a read call to storage
-    public static final String STORAGE_READ_TIME_NANOS = "storageReadTimeNanos";
-    // Size of the data retrieved by read call to storage
-    public static final String STORAGE_READ_DATA_BYTES = "storageReadDataBytes";
 }

@@ -102,10 +102,10 @@ public class TestDistributedQueryInfoResource
         }
     }
 
-    private void waitUntilCoordinatorsDiscoveredHealthyInRM(long timeoutInMillis)
+    private void waitUntilCoordinatorsDiscoveredHealthyInRM(long timeoutInMilis)
             throws TimeoutException, InterruptedException
     {
-        long deadline = System.currentTimeMillis() + timeoutInMillis;
+        long deadline = System.currentTimeMillis() + timeoutInMilis;
         while (System.currentTimeMillis() < deadline) {
             AllNodes allNodes = this.resourceManager.refreshNodes();
             if (allNodes.getActiveCoordinators().size() == COORDINATOR_COUNT) {
@@ -113,6 +113,6 @@ public class TestDistributedQueryInfoResource
             }
             sleep(100);
         }
-        throw new TimeoutException(format("one of the nodes is still missing after: %s ms", timeoutInMillis));
+        throw new TimeoutException(format("one of the nodes is still missing after: %s ms", timeoutInMilis));
     }
 }

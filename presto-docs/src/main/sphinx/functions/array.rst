@@ -286,16 +286,6 @@ Array Functions
     Subsets array ``x`` starting from index ``start`` (or starting from the end
     if ``start`` is negative) with a length of ``length``.
 
-.. function:: trim_array(x, n) -> array
-
-    Remove ``n`` elements from the end of array::
-
-        SELECT trim_array(ARRAY[1, 2, 3, 4], 1);
-        -- [1, 2, 3]
-
-        SELECT trim_array(ARRAY[1, 2, 3, 4], 2);
-        -- [1, 2]
-
 .. function:: transform(array(T), function(T,U)) -> array(U)
 
     Returns an array that is the result of applying ``function`` to each element of ``array``::

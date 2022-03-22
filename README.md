@@ -95,11 +95,11 @@ To learn how to build the docs, see the [docs README](presto-docs/README.md).
 
 ## Building the Web UI
 
-The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible JavaScript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
+The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
 
     yarn --cwd presto-main/src/main/resources/webapp/src install
 
-If no JavaScript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
+If no Javascript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
 
     yarn --cwd presto-main/src/main/resources/webapp/src run package
 

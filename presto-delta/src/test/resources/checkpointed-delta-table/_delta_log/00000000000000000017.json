@@ -1,2 +1,0 @@
-{"commitInfo":{"timestamp":1636316603292,"operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[]"},"readVersion":16,"isBlindAppend":true,"operationMetrics":{"numFiles":"1","numOutputBytes":"687","numOutputRows":"1"}}}
-{"add":{"path":"part-00000-2e12af63-21db-42d7-9bda-766b1255e6f6-c000.snappy.parquet","partitionValues":{},"size":687,"modificationTime":1636316603000,"dataChange":true}}

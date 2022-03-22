@@ -12,7 +12,7 @@ on a Presto installation.
    This service returns information and statistics about queries that
    are currently being executed on a Presto coordinator.
 
-   When you point a web browser at a Presto coordinate you'll see a
+   When you point a web broswer at a Presto coordinate you'll see a
    rendered version of the output from this service which will display
    recent queries that have executed on a Presto installation.
 

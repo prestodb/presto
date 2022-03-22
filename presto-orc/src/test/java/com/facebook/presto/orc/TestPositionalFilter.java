@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.common.predicate.TupleDomainFilter;
-import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
-import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
+import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
+import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -31,7 +30,7 @@ public class TestPositionalFilter
         PositionalFilter filter = new PositionalFilter();
 
         // a[1] = '1' and a[3] = '3' The test data is converted to byte[]'s and the comparison is done using testLength()
-        // followed by testBytes() so as to cover the double use of the position when testLength succeeds and testBytes
+        // followed by testBytes() so as to cover the double use of the position when testLength succeeeds and testBytes
         // fails.
         TupleDomainFilter[] filters = new TupleDomainFilter[] {
                 equals(1), null, equals(3), null,

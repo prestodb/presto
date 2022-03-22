@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.Session;
-
 import java.util.Collection;
 
 public interface ExecutionPolicy
 {
-    ExecutionSchedule createExecutionSchedule(Session session, Collection<StageExecutionAndScheduler> stages);
+    ExecutionSchedule createExecutionSchedule(Collection<StageExecutionAndScheduler> stages);
 }

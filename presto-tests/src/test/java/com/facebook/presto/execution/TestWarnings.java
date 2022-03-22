@@ -31,7 +31,6 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunne
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
-import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
@@ -149,57 +148,6 @@ public class TestWarnings
         String query = "SELECT ARRAY_AGG( x ORDER BY x ASC, y DESC ) FROM ( SELECT 0 as x, 0 AS y)";
         assertWarnings(
                 queryRunner, TEST_SESSION, query, ImmutableSet.of(MULTIPLE_ORDER_BY.toWarningCode()));
-    }
-
-    @Test
-    public void testMapWithDoubleKeysProducesWarnings()
-    {
-        String query = "select map_from_entries(map_entries(MAP(ARRAY[12E2, 2.3, 3.4], ARRAY['x', 'y', 'z'])))";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "select CAST(MAP(ARRAY[7E2,5.2,3.3,1.1], ARRAY[8,6,4,2]) AS JSON)";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "select CARDINALITY(MAP(ARRAY [12E-2], ARRAY [2.2]))";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "select element_at(MAP(ARRAY [123e3], ARRAY [1e0]), 2)";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "select MAP(ARRAY [134E-2, 3.12], ARRAY [2.0E0, 4.0E0])[1.34]";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "select MAP_CONCAT(MAP(ARRAY [11E1], ARRAY [2.2]), MAP(ARRAY [5.1], ARRAY [33.2]))";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "select multimap_from_entries(ARRAY[(12E-2, 'x'), (2.3, 'y'), (1.2, 'a'), (3.4, 'b'), (2.3, 'c'), (3.4, null)])";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "select transform_keys(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k + v)";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-
-        query = "SELECT histogram(RETAILPRICE) FROM tpch.tiny.part";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
-    }
-
-    @Test
-    public void testMapWithNonDoubleKeyProducesNoWarnings()
-    {
-        String query = "select map_from_entries(map_entries(MAP(ARRAY[1, 2, 3], ARRAY['x', 'y', 'z'])))";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
-
-        query = "SELECT histogram(TYPE) FROM tpch.tiny.part";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
-    }
-
-    @Test
-    public void testMapWithDecimalKeyProducesNoWarnings()
-    {
-        String query = "select map_from_entries(map_entries(MAP(ARRAY[1.2, 2.3, 3.4], ARRAY['x', 'y', 'z'])))";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
-
-        query = "select CAST(MAP(ARRAY[7.2,5.2,3.3,1.1], ARRAY[8,6,4,2]) AS JSON)";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
     }
 
     private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, Set<WarningCode> expectedWarnings)

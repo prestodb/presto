@@ -45,9 +45,10 @@ public class StringColumnStatistics
     }
 
     @Override
-    public long getTotalValueSizeInBytes()
+    public long getMinAverageValueSizeInBytes()
     {
-        return STRING_VALUE_BYTES_OVERHEAD * getNumberOfValues() + stringStatistics.getSum();
+        long numberOfValues = getNumberOfValues();
+        return STRING_VALUE_BYTES_OVERHEAD + (numberOfValues > 0 ? stringStatistics.getSum() / numberOfValues : 0);
     }
 
     @Override

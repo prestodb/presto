@@ -83,11 +83,11 @@ public class PushLimitThroughOuterJoin
         PlanNode right = joinNode.getRight();
 
         if (joinNode.getType() == LEFT && !isLimited(left, context.getLookup(), parent.getCount())) {
-            left = new LimitNode(parent.getSourceLocation(), context.getIdAllocator().getNextId(), left, parent.getCount(), PARTIAL);
+            left = new LimitNode(context.getIdAllocator().getNextId(), left, parent.getCount(), PARTIAL);
         }
 
         if (joinNode.getType() == RIGHT && !isLimited(right, context.getLookup(), parent.getCount())) {
-            right = new LimitNode(parent.getSourceLocation(), context.getIdAllocator().getNextId(), right, parent.getCount(), PARTIAL);
+            right = new LimitNode(context.getIdAllocator().getNextId(), right, parent.getCount(), PARTIAL);
         }
 
         if (joinNode.getLeft() != left || joinNode.getRight() != right) {

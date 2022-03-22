@@ -79,7 +79,7 @@ public class TestTDigest
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<>();
+        List<Integer> list = new ArrayList<Integer>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -102,7 +102,7 @@ public class TestTDigest
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<>();
+        List<Integer> list = new ArrayList<Integer>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -124,7 +124,7 @@ public class TestTDigest
     public void testAddElementsRandomized()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<>();
+        List<Double> list = new ArrayList<Double>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
             double value = Math.random() * NUMBER_OF_ENTRIES;
@@ -145,7 +145,7 @@ public class TestTDigest
     public void testNormalDistributionLowVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<>();
+        List<Double> list = new ArrayList<Double>();
         NormalDistribution normal = new NormalDistribution(1000, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -184,7 +184,7 @@ public class TestTDigest
     public void testNormalDistributionHighVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<>();
+        List<Double> list = new ArrayList<Double>();
         NormalDistribution normal = new NormalDistribution(0, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -315,7 +315,7 @@ public class TestTDigest
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             GeometricDistribution geometric = new GeometricDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<>();
+            List<Integer> list = new ArrayList<Integer>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = geometric.sample();
@@ -340,7 +340,7 @@ public class TestTDigest
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             PoissonDistribution poisson = new PoissonDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<>();
+            List<Integer> list = new ArrayList<Integer>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = poisson.sample();

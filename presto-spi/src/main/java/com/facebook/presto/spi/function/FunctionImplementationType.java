@@ -17,8 +17,7 @@ public enum FunctionImplementationType
 {
     JAVA(false),
     SQL(false),
-    THRIFT(true),
-    GRPC(true);
+    THRIFT(true);
 
     private final boolean external;
 

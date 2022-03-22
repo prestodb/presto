@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractPrimitiveType;
+import com.facebook.presto.common.type.AbstractType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.net.InetAddresses;
@@ -36,7 +36,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Long.reverseBytes;
 
 public class IpAddressType
-        extends AbstractPrimitiveType
+        extends AbstractType
         implements FixedWidthType
 {
     public static final IpAddressType IPADDRESS = new IpAddressType();

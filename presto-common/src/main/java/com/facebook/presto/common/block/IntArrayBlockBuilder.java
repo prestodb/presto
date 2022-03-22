@@ -20,12 +20,12 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
+import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
@@ -148,25 +148,19 @@ public class IntArrayBlockBuilder
     @Override
     public long getSizeInBytes()
     {
-        return IntArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.of(IntArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        return (Integer.BYTES + Byte.BYTES) * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return IntArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) length;
+        return (Integer.BYTES + Byte.BYTES) * (long) length;
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] usedPositions, int usedPositionCount)
+    public long getPositionsSizeInBytes(boolean[] positions)
     {
-        return IntArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) usedPositionCount;
+        return (Integer.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
     }
 
     @Override
@@ -182,11 +176,11 @@ public class IntArrayBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(values, sizeOf(values));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

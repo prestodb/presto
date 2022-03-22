@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -29,16 +28,12 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
 
-import javax.annotation.Nullable;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -65,17 +60,17 @@ public class PlanVariableAllocator
     public VariableReferenceExpression newVariable(VariableReferenceExpression variableHint)
     {
         checkArgument(variables.containsKey(variableHint.getName()), "variableHint name not in variables map");
-        return newVariable(variableHint.getSourceLocation(), variableHint.getName(), variableHint.getType());
+        return newVariable(variableHint.getName(), variableHint.getType());
     }
 
-    public VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, QualifiedName nameHint, Type type)
+    public VariableReferenceExpression newVariable(QualifiedName nameHint, Type type)
     {
-        return newVariable(sourceLocation, nameHint.getSuffix(), type, null);
+        return newVariable(nameHint.getSuffix(), type, null);
     }
 
-    public VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, String nameHint, Type type)
+    public VariableReferenceExpression newVariable(String nameHint, Type type)
     {
-        return newVariable(sourceLocation, nameHint, type, null);
+        return newVariable(nameHint, type, null);
     }
 
     public VariableReferenceExpression newHashVariable()
@@ -85,12 +80,6 @@ public class PlanVariableAllocator
 
     @Override
     public VariableReferenceExpression newVariable(String nameHint, Type type, String suffix)
-    {
-        return newVariable(Optional.empty(), nameHint, type, suffix);
-    }
-
-    @Override
-    public VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, String nameHint, Type type, @Nullable String suffix)
     {
         requireNonNull(nameHint, "name is null");
         requireNonNull(type, "type is null");
@@ -118,11 +107,12 @@ public class PlanVariableAllocator
         unique = DISALLOWED_CHAR_PATTERN.matcher(unique).replaceAll("_");
 
         String attempt = unique;
-        while (variables.putIfAbsent(attempt, type) != null) {
+        while (variables.containsKey(attempt)) {
             attempt = unique + "_" + nextId();
         }
 
-        return new VariableReferenceExpression(sourceLocation, attempt, type);
+        variables.put(attempt, type);
+        return new VariableReferenceExpression(attempt, type);
     }
 
     public VariableReferenceExpression newVariable(Expression expression, Type type)
@@ -145,17 +135,12 @@ public class PlanVariableAllocator
         else if (expression instanceof GroupingOperation) {
             nameHint = "grouping";
         }
-        return newVariable(getSourceLocation(expression), nameHint, type, suffix);
+        return newVariable(nameHint, type, suffix);
     }
 
     public VariableReferenceExpression newVariable(Field field)
     {
-        return newVariable(getSourceLocation(field.getNodeLocation()), field);
-    }
-
-    public VariableReferenceExpression newVariable(Optional<SourceLocation> sourceLocation, Field field)
-    {
-        return newVariable(sourceLocation, field.getName().orElse("field"), field.getType(), null);
+        return newVariable(field.getName().orElse("field"), field.getType(), null);
     }
 
     public TypeProvider getTypes()
@@ -173,7 +158,7 @@ public class PlanVariableAllocator
         checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
         String name = ((SymbolReference) expression).getName();
         checkArgument(variables.containsKey(name), "variable map does not contain name %s", name);
-        return new VariableReferenceExpression(getSourceLocation(expression), name, variables.get(name));
+        return new VariableReferenceExpression(name, variables.get(name));
     }
 
     public VariableReferenceExpression newVariable(RowExpression expression)
@@ -190,6 +175,6 @@ public class PlanVariableAllocator
         else if (expression instanceof CallExpression) {
             nameHint = ((CallExpression) expression).getDisplayName();
         }
-        return newVariable(expression.getSourceLocation(), nameHint, expression.getType(), suffix);
+        return newVariable(nameHint, expression.getType(), suffix);
     }
 }

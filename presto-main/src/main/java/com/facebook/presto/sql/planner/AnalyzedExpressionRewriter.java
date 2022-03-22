@@ -27,7 +27,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 
 @Deprecated
 public class AnalyzedExpressionRewriter
@@ -63,7 +63,7 @@ public class AnalyzedExpressionRewriter
                 sqlParser,
                 typeProvider,
                 expression,
-                emptyMap(),
+                emptyList(),
                 WarningCollector.NOOP);
         return ExpressionTreeRewriter.rewriteWith(rewriterProvider.get(expressionTypes), expression, context);
     }

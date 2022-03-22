@@ -18,13 +18,13 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
@@ -35,7 +35,7 @@ public class DefaultWarningCollector
         implements WarningCollector
 {
     @GuardedBy("this")
-    private final Multimap<WarningCode, PrestoWarning> warnings = LinkedHashMultimap.create();
+    private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
     private final WarningCollectorConfig config;
     private final WarningHandlingLevel warningHandlingLevel;
 
@@ -77,7 +77,7 @@ public class DefaultWarningCollector
     private synchronized void addWarningIfNumWarningsLessThanConfig(PrestoWarning warning)
     {
         if (warnings.size() < config.getMaxWarnings()) {
-            warnings.put(warning.getWarningCode(), warning);
+            warnings.putIfAbsent(warning.getWarningCode(), warning);
         }
     }
 

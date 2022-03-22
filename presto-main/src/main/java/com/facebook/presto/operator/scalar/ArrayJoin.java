@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -62,6 +63,7 @@ public final class ArrayJoin
     public static final ArrayJoin ARRAY_JOIN = new ArrayJoin();
     public static final ArrayJoinWithNullReplacement ARRAY_JOIN_WITH_NULL_REPLACEMENT = new ArrayJoinWithNullReplacement();
 
+    private static final TypeSignature VARCHAR_TYPE_SIGNATURE = VARCHAR.getTypeSignature();
     private static final String FUNCTION_NAME = "array_join";
     private static final String DESCRIPTION = "Concatenates the elements of the given array using a delimiter and an optional string to replace nulls";
 
@@ -215,7 +217,7 @@ public final class ArrayJoin
         }
         else {
             try {
-                MethodHandle cast = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.lookupCast(CAST, type, VARCHAR)).getMethodHandle();
+                MethodHandle cast = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR_TYPE_SIGNATURE)).getMethodHandle();
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();

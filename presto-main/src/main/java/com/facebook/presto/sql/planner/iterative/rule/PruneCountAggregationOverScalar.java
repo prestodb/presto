@@ -70,7 +70,6 @@ public class PruneCountAggregationOverScalar
         }
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
             return Result.ofPlanNode(new ValuesNode(
-                    parent.getSourceLocation(),
                     parent.getId(),
                     parent.getOutputVariables(),
                     ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)))));

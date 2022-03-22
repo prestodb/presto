@@ -60,12 +60,12 @@ public class TestIntegerStatisticsBuilder
     }
 
     @Test
-    public void testTotalValueBytes()
+    public void testMinAverageValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
-        assertTotalValueBytes(INTEGER_VALUE_BYTES, ImmutableList.of(42L));
-        assertTotalValueBytes(INTEGER_VALUE_BYTES, ImmutableList.of(0L));
-        assertTotalValueBytes(4 * INTEGER_VALUE_BYTES, ImmutableList.of(0L, 42L, 42L, 43L));
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(INTEGER_VALUE_BYTES, ImmutableList.of(42L));
+        assertMinAverageValueBytes(INTEGER_VALUE_BYTES, ImmutableList.of(0L));
+        assertMinAverageValueBytes(INTEGER_VALUE_BYTES, ImmutableList.of(0L, 42L, 42L, 43L));
     }
 
     @Test

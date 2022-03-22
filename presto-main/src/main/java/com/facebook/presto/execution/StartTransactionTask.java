@@ -35,7 +35,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TRANSAC
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class StartTransactionTask
-        implements SessionTransactionControlTask<StartTransaction>
+        implements DataDefinitionTask<StartTransaction>
 {
     @Override
     public String getName()
@@ -69,6 +69,12 @@ public class StartTransactionTask
         transactionManager.trySetInactive(transactionId);
 
         return immediateFuture(null);
+    }
+
+    @Override
+    public boolean isTransactionControl()
+    {
+        return true;
     }
 
     private static Optional<IsolationLevel> extractIsolationLevel(StartTransaction startTransaction)

@@ -327,7 +327,6 @@ public class PushdownSubfields
             }
 
             return new TableScanNode(
-                    node.getSourceLocation(),
                     node.getId(),
                     node.getTable(),
                     node.getOutputVariables(),

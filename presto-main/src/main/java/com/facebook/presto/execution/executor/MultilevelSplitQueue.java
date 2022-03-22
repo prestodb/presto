@@ -154,7 +154,7 @@ public class MultilevelSplitQueue
      * Presto attempts to give each level a target amount of scheduled time, which is configurable
      * using levelTimeMultiplier.
      * <p>
-     * This function selects the level that has the lowest ratio of actual to the target time
+     * This function selects the level that has the the lowest ratio of actual to the target time
      * with the objective of minimizing deviation from the target scheduled time. From this level,
      * we pick the split with the lowest priority.
      */

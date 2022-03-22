@@ -211,7 +211,7 @@ public class MaterializedViewQueryOptimizer
 
             for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.get()).values()) {
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                fields.add(Field.newUnqualified(materializedViewInfo.getWhereClause().get().getLocation(), columnMetadata.getName(), columnMetadata.getType()));
+                fields.add(Field.newUnqualified(columnMetadata.getName(), columnMetadata.getType()));
             }
 
             Scope scope = Scope.builder()
@@ -227,8 +227,7 @@ public class MaterializedViewQueryOptimizer
             RowExpression materializedViewWhereCondition = convertToRowExpression(materializedViewInfo.getWhereClause().get(), scope);
             RowExpression baseQueryWhereCondition = convertToRowExpression(node.getWhere().get(), scope);
             RowExpression rewriteLogicExpression = and(baseQueryWhereCondition,
-                    call(baseQueryWhereCondition.getSourceLocation(),
-                            "not",
+                    call("not",
                             new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(),
                             materializedViewWhereCondition.getType(),
                             materializedViewWhereCondition));
@@ -437,7 +436,7 @@ public class MaterializedViewQueryOptimizer
                 accessControl,
                 sqlParser,
                 scope,
-                new Analysis(null, ImmutableMap.of(), false),
+                new Analysis(null, ImmutableList.of(), false),
                 expression,
                 WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(

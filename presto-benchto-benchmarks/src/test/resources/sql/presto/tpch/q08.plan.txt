@@ -14,10 +14,11 @@ remote exchange (GATHER, SINGLE, [])
                                                     scan orders
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [orderkey])
-                                                        join (INNER, REPLICATED):
-                                                            scan lineitem
+                                                        join (INNER, PARTITIONED):
+                                                            remote exchange (REPARTITION, HASH, [partkey_3])
+                                                                scan lineitem
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                remote exchange (REPARTITION, HASH, [partkey])
                                                                     scan part
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [custkey_10])

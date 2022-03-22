@@ -440,7 +440,7 @@ public class TestBroadcastOutputBuffer
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*does not contain.*\\[0]")
-    public void testSetFinalBuffersWithoutDeclaringUsedBuffer()
+    public void testSetFinalBuffersWihtoutDeclaringUsedBuffer()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
         assertFalse(buffer.isFinished());

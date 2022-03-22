@@ -17,7 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractPrimitiveType;
+import com.facebook.presto.common.type.AbstractType;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.joni.Regex;
@@ -25,7 +25,7 @@ import io.airlift.joni.Regex;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public class LikePatternType
-        extends AbstractPrimitiveType
+        extends AbstractType
 {
     public static final LikePatternType LIKE_PATTERN = new LikePatternType();
     public static final String NAME = "LikePattern";

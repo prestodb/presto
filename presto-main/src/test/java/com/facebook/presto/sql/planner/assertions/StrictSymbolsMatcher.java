@@ -20,7 +20,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -45,7 +44,7 @@ public class StrictSymbolsMatcher
     {
         return expectedAliases.stream()
                 .map(symbolAliases::get)
-                .map(symbolReference -> new VariableReferenceExpression(Optional.empty(), symbolReference.getName(), UNKNOWN))
+                .map(symbolReference -> new VariableReferenceExpression(symbolReference.getName(), UNKNOWN))
                 .collect(toImmutableSet());
     }
 

@@ -120,7 +120,6 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String OPTIMIZE_METADATA_QUERIES_IGNORE_STATS = "optimize_metadata_queries_ignore_stats";
-    public static final String OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD = "optimize_metadata_queries_call_threshold";
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
@@ -128,8 +127,6 @@ public final class SystemSessionProperties
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
     public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED = "distinct_aggregation_large_block_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD = "distinct_aggregation_large_block_size_threshold";
     public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
     public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
     public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
@@ -194,7 +191,6 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
-    public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
@@ -216,19 +212,14 @@ public final class SystemSessionProperties
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
     public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
-    public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
+    public static final String ENABLE_DISTRIBUTED_TRACING = "enable_distributed_tracing";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
-    public static final String STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED = "streaming_for_partial_aggregation_enabled";
-    public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
-    public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
     public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
-    public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
-    public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -535,11 +526,6 @@ public final class SystemSessionProperties
                         featuresConfig.isOptimizeMetadataQueriesIgnoreStats(),
                         false),
                 integerProperty(
-                        OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD,
-                        "The threshold number of service calls to metastore, used in optimization for metadata queries",
-                        featuresConfig.getOptimizeMetadataQueriesCallThreshold(),
-                        false),
-                integerProperty(
                         QUERY_PRIORITY,
                         "The priority of queries. Larger numbers are higher priority",
                         1,
@@ -568,7 +554,7 @@ public final class SystemSessionProperties
                         JoinReorderingStrategy::name),
                 new PropertyMetadata<>(
                         PARTIAL_MERGE_PUSHDOWN_STRATEGY,
-                        format("Experimental: Partial merge pushdown strategy to use. Options are %s",
+                        format("Experimental: Partial merge pushdown strategy to use. Optionas are %s",
                                 Stream.of(PartialMergePushdownStrategy.values())
                                         .map(PartialMergePushdownStrategy::name)
                                         .collect(joining(","))),
@@ -658,20 +644,6 @@ public final class SystemSessionProperties
                         featuresConfig.isDedupBasedDistinctAggregationSpillEnabled(),
                         false),
                 booleanProperty(
-                        DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED,
-                        "Spill large block to a separate spill file",
-                        featuresConfig.isDistinctAggregationLargeBlockSpillEnabled(),
-                        false),
-                new PropertyMetadata<>(
-                        DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD,
-                        "Block size threshold beyond which it will be spilled into a separate spill file",
-                        VARCHAR,
-                        DataSize.class,
-                        featuresConfig.getDistinctAggregationLargeBlockSizeThreshold(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                booleanProperty(
                         ORDER_BY_AGGREGATION_SPILL_ENABLED,
                         "Enable spill for order-by aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isOrderByAggregationSpillEnabled(),
@@ -688,7 +660,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "Experimental: How much memory can should be allocated per aggregation operator in unspilling process",
+                        "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
@@ -1061,11 +1033,6 @@ public final class SystemSessionProperties
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
                         false),
                 booleanProperty(
-                        CHECK_ACCESS_CONTROL_WITH_SUBFIELDS,
-                        "Apply access control rules with subfield information from columns containing row types",
-                        featuresConfig.isCheckAccessControlWithSubfields(),
-                        false),
-                booleanProperty(
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
                         "Allow ORDER BY literals in window functions",
                         featuresConfig.isAllowWindowOrderByLiterals(),
@@ -1157,20 +1124,15 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
-                stringProperty(
-                        DISTRIBUTED_TRACING_MODE,
-                        "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",
-                        tracingConfig.getDistributedTracingMode().name(),
+                booleanProperty(
+                        ENABLE_DISTRIBUTED_TRACING,
+                        "Enable distributed tracing of the query",
+                        tracingConfig.getEnableDistributedTracing(),
                         false),
                 booleanProperty(
                         VERBOSE_RUNTIME_STATS_ENABLED,
                         "Enable logging all runtime stats",
                         featuresConfig.isVerboseRuntimeStatsEnabled(),
-                        false),
-                booleanProperty(
-                        STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED,
-                        "Enable streaming for partial aggregation",
-                        featuresConfig.isStreamingForPartialAggregationEnabled(),
                         false),
                 new PropertyMetadata<>(
                         AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
@@ -1225,28 +1187,6 @@ public final class SystemSessionProperties
                         KEY_BASED_SAMPLING_FUNCTION,
                         "Sampling function for key based sampling",
                         "key_sampling_percent",
-                        false),
-                integerProperty(
-                        HASH_BASED_DISTINCT_LIMIT_THRESHOLD,
-                        "Threshold for doing hash based distinct",
-                        // 10k is a decent-sized limit that guarantees almost no collisions if the # distinct < 10k according to:
-                        //   https://stackoverflow.com/questions/22029012/probability-of-64bit-hash-code-collisions
-                        featuresConfig.getHashBasedDistinctLimitThreshold(),
-                        false),
-                booleanProperty(
-                        HASH_BASED_DISTINCT_LIMIT_ENABLED,
-                        "Hash based distinct limit enabled",
-                        featuresConfig.isHashBasedDistinctLimitEnabled(),
-                        false),
-                integerProperty(
-                        MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING,
-                        "Maximum stage count to use eager scheduling when using the adaptive scheduling policy",
-                        featuresConfig.getMaxStageCountForEagerScheduling(),
-                        false),
-                doubleProperty(
-                        HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD,
-                        "Threshold for obtaining precise results from aggregation functions",
-                        featuresConfig.getHyperloglogStandardErrorWarningThreshold(),
                         false));
     }
 
@@ -1283,16 +1223,6 @@ public final class SystemSessionProperties
     public static String getKeyBasedSamplingFunction(Session session)
     {
         return session.getSystemProperty(KEY_BASED_SAMPLING_FUNCTION, String.class);
-    }
-
-    public static boolean isHashBasedDistinctLimitEnabled(Session session)
-    {
-        return session.getSystemProperty(HASH_BASED_DISTINCT_LIMIT_ENABLED, Boolean.class);
-    }
-
-    public static int getHashBasedDistinctLimitThreshold(Session session)
-    {
-        return session.getSystemProperty(HASH_BASED_DISTINCT_LIMIT_THRESHOLD, Integer.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1441,11 +1371,6 @@ public final class SystemSessionProperties
     public static boolean isOptimizeMetadataQueriesIgnoreStats(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES_IGNORE_STATS, Boolean.class);
-    }
-
-    public static int getOptimizeMetadataQueriesCallThreshold(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD, Integer.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)
@@ -1607,16 +1532,6 @@ public final class SystemSessionProperties
     public static boolean isDedupBasedDistinctAggregationSpillEnabled(Session session)
     {
         return session.getSystemProperty(DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class);
-    }
-
-    public static boolean isDistinctAggregationLargeBlockSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED, Boolean.class);
-    }
-
-    public static DataSize getDistinctAggregationLargeBlockSizeThreshold(Session session)
-    {
-        return session.getSystemProperty(DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD, DataSize.class);
     }
 
     public static boolean isOrderByAggregationSpillEnabled(Session session)
@@ -1988,11 +1903,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
     }
 
-    public static boolean isCheckAccessControlWithSubfields(Session session)
-    {
-        return session.getSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, Boolean.class);
-    }
-
     public static boolean isEnforceFixedDistributionForOutputOperator(Session session)
     {
         return session.getSystemProperty(ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR, Boolean.class);
@@ -2063,11 +1973,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
     }
 
-    public static boolean isStreamingForPartialAggregationEnabled(Session session)
-    {
-        return session.getSystemProperty(STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
-    }
-
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
     {
         return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, AggregationIfToFilterRewriteStrategy.class);
@@ -2086,15 +1991,5 @@ public final class SystemSessionProperties
     public static String getHeapDumpFileDirectory(Session session)
     {
         return session.getSystemProperty(EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY, String.class);
-    }
-
-    public static int getMaxStageCountForEagerScheduling(Session session)
-    {
-        return session.getSystemProperty(MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING, Integer.class);
-    }
-
-    public static double getHyperloglogStandardErrorWarningThreshold(Session session)
-    {
-        return session.getSystemProperty(HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD, Double.class);
     }
 }

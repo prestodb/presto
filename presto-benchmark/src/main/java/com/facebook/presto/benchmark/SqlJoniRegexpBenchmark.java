@@ -27,7 +27,7 @@ public class SqlJoniRegexpBenchmark
 
     public static void main(String[] args)
     {
-        new SqlJoniRegexpBenchmark(createLocalQueryRunner(), "SELECT array_agg(regexp_extract_all(comment||cast(random() as varchar), '[a-z]* ')) FROM orders cross join unnest(sequence(1, 10))", "sql_regexp_extract_all").runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlJoniRegexpBenchmark(createLocalQueryRunner(), "SELECT array_agg(regexp_extract_all(comment||cast(random() as varchar), '[a-z]* ')) FROM orders cross join unnest(sequence(1, 10))", "sql_regexp_extract_alll").runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
         new SqlJoniRegexpBenchmark(createLocalQueryRunner(), "SELECT array_agg(regexp_replace(comment||cast(random() as varchar), '[a-z]* ', cast(random() as varchar))) FROM orders cross join unnest(sequence(1, 10))", "sql_regexp_replace").runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

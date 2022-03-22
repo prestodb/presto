@@ -18,7 +18,6 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.Expression;
@@ -34,7 +33,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropSchemaTask
-        implements DDLDefinitionTask<DropSchema>
+        implements DataDefinitionTask<DropSchema>
 {
     @Override
     public String getName()
@@ -49,12 +48,13 @@ public class DropSchemaTask
     }
 
     @Override
-    public ListenableFuture<?> execute(DropSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(DropSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         if (statement.isCascade()) {
             throw new PrestoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
         }
 
+        Session session = stateMachine.getSession();
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
         if (!metadata.schemaExists(session, schema)) {

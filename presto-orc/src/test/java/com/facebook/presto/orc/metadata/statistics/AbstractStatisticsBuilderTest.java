@@ -68,14 +68,14 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), 0);
     }
 
-    public void assertTotalValueBytes(long expectedTotalValueBytes, List<T> values)
+    public void assertMinAverageValueBytes(long expectedAverageValueBytes, List<T> values)
     {
         // test add value
         B statisticsBuilder = statisticsBuilderSupplier.get();
         for (T value : values) {
             adder.accept(statisticsBuilder, value);
         }
-        assertEquals(statisticsBuilder.buildColumnStatistics().getTotalValueSizeInBytes(), expectedTotalValueBytes);
+        assertEquals(statisticsBuilder.buildColumnStatistics().getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
 
         // test merge
         statisticsBuilder = statisticsBuilderSupplier.get();
@@ -89,7 +89,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
             adder.accept(statisticsBuilder, values.get(i));
         }
         ColumnStatistics secondStats = statisticsBuilder.buildColumnStatistics();
-        assertEquals(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getTotalValueSizeInBytes(), expectedTotalValueBytes);
+        assertEquals(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
     }
 
     public void assertMinMaxValues(T expectedMin, T expectedMax)

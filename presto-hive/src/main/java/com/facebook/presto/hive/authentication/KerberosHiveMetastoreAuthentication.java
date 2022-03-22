@@ -82,7 +82,7 @@ public class KerberosHiveMetastoreAuthentication
     private TTransport authenticateWithToken(TTransport rawTransport, String tokenString)
     {
         try {
-            Token<DelegationTokenIdentifier> token = new Token<>();
+            Token<DelegationTokenIdentifier> token = new Token<DelegationTokenIdentifier>();
             token.decodeFromUrlString(tokenString);
 
             TTransport saslTransport = new TSaslClientTransport(

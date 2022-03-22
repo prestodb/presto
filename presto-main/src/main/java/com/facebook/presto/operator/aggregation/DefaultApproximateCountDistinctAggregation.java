@@ -37,7 +37,7 @@ import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 @AggregationFunction("approx_distinct")
 public final class DefaultApproximateCountDistinctAggregation
 {
-    public static final double DEFAULT_STANDARD_ERROR = 0.023;
+    private static final double DEFAULT_STANDARD_ERROR = 0.023;
 
     private DefaultApproximateCountDistinctAggregation() {}
 

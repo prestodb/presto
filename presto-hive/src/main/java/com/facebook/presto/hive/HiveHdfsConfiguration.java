@@ -61,7 +61,8 @@ public class HiveHdfsConfiguration
             return hadoopConfiguration.get();
         }
 
-        Configuration config = new Configuration(hadoopConfiguration.get());
+        Configuration config = new Configuration(false);
+        copy(hadoopConfiguration.get(), config);
         for (DynamicConfigurationProvider provider : dynamicProviders) {
             provider.updateConfiguration(config, context, uri);
         }

@@ -15,7 +15,7 @@ package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.net.URI;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
@@ -64,8 +65,11 @@ public class PrometheusSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
+        if (sortedCandidates == null || sortedCandidates.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for Prometheus Split");
+        }
         return addresses;
     }
 

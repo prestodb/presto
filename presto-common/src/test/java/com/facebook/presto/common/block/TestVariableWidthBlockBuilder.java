@@ -18,16 +18,10 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.ceil;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.openjdk.jol.info.ClassLayout.parseClass;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -63,34 +57,6 @@ public class TestVariableWidthBlockBuilder
         long actualArrayBytes = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
         long actualSliceBytes = SLICE_INSTANCE_SIZE + sizeOf(new byte[(int) ceil(resetSkew * entries)]);
         assertEquals(blockBuilder.getRetainedSizeInBytes(), BLOCK_BUILDER_INSTANCE_SIZE + actualSliceBytes + actualArrayBytes);
-    }
-
-    @Test
-    public void testWriteBytes()
-    {
-        int entries = 100;
-        String inputChars = "abcdefghijklmnopqrstuvwwxyz01234566789!@#$%^";
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, entries, entries);
-        List<String> values = new ArrayList<>();
-        Random rand = new Random(0);
-        byte[] bytes = inputChars.getBytes(UTF_8);
-        assertEquals(bytes.length, inputChars.length());
-        for (int i = 0; i < entries; i++) {
-            int valueLength = rand.nextInt(bytes.length);
-            VARCHAR.writeBytes(blockBuilder, bytes, 0, valueLength);
-            values.add(inputChars.substring(0, valueLength));
-        }
-        verifyBlockValues(blockBuilder, values);
-        verifyBlockValues(blockBuilder.build(), values);
-    }
-
-    private void verifyBlockValues(Block block, List<String> values)
-    {
-        assertEquals(block.getPositionCount(), values.size());
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            Slice slice = VARCHAR.getSlice(block, i);
-            assertEquals(slice, utf8Slice(values.get(i)));
-        }
     }
 
     private void testIsFull(PageBuilderStatus pageBuilderStatus)

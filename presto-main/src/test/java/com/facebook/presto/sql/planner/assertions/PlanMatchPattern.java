@@ -280,10 +280,10 @@ public final class PlanMatchPattern
         return rowNumberMatcherBuilder.build();
     }
 
-    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> topNRowNumberMatcherBuilderConsumer, PlanMatchPattern source)
+    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> topNRowNumberMatcherBuilderComsumer, PlanMatchPattern source)
     {
         TopNRowNumberMatcher.Builder topNRowNumberMatcherBuilder = new TopNRowNumberMatcher.Builder(source);
-        topNRowNumberMatcherBuilderConsumer.accept(topNRowNumberMatcherBuilder);
+        topNRowNumberMatcherBuilderComsumer.accept(topNRowNumberMatcherBuilder);
         return topNRowNumberMatcherBuilder.build();
     }
 

@@ -17,8 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
+import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
 
@@ -29,8 +28,9 @@ public class SingleRowBlockWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleRowBlockWriter.class).instanceSize();
 
     private final BlockBuilder[] fieldBlockBuilders;
+    private final long initialBlockBuilderSize;
+    private int positionsWritten;
 
-    private boolean isEntryOpen;
     private int currentFieldIndexToWrite;
     private boolean fieldBlockBuilderReturned;
 
@@ -38,6 +38,11 @@ public class SingleRowBlockWriter
     {
         super(rowIndex);
         this.fieldBlockBuilders = fieldBlockBuilders;
+        long initialBlockBuilderSize = 0;
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            initialBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
+        }
+        this.initialBlockBuilderSize = initialBlockBuilderSize;
     }
 
     /**
@@ -67,26 +72,11 @@ public class SingleRowBlockWriter
     @Override
     public long getSizeInBytes()
     {
-        long size = 0;
-        if (rowIndex == 0) {
-            for (BlockBuilder blockBuilder : fieldBlockBuilders) {
-                size += blockBuilder.getSizeInBytes();
-            }
-            return size;
+        long currentBlockBuilderSize = 0;
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            currentBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
         }
-
-        int endIndex = currentFieldIndexToWrite + (isEntryOpen ? 1 : 0);
-        for (int i = 0; i < endIndex; i++) {
-            BlockBuilder builder = fieldBlockBuilders[i];
-            size += (builder.getSizeInBytes() - builder.getRegionSizeInBytes(0, rowIndex));
-        }
-        return size;
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty();
+        return currentBlockBuilderSize - initialBlockBuilderSize;
     }
 
     @Override
@@ -100,12 +90,12 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             consumer.accept(fieldBlockBuilder, fieldBlockBuilder.getRetainedSizeInBytes());
         }
-        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -170,7 +160,6 @@ public class SingleRowBlockWriter
     public BlockBuilder beginBlockEntry()
     {
         checkFieldIndexToWrite();
-        isEntryOpen = true;
         return fieldBlockBuilders[currentFieldIndexToWrite].beginBlockEntry();
     }
 
@@ -209,8 +198,8 @@ public class SingleRowBlockWriter
 
     private void entryAdded()
     {
-        isEntryOpen = false;
         currentFieldIndexToWrite++;
+        positionsWritten++;
     }
 
     @Override
@@ -219,7 +208,7 @@ public class SingleRowBlockWriter
         if (fieldBlockBuilderReturned) {
             throw new IllegalStateException("field block builder has been returned");
         }
-        return currentFieldIndexToWrite;
+        return positionsWritten;
     }
 
     @Override

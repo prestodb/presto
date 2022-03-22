@@ -84,11 +84,11 @@ public class TestDoubleStatisticsBuilder
     }
 
     @Test
-    public void testTotalValueBytes()
+    public void testMinAverageValueBytes()
     {
-        assertTotalValueBytes(0L, ImmutableList.of());
-        assertTotalValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(42D));
-        assertTotalValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(0D));
-        assertTotalValueBytes(4 * DOUBLE_VALUE_BYTES, ImmutableList.of(0D, 42D, 42D, 43D));
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(42D));
+        assertMinAverageValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(0D));
+        assertMinAverageValueBytes(DOUBLE_VALUE_BYTES, ImmutableList.of(0D, 42D, 42D, 43D));
     }
 }

@@ -17,9 +17,7 @@ import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.DictionaryPage;
-import io.airlift.slice.Slice;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -33,8 +31,6 @@ public class PageReader
     private final long valueCount;
     private final LinkedList<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
-    private final OffsetIndex offsetIndex;
-    private int pageIndex;
 
     /**
      * @param compressedPages This parameter will be mutated destructively as {@link DataPage} entries are removed as part of {@link #readPage()}. The caller
@@ -42,27 +38,14 @@ public class PageReader
      */
     public PageReader(CompressionCodecName codec,
             LinkedList<DataPage> compressedPages,
-            DictionaryPage compressedDictionaryPage)
+            DictionaryPage compressedDictionaryPage,
+            long valueCount)
             throws IOException
-    {
-        this(codec, compressedPages, compressedDictionaryPage, null);
-    }
-
-    public PageReader(CompressionCodecName codec,
-                      LinkedList<DataPage> compressedPages,
-                      DictionaryPage compressedDictionaryPage,
-                      OffsetIndex offsetIndex)
     {
         this.codec = codec;
         this.compressedPages = compressedPages;
         this.compressedDictionaryPage = compressedDictionaryPage;
-        int count = 0;
-        for (DataPage page : compressedPages) {
-            count += page.getValueCount();
-        }
-        this.valueCount = count;
-        this.offsetIndex = offsetIndex;
-        this.pageIndex = 0;
+        this.valueCount = valueCount;
     }
 
     public long getTotalValueCount()
@@ -77,16 +60,12 @@ public class PageReader
         }
         DataPage compressedPage = compressedPages.removeFirst();
         try {
-            long firstRowIndex = getFirstRowIndex(pageIndex, offsetIndex);
-            pageIndex = pageIndex + 1;
             if (compressedPage instanceof DataPageV1) {
                 DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
-                Slice slice = decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize());
                 return new DataPageV1(
-                        slice,
+                        decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
-                        firstRowIndex,
                         dataPageV1.getStatistics(),
                         dataPageV1.getRepetitionLevelEncoding(),
                         dataPageV1.getDefinitionLevelEncoding(),
@@ -100,16 +79,14 @@ public class PageReader
                 int uncompressedSize = toIntExact(dataPageV2.getUncompressedSize()
                         - dataPageV2.getDefinitionLevels().length()
                         - dataPageV2.getRepetitionLevels().length());
-                Slice slice = decompress(codec, dataPageV2.getSlice(), uncompressedSize);
                 return new DataPageV2(
                         dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),
                         dataPageV2.getValueCount(),
-                        firstRowIndex,
                         dataPageV2.getRepetitionLevels(),
                         dataPageV2.getDefinitionLevels(),
                         dataPageV2.getDataEncoding(),
-                        slice,
+                        decompress(codec, dataPageV2.getSlice(), uncompressedSize),
                         dataPageV2.getUncompressedSize(),
                         dataPageV2.getStatistics(),
                         false);
@@ -134,10 +111,5 @@ public class PageReader
         catch (IOException e) {
             throw new RuntimeException("Error reading dictionary page", e);
         }
-    }
-
-    public static long getFirstRowIndex(int pageIndex, OffsetIndex offsetIndex)
-    {
-        return offsetIndex == null ? -1 : offsetIndex.getFirstRowIndex(pageIndex);
     }
 }

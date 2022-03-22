@@ -87,7 +87,7 @@ public class TryCastFunction
         MethodHandle tryCastHandle;
 
         // the resulting method needs to return a boxed type
-        FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, fromType, toType);
+        FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, fromType.getTypeSignature(), toType.getTypeSignature());
         ScalarFunctionImplementationChoice implementation = getAllScalarFunctionImplementationChoices(functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle)).get(0);
         argumentProperties = ImmutableList.of(implementation.getArgumentProperty(0));
         MethodHandle coercion = implementation.getMethodHandle();

@@ -26,13 +26,13 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class ExpressionProfiler
 {
     private static final Duration EXPENSIVE_EXPRESSION_THRESHOLD = SPLIT_RUN_QUANTA;
-    private static final int NOT_INITIALIZED = -1;
+    private static final int NOT_INITALIZED = -1;
 
     private final Ticker ticker;
     private final double expensiveExpressionThresholdNanos;
     private double totalExecutionTimeNanos;
     private int samples;
-    private long previousTimestamp = NOT_INITIALIZED;
+    private long previousTimestamp = NOT_INITALIZED;
     private boolean isExpressionExpensive = true;
 
     public ExpressionProfiler()
@@ -56,7 +56,7 @@ public class ExpressionProfiler
 
     public void stop(int batchSize)
     {
-        verify(previousTimestamp != NOT_INITIALIZED, "start() is not called");
+        verify(previousTimestamp != NOT_INITALIZED, "start() is not called");
         verify(batchSize > 0, "batchSize must be positive");
 
         long now = ticker.read();
@@ -66,7 +66,7 @@ public class ExpressionProfiler
         if ((totalExecutionTimeNanos / samples) < expensiveExpressionThresholdNanos) {
             isExpressionExpensive = false;
         }
-        previousTimestamp = NOT_INITIALIZED;
+        previousTimestamp = NOT_INITALIZED;
     }
 
     public boolean isExpressionExpensive()

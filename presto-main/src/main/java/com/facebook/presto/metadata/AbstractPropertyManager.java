@@ -24,8 +24,6 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -76,7 +74,7 @@ abstract class AbstractPropertyManager
             Map<String, Expression> sqlPropertyValues,
             Session session,
             Metadata metadata,
-            Map<NodeRef<Parameter>, Expression> parameters)
+            List<Expression> parameters)
     {
         Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(connectorId);
         if (supportedProperties == null) {
@@ -144,7 +142,7 @@ abstract class AbstractPropertyManager
         return ImmutableMap.copyOf(connectorProperties);
     }
 
-    private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters)
+    private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, List<Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
         Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);

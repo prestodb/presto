@@ -102,7 +102,6 @@ class Util
 
         return Optional.of(
                 new ProjectNode(
-                        node.getSourceLocation(),
                         idAllocator.getNextId(),
                         node,
                         useRowExpression ? identityAssignments(restrictedOutputs) : identityAssignmentsAsSymbolReferences(restrictedOutputs),

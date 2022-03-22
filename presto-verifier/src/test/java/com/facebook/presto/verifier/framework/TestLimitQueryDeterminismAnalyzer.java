@@ -114,7 +114,7 @@ public class TestLimitQueryDeterminismAnalyzer
         MockPrestoAction prestoAction = createPrestoAction(1000);
 
         // Unsupported statement types
-        assertAnalysis(prestoAction, "CREATE TABLE test (x varchar, ds varchar) WITH (partitioned_by = ARRAY[\"ds\"])", NOT_RUN);
+        assertAnalysis(prestoAction, "CREATE TABLE test (x varchar, ds varhcar) WITH (partitioned_by = ARRAY[\"ds\"])", NOT_RUN);
         assertAnalysis(prestoAction, "SELECT * FROM source LIMIT 10", NOT_RUN);
 
         // ORDER BY clause

@@ -22,7 +22,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
@@ -177,19 +176,8 @@ public class TestDoubleOperators
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(37.7E0 as varchar)", VARCHAR, "3.77E1");
-        assertFunction("cast(17.1E0 as varchar)", VARCHAR, "1.71E1");
-        assertFunction("cast(12e2 as varchar(6))", createVarcharType(6), "1.2E3");
-        assertFunction("cast(12e2 as varchar(50))", createVarcharType(50), "1.2E3");
-        assertFunction("cast(12345678.9e0 as varchar(50))", createVarcharType(50), "1.23456789E7");
-        assertFunction("cast(DOUBLE 'NaN' as varchar(3))", createVarcharType(3), "NaN");
-        assertFunction("cast(DOUBLE 'Infinity' as varchar(50))", createVarcharType(50), "Infinity");
-        assertFunction("cast(12e2 as varchar(5))", createVarcharType(5), "1.2E3");
-        assertInvalidCast("cast(12e2 as varchar(4))", "Value 1200.0 (1.2E3) cannot be represented as varchar(4)");
-        assertInvalidCast("cast(0e0 as varchar(2))", "Value 0.0 (0E0) cannot be represented as varchar(2)");
-        assertInvalidCast("cast(-0e0 as varchar(3))", "Value -0.0 (-0E0) cannot be represented as varchar(3)");
-        assertInvalidCast("cast(0e0 / 0e0 as varchar(2))", "Value NaN (NaN) cannot be represented as varchar(2)");
-        assertInvalidCast("cast(DOUBLE 'Infinity' as varchar(7))", "Value Infinity (Infinity) cannot be represented as varchar(7)");
+        assertFunction("cast(37.7E0 as varchar)", VARCHAR, "37.7");
+        assertFunction("cast(17.1E0 as varchar)", VARCHAR, "17.1");
     }
 
     @Test

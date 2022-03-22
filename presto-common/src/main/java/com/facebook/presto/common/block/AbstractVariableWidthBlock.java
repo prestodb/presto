@@ -131,13 +131,6 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
-    {
-        checkReadablePosition(position);
-        sliceOutput.writeBytes(getRawSlice(position), getPositionOffset(position) + offset, length);
-    }
-
-    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         writeBytesTo(position, 0, getSliceLength(position), blockBuilder);

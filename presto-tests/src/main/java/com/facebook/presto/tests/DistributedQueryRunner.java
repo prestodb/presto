@@ -197,16 +197,16 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
 
-            if (resourceManagerEnabled) {
-                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, resourceManagerProperties, parserOptions, environment, baseDataDir, extraModules)));
-                servers.add(resourceManager.get());
-            }
-
             for (int i = 0; i < coordinatorCount; i++) {
                 TestingPrestoServer coordinator = closer.register(createTestingPrestoServer(discoveryUrl, false, resourceManagerEnabled, true, extraCoordinatorProperties, parserOptions, environment, baseDataDir, extraModules));
                 servers.add(coordinator);
                 coordinators.add(coordinator);
                 extraCoordinatorProperties.remove("http-server.http.port");
+            }
+
+            if (resourceManagerEnabled) {
+                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, resourceManagerProperties, parserOptions, environment, baseDataDir, extraModules)));
+                servers.add(resourceManager.get());
             }
 
             this.servers = servers.build();
@@ -265,10 +265,10 @@ public class DistributedQueryRunner
             }
         }
 
-        int availableCoordinators = 0;
-        while (availableCoordinators != coordinators.size()) {
+        int availableCoordinaors = 0;
+        while (availableCoordinaors != coordinators.size()) {
             MILLISECONDS.sleep(10);
-            availableCoordinators = getResourceManager().get().getNodeManager().getCoordinators().size();
+            availableCoordinaors = getResourceManager().get().getNodeManager().getCoordinators().size();
         }
     }
 
@@ -430,11 +430,6 @@ public class DistributedQueryRunner
         return resourceManager;
     }
 
-    public List<TestingPrestoServer> getCoordinatorWorkers()
-    {
-        return getServers().stream().filter(server -> !server.isResourceManager()).collect(ImmutableList.toImmutableList());
-    }
-
     public List<TestingPrestoServer> getServers()
     {
         return ImmutableList.copyOf(servers);
@@ -443,7 +438,11 @@ public class DistributedQueryRunner
     @Override
     public void installPlugin(Plugin plugin)
     {
-        installPlugin(plugin, false);
+        long start = nanoTime();
+        for (TestingPrestoServer server : servers) {
+            server.installPlugin(plugin);
+        }
+        log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public void createCatalog(String catalogName, String connectorName)
@@ -494,12 +493,21 @@ public class DistributedQueryRunner
      */
     public void enableTestFunctionNamespaces(List<String> catalogNames, Map<String, String> additionalProperties)
     {
-        enableTestFunctionNamespaces(catalogNames, additionalProperties, false);
-    }
+        checkState(testFunctionNamespacesHandle.get() == null, "Test function namespaces already enabled");
 
-    public void enableTestFunctionNamespacesOnCoordinators(List<String> catalogNames, Map<String, String> additionalProperties)
-    {
-        enableTestFunctionNamespaces(catalogNames, additionalProperties, true);
+        String databaseName = String.valueOf(nanoTime()) + "_" + ThreadLocalRandom.current().nextInt();
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("database-name", databaseName)
+                .putAll(additionalProperties)
+                .build();
+        installPlugin(new H2FunctionNamespaceManagerPlugin());
+        for (String catalogName : catalogNames) {
+            loadFunctionNamespaceManager("h2", catalogName, properties);
+        }
+
+        Handle handle = Jdbi.open(H2ConnectionModule.getJdbcUrl(databaseName));
+        testFunctionNamespacesHandle.set(handle);
+        closer.register(handle);
     }
 
     public void createTestFunctionNamespace(String catalogName, String schemaName)
@@ -665,47 +673,6 @@ public class DistributedQueryRunner
                 }
             }
         }
-    }
-
-    private void enableTestFunctionNamespaces(List<String> catalogNames, Map<String, String> additionalProperties, boolean coordinatorOnly)
-    {
-        checkState(testFunctionNamespacesHandle.get() == null, "Test function namespaces already enabled");
-
-        String databaseName = String.valueOf(nanoTime()) + "_" + ThreadLocalRandom.current().nextInt();
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("database-name", databaseName)
-                .putAll(additionalProperties)
-                .build();
-        installPlugin(new H2FunctionNamespaceManagerPlugin(), coordinatorOnly);
-        for (String catalogName : catalogNames) {
-            loadFunctionNamespaceManager("h2", catalogName, properties, coordinatorOnly);
-        }
-
-        Handle handle = Jdbi.open(H2ConnectionModule.getJdbcUrl(databaseName));
-        testFunctionNamespacesHandle.set(handle);
-        closer.register(handle);
-    }
-
-    private void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties, boolean coordinatorOnly)
-    {
-        for (TestingPrestoServer server : servers) {
-            if (coordinatorOnly && !server.isCoordinator()) {
-                continue;
-            }
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
-        }
-    }
-
-    private void installPlugin(Plugin plugin, boolean coordinatorOnly)
-    {
-        long start = nanoTime();
-        for (TestingPrestoServer server : servers) {
-            if (coordinatorOnly && !server.isCoordinator()) {
-                continue;
-            }
-            server.installPlugin(plugin);
-        }
-        log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private static void closeUnchecked(AutoCloseable closeable)

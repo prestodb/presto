@@ -24,6 +24,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -32,7 +33,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -102,7 +102,7 @@ public class ImplementFilteredAggregations
                 newAssignments.put(variable, castToRowExpression(filter));
                 mask = Optional.of(variable);
 
-                maskSymbols.add(createSymbolReference(variable));
+                maskSymbols.add(new SymbolReference(variable.getName()));
             }
             else {
                 aggregateWithoutFilterPresent = true;
@@ -126,10 +126,8 @@ public class ImplementFilteredAggregations
 
         return Result.ofPlanNode(
                 new AggregationNode(
-                        aggregation.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         new FilterNode(
-                                aggregation.getSourceLocation(),
                                 context.getIdAllocator().getNextId(),
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),

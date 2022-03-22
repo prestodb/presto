@@ -67,7 +67,7 @@ public class ColumnStatistics
      * The actual average value size is no less than the return value.
      * It provides a lower bound of the size of data to be loaded
      */
-    public long getTotalValueSizeInBytes()
+    public long getMinAverageValueSizeInBytes()
     {
         return 0;
     }

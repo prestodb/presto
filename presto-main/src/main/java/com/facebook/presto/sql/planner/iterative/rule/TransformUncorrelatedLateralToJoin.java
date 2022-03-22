@@ -44,7 +44,6 @@ public class TransformUncorrelatedLateralToJoin
     public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
         return Result.ofPlanNode(new JoinNode(
-                lateralJoinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 JoinNode.Type.INNER,
                 lateralJoinNode.getInput(),

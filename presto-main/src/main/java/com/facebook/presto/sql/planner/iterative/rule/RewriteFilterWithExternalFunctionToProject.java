@@ -60,10 +60,8 @@ public class RewriteFilterWithExternalFunctionToProject
 
         return Result.ofPlanNode(
                 new ProjectNode(
-                        node.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         new FilterNode(
-                            node.getSourceLocation(),
                             context.getIdAllocator().getNextId(),
                             new ProjectNode(context.getIdAllocator().getNextId(), node.getSource(), assignments.build()),
                             predicateVariable),

@@ -645,7 +645,7 @@ public class TestExpressionDomainTranslator
     }
 
     @Test
-    void testNonImplicitCastOnSymbolSide()
+    void testNonImplictCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
         // see comment in ExpressionDomainTranslator.Visitor.visitComparisonExpression()
@@ -1340,9 +1340,9 @@ public class TestExpressionDomainTranslator
         return new IsNullPredicate(expression);
     }
 
-    private InPredicate in(Expression expression, Type expressionType, List<?> values)
+    private InPredicate in(Expression expression, Type expressisonType, List<?> values)
     {
-        List<Type> types = nCopies(values.size(), expressionType);
+        List<Type> types = nCopies(values.size(), expressisonType);
         List<Expression> expressions = literalEncoder.toExpressions(values, types);
         return new InPredicate(expression, new InListExpression(expressions));
     }

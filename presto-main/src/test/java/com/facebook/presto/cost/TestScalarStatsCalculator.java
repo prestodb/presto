@@ -39,7 +39,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -174,7 +173,7 @@ public class TestScalarStatsCalculator
                 .setAverageRowSize(2.0)
                 .build();
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), xStats)
                 .build();
 
         assertCalculate(expression("x"), inputStatistics).isEqualTo(xStats);
@@ -185,7 +184,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToBigint()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(17.3)
@@ -206,7 +205,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRange()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -227,7 +226,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRangeUnknownDistinctValuesCount()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -247,7 +246,7 @@ public class TestScalarStatsCalculator
     public void testCastBigintToDouble()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", DOUBLE), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", DOUBLE), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(2.0)
                         .setHighValue(10.0)
@@ -299,14 +298,14 @@ public class TestScalarStatsCalculator
     public void testNonDivideArithmeticBinaryExpression()
     {
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(2.0)
                         .build())
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(-2)
                         .setHighValue(5)
                         .setDistinctValuesCount(3)
@@ -342,7 +341,7 @@ public class TestScalarStatsCalculator
     public void tesArithmeticUnaryExpression()
     {
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
@@ -372,14 +371,14 @@ public class TestScalarStatsCalculator
     {
         VariableStatsEstimate allNullStats = VariableStatsEstimate.zero();
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(0)
                         .build())
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "all_null", BIGINT), allNullStats)
+                .addVariableStatistics(new VariableReferenceExpression("all_null", BIGINT), allNullStats)
                 .setOutputRowCount(10)
                 .build();
 
@@ -477,11 +476,11 @@ public class TestScalarStatsCalculator
     private PlanNodeStatsEstimate xyStats(double lowX, double highX, double lowY, double highY)
     {
         return PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(lowX)
                         .setHighValue(highX)
                         .build())
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(lowY)
                         .setHighValue(highY)
                         .build())
@@ -492,14 +491,14 @@ public class TestScalarStatsCalculator
     public void testCoalesceExpression()
     {
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(2.0)
                         .build())
-                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.builder()
                         .setLowValue(-2)
                         .setHighValue(5)
                         .setDistinctValuesCount(3)

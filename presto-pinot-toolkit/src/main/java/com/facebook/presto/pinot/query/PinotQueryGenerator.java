@@ -16,7 +16,6 @@ package com.facebook.presto.pinot.query;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.FixedWidthType;
-import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.PinotColumnHandle;
@@ -489,7 +488,7 @@ public class PinotQueryGenerator
         {
             List<AggregationColumnNode> aggregationColumnNodes = computeAggregationNodes(node);
 
-            // Make two passes over the aggregationColumnNodes: In the first pass identify all the variables that will be used
+            // Make two passes over the aggregatinColumnNodes: In the first pass identify all the variables that will be used
             // Then pass that context to the source
             // And finally, in the second pass actually generate the PQL
 
@@ -500,7 +499,7 @@ public class PinotQueryGenerator
                     case GROUP_BY: {
                         GroupByColumnNode groupByColumn = (GroupByColumnNode) expression;
                         VariableReferenceExpression groupByInputColumn = getVariableReference(groupByColumn.getInputColumn());
-                        checkState(groupByInputColumn.getType() instanceof FixedWidthType || groupByInputColumn.getType() instanceof VarcharType || groupByInputColumn.getType() instanceof JsonType);
+                        checkState(groupByInputColumn.getType() instanceof FixedWidthType || groupByInputColumn.getType() instanceof VarcharType);
                         variablesInAggregation.add(groupByInputColumn);
                         break;
                     }
@@ -627,7 +626,7 @@ public class PinotQueryGenerator
                 LinkedHashSet<VariableReferenceExpression> outputs,
                 Set<VariableReferenceExpression> hiddenColumnSet)
         {
-            VariableReferenceExpression hidden = new VariableReferenceExpression(Optional.empty(), UUID.randomUUID().toString(), BigintType.BIGINT);
+            VariableReferenceExpression hidden = new VariableReferenceExpression(UUID.randomUUID().toString(), BigintType.BIGINT);
             selections.put(hidden, new Selection("count(*)", DERIVED));
             outputs.add(hidden);
             hiddenColumnSet.add(hidden);

@@ -35,7 +35,7 @@ public interface ConnectorSplit
      * But there is no guarantee that the scheduler will pick them if the provided nodes are busy.
      * 3. Empty list indicates no preference.
      */
-    List<HostAddress> getPreferredNodes(NodeProvider nodeProvider);
+    List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates);
 
     Object getInfo();
 
@@ -47,10 +47,5 @@ public interface ConnectorSplit
     default OptionalLong getSplitSizeInBytes()
     {
         return OptionalLong.empty();
-    }
-
-    default SplitWeight getSplitWeight()
-    {
-        return SplitWeight.standard();
     }
 }

@@ -52,7 +52,7 @@ public final class ArrayFilterFunction
             }
 
             if (position == positionCount) {
-                // Nothing filtered out. So just return the original.
+                // Nothing fitered out. So just return the original.
                 return arrayBlock;
             }
 
@@ -114,7 +114,7 @@ public final class ArrayFilterFunction
             }
 
             if (position == positionCount) {
-                // Nothing filtered out. So just return the original.
+                // Nothing fitered out. So just return the original.
                 return arrayBlock;
             }
 
@@ -175,7 +175,7 @@ public final class ArrayFilterFunction
             }
 
             if (position == positionCount) {
-                // Nothing filtered out. So just return the original.
+                // Nothing fitered out. So just return the original.
                 return arrayBlock;
             }
 
@@ -236,7 +236,7 @@ public final class ArrayFilterFunction
             }
 
             if (position == positionCount) {
-                // Nothing filtered out. So just return the original.
+                // Nothing fitered out. So just return the original.
                 return arrayBlock;
             }
 
@@ -297,7 +297,7 @@ public final class ArrayFilterFunction
             }
 
             if (position == positionCount) {
-                // Nothing filtered out. So just return the original.
+                // Nothing fitered out. So just return the original.
                 return arrayBlock;
             }
 

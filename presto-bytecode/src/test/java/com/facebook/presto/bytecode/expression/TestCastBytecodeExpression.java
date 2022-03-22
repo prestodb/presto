@@ -51,7 +51,7 @@ public class TestCastBytecodeExpression
     }
 
     @Test
-    public void testInvalidCast()
+    public void testInvalildCast()
     {
         // Cast between a boxed primitive and a primitive that are different
         assertInvalidCast(getStatic(getClass(), "INT_FIELD"), Double.class);

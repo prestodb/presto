@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
@@ -60,15 +59,16 @@ public class SliceDirectColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
     private final int column;
+    private final Type type;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream lengthStream;
     private final ByteArrayOutputStream dataStream;
+    private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter metadataWriter;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private long columnStatisticsRetainedSizeInBytes;
-    private PresentOutputStream presentStream;
 
     private final Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier;
     private SliceColumnStatisticsBuilder statisticsBuilder;
@@ -85,11 +85,11 @@ public class SliceDirectColumnWriter
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(type instanceof AbstractVariableWidthType, "type is not an AbstractVariableWidthType");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
+        this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
         this.lengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
@@ -111,20 +111,8 @@ public class SliceDirectColumnWriter
     {
         checkState(!closed);
         presentStream.recordCheckpoint();
-        beginDataRowGroup();
-    }
-
-    void beginDataRowGroup()
-    {
         lengthStream.recordCheckpoint();
         dataStream.recordCheckpoint();
-    }
-
-    void updatePresentStream(PresentOutputStream updatedPresentStream)
-    {
-        requireNonNull(updatedPresentStream, "updatedPresentStream is null");
-        checkState(presentStream.getBufferedBytes() == 0, "Present stream has some content");
-        presentStream = updatedPresentStream;
     }
 
     @Override
@@ -143,7 +131,9 @@ public class SliceDirectColumnWriter
         int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                elementSize += writeBlockPosition(block, position);
+                Slice value = type.getSlice(block, position);
+                elementSize += value.length();
+                writeSlice(value, 0, value.length());
                 nonNullValueCount++;
             }
         }
@@ -155,13 +145,11 @@ public class SliceDirectColumnWriter
         presentStream.writeBoolean(value);
     }
 
-    int writeBlockPosition(Block block, int position)
+    void writeSlice(Slice slice, int sourceIndex, int length)
     {
-        int length = block.getSliceLength(position);
         lengthStream.writeLong(length);
-        dataStream.writeBlockPosition(block, position, 0, length);
-        statisticsBuilder.addValue(block, position);
-        return length;
+        dataStream.writeSlice(slice, sourceIndex, length);
+        statisticsBuilder.addValue(slice, sourceIndex, length);
     }
 
     @Override

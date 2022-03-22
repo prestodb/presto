@@ -42,7 +42,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -88,14 +87,8 @@ public class TestEventListener
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
             throws Exception
     {
-        return runQueryAndWaitForEvents(sql, numEventsExpected, session);
-    }
-
-    private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession)
-            throws Exception
-    {
         generatedEvents.initialize(numEventsExpected);
-        MaterializedResult result = queryRunner.execute(alternateSession, sql);
+        MaterializedResult result = queryRunner.execute(session, sql);
         generatedEvents.waitForEvents(10);
 
         return result;
@@ -114,7 +107,6 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
         assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
-        assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
@@ -122,7 +114,6 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
 
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
@@ -144,7 +135,6 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
         assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT sum(linenumber) FROM lineitem");
-        assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
@@ -154,7 +144,6 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
 
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
@@ -177,64 +166,6 @@ public class TestEventListener
 
         assertEquals(actualCompletedPositions, expectedCompletedPositions);
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), expectedCompletedPositions);
-    }
-
-    @Test
-    public void testPrepareAndExecute()
-            throws Exception
-    {
-        String selectQuery = "SELECT count(*) FROM lineitem WHERE shipmode = ?";
-        String prepareQuery = "PREPARE stmt FROM " + selectQuery;
-
-        // QueryCreated: 1, QueryCompleted: 1, Splits: 0
-        runQueryAndWaitForEvents(prepareQuery, 2);
-
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
-        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
-        assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQuery(), prepareQuery);
-        assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
-
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
-        assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 0);  // Prepare has no inputs
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), 0); // Prepare has no splits
-
-        // Add prepared statement to a new session to eliminate any impact on other tests in this suite.
-        Session sessionWithPrepare = Session.builder(session).addPreparedStatement("stmt", selectQuery).build();
-
-        // We expect the following events
-        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
-        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
-        runQueryAndWaitForEvents("EXECUTE stmt USING 'SHIP'", expectedEvents, sessionWithPrepare);
-
-        queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
-        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
-        assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQuery(), "EXECUTE stmt USING 'SHIP'");
-        assertTrue(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCreatedEvent.getMetadata().getPreparedQuery().get(), selectQuery);
-
-        queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
-        assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName(), "tpch");
-        assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertTrue(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getMetadata().getPreparedQuery().get(), selectQuery);
-        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
     }
 
     @Test

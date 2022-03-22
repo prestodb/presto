@@ -200,13 +200,5 @@
             <directory>${project.build.directory}/dependency/presto-iceberg-${project.version}</directory>
             <outputDirectory>plugin/iceberg</outputDirectory>
         </fileSet>
-        <fileSet>
-            <directory>${project.build.directory}/dependency/presto-hive-function-namespace-${project.version}</directory>
-            <outputDirectory>plugin/hive-function-namespace</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>${project.build.directory}/dependency/presto-delta-${project.version}</directory>
-            <outputDirectory>plugin/delta</outputDirectory>
-        </fileSet>
     </fileSets>
 </assembly>

@@ -184,7 +184,7 @@ public abstract class AbstractTestDwrfStripeCaching
             Type type = INTEGER;
             List<Type> types = ImmutableList.of(type, type, type);
             OrcWriterOptions writerOptions = OrcWriterOptions.builder()
-                    .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder().withStripeMaxRowCount(100).build())
+                    .withStripeMaxRowCount(100)
                     .withDwrfStripeCacheEnabled(cacheEnabled)
                     .withDwrfStripeCacheMode(cacheMode)
                     .withDwrfStripeCacheMaxSize(cacheMaxSize)

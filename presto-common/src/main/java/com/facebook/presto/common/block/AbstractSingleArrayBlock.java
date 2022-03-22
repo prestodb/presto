@@ -115,13 +115,6 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
-    {
-        checkReadablePosition(position);
-        getBlock().writeBytesTo(position + start, offset, length, sliceOutput);
-    }
-
-    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
@@ -203,7 +196,7 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
+    public long getPositionsSizeInBytes(boolean[] positions)
     {
         throw new UnsupportedOperationException();
     }

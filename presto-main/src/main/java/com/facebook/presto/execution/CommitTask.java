@@ -28,7 +28,7 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 
 public class CommitTask
-        implements SessionTransactionControlTask<Commit>
+        implements DataDefinitionTask<Commit>
 {
     @Override
     public String getName()
@@ -47,5 +47,11 @@ public class CommitTask
 
         stateMachine.clearTransactionId();
         return transactionManager.asyncCommit(transactionId);
+    }
+
+    @Override
+    public boolean isTransactionControl()
+    {
+        return true;
     }
 }

@@ -22,14 +22,12 @@ import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -120,8 +118,6 @@ public class QueuedStatementResource
     private final boolean compressionEnabled;
 
     private final SqlParserOptions sqlParserOptions;
-    private final TracerProvider tracerProvider;
-    private final SessionPropertyManager sessionPropertyManager;     // We may need some system default session property values at early query stage even before session is created.
 
     @Inject
     public QueuedStatementResource(
@@ -129,9 +125,7 @@ public class QueuedStatementResource
             DispatchExecutor executor,
             LocalQueryProvider queryResultsProvider,
             SqlParserOptions sqlParserOptions,
-            ServerConfig serverConfig,
-            TracerProvider tracerProvider,
-            SessionPropertyManager sessionPropertyManager)
+            ServerConfig serverConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryResultsProvider = queryResultsProvider;
@@ -140,8 +134,6 @@ public class QueuedStatementResource
 
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
-        this.tracerProvider = requireNonNull(tracerProvider, "tracerProvider is null");
-        this.sessionPropertyManager = sessionPropertyManager;
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -178,13 +170,7 @@ public class QueuedStatementResource
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
         }
 
-        // TODO: For future cases we may want to start tracing from client. Then continuation of tracing
-        //       will be needed instead of creating a new trace here.
-        SessionContext sessionContext = new HttpRequestSessionContext(
-                servletRequest,
-                sqlParserOptions,
-                tracerProvider,
-                Optional.of(sessionPropertyManager));
+        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions);
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);
 
@@ -428,7 +414,7 @@ public class QueuedStatementResource
 
         private ListenableFuture<?> waitForDispatched()
         {
-            // if query submission has not finished, wait for it to finish
+            // if query query submission has not finished, wait for it to finish
             synchronized (this) {
                 if (querySubmissionFuture == null) {
                     querySubmissionFuture = dispatchManager.createQuery(queryId, slug, retryCount, sessionContext, query);

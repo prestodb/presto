@@ -13,13 +13,23 @@
  */
 package com.facebook.presto.accumulo;
 
+import com.facebook.presto.accumulo.udf.AccumuloStringFunctions;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
 
 public class AccumuloPlugin
         implements Plugin
 {
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.<Class<?>>builder().add(AccumuloStringFunctions.class).build();
+    }
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {

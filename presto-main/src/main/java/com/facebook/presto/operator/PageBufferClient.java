@@ -284,7 +284,6 @@ public final class PageBufferClient
                 backoff.success();
 
                 List<SerializedPage> pages;
-                boolean pagesAccepted;
                 try {
                     boolean shouldAcknowledge = false;
                     synchronized (PageBufferClient.this) {
@@ -325,27 +324,19 @@ public final class PageBufferClient
                     // clientCallback can keep stats of requests and responses. For example, it may
                     // keep track of how often a client returns empty response and adjust request
                     // frequency or buffer size.
-                    pagesAccepted = clientCallback.addPages(PageBufferClient.this, pages);
+                    if (clientCallback.addPages(PageBufferClient.this, pages)) {
+                        pagesReceived.addAndGet(pages.size());
+                        rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
+                    else {
+                        pagesRejected.addAndGet(pages.size());
+                        rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
                 }
                 catch (PrestoException e) {
                     handleFailure(e, resultFuture);
                     return;
                 }
-
-                // update client stats
-                if (!pages.isEmpty()) {
-                    int pageCount = pages.size();
-                    long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
-                    if (pagesAccepted) {
-                        pagesReceived.addAndGet(pageCount);
-                        rowsReceived.addAndGet(rowCount);
-                    }
-                    else {
-                        pagesRejected.addAndGet(pageCount);
-                        rowsRejected.addAndGet(rowCount);
-                    }
-                }
-                requestsCompleted.incrementAndGet();
 
                 synchronized (PageBufferClient.this) {
                     // client is complete, acknowledge it by sending it a delete in the next request
@@ -357,6 +348,7 @@ public final class PageBufferClient
                     }
                     lastUpdate = DateTime.now();
                 }
+                requestsCompleted.incrementAndGet();
                 clientCallback.requestComplete(PageBufferClient.this);
             }
 

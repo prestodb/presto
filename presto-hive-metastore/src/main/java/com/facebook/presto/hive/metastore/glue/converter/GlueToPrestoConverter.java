@@ -93,7 +93,7 @@ public final class GlueToPrestoConverter
 
     private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn)
     {
-        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()), Optional.empty());
+        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
     }
 
     private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns)

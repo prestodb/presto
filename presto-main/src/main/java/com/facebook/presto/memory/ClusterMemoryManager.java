@@ -393,7 +393,7 @@ public class ClusterMemoryManager
         nodes.stream()
                 .filter(node -> node.getPools().get(GENERAL_POOL) != null)
                 .map(node ->
-                        new SimpleEntry<>(
+                        new SimpleEntry<MemoryPoolInfo, Long>(
                                 node.getPools().get(GENERAL_POOL),
                                 node.getPools().get(GENERAL_POOL).getQueryMemoryReservations().values().stream().mapToLong(l -> l).sum()))
                 .sorted(nodeMemoryComparator.reversed())

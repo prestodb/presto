@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -44,7 +43,6 @@ public class TableFinishNode
 
     @JsonCreator
     public TableFinishNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") Optional<WriterTarget> target,
@@ -52,7 +50,7 @@ public class TableFinishNode
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
     {
-        super(sourceLocation, id);
+        super(id);
 
         checkArgument(target != null || source instanceof TableWriterNode);
         this.source = requireNonNull(source, "source is null");
@@ -115,7 +113,6 @@ public class TableFinishNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new TableFinishNode(
-                getSourceLocation(),
                 getId(),
                 Iterables.getOnlyElement(newChildren),
                 target,

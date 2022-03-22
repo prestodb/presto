@@ -15,11 +15,11 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.Int128ArrayBlock;
-import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.TupleDomainFilter;
 import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
 

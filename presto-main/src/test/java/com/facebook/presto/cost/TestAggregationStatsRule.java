@@ -17,7 +17,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -31,12 +30,12 @@ public class TestAggregationStatsRule
     {
         Consumer<PlanNodeStatsAssertion> outputRowCountAndZStatsAreCalculated = check -> check
                 .outputRowsCount(15)
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("z", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .lowValue(10)
                         .highValue(15)
                         .distinctValuesCount(4)
                         .nullsFraction(0.2))
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .lowValue(0)
                         .highValue(3)
                         .distinctValuesCount(3)
@@ -61,11 +60,11 @@ public class TestAggregationStatsRule
 
         Consumer<PlanNodeStatsAssertion> outputRowsCountAndZStatsAreNotFullyCalculated = check -> check
                 .outputRowsCountUnknown()
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("z", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .unknownRange()
                         .distinctValuesCountUnknown()
                         .nullsFractionUnknown())
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .unknownRange()
                         .nullsFractionUnknown()
                         .distinctValuesCountUnknown());
@@ -97,37 +96,37 @@ public class TestAggregationStatsRule
                         .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.3)
                                 .build())
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(3)
                                 .setNullsFraction(0)
                                 .build())
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), zStats)
+                        .addVariableStatistics(new VariableReferenceExpression("z", BIGINT), zStats)
                         .build())
                 .check(check -> check
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "sum", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("sum", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
                                 .nullsFractionUnknown())
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "count", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("count", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
                                 .nullsFractionUnknown())
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "count_on_x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("count_on_x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
                                 .nullsFractionUnknown())
-                        .variableStats(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
@@ -144,8 +143,8 @@ public class TestAggregationStatsRule
                         .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
-                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addVariableStatistics(new VariableReferenceExpression("z", BIGINT), VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
                 .check(check -> check.outputRowsCount(100));
     }

@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -140,6 +138,6 @@ public class TestUnionStatsRule
 
     private VariableReferenceExpression variable(String name)
     {
-        return new VariableReferenceExpression(Optional.empty(), name, BIGINT);
+        return new VariableReferenceExpression(name, BIGINT);
     }
 }

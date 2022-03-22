@@ -138,7 +138,6 @@ public class MultipleDistinctAggregationToMarkDistinct
                     parent.getGroupIdVariable().ifPresent(distinctVariables::add);
 
                     subPlan = new MarkDistinctNode(
-                            subPlan.getSourceLocation(),
                             context.getIdAllocator().getNextId(),
                             subPlan,
                             marker,
@@ -162,7 +161,6 @@ public class MultipleDistinctAggregationToMarkDistinct
 
         return Result.ofPlanNode(
                 new AggregationNode(
-                        parent.getSourceLocation(),
                         parent.getId(),
                         subPlan,
                         newAggregations,

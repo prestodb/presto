@@ -26,7 +26,6 @@ import com.google.common.primitives.Ints;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.Optional;
 
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
@@ -52,8 +51,8 @@ public class TestRowExpressionPredicateCompiler
     @Test
     public void test()
     {
-        InputReferenceExpression a = new InputReferenceExpression(Optional.empty(), 0, BIGINT);
-        InputReferenceExpression b = new InputReferenceExpression(Optional.empty(), 1, BIGINT);
+        InputReferenceExpression a = new InputReferenceExpression(0, BIGINT);
+        InputReferenceExpression b = new InputReferenceExpression(1, BIGINT);
 
         Block aBlock = createLongBlock(5, 5, 5, 5, 5);
         Block bBlock = createLongBlock(1, 3, 5, 7, 0);
@@ -105,7 +104,7 @@ public class TestRowExpressionPredicateCompiler
                 "=",
                 functionResolution.comparisonFunction(LESS_THAN, BIGINT, BIGINT),
                 BOOLEAN,
-                call("a * 2", functionResolution.arithmeticFunction(MULTIPLY, BIGINT, BIGINT), BIGINT, new InputReferenceExpression(Optional.empty(), 1, BIGINT), constant(2L, BIGINT)),
+                call("a * 2", functionResolution.arithmeticFunction(MULTIPLY, BIGINT, BIGINT), BIGINT, new InputReferenceExpression(1, BIGINT), constant(2L, BIGINT)),
                 constant(10L, BIGINT));
 
         PredicateCompiler compiler = new RowExpressionPredicateCompiler(metadata, 10_000);

@@ -86,7 +86,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Float.floatToIntBits;
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -282,7 +282,7 @@ public class TestRowExpressionSerde
                 metadata.getFunctionAndTypeManager(),
                 TEST_SESSION,
                 TypeProvider.empty(),
-                emptyMap(),
+                emptyList(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),
                 WarningCollector.NOOP,
                 false);

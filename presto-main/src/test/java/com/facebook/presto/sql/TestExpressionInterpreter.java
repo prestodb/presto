@@ -26,7 +26,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -84,7 +83,6 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
@@ -99,12 +97,11 @@ import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestExpressionInterpreter
 {
@@ -566,10 +563,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(-12300000000 as VARCHAR)", "'-12300000000'");
 
         // double
-        assertOptimizedEquals("CAST(123.0E0 AS varchar)", "'1.23E2'");
-        assertOptimizedEquals("CAST(-123.0E0 AS varchar)", "'-1.23E2'");
-        assertOptimizedEquals("CAST(123.456E0 AS varchar)", "'1.23456E2'");
-        assertOptimizedEquals("CAST(-123.456E0 AS varchar)", "'-1.23456E2'");
+        assertOptimizedEquals("cast(123.0E0 as VARCHAR)", "'123.0'");
+        assertOptimizedEquals("cast(-123.0E0 as VARCHAR)", "'-123.0'");
+        assertOptimizedEquals("cast(123.456E0 as VARCHAR)", "'123.456'");
+        assertOptimizedEquals("cast(-123.456E0 as VARCHAR)", "'-123.456'");
 
         // boolean
         assertOptimizedEquals("cast(true as VARCHAR)", "'true'");
@@ -585,132 +582,6 @@ public class TestExpressionInterpreter
         // decimal
         assertOptimizedEquals("cast(1.1 as VARCHAR)", "'1.1'");
         // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("cast(12345678901234567890.123 as VARCHAR)", "'12345678901234567890.123'");
-    }
-
-    @Test
-    public void testCastBigintToBoundedVarchar()
-    {
-        assertEvaluatedEquals("CAST(12300000000 AS varchar(11))", "'12300000000'");
-        assertEvaluatedEquals("CAST(12300000000 AS varchar(50))", "'12300000000'");
-
-        try {
-            evaluate("CAST(12300000000 AS varchar(3))", true);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-                assertEquals(e.getMessage(), "Value 12300000000 cannot be represented as varchar(3)");
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
-
-        try {
-            evaluate("CAST(-12300000000 AS varchar(3))", true);
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-                assertEquals(e.getMessage(), "Value -12300000000 cannot be represented as varchar(3)");
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
-    }
-
-    @Test
-    public void testCastDoubleToBoundedVarchar()
-    {
-        // NaN
-        assertEvaluatedEquals("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
-        assertEvaluatedEquals("CAST(0e0 / 0e0 AS varchar(50))", "'NaN'");
-
-        // Infinity
-        assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
-        assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(50))", "'Infinity'");
-
-        assertEvaluatedEquals("CAST(0e0 AS varchar(3))", "'0E0'");
-        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(3))", "'0E0'");
-        assertEvaluatedEquals("CAST(DOUBLE '-0' AS varchar(4))", "'-0E0'");
-        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(50))", "'0E0'");
-
-        assertEvaluatedEquals("CAST(12e0 AS varchar(5))", "'1.2E1'");
-        assertEvaluatedEquals("CAST(12e2 AS varchar(6))", "'1.2E3'");
-        assertEvaluatedEquals("CAST(12e-2 AS varchar(6))", "'1.2E-1'");
-
-        assertEvaluatedEquals("CAST(12e0 AS varchar(50))", "'1.2E1'");
-        assertEvaluatedEquals("CAST(12e2 AS varchar(50))", "'1.2E3'");
-        assertEvaluatedEquals("CAST(12e-2 AS varchar(50))", "'1.2E-1'");
-
-        assertEvaluatedEquals("CAST(-12e0 AS varchar(6))", "'-1.2E1'");
-        assertEvaluatedEquals("CAST(-12e2 AS varchar(6))", "'-1.2E3'");
-        assertEvaluatedEquals("CAST(-12e-2 AS varchar(7))", "'-1.2E-1'");
-
-        assertEvaluatedEquals("CAST(-12e0 AS varchar(50))", "'-1.2E1'");
-        assertEvaluatedEquals("CAST(-12e2 AS varchar(50))", "'-1.2E3'");
-        assertEvaluatedEquals("CAST(-12e-2 AS varchar(50))", "'-1.2E-1'");
-
-        assertEvaluatedEquals("CAST(12345678.9e0 AS varchar(12))", "'1.23456789E7'");
-        assertEvaluatedEquals("CAST(0.00001e0 AS varchar(6))", "'1.0E-5'");
-
-        // the result value does not fit in the type
-        assertPrestoExceptionThrownBy("CAST(REAL '12' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 12.0 (1.2E1) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL '-12e2' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value -1200.0 (-1.2E3) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL '0' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 0.0 (0E0) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value NaN (NaN) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL 'Infinity' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value Infinity (Infinity) cannot be represented as varchar(1)");
-
-        assertEvaluatedEquals("CAST(1200000e0 AS varchar(5))", "'1.2E6'");
-    }
-
-    @Test
-    public void testCastRealToBoundedVarchar()
-    {
-        // NaN
-        assertEvaluatedEquals("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
-        assertEvaluatedEquals("CAST(REAL '0e0' / REAL '0e0' AS varchar(50))", "'NaN'");
-
-        // Infinity
-        assertEvaluatedEquals("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
-        assertEvaluatedEquals("CAST(REAL 'Infinity' AS varchar(50))", "'Infinity'");
-
-        // incorrect behavior: the string representation is not compliant with the SQL standard
-        assertEvaluatedEquals("CAST(REAL '0' AS varchar(3))", "'0E0'");
-        assertEvaluatedEquals("CAST(REAL '-0' AS varchar(4))", "'-0E0'");
-        assertEvaluatedEquals("CAST(REAL '0' AS varchar(50))", "'0E0'");
-
-        assertEvaluatedEquals("CAST(REAL '12' AS varchar(5))", "'1.2E1'");
-        assertEvaluatedEquals("CAST(REAL '12e2' AS varchar(5))", "'1.2E3'");
-        assertEvaluatedEquals("CAST(REAL '12e-2' AS varchar(6))", "'1.2E-1'");
-
-        assertEvaluatedEquals("CAST(REAL '12' AS varchar(50))", "'1.2E1'");
-        assertEvaluatedEquals("CAST(REAL '12e2' AS varchar(50))", "'1.2E3'");
-        assertEvaluatedEquals("CAST(REAL '12e-2' AS varchar(50))", "'1.2E-1'");
-
-        assertEvaluatedEquals("CAST(REAL '-12' AS varchar(6))", "'-1.2E1'");
-        assertEvaluatedEquals("CAST(REAL '-12e2' AS varchar(6))", "'-1.2E3'");
-        assertEvaluatedEquals("CAST(REAL '-12e-2' AS varchar(7))", "'-1.2E-1'");
-
-        assertEvaluatedEquals("CAST(REAL '-12' AS varchar(50))", "'-1.2E1'");
-        assertEvaluatedEquals("CAST(REAL '-12e2' AS varchar(50))", "'-1.2E3'");
-        assertEvaluatedEquals("CAST(REAL '-12e-2' AS varchar(50))", "'-1.2E-1'");
-
-        assertEvaluatedEquals("CAST(REAL '12345678.9e0' AS varchar(12))", "'1.234568E7'");
-        assertEvaluatedEquals("CAST(REAL '0.00001e0' AS varchar(12))", "'1.0E-5'");
-
-        // the result value does not fit in the type
-        assertPrestoExceptionThrownBy("CAST(12e0 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 12.0 (1.2E1) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(-12e2 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value -1200.0 (-1.2E3) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(0e0 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 0.0 (0E0) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(0e0 / 0e0 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value NaN (NaN) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(DOUBLE 'Infinity' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value Infinity (Infinity) cannot be represented as varchar(1)");
-
-        assertEvaluatedEquals("CAST(REAL '1200000' AS varchar(5))", "'1.2E6'");
     }
 
     @Test
@@ -1695,7 +1566,7 @@ public class TestExpressionInterpreter
 
     private static Object optimize(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter interpreter = expressionOptimizer(expression, METADATA, TEST_SESSION, expressionTypes);
         return interpreter.optimize(variable -> {
             Symbol symbol = new Symbol(variable.getName());
@@ -1713,7 +1584,7 @@ public class TestExpressionInterpreter
             Symbol symbol = new Symbol(variable.getName());
             Object value = symbolConstant(symbol);
             if (value == null) {
-                return new VariableReferenceExpression(Optional.empty(), symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
+                return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
             }
             return value;
         });
@@ -1880,7 +1751,7 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression, boolean deterministic)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         Object expressionResult = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes).evaluate();
         Object rowExpressionResult = rowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), METADATA, TEST_SESSION.toConnectorSession()).evaluate();
 
@@ -1888,24 +1759,6 @@ public class TestExpressionInterpreter
             assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
         }
         return expressionResult;
-    }
-
-    public static void assertPrestoExceptionThrownBy(String expression, StandardErrorCode errorCode, String message)
-    {
-        try {
-            evaluate(expression, true);
-            fail(format("Expected to throw exception %s", errorCode.toString()));
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), errorCode.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
     }
 
     private static class FailedFunctionRewriter

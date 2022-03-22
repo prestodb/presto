@@ -67,7 +67,6 @@ public final class OrcInputStream
     private int currentCompressedBlockOffset;
 
     private byte[] buffer;
-    private OrcDecompressor.OutputBuffer bufferAdapter;
     private int position;
     private int length;
     private int uncompressedOffset;
@@ -108,7 +107,6 @@ public final class OrcInputStream
             this.compressedSliceInput = sliceInput;
             this.buffer = new byte[0];
             this.compressedSliceInputRetainedSizeInBytes = sliceInputRetainedSizeInBytes;
-            this.bufferAdapter = createDecompressorOutputBufferAdapter();
         }
 
         memoryUsage.setBytes(getRetainedSizeInBytes());
@@ -493,14 +491,32 @@ public final class OrcInputStream
                 readCompressed = compressedBuffer.length;
             }
 
-            length = decompressor.get().decompress(compressedBuffer, 0, readCompressed, bufferAdapter);
+            OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
+            {
+                @Override
+                public byte[] initialize(int size)
+                {
+                    buffer = ensureCapacity(buffer, size);
+                    return buffer;
+                }
+
+                @Override
+                public byte[] grow(int size)
+                {
+                    if (size > buffer.length) {
+                        buffer = Arrays.copyOfRange(buffer, 0, size);
+                    }
+                    return buffer;
+                }
+            };
+            length = decompressor.get().decompress(compressedBuffer, 0, readCompressed, output);
             position = 0;
         }
         uncompressedOffset = position;
         memoryUsage.setBytes(getRetainedSizeInBytes());
     }
 
-    public long getRetainedSizeInBytes()
+    private long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
                 compressedSliceInputRetainedSizeInBytes +
@@ -527,27 +543,5 @@ public final class OrcInputStream
                 .add("decompressor", decompressor.map(Object::toString).orElse("none"))
                 .add("decryptor", dwrfDecryptor.map(Object::toString).orElse("none"))
                 .toString();
-    }
-
-    private OrcDecompressor.OutputBuffer createDecompressorOutputBufferAdapter()
-    {
-        return new OrcDecompressor.OutputBuffer()
-        {
-            @Override
-            public byte[] initialize(int size)
-            {
-                buffer = ensureCapacity(buffer, size);
-                return buffer;
-            }
-
-            @Override
-            public byte[] grow(int size)
-            {
-                if (size > buffer.length) {
-                    buffer = Arrays.copyOfRange(buffer, 0, size);
-                }
-                return buffer;
-            }
-        };
     }
 }

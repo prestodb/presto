@@ -27,10 +27,11 @@ local exchange (GATHER, SINGLE, [])
                                                                 scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [c_customer_sk])
-                                            join (INNER, REPLICATED):
-                                                scan customer_demographics
+                                            join (INNER, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, [cd_demo_sk])
+                                                    scan customer_demographics
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                    remote exchange (REPARTITION, HASH, [c_current_cdemo_sk])
                                                         join (INNER, PARTITIONED):
                                                             final aggregation over (ss_customer_sk)
                                                                 local exchange (GATHER, SINGLE, [])

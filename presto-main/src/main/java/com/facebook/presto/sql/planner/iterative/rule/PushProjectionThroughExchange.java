@@ -123,7 +123,7 @@ public class PushProjectionThroughExchange
                 projections.put(variable, translatedExpression);
                 inputs.add(variable);
             }
-            newSourceBuilder.add(new ProjectNode(project.getSourceLocation(), context.getIdAllocator().getNextId(), exchange.getSources().get(i), projections.build(), project.getLocality()));
+            newSourceBuilder.add(new ProjectNode(context.getIdAllocator().getNextId(), exchange.getSources().get(i), projections.build(), project.getLocality()));
             inputsBuilder.add(inputs.build());
         }
 
@@ -149,7 +149,6 @@ public class PushProjectionThroughExchange
                 exchange.getPartitioningScheme().getBucketToPartition());
 
         PlanNode result = new ExchangeNode(
-                exchange.getSourceLocation(),
                 exchange.getId(),
                 exchange.getType(),
                 exchange.getScope(),

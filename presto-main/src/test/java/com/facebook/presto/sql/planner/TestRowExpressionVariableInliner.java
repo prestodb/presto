@@ -23,8 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
@@ -65,14 +63,12 @@ public class TestRowExpressionVariableInliner
                 new CallExpression("apply", TEST_FUNCTION, BIGINT, ImmutableList.of(
                         variable("a"),
                         new LambdaDefinitionExpression(
-                                Optional.empty(),
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("lambda_argument"),
                                 new CallExpression("add", TEST_FUNCTION, BIGINT, ImmutableList.of(variable("lambda_argument"), variable("a"))))))),
                 new CallExpression("apply", TEST_FUNCTION, BIGINT, ImmutableList.of(
                         variable("b"),
                         new LambdaDefinitionExpression(
-                                Optional.empty(),
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("lambda_argument"),
                                 new CallExpression("add", TEST_FUNCTION, BIGINT, ImmutableList.of(variable("lambda_argument"), variable("b")))))));
@@ -85,6 +81,6 @@ public class TestRowExpressionVariableInliner
 
     private VariableReferenceExpression variable(String name)
     {
-        return new VariableReferenceExpression(Optional.empty(), name, BIGINT);
+        return new VariableReferenceExpression(name, BIGINT);
     }
 }

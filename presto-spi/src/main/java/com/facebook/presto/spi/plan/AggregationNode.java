@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -56,7 +55,6 @@ public final class AggregationNode
 
     @JsonCreator
     public AggregationNode(
-            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
@@ -66,7 +64,7 @@ public final class AggregationNode
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("groupIdVariable") Optional<VariableReferenceExpression> groupIdVariable)
     {
-        super(sourceLocation, id);
+        super(id);
 
         this.source = source;
         this.aggregations = unmodifiableMap(new LinkedHashMap<>(requireNonNull(aggregations, "aggregations is null")));
@@ -205,7 +203,7 @@ public final class AggregationNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new AggregationNode(getSourceLocation(), getId(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+        return new AggregationNode(getId(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
     }
 
     public boolean isStreamable()
