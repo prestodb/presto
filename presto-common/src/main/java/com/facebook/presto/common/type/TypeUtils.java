@@ -69,6 +69,11 @@ public final class TypeUtils
         return type instanceof EnumType || type instanceof TypeWithName && ((TypeWithName) type).getType() instanceof EnumType;
     }
 
+    public static boolean isDistinctType(Type type)
+    {
+        return type instanceof DistinctType;
+    }
+
     /**
      * Get the native value as an object in the value at {@code position} of {@code block}.
      */

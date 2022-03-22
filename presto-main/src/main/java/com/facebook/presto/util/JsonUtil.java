@@ -20,6 +20,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
@@ -69,6 +70,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TypeUtils.isDistinctType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -169,10 +171,13 @@ public final class JsonUtil
     public static boolean canCastFromJson(Type type)
     {
         TypeSignature signature = type.getTypeSignature();
-        String baseType = signature.getBase();
+        if (signature.isDistinctType()) {
+            return canCastFromJson(((DistinctType) type).getBaseType());
+        }
         if (signature.isEnum()) {
             return true;
         }
+        String baseType = signature.getBase();
         if (baseType.equals(StandardTypes.BOOLEAN) ||
                 baseType.equals(StandardTypes.TINYINT) ||
                 baseType.equals(StandardTypes.SMALLINT) ||
@@ -199,6 +204,9 @@ public final class JsonUtil
 
     private static boolean isValidJsonObjectKeyType(Type type)
     {
+        if (isDistinctType(type)) {
+            return isValidJsonObjectKeyType(((DistinctType) type).getBaseType());
+        }
         String baseType = type.getTypeSignature().getBase();
         return baseType.equals(StandardTypes.BOOLEAN) ||
                 baseType.equals(StandardTypes.TINYINT) ||
@@ -220,13 +228,16 @@ public final class JsonUtil
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
             TypeSignature signature = type.getTypeSignature();
-            String baseType = signature.getBase();
+            if (signature.isDistinctType()) {
+                return createObjectKeyProvider(((DistinctType) type).getBaseType());
+            }
             if (signature.isBigintEnum()) {
                 return (block, position) -> String.valueOf(type.getLong(block, position));
             }
             if (signature.isVarcharEnum()) {
                 return (block, position) -> type.getSlice(block, position).toStringUtf8();
             }
+            String baseType = signature.getBase();
             switch (baseType) {
                 case UnknownType.NAME:
                     return (block, position) -> null;
@@ -269,13 +280,16 @@ public final class JsonUtil
         static JsonGeneratorWriter createJsonGeneratorWriter(Type type)
         {
             TypeSignature signature = type.getTypeSignature();
-            String baseType = signature.getBase();
+            if (signature.isDistinctType()) {
+                return createJsonGeneratorWriter(((DistinctType) type).getBaseType());
+            }
             if (signature.isBigintEnum()) {
                 return new LongJsonGeneratorWriter(type);
             }
             if (signature.isVarcharEnum()) {
                 return new VarcharJsonGeneratorWriter(type);
             }
+            String baseType = signature.getBase();
             switch (baseType) {
                 case UnknownType.NAME:
                     return new UnknownJsonGeneratorWriter();
@@ -887,13 +901,16 @@ public final class JsonUtil
         static BlockBuilderAppender createBlockBuilderAppender(Type type)
         {
             TypeSignature signature = type.getTypeSignature();
-            String baseType = signature.getBase();
+            if (signature.isDistinctType()) {
+                return createBlockBuilderAppender(((DistinctType) type).getBaseType());
+            }
             if (signature.isBigintEnum()) {
                 return new BigintBlockBuilderAppender();
             }
             if (signature.isVarcharEnum()) {
                 return new VarcharBlockBuilderAppender(type);
             }
+            String baseType = signature.getBase();
             switch (baseType) {
                 case StandardTypes.BOOLEAN:
                     return new BooleanBlockBuilderAppender();
