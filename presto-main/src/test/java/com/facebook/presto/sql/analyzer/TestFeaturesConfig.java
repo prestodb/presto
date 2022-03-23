@@ -192,7 +192,8 @@ public class TestFeaturesConfig
                 .setHashBasedDistinctLimitThreshold(10000)
                 .setStreamingForPartialAggregationEnabled(false)
                 .setMaxStageCountForEagerScheduling(25)
-                .setHyperloglogStandardErrorWarningThreshold(0.004));
+                .setHyperloglogStandardErrorWarningThreshold(0.004)
+                .setPreferMergeJoin(false));
     }
 
     @Test
@@ -336,6 +337,7 @@ public class TestFeaturesConfig
                 .put("streaming-for-partial-aggregation-enabled", "true")
                 .put("execution-policy.max-stage-count-for-eager-scheduling", "123")
                 .put("hyperloglog-standard-error-warning-threshold", "0.02")
+                .put("optimizer.prefer-merge-join", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -476,7 +478,8 @@ public class TestFeaturesConfig
                 .setHashBasedDistinctLimitThreshold(500)
                 .setStreamingForPartialAggregationEnabled(true)
                 .setMaxStageCountForEagerScheduling(123)
-                .setHyperloglogStandardErrorWarningThreshold(0.02);
+                .setHyperloglogStandardErrorWarningThreshold(0.02)
+                .setPreferMergeJoin(true);
         assertFullMapping(properties, expected);
     }
 
