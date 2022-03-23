@@ -71,6 +71,7 @@
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
         <dep.hudi.version>0.10.1</dep.hudi.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
+        <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -516,6 +517,12 @@
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers</artifactId>
                 <version>${dep.testcontainers.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-api</artifactId>
+                <version>${dep.docker-java.version}</version>
             </dependency>
 
             <dependency>
