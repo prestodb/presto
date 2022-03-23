@@ -698,9 +698,7 @@ class GenericView {
   }
 
   bool operator==(const GenericView& other) const {
-    static constexpr auto kConfig = CompareFlags{true, true, true};
-    return baseVector_->compare(
-               other.baseVector_, index_, other.index_, kConfig) == 0;
+    return baseVector_->equalValueAt(other.baseVector_, index_, other.index_);
   }
 
  private:
