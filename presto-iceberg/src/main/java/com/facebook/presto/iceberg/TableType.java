@@ -21,4 +21,5 @@ public enum TableType
     MANIFESTS,
     PARTITIONS,
     FILES,
+    PROPERTIES,
 }
