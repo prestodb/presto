@@ -201,12 +201,18 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
         assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
 
-        // cast from real to varchar fails, so the expression is not modified
-        assertSimplifies("CAST(REAL '12e2' AS varchar(3))", "CAST(REAL '12e2' AS varchar(3))");
-        assertSimplifies("CAST(REAL '-12e2' AS varchar(3))", "CAST(REAL '-12e2' AS varchar(3))");
-        assertSimplifies("CAST(REAL 'NaN' AS varchar(2))", "CAST(REAL 'NaN' AS varchar(2))");
-        assertSimplifies("CAST(REAL 'Infinity' AS varchar(7))", "CAST(REAL 'Infinity' AS varchar(7))");
-        assertSimplifies("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", "CAST(REAL '12e2' AS varchar(3)) = '1200.0'");
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('1200.0' AS varchar(3))),
+        // so eventually we get a truncated string '120'
+        assertSimplifies("CAST(REAL '12e2' AS varchar(3))", "CAST('1200.0' AS varchar(3))");
+        assertSimplifies("CAST(REAL '-12e2' AS varchar(3))", "CAST('-1200.0' AS varchar(3))");
+        assertSimplifies("CAST(REAL 'NaN' AS varchar(2))", "CAST('NaN' AS varchar(2))");
+        assertSimplifies("CAST(REAL 'Infinity' AS varchar(7))", "CAST('Infinity' AS varchar(7))");
+
+        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", "true");
     }
 
     private static void assertSimplifies(String expression, String expected)
