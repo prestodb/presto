@@ -48,7 +48,11 @@ FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
   static const Timestamp kMinTimestamp(
       kMin / 1000 - 1, (kMin % 1000 + 1000) * kNanosecondsInMillisecond);
 
-  if (UNLIKELY(unixtime >= kMax)) {
+  // On some compilers if we cast kMax to a double, we can get a number larger
+  // than 'kMax'. This will allow 'unixtime' values > 'kMax'. The workaround
+  // here is to use uint64_t to represent ('kMax' + 1), which can be represented
+  // exactly as double. We then check if the difference with 'unixtime' <= 1.
+  if (UNLIKELY((static_cast<uint64_t>(kMax) + 1) - unixtime <= 1)) {
     return kMaxTimestamp;
   }
 
