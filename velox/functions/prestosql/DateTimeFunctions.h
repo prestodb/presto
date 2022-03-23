@@ -275,6 +275,15 @@ struct HourFunction : public InitSessionTimezone<T> {
     result = getDateTime(date).tm_hour;
     return true;
   }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    const auto milliseconds = *timestampWithTimezone.template at<0>();
+    Timestamp timestamp{milliseconds / kMillisecondsInSecond, 0UL};
+    timestamp.toTimezone(*timestampWithTimezone.template at<1>());
+    result = getDateTime(timestamp, nullptr).tm_hour;
+  }
 };
 
 template <typename T>

@@ -46,6 +46,7 @@ void registerSimpleFunctions() {
   registerFunction<DayOfYearFunction, int64_t, Date>({"doy", "day_of_year"});
   registerFunction<HourFunction, int64_t, Timestamp>({"hour"});
   registerFunction<HourFunction, int64_t, Date>({"hour"});
+  registerFunction<HourFunction, int64_t, TimestampWithTimezone>({"hour"});
   registerFunction<MinuteFunction, int64_t, Timestamp>({"minute"});
   registerFunction<MinuteFunction, int64_t, Date>({"minute"});
   registerFunction<SecondFunction, int64_t, Timestamp>({"second"});
