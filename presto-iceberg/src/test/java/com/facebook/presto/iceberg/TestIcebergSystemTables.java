@@ -173,6 +173,15 @@ public class TestIcebergSystemTables
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
     }
 
+    @Test
+    public void testPropertiesTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
+                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 1");
+        assertQuery("SELECT * FROM test_schema.\"test_table$properties\"", "VALUES ('write.format.default', 'PARQUET')");
+    }
+
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
