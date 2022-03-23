@@ -1049,8 +1049,7 @@ std::shared_ptr<MergeSource> Task::addLocalMergeSource(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId,
     const RowTypePtr& rowType) {
-  auto source =
-      MergeSource::createLocalMergeSource(rowType, queryCtx()->mappedMemory());
+  auto source = MergeSource::createLocalMergeSource();
   splitGroupStates_[splitGroupId].localMergeSources[planNodeId].push_back(
       source);
   return source;

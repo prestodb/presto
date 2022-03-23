@@ -21,66 +21,15 @@
 
 namespace facebook::velox::exec {
 namespace {
-class MergeSourceData {
- public:
-  MergeSourceData(
-      const std::shared_ptr<const RowType>& type,
-      memory::MappedMemory* mappedMemory,
-      const RowVectorPtr& input)
-      : data_(std::make_unique<RowContainer>(type->children(), mappedMemory)) {
-    if (input) {
-      fetchRows(input);
-    }
-  }
-
-  void clear() {
-    rows_.clear();
-    data_->clear();
-    currentPos_ = 0;
-  }
-
-  void fetchRows(const RowVectorPtr& input) {
-    SelectivityVector allRows(input->size());
-    rows_.reserve(input->size());
-    for (int i = 0; i < input->size(); ++i) {
-      rows_.emplace_back(data_->newRow());
-    }
-
-    DecodedVector decoded;
-    for (int col = 0; col < input->childrenSize(); ++col) {
-      decoded.decode(*input->childAt(col), allRows);
-      for (int i = 0; i < input->size(); ++i) {
-        data_->store(decoded, i, rows_[i], col);
-      }
-    }
-  }
-
-  bool hasNext() const {
-    return currentPos_ < rows_.size();
-  }
-
-  char* next() {
-    VELOX_DCHECK_LE(currentPos_, rows_.size());
-    return rows_[currentPos_++];
-  }
-
- private:
-  size_t currentPos_ = 0;
-  std::unique_ptr<RowContainer> data_;
-  std::vector<char*> rows_;
-};
 
 class LocalMergeSource : public MergeSource {
  public:
-  LocalMergeSource(
-      const std::shared_ptr<const RowType>& rowType,
-      memory::MappedMemory* mappedMemory,
-      int queueSize)
-      : queue_(LocalMergeSourceQueue(rowType, mappedMemory, queueSize)) {}
+  explicit LocalMergeSource(int queueSize)
+      : queue_(LocalMergeSourceQueue(queueSize)) {}
 
-  BlockingReason next(ContinueFuture* future, char** row) override {
+  BlockingReason next(RowVectorPtr& data, ContinueFuture* future) override {
     return queue_.withWLock(
-        [&](auto& queue) { return queue.next(future, row); });
+        [&](auto& queue) { return queue.next(data, future); });
   }
 
   BlockingReason enqueue(RowVectorPtr input, ContinueFuture* future) override {
@@ -91,14 +40,10 @@ class LocalMergeSource : public MergeSource {
  private:
   class LocalMergeSourceQueue {
    public:
-    LocalMergeSourceQueue(
-        const std::shared_ptr<const RowType>& rowType,
-        memory::MappedMemory* mappedMemory,
-        int queueSize)
-        : rowType_(rowType), mappedMemory_(mappedMemory), data_(queueSize) {}
+    explicit LocalMergeSourceQueue(int queueSize) : data_(queueSize) {}
 
-    BlockingReason next(ContinueFuture* future, char** row) {
-      *row = nullptr;
+    BlockingReason next(RowVectorPtr& data, ContinueFuture* future) {
+      data.reset();
 
       if (data_.empty()) {
         if (atEnd_) {
@@ -109,18 +54,14 @@ class LocalMergeSource : public MergeSource {
         return BlockingReason::kWaitForExchange;
       }
 
-      if (data_.front().hasNext()) {
-        *row = data_.front().next();
-        return BlockingReason::kNotBlocked;
-      }
+      data = data_.front();
 
       // advance to next batch.
       data_.pop_front();
 
-      // Notify any producers.
       notifyProducers();
 
-      return next(future, row);
+      return BlockingReason::kNotBlocked;
     }
 
     BlockingReason enqueue(RowVectorPtr input, ContinueFuture* future) {
@@ -130,7 +71,12 @@ class LocalMergeSource : public MergeSource {
         return BlockingReason::kNotBlocked;
       }
       VELOX_CHECK(!data_.full(), "LocalMergeSourceQueue is full");
-      data_.push_back(MergeSourceData(rowType_, mappedMemory_, input));
+
+      for (auto& child : input->children()) {
+        child->loadedVector();
+      }
+
+      data_.push_back(input);
       notifyConsumers();
 
       if (data_.full()) {
@@ -142,14 +88,6 @@ class LocalMergeSource : public MergeSource {
     }
 
    private:
-    const std::shared_ptr<const RowType> rowType_;
-    memory::MappedMemory* mappedMemory_;
-
-    bool atEnd_ = false;
-    boost::circular_buffer<MergeSourceData> data_;
-    std::vector<VeloxPromise<bool>> consumerPromises_;
-    std::vector<VeloxPromise<bool>> producerPromises_;
-
     void notifyConsumers() {
       for (auto& promise : consumerPromises_) {
         promise.setValue(true);
@@ -163,6 +101,11 @@ class LocalMergeSource : public MergeSource {
       }
       producerPromises_.clear();
     }
+
+    bool atEnd_{false};
+    boost::circular_buffer<RowVectorPtr> data_;
+    std::vector<VeloxPromise<bool>> consumerPromises_;
+    std::vector<VeloxPromise<bool>> producerPromises_;
   };
 
   folly::Synchronized<LocalMergeSourceQueue> queue_;
@@ -172,22 +115,15 @@ class MergeExchangeSource : public MergeSource {
  public:
   MergeExchangeSource(MergeExchange* mergeExchange, const std::string& taskId)
       : mergeExchange_(mergeExchange),
-        client_(std::make_shared<ExchangeClient>(0)),
-        data_(
-            mergeExchange->outputType(),
-            mergeExchange->mappedMemory(),
-            nullptr) {
+        client_(std::make_shared<ExchangeClient>(0)) {
     client_->addRemoteTaskId(taskId);
     client_->noMoreRemoteTasks();
   }
 
-  BlockingReason next(ContinueFuture* future, char** row) override {
-    *row = nullptr;
+  BlockingReason next(RowVectorPtr& data, ContinueFuture* future) override {
+    data.reset();
+
     if (atEnd_) {
-      return BlockingReason::kNotBlocked;
-    }
-    if (data_.hasNext()) {
-      *row = data_.next();
       return BlockingReason::kNotBlocked;
     }
 
@@ -207,20 +143,15 @@ class MergeExchangeSource : public MergeSource {
       currentPage_->prepareStreamForDeserialize(inputStream_.get());
     }
 
-    data_.clear();
-
     if (!inputStream_->atEnd()) {
-      RowVectorPtr result;
       VectorStreamGroup::read(
           inputStream_.get(),
           mergeExchange_->pool(),
           mergeExchange_->outputType(),
-          &result);
+          &data);
 
-      mergeExchange_->stats().inputPositions += result->size();
-      mergeExchange_->stats().inputBytes += result->retainedSize();
-
-      data_.fetchRows(result);
+      mergeExchange_->stats().inputPositions += data->size();
+      mergeExchange_->stats().inputBytes += data->retainedSize();
     }
 
     // Since VectorStreamGroup::read() may cause inputStream to be at end,
@@ -231,9 +162,6 @@ class MergeExchangeSource : public MergeSource {
       inputStream_ = nullptr;
     }
 
-    if (data_.hasNext()) {
-      *row = data_.next();
-    }
     return BlockingReason::kNotBlocked;
   }
 
@@ -242,7 +170,6 @@ class MergeExchangeSource : public MergeSource {
   std::shared_ptr<ExchangeClient> client_;
   std::unique_ptr<ByteStream> inputStream_;
   std::unique_ptr<SerializedPage> currentPage_;
-  MergeSourceData data_;
   bool atEnd_ = false;
 
   BlockingReason enqueue(RowVectorPtr input, ContinueFuture* future) override {
@@ -251,14 +178,11 @@ class MergeExchangeSource : public MergeSource {
 };
 } // namespace
 
-std::shared_ptr<MergeSource> MergeSource::createLocalMergeSource(
-    const std::shared_ptr<const RowType>& rowType,
-    memory::MappedMemory* mappedMemory) {
+std::shared_ptr<MergeSource> MergeSource::createLocalMergeSource() {
   // Buffer up to 2 vectors from each source before blocking to wait
   // for consumers.
   static const int kDefaultQueueSize = 2;
-  return std::make_shared<LocalMergeSource>(
-      rowType, mappedMemory, kDefaultQueueSize);
+  return std::make_shared<LocalMergeSource>(kDefaultQueueSize);
 }
 
 std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(

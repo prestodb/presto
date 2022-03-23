@@ -24,15 +24,15 @@ class MergeExchange;
 class MergeSource {
  public:
   virtual ~MergeSource() {}
-  virtual BlockingReason next(ContinueFuture* future, char** row) = 0;
+
+  virtual BlockingReason next(RowVectorPtr& data, ContinueFuture* future) = 0;
+
   virtual BlockingReason enqueue(
       RowVectorPtr input,
       ContinueFuture* future) = 0;
 
   // Factory methods to create MergeSources.
-  static std::shared_ptr<MergeSource> createLocalMergeSource(
-      const std::shared_ptr<const RowType>& rowType,
-      memory::MappedMemory* mappedMemory);
+  static std::shared_ptr<MergeSource> createLocalMergeSource();
 
   static std::shared_ptr<MergeSource> createMergeExchangeSource(
       MergeExchange* mergeExchange,
