@@ -25,7 +25,6 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.isNaN;
@@ -175,17 +174,6 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.2008' as VARCHAR)", VARCHAR, "-754.2008");
         assertFunction("CAST(REAL'Infinity' as VARCHAR)", VARCHAR, "Infinity");
         assertFunction("CAST(REAL'0.0' / REAL'0.0' as VARCHAR)", VARCHAR, "NaN");
-        assertFunction("cast(REAL '12e2' as varchar(6))", createVarcharType(6), "1200.0");
-        assertFunction("cast(REAL '12e2' as varchar(50))", createVarcharType(50), "1200.0");
-        assertFunction("cast(REAL '12345678.9e0' as varchar(50))", createVarcharType(50), "1.2345679E7");
-        assertFunction("cast(REAL 'NaN' as varchar(3))", createVarcharType(3), "NaN");
-        assertFunction("cast(REAL 'Infinity' as varchar(50))", createVarcharType(50), "Infinity");
-        assertFunctionThrowsIncorrectly("cast(REAL '12e2' as varchar(5))", IllegalArgumentException.class, "Character count exceeds length limit 5.*");
-        assertFunctionThrowsIncorrectly("cast(REAL '12e2' as varchar(4))", IllegalArgumentException.class, "Character count exceeds length limit 4.*");
-        assertFunctionThrowsIncorrectly("cast(REAL '0e0' as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
-        assertFunctionThrowsIncorrectly("cast(REAL '-0e0' as varchar(3))", IllegalArgumentException.class, "Character count exceeds length limit 3.*");
-        assertFunctionThrowsIncorrectly("cast(REAL '0e0' / REAL '0e0' as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
-        assertFunctionThrowsIncorrectly("cast(REAL 'Infinity' as varchar(7))", IllegalArgumentException.class, "Character count exceeds length limit 7.*");
     }
 
     @Test
