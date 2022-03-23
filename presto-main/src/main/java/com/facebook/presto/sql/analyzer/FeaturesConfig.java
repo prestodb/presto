@@ -217,6 +217,7 @@ public class FeaturesConfig
     private int hashBasedDistinctLimitThreshold = 10000;
 
     private boolean streamingForPartialAggregationEnabled;
+    private boolean preferMergeJoin;
 
     private int maxStageCountForEagerScheduling = 25;
 
@@ -2025,6 +2026,20 @@ public class FeaturesConfig
     public FeaturesConfig setHyperloglogStandardErrorWarningThreshold(double hyperloglogStandardErrorWarningThreshold)
     {
         this.hyperloglogStandardErrorWarningThreshold = hyperloglogStandardErrorWarningThreshold;
+        return this;
+    }
+
+    public boolean isPreferMergeJoin()
+    {
+        return preferMergeJoin;
+    }
+
+    @Config("optimizer.prefer-merge-join")
+    @ConfigDescription("Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
+            "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.")
+    public FeaturesConfig setPreferMergeJoin(boolean preferMergeJoin)
+    {
+        this.preferMergeJoin = preferMergeJoin;
         return this;
     }
 }
