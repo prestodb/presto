@@ -138,8 +138,7 @@ public class TestSimplifyExpressions
     }
 
     @Test
-    public void testCastBigintToBoundedVarchar()
-    {
+    public void testCastBigintToBoundedVarchar() {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies("CAST(12300000000 AS varchar(11))", "'12300000000'");
         // The last argument "'-12300000000'" is varchar(12). Need varchar(50) to the following test pass.
@@ -149,13 +148,11 @@ public class TestSimplifyExpressions
         try {
             assertSimplifies("CAST(12300000000 AS varchar(3))", "CAST(12300000000 AS varchar(3))");
             fail("Expected to throw an PrestoException exception");
-        }
-        catch (PrestoException e) {
+        } catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
                 assertEquals(e.getMessage(), "Value 12300000000 cannot be represented as varchar(3)");
-            }
-            catch (Throwable failure) {
+            } catch (Throwable failure) {
                 failure.addSuppressed(e);
                 throw failure;
             }
@@ -163,13 +160,11 @@ public class TestSimplifyExpressions
 
         try {
             assertSimplifies("CAST(-12300000000 AS varchar(3))", "CAST(-12300000000 AS varchar(3))");
-        }
-        catch (PrestoException e) {
+        } catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
                 assertEquals(e.getMessage(), "Value -12300000000 cannot be represented as varchar(3)");
-            }
-            catch (Throwable failure) {
+            } catch (Throwable failure) {
                 failure.addSuppressed(e);
                 throw failure;
             }
@@ -185,35 +180,33 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
         assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
         assertSimplifies("CAST(12e2 AS varchar(5))", "'1.2E3'");
-
-        // The last argument "'-1.2E3'" is varchar(6). Need varchar(50) to the following test pass.
-        // assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1.2E3' AS varchar(50))", "'-1.2E3'");
+        assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1.2E3' AS varchar(50))");
 
         /// cast from double to varchar fails
-        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
-        assertPrestoExceptionThrownBy("CAST(-12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value -1200.0 (-1.2E3) cannot be represented as varchar(3)");
-        assertPrestoExceptionThrownBy("CAST(DOUBLE 'NaN' AS varchar(2))", INVALID_CAST_ARGUMENT, "Value NaN (NaN) cannot be represented as varchar(2)");
-        assertPrestoExceptionThrownBy("CAST(DOUBLE 'Infinity' AS varchar(7))", INVALID_CAST_ARGUMENT, "Value Infinity (Infinity) cannot be represented as varchar(7)");
-        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3)) = '1200.0'", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
+        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value 1200.0 cannot be represented as varchar(3)");
+        assertPrestoExceptionThrownBy("CAST(-12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value -1200.0 cannot be represented as varchar(3)");
+        assertPrestoExceptionThrownBy("CAST(DOUBLE 'NaN' AS varchar(2))", INVALID_CAST_ARGUMENT, "Value NaN cannot be represented as varchar(2)");
+        assertPrestoExceptionThrownBy("CAST(DOUBLE 'Infinity' AS varchar(7))", INVALID_CAST_ARGUMENT, "Value Infinity cannot be represented as varchar(7)");
+        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3)) = '1200.0'", INVALID_CAST_ARGUMENT, "Value 1200.0 cannot be represented as varchar(3)");
     }
 
     @Test
     public void testCastRealToBoundedVarchar()
     {
         // the varchar type length is enough to contain the number's representation
-        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0E0'");
-        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0E0'");
+        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0.0'");
+        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0.0'");
         assertSimplifies("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
         assertSimplifies("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
-        assertSimplifies("CAST(REAL '12e2' AS varchar(5))", "'1.2E3'");
-        //assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1.2E3' AS varchar(50))");
+        assertSimplifies("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
+        assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
 
-        // cast from real to varchar fails
-        assertPrestoExceptionThrownBy("CAST(REAL '12e2' AS varchar(3))", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
-        assertPrestoExceptionThrownBy("CAST(REAL '-12e2' AS varchar(3))", INVALID_CAST_ARGUMENT, "Value -1200.0 (-1.2E3) cannot be represented as varchar(3)");
-        assertPrestoExceptionThrownBy("CAST(REAL 'NaN' AS varchar(2))", INVALID_CAST_ARGUMENT, "Value NaN (NaN) cannot be represented as varchar(2)");
-        assertPrestoExceptionThrownBy("CAST(REAL 'Infinity' AS varchar(7))", INVALID_CAST_ARGUMENT, "Value Infinity (Infinity) cannot be represented as varchar(7)");
-        assertPrestoExceptionThrownBy("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", INVALID_CAST_ARGUMENT, "Value 1200.0 (1.2E3) cannot be represented as varchar(3)");
+        // cast from real to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(REAL '12e2' AS varchar(3))", "CAST(REAL '12e2' AS varchar(3))");
+        assertSimplifies("CAST(REAL '-12e2' AS varchar(3))", "CAST(REAL '-12e2' AS varchar(3))");
+        assertSimplifies("CAST(REAL 'NaN' AS varchar(2))", "CAST(REAL 'NaN' AS varchar(2))");
+        assertSimplifies("CAST(REAL 'Infinity' AS varchar(7))", "CAST(REAL 'Infinity' AS varchar(7))");
+        assertSimplifies("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", "CAST(REAL '12e2' AS varchar(3)) = '1200.0'");
     }
 
     private static void assertSimplifies(String expression, String expected)
