@@ -22,7 +22,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
@@ -179,17 +178,6 @@ public class TestDoubleOperators
     {
         assertFunction("cast(37.7E0 as varchar)", VARCHAR, "37.7");
         assertFunction("cast(17.1E0 as varchar)", VARCHAR, "17.1");
-        assertFunction("cast(12e2 as varchar(6))", createVarcharType(6), "1200.0");
-        assertFunction("cast(12e2 as varchar(50))", createVarcharType(50), "1200.0");
-        assertFunction("cast(12345678.9e0 as varchar(50))", createVarcharType(50), "1.23456789E7");
-        assertFunction("cast(DOUBLE 'NaN' as varchar(3))", createVarcharType(3), "NaN");
-        assertFunction("cast(DOUBLE 'Infinity' as varchar(50))", createVarcharType(50), "Infinity");
-        assertFunctionThrowsIncorrectly("cast(12e2 as varchar(5))", IllegalArgumentException.class, "Character count exceeds length limit 5.*");
-        assertFunctionThrowsIncorrectly("cast(12e2 as varchar(4))", IllegalArgumentException.class, "Character count exceeds length limit 4.*");
-        assertFunctionThrowsIncorrectly("cast(0e0 as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
-        assertFunctionThrowsIncorrectly("cast(-0e0 as varchar(3))", IllegalArgumentException.class, "Character count exceeds length limit 3.*");
-        assertFunctionThrowsIncorrectly("cast(0e0 / 0e0 as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
-        assertFunctionThrowsIncorrectly("cast(DOUBLE 'Infinity' as varchar(7))", IllegalArgumentException.class, "Character count exceeds length limit 7.*");
     }
 
     @Test
