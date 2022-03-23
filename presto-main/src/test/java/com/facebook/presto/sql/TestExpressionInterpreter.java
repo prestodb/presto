@@ -566,10 +566,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(-12300000000 as VARCHAR)", "'-12300000000'");
 
         // double
-        assertOptimizedEquals("CAST(123.0E0 AS varchar)", "'1.23E2'");
-        assertOptimizedEquals("CAST(-123.0E0 AS varchar)", "'-1.23E2'");
-        assertOptimizedEquals("CAST(123.456E0 AS varchar)", "'1.23456E2'");
-        assertOptimizedEquals("CAST(-123.456E0 AS varchar)", "'-1.23456E2'");
+        assertOptimizedEquals("cast(123.0E0 as VARCHAR)", "'123.0'");
+        assertOptimizedEquals("cast(-123.0E0 as VARCHAR)", "'-123.0'");
+        assertOptimizedEquals("cast(123.456E0 as VARCHAR)", "'123.456'");
+        assertOptimizedEquals("cast(-123.456E0 as VARCHAR)", "'-123.456'");
 
         // boolean
         assertOptimizedEquals("cast(true as VARCHAR)", "'true'");
@@ -629,38 +629,39 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
         assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(50))", "'Infinity'");
 
-        assertEvaluatedEquals("CAST(0e0 AS varchar(3))", "'0E0'");
-        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(3))", "'0E0'");
-        assertEvaluatedEquals("CAST(DOUBLE '-0' AS varchar(4))", "'-0E0'");
-        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(50))", "'0E0'");
+        // incorrect behavior: the string representation is not compliant with the SQL standard
+        assertEvaluatedEquals("CAST(0e0 AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '-0' AS varchar(4))", "'-0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(50))", "'0.0'");
 
-        assertEvaluatedEquals("CAST(12e0 AS varchar(5))", "'1.2E1'");
-        assertEvaluatedEquals("CAST(12e2 AS varchar(6))", "'1.2E3'");
-        assertEvaluatedEquals("CAST(12e-2 AS varchar(6))", "'1.2E-1'");
+        assertEvaluatedEquals("CAST(12e0 AS varchar(4))", "'12.0'");
+        assertEvaluatedEquals("CAST(12e2 AS varchar(6))", "'1200.0'");
+        assertEvaluatedEquals("CAST(12e-2 AS varchar(4))", "'0.12'");
 
-        assertEvaluatedEquals("CAST(12e0 AS varchar(50))", "'1.2E1'");
-        assertEvaluatedEquals("CAST(12e2 AS varchar(50))", "'1.2E3'");
-        assertEvaluatedEquals("CAST(12e-2 AS varchar(50))", "'1.2E-1'");
+        assertEvaluatedEquals("CAST(12e0 AS varchar(50))", "'12.0'");
+        assertEvaluatedEquals("CAST(12e2 AS varchar(50))", "'1200.0'");
+        assertEvaluatedEquals("CAST(12e-2 AS varchar(50))", "'0.12'");
 
-        assertEvaluatedEquals("CAST(-12e0 AS varchar(6))", "'-1.2E1'");
-        assertEvaluatedEquals("CAST(-12e2 AS varchar(6))", "'-1.2E3'");
-        assertEvaluatedEquals("CAST(-12e-2 AS varchar(7))", "'-1.2E-1'");
+        assertEvaluatedEquals("CAST(-12e0 AS varchar(5))", "'-12.0'");
+        assertEvaluatedEquals("CAST(-12e2 AS varchar(7))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(-12e-2 AS varchar(5))", "'-0.12'");
 
-        assertEvaluatedEquals("CAST(-12e0 AS varchar(50))", "'-1.2E1'");
-        assertEvaluatedEquals("CAST(-12e2 AS varchar(50))", "'-1.2E3'");
-        assertEvaluatedEquals("CAST(-12e-2 AS varchar(50))", "'-1.2E-1'");
+        assertEvaluatedEquals("CAST(-12e0 AS varchar(50))", "'-12.0'");
+        assertEvaluatedEquals("CAST(-12e2 AS varchar(50))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(-12e-2 AS varchar(50))", "'-0.12'");
 
+        // the string representation is compliant with the SQL standard
         assertEvaluatedEquals("CAST(12345678.9e0 AS varchar(12))", "'1.23456789E7'");
         assertEvaluatedEquals("CAST(0.00001e0 AS varchar(6))", "'1.0E-5'");
 
-        // the result value does not fit in the type
-        assertPrestoExceptionThrownBy("CAST(REAL '12' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 12.0 (1.2E1) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL '-12e2' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value -1200.0 (-1.2E3) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL '0' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 0.0 (0E0) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value NaN (NaN) cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(REAL 'Infinity' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value Infinity (Infinity) cannot be represented as varchar(1)");
-
-        assertEvaluatedEquals("CAST(1200000e0 AS varchar(5))", "'1.2E6'");
+        // the result value does not fit in the type (also, it is not compliant with the SQL standard)
+        assertPrestoExceptionThrownBy("CAST(REAL '12' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 12.0 cannot be represented as varchar(1)");
+        assertPrestoExceptionThrownBy("CAST(REAL '-12e2' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value -1200.0 cannot be represented as varchar(1)");
+        assertPrestoExceptionThrownBy("CAST(REAL '0' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 0.0 cannot be represented as varchar(1)");
+        assertPrestoExceptionThrownBy("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value NaN cannot be represented as varchar(1)");
+        assertPrestoExceptionThrownBy("CAST(REAL 'Infinity' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value Infinity cannot be represented as varchar(1)");
+        assertPrestoExceptionThrownBy("CAST(REAL '1200000' AS varchar(5))", INVALID_CAST_ARGUMENT, "Value 1200000.0 cannot be represented as varchar(5)");
     }
 
     @Test

@@ -282,7 +282,7 @@ public class TestArrayOperators
         // varchar, json
         assertFunction("CAST(JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]' AS ARRAY<VARCHAR>)",
                 new ArrayType(VARCHAR),
-                asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null));
+                asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
         assertFunction("CAST(JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]' AS ARRAY<JSON>)",
                 new ArrayType(JSON),
                 ImmutableList.of("5", "3.14", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
@@ -571,7 +571,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.1, 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
         assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, 3.3], 'x')", VARCHAR, "1.000x2.100x3.300");
         assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, NULL], 'x', 'N/A')", VARCHAR, "1.000x2.100xN/A");
-        assertFunction("ARRAY_JOIN(ARRAY [1.0, DOUBLE '002.100', 3.3], 'x')", VARCHAR, "1.0E0x2.1E0x3.3E0");
+        assertFunction("ARRAY_JOIN(ARRAY [1.0, DOUBLE '002.100', 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
 
         assertInvalidFunction("ARRAY_JOIN(ARRAY [ARRAY [1], ARRAY [2]], '-')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_JOIN(ARRAY [MAP(ARRAY [1], ARRAY [2])], '-')", INVALID_FUNCTION_ARGUMENT);
