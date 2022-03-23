@@ -140,7 +140,7 @@ public class TestLambdaExpression
         assertFunction("apply(25.6E0, x -> CAST(x AS BIGINT))", BIGINT, 26L);
         assertFunction("apply(25.6E0, x -> x + 1.0E0)", DOUBLE, 26.6);
         assertFunction("apply(25.6E0, x -> x = 25.6E0)", BOOLEAN, true);
-        assertFunction("apply(25.6E0, x -> CAST(x AS VARCHAR))", createUnboundedVarcharType(), "2.56E1");
+        assertFunction("apply(25.6E0, x -> CAST(x AS VARCHAR))", createUnboundedVarcharType(), "25.6");
         assertFunction("apply(25.6E0, x -> MAP(ARRAY[x + 1], ARRAY[true]))", mapType(DOUBLE, BOOLEAN), ImmutableMap.of(26.6, true));
 
         assertFunction("apply(true, x -> if(x, 25, 26))", INTEGER, 25);
