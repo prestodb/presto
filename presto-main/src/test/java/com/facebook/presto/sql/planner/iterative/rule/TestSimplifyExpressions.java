@@ -137,7 +137,8 @@ public class TestSimplifyExpressions
     }
 
     @Test
-    public void testCastBigintToBoundedVarchar() {
+    public void testCastBigintToBoundedVarchar()
+    {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies("CAST(12300000000 AS varchar(11))", "'12300000000'");
         // The last argument "'-12300000000'" is varchar(12). Need varchar(50) to the following test pass.
@@ -147,11 +148,13 @@ public class TestSimplifyExpressions
         try {
             assertSimplifies("CAST(12300000000 AS varchar(3))", "CAST(12300000000 AS varchar(3))");
             fail("Expected to throw an PrestoException exception");
-        } catch (PrestoException e) {
+        }
+        catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
                 assertEquals(e.getMessage(), "Value 12300000000 cannot be represented as varchar(3)");
-            } catch (Throwable failure) {
+            }
+            catch (Throwable failure) {
                 failure.addSuppressed(e);
                 throw failure;
             }
@@ -159,65 +162,17 @@ public class TestSimplifyExpressions
 
         try {
             assertSimplifies("CAST(-12300000000 AS varchar(3))", "CAST(-12300000000 AS varchar(3))");
-        } catch (PrestoException e) {
+        }
+        catch (PrestoException e) {
             try {
                 assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
                 assertEquals(e.getMessage(), "Value -12300000000 cannot be represented as varchar(3)");
-            } catch (Throwable failure) {
+            }
+            catch (Throwable failure) {
                 failure.addSuppressed(e);
                 throw failure;
             }
         }
-    }
-
-    @Test
-    public void testCastDoubleToBoundedVarchar()
-    {
-        // the varchar type length is enough to contain the number's representation
-        assertSimplifies("CAST(0e0 AS varchar(3))", "'0.0'");
-        assertSimplifies("CAST(-0e0 AS varchar(4))", "'-0.0'");
-        assertSimplifies("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
-        assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
-        assertSimplifies("CAST(12e2 AS varchar(6))", "'1200.0'");
-        //assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
-
-        // the varchar type length is not enough to contain the number's representation:
-        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
-        // the value is then wrapped in another cast by the LiteralEncoder (CAST('1200.0' AS varchar(3))),
-        // so eventually we get a truncated string '120'
-        assertSimplifies("CAST(12e2 AS varchar(3))", "CAST('1200.0' AS varchar(3))");
-        assertSimplifies("CAST(-12e2 AS varchar(3))", "CAST('-1200.0' AS varchar(3))");
-        assertSimplifies("CAST(DOUBLE 'NaN' AS varchar(2))", "CAST('NaN' AS varchar(2))");
-        assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(7))", "CAST('Infinity' AS varchar(7))");
-
-        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
-        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
-        assertSimplifies("CAST(12e2 AS varchar(3)) = '1200.0'", "true");
-    }
-
-    @Test
-    public void testCastRealToBoundedVarchar()
-    {
-        // the varchar type length is enough to contain the number's representation
-        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0.0'");
-        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0.0'");
-        assertSimplifies("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
-        assertSimplifies("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
-        assertSimplifies("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
-        assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
-
-        // the varchar type length is not enough to contain the number's representation:
-        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
-        // the value is then wrapped in another cast by the LiteralEncoder (CAST('1200.0' AS varchar(3))),
-        // so eventually we get a truncated string '120'
-        assertSimplifies("CAST(REAL '12e2' AS varchar(3))", "CAST('1200.0' AS varchar(3))");
-        assertSimplifies("CAST(REAL '-12e2' AS varchar(3))", "CAST('-1200.0' AS varchar(3))");
-        assertSimplifies("CAST(REAL 'NaN' AS varchar(2))", "CAST('NaN' AS varchar(2))");
-        assertSimplifies("CAST(REAL 'Infinity' AS varchar(7))", "CAST('Infinity' AS varchar(7))");
-
-        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
-        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
-        assertSimplifies("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", "true");
     }
 
     private static void assertSimplifies(String expression, String expected)
