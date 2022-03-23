@@ -180,12 +180,12 @@ public class TestRealOperators
         assertFunction("cast(REAL '12345678.9e0' as varchar(50))", createVarcharType(50), "1.2345679E7");
         assertFunction("cast(REAL 'NaN' as varchar(3))", createVarcharType(3), "NaN");
         assertFunction("cast(REAL 'Infinity' as varchar(50))", createVarcharType(50), "Infinity");
-        assertInvalidCast("cast(REAL '12e2' as varchar(5))", "Value 1200.0 cannot be represented as varchar(5)");
-        assertInvalidCast("cast(REAL '12e2' as varchar(4))", "Value 1200.0 cannot be represented as varchar(4)");
-        assertInvalidCast("cast(REAL '0e0' as varchar(2))", "Value 0.0 cannot be represented as varchar(2)");
-        assertInvalidCast("cast(REAL '-0e0' as varchar(3))", "Value -0.0 cannot be represented as varchar(3)");
-        assertInvalidCast("cast(REAL '0e0' / REAL '0e0' as varchar(2))", "Value NaN cannot be represented as varchar(2)");
-        assertInvalidCast("cast(REAL 'Infinity' as varchar(7))", "Value Infinity cannot be represented as varchar(7)");
+        assertFunctionThrowsIncorrectly("cast(REAL '12e2' as varchar(5))", IllegalArgumentException.class, "Character count exceeds length limit 5.*");
+        assertFunctionThrowsIncorrectly("cast(REAL '12e2' as varchar(4))", IllegalArgumentException.class, "Character count exceeds length limit 4.*");
+        assertFunctionThrowsIncorrectly("cast(REAL '0e0' as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
+        assertFunctionThrowsIncorrectly("cast(REAL '-0e0' as varchar(3))", IllegalArgumentException.class, "Character count exceeds length limit 3.*");
+        assertFunctionThrowsIncorrectly("cast(REAL '0e0' / REAL '0e0' as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
+        assertFunctionThrowsIncorrectly("cast(REAL 'Infinity' as varchar(7))", IllegalArgumentException.class, "Character count exceeds length limit 7.*");
     }
 
     @Test
