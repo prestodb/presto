@@ -248,15 +248,9 @@ public final class DoubleOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.DOUBLE) double value)
+    public static Slice castToVarchar(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        String stringValue = String.valueOf(value);
-        // String is all-ASCII, so String.length() here returns actual code points count
-        if (stringValue.length() <= x) {
-            return utf8Slice(stringValue);
-        }
-
-        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
+        return utf8Slice(String.valueOf(value));
     }
 
     @ScalarOperator(HASH_CODE)

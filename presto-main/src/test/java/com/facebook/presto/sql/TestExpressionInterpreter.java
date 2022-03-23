@@ -26,7 +26,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -700,14 +699,13 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(REAL '12345678.9e0' AS varchar(12))", "'1.2345679E7'");
         assertEvaluatedEquals("CAST(REAL '0.00001e0' AS varchar(6))", "'1.0E-5'");
 
-        // the result value does not fit in the type (also, it is not compliant with the SQL standard)
-        assertPrestoExceptionThrownBy("CAST(12e0 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 12.0 cannot be represented as varchar(1)");
-
-        assertPrestoExceptionThrownBy("CAST(-12e2 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value -1200.0 cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(0e0 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value 0.0 cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(0e0 / 0e0 AS varchar(1))", INVALID_CAST_ARGUMENT, "Value NaN cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(DOUBLE 'Infinity' AS varchar(1))", INVALID_CAST_ARGUMENT, "Value Infinity cannot be represented as varchar(1)");
-        assertPrestoExceptionThrownBy("CAST(1200000e0 AS varchar(5))", INVALID_CAST_ARGUMENT, "Value 1200000.0 cannot be represented as varchar(5)");
+        // incorrect behavior: the result value does not fit in the type (also, it is not compliant with the SQL standard)
+        assertEvaluatedEquals("CAST(REAL '12' AS varchar(1))", "'12.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e2' AS varchar(1))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(REAL '0' AS varchar(1))", "'0.0'");
+        assertEvaluatedEquals("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))", "'NaN'");
+        assertEvaluatedEquals("CAST(REAL 'Infinity' AS varchar(1))", "'Infinity'");
+        assertEvaluatedEquals("CAST(REAL '1200000' AS varchar(5))", "'1200000.0'");
     }
 
     @Test
@@ -1885,24 +1883,6 @@ public class TestExpressionInterpreter
             assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
         }
         return expressionResult;
-    }
-
-    public static void assertPrestoExceptionThrownBy(String expression, StandardErrorCode errorCode, String message)
-    {
-        try {
-            evaluate(expression, true);
-            fail(format("Expected to throw exception %s", errorCode.toString()));
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), errorCode.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
     }
 
     private static class FailedFunctionRewriter
