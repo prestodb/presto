@@ -125,6 +125,7 @@ import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExcept
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
+import com.facebook.presto.sql.planner.optimizations.MergeJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
@@ -591,6 +592,11 @@ public class PlanOptimizers
                         .add(new PushRemoteExchangeThroughAssignUniqueId())
                         .add(new InlineProjections(metadata.getFunctionAndTypeManager()))
                         .build()));
+
+        // MergeJoinOptimizer can avoid the local exchange for a join operation
+        // Should be placed after AddExchanges, but before AddLocalExchange
+        // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
+        builder.add(new MergeJoinOptimizer(metadata, sqlParser));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, sqlParser));
