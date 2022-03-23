@@ -48,7 +48,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.TestExpressionInterpreter.assertPrestoExceptionThrownBy;
 import static com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
@@ -182,12 +181,18 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(12e2 AS varchar(6))", "'1200.0'");
         //assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
 
-        /// cast from double to varchar fails
-        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value 1200.0 cannot be represented as varchar(3)");
-        assertPrestoExceptionThrownBy("CAST(-12e2 AS varchar(3))", INVALID_CAST_ARGUMENT, "Value -1200.0 cannot be represented as varchar(3)");
-        assertPrestoExceptionThrownBy("CAST(DOUBLE 'NaN' AS varchar(2))", INVALID_CAST_ARGUMENT, "Value NaN cannot be represented as varchar(2)");
-        assertPrestoExceptionThrownBy("CAST(DOUBLE 'Infinity' AS varchar(7))", INVALID_CAST_ARGUMENT, "Value Infinity cannot be represented as varchar(7)");
-        assertPrestoExceptionThrownBy("CAST(12e2 AS varchar(3)) = '1200.0'", INVALID_CAST_ARGUMENT, "Value 1200.0 cannot be represented as varchar(3)");
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('1200.0' AS varchar(3))),
+        // so eventually we get a truncated string '120'
+        assertSimplifies("CAST(12e2 AS varchar(3))", "CAST('1200.0' AS varchar(3))");
+        assertSimplifies("CAST(-12e2 AS varchar(3))", "CAST('-1200.0' AS varchar(3))");
+        assertSimplifies("CAST(DOUBLE 'NaN' AS varchar(2))", "CAST('NaN' AS varchar(2))");
+        assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(7))", "CAST('Infinity' AS varchar(7))");
+
+        // the cast operator returns a value that is too long for the expected type ('1200.0' for varchar(3))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(12e2 AS varchar(3)) = '1200.0'", "true");
     }
 
     @Test
