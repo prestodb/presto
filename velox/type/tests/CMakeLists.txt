@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_executable(
-  velox_type_test StringViewTest.cpp TypeTest.cpp FilterTest.cpp
-                  SubfieldTest.cpp TimestampConversionTest.cpp VariantTest.cpp)
+  velox_type_test
+  StringViewTest.cpp
+  TypeTest.cpp
+  FilterTest.cpp
+  SubfieldTest.cpp
+  TimestampConversionTest.cpp
+  VariantTest.cpp
+  TimestampTest.cpp)
 
 add_test(velox_type_test velox_type_test)
 

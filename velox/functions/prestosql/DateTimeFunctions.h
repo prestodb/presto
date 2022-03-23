@@ -39,9 +39,7 @@ struct ToUnixtimeFunction {
       double& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     const auto milliseconds = *timestampWithTimezone.template at<0>();
-    Timestamp timestamp{milliseconds / kMillisecondsInSecond, 0UL};
-    timestamp.toGMT(*timestampWithTimezone.template at<1>());
-    result = toUnixtime(timestamp);
+    result = (double)milliseconds / kMillisecondsInSecond;
     return true;
   }
 };

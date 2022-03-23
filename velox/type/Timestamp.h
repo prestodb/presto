@@ -52,11 +52,21 @@ struct Timestamp {
   }
 
   static Timestamp fromMillis(int64_t millis) {
-    return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);
+    if (millis >= 0 || millis % 1'000 == 0) {
+      return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);
+    }
+    auto second = millis / 1'000 - 1;
+    auto nano = ((millis - second * 1'000) % 1'000) * 1'000'000;
+    return Timestamp(second, nano);
   }
 
   static Timestamp fromMicros(int64_t micros) {
-    return Timestamp(micros / 1'000'000, (micros % 1'000'000) * 1'000);
+    if (micros >= 0 || micros % 1'000'000 == 0) {
+      return Timestamp(micros / 1'000'000, (micros % 1'000'000) * 1'000);
+    }
+    auto second = micros / 1'000'000 - 1;
+    auto nano = ((micros - second * 1'000'000) % 1'000'000) * 1'000;
+    return Timestamp(second, nano);
   }
 
   // Assuming the timestamp represents a time at zone, converts it to the GMT
