@@ -31,7 +31,9 @@ import com.facebook.presto.sql.tree.Table;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
-import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW;
+import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 
 public class MaterializedViewOptimizationRewriteUtils
 {
@@ -58,12 +60,15 @@ public class MaterializedViewOptimizationRewriteUtils
                     //TODO: We should be able to leverage this information in the StatementAnalyzer as well.
                     MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, candidate);
                     if (materializedViewStatus.isFullyMaterialized() || materializedViewStatus.isPartiallyMaterialized()) {
-                        session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW, 1);
+                        session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, 1);
                         return optimizedQuery;
+                    }
+                    else {
+                        session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, 1);
                     }
                 }
                 else {
-                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW, 1);
+                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, 1);
                     return optimizedQuery;
                 }
             }
@@ -83,7 +88,7 @@ public class MaterializedViewOptimizationRewriteUtils
             ConnectorMaterializedViewDefinition materializedView = metadata.getMaterializedView(session, materializedViewQualifiedObjectName).get();
             Table materializedViewTable = new Table(QualifiedName.of(materializedView.getTable()));
 
-            Query materializedViewDefinition = (Query) sqlParser.createStatement(materializedView.getOriginalSql());
+            Query materializedViewDefinition = (Query) sqlParser.createStatement(materializedView.getOriginalSql(), createParsingOptions(session));
             return (Query) new MaterializedViewQueryOptimizer(metadata, session, sqlParser, accessControl, new RowExpressionDomainTranslator(metadata), materializedViewTable, materializedViewDefinition).rewrite(statement);
         }
         catch (RuntimeException ex) {
