@@ -189,6 +189,8 @@ class Driver {
       std::unique_ptr<DriverCtx> driverCtx,
       std::vector<std::unique_ptr<Operator>>&& operators);
 
+  ~Driver();
+
   static void run(std::shared_ptr<Driver> self);
 
   static void enqueue(std::shared_ptr<Driver> instance);
@@ -234,13 +236,17 @@ class Driver {
     return ctx_.get();
   }
 
-  const std::shared_ptr<Task>& task() const {
-    return ctx_->task;
+  std::shared_ptr<Task> task() const {
+    return task_;
   }
 
-  // Updates the stats in Task and frees resources. Only called by Task for
+  // Updates the stats in 'task_' and frees resources. Only called by Task for
   // closing non-running Drivers.
   void closeByTask();
+
+  // This is called if the creation of drivers failed and we want to disconnect
+  // driver from the task before driver's destruction.
+  void disconnectFromTask();
 
  private:
   void enqueueInternal();
@@ -256,10 +262,9 @@ class Driver {
   void pushdownFilters(int operatorIndex);
 
   std::unique_ptr<DriverCtx> ctx_;
+  std::shared_ptr<Task> task_;
 
-  std::atomic_bool closed_{false};
-
-  // Set via Task and serialized by Task's mutex.
+  // Set via Task_ and serialized by 'task_'s mutex.
   ThreadState state_;
 
   // Timer used to track down the time we are sitting in the driver queue.
