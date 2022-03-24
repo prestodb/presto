@@ -16,6 +16,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <grpc.version>1.41.0</grpc.version>
     </properties>
 
     <dependencies>
@@ -80,6 +81,12 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 </project>

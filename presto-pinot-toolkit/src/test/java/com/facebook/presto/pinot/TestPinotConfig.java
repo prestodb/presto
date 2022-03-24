@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.pinot.PinotConfig.DEFAULT_GRPC_TLS_STORE_TYPE;
+
 public class TestPinotConfig
 {
     @Test
@@ -52,14 +54,16 @@ public class TestPinotConfig
                         .setForbidBrokerQueries(false)
                         .setUsePinotSqlForBrokerQueries(true)
                         .setRestProxyServiceForQuery(null)
-                        .setRestProxyUrl(null)
-                        .setProxyGrpcHost(null)
-                        .setProxyGrpcPort(PinotConfig.DEFAULT_PROXY_GRPC_PORT)
-                        .setUseProxyForBrokerRequest(false)
-                        .setUseProxyGrpcEndpoint(false)
-                        .setUseHttpsForController(false)
-                        .setUseHttpsForBroker(false)
-                        .setUseHttpsForProxy(false)
+                        .setUseProxy(false)
+                        .setGrpcHost(null)
+                        .setGrpcTlsKeyStoreType(DEFAULT_GRPC_TLS_STORE_TYPE)
+                        .setGrpcTlsKeyStorePath(null)
+                        .setGrpcTlsKeyStorePassword(null)
+                        .setGrpcTlsTrustStoreType(DEFAULT_GRPC_TLS_STORE_TYPE)
+                        .setGrpcTlsTrustStorePath(null)
+                        .setGrpcTlsTrustStorePassword(null)
+                        .setGrpcPort(PinotConfig.DEFAULT_PROXY_GRPC_PORT)
+                        .setUseSecureConnection(false)
                         .setNumSegmentsPerSplit(1)
                         .setFetchRetryCount(2)
                         .setMarkDataFetchExceptionsAsRetriable(true)
@@ -98,12 +102,10 @@ public class TestPinotConfig
                 .put("pinot.infer-timestamp-type-in-schema", "false")
                 .put("pinot.forbid-broker-queries", "true")
                 .put("pinot.use-pinot-sql-for-broker-queries", "false")
-                .put("pinot.rest-proxy-url", "localhost:1111")
                 .put("pinot.rest-proxy-service-for-query", "pinot-rest-proxy-service")
-                .put("pinot.proxy-grpc-host", "localhost")
-                .put("pinot.proxy-grpc-port", "8224")
-                .put("pinot.use-proxy-for-broker-request", "true")
-                .put("pinot.use-proxy-grpc-endpoint", "true")
+                .put("pinot.grpc-host", "localhost")
+                .put("pinot.grpc-port", "8224")
+                .put("pinot.proxy-enabled", "true")
                 .put("pinot.num-segments-per-split", "2")
                 .put("pinot.ignore-empty-responses", "true")
                 .put("pinot.fetch-retry-count", "3")
@@ -115,10 +117,14 @@ public class TestPinotConfig
                 .put("pinot.forbid-segment-queries", "true")
                 .put("pinot.use-streaming-for-segment-queries", "true")
                 .put("pinot.streaming-server-grpc-max-inbound-message-bytes", "65536")
-                .put("pinot.use-https-for-controller", "true")
-                .put("pinot.use-https-for-broker", "true")
-                .put("pinot.use-https-for-proxy", "true")
+                .put("pinot.secure-connection", "true")
                 .put("pinot.override-distinct-count-function", "distinctCountBitmap")
+                .put("pinot.grpc-tls-trust-store-password", "changeit1")
+                .put("pinot.grpc-tls-trust-store-type", "jks-truststore")
+                .put("pinot.grpc-tls-trust-store-path", "/path/to/truststore/file.jks")
+                .put("pinot.grpc-tls-key-store-password", "changeit2")
+                .put("pinot.grpc-tls-key-store-path", "/path/to/keystore/file.jks")
+                .put("pinot.grpc-tls-key-store-type", "jks-keystore")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -126,11 +132,8 @@ public class TestPinotConfig
                 .setExtraGrpcMetadata("k1:v1")
                 .setControllerRestService("pinot-controller-service")
                 .setControllerUrls("host1:1111,host2:1111")
-                .setRestProxyUrl("localhost:1111")
-                .setProxyGrpcHost("localhost")
-                .setProxyGrpcPort(8224)
-                .setUseProxyForBrokerRequest(true)
-                .setUseProxyGrpcEndpoint(true)
+                .setGrpcHost("localhost")
+                .setGrpcPort(8224)
                 .setIdleTimeout(new Duration(1, TimeUnit.HOURS))
                 .setLimitLargeForSegment(100000)
                 .setTopNLarge(1000)
@@ -162,9 +165,14 @@ public class TestPinotConfig
                 .setUseStreamingForSegmentQueries(true)
                 .setStreamingServerGrpcMaxInboundMessageBytes(65536)
                 .setUseDateTrunc(true)
-                .setUseHttpsForController(true)
-                .setUseHttpsForBroker(true)
-                .setUseHttpsForProxy(true);
+                .setUseProxy(true)
+                .setGrpcTlsTrustStorePassword("changeit1")
+                .setGrpcTlsTrustStoreType("jks-truststore")
+                .setGrpcTlsTrustStorePath("/path/to/truststore/file.jks")
+                .setGrpcTlsKeyStorePath("/path/to/keystore/file.jks")
+                .setGrpcTlsKeyStorePassword("changeit2")
+                .setGrpcTlsKeyStoreType("jks-keystore")
+                .setUseSecureConnection(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
