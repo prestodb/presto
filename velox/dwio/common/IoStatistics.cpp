@@ -88,6 +88,27 @@ IoStatistics::operationStats() const {
   return operationStats_;
 }
 
+folly::dynamic serialize(const OperationCounters& counters) {
+  folly::dynamic json = folly::dynamic::object;
+  json["latencyInMs"] = counters.latencyInMs;
+  json["localThrottleCount"] = counters.localThrottleCount;
+  json["resourceThrottleCount"] = counters.resourceThrottleCount;
+  json["globalThrottleCount"] = counters.globalThrottleCount;
+  json["retryCount"] = counters.retryCount;
+  json["requestCount"] = counters.requestCount;
+  json["delayInjectedInSecs"] = counters.delayInjectedInSecs;
+  return json;
+}
+
+folly::dynamic IoStatistics::getOperationStatsSnapshot() const {
+  auto snapshot = operationStats();
+  folly::dynamic json = folly::dynamic::object;
+  for (auto stat : snapshot) {
+    json[stat.first] = serialize(stat.second);
+  }
+  return json;
+}
+
 } // namespace common
 } // namespace dwio
 } // namespace velox
