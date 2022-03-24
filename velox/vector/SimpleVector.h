@@ -146,31 +146,6 @@ class SimpleVector : public BaseVector {
   // value is technically undefined (currently implemented as default of T)
   virtual const T valueAt(vector_size_t idx) const = 0;
 
-  bool equalValueAt(
-      const BaseVector* other,
-      vector_size_t index,
-      vector_size_t otherIndex) const override {
-    other = other->loadedVector();
-    DCHECK(dynamic_cast<const SimpleVector<T>*>(other) != nullptr)
-        << "Attempting to compare vectors not of the same type";
-    bool otherNull = other->isNullAt(otherIndex);
-    if (isNullAt(index)) {
-      return otherNull;
-    }
-    if (otherNull) {
-      return false;
-    }
-    auto simpleVector = reinterpret_cast<const SimpleVector<T>*>(other);
-
-    if constexpr (std::is_floating_point<T>::value) {
-      T v1 = valueAt(index);
-      T v2 = simpleVector->valueAt(otherIndex);
-      return (v1 == v2) || (std::isnan(v1) && std::isnan(v2));
-    } else {
-      return valueAt(index) == simpleVector->valueAt(otherIndex);
-    }
-  }
-
   int32_t compare(
       const BaseVector* other,
       vector_size_t index,
@@ -433,23 +408,6 @@ inline void SimpleVector<ComplexType>::setMinMax(
 template <>
 inline void SimpleVector<std::shared_ptr<void>>::setMinMax(
     const folly::F14FastMap<std::string, std::string>& /*metaData*/) {}
-
-template <>
-inline bool SimpleVector<ComplexType>::equalValueAt(
-    const BaseVector* other,
-    vector_size_t index,
-    vector_size_t otherIndex) const {
-  auto otherNull = other->isNullAt(otherIndex);
-  if (isNullAt(index)) {
-    return otherNull;
-  } else if (otherNull) {
-    return false;
-  }
-  return wrappedVector()->equalValueAt(
-      other->wrappedVector(),
-      wrappedIndex(index),
-      other->wrappedIndex(otherIndex));
-}
 
 template <>
 inline int32_t SimpleVector<ComplexType>::compare(

@@ -261,7 +261,11 @@ class BaseVector {
   virtual bool equalValueAt(
       const BaseVector* other,
       vector_size_t index,
-      vector_size_t otherIndex) const = 0;
+      vector_size_t otherIndex) const {
+    static constexpr CompareFlags kEqualValueAtFlags = {
+        false, false, true /*equalOnly*/};
+    return compare(other, index, otherIndex, kEqualValueAtFlags) == 0;
+  }
 
   // Returns < 0 if 'this' at 'index' is less than 'other' at
   // 'otherIndex', 0 if equal and > 0 otherwise.

@@ -163,13 +163,6 @@ class LazyVector : public BaseVector {
     loader_->load(rows, hook, &vector_);
   }
 
-  bool equalValueAt(
-      const BaseVector* other,
-      vector_size_t index,
-      vector_size_t otherIndex) const override {
-    return loadedVector()->equalValueAt(other, index, otherIndex);
-  }
-
   int32_t compare(
       const BaseVector* other,
       vector_size_t index,
