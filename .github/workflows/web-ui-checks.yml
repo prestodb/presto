@@ -8,11 +8,14 @@ env:
   CONTINUOUS_INTEGRATION: true
   RETRY: .github/bin/retry
 
+permissions:
+  contents: read
+
 jobs:
   web-ui-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@629c2de402a417ea7690ca6ce3f33229e27606a5 # v2
       - name: Web UI Checks
         run: presto-main/bin/check_webui.sh

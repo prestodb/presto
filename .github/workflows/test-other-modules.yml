@@ -12,18 +12,21 @@ env:
   MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
   RETRY: .github/bin/retry
 
+permissions:
+  contents: read
+
 jobs:
   test-other-modules:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v1
+      - uses: actions/checkout@629c2de402a417ea7690ca6ce3f33229e27606a5 # v2
+      - uses: actions/setup-java@e54a62b3df9364d4b4c1c29c7225e57fe605d7dd # v1
         with:
           java-version: 8
       - name: Cache local Maven repository
         id: cache-maven
-        uses: actions/cache@v2
+        uses: actions/cache@661fd3eb7f2f20d8c7c84bc2b0509efd7a826628 # v2
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
