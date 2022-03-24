@@ -213,7 +213,7 @@ public class OrcFileWriter
             catch (Exception ignored) {
                 // ignore
             }
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
+            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive. " + e.getMessage(), e);
         }
 
         if (validationInputFactory.isPresent()) {
