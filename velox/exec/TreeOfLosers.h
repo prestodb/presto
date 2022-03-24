@@ -31,7 +31,7 @@ class TreeOfLosers {
         : left_(std::move(left)), right_(std::move(right)) {}
 
     template <typename Compare>
-    std::optional<Value> front(Compare compare) {
+    std::optional<Value> front(const Compare& compare) {
       if (atEnd_) {
         return std::nullopt;
       }
@@ -105,7 +105,7 @@ class TreeOfLosers {
   }
 
   template <typename Compare>
-  std::optional<Value> next(Compare compare) {
+  std::optional<Value> next(const Compare& compare) {
     auto value = root_->front(compare);
     root_->pop();
     return value;
