@@ -143,11 +143,11 @@ public class PinotSegmentStreamingPageSource
                 .setBrokerId("presto-coordinator-grpc")
                 .addExtraMetadata(pinotConfig.getExtraGrpcMetadata())
                 .setSql(sql);
-        if (pinotConfig.isUseProxyGrpcEndpoint()) {
+        if (pinotConfig.isUseProxy()) {
             grpcRequestBuilder.setHostName(grpcHost).setPort(grpcPort);
             return pinotStreamingQueryClient.submit(
-                pinotConfig.getProxyGrpcHost(),
-                pinotConfig.getProxyGrpcPort(),
+                pinotConfig.getGrpcHost(),
+                pinotConfig.getGrpcPort(),
                 grpcRequestBuilder);
         }
         return pinotStreamingQueryClient.submit(grpcHost, grpcPort, grpcRequestBuilder);

@@ -53,7 +53,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_HTTP_ERROR;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_INSTANCE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
@@ -200,8 +199,8 @@ public class PinotClusterInfoFetcher
     {
         final URI controllerPathUri = HttpUriBuilder
                 .uriBuilder()
-                .scheme(pinotConfig.isUseHttpsForController() ? HTTPS_SCHEME : HTTP_SCHEME)
-                .hostAndPort(HostAndPort.fromString(getControllerUrl()))
+                .scheme(pinotConfig.isUseSecureConnection() ? HTTPS_SCHEME : HTTP_SCHEME)
+                .hostAndPort(HostAndPort.fromString(pinotConfig.getControllerUrl()))
                 .appendPath(path)
                 .build();
         return doHttpActionWithHeaders(
@@ -212,39 +211,17 @@ public class PinotClusterInfoFetcher
 
     private String sendHttpGetToBroker(String table, String path)
     {
+        final String hostPort = pinotConfig.isUseProxy() ? pinotConfig.getControllerUrl() : getBrokerHost(table);
         final URI brokerPathUri = HttpUriBuilder
                 .uriBuilder()
-                .scheme(pinotConfig.isUseHttpsForBroker() ? HTTPS_SCHEME : HTTP_SCHEME)
-                .hostAndPort(HostAndPort.fromString(getBrokerHost(table)))
+                .scheme(pinotConfig.isUseSecureConnection() ? HTTPS_SCHEME : HTTP_SCHEME)
+                .hostAndPort(HostAndPort.fromString(hostPort))
                 .appendPath(path)
                 .build();
         return doHttpActionWithHeaders(
                 Request.builder().prepareGet().setUri(brokerPathUri),
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    private String sendHttpGetToRestProxy(String path)
-    {
-        final URI proxyPathUri = HttpUriBuilder
-                .uriBuilder()
-                .scheme(pinotConfig.isUseHttpsForProxy() ? HTTPS_SCHEME : HTTP_SCHEME)
-                .hostAndPort(HostAndPort.fromString(pinotConfig.getRestProxyUrl()))
-                .appendPath(path)
-                .build();
-        return doHttpActionWithHeaders(
-                Request.builder().prepareGet().setUri(proxyPathUri),
-                Optional.empty(),
-                Optional.empty());
-    }
-
-    private String getControllerUrl()
-    {
-        List<String> controllerUrls = pinotConfig.getControllerUrls();
-        if (controllerUrls.isEmpty()) {
-            throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
-        }
-        return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
     }
 
     public static class GetTables
@@ -422,7 +399,7 @@ public class PinotClusterInfoFetcher
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
         log.debug("Trying to get routingTable for %s from broker", tableName);
-        String responseBody = (pinotConfig.isUseProxyForBrokerRequest()) ? sendHttpGetToRestProxy(String.format(ROUTING_TABLE_API_TEMPLATE, tableName)) : sendHttpGetToBroker(tableName, String.format(ROUTING_TABLE_API_TEMPLATE, tableName));
+        String responseBody = sendHttpGetToBroker(tableName, String.format(ROUTING_TABLE_API_TEMPLATE, tableName));
         // New Pinot Broker API (>=0.3.0) directly return a valid routing table.
         // Will always check with new API response format first, then fail over to old routing table format.
         try {
@@ -514,7 +491,7 @@ public class PinotClusterInfoFetcher
     public TimeBoundary getTimeBoundaryForTable(String table)
     {
         try {
-            String responseBody = (pinotConfig.isUseProxyForBrokerRequest()) ? sendHttpGetToRestProxy(String.format(TIME_BOUNDARY_API_TEMPLATE, table)) : sendHttpGetToBroker(table, String.format(TIME_BOUNDARY_API_TEMPLATE, table));
+            String responseBody = sendHttpGetToBroker(table, String.format(TIME_BOUNDARY_API_TEMPLATE, table));
             return timeBoundaryJsonCodec.fromJson(responseBody);
         }
         catch (Exception e) {

@@ -325,8 +325,8 @@ public abstract class PinotBrokerPageSourceBase
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), (retryNumber) -> {
             String queryHost;
             Optional<String> rpcService;
-            if (pinotConfig.getRestProxyUrl() != null) {
-                queryHost = pinotConfig.getRestProxyUrl();
+            if (pinotConfig.isUseProxy()) {
+                queryHost = pinotConfig.getControllerUrl();
                 rpcService = Optional.ofNullable(pinotConfig.getRestProxyServiceForQuery());
             }
             else {
