@@ -509,6 +509,33 @@ TEST(MemoryPoolTest, scopedChildUsageTest) {
     EXPECT_GE(trackers[i]->getPeakTotalBytes(), expectedMaxBytes[i]);
   }
 }
+
+TEST(MemoryPoolTest, getPreferredSize) {
+  MemoryManager<MemoryAllocator, 64> manager{};
+  auto& pool =
+      dynamic_cast<MemoryPoolImpl<MemoryAllocator, 64>&>(manager.getRoot());
+
+  // size < 8
+  EXPECT_EQ(8, pool.getPreferredSize(1));
+  EXPECT_EQ(8, pool.getPreferredSize(2));
+  EXPECT_EQ(8, pool.getPreferredSize(4));
+  EXPECT_EQ(8, pool.getPreferredSize(7));
+  // size >=8, pick 2^k or 1.5 * 2^k
+  EXPECT_EQ(8, pool.getPreferredSize(8));
+  EXPECT_EQ(24, pool.getPreferredSize(24));
+  EXPECT_EQ(32, pool.getPreferredSize(25));
+  EXPECT_EQ(1024 * 1536, pool.getPreferredSize(1024 * 1024 + 1));
+  EXPECT_EQ(1024 * 1024 * 2, pool.getPreferredSize(1024 * 1536 + 1));
+}
+
+TEST(MemoryPoolTest, getPreferredSizeOverflow) {
+  MemoryManager<MemoryAllocator, 64> manager{};
+  auto& pool =
+      dynamic_cast<MemoryPoolImpl<MemoryAllocator, 64>&>(manager.getRoot());
+
+  EXPECT_EQ(1ULL << 32, pool.getPreferredSize((1ULL << 32) - 1));
+  EXPECT_EQ(1ULL << 63, pool.getPreferredSize((1ULL << 62) - 1 + (1ULL << 62)));
+}
 } // namespace memory
 } // namespace velox
 } // namespace facebook
