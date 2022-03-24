@@ -72,16 +72,19 @@ Property Name                                               Description
 ``pinot.pushdown-topn-broker-queries``                      Allow pushing down query pattern to broker: aggregation + groupBy + orderBy, default is false.
 ``pinot.use-streaming-for-segment-queries``                 Use gRPC endpoint for pinot server queries, default is false.
 ``pinot.streaming-server-grpc-max-inbound-message-bytes``   Max inbound message bytes when init gRPC client, default is 128MB.
-``pinot.use-proxy-for-broker-request``                      Sending broker query to Pinot Proxy, default is false.
-``pinot.use-proxy-grpc-endpoint``                           Sending segment query to Pinot Proxy gRPC endpoint, default is false.
-``pinot.proxy-grpc-host``                                   Pinot proxy gRPC host.
-``pinot.proxy-grpc-port``                                   Pinot proxy gRPC port.
-``pinot.use-https-for-controller``                          Use https for controller requests, default is false.
-``pinot.use-https-for-broker``                              Use https for broker requests, default is false.
-``pinot.use-https-for-proxy``                               Use https for proxy requests, default is false.
+``pinot.proxy-enabled``                                     Pinot Cluster is behind a proxy, default is false.
+``pinot.grpc-host``                                         Pinot gRPC host.
+``pinot.grpc-port``                                         Pinot gRPC port.
+``pinot.secure-connection``                                 Use https for all connections is false.
 ``pinot.override-distinct-count-function``                  Override 'distinctCount' function name, default is "distinctCount".
 ``pinot.extra-http-headers``                                Extra headers when sending HTTP based pinot requests to Pinot controller/broker. E.g. k1:v1,k2:v2.
 ``pinot.extra-grpc-metadata``                               Extra metadata when sending gRPC based pinot requests to Pinot broker/server/proxy. E.g. k1:v1,k2:v2.
+``pinot.grpc-tls-key-store-path``                           TLS keystore file location for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-key-store-type``                           TLS keystore type for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-key-store-password``                       TLS keystore password, default is empty (not needed)
+``pinot.grpc-tls-trust-store-path``                         TLS truststore file location for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-trust-store-type``                         TLS truststore type for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-trust-store-password``                     TLS truststore password, default is empty (not needed)
 ==========================================================  =============================================================================================================
 
 Session Properties

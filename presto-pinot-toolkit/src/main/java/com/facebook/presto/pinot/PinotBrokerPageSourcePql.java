@@ -40,7 +40,8 @@ public class PinotBrokerPageSourcePql
         extends PinotBrokerPageSourceBase
 {
     private static final String REQUEST_PAYLOAD_KEY = "pql";
-    private static final String QUERY_URL_TEMPLATE = "http://%s/query";
+    private static final String QUERY_URL_TEMPLATE_PLAIN = "http://%s/query";
+    private static final String QUERY_URL_TEMPLATE_SECURE = "https://%s/query";
 
     private final GeneratedPinotQuery brokerPql;
     private final List<PinotColumnHandle> expectedHandles;
@@ -201,7 +202,7 @@ public class PinotBrokerPageSourcePql
     @Override
     String getQueryUrlTemplate()
     {
-        return QUERY_URL_TEMPLATE;
+        return pinotConfig.isUseSecureConnection() ? QUERY_URL_TEMPLATE_SECURE : QUERY_URL_TEMPLATE_PLAIN;
     }
 
     @Override
