@@ -1380,15 +1380,40 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
       TimestampWithTimezone(86400000, 0),
       parseDatetime("1970-01-02", "YYYY-MM-dd"));
 
+  // 118860000 is the number of milliseconds since epoch at 1970-01-02
+  // 09:01:00.000 UTC.
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, util::getTimeZoneID("-09:00")),
-      parseDatetime("1970-01-02+00:00-09:00", "YYYY-MM-dd+HH:mmZZ"));
+      TimestampWithTimezone(118860000, util::getTimeZoneID("+00:00")),
+      parseDatetime("1970-01-02+09:01+00:00", "YYYY-MM-dd+HH:mmZZ"));
+  EXPECT_EQ(
+      TimestampWithTimezone(118860000, util::getTimeZoneID("-09:00")),
+      parseDatetime("1970-01-02+00:01-09:00", "YYYY-MM-dd+HH:mmZZ"));
+  EXPECT_EQ(
+      TimestampWithTimezone(118860000, util::getTimeZoneID("-02:00")),
+      parseDatetime("1970-01-02+07:01-02:00", "YYYY-MM-dd+HH:mmZZ"));
+  EXPECT_EQ(
+      TimestampWithTimezone(118860000, util::getTimeZoneID("+14:00")),
+      parseDatetime("1970-01-02+23:01+14:00", "YYYY-MM-dd+HH:mmZZ"));
 
   setQueryTimeZone("Asia/Kolkata");
 
+  // 66600000 is the number of millisecond since epoch at 1970-01-01
+  // 18:30:00.000 UTC.
   EXPECT_EQ(
-      TimestampWithTimezone(86400000, util::getTimeZoneID("Asia/Kolkata")),
+      TimestampWithTimezone(66600000, util::getTimeZoneID("Asia/Kolkata")),
       parseDatetime("1970-01-02+00:00", "YYYY-MM-dd+HH:mm"));
+  EXPECT_EQ(
+      TimestampWithTimezone(66600000, util::getTimeZoneID("-03:00")),
+      parseDatetime("1970-01-01+15:30-03:00", "YYYY-MM-dd+HH:mmZZ"));
+
+  // -66600000 is the number of millisecond since epoch at 1969-12-31
+  // 05:30:00.000 UTC.
+  EXPECT_EQ(
+      TimestampWithTimezone(-66600000, util::getTimeZoneID("Asia/Kolkata")),
+      parseDatetime("1969-12-31+11:00", "YYYY-MM-dd+HH:mm"));
+  EXPECT_EQ(
+      TimestampWithTimezone(-66600000, util::getTimeZoneID("+02:00")),
+      parseDatetime("1969-12-31+07:30+02:00", "YYYY-MM-dd+HH:mmZZ"));
 }
 
 TEST_F(DateTimeFunctionsTest, dateFormat) {

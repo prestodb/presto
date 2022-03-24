@@ -749,6 +749,7 @@ struct ParseDateTimeFunction {
     // no session timezone, fallback to 0 (GMT).
     int16_t timezoneId = jodaResult.timezoneId != -1 ? jodaResult.timezoneId
                                                      : sessionTzID_.value_or(0);
+    jodaResult.timestamp.toGMT(timezoneId);
     result = std::make_tuple(jodaResult.timestamp.toMillis(), timezoneId);
     return true;
   }
