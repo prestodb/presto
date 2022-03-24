@@ -53,7 +53,6 @@ public class OrcOutputBuffer
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
     private static final int PAGE_HEADER_SIZE = 3; // ORC spec 3 byte header
     private static final int INITIAL_BUFFER_SIZE = 256;
-    private static final int DIRECT_FLUSH_SIZE = 32 * 1024;
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 1024 * 1024;
 
@@ -247,19 +246,11 @@ public class OrcOutputBuffer
     }
 
     @Override
-    public void writeBytes(Slice source, int sourceIndex, int length)
+    public void writeBytes(Slice source, int sourceOffset, int length)
     {
-        // Write huge chunks direct to OutputStream
-        if (length >= DIRECT_FLUSH_SIZE) {
-            flushBufferToOutputStream();
-            writeDirectlyToOutputStream((byte[]) source.getBase(), sourceIndex + (int) (source.getAddress() - ARRAY_BYTE_BASE_OFFSET), length);
-            bufferOffset += length;
-        }
-        else {
-            ensureWritableBytes(length);
-            slice.setBytes(bufferPosition, source, sourceIndex, length);
-            bufferPosition += length;
-        }
+        byte[] bytes = (byte[]) source.getBase();
+        int bytesOffset = (int) (source.getAddress() - ARRAY_BYTE_BASE_OFFSET);
+        writeBytes(bytes, sourceOffset + bytesOffset, length);
     }
 
     @Override
@@ -269,18 +260,36 @@ public class OrcOutputBuffer
     }
 
     @Override
-    public void writeBytes(byte[] source, int sourceIndex, int length)
+    public void writeBytes(byte[] bytes, int bytesOffset, int length)
     {
-        // Write huge chunks direct to OutputStream
-        if (length >= DIRECT_FLUSH_SIZE) {
-            // todo fill buffer before flushing
-            flushBufferToOutputStream();
-            writeDirectlyToOutputStream(source, sourceIndex, length);
-            bufferOffset += length;
+        if (length == 0) {
+            return;
         }
-        else {
+
+        // finish filling the buffer
+        if (bufferPosition != 0) {
+            int chunkSize = min(length, maxBufferSize - bufferPosition);
+            ensureWritableBytes(chunkSize);
+            slice.setBytes(bufferPosition, bytes, bytesOffset, chunkSize);
+            bufferPosition += chunkSize;
+            length -= chunkSize;
+            bytesOffset += chunkSize;
+        }
+
+        // write maxBufferSize chunks directly to output
+        if (length >= maxBufferSize) {
+            flushBufferToOutputStream();
+            while (length >= maxBufferSize) {
+                writeChunkToOutputStream(bytes, bytesOffset, maxBufferSize);
+                length -= maxBufferSize;
+                bytesOffset += maxBufferSize;
+            }
+        }
+
+        // write the tail smaller than maxBufferSize to the buffer
+        if (length > 0) {
             ensureWritableBytes(length);
-            slice.setBytes(bufferPosition, source, sourceIndex, length);
+            slice.setBytes(bufferPosition, bytes, bytesOffset, length);
             bufferPosition += length;
         }
     }
@@ -308,6 +317,20 @@ public class OrcOutputBuffer
             bufferPosition += batch;
             length -= batch;
         }
+    }
+
+    private int ensureBatchSize(int length)
+    {
+        ensureWritableBytes(min(length, maxBufferSize - bufferPosition));
+        if (availableInBuffer() == 0) {
+            flushBufferToOutputStream();
+        }
+        return min(length, availableInBuffer());
+    }
+
+    private int availableInBuffer()
+    {
+        return slice.length() - bufferPosition;
     }
 
     @Override
@@ -408,9 +431,9 @@ public class OrcOutputBuffer
             return;
         }
 
-        // grow the buffer size
-        int newBufferSize = min(max(slice.length() * 2, minWritableBytes), maxBufferSize);
-        if (neededBufferSize <= newBufferSize) {
+        // grow the buffer size up to maxBufferSize
+        int newBufferSize = min(max(slice.length() * 2, neededBufferSize), maxBufferSize);
+        if (newBufferSize >= neededBufferSize) {
             // we have capacity in the new buffer; just copy the data to the new buffer
             byte[] previousBuffer = buffer;
             buffer = new byte[newBufferSize];
@@ -423,12 +446,6 @@ public class OrcOutputBuffer
             buffer = new byte[newBufferSize];
             slice = wrappedBuffer(buffer);
         }
-    }
-
-    private int ensureBatchSize(int length)
-    {
-        ensureWritableBytes(min(DIRECT_FLUSH_SIZE, length));
-        return min(length, slice.length() - bufferPosition);
     }
 
     private void flushBufferToOutputStream()
@@ -489,21 +506,6 @@ public class OrcOutputBuffer
         compressedOutputStream.write((header & 0x00_FF00) >> 8);
         compressedOutputStream.write((header & 0xFF_0000) >> 16);
         compressedOutputStream.writeBytes(chunk, offset, length);
-    }
-
-    private void writeDirectlyToOutputStream(byte[] bytes, int bytesOffset, int length)
-    {
-        if (compressor == null && !dwrfEncryptor.isPresent()) {
-            compressedOutputStream.writeBytes(bytes, bytesOffset, length);
-            return;
-        }
-
-        while (length > 0) {
-            int chunkSize = Integer.min(length, maxBufferSize);
-            writeChunkToOutputStream(bytes, bytesOffset, chunkSize);
-            length -= chunkSize;
-            bytesOffset += chunkSize;
-        }
     }
 
     @VisibleForTesting
