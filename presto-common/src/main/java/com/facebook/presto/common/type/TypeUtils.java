@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -72,6 +74,22 @@ public final class TypeUtils
     public static boolean isDistinctType(Type type)
     {
         return type instanceof DistinctType;
+    }
+
+    /**
+     * Recursive version of isDistinctType.
+     */
+    public static boolean containsDistinctType(List<Type> types)
+    {
+        LinkedList<Type> allTypes = new LinkedList<>(types);
+        while (!allTypes.isEmpty()) {
+            Type type = allTypes.removeLast();
+            if (isDistinctType(type)) {
+                return true;
+            }
+            allTypes.addAll(type.getTypeParameters());
+        }
+        return false;
     }
 
     /**
