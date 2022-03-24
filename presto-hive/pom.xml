@@ -373,6 +373,18 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- for benchmark -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -395,6 +407,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpcds</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-testing-docker</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
