@@ -50,8 +50,8 @@ PlanBuilder& PlanBuilder::tableScan(const RowTypePtr& outputType) {
              name, HiveColumnHandle::ColumnType::kRegular, type)});
   }
 
-  auto tableHandle =
-      std::make_shared<HiveTableHandle>(true, SubfieldFilters{}, nullptr);
+  auto tableHandle = std::make_shared<HiveTableHandle>(
+      "hive_table", true, SubfieldFilters{}, nullptr);
   return tableScan(outputType, tableHandle, assignments);
 }
 

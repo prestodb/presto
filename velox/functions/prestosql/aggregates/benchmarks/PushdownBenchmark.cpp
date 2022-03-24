@@ -61,7 +61,7 @@ class PushdownBenchmark : public HiveConnectorTestBase {
   std::shared_ptr<core::PlanNode> makePushdownGroupByPlan(
       const std::string& aggName) {
     auto tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
-        true, SubfieldFilters(), nullptr);
+        "hive_table", true, SubfieldFilters(), nullptr);
 
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         assignments;

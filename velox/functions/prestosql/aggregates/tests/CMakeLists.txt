@@ -45,15 +45,16 @@ add_test(
 
 target_link_libraries(
   velox_aggregates_test
-  velox_functions_test_lib
-  velox_exec
   velox_aggregates
   velox_aggregates_test_lib
+  velox_core
+  velox_dwrf_test_utils
+  velox_exec
+  velox_exec_test_util
+  velox_functions_test_lib
   velox_functions_prestosql
   velox_functions_lib
-  velox_core
+  velox_hive_connector
   velox_type
-  velox_exec_test_util
-  velox_dwrf_test_utils
   ${gflags_LIBRARIES}
   ${GTEST_BOTH_LIBRARIES})

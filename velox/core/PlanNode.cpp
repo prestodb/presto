@@ -152,8 +152,8 @@ const std::vector<std::shared_ptr<const PlanNode>>& TableScanNode::sources()
   return kEmptySources;
 }
 
-void TableScanNode::addDetails(std::stringstream& /* stream */) const {
-  // TODO Add connector details.
+void TableScanNode::addDetails(std::stringstream& stream) const {
+  stream << tableHandle_->toString();
 }
 
 const std::vector<std::shared_ptr<const PlanNode>>& ExchangeNode::sources()

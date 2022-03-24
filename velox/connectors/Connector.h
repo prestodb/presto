@@ -60,6 +60,7 @@ class ColumnHandle {
 class ConnectorTableHandle {
  public:
   virtual ~ConnectorTableHandle() = default;
+  virtual std::string toString() const = 0;
 };
 
 /**

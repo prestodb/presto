@@ -91,10 +91,11 @@ using ColumnHandleMap =
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>;
 
 std::shared_ptr<connector::hive::HiveTableHandle> makeTableHandle(
+    const std::string& tableName,
     common::test::SubfieldFilters subfieldFilters,
     const std::shared_ptr<const core::ITypedExpr>& remainingFilter = nullptr) {
   return std::make_shared<connector::hive::HiveTableHandle>(
-      true, std::move(subfieldFilters), remainingFilter);
+      tableName, true, std::move(subfieldFilters), remainingFilter);
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle> regularColumn(
@@ -150,7 +151,7 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
       PlanBuilder(planNodeIdGenerator)
           .tableScan(
               selectedRowType,
-              makeTableHandle(std::move(filters)),
+              makeTableHandle(kLineitem, std::move(filters)),
               allRegularColumns(selectedRowType, columnAliases))
           .capturePlanNodeId(lineitemPlanNodeId)
           .project(
@@ -236,7 +237,7 @@ TpchPlan TpchQueryBuilder::getQ6Plan() const {
               {PlanBuilder(planNodeIdGenerator)
                    .tableScan(
                        selectedRowType,
-                       makeTableHandle(std::move(filters)),
+                       makeTableHandle(kLineitem, std::move(filters)),
                        allRegularColumns(selectedRowType, columnAliases))
                    .capturePlanNodeId(lineitemPlanNodeId)
                    .project({"l_extendedprice * l_discount"})
@@ -281,7 +282,8 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
               {PlanBuilder(planNodeIdGenerator)
                    .tableScan(
                        lineitemSelectedRowType,
-                       makeTableHandle(common::test::SubfieldFilters{}),
+                       makeTableHandle(
+                           kLineitem, common::test::SubfieldFilters{}),
                        allRegularColumns(
                            lineitemSelectedRowType, lineitemColumnAliases))
                    .capturePlanNodeId(lineitemScanNodeId)
@@ -297,7 +299,8 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
               {PlanBuilder(planNodeIdGenerator)
                    .tableScan(
                        ordersSelectedRowType,
-                       makeTableHandle(common::test::SubfieldFilters{}),
+                       makeTableHandle(
+                           kOrders, common::test::SubfieldFilters{}),
                        allRegularColumns(
                            ordersSelectedRowType, ordersColumnAliases))
                    .capturePlanNodeId(ordersScanNodeId)
@@ -318,7 +321,8 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
                        PlanBuilder(planNodeIdGenerator)
                            .tableScan(
                                customerSelectedRowType,
-                               makeTableHandle(common::test::SubfieldFilters{}),
+                               makeTableHandle(
+                                   kCustomer, common::test::SubfieldFilters{}),
                                allRegularColumns(
                                    customerSelectedRowType,
                                    customerColumnAliases))

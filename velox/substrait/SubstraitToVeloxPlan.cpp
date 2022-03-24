@@ -256,12 +256,15 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
   std::shared_ptr<connector::hive::HiveTableHandle> tableHandle;
   if (!sRead.has_filter()) {
     tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
-        filterPushdownEnabled, connector::hive::SubfieldFilters{}, nullptr);
+        "hive_table",
+        filterPushdownEnabled,
+        connector::hive::SubfieldFilters{},
+        nullptr);
   } else {
     connector::hive::SubfieldFilters filters =
         toVeloxFilter(colNameList, veloxTypeList, sRead.filter());
     tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
-        filterPushdownEnabled, std::move(filters), nullptr);
+        "hive_table", filterPushdownEnabled, std::move(filters), nullptr);
   }
 
   // Get assignments and out names.
