@@ -11,8 +11,10 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage th {background-color: lightblue; text-align: center;}
     table.coverage td:nth-child(6) {background-color: lightblue;}
     table.coverage tr:nth-child(1) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(1) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(2) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(7) {background-color: #6BA81E;}
@@ -63,6 +65,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(19) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(19) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(20) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(21) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(21) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(21) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(21) td:nth-child(7) {background-color: #6BA81E;}
@@ -180,8 +183,8 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================
     Scalar Functions                                                                                                                                                                                                      Aggregate Functions
     ================================================================================================================================================================================================================  ==  ========================================
-    :func:`abs`                               date_diff                                 is_json_scalar                            render                                    st_points                                     :func:`approx_distinct`
-    :func:`acos`                              date_format                               :func:`is_nan`                            repeat                                    st_polygon                                    approx_most_frequent
+    :func:`abs`                               :func:`date_diff`                         is_json_scalar                            render                                    st_points                                     :func:`approx_distinct`
+    :func:`acos`                              :func:`date_format`                       :func:`is_nan`                            repeat                                    st_polygon                                    approx_most_frequent
     all_match                                 date_parse                                is_subnet_of                              :func:`replace`                           st_relate                                     :func:`approx_percentile`
     any_match                                 :func:`date_trunc`                        jaccard_index                             :func:`reverse`                           st_startpoint                                 :func:`approx_set`
     array_average                             :func:`day`                               json_array_contains                       rgb                                       st_symdifference                              :func:`arbitrary`
@@ -200,7 +203,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     array_sort                                features                                  :func:`ln`                                :func:`sin`                               :func:`tan`                                   convex_hull_agg
     array_sum                                 :func:`filter`                            localtime                                 :func:`slice`                             :func:`tanh`                                  :func:`corr`
     array_union                               flatten                                   localtimestamp                            spatial_partitions                        timezone_hour                                 :func:`count`
-    arrays_overlap                            flatten_geometry_collections              :func:`log10`                             :func:`split`                             timezone_minute                               :func:`count_if`
+    :func:`arrays_overlap`                    flatten_geometry_collections              :func:`log10`                             :func:`split`                             timezone_minute                               :func:`count_if`
     :func:`asin`                              :func:`floor`                             :func:`log2`                              :func:`split_part`                        :func:`to_base`                               :func:`covar_pop`
     :func:`atan`                              fnv1_32                                   :func:`lower`                             split_to_map                              :func:`to_base64`                             :func:`covar_samp`
     :func:`atan2`                             fnv1_64                                   :func:`lpad`                              split_to_multimap                         to_base64url                                  differential_entropy
