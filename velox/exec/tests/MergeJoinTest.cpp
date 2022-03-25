@@ -128,7 +128,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
                         {"u_c0"},
                         PlanBuilder(planNodeIdGenerator)
                             .values(right)
-                            .project({"c0 AS u_c0", "c1 AS u_c1"})
+                            .project({"c1 AS u_c1", "c0 AS u_c0"})
                             .planNode(),
                         "",
                         {"c0", "c1", "u_c1"},
@@ -159,7 +159,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
                    {"u_c0"},
                    PlanBuilder(planNodeIdGenerator)
                        .values(right)
-                       .project({"c0 as u_c0", "c1 as u_c1"})
+                       .project({"c1 as u_c1", "c0 as u_c0"})
                        .planNode(),
                    "",
                    {"c0", "c1", "u_c1"},
