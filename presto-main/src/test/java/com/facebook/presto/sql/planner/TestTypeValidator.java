@@ -60,6 +60,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -239,6 +240,33 @@ public class TestTypeValidator
     }
 
     @Test
+    public void testValidPartialAggregation()
+    {
+        VariableReferenceExpression aggregationVariable = variableAllocator.newVariable("approx_percentile", VARBINARY);
+
+        PlanNode node = new AggregationNode(
+                Optional.empty(),
+                newId(),
+                baseTableScan,
+                ImmutableMap.of(aggregationVariable, new Aggregation(
+                        new CallExpression("approx_percentile",
+                                APPROX_PERCENTILE,
+                                VARBINARY,
+                                ImmutableList.of(variableC)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty())),
+                singleGroupingSet(ImmutableList.of()),
+                ImmutableList.of(),
+                PARTIAL,
+                Optional.empty(),
+                Optional.empty());
+
+        assertTypesValid(node);
+    }
+
+    @Test
     public void testValidTypeOnlyCoercion()
     {
         Expression expression = new Cast(new SymbolReference(variableB.getName()), StandardTypes.BIGINT);
@@ -289,6 +317,33 @@ public class TestTypeValidator
                 singleGroupingSet(ImmutableList.of()),
                 ImmutableList.of(),
                 INTERMEDIATE,
+                Optional.empty(),
+                Optional.empty());
+
+        assertTypesValid(node);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'approx_pct_part_invalid' is expected to be varbinary, but the actual type is double")
+    public void testInvalidPartialAggregationReturnType()
+    {
+        VariableReferenceExpression aggregationVariable = variableAllocator.newVariable("approx_pct_part_invalid", VARBINARY);
+
+        PlanNode node = new AggregationNode(
+                Optional.empty(),
+                newId(),
+                baseTableScan,
+                ImmutableMap.of(aggregationVariable, new Aggregation(
+                        new CallExpression("approx_percentile",
+                                APPROX_PERCENTILE,
+                                DOUBLE, // Should be VARBINARY
+                                ImmutableList.of(variableC)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty())),
+                singleGroupingSet(ImmutableList.of()),
+                ImmutableList.of(),
+                PARTIAL,
                 Optional.empty(),
                 Optional.empty());
 
