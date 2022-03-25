@@ -132,6 +132,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
+import com.facebook.presto.sql.planner.optimizations.ReorderPredicates;
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
@@ -579,6 +580,7 @@ public class PlanOptimizers
         builder.add(new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()));
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
+        builder.add(new ReorderPredicates()); // Swap predicate orderings after pushdowns are done
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager())); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
