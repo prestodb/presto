@@ -86,31 +86,34 @@ public class PrestoSparkStorageBasedBroadcastDependency
         broadcastDependency = null;
 
         long compressedBroadcastSizeInBytes = broadcastValue.stream()
-                .mapToLong(metadata -> metadata.getCompressedSizeInBytes())
+                .mapToLong(PrestoSparkStorageHandle::getCompressedSizeInBytes)
                 .sum();
         long uncompressedBroadcastSizeInBytes = broadcastValue.stream()
-                .mapToLong(metadata -> metadata.getUncompressedSizeInBytes())
+                .mapToLong(PrestoSparkStorageHandle::getUncompressedSizeInBytes)
+                .sum();
+        long deserializedBroadcastSizeInBytes = broadcastValue.stream()
+                .mapToLong(PrestoSparkStorageHandle::getDeserializedRetainedSizeInBytes)
                 .sum();
 
-        log.info("Got back %d pages. compressedBroadcastSizeInBytes: %d; uncompressedBroadcastSizeInBytes: %d",
+        log.info(
+                "Got back %d pages. compressedBroadcastSizeInBytes: %d; uncompressedBroadcastSizeInBytes: %d; deserializedBroadcastObjectSizeInBytes: %d",
                 broadcastValue.size(),
                 compressedBroadcastSizeInBytes,
-                uncompressedBroadcastSizeInBytes);
+                uncompressedBroadcastSizeInBytes,
+                deserializedBroadcastSizeInBytes);
 
         long maxBroadcastSizeInBytes = maxBroadcastSize.toBytes();
 
-        if (compressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
-            throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Compressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes)));
+        if (deserializedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
+            throw exceededLocalBroadcastMemoryLimit(
+                    maxBroadcastSize,
+                    format("Broadcast size: %s", succinctBytes(deserializedBroadcastSizeInBytes)));
         }
 
-        if (uncompressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
-            throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Uncompressed broadcast size: %s", succinctBytes(uncompressedBroadcastSizeInBytes)));
-        }
-
-        if (compressedBroadcastSizeInBytes > queryMaxTotalMemoryPerNode.toBytes() || uncompressedBroadcastSizeInBytes > queryMaxTotalMemoryPerNode.toBytes()) {
+        if (deserializedBroadcastSizeInBytes > queryMaxTotalMemoryPerNode.toBytes()) {
             throw exceededLocalTotalMemoryLimit(
                     queryMaxTotalMemoryPerNode,
-                    format("Compressed broadcast size: %s; Uncompressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes), succinctBytes(uncompressedBroadcastSizeInBytes)),
+                    format("Broadcast size: %s", succinctBytes(deserializedBroadcastSizeInBytes)),
                     false,
                     Optional.empty());
         }

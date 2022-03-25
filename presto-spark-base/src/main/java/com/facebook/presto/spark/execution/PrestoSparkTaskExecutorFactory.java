@@ -1082,6 +1082,7 @@ public class PrestoSparkTaskExecutorFactory
 
             long compressedBroadcastSizeInBytes = 0;
             long uncompressedBroadcastSizeInBytes = 0;
+            long deserializedBroadcastRetainedSizeInBytes = 0;
             int positionCount = 0;
             CRC32 checksum = new CRC32();
             TempStorageHandle tempStorageHandle;
@@ -1105,6 +1106,7 @@ public class PrestoSparkTaskExecutorFactory
                     bufferedBytes += writtenSize;
                     compressedBroadcastSizeInBytes += page.getSerializedPage().getSizeInBytes();
                     uncompressedBroadcastSizeInBytes += page.getSerializedPage().getUncompressedSizeInBytes();
+                    deserializedBroadcastRetainedSizeInBytes += page.getDeserializedRetainedSizeInBytes();
                     positionCount += page.getPositionCount();
                     Slice slice = page.getSerializedPage().getSlice();
                     checksum.update(slice.byteArray(), slice.byteArrayOffset(), slice.length());
@@ -1117,12 +1119,13 @@ public class PrestoSparkTaskExecutorFactory
                 }
 
                 tempStorageHandle = tempDataSink.commit();
-                log.info("Created broadcast spill file: " + tempStorageHandle.toString());
+                log.info("Created broadcast spill file: " + tempStorageHandle.toString() + " deserialized size: " + deserializedBroadcastRetainedSizeInBytes);
                 PrestoSparkStorageHandle prestoSparkStorageHandle =
                         new PrestoSparkStorageHandle(
                                 tempStorage.serializeHandle(tempStorageHandle),
                                 uncompressedBroadcastSizeInBytes,
                                 compressedBroadcastSizeInBytes,
+                                deserializedBroadcastRetainedSizeInBytes,
                                 checksum.getValue(),
                                 positionCount);
                 long end = System.currentTimeMillis();
