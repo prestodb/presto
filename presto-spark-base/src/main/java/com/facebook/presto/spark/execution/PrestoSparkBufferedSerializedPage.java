@@ -24,15 +24,22 @@ public class PrestoSparkBufferedSerializedPage
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkBufferedSerializedPage.class).instanceSize();
 
     private final SerializedPage serializedPage;
+    private final long deserializedRetainedSizeInBytes;
 
-    public PrestoSparkBufferedSerializedPage(SerializedPage serializedPage)
+    public PrestoSparkBufferedSerializedPage(SerializedPage serializedPage, long deserializedRetainedSizeInBytes)
     {
         this.serializedPage = requireNonNull(serializedPage, "serializedPage is null");
+        this.deserializedRetainedSizeInBytes = deserializedRetainedSizeInBytes;
     }
 
     public SerializedPage getSerializedPage()
     {
         return serializedPage;
+    }
+
+    public long getDeserializedRetainedSizeInBytes()
+    {
+        return deserializedRetainedSizeInBytes;
     }
 
     @Override
