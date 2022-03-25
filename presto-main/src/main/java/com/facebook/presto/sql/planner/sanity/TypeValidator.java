@@ -93,6 +93,9 @@ public final class TypeValidator
                     checkFunctionSignature(node.getAggregations());
                     checkAggregation(node.getAggregations());
                     break;
+                case PARTIAL:
+                    verifyPartialAggregationTypes(node.getAggregations());
+                    break;
                 case INTERMEDIATE:
                     verifyIntermediateAggregationTypes(node.getAggregations());
                     break;
@@ -221,6 +224,16 @@ public final class TypeValidator
             }
         }
 
+        private void verifyPartialAggregationTypes(Map<VariableReferenceExpression, Aggregation> aggregations)
+        {
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                Aggregation aggregation = entry.getValue();
+
+                TypeSignature actualTypeSig = aggregation.getCall().getType().getTypeSignature();
+                verifyTypeSignature(entry.getKey(), actualTypeSig);
+            }
+        }
+
         private void verifyIntermediateAggregationTypes(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
@@ -228,13 +241,15 @@ public final class TypeValidator
 
                 int argumentSize = aggregation.getArguments().size();
                 checkArgument(argumentSize == 1,
-                        "Number of arguments for intermediate aggregation is expected to be 1, got %n", argumentSize);
+                        "Number of arguments for intermediate aggregation is expected to be 1, got %s", argumentSize);
 
                 TypeSignature expectedTypeSig = aggregation.getArguments().get(0).getType().getTypeSignature();
                 TypeSignature actualTypeSig = aggregation.getCall().getType().getTypeSignature();
                 checkArgument(
                         expectedTypeSig.equals(actualTypeSig),
                         "Return type for intermediate aggregation must be the same as the type of its single argument: expected '%s', got '%s'", expectedTypeSig, actualTypeSig);
+
+                verifyTypeSignature(entry.getKey(), actualTypeSig);
             }
         }
     }
