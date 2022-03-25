@@ -29,6 +29,7 @@ public class TestMongoClientConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(MongoClientConfig.class)
                 .setSchemaCollection("_schema")
+                .setCaseInsensitiveNameMatching(false)
                 .setSeeds("")
                 .setCredentials("")
                 .setMinConnectionsPerHost(0)
@@ -51,6 +52,7 @@ public class TestMongoClientConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("mongodb.schema-collection", "_my_schema")
+                .put("mongodb.case-insensitive-name-matching", "true")
                 .put("mongodb.seeds", "host1,host2:27016")
                 .put("mongodb.credentials", "username:password@collection")
                 .put("mongodb.min-connections-per-host", "1")
@@ -70,6 +72,7 @@ public class TestMongoClientConfig
 
         MongoClientConfig expected = new MongoClientConfig()
                 .setSchemaCollection("_my_schema")
+                .setCaseInsensitiveNameMatching(true)
                 .setSeeds("host1", "host2:27016")
                 .setCredentials("username:password@collection")
                 .setMinConnectionsPerHost(1)

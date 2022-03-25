@@ -270,4 +270,23 @@ public class TestMongoIntegrationSmokeTest
         assertQuery("SELECT value FROM test_rename.tmp_rename_new_table", "SELECT 1");
         assertUpdate("DROP TABLE test_rename.tmp_rename_new_table");
     }
+
+    public void testCaseInsensitive()
+            throws Exception
+    {
+        MongoCollection<Document> collection = mongoQueryRunner.getMongoClient().getDatabase("testCase").getCollection("testInsensitive");
+        collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
+
+        assertQuery("SHOW SCHEMAS IN mongodb LIKE 'testcase'", "SELECT 'testcase'");
+        assertQuery("SHOW TABLES IN testcase", "SELECT 'testinsensitive'");
+        assertQuery(
+                "SHOW COLUMNS FROM testcase.testInsensitive",
+                "VALUES ('name', 'varchar', '', ''), ('value', 'bigint', '', '')");
+
+        assertQuery("SELECT name, value FROM testcase.testinsensitive", "SELECT 'abc', 1");
+        assertUpdate("INSERT INTO testcase.testinsensitive VALUES('def', 2)", 1);
+
+        assertQuery("SELECT value FROM testcase.testinsensitive WHERE name = 'def'", "SELECT 2");
+        assertUpdate("DROP TABLE testcase.testinsensitive");
+    }
 }

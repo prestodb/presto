@@ -34,24 +34,25 @@ Configuration Properties
 
 The following configuration properties are available:
 
-===================================== ==============================================================
-Property Name                         Description
-===================================== ==============================================================
-``mongodb.seeds``                     List of all mongod servers
-``mongodb.schema-collection``         A collection which contains schema information
-``mongodb.credentials``               List of credentials
-``mongodb.min-connections-per-host``  The minimum size of the connection pool per host
-``mongodb.connections-per-host``      The maximum size of the connection pool per host
-``mongodb.max-wait-time``             The maximum wait time
-``mongodb.connection-timeout``        The socket connect timeout
-``mongodb.socket-timeout``            The socket timeout
-``mongodb.socket-keep-alive``         Whether keep-alive is enabled on each socket
-``mongodb.ssl.enabled``               Use TLS/SSL for connections to mongod/mongos
-``mongodb.read-preference``           The read preference
-``mongodb.write-concern``             The write concern
-``mongodb.required-replica-set``      The required replica set name
-``mongodb.cursor-batch-size``         The number of elements to return in a batch
-===================================== ==============================================================
+========================================== ==============================================================
+Property Name                              Description
+========================================== ==============================================================
+``mongodb.seeds``                          List of all mongod servers
+``mongodb.schema-collection``              A collection which contains schema information
+``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
+``mongodb.credentials``                    List of credentials
+``mongodb.min-connections-per-host``       The minimum size of the connection pool per host
+``mongodb.connections-per-host``           The maximum size of the connection pool per host
+``mongodb.max-wait-time``                  The maximum wait time
+``mongodb.connection-timeout``             The socket connect timeout
+``mongodb.socket-timeout``                 The socket timeout
+``mongodb.socket-keep-alive``              Whether keep-alive is enabled on each socket
+``mongodb.ssl.enabled``                    Use TLS/SSL for connections to mongod/mongos
+``mongodb.read-preference``                The read preference
+``mongodb.write-concern``                  The write concern
+``mongodb.required-replica-set``           The required replica set name
+``mongodb.cursor-batch-size``              The number of elements to return in a batch
+========================================== ==============================================================
 
 ``mongodb.seeds``
 ^^^^^^^^^^^^^^^^^
