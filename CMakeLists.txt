@@ -216,10 +216,8 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 # Range-v3 will be enable when the codegen code actually lands keeping it here
 # for reference. find_package(range-v3)
 
-if(NOT ${VELOX_BUILD_MINIMAL})
-  find_package(GTest REQUIRED)
-  find_library(GMock gmock)
-endif()
+find_package(GTest REQUIRED)
+find_library(GMock gmock)
 
 find_package(gflags COMPONENTS shared)
 find_package(glog REQUIRED)
