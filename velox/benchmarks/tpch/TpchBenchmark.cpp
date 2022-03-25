@@ -88,8 +88,8 @@ class TpchBenchmark {
     bool noMoreSplits = false;
     auto addSplits = [&](exec::Task* task) {
       if (!noMoreSplits) {
-        for (const auto entry : tpchPlan.dataFiles) {
-          for (const auto path : entry.second) {
+        for (const auto& entry : tpchPlan.dataFiles) {
+          for (const auto& path : entry.second) {
             auto const splits = HiveConnectorTestBase::makeHiveConnectorSplits(
                 path, numSplitsPerFile, tpchPlan.dataFileFormat);
             for (const auto& split : splits) {
