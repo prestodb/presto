@@ -420,10 +420,9 @@ inline int32_t SimpleVector<ComplexType>::compare(
   auto otherWrapped = other->wrappedVector();
   DCHECK(wrapped->encoding() == otherWrapped->encoding())
       << "Attempting to compare vectors not of the same type";
-  auto thisWrappedIndex = wrappedIndex(index);
-  auto otherWrappedIndex = other->wrappedIndex(otherIndex);
-  bool otherNull = otherWrapped->isNullAt(otherWrappedIndex);
-  if (wrapped->isNullAt(thisWrappedIndex)) {
+
+  bool otherNull = other->isNullAt(otherIndex);
+  if (isNullAt(index)) {
     if (otherNull) {
       return 0;
     }
@@ -432,6 +431,9 @@ inline int32_t SimpleVector<ComplexType>::compare(
   if (otherNull) {
     return flags.nullsFirst ? 1 : -1;
   }
+
+  auto otherWrappedIndex = other->wrappedIndex(otherIndex);
+  auto thisWrappedIndex = wrappedIndex(index);
   return wrapped->compare(
       otherWrapped, thisWrappedIndex, otherWrappedIndex, flags);
 }

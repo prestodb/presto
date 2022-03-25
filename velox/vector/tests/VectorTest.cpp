@@ -495,6 +495,7 @@ class VectorTest : public testing::Test {
     target->copy(source.get(), sourceSize, 0, sourceSize);
     for (int32_t i = 0; i < sourceSize; ++i) {
       EXPECT_TRUE(target->equalValueAt(source.get(), sourceSize + i, i));
+      EXPECT_TRUE(source->equalValueAt(target.get(), i, sourceSize + i));
     }
     // Check that uninitialized is copyable.
     target->resize(target->size() + 100);
