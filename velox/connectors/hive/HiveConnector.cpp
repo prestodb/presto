@@ -40,6 +40,18 @@ static const char* kPath = "$path";
 static const char* kBucket = "$bucket";
 } // namespace
 
+HiveTableHandle::HiveTableHandle(
+    const std::string& tableName,
+    bool filterPushdownEnabled,
+    SubfieldFilters subfieldFilters,
+    const std::shared_ptr<const core::ITypedExpr>& remainingFilter)
+    : tableName_(tableName),
+      filterPushdownEnabled_(filterPushdownEnabled),
+      subfieldFilters_(std::move(subfieldFilters)),
+      remainingFilter_(remainingFilter) {}
+
+HiveTableHandle::~HiveTableHandle() {}
+
 std::string HiveTableHandle::toString() const {
   std::stringstream out;
   out << "Table: " << tableName_;

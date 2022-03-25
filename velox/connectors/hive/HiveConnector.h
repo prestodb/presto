@@ -66,11 +66,9 @@ class HiveTableHandle : public ConnectorTableHandle {
       const std::string& tableName,
       bool filterPushdownEnabled,
       SubfieldFilters subfieldFilters,
-      const std::shared_ptr<const core::ITypedExpr>& remainingFilter)
-      : tableName_(tableName),
-        filterPushdownEnabled_(filterPushdownEnabled),
-        subfieldFilters_(std::move(subfieldFilters)),
-        remainingFilter_(remainingFilter) {}
+      const std::shared_ptr<const core::ITypedExpr>& remainingFilter);
+
+  ~HiveTableHandle() override;
 
   bool isFilterPushdownEnabled() const {
     return filterPushdownEnabled_;
