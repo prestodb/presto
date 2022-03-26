@@ -456,6 +456,12 @@ void applyCustomTypeCast(
     const TypePtr& otherType,
     exec::EvalCtx* context,
     VectorPtr* result) {
+  VELOX_CHECK_NE(
+      thisType,
+      otherType,
+      "Attempting to cast from {} to itself.",
+      thisType->toString());
+
   LocalDecodedVector inputDecoded(context, *input, allRows);
 
   exec::LocalSelectivityVector baseRows(

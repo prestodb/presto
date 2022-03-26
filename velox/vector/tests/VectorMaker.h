@@ -71,9 +71,10 @@ class VectorMaker {
   FlatVectorPtr<T> flatVector(
       vector_size_t size,
       std::function<T(vector_size_t /*row*/)> valueAt,
-      std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr) {
+      std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr,
+      const TypePtr& type = CppToType<T>::create()) {
     auto flatVector = std::dynamic_pointer_cast<FlatVector<T>>(
-        BaseVector::create(CppToType<T>::create(), size, pool_));
+        BaseVector::create(type, size, pool_));
     for (vector_size_t i = 0; i < size; i++) {
       if (isNullAt && isNullAt(i)) {
         flatVector->setNull(i, true);
@@ -460,7 +461,7 @@ class VectorMaker {
 
     // Create the underlying flat vector.
     auto flatVector = std::dynamic_pointer_cast<FlatVector<V>>(
-        BaseVector::create(CppToType<T>::create(), numElements, pool_));
+        BaseVector::create(type->childAt(0), numElements, pool_));
     auto elementRawNulls = flatVector->mutableRawNulls();
 
     vector_size_t currentIdx = 0;
@@ -493,8 +494,9 @@ class VectorMaker {
   /// nullable.
   template <typename T>
   ArrayVectorPtr arrayVectorNullable(
-      const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
-    return arrayVectorNullableImpl(ARRAY(CppToType<T>::create()), data);
+      const std::vector<std::optional<std::vector<std::optional<T>>>>& data,
+      const TypePtr& type = ARRAY(CppToType<T>::create())) {
+    return arrayVectorNullableImpl(type, data);
   }
 
   /// Create a FixedSizeArrayVector<T> array elements are created
@@ -522,7 +524,9 @@ class VectorMaker {
       std::function<TKey(vector_size_t /* idx */)> keyAt,
       std::function<TValue(vector_size_t /* idx */)> valueAt,
       std::function<bool(vector_size_t /*row */)> isNullAt = nullptr,
-      std::function<bool(vector_size_t /*row */)> valueIsNullAt = nullptr) {
+      std::function<bool(vector_size_t /*row */)> valueIsNullAt = nullptr,
+      const TypePtr& type =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
     BufferPtr nulls;
     BufferPtr offsets;
     BufferPtr sizes;
@@ -531,13 +535,14 @@ class VectorMaker {
 
     return std::make_shared<MapVector>(
         pool_,
-        MAP(CppToType<TKey>::create(), CppToType<TValue>::create()),
+        type,
         nulls,
         size,
         offsets,
         sizes,
-        flatVector<TKey>(numElements, keyAt),
-        flatVector<TValue>(numElements, valueAt, valueIsNullAt),
+        flatVector<TKey>(numElements, keyAt, nullptr, type->childAt(0)),
+        flatVector<TValue>(
+            numElements, valueAt, valueIsNullAt, type->childAt(1)),
         BaseVector::countNulls(nulls, 0, size));
   }
 

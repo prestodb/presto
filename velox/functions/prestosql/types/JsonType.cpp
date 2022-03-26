@@ -126,6 +126,20 @@ struct AsJson {
       const SelectivityVector& rows,
       bool throwIfNull = false)
       : decoded_(context, *input, rows) {
+    if (throwIfNull && decoded_->mayHaveNulls()) {
+      rows.applyToSelected([&](auto row) {
+        if (decoded_->isNullAt(row)) {
+          VELOX_FAIL("Unexpected null value in input vector.");
+        }
+      });
+    }
+
+    if (isJsonType(input->type())) {
+      json_ = nullptr;
+      jsonStrings_ = decoded_->base()->as<SimpleVector<StringView>>();
+      return;
+    }
+
     // Translates the selected rows of input into the corresponding rows of the
     // base of the decoded input.
     exec::LocalSelectivityVector baseRows(
@@ -135,16 +149,8 @@ struct AsJson {
         [&](auto row) { baseRows->setValid(decoded_->index(row), true); });
     baseRows->updateBounds();
 
-    if (throwIfNull) {
-      baseRows->applyToSelected([&](auto row) {
-        if (decoded_->base()->isNullAt(row)) {
-          VELOX_FAIL("Unexpected null value in input vector.");
-        }
-      });
-    }
-
     BaseVector::ensureWritable(*baseRows, JSON(), context->pool(), &json_);
-    jsonStrings_ = json_->as<FlatVector<StringView>>();
+    auto flatJsonStrings = json_->as<FlatVector<StringView>>();
 
     VELOX_DYNAMIC_TYPE_DISPATCH(
         castToJson,
@@ -152,16 +158,45 @@ struct AsJson {
         *decoded_->base(),
         context,
         *baseRows,
-        *jsonStrings_);
+        *flatJsonStrings);
+
+    jsonStrings_ = flatJsonStrings;
   }
 
-  StringView at(vector_size_t i) {
+  StringView at(vector_size_t i) const {
     return jsonStrings_->valueAt(decoded_->index(i));
+  }
+
+  // Returns true if the json string of the value at i is null. Json strings of
+  // the value "null" are not considered null.
+  bool isNullAt(vector_size_t i) const {
+    return jsonStrings_->isNullAt(i);
+  }
+
+  // Returns the length of the json string of the value at i, when this
+  // value will be inlined as an element in the json string of an array, map, or
+  // row.
+  vector_size_t lengthAt(vector_size_t i) const {
+    if (this->isNullAt(i)) {
+      // Null values are inlined as "null".
+      return 4;
+    } else {
+      return this->at(i).size();
+    }
+  }
+
+  // Appends the json string of the value at i to a string writer.
+  void append(vector_size_t i, exec::StringWriter<>& proxy) const {
+    if (this->isNullAt(i)) {
+      proxy.append("null");
+    } else {
+      proxy.append(this->at(i));
+    }
   }
 
   exec::LocalDecodedVector decoded_;
   VectorPtr json_;
-  FlatVector<StringView>* jsonStrings_;
+  const SimpleVector<StringView>* jsonStrings_;
 };
 
 void castToJsonFromArray(
@@ -190,7 +225,7 @@ void castToJsonFromArray(
     auto offset = inputArray->offsetAt(row);
     auto size = inputArray->sizeAt(row);
     for (auto i = offset, end = offset + size; i < end; ++i) {
-      elementsStringSize += elementsAsJson.at(i).size();
+      elementsStringSize += elementsAsJson.lengthAt(i);
     }
 
     // Extra length for commas and brackets.
@@ -216,7 +251,7 @@ void castToJsonFromArray(
       if (i > offset) {
         proxy.append(","_sv);
       }
-      proxy.append(elementsAsJson.at(i));
+      elementsAsJson.append(i, proxy);
     }
     proxy.append("]"_sv);
 
@@ -257,7 +292,8 @@ void castToJsonFromMap(
     auto offset = inputMap->offsetAt(row);
     auto size = inputMap->sizeAt(row);
     for (auto i = offset, end = offset + size; i < end; ++i) {
-      elementsStringSize += keysAsJson.at(i).size() + valuesAsJson.at(i).size();
+      // The construction of keysAsJson ensured there is no null in keysAsJson.
+      elementsStringSize += keysAsJson.at(i).size() + valuesAsJson.lengthAt(i);
     }
 
     // Extra length for commas, semicolons, and curly braces.
@@ -268,7 +304,7 @@ void castToJsonFromMap(
 
   // Constructs the Json string of each map from Json strings of its keys and
   // values.
-  std::vector<std::pair<StringView, StringView>> sortedPairs;
+  std::vector<std::pair<StringView, vector_size_t>> sortedKeys;
   rows.applyToSelected([&](auto row) {
     if (inputMap->isNullAt(row)) {
       flatResult.set(row, "null");
@@ -278,24 +314,23 @@ void castToJsonFromMap(
     auto offset = inputMap->offsetAt(row);
     auto size = inputMap->sizeAt(row);
 
-    // Sort key-value pairs in each map.
-    sortedPairs.clear();
+    // Sort entries by keys in each map.
+    sortedKeys.clear();
     for (int i = offset, end = offset + size; i < end; ++i) {
-      sortedPairs.push_back(
-          std::make_pair(keysAsJson.at(i), valuesAsJson.at(i)));
+      sortedKeys.push_back(std::make_pair(keysAsJson.at(i), i));
     }
-    std::sort(sortedPairs.begin(), sortedPairs.end());
+    std::sort(sortedKeys.begin(), sortedKeys.end());
 
     auto proxy = exec::StringWriter<>(&flatResult, row);
 
     proxy.append("{"_sv);
-    for (auto it = sortedPairs.begin(); it != sortedPairs.end(); ++it) {
-      if (it != sortedPairs.begin()) {
+    for (auto it = sortedKeys.begin(); it != sortedKeys.end(); ++it) {
+      if (it != sortedKeys.begin()) {
         proxy.append(","_sv);
       }
       proxy.append(it->first);
       proxy.append(":"_sv);
-      proxy.append(it->second);
+      valuesAsJson.append(it->second, proxy);
     }
     proxy.append("}"_sv);
 
@@ -325,7 +360,7 @@ void castToJsonFromRow(
         // "null" will be inlined in the StringView.
         return;
       }
-      childrenStringSize += childrenAsJson[i].at(row).size();
+      childrenStringSize += childrenAsJson[i].lengthAt(row);
     });
   }
 
@@ -348,7 +383,7 @@ void castToJsonFromRow(
       if (i > 0) {
         proxy.append(","_sv);
       }
-      proxy.append(childrenAsJson[i].at(row));
+      childrenAsJson[i].append(row, proxy);
     }
     proxy.append("]"_sv);
 
