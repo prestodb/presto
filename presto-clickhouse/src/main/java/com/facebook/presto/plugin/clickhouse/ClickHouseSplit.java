@@ -18,6 +18,8 @@ import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,6 +29,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
@@ -111,13 +114,13 @@ public class ClickHouseSplit
         return NO_PREFERENCE;
     }
 
-    public List<HostAddress> getAddresses()
+    @Override
+    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
-        return ImmutableList.of();
+        return null;
     }
 
-    @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getAddresses()
     {
         return ImmutableList.of();
     }
@@ -126,5 +129,23 @@ public class ClickHouseSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public Object getSplitIdentifier()
+    {
+        return ConnectorSplit.super.getSplitIdentifier();
+    }
+
+    @Override
+    public OptionalLong getSplitSizeInBytes()
+    {
+        return ConnectorSplit.super.getSplitSizeInBytes();
+    }
+
+    @Override
+    public SplitWeight getSplitWeight()
+    {
+        return ConnectorSplit.super.getSplitWeight();
     }
 }

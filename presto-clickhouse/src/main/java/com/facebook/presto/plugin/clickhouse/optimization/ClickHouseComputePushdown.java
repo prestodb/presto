@@ -149,6 +149,7 @@ public class ClickHouseComputePushdown
                     Optional.of(newTableLayoutHandle));
 
             TableScanNode newTableScanNode = new TableScanNode(
+                    null,
                     idAllocator.getNextId(),
                     tableHandle,
                     oldTableScanNode.getOutputVariables(),
@@ -156,7 +157,7 @@ public class ClickHouseComputePushdown
                     oldTableScanNode.getCurrentConstraint(),
                     oldTableScanNode.getEnforcedConstraint());
 
-            return new LimitNode(idAllocator.getNextId(), newTableScanNode, node.getCount(), node.getStep());
+            return new LimitNode(null, idAllocator.getNextId(), newTableScanNode, node.getCount(), node.getStep());
         }
 
         @Override
@@ -196,6 +197,7 @@ public class ClickHouseComputePushdown
                     Optional.of(newTableLayoutHandle));
 
             TableScanNode newTableScanNode = new TableScanNode(
+                    null,
                     idAllocator.getNextId(),
                     tableHandle,
                     oldTableScanNode.getOutputVariables(),
@@ -203,7 +205,7 @@ public class ClickHouseComputePushdown
                     oldTableScanNode.getCurrentConstraint(),
                     oldTableScanNode.getEnforcedConstraint());
 
-            return new FilterNode(idAllocator.getNextId(), newTableScanNode, node.getPredicate());
+            return new FilterNode(null, idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }
     }
     private static class LimitContext
