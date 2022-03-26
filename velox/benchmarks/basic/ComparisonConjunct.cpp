@@ -176,7 +176,7 @@ BENCHMARK_MULTI(conjunctsNested, n) {
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  benchmark = std::make_unique<ComparisonBenchmark>(100'000);
+  benchmark = std::make_unique<ComparisonBenchmark>(1'000'000);
   folly::runBenchmarks();
   benchmark.reset();
   return 0;

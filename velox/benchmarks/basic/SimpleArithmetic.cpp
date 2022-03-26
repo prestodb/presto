@@ -83,7 +83,8 @@ struct CheckedPlusFunction {
 class SimpleArithmeticBenchmark
     : public functions::test::FunctionBenchmarkBase {
  public:
-  SimpleArithmeticBenchmark() : FunctionBenchmarkBase() {
+  explicit SimpleArithmeticBenchmark(size_t vectorSize)
+      : FunctionBenchmarkBase() {
     registerFunction<MultiplyVoidOutputFunction, double, double, double>(
         {"multiply"});
     registerFunction<MultiplyNullableOutputFunction, double, double, double>(
@@ -94,6 +95,36 @@ class SimpleArithmeticBenchmark
     registerFunction<PlusFunction, int64_t, int64_t, int64_t>({"plus"});
     registerFunction<CheckedPlusFunction, int64_t, int64_t, int64_t>(
         {"checked_plus"});
+
+    // Set input schema.
+    inputType_ = ROW({
+        {"a", DOUBLE()},
+        {"b", DOUBLE()},
+        {"c", BIGINT()},
+        {"d", BIGINT()},
+        {"constant", DOUBLE()},
+        {"half_null", DOUBLE()},
+    });
+
+    // Generate input data.
+    VectorFuzzer::Options opts;
+    opts.vectorSize = vectorSize;
+    opts.nullChance = 0;
+    VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
+
+    std::vector<VectorPtr> children;
+    children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // A
+    children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // B
+    children.emplace_back(fuzzer.fuzzFlat(BIGINT())); // C
+    children.emplace_back(fuzzer.fuzzFlat(BIGINT())); // D
+    children.emplace_back(fuzzer.fuzzConstant(DOUBLE())); // Constant
+
+    opts.nullChance = 2; // 50%
+    fuzzer.setOptions(opts);
+    children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // HalfNull
+
+    rowVector_ = std::make_shared<RowVector>(
+        pool(), inputType_, nullptr, vectorSize, std::move(children));
   }
 
   void setInput(const TypePtr& inputType, const RowVectorPtr& rowVector) {
@@ -119,30 +150,30 @@ class SimpleArithmeticBenchmark
   RowVectorPtr rowVector_;
 };
 
-SimpleArithmeticBenchmark benchmark;
+std::unique_ptr<SimpleArithmeticBenchmark> benchmark;
 
 BENCHMARK_MULTI(multiply, n) {
-  return benchmark.run("multiply(a, b)", n);
+  return benchmark->run("multiply(a, b)", n);
 }
 
 BENCHMARK_MULTI(multiplySameColumn, n) {
-  return benchmark.run("multiply(a, a)", n);
+  return benchmark->run("multiply(a, a)", n);
 }
 
 BENCHMARK_MULTI(multiplyHalfNull, n) {
-  return benchmark.run("multiply(a, half_null)", n);
+  return benchmark->run("multiply(a, half_null)", n);
 }
 
 BENCHMARK_MULTI(multiplyConstant, n) {
-  return benchmark.run("multiply(a, constant)", n);
+  return benchmark->run("multiply(a, constant)", n);
 }
 
 BENCHMARK_MULTI(multiplyNested, n) {
-  return benchmark.run("multiply(multiply(a, b), b)", n);
+  return benchmark->run("multiply(multiply(a, b), b)", n);
 }
 
 BENCHMARK_MULTI(multiplyNestedDeep, n) {
-  return benchmark.run(
+  return benchmark->run(
       "multiply(multiply(multiply(a, b), a), "
       "multiply(a, multiply(a, b)))",
       n);
@@ -151,25 +182,25 @@ BENCHMARK_MULTI(multiplyNestedDeep, n) {
 BENCHMARK_DRAW_LINE();
 
 BENCHMARK_MULTI(multiplyOutputVoid, n) {
-  return benchmark.run("multiply(a, b)", n);
+  return benchmark->run("multiply(a, b)", n);
 }
 
 BENCHMARK_MULTI(multiplyOutputNullable, n) {
-  return benchmark.run("multiply_nullable_output(a, b)", n);
+  return benchmark->run("multiply_nullable_output(a, b)", n);
 }
 
 BENCHMARK_MULTI(multiplyOutputAlwaysNull, n) {
-  return benchmark.run("multiply_null_output(a, b)", n);
+  return benchmark->run("multiply_null_output(a, b)", n);
 }
 
 BENCHMARK_DRAW_LINE();
 
 BENCHMARK_MULTI(plusUnchecked, n) {
-  return benchmark.run("plus(c, d)", n);
+  return benchmark->run("plus(c, d)", n);
 }
 
 BENCHMARK_MULTI(plusChecked, n) {
-  return benchmark.run("checked_plus(c, d)", n);
+  return benchmark->run("checked_plus(c, d)", n);
 }
 
 } // namespace
@@ -177,43 +208,8 @@ BENCHMARK_MULTI(plusChecked, n) {
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  // Set input schema.
-  auto inputType = ROW({
-      {"a", DOUBLE()},
-      {"b", DOUBLE()},
-      {"c", BIGINT()},
-      {"d", BIGINT()},
-      {"constant", DOUBLE()},
-      {"half_null", DOUBLE()},
-  });
-  const size_t size = 100'000;
-
-  // Generate input data.
-  auto* pool = benchmark.pool();
-  VectorFuzzer::Options opts;
-  opts.vectorSize = size;
-  opts.nullChance = 0;
-
-  std::vector<VectorPtr> children;
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(DOUBLE())); // A
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(DOUBLE())); // B
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(BIGINT())); // C
-  children.emplace_back(
-      VectorFuzzer(opts, pool, FLAGS_fuzzer_seed).fuzzFlat(BIGINT())); // D
-  children.emplace_back(VectorFuzzer(opts, pool, FLAGS_fuzzer_seed)
-                            .fuzzConstant(DOUBLE())); // Constant
-  opts.nullChance = 2; // 50%
-  children.emplace_back(VectorFuzzer(opts, pool, FLAGS_fuzzer_seed)
-                            .fuzzFlat(DOUBLE())); // HalfNull
-
-  auto rowVector = std::make_shared<RowVector>(
-      pool, inputType, nullptr, size, std::move(children));
-
-  // Set them into the benchmark object and start the tests.
-  benchmark.setInput(inputType, rowVector);
+  benchmark = std::make_unique<SimpleArithmeticBenchmark>(1'000'000);
   folly::runBenchmarks();
+  benchmark.reset();
   return 0;
 }
